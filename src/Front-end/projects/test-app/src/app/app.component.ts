@@ -10,12 +10,11 @@ import {
   Authorization, NhAuthService,
   NhHeadService,
   NhJsonLdService,
-  NhModalService,
+  NhModalService, NhServerService,
   PreConnectUrlItem,
   PreLoadUrlItem
 } from "nh-common";
 import {environment} from "../environments/environment";
-import {NhServerService} from "../../../nh-common/src/lib/services/nh-server.service";
 import {Subscription} from "rxjs";
 import {CookieService} from "ngx-cookie-service";
 import {isPlatformBrowser} from "@angular/common";

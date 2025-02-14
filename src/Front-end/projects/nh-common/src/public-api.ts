@@ -34,6 +34,7 @@ export * from './lib/services/nh-router.service';
 export * from './lib/services/nh-router-setup.service';
 export * from './lib/services/nh-json-ld.service';
 export * from './lib/services/nh-internet-connection.service';
+export * from './lib/services/nh-server.service';
 
 export * from './lib/guards/nh-auth.guards';
 

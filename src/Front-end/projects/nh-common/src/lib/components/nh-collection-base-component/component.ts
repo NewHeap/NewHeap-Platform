@@ -9,14 +9,11 @@ import {ActivatedRoute, Router} from "@angular/router";
 import {faDownload, faEye, faFileImport, faPlus, faSearch, faSync, faTrash} from "@fortawesome/free-solid-svg-icons";
 import {TranslateService} from "@ngx-translate/core";
 import {ToastrService} from "ngx-toastr";
-import {
-  ClaimTypes,
-  CollectionHttpRequestOptions,
-  CollectionHttpResponse,
-  NhAuthService,
-  NhModalService, OrderByRequestOptions
-} from "nh-common";
 import { ColumnMode } from "@swimlane/ngx-datatable";
+import { NhAuthService } from "../../services/nh-auth.service";
+import { NhModalService } from "../../services/nh-modal.service";
+import {CollectionHttpRequestOptions, CollectionHttpResponse, OrderByRequestOptions} from "../../models/http.models";
+import { ClaimTypes } from "../../models/auth.models";
 
 @Component({
     selector: 'app-shared-collection-base-component',

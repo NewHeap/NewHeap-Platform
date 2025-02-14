@@ -3,14 +3,10 @@ import {BehaviorSubject, lastValueFrom} from "rxjs";
 import {Base64} from "js-base64";
 import {DOCUMENT, isPlatformBrowser, isPlatformServer} from "@angular/common";
 import {TranslateService} from "@ngx-translate/core";
-import {
-  NhAuthService,
-  NhCommonModuleConfig,
-  languageToCultureMap,
-  NhCookieService,
-  NhCommonConfig,
-  NhCommonConfigChanged
-} from "nh-common";
+import {NhCommonConfig, NhCommonConfigChanged, NhCommonModuleConfig} from "../models/config.models";
+import {NhAuthService} from "./nh-auth.service";
+import {NhCookieService} from "./nh-cookie.service";
+import {languageToCultureMap} from "../util/nh-common-util";
 
 @Injectable({
   providedIn: 'root',

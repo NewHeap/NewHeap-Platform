@@ -1,6 +1,5 @@
-import {Component, computed, effect, input, Input} from '@angular/core'
-import {TaskResult} from "nh-common";
-import {JsonPipe} from "@angular/common";
+import {Component, input} from '@angular/core'
+import { TaskResult } from '../../models/misc.models';
 
 @Component({
   selector: 'nh-shared-error',

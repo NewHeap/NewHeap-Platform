@@ -8,17 +8,15 @@ import {
 } from "@angular/core";
 import {ActivatedRoute, NavigationEnd, ParamMap, Params, Router} from "@angular/router";
 import {filter, Subscription} from "rxjs";
-import {
-  NhPageSettings,
-  Authorization,
-  NhAuthService,
-  NhCommonConfig,
-  NhCommonConfigChanged, NhConfigCommonService,
-  NhModalService, NhPageService,
-  NhRouterService, TypedNhPageSettings
-} from "nh-common";
 import {DOCUMENT} from "@angular/common";
 import {TranslateService} from "@ngx-translate/core";
+import {NhPageService, NhPageSettings, TypedNhPageSettings} from "../../services/nh-page.service";
+import {NhConfigCommonService} from "../../services/nh-config.service";
+import { NhAuthService } from "../../services/nh-auth.service";
+import {NhModalService} from "../../services/nh-modal.service";
+import {NhRouterService} from "../../services/nh-router.service";
+import {NhCommonConfig, NhCommonConfigChanged} from "../../models/config.models";
+import {Authorization} from "../../models/auth.models";
 
 
 @Component({

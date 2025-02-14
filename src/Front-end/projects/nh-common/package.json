@@ -1,21 +1,12 @@
 {
   "name": "@newheap/platform-common",
-  "version": "0.0.1",
+  "version": "0.0.5",
   "peerDependencies": {
-    "@angular/common": "^18.2.6",
-    "@angular/core": "^18.2.6",
-    "@ngx-translate/core": "^15.0.0",
-    "js-base64": "^3.7.7",
-    "tough-cookie": "^4.1.4"
   },
   "dependencies": {
-    "tslib": "^2.3.0"
   },
   "devDependencies": {
-    "@types/tough-cookie": "^4.0.5"
   },
   "sideEffects": true,
-  "scripts": {
-    "serve": "ng build nh-common --configuration=development --outputHashing=bundles --watch"
-  }
+  "license": "Proprietary"
 }

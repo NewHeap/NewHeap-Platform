@@ -7,18 +7,18 @@ import {
 } from "@angular/core";
 import {DOCUMENT} from "@angular/common";
 import {TranslateService} from "@ngx-translate/core";
-import {
-  Authorization,
-  NhAuthService, NhAppService, NhBreadCrumb, NhCommonConfig, NhCommonConfigChanged, NhCommonModuleConfig, NhJsonLdData,
-  NhJsonLdService,
-  NhMetaService,
-  NhRouterLink,
-  NhRouterService,
-  NhTitleService
-} from "nh-common";
 import {Subject, Subscription} from "rxjs";
 import {NhConfigCommonService} from "./nh-config.service";
 import {ActivatedRouteSnapshot, NavigationExtras} from "@angular/router";
+import {NhJsonLdData, NhJsonLdService} from "./nh-json-ld.service";
+import { Authorization } from "../models/auth.models";
+import {NhCommonConfig, NhCommonConfigChanged, NhCommonModuleConfig} from "../models/config.models";
+import {NhAppService} from "./nh-app.service";
+import {NhAuthService} from "./nh-auth.service";
+import {NhTitleService} from "./nh-title.service";
+import {NhBreadCrumb, NhRouterService} from "./nh-router.service";
+import {NhMetaService} from "./nh-meta.service";
+import {NhRouterLink} from "../models/misc.models";
 
 export class NhPageSettings {
   title: string = '';
