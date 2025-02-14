@@ -139,9 +139,9 @@ export enum ClaimTypes {
   NameIdentifier = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier',
   Country = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/country',
   Role = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role',
-  Permission = 'platform.permission',
-  DivisionRole = 'platform.division.role',
-  DivisionPermission = 'platform.division.permission',
+  Permission = 'nh.platform.permission',
+  DivisionRole = 'nh.platform.division.role',
+  DivisionPermission = 'nh.platform.division.permission',
 }
 
 export class AuthenticateModel {

@@ -35,6 +35,7 @@ import {NhCanCancelNavigationGuard} from "./guards/nh-cancel-navigation.guard";
 import {NhInternetConnectionService} from "./services/nh-internet-connection.service";
 import {NhConfigCommonService} from "./services/nh-config.service";
 import {Observable} from "rxjs";
+import {NhActiveDivisionInterceptor} from "./interceptors/nh-active-division.interceptor";
 
 
 @NgModule({
@@ -115,6 +116,11 @@ import {Observable} from "rxjs";
       });
     }),
     // Interceptors
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: NhActiveDivisionInterceptor,
+      multi: true
+    },
     {
       provide: HTTP_INTERCEPTORS,
       useClass: NhEncodeHttpParamsInterceptor,

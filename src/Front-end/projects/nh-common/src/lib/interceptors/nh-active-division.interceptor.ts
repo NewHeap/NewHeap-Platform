@@ -1,49 +1,34 @@
 import {
   HttpInterceptor,
   HttpRequest,
-  HttpEvent,
   HttpHandler,
-  HttpParams,
-  HttpParameterCodec
+  HttpParams, HttpEvent
 } from '@angular/common/http';
 import {Injectable} from '@angular/core';
-import {Observable, tap} from 'rxjs';
+import {Observable} from 'rxjs';
+import {NhApiService, NhAuthService, NhCommonModuleConfig} from "nh-common";
 
 @Injectable()
-export class NhEncodeHttpParamsInterceptor implements HttpInterceptor {
+export class NhActiveDivisionInterceptor implements HttpInterceptor {
+  constructor(
+    private moduleConfig: NhCommonModuleConfig,
+    private authService: NhAuthService
+  ) {
+  }
+
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     let params = new HttpParams();
+    let headers = req.headers;
 
-    for(const paramKey of req.params.keys()) {
-      const param = req.params.get(paramKey);
-      if(param && param.length > 0 && param !== 'undefined') {
-        params = params.append(paramKey, param);
+    if(req.url.startsWith(this.moduleConfig.apiBaseUrl) || req.url.startsWith(this.moduleConfig.authApiBaseUrl)) {
+      const authorization = this.authService.getAuthorization();
+      if((authorization?.activeDivision?.id?.length ?? 0) > 0) {
+        if(!headers.get(NhApiService.ActiveDivisionHeaderKey)) {
+          headers = headers.append(NhApiService.ActiveDivisionHeaderKey, authorization?.activeDivision?.id ?? '');
+        }
       }
     }
 
-    params = new HttpParams({encoder: new CustomEncoder(), fromString: params.toString()});
-
-    return next.handle(req.clone({params}));
-  }
-}
-
-class CustomEncoder implements HttpParameterCodec {
-  encodeKey(key: string): string {
-    return encodeURIComponent(key);
-  }
-
-  encodeValue(value: string): string {
-    if(!value || value.length < 1) {
-      return '';
-    }
-    return encodeURIComponent(value);
-  }
-
-  decodeKey(key: string): string {
-    return decodeURIComponent(key);
-  }
-
-  decodeValue(value: string): string {
-    return decodeURIComponent(value);
+    return next.handle(req.clone({params, headers}));
   }
 }

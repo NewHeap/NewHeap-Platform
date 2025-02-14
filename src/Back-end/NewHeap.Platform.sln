@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35707.178
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewHeap.Platform.Common", "Libraries\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj", "{595BE0C3-E5F2-4DA6-A5B3-2F3A9594FE7F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewHeap.Platform.AspNet.Common", "Libraries\NewHeap.Platform.AspNet.Common\NewHeap.Platform.AspNet.Common.csproj", "{E35C95AD-034A-44CD-9F15-CD85EDAFADDA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{5FC542AC-AA75-453A-8F5E-76CFF5D76D50}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Applications", "Applications", "{81CE3FCD-85AC-4466-ABD7-DAAB3D94B6E7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{595BE0C3-E5F2-4DA6-A5B3-2F3A9594FE7F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{595BE0C3-E5F2-4DA6-A5B3-2F3A9594FE7F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{595BE0C3-E5F2-4DA6-A5B3-2F3A9594FE7F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{595BE0C3-E5F2-4DA6-A5B3-2F3A9594FE7F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E35C95AD-034A-44CD-9F15-CD85EDAFADDA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E35C95AD-034A-44CD-9F15-CD85EDAFADDA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E35C95AD-034A-44CD-9F15-CD85EDAFADDA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E35C95AD-034A-44CD-9F15-CD85EDAFADDA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{595BE0C3-E5F2-4DA6-A5B3-2F3A9594FE7F} = {5FC542AC-AA75-453A-8F5E-76CFF5D76D50}
+		{E35C95AD-034A-44CD-9F15-CD85EDAFADDA} = {5FC542AC-AA75-453A-8F5E-76CFF5D76D50}
+	EndGlobalSection
+EndGlobal
