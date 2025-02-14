@@ -1,0 +1,24 @@
+@use "ngx-toastr/toastr";
+
+
+$primary:    #255A34;
+$secondary:  #E3B801;
+$success:    #CDE6D5;
+$info:       #C5DCEC;
+$warning:    #FFECB0;
+$danger:     #a52d40;
+$light:      #fff;
+$dark:       #255A34;
+
+$theme-colors: (
+  "primary":    $primary,
+  "secondary":  $secondary,
+  "success":    $success,
+  "info":       $info,
+  "warning":    $warning,
+  "danger":     $danger,
+  "light":      $light,
+  "dark":       $dark,
+);
+
+@import "./../layout";

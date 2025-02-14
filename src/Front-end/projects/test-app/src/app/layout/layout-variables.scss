@@ -1,0 +1,127 @@
+/** We use a mix of css and sass variables so we can support dark mode **/
+$color-white: #fff;
+$color-light-grey: #f4f4f4;
+$color-grey: #9d9d9d;
+$color-dark-grey: #777777;
+$color-middle-grey: #8a8a8a;
+$color-darker-grey: #2d2d2d;
+$color-black: #1f1f1f;
+$color-dark-blue: #1f2646;
+$color-dark-blue-light: #7097d2;
+$color-orange: #e06729;
+$color-orange-light: #ee976c;
+$color-red: #a52d40;
+$color-red-light: #ea6176;
+$color-gold: #bea208;
+$color-gold-light: #FFDE2E;
+$color-pink: #ae1987;
+$color-pink-light: #ef52c4;
+$color-purple: #7f1888;
+$color-purple-light: #e474ee;
+$color-blue: #2b6e91;
+$color-blue-light: #5ab2e0;
+$color-green: #238830;
+$color-green-light: #45d256;
+$color-dark-grey: #4c4c4c;
+
+$color-primary: #255A34;
+$color-primary-light: #4E8E5A;
+$color-primary-dark: #1D3A22;
+$color-secondary: #E3B801;
+$color-secondary-light: #F5D97F;
+$color-secondary-dark: #C29D0B;
+
+$color-default-border-right: #cecece;
+$color-default-border-bottom: #bcbcbc;
+$color-default-border-left-top: #e1e1e1;
+
+$color-instagram: #F56040;
+$color-google: #4285F4;
+$color-apple: #555555;
+$color-facebook: #1877F2;
+$color-linkedin: #0A66C2;
+$color-youtube: #FF0000;
+$color-tiktok: #010101;
+$color-twitter: #1DA1F2;
+
+body {
+  --page-background: #fff;
+
+  --color-background-white: #{$color-white};
+  --color-background-light-grey: #{$color-light-grey};
+  --color-background-grey: #{$color-grey};
+  --color-background-middle-grey: #{$color-middle-grey};
+  --color-background-dark-grey: #{$color-dark-grey};
+  --color-background-black: #{$color-black};
+  --color-background-dark-blue: #{$color-dark-blue};
+  --color-background-orange: #{$color-orange};
+  --color-background-red: #{$color-red};
+  --color-background-gold: #{$color-gold};
+  --color-background-pink: #{$color-pink};
+  --color-background-purple: #{$color-purple};
+  --color-background-blue: #{$color-blue};
+  --color-background-green: #{$color-green};
+
+  --color-default-border-right: #{$color-default-border-right};
+  --color-default-border-bottom: #{$color-default-border-bottom};
+  --color-default-border-left-top: #{$color-default-border-left-top};
+
+  --color-text-white: #{$color-white};
+  --color-text-light-grey: #{$color-light-grey};
+  --color-text-grey:  #{$color-grey};
+  --color-text-dark-grey:  #{$color-dark-grey};
+  --color-text-black: #{$color-black};
+  --color-text-dark-blue: #{$color-dark-blue};
+  --color-text-orange: #{$color-orange};
+  --color-text-gold: #{$color-gold};
+  --color-text-red: #{$color-red};
+  --color-text-pink: #{$color-pink};
+  --color-text-purple: #{$color-purple};
+  --color-text-blue: #{$color-blue};
+  --color-text-green: #{$color-green};
+
+  --color-instagram: #{$color-instagram};
+  --color-google: #{$color-google};
+  --color-apple: #{$color-apple};
+  --color-facebook: #{$color-facebook};
+  --color-linkedin: #{$color-linkedin};
+  --color-youtube: #{$color-youtube};
+  --color-tiktok: #{$color-tiktok};
+  --color-twitter: #{$color-twitter};
+}
+
+body.darkmode {
+  --page-background: #{$color-darker-grey};
+
+  --color-background-white: #{$color-darker-grey};
+  --color-background-light-grey: #{$color-dark-grey};
+  --color-background-grey: #{$color-dark-grey};
+  --color-background-dark-grey: #{$color-dark-grey};
+  --color-background-black: #{$color-white};
+  --color-background-dark-blue: #{$color-dark-blue};
+  --color-background-orange: #{$color-orange};
+  --color-background-red: #{$color-red};
+  --color-background-gold: #{$color-gold};
+  --color-background-pink: #{$color-pink};
+  --color-background-purple: #{$color-purple};
+  --color-background-blue: #{$color-blue};
+  --color-background-green: #{$color-green};
+
+  --color-default-border-right: #{$color-dark-grey};
+  --color-default-border-bottom: #{$color-darker-grey};
+  --color-default-border-left-top: #{$color-dark-grey};
+
+  --color-text-white: #{$color-white};
+  --color-text-light-grey: #{$color-light-grey};
+  --color-text-grey:  #{$color-grey};
+  --color-text-dark-grey:  #{$color-darker-grey};
+  --color-text-black: #{$color-white};
+  --color-text-dark-blue: #{$color-dark-blue-light};
+  --color-text-orange: #{$color-orange-light};
+  --color-text-red: #{$color-red-light};
+  --color-text-gold: #{$color-gold-light};
+  --color-text-pink: #{$color-pink-light};
+  --color-text-purple: #{$color-purple-light};
+  --color-text-blue: #{$color-blue-light};
+  --color-text-green: #{$color-green-light};
+}

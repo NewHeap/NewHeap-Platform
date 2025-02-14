@@ -1,0 +1,108 @@
+.nh-modal-body {
+  background-color: #ffffff !important;
+  border:0 !important;
+  border-radius: 5px;
+  padding: 10px !important;
+}
+
+.nh-modal-backdrop {
+  background-color: rgb(37, 90, 52, 0.5);
+}
+
+
+.nh-modal {
+  border-bottom-left-radius:20px !important;
+  border-bottom-right-radius:20px !important;
+  width: 700px !important;
+  margin: 90px auto 20px !important;
+
+  .title-holder {
+    z-index: 10;
+    .close-holder {
+      top: -15px;
+      right: -15px;
+      .close {
+        border-radius: 50%;
+        width: 35px;
+        height: 35px;
+        border: 0;
+      }
+    }
+  }
+
+  .nh-modal-header h3 {
+    background-color: #174524;
+    padding: 0.6em 1em !important;
+    text-align: center;
+    z-index: 10;
+    position: relative;
+    border-radius: 20px !important;
+    font-size: 60px;
+  }
+
+  .close-nh-modal {
+    background-image: url('/assets/images/close-green.svg');
+    background-color: #fff !important;
+    border: 0 !important;
+    background-repeat: no-repeat !important;
+    transition: transform 0.5s;
+    width: 30px;
+    height: 30px !important;
+    z-index: 10;
+    border-radius: 30px;
+    background-repeat: no-repeat;
+    background-size: 13px;
+    transform: rotate(45deg);
+    background-position: 9px;
+    margin-top: -36px;
+
+    svg {
+      display: none;
+    }
+  }
+
+  .nh-modal-body {
+    background-color:#fff;
+    border-bottom-left-radius:40px;
+    border-bottom-right-radius:40px;
+  }
+
+
+  .close-nh-modal {
+    right:-12px !important;
+  }
+  .close-nh-modal:hover {
+    transform: scale(1.1) rotate(45deg);
+    border-radius: 30px;
+  }
+
+  .no-header {
+    h3 {
+      display: none;
+    }
+  }
+
+  .no-header.green-close {
+    .close-nh-modal {
+      background-color:#255A34 !important;
+      background-image: url('/assets/images/close-white.svg');
+    }
+  }
+  @media all and (768px) {
+    .nh-modal-holder {
+      max-width: calc(100% - 30px) !important;
+      margin: 0 auto;
+    }
+  }
+
+  .light-green {
+    h3 {
+      background-color: #008D36;
+      font-size:2.7rem;
+      padding: 0.7em 20% !important;
+      border-bottom-left-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+    }
+  }
+}
+

@@ -1,0 +1,38 @@
+.cookie-backdrop {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  background-color: rgb(37, 90, 52, 0.5);
+  z-index: 5000;
+  top: 0;
+  left: 0;
+}
+
+.cookie-popup {
+}
+
+.cookie-popup {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  width: 600px;
+  border-radius: 30px;
+  z-index: 5001;
+  max-width: 100%;
+
+  .cookie-popup-header {
+    border-top-right-radius: 30px;
+    border-top-left-radius: 30px;
+    font-family: "roca", sans-serif;
+    font-size: 1.6em;
+    background-color: #FAF4EC;
+    padding-top: 1.2rem !important;
+  }
+  .cookie-popup-content {
+    color: #255A35;
+    font-size: 1.1em;
+  }
+  .cookie-popup-footer {
+
+  }
+}
