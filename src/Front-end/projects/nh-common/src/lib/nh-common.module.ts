@@ -1,4 +1,4 @@
-import {ModuleWithProviders, NgModule, Optional, SkipSelf} from "@angular/core";
+import {inject, ModuleWithProviders, NgModule, Optional, provideAppInitializer, SkipSelf} from "@angular/core";
 import {CommonModule} from "@angular/common";
 import {
   HTTP_INTERCEPTORS,
@@ -33,6 +33,8 @@ import {NhRouterLinkDirective} from "./directives/nh-router-link.directive";
 import {NhServerHttpInterceptor} from "./interceptors/nh-server-http.interceptor";
 import {NhCanCancelNavigationGuard} from "./guards/nh-cancel-navigation.guard";
 import {NhInternetConnectionService} from "./services/nh-internet-connection.service";
+import {NhConfigCommonService} from "./services/nh-config.service";
+import {Observable} from "rxjs";
 
 
 @NgModule({
@@ -97,6 +99,21 @@ import {NhInternetConnectionService} from "./services/nh-internet-connection.ser
     NhRouterLinkDirective
   ],
   providers: [
+    provideAppInitializer(() => {
+      const configService = inject(NhConfigCommonService);
+      return new Observable<unknown>((observer) => {
+        //
+        // We use APP_INITIALIZER to load the configuration before the application starts. (Cuz DEPS calls for AppConfigService it is loaded soon in the lifecycle of the app.)
+        //
+        configService.initialize().then(() => {
+          observer.next();
+          observer.complete();
+        }, (err) => {
+          observer.error(err);
+          observer.complete();
+        });
+      });
+    }),
     // Interceptors
     {
       provide: HTTP_INTERCEPTORS,

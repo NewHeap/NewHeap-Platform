@@ -28,7 +28,6 @@ import {
 import {routes as getRootRoutes} from "./app-routing.module";
 import {ToastrModule} from "ngx-toastr";
 import {BrowserAnimationsModule} from "@angular/platform-browser/animations";
-import {NhCommonCoreModule} from "../../../nh-common/src/lib/nh-common-core.module";
 
 registerLocaleData(localeNL, 'nl');
 registerLocaleData(localeEN, 'en');
@@ -44,7 +43,6 @@ registerLocaleData(localeEN, 'en');
     RouterModule,
     BrowserModule,
     AppRoutingModule,
-    NhCommonCoreModule,
     BrowserAnimationsModule,
     LayoutModule.forRoot(),
     TranslateModule.forRoot({

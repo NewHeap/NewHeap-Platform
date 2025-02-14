@@ -1,24 +1,47 @@
-# NhCommon
+# NewHeap platform - Common
 
-This library was generated with [Angular CLI](https://github.com/angular/angular-cli) version 17.3.0.
+## Installation
 
-## Code scaffolding
+1. Create a `.npmrc` file in the root of your project with the following content:
+```
+registry=https://pkgs.dev.azure.com/NewHeap/NewHeap-Platform/_packaging/NewHeap-Platform/npm/registry/
 
-Run `ng generate component component-name --project nh-common` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module --project nh-common`.
-> Note: Don't forget to add `--project nh-common` or else it will be added to the default project in your `angular.json` file. 
+always-auth=true
+```
 
-## Build
+2. Make sure you have the `vsts-npm-auth` package installed globally and run authenticate with the `.npmrc` file:
+```bash
+# npm install -g vsts-npm-auth
+# vsts-npm-auth -config .npmrc
+```
 
-Run `ng build nh-common` to build the project. The build artifacts will be stored in the `dist/` directory.
+3. Install the package:
+```bash
+npm install @newheap/platform-common
+```
 
-## Publishing
+## Usage
 
-After building your library with `ng build nh-common`, go to the dist folder `cd dist/nh-common` and run `npm publish`.
+Import the core module in the root of your application (for example AppModule):
 
-## Running unit tests
+```typescript
+import { NhCommonModule } from '@newheap/platform-common';
 
-Run `ng test nh-common` to execute the unit tests via [Karma](https://karma-runner.github.io).
+@NgModule({
+  ...
+  imports: [
+    NhCommonModule.forRoot(new NhCommonModuleConfig({
+      baseUrl: environment.baseUrl,
+      language: environment.defaultLanguage,
+      defaultLanguage: environment.defaultLanguage,
+      supportedLanguages: environment.supportedLanguages,
+      culture: environment.defaultCulture,
+      defaultCulture: environment.defaultCulture,
+      environment: environment.name,
+      cookieDomain: environment.cookieDomain
+    })),
+  ],
+  ...
+  bootstrap: [AppComponent]
+})
 
-## Further help
-
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.

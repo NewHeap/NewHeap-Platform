@@ -1,11 +1,4 @@
 # NewHeap Platform
 
-Todo;
-
-## Installation
-
-```
-npm install -g vsts-npm-auth
-
-vsts-npm-auth -config .npmrc
+View the readme in the common package for installation instructions.
 
