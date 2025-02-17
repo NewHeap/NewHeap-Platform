@@ -1,6 +1,6 @@
 ﻿namespace NewHeap.Platform.Common.Models.Options;
 
-public partial class EmailServiceSettings
+public partial class MailServiceSettings
 {
     public string Transport { get; set; }
     public string Host { get; set; }

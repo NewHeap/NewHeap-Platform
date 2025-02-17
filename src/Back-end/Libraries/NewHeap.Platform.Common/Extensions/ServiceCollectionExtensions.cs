@@ -10,24 +10,19 @@ using StackExchange.Utils;
 namespace NewHeap.Platform.Common.Extensions;
 public static partial class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddSiersScheduleConnector(this IServiceCollection services, Action<NewHeapCommonSettings> options)
+    public static NewHeapPlatformCommonConfigurator AddNewHeapPlatformCommon(this IServiceCollection services, Action<NewHeapCommonOptions> options)
     {
         if (services == null) throw new ArgumentNullException(nameof(services));
         if (options == null) throw new ArgumentNullException(nameof(options));
 
-        var optionsObj = new NewHeapCommonSettings();
+        var optionsObj = new NewHeapCommonOptions();
         options.Invoke(optionsObj);
 
-        //Must register the options object as a singleton so it can be injected into the DbContext etc.
-        services.AddSingleton(optionsObj);
+        return services.AddNewHeapPlatformCommon(optionsObj);
+    }
 
-        services.AddScoped<LogHelperService>();
-        services.AddScoped<ValidationService>();
-
-        // Optioneel maken
-        services.AddScoped<MailService>();
-        services.AddScoped<MicrosoftAuthService>();
-
-        return services;
+    public static NewHeapPlatformCommonConfigurator AddNewHeapPlatformCommon(this IServiceCollection services, NewHeapCommonOptions optionsObj)
+    {
+        return new NewHeapPlatformCommonConfigurator(services, optionsObj);
     }
 }

@@ -8,9 +8,9 @@ namespace NewHeap.Platform.Common.Services;
 
 public partial class MailService
 {
-    protected readonly EmailServiceSettings _emailSettings;
+    protected readonly MailServiceSettings _emailSettings;
 
-    public MailService(IOptions<EmailServiceSettings> emailSettings)
+    public MailService(IOptions<MailServiceSettings> emailSettings)
     {
         _emailSettings = emailSettings.Value;
     }
