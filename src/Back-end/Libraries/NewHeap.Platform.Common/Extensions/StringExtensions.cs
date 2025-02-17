@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace NewHeap.Platform.Common.Extensions;
 
-public static class StringExtensions
+public static partial class StringExtensions
 {
     public static string SafeMaxStringLength(this string input, int maxLength)
     {

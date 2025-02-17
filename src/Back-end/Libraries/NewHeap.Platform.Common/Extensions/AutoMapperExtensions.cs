@@ -1,7 +1,7 @@
 ﻿using AutoMapper;
 
 namespace NewHeap.Platform.Common.Extensions;
-public static class AutomapperExtensions
+public static partial class AutomapperExtensions
 {
     public static IMappingExpression<TSource, TDestination> MapOnlyIfChanged<TSource, TDestination>(this IMappingExpression<TSource, TDestination> map)
     {

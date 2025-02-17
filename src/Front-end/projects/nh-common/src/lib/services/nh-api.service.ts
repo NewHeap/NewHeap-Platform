@@ -21,7 +21,7 @@ export class NhApiService implements OnDestroy {
   authorization: Authorization|undefined;
   baseUrl: string|undefined;
 
-  public static ActiveDivisionHeaderKey = 'X-NHP-ActiveDivisionId';
+  public static ActiveDivisionHeaderKey = 'X-NH-ActiveDivisionId';
 
   private static defaultHeaders: HttpHeaders = new HttpHeaders({
     'Content-Type': 'application/json; charset=utf-8',

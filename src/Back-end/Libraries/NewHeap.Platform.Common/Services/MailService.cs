@@ -1,24 +1,21 @@
 ﻿using Microsoft.Extensions.Options;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using NewHeap.Platform.Common.Models.Options;
 using System.Net;
 using System.Net.Mail;
 using System.Text;
-using System.Threading.Tasks;
-using WebAPI.Models.Options;
 
 namespace NewHeap.Platform.Common.Services;
-public class MailService
-{
-    protected readonly EmailSettings _emailSettings;
 
-    public MailService(IOptions<EmailSettings> emailSettings)
+public partial class MailService
+{
+    protected readonly EmailServiceSettings _emailSettings;
+
+    public MailService(IOptions<EmailServiceSettings> emailSettings)
     {
         _emailSettings = emailSettings.Value;
     }
 
-    public async Task SendAsync(MailMessage mailMessage, MailAddress fromMailAddress = null, string formDisplayName = null)
+    public virtual async Task SendAsync(MailMessage mailMessage, MailAddress fromMailAddress = null, string formDisplayName = null)
     {
         if (mailMessage == null)
         {

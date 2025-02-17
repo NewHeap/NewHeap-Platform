@@ -11,7 +11,7 @@ public partial class ValidationService
         _serviceProvider = serviceProvider;
     }
 
-    public void ValidateMutateModelModelState<TTaskResult, TSourceObj, TMutateObj>(CreateUpdateDeleteValidateModel<TTaskResult, TSourceObj, TMutateObj> model)
+    public virtual void ValidateMutateModelModelState<TTaskResult, TSourceObj, TMutateObj>(CreateUpdateDeleteValidateModel<TTaskResult, TSourceObj, TMutateObj> model)
         where TTaskResult : class
         where TSourceObj : class
         where TMutateObj : class
@@ -24,7 +24,7 @@ public partial class ValidationService
         }
     }
 
-    public TaskResult<TTaskResult> ValidateMutateModelModelState<TTaskResult, TMutateObj>(TMutateObj mutateModel)
+    public virtual TaskResult<TTaskResult> ValidateMutateModelModelState<TTaskResult, TMutateObj>(TMutateObj mutateModel)
         where TTaskResult : class
         where TMutateObj : class
     {

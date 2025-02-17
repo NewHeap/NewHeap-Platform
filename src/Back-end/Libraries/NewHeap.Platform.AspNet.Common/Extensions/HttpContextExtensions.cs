@@ -6,7 +6,7 @@ using System.Text.Json;
 
 namespace NewHeap.Platform.AspNet.Common.Extensions;
 
-public static class HttpContextExtensions
+public static partial class HttpContextExtensions
 {
     public static Guid? GetActiveDivisionId(this HttpRequest httpRequest)
     {

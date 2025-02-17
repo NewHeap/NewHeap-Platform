@@ -5,19 +5,19 @@ using Microsoft.Extensions.Hosting;
 using StackExchange.Utils;
 
 namespace NewHeap.Platform.Common.Extensions;
-public static class HostBuilderExtensions
+public static partial class HostBuilderExtensions
 {
-    public static IHostBuilder UseAppConfiguration(this IHostBuilder builder)
+    public static IHostBuilder UseNhCommonConfiguration(this IHostBuilder builder)
     {
         builder.ConfigureAppConfiguration(configBuilder =>
         {
-            configBuilder.ConfigureAppConfiguration();
+            configBuilder.ConfigureNhCommonConfiguration();
         });
 
         return builder;
     }
 
-    public static IConfigurationBuilder ConfigureAppConfiguration(this IConfigurationBuilder configBuilder)
+    public static IConfigurationBuilder ConfigureNhCommonConfiguration(this IConfigurationBuilder configBuilder)
     {
         //Build a config just to read the app name...
         IConfigurationRoot preConfiguration = new ConfigurationBuilder()

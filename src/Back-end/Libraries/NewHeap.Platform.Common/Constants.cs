@@ -20,4 +20,15 @@ public static partial class Constants
     {
         public const string StringFormat = "yyyy-MM-ddTHH:mm:ss.fffzzz";
     }
+
+    public static class PermissionClaimValues
+    {
+        public const string AuthenticatedAccess = "nh.platform.access";
+    }
+
+    public static class DivisionPermissionClaimValues
+    {
+        public const string AccessAll = "nh.platform.division.access-all";
+        public const string GeneralView = "general.view";
+    }
 }

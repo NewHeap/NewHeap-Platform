@@ -23,6 +23,8 @@ using NewHeap.Platform.Common.Attributes;
 using NewHeap.Platform.Common.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Services;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
@@ -35,6 +37,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
     protected readonly ILogger<TController> _logger;
     protected readonly IConfiguration _config;
     protected readonly IStringLocalizer<TController> _localizer;
+    protected readonly NhUserManager _userManager;
 
     protected Guid? UserId
     {
@@ -64,13 +67,34 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
         IMapper mapper,
         ILogger<TController> logger,
         IConfiguration config,
-        IStringLocalizer<TController> localizer
+        IStringLocalizer<TController> localizer,
+        NhUserManager userManager
         )
     {
         _mapper = mapper;
         _logger = logger;
         _config = config;
         _localizer = localizer;
+        _userManager = userManager;
+    }
+
+    [NonAction]
+    protected virtual IQueryable<T> ApplyDivisionFilter<T>(IQueryable<T> query, Expression<Func<T, bool>> expression)
+    {
+        if (!User.HasClaim(NhPlatformClaimTypes.Permission, Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll))
+        {
+            query.Where(expression);
+        }
+
+        return query;
+    }
+
+    [NonAction]
+    protected async Task<User?> GetUser()
+    {
+        var user = (UserId.HasValue) ? await _userManager.FindByIdWithIncludesAsync(UserId.Value) : null;
+
+        return user;
     }
 
     [NonAction]

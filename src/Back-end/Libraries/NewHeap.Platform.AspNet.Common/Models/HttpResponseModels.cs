@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Localization;
 
 namespace NewHeap.Platform.AspNet.Common.Models;
-public class BadRequestHttpResponseModel
+public partial class BadRequestHttpResponseModel
 {
     public IEnumerable<string> Errors { get; set; }
 

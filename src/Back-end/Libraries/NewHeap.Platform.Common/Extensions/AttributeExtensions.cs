@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace NewHeap.Platform.Common.Extensions;
 
-public static class AttributeExtensions
+public static partial class AttributeExtensions
 {
     public static TResult TryGetAttribute<TSource, TResult>(this TSource instance, Expression<Func<TSource, object>> selector)
         where TResult : Attribute

@@ -6,15 +6,10 @@ using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public class RazorViewService
+public partial class RazorViewService
 {
 
     private readonly IRazorViewEngine _razorViewEngine;
@@ -26,7 +21,6 @@ public class RazorViewService
         _razorViewEngine = razorViewEngine;
         _tempDataProvider = tempDataProvider;
         _serviceProvider = serviceProvider;
-
     }
 
     public async Task<string> RenderViewToStringAsync(string viewName, object model)

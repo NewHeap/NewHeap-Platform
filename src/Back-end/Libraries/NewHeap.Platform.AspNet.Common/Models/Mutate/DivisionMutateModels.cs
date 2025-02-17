@@ -1,0 +1,40 @@
+﻿using NewHeap.Platform.AspNet.Common.Attributes;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace NewHeap.Platform.AspNet.Common.Models.Mutate;
+
+public partial class DivisionMutateModel
+{
+    [NhRequired, StringLength(100)]
+    public string Name { get; set; }
+
+    [StringLength(255)]
+    public string Description { get; set; }
+
+    public bool UserSelectAllowed { get; set; }
+
+
+    [StringLength(50, MinimumLength = 1)]
+    public string TimeZoneId { get; set; }
+}
+
+public partial class DivisionUserMutateModel
+{
+    [NhRequired]
+    [Display(Name = "Division")]
+    public Guid? DivisionId { get; set; }
+    
+    [NhRequired]
+    [Display(Name = "User")]
+    public Guid? UserId { get; set; }
+
+    [Display(Name = "Roles")]
+    public List<Guid> RoleIds { get; set; } = new List<Guid>();
+
+    public DateTimeOffset? LockOutStartDateTime { get; set; }
+    public DateTimeOffset? LockOutEndDateTime { get; set; }
+}
