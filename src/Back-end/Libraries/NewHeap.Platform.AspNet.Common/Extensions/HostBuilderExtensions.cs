@@ -22,7 +22,7 @@ public static partial class HostBuilderExtensions
 
     public static IConfigurationBuilder ConfigureNhAspNetCommonConfiguration(this IConfigurationBuilder configBuilder)
     {
-        // TODO:
+        configBuilder.ConfigureNhCommonConfiguration();
 
         return configBuilder;
     }

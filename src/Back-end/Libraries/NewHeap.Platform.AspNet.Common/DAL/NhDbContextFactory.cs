@@ -8,16 +8,18 @@ namespace NewHeap.Platform.AspNet.Common.DAL;
 public abstract partial class NhDbContextFactory<TDBContext> : IDesignTimeDbContextFactory<TDBContext>
     where TDBContext : NhDbContext
 {
-    protected DbContextOptionsBuilder<TDBContext> CreateBuilder()
+    protected IConfigurationRoot CreateConfigurationRoot()
     {
         IConfigurationRoot configuration = new ConfigurationBuilder()
-        .ConfigureNhAspNetCommonConfiguration()
-        .Build();
+           .ConfigureNhAspNetCommonConfiguration()
+           .Build();
 
+        return configuration;
+    }
+
+    protected DbContextOptionsBuilder<TDBContext> CreateBuilder()
+    {
         var builder = new DbContextOptionsBuilder<TDBContext>();
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
-
-        builder.UseSqlServer(connectionString, opts => opts.CommandTimeout((int)TimeSpan.FromMinutes(10).TotalSeconds));
 
         return builder;
     }

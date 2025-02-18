@@ -1,13 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using NewHeap.Platform.AspNet.Common.DAL;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
-using System.Text;
 
 namespace WebAPI.DAL
 {
@@ -15,7 +9,10 @@ namespace WebAPI.DAL
     {
         public override AppDbContext CreateDbContext(string[] args)
         {
+            var configuration = CreateConfigurationRoot();
             var builder = CreateBuilder();
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            builder.UseSqlServer(connectionString, opts => opts.CommandTimeout((int)TimeSpan.FromMinutes(10).TotalSeconds));
 
             return new AppDbContext(builder.Options);
         }

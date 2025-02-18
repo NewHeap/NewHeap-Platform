@@ -10,7 +10,7 @@ namespace WebAPI.DAL
 {
     public class AppDbContext : NhDbContext
     {
-        public DbSet<Address> Logs { get; set; }
+        public DbSet<Address> Addresses { get; set; }
 
         public AppDbContext()
             : base()
