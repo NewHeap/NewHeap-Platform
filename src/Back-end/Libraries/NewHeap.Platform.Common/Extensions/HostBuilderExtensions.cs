@@ -17,6 +17,8 @@ public static partial class HostBuilderExtensions
         return builder;
     }
 
+    private const string ConfigKey = "NewHeap:PlatformCommon:AppSecretsDirectoryPath";
+
     public static IConfigurationBuilder ConfigureNhCommonConfiguration(this IConfigurationBuilder configBuilder)
     {
         //Build a config just to read the app name...
@@ -28,11 +30,11 @@ public static partial class HostBuilderExtensions
             )
             .Build();
 
-        var direcotryPath = preConfiguration.GetValue<string>("NewHeap:Platform:Common:AppSecretsDirectoryPath");
+        var direcotryPath = preConfiguration.GetValue<string>(ConfigKey);
 
         if (string.IsNullOrWhiteSpace(direcotryPath))
         {
-            throw new Exception("Failed to read AppSettings:AppName for resolving appsettings.json SECRETS file.");
+            throw new Exception($"Failed to read {ConfigKey} for resolving appsettings.json SECRETS file.");
         }
 
         configBuilder

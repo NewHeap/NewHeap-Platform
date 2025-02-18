@@ -12,14 +12,14 @@ namespace NewHeap.Platform.AspNet.Common.Services;
 
 public partial class DbLogService
 {
-    protected readonly DbLogSettings _logSettings;
+    protected readonly DbLogServiceSettings _logSettings;
     protected readonly NewHeapAspNetCommonSettings _settings;
     protected readonly IRepository<Log> _logRepository;
     protected readonly IHttpContextAccessor _httpContextAccessor;
     protected readonly IStringLocalizer<DbLogService> _logLocalizer;
 
     public DbLogService(
-        IOptions<DbLogSettings> logSettings,
+        IOptions<DbLogServiceSettings> logSettings,
         IRepository<Log> logRepository,
         IHttpContextAccessor httpContextAccessor,
         IStringLocalizer<DbLogService> logLocalizer,

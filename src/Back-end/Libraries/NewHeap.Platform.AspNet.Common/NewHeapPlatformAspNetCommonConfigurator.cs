@@ -298,7 +298,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> WithDbLogService(Action<DbLogSettings> settingsAction)
+    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> WithDbLogService(Action<DbLogServiceSettings> settingsAction)
     {
         _serviceCollection.Configure(settingsAction);
         _serviceCollection.AddScoped<DbLogService>();

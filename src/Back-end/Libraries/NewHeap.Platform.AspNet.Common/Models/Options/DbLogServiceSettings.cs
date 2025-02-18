@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common.Models.Options;
 
-public class DbLogSettings
+public class DbLogServiceSettings
 {
     /// <summary>
     /// The directory where to store files which will be relatively referenced from the database entry

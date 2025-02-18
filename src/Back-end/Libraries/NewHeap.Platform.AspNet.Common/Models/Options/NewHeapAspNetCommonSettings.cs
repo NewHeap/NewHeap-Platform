@@ -21,7 +21,7 @@ public class NewHeapAspNetCommonOptions
 {
     public required NewHeapCommonOptions CommonOptions { get; set; }
     public required Action<NewHeapAspNetCommonSettings> SettingsAction { get; set; }
-    public required Action<DbLogSettings> DbLogSettingsAction { get; set; }
+    public required Action<DbLogServiceSettings> DbLogSettingsAction { get; set; }
     public required Action<DbContextOptionsBuilder> DbOptionsAction { get; set; }
     public Action<IdentityOptions>? IdentityOptionsAction { get; set; }
     public Action<AuthenticationOptions>? AuthenticationOptionsAction { get; set; }

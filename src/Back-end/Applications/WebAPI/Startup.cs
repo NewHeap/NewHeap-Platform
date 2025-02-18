@@ -42,9 +42,9 @@ namespace WebAPI
             {
                 CommonOptions = new NewHeapCommonOptions()
                 {
-                    SettingsAction = x => Configuration.GetSection("NewHeapCommonSettings").Get<NewHeapCommonSettings>(),
+                    SettingsAction = x => Configuration.GetSection("NewHeap:PlatformCommon:Settings").Get<NewHeapCommonSettings>(),
                 },
-                SettingsAction = x => Configuration.GetSection("NewHeapAspNetCommonSettings").Get<NewHeapAspNetCommonSettings>(),
+                SettingsAction = x => Configuration.GetSection("NewHeap:PlatformAspNetCommon:Settings").Get<NewHeapAspNetCommonSettings>(),
                 DbOptionsAction = (x => x
                     .UseSqlServer(Configuration.GetConnectionString("DefaultConnection"))
                     #if DEBUG
@@ -60,9 +60,9 @@ namespace WebAPI
                 },
                 JwtBearerOptionsTokenValidationParametersAction = options =>
                 {
-                    options.ValidIssuer = Configuration["Tokens:Issuer"];
-                    options.ValidAudience = Configuration["Tokens:Issuer"];
-                    options.IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["Tokens:Key"]));
+                    options.ValidIssuer = Configuration["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"];
+                    options.ValidAudience = Configuration["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:ValidAudience"];
+                    options.IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"]));
                 },
                 JwtBearerOptionsAction = options => {
                     // Optional, default is configured, only override if needed
@@ -101,13 +101,13 @@ namespace WebAPI
                     // Optional, default is configured, only override if needed
                     options.AddMaps(typeof(Startup));
                 },
-                DbLogSettingsAction = x => Configuration.GetSection("DbLogSettings").Get<DbLogSettings>(),
+                DbLogSettingsAction = x => Configuration.GetSection("NewHeap:PlatformAspNetCommon:DbLogServiceSettings").Get<DbLogServiceSettings>(),
             })
             .ConfigureCommon(commonConfig =>
             {
                 commonConfig
-                    .WithMail(x => Configuration.GetSection("EmailSettings").Get<MailServiceSettings>())
-                    .WithMicrosoftAuth(x => Configuration.GetSection("MicrosoftAuthSettings").Get<MicrosoftAuthSettings>())
+                    .WithMail(x => Configuration.GetSection("NewHeap:PlatformCommon:MailServiceSettings").Get<MailServiceSettings>())
+                    .WithMicrosoftAuth(x => Configuration.GetSection("NewHeap:PlatformCommon:MicrosoftAuthSettings").Get<MicrosoftAuthSettings>())
                 ;
             })
             .WithSignalR(options => {
