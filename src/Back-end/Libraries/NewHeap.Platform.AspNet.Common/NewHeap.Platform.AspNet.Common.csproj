@@ -4,6 +4,11 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Copyright>NewHeap B.V.</Copyright>
+    <Title>NewHeap AspNet Common</Title>
+    <PackageProjectUrl>https://dev.azure.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://dev.azure.com/NewHeap/_git/NewHeap-Platform</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,4 +33,14 @@
     <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
   </ItemGroup>
 
+    <ItemGroup>
+        <PackageReferenc Include="NewHeap.Platform.Common" />
+    </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 </Project>
