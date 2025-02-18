@@ -85,23 +85,34 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
     {
         _serviceCollection.AddSingleton<InternalNhDbContextFactory<TDbContext>>();
 
-        #region Repositories
-        _serviceCollection.AddScoped<IRepository<User>, Repository<User>>();
-        _serviceCollection.AddScoped<IRepository<UserRole>, Repository<UserRole>>();
-        _serviceCollection.AddScoped<IRepository<Division>, Repository<Division>>();
-        _serviceCollection.AddScoped<IRepository<DivisionRole>, Repository<DivisionRole>>();
-        _serviceCollection.AddScoped<IRepository<DivisionRoleClaim>, Repository<DivisionRoleClaim>>();
-        _serviceCollection.AddScoped<IRepository<DivisionUser>, Repository<DivisionUser>>();
-        _serviceCollection.AddScoped<IRepository<DivisionUserRole>, Repository<DivisionUserRole>>();
-        _serviceCollection.AddScoped<IRepository<Log>, Repository<Log>>();
-        _serviceCollection.AddScoped<IRepository<LogMessageArgument>, Repository<LogMessageArgument>>();
-        _serviceCollection.AddScoped<IRepository<LogMessageTranslated>, Repository<LogMessageTranslated>>();
-        _serviceCollection.AddScoped<IRepository<LogFile>, Repository<LogFile>>();
-        #endregion
-
         _serviceCollection
             .AddEntityFrameworkSqlServer()
             .AddDbContext<TDbContext>(_options.DbOptionsAction);
+
+        void AddRepository<TEntity>()
+            where TEntity : class
+        {
+            _serviceCollection.AddScoped<IRepository<TEntity>>(serviceProvider => {
+                var dbContext = serviceProvider.GetRequiredService<TDbContext>();
+                return new Repository<TEntity>(dbContext);
+            });
+        }
+
+        #region Repositories
+        AddRepository<User>();
+        AddRepository<UserRole>();
+        AddRepository<Division>();
+        AddRepository<DivisionRole>();
+        AddRepository<DivisionRoleClaim>();
+        AddRepository<DivisionUser>();
+        AddRepository<DivisionUserRole>();
+        AddRepository<Log>();
+        AddRepository<LogMessageArgument>();
+        AddRepository<LogMessageTranslated>();
+        AddRepository<LogFile>();
+        #endregion
+
+
     }
 
     private void AddHttpRelated()
@@ -132,6 +143,8 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
             _options.ApiBehaviorOptionsAction?.Invoke(options);
         })
         ;
+
+        _serviceCollection.AddScoped<ExceptionHandlerService>();
 
         _serviceCollection.AddMvcCore();
         _serviceCollection.AddControllers();
@@ -316,7 +329,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
     }
 
     public NewHeapPlatformAspNetCommonConfigurator<TDbContext> WithHangfire(
-        Action<string> nameOrConnectionStringAction, 
+        string nameOrConnectionString, 
         Action<IGlobalConfiguration>? hangfireOptionsAction = null, 
         Action<ConsoleOptions>? consoleOptionsAction = null,
         Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null
@@ -324,8 +337,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
     {
         _serviceCollection.AddHangfire(options => {
 
-            var nameOrConnectionString = string.Empty;
-            nameOrConnectionStringAction?.Invoke(nameOrConnectionString);
             options.UseSqlServerStorage(nameOrConnectionString);
 
             hangfireOptionsAction?.Invoke(options);

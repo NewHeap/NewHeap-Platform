@@ -23,8 +23,8 @@ public partial class DivisionUserService
     protected readonly NhUserManager _userManager;
 
     public DivisionUserService(
-        Repository<DivisionUser> divisionUserRepository,
-        Repository<DivisionUserRole> divisionUserRoleRepository,
+        IRepository<DivisionUser> divisionUserRepository,
+        IRepository<DivisionUserRole> divisionUserRoleRepository,
         IStringLocalizer<DivisionUserService> localizer,
         DbLogService logManager,
         LogHelperService logHelper,

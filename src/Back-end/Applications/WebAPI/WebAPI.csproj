@@ -29,6 +29,10 @@
     <None Remove="Models\Binding\**" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Properties\launchSettings.json" />
+  </ItemGroup>
+
 
   <ItemGroup>
     <Folder Include="Managers\" />

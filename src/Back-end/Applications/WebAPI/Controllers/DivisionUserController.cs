@@ -56,7 +56,7 @@ namespace WebAPI.Controllers
         }
 
         [HttpGet]
-        [Authorize(Policy = "app.division.view")]
+        [Authorize(Policy = "app.division.manage")]
         public async Task<IActionResult> Get()
         {
             var query = (await GetQueryableAsync()).AsNoTracking();
@@ -68,7 +68,7 @@ namespace WebAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        [Authorize(Policy = "app.division.view")]
+        [Authorize(Policy = "app.division.manage")]
         public async Task<IActionResult> GetById(Guid id)
         {
             var query = (await GetQueryableAsync()).AsNoTracking();
@@ -85,7 +85,7 @@ namespace WebAPI.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = "app.division.create")]
+        [Authorize(Policy = "app.division.manage")]
         public async Task<IActionResult> Create([FromBody] DivisionUserMutateModel mutateModel)
         {
             if (!ModelState.IsValid)
@@ -107,7 +107,7 @@ namespace WebAPI.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Policy = "app.division.update")]
+        [Authorize(Policy = "app.division.manage")]
         public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] DivisionUserMutateModel mutateModel)
         {
             if (!ModelState.IsValid)
@@ -127,7 +127,7 @@ namespace WebAPI.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Policy = "app.division.delete")]
+        [Authorize(Policy = "app.division.manage")]
         public async Task<IActionResult> Delete([FromRoute] Guid id)
         {
             if (!ModelState.IsValid)

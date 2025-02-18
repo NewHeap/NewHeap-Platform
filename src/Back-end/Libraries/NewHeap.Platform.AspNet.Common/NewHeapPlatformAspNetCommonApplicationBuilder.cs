@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -143,6 +144,16 @@ public partial class NewHeapPlatformAspNetCommonApplicationBuilder
     public NewHeapPlatformAspNetCommonApplicationBuilder UseExceptionHandler(Action<ExceptionHandlerOptions>? options = null)
     {
         var exceptionHandlerOptions = new ExceptionHandlerOptions();
+
+        exceptionHandlerOptions.ExceptionHandler = async context =>
+        {
+            var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+            var exception = exceptionHandlerPathFeature?.Error;
+
+            var handler = context.RequestServices.GetRequiredService<ExceptionHandlerService>();
+            await handler.HandleExceptionAsync(context, exception);
+        };
+
         options?.Invoke(exceptionHandlerOptions);
 
         _applicationBuilder.UseExceptionHandler(exceptionHandlerOptions);

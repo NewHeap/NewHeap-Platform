@@ -31,11 +31,11 @@ public partial class DivisionService
     protected readonly ValidationService _validationService;
 
     public DivisionService(
-        Repository<Division> divisionRepository,
-        Repository<DivisionRole> divisionRoleRepository,
-        Repository<DivisionUser> divisionUserRepository,
-        Repository<DivisionUserRole> divisionUserRoleRepository,
-        Repository<DivisionRoleClaim> divisionRoleClaimRepository,
+        IRepository<Division> divisionRepository,
+        IRepository<DivisionRole> divisionRoleRepository,
+        IRepository<DivisionUser> divisionUserRepository,
+        IRepository<DivisionUserRole> divisionUserRoleRepository,
+        IRepository<DivisionRoleClaim> divisionRoleClaimRepository,
         IStringLocalizer<DivisionService> localizer,
         DbLogService dbLogManager,
         LogHelperService logHelper,

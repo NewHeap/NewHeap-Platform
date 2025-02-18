@@ -71,6 +71,8 @@ namespace WebAPI
                 {
                     // Optional, default is configured, only override if needed
                     options.AddPolicy("app.developer.general", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.developer.general"));
+                    options.AddPolicy("app.division.view", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.view"));
+                    options.AddPolicy("app.division.manage", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.manage"));
 
                     // Sample division permission policy
                     options.AddPolicy("app.active-division.general.view", policy => policy.RequireActiveDivisionAccess(null, new Claim(NhPlatformClaimTypes.DivisionPermission, "general.view")));
@@ -113,11 +115,11 @@ namespace WebAPI
             .WithSignalR(options => {
                 //Optional, default is configured, only override if needed
             })
-            .WithHangfire(connStr => {
-                connStr = Configuration.GetConnectionString("DefaultConnection");
-            }, hangfireOptions => {
+            .WithHangfire(
+                Configuration.GetConnectionString("DefaultConnection"), 
+                hangfireOptions => {
                 //Optional, default is configured, only override if needed
-            }, consoleOptions => {
+                }, consoleOptions => {
                 //Optional, default is configured, only override if needed
             })
             ;
@@ -148,7 +150,7 @@ namespace WebAPI
             .UseExceptionHandler(options => {
                 // Optional, default is configured, only override if needed
             })
-            .UserHangfireDashboard(pathMatch: default, options => {
+            .UserHangfireDashboard(pathMatch: "/hangfire", options => {
                 // Optional, default is configured, only override if needed
             })
             ;

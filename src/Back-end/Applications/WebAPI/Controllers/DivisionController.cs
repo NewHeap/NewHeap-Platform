@@ -81,7 +81,7 @@ namespace WebAPI.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = "app.division.create")]
+        [Authorize(Policy = "app.division.manage")]
         public async Task<IActionResult> Create([FromBody] DivisionMutateModel mutateModel)
         {
             if (!ModelState.IsValid)
@@ -103,7 +103,7 @@ namespace WebAPI.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Policy = "app.division.update")]
+        [Authorize(Policy = "app.division.manage")]
         public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] DivisionMutateModel mutateModel)
         {
             if (!ModelState.IsValid)
@@ -123,7 +123,7 @@ namespace WebAPI.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Policy = "app.division.delete")]
+        [Authorize(Policy = "app.division.manage")]
         public async Task<IActionResult> Delete([FromRoute] Guid id)
         {
             if (!ModelState.IsValid)
