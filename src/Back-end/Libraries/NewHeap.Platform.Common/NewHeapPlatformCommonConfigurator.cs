@@ -30,22 +30,25 @@ namespace NewHeap.Platform.Common
         {
             //Must register the options object as a singleton so it can be injected into the DbContext etc.
             _serviceCollection.AddSingleton(_options);
+            _serviceCollection.Configure(_options.SettingsAction);
 
-            _serviceCollection.AddScoped<LogHelperService>();
-            _serviceCollection.AddScoped<ValidationService>();
+            _serviceCollection.AddSingleton<LogHelperService>();
+            _serviceCollection.AddSingleton<ValidationService>();
         }
 
-        public NewHeapPlatformCommonConfigurator WithMail(IConfiguration mailServiceSettings)
+        public NewHeapPlatformCommonConfigurator WithMail(Action<MailServiceSettings> mailServiceSettingsAction)
         {
-            _serviceCollection.Configure<MailServiceSettings>(mailServiceSettings);
+            _serviceCollection.Configure(mailServiceSettingsAction);
             _serviceCollection.AddScoped<MailService, MailService>();
+
             return this;
         }
 
-        public NewHeapPlatformCommonConfigurator WithMicrosoftAuth(IConfiguration microsoftAuthSettings)
+        public NewHeapPlatformCommonConfigurator WithMicrosoftAuth(Action<MicrosoftAuthSettings> microsoftAuthSettings)
         {
-            _serviceCollection.Configure<MicrosoftAuthSettings>(microsoftAuthSettings);
+            _serviceCollection.Configure(microsoftAuthSettings);
             _serviceCollection.AddScoped<MicrosoftAuthService, MicrosoftAuthService>();
+
             return this;
         }
     }

@@ -10,19 +10,11 @@ using StackExchange.Utils;
 namespace NewHeap.Platform.Common.Extensions;
 public static partial class ServiceCollectionExtensions
 {
-    public static NewHeapPlatformCommonConfigurator AddNewHeapPlatformCommon(this IServiceCollection services, Action<NewHeapCommonOptions> options)
-    {
-        if (services == null) throw new ArgumentNullException(nameof(services));
-        if (options == null) throw new ArgumentNullException(nameof(options));
-
-        var optionsObj = new NewHeapCommonOptions();
-        options.Invoke(optionsObj);
-
-        return services.AddNewHeapPlatformCommon(optionsObj);
-    }
-
     public static NewHeapPlatformCommonConfigurator AddNewHeapPlatformCommon(this IServiceCollection services, NewHeapCommonOptions optionsObj)
     {
+        if (services == null) throw new ArgumentNullException(nameof(services));
+        if (optionsObj == null) throw new ArgumentNullException(nameof(optionsObj));
+
         return new NewHeapPlatformCommonConfigurator(services, optionsObj);
     }
 }

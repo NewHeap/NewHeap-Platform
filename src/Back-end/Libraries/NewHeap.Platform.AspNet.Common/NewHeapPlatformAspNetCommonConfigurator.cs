@@ -1,52 +1,345 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Hangfire;
+using Hangfire.Console;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Razor;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
+using NewHeap.Platform.AspNet.Common.DAL;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Options;
+using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.AspNet.Policy.AuthorizationHandlers;
+using NewHeap.Platform.AspNet.Policy.Requirements;
+using NewHeap.Platform.AspNet.Policy.Resolvers;
 using NewHeap.Platform.Common;
+using NewHeap.Platform.Common.Translations;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace NewHeap.Platform.AspNet.Common
+namespace NewHeap.Platform.AspNet.Common;
+
+public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
+    where TDbContext : NhDbContext
 {
-    public class NewHeapPlatformAspNetCommonConfigurator
+    private readonly IServiceCollection _serviceCollection;
+    private readonly NewHeapPlatformCommonConfigurator _commonConfigurator;
+    private readonly NewHeapAspNetCommonOptions _options;
+
+    public NewHeapPlatformAspNetCommonConfigurator(
+        IServiceCollection serviceCollection,
+        NewHeapPlatformCommonConfigurator commonConfigurator,
+        NewHeapAspNetCommonOptions options
+    )
     {
-        private readonly IServiceCollection _serviceCollection;
-        private readonly NewHeapPlatformCommonConfigurator _commonConfigurator;
-        private readonly NewHeapAspNetCommonOptions _options;
+        _serviceCollection = serviceCollection;
+        _commonConfigurator = commonConfigurator;
+        _options = options;
 
-        public NewHeapPlatformAspNetCommonConfigurator(
-            IServiceCollection serviceCollection,
-            NewHeapPlatformCommonConfigurator commonConfigurator,
-            NewHeapAspNetCommonOptions options
+        AddDefault();
+    }
+
+    private void AddDefault()
+    {
+        //Must register the options object as a singleton so it can be injected into the DbContext etc.
+        _serviceCollection.AddSingleton(_options);
+        _serviceCollection.Configure(_options.SettingsAction);
+
+        AddDAL();
+        AddIdentityAndAuthenticationAuthorization();
+        AddLocalization();
+        AddHttpRelated();
+        AddRequestLocalization();
+
+        _serviceCollection.AddHealthChecks();
+
+        #region Services
+        _serviceCollection.Configure(_options.DbLogSettingsAction);
+        _serviceCollection.AddScoped<DbLogService>();
+
+        _serviceCollection.AddScoped<NhUserManager>();
+        _serviceCollection.AddScoped<DivisionService>();
+        _serviceCollection.AddScoped<DivisionUserService>();
+        _serviceCollection.AddScoped<RazorViewService>();
+
+        _serviceCollection.AddSingleton<IAuthorizationHandler, ActiveDivisionAccessHandler>();
+        #endregion
+    }
+
+    private void AddDAL()
+    {
+        _serviceCollection.AddSingleton<InternalNhDbContextFactory<TDbContext>>();
+
+        #region Repositories
+        _serviceCollection.AddScoped<IRepository<User>, Repository<User>>();
+        _serviceCollection.AddScoped<IRepository<UserRole>, Repository<UserRole>>();
+        _serviceCollection.AddScoped<IRepository<Division>, Repository<Division>>();
+        _serviceCollection.AddScoped<IRepository<DivisionRole>, Repository<DivisionRole>>();
+        _serviceCollection.AddScoped<IRepository<DivisionRoleClaim>, Repository<DivisionRoleClaim>>();
+        _serviceCollection.AddScoped<IRepository<DivisionUser>, Repository<DivisionUser>>();
+        _serviceCollection.AddScoped<IRepository<DivisionUserRole>, Repository<DivisionUserRole>>();
+        _serviceCollection.AddScoped<IRepository<Log>, Repository<Log>>();
+        _serviceCollection.AddScoped<IRepository<LogMessageArgument>, Repository<LogMessageArgument>>();
+        _serviceCollection.AddScoped<IRepository<LogMessageTranslated>, Repository<LogMessageTranslated>>();
+        _serviceCollection.AddScoped<IRepository<LogFile>, Repository<LogFile>>();
+        #endregion
+
+        _serviceCollection
+            .AddEntityFrameworkSqlServer()
+            .AddDbContext<TDbContext>(_options.DbOptionsAction);
+    }
+
+    private void AddHttpRelated()
+    {
+        _serviceCollection.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+        _serviceCollection.AddTransient<IConfigureOptions<MvcNewtonsoftJsonOptions>, MvcNewtonsoftJsonOptionsWrapper>();
+
+        _serviceCollection.AddMvc(options => {
+            options.EnableEndpointRouting = false;
+
+            _options.MvcOptionsAction?.Invoke(options);
+        })
+        .AddNewtonsoftJson(/* Options are configured by MvcNewtonsoftJsonOptionsWrapper */ )
+        .AddViewLocalization(LanguageViewLocationExpanderFormat.Suffix)
+        .AddDataAnnotationsLocalization(options =>
+        {
+            options.DataAnnotationLocalizerProvider = (type, factory) => factory.Create(typeof(SharedDataAnnotationRecources));
+
+            _options.MvcDataAnnotationsLocalizationOptionsAction?.Invoke(options);
+        })
+        .ConfigureApiBehaviorOptions(options =>
+        {
+            options.SuppressConsumesConstraintForFormFileParameters = true;
+            options.SuppressInferBindingSourcesForParameters = true;
+            options.SuppressModelStateInvalidFilter = true;
+            options.SuppressMapClientErrors = true;
+
+            _options.ApiBehaviorOptionsAction?.Invoke(options);
+        })
+        ;
+
+        _serviceCollection.AddMvcCore();
+        _serviceCollection.AddControllers();
+
+        _serviceCollection.AddCors(options => {
+            _options.CorsOptionsAction?.Invoke(options);
+        });
+
+        _serviceCollection.AddAutoMapper(options => {
+            options.AddMaps(typeof(NewHeapPlatformAspNetCommonConfigurator<>));
+
+            _options.AutoMapperConfigurationAction?.Invoke(options);
+        });
+    }
+
+    private void AddRequestLocalization()
+    {
+        _serviceCollection.Configure<RequestLocalizationOptions>(options =>
+        {
+            var settings = new NewHeapAspNetCommonSettings();
+            _options.SettingsAction.Invoke(settings);
+
+            var defaultCulture = !string.IsNullOrWhiteSpace(settings.DefaultCulture) 
+                ? settings.DefaultCulture
+                : "en-US";
+
+            var supportedCultures = (settings.SupportedCultures ?? [])
+                .Select(x => new CultureInfo(x))
+                .ToList();
+
+            options.DefaultRequestCulture = new RequestCulture(culture: defaultCulture, uiCulture: defaultCulture);
+            options.SupportedCultures = supportedCultures;
+            options.SupportedUICultures = supportedCultures;
+
+            //Important: we insert at position 2 so that Culture via QueryString and Cookie will override this.
+            // Disabled for now, I think we go with the approach that front-end should always send the culture
+            //options.RequestCultureProviders.Insert(2, new CustomRequestCultureProvider(async context =>
+            //{
+            //    string culture = null;
+
+            //    if (context?.User?.Identity?.IsAuthenticated == true)
+            //    {
+            //        var userManager = context.RequestServices.GetService<NhUserManager>();
+            //        var userEmail = context.User.FindFirstValue(ClaimTypes.Email);
+
+            //        if (userEmail != null)
+            //        {
+            //            var user = await userManager.FindByEmailAsync(userEmail);
+
+            //            if (null != user && null != user.UserSettings)
+            //            {
+            //                culture = user.UserSettings.Culture;
+            //            }
+
+            //            culture = "en-US";
+            //        }
+            //    }
+
+            //    return (culture != null) ? new ProviderCultureResult(culture) : null;
+            //}));
+        });
+    }
+
+    private void AddIdentityAndAuthenticationAuthorization()
+    {
+        #region Identity
+        _serviceCollection.AddIdentity<User, UserRole>()
+          .AddEntityFrameworkStores<TDbContext>()
+          .AddDefaultTokenProviders()
+        ;
+
+        Action<IdentityOptions> defaultIdentityOptionsAction = options =>
+        {
+            options.Password.RequiredLength = 6;
+            options.Password.RequireLowercase = true;
+            options.Password.RequireNonAlphanumeric = true;
+            options.Password.RequireUppercase = true;
+            options.User.RequireUniqueEmail = true;
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromHours(1);
+            options.Lockout.MaxFailedAccessAttempts = 7;
+            options.Lockout.AllowedForNewUsers = true;
+            options.SignIn.RequireConfirmedEmail = true;
+
+            _options.IdentityOptionsAction?.Invoke(options);
+        };
+
+        _serviceCollection.Configure(defaultIdentityOptionsAction);
+        #endregion
+
+        JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+        JsonWebTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
+        #region Authentication
+        _serviceCollection.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+
+            _options.AuthenticationOptionsAction?.Invoke(options);
+
+        }).AddJwtBearer(cfg =>
+        {
+            cfg.RequireHttpsMetadata = true;
+            cfg.SaveToken = true;
+
+            cfg.TokenValidationParameters = new TokenValidationParameters()
+            {
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
+            };
+
+            _options.JwtBearerOptionsTokenValidationParametersAction.Invoke(cfg.TokenValidationParameters);
+
+            cfg.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var path = context.HttpContext.Request.Path;
+                    if (path.StartsWithSegments("/hub"))
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        if (!string.IsNullOrEmpty(accessToken))
+                        {
+                            context.Token = accessToken;
+                        }
+
+                        var divisionId = context.Request.Query["divisionId"];
+                        if (!string.IsNullOrEmpty(divisionId))
+                        {
+                            context.Request.Headers[Constants.HttpHeaderKeys.ActiveDivisionId] = divisionId;
+                        }
+                    }
+                    return Task.CompletedTask;
+                }
+            };
+        });
+        #endregion
+
+        #region Authorization
+        _serviceCollection.AddAuthorization(options =>
+        {
+            _options.AuthorizationOptionsAction?.Invoke(options);
+        });
+        #endregion
+    }
+
+    private void AddLocalization()
+    {
+        _serviceCollection.AddLocalization(options =>
+        {
+            options.ResourcesPath = "Resources";
+
+            _options.LocalizationOptionsAction?.Invoke(options);
+        });
+    }
+
+    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> ConfigureCommon(Action<NewHeapPlatformCommonConfigurator> action)
+    {
+        if (action == null) throw new ArgumentNullException(nameof(action));
+
+        action.Invoke(_commonConfigurator);
+
+        return this;
+    }
+
+    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> WithDbLogService(Action<DbLogSettings> settingsAction)
+    {
+        _serviceCollection.Configure(settingsAction);
+        _serviceCollection.AddScoped<DbLogService>();
+
+        return this;
+    }
+
+    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> WithSignalR(Action<HubOptions>? hubOptionsAction = null)
+    {
+        _serviceCollection.AddSignalR(options => {
+            hubOptionsAction?.Invoke(options);
+        });
+
+        return this;
+    }
+
+    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> WithHangfire(
+        Action<string> nameOrConnectionStringAction, 
+        Action<IGlobalConfiguration>? hangfireOptionsAction = null, 
+        Action<ConsoleOptions>? consoleOptionsAction = null,
+        Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null
         )
-        {
-            _serviceCollection = serviceCollection;
-            _commonConfigurator = commonConfigurator;
-            _options = options;
+    {
+        _serviceCollection.AddHangfire(options => {
 
-            AddDefault();
-        }
+            var nameOrConnectionString = string.Empty;
+            nameOrConnectionStringAction?.Invoke(nameOrConnectionString);
+            options.UseSqlServerStorage(nameOrConnectionString);
 
-        private void AddDefault()
-        {
-            //Must register the options object as a singleton so it can be injected into the DbContext etc.
-            _serviceCollection.AddSingleton(_options);
-        }
+            hangfireOptionsAction?.Invoke(options);
 
-        public NewHeapPlatformAspNetCommonConfigurator ConfigureCommon(Action<NewHeapPlatformCommonConfigurator> action)
-        {
-            if (action == null) throw new ArgumentNullException(nameof(action));
+            var consoleOptions = new ConsoleOptions();
+            consoleOptionsAction?.Invoke(consoleOptions);
+            options.UseConsole(consoleOptions);
 
-            action.Invoke(_commonConfigurator);
+        });
 
-            return this;
-        }
+        _serviceCollection.AddHangfireServer(options => {
+            backgroundJobServerOptions?.Invoke(options);
+        });
 
-        public NewHeapPlatformAspNetCommonConfigurator WithThisIsAPlaceholder()
-        {
-            //_serviceCollection.AddTransient<IEmailService, EmailService>();
-            return this;
-        }
+        return this;
     }
 }

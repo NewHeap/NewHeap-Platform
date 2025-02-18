@@ -1,9 +1,11 @@
 ﻿using System;
 using System.IO;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.Common.Extensions;
 using NewHeap.Platform.Common.Models.Options;
@@ -13,28 +15,26 @@ using StackExchange.Utils;
 namespace NewHeap.Platform.AspNet.Common.Extensions;
 public static partial class ServiceCollectionExtensions
 {
-    public static NewHeapPlatformAspNetCommonConfigurator AddNewHeapPlatformAspNetCommon(this IServiceCollection services, Action<NewHeapAspNetCommonOptions> options)
+    public static NewHeapPlatformAspNetCommonConfigurator<TDbContext> AddNewHeapPlatformAspNetCommon<TDbContext>(
+        this IServiceCollection services, 
+        NewHeapAspNetCommonOptions optionsObj
+        )
+        where TDbContext : NhDbContext
     {
         if (services == null) throw new ArgumentNullException(nameof(services));
-        if (options == null) throw new ArgumentNullException(nameof(options));
+        if (optionsObj == null) throw new ArgumentNullException(nameof(optionsObj));
 
-        var optionsObj = new NewHeapAspNetCommonOptions();
-        options.Invoke(optionsObj);
-
-        return services.AddNewHeapPlatformAspNetCommon(optionsObj);
-    }
-
-    public static NewHeapPlatformAspNetCommonConfigurator AddNewHeapPlatformAspNetCommon(this IServiceCollection services, NewHeapAspNetCommonOptions optionsObj)
-    {
-        //Must register the options object as a singleton so it can be injected into the DbContext etc.
-        services.AddSingleton(optionsObj);
         var commonConfigurator = services.AddNewHeapPlatformCommon(optionsObj.CommonOptions);
 
-        return new NewHeapPlatformAspNetCommonConfigurator(services, commonConfigurator, optionsObj);
+        return new NewHeapPlatformAspNetCommonConfigurator<TDbContext>(services, commonConfigurator, optionsObj);
     }
 
-    public static IApplicationBuilder UseNewHeapPlatformAspNetCommon(this IApplicationBuilder app)
+    public static NewHeapPlatformAspNetCommonApplicationBuilder UseNewHeapPlatformAspNetCommon(
+        this IApplicationBuilder app, 
+        IWebHostEnvironment env, 
+        IServiceProvider serviceProvider, 
+        NewHeapPlatformAspNetCommonApplicationBuilderOptions options)
     {
-        return app;
+        return new NewHeapPlatformAspNetCommonApplicationBuilder(app, env, serviceProvider, options);
     }
 }

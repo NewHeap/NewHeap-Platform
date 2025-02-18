@@ -10,9 +10,9 @@ namespace NewHeap.Platform.AspNet.Policy.Requirements;
 public partial class ActiveDivisionAccessRequirement : IAuthorizationRequirement
 {
     public IEnumerable<Claim> RequiredClaims { get; set; }
-    public IEnumerable<string> RequiredRoles { get; set; }
+    public IEnumerable<string>? RequiredRoles { get; set; }
 
-    public ActiveDivisionAccessRequirement(IEnumerable<Claim> requiredClaims, IEnumerable<string> requiredRoles = null)
+    public ActiveDivisionAccessRequirement(IEnumerable<Claim> requiredClaims, IEnumerable<string>? requiredRoles = null)
     {
         RequiredClaims = requiredClaims;
         RequiredRoles = requiredRoles;
