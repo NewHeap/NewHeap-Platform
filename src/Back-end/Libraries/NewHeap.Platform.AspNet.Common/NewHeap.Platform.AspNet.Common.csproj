@@ -1,46 +1,46 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <Copyright>NewHeap B.V.</Copyright>
-    <Title>NewHeap AspNet Common</Title>
-    <PackageProjectUrl>https://dev.azure.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <RepositoryUrl>https://dev.azure.com/NewHeap/_git/NewHeap-Platform</RepositoryUrl>
-  </PropertyGroup>
-
-  <ItemGroup>
-	<FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
-	
-  <ItemGroup>
-    <Folder Include="Utilities\" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Hangfire" Version="1.8.18" />
-    <PackageReference Include="Hangfire.Console" Version="1.4.3" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="9.0.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.2" />
-    <PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.0.2" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
-  </ItemGroup>
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <Copyright>NewHeap B.V.</Copyright>
+        <Title>NewHeap AspNet Common</Title>
+        <PackageProjectUrl>https://dev.azure.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <RepositoryUrl>https://dev.azure.com/NewHeap/_git/NewHeap-Platform</RepositoryUrl>
+    </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="NewHeap.Platform.Common" />
+        <FrameworkReference Include="Microsoft.AspNetCore.App"/>
     </ItemGroup>
 
-  <ItemGroup>
-    <None Update="README.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-  </ItemGroup>
+    <ItemGroup>
+        <Folder Include="Utilities\"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Hangfire" Version="1.8.18"/>
+        <PackageReference Include="Hangfire.Console" Version="1.4.3"/>
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.2"/>
+        <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.2"/>
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="9.0.2"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.2"/>
+        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.0.2"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="NewHeap.Platform.Common"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Update="README.md">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
 </Project>

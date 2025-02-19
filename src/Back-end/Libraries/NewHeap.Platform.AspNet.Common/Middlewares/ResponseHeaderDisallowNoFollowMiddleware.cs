@@ -1,6 +1,4 @@
 ﻿using Microsoft.AspNetCore.Http;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common.Middlewares;
 

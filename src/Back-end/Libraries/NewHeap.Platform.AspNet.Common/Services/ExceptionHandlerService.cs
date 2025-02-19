@@ -10,7 +10,7 @@ public partial class ExceptionHandlerService
 
     public ExceptionHandlerService(
         ILogger<ExceptionHandlerService> logger
-        )
+    )
     {
         _logger = logger;
     }

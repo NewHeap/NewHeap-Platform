@@ -2,6 +2,7 @@
 using Hangfire.Server;
 
 namespace NewHeap.Platform.Common.Extensions;
+
 public static partial class HangfireExtensions
 {
     public static PerformContext WriteError(this PerformContext context, string text)

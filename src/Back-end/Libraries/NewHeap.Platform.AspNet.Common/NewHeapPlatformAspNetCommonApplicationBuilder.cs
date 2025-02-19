@@ -1,45 +1,19 @@
 ﻿using Hangfire;
-using Hangfire.Console;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Localization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.JsonWebTokens;
-using Microsoft.IdentityModel.Tokens;
-using NewHeap.Platform.AspNet.Common.DAL;
-using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Middlewares;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Services;
-using NewHeap.Platform.AspNet.Policy.AuthorizationHandlers;
-using NewHeap.Platform.AspNet.Policy.Requirements;
-using NewHeap.Platform.Common;
-using NewHeap.Platform.Common.Translations;
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
-using System.Security.Claims;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common;
 
 public partial class NewHeapPlatformAspNetCommonApplicationBuilderOptions
-{ 
+{
     public bool UseHsts { get; set; } = true;
     public bool UseHttpsRedirection { get; set; } = true;
     public Action<CorsPolicyBuilder>? CorsPolicyBuilderAction { get; set; }
@@ -47,13 +21,75 @@ public partial class NewHeapPlatformAspNetCommonApplicationBuilderOptions
     public Action<IEndpointRouteBuilder>? EndpointRouteConfigureAction { get; set; }
 }
 
-public partial class NewHeapPlatformAspNetCommonApplicationBuilder
+public class NhPlatformAspNetCommonOptionsBuilder
+{
+    private NewHeapPlatformAspNetCommonApplicationBuilderOptions? _options;
+
+    public NhPlatformAspNetCommonOptionsBuilder()
+    {
+        _options = new NewHeapPlatformAspNetCommonApplicationBuilderOptions();
+    }
+
+    public static NhPlatformAspNetCommonOptionsBuilder Create => new();
+
+    public NhPlatformAspNetCommonOptionsBuilder UseHsTs(bool use = true)
+    {
+        ThrowIfBuild();
+        _options!.UseHsts = use;
+        return this;
+    }
+
+    public NhPlatformAspNetCommonOptionsBuilder UseHttpsRedirection(bool use = true)
+    {
+        ThrowIfBuild();
+        _options!.UseHttpsRedirection = use;
+        return this;
+    }
+
+    public NhPlatformAspNetCommonOptionsBuilder UseCors(Action<CorsPolicyBuilder> action)
+    {
+        ThrowIfBuild();
+        _options!.CorsPolicyBuilderAction = action;
+        return this;
+    }
+
+    public NhPlatformAspNetCommonOptionsBuilder UseMvc(Action<IRouteBuilder> action)
+    {
+        ThrowIfBuild();
+        _options!.MvcConfigureRoutesAction = action;
+        return this;
+    }
+
+    public NhPlatformAspNetCommonOptionsBuilder UseEndpoints(Action<IEndpointRouteBuilder> action)
+    {
+        ThrowIfBuild();
+        _options!.EndpointRouteConfigureAction = action;
+        return this;
+    }
+
+    private void ThrowIfBuild()
+    {
+        if (_options == null)
+        {
+            throw new InvalidOperationException("The options have already been built.");
+        }
+    }
+
+    public NewHeapPlatformAspNetCommonApplicationBuilderOptions Build()
+    {
+        var options = _options;
+        _options = null;
+        return options!;
+    }
+}
+
+public class NewHeapPlatformAspNetCommonApplicationBuilder
 {
     private readonly IApplicationBuilder _applicationBuilder;
-    private readonly IWebHostEnvironment _env;
-    private readonly IServiceProvider _services;
-    private readonly NewHeapPlatformAspNetCommonApplicationBuilderOptions _options;
     private readonly NewHeapAspNetCommonSettings _aspNetCommonSettings;
+    private readonly IWebHostEnvironment _env;
+    private readonly NewHeapPlatformAspNetCommonApplicationBuilderOptions _options;
+    private readonly IServiceProvider _services;
 
     public NewHeapPlatformAspNetCommonApplicationBuilder(
         IApplicationBuilder applicationBuilder,
@@ -78,7 +114,7 @@ public partial class NewHeapPlatformAspNetCommonApplicationBuilder
 
         _applicationBuilder.UseAuthentication();
 
-        if(_options.UseHsts)
+        if (_options.UseHsts)
         {
             _applicationBuilder.UseHsts();
         }
@@ -89,12 +125,14 @@ public partial class NewHeapPlatformAspNetCommonApplicationBuilder
         }
 
         //Note, the localization middleware must be configured before any middleware which might check the request culture
-        var requestLocalizationOptions = _applicationBuilder.ApplicationServices.GetRequiredService<IOptions<RequestLocalizationOptions>>();
+        IOptions<RequestLocalizationOptions>? requestLocalizationOptions = _applicationBuilder.ApplicationServices
+            .GetRequiredService<IOptions<RequestLocalizationOptions>>();
         _applicationBuilder.UseRequestLocalization(requestLocalizationOptions.Value);
 
         _applicationBuilder.UseMiddleware<ResponseHeaderDisallowNoFollowMiddleware>();
 
-        _applicationBuilder.UseMvc(options => {
+        _applicationBuilder.UseMvc(options =>
+        {
             _options.MvcConfigureRoutesAction?.Invoke(options);
         });
 
@@ -119,12 +157,12 @@ public partial class NewHeapPlatformAspNetCommonApplicationBuilder
         _applicationBuilder.UseCors(builder =>
         {
             builder
-               .AllowAnyHeader()
-               .AllowAnyMethod()
-               .AllowCredentials()
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials()
                 .WithExposedHeaders("Content-Disposition")
-               .SetPreflightMaxAge(TimeSpan.FromMinutes(10))
-               .WithOrigins(_aspNetCommonSettings.AllowedOrigins);
+                .SetPreflightMaxAge(TimeSpan.FromMinutes(10))
+                .WithOrigins(_aspNetCommonSettings.AllowedOrigins);
 
             _options.CorsPolicyBuilderAction?.Invoke(builder);
         });
@@ -132,7 +170,7 @@ public partial class NewHeapPlatformAspNetCommonApplicationBuilder
 
     public NewHeapPlatformAspNetCommonApplicationBuilder UseStaticFiles(Action<StaticFileOptions>? options = null)
     {
-        var staticFileOptions = new StaticFileOptions();
+        StaticFileOptions? staticFileOptions = new();
         options?.Invoke(staticFileOptions);
 
         _applicationBuilder.UseStaticFiles(staticFileOptions);
@@ -140,13 +178,15 @@ public partial class NewHeapPlatformAspNetCommonApplicationBuilder
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonApplicationBuilder UseExceptionHandler(Action<ExceptionHandlerOptions>? options = null)
+    public NewHeapPlatformAspNetCommonApplicationBuilder UseExceptionHandler(
+        Action<ExceptionHandlerOptions>? options = null)
     {
-        var exceptionHandlerOptions = new ExceptionHandlerOptions();
+        ExceptionHandlerOptions? exceptionHandlerOptions = new();
 
         exceptionHandlerOptions.ExceptionHandler = async context =>
         {
-            var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+            var exceptionHandlerPathFeature =
+                context.Features.Get<IExceptionHandlerPathFeature>();
             var exception = exceptionHandlerPathFeature?.Error;
 
             var handler = context.RequestServices.GetRequiredService<ExceptionHandlerService>();
@@ -164,9 +204,9 @@ public partial class NewHeapPlatformAspNetCommonApplicationBuilder
         string pathMatch = "/hangfire",
         Action<DashboardOptions>? optionsAction = null,
         JobStorage? storage = null
-        )
+    )
     {
-        var options = new DashboardOptions();
+        DashboardOptions? options = new();
         optionsAction?.Invoke(options);
 
         _applicationBuilder.UseHangfireDashboard(pathMatch, options, storage);

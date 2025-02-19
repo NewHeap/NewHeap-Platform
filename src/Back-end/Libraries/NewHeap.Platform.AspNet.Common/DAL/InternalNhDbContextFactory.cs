@@ -16,7 +16,7 @@ public partial class InternalNhDbContextFactory<TDbContext>
 
     public TDbContext CreateDbContext(Action<SqlServerDbContextOptionsBuilder> sqlServerOptionsAction = null)
     {
-        var optionsBuilder = new DbContextOptionsBuilder<NhDbContext>();
+        DbContextOptionsBuilder<NhDbContext>? optionsBuilder = new();
         optionsBuilder.UseSqlServer(_config.GetConnectionString("DefaultConnection"), sqlServerOptionsAction);
 
         return (TDbContext)Activator.CreateInstance(typeof(TDbContext), optionsBuilder.Options);

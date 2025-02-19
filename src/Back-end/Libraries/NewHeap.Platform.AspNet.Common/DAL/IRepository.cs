@@ -1,35 +1,43 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common.DAL;
+
 public partial interface IRepository<T> where T : class
 {
     NhDbContext Context { get; }
     DbSet<TDbSet> GetDbSet<TDbSet>() where TDbSet : class;
-    CollectionEntry<TEntity, TProperty> Collection<TEntity, TProperty>(TEntity entity, Expression<Func<TEntity, IEnumerable<TProperty>>> propertyExpression)
+
+    CollectionEntry<TEntity, TProperty> Collection<TEntity, TProperty>(TEntity entity,
+        Expression<Func<TEntity, IEnumerable<TProperty>>> propertyExpression)
         where TProperty : class
         where TEntity : class;
+
     CollectionEntry Collection<TEntity, TProperty>(TEntity entity, string propertyName)
         where TProperty : class
         where TEntity : class;
-    ReferenceEntry<TEntity, TProperty> Reference<TEntity, TProperty>(TEntity entity, Expression<Func<TEntity, TProperty>> propertyExpression)
+
+    ReferenceEntry<TEntity, TProperty> Reference<TEntity, TProperty>(TEntity entity,
+        Expression<Func<TEntity, TProperty>> propertyExpression)
         where TProperty : class
         where TEntity : class;
+
     ReferenceEntry Reference<TEntity, TProperty>(TEntity entity, string propertyName)
         where TProperty : class
         where TEntity : class;
-    Task ConfirmLoaded<TEntity, TProperty>(TEntity entity, Expression<Func<TEntity, TProperty>> propertyExpression, CancellationToken cancellationToken = default)
+
+    Task ConfirmLoaded<TEntity, TProperty>(TEntity entity, Expression<Func<TEntity, TProperty>> propertyExpression,
+        CancellationToken cancellationToken = default)
         where TProperty : class
         where TEntity : class;
-    Task ConfirmCollectionLoaded<TEntity, TProperty>(TEntity entity, Expression<Func<TEntity, IEnumerable<TProperty>>> propertyExpression, CancellationToken cancellationToken = default)
+
+    Task ConfirmCollectionLoaded<TEntity, TProperty>(TEntity entity,
+        Expression<Func<TEntity, IEnumerable<TProperty>>> propertyExpression,
+        CancellationToken cancellationToken = default)
         where TProperty : class
         where TEntity : class;
+
     T Find<TKey>(TKey id);
     ValueTask<T> FindAsync<TKey>(TKey id);
     T FindOneBy(Expression<Func<T, bool>> predicate);

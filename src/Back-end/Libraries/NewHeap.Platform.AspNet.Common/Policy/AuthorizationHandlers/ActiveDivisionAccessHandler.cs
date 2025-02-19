@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using NewHeap.Platform.AspNet.Common.Extensions;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Policy.Requirements;
+using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Identity.Claims;
 using System.Security.Claims;
 
@@ -21,7 +22,7 @@ public partial class ActiveDivisionAccessHandler : AuthorizationHandler<ActiveDi
         AuthorizationHandlerContext context,
         ActiveDivisionAccessRequirement requirement)
     {
-        if(context.User.HasClaim(NhPlatformClaimTypes.Permission, Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll))
+        if (context.User.HasClaim(NhPlatformClaimTypes.Permission, Constants.DivisionPermissionClaimValues.AccessAll))
         {
             context.Succeed(requirement);
             return;
@@ -33,13 +34,14 @@ public partial class ActiveDivisionAccessHandler : AuthorizationHandler<ActiveDi
 
         var userIdString = context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
 
-        bool parseSucces = Guid.TryParse(userIdString, out var userId);
+        var parseSucces = Guid.TryParse(userIdString, out var userId);
 
         if (parseSucces)
         {
             var user = await userManager.FindByIdAsync(userId.ToString());
-            var userClaims = await userManager.GetValidClaims(user, true);
-            if (userManager != null && await userManager.DivisionAccessAsync(activeDivisionId, userClaims, requirement.RequiredClaims, requirement.RequiredRoles))
+            List<Claim>? userClaims = await userManager.GetValidClaims(user, true);
+            if (userManager != null && await userManager.DivisionAccessAsync(activeDivisionId, userClaims,
+                    requirement.RequiredClaims, requirement.RequiredRoles))
             {
                 context.Succeed(requirement);
             }

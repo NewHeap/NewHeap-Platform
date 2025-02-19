@@ -1,15 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
 /// <summary>
-/// Note: Immutable rows
+///     Note: Immutable rows
 /// </summary>
 public partial class LogFile
 {
+    public LogFile()
+    {
+        CreationDateTime = DateTimeOffset.UtcNow;
+    }
+
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public Guid Id { get; set; }
@@ -24,12 +27,7 @@ public partial class LogFile
     public string OriginalFileName { get; set; }
 
     /// <summary>
-    /// Relative path to a related file
+    ///     Relative path to a related file
     /// </summary>
     public string FilePath { get; set; }
-
-    public LogFile()
-    {
-        CreationDateTime = DateTimeOffset.UtcNow;
-    } 
 }

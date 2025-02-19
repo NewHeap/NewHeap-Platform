@@ -1,15 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.Internal;
+﻿using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.Localization;
 using NewHeap.Platform.Common.Translations;
 using Newtonsoft.Json.Linq;
+using System.ComponentModel.DataAnnotations;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace NewHeap.Platform.Common.Services;
 
@@ -17,7 +12,11 @@ public static partial class TypeExtensions
 {
     public static bool IsPrimitive(this Type type)
     {
-        if (type == typeof(string)) return true;
+        if (type == typeof(string))
+        {
+            return true;
+        }
+
         return type.IsValueType & type.IsPrimitive;
     }
 }
@@ -49,68 +48,8 @@ public partial class LogHelperService
         _localizer = localizer;
     }
 
-    #region Copy
-
-    private static readonly MethodInfo CloneMethod = typeof(object).GetMethod("MemberwiseClone", BindingFlags.NonPublic | BindingFlags.Instance);
-
-    public static object Copy(object originalObject)
-    {
-        return InternalCopy(originalObject, new Dictionary<object, object>(new ReferenceEqualityComparer()));
-    }
-    private static object InternalCopy(object originalObject, IDictionary<object, object> visited)
-    {
-        if (originalObject == null) return null;
-        var typeToReflect = originalObject.GetType();
-        if (typeToReflect.IsPrimitive()) return originalObject;
-        if (visited.ContainsKey(originalObject)) return visited[originalObject];
-        if (typeof(Delegate).IsAssignableFrom(typeToReflect)) return null;
-        var cloneObject = CloneMethod.Invoke(originalObject, null);
-        if (typeToReflect.IsArray)
-        {
-            var arrayType = typeToReflect.GetElementType();
-            if (arrayType.IsPrimitive() == false)
-            {
-                Array clonedArray = (Array)cloneObject;
-                clonedArray.ForEach((array, indices) => array.SetValue(InternalCopy(clonedArray.GetValue(indices), visited), indices));
-            }
-
-        }
-        visited.Add(originalObject, cloneObject);
-        CopyFields(originalObject, visited, cloneObject, typeToReflect);
-        RecursiveCopyBaseTypePrivateFields(originalObject, visited, cloneObject, typeToReflect);
-        return cloneObject;
-    }
-
-    private static void RecursiveCopyBaseTypePrivateFields(object originalObject, IDictionary<object, object> visited, object cloneObject, Type typeToReflect)
-    {
-        if (typeToReflect.BaseType != null)
-        {
-            RecursiveCopyBaseTypePrivateFields(originalObject, visited, cloneObject, typeToReflect.BaseType);
-            CopyFields(originalObject, visited, cloneObject, typeToReflect.BaseType, BindingFlags.Instance | BindingFlags.NonPublic, info => info.IsPrivate);
-        }
-    }
-
-    private static void CopyFields(object originalObject, IDictionary<object, object> visited, object cloneObject, Type typeToReflect, BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.FlattenHierarchy, Func<FieldInfo, bool> filter = null)
-    {
-        foreach (FieldInfo fieldInfo in typeToReflect.GetFields(bindingFlags))
-        {
-            if (filter != null && filter(fieldInfo) == false) continue;
-            if (fieldInfo.FieldType.IsPrimitive()) continue;
-            var originalFieldValue = fieldInfo.GetValue(originalObject);
-            var clonedFieldValue = InternalCopy(originalFieldValue, visited);
-            fieldInfo.SetValue(cloneObject, clonedFieldValue);
-        }
-    }
-    public static T Copy<T>(T original)
-    {
-        return (T)Copy((object)original);
-    }
-
-
-    #endregion
-
     /// <summary>
-    /// Diff between two objects and see which properties have changed
+    ///     Diff between two objects and see which properties have changed
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="original">Original object</param>
@@ -139,13 +78,13 @@ public partial class LogHelperService
                 var val1 = memberOriginal != null ? property.GetValue(memberOriginal) : null;
                 var val2 = memberUpdated != null ? property.GetValue(GetMemberObject(memberExpression, updated)) : null;
 
-                if (val1 != null && !val1.Equals(val2) || val1 == null && val2 != null)
+                if ((val1 != null && !val1.Equals(val2)) || (val1 == null && val2 != null))
                 {
                     var keyName = property
-                        ?.GetCustomAttributes(typeof(DisplayAttribute), true)
-                        ?.Cast<DisplayAttribute>()
-                        .SingleOrDefault()?.Name
-                        ?? property.Name;
+                                      ?.GetCustomAttributes(typeof(DisplayAttribute), true)
+                                      ?.Cast<DisplayAttribute>()
+                                      .SingleOrDefault()?.Name
+                                  ?? property.Name;
 
                     if (_localizer != null)
                     {
@@ -169,13 +108,11 @@ public partial class LogHelperService
                         {
                             // Nothing
                         }
-
                     }
+
                     changedValues.Add(new ChangedValue
                     {
-                        Key = keyName,
-                        OriginalValue = originalValue,
-                        UpdateValue = updatedValue
+                        Key = keyName, OriginalValue = originalValue, UpdateValue = updatedValue
                     });
                 }
             }
@@ -222,6 +159,98 @@ public partial class LogHelperService
 
         return null;
     }
+
+    #region Copy
+
+    private static readonly MethodInfo CloneMethod =
+        typeof(object).GetMethod("MemberwiseClone", BindingFlags.NonPublic | BindingFlags.Instance);
+
+    public static object Copy(object originalObject)
+    {
+        return InternalCopy(originalObject, new Dictionary<object, object>(new ReferenceEqualityComparer()));
+    }
+
+    private static object InternalCopy(object originalObject, IDictionary<object, object> visited)
+    {
+        if (originalObject == null)
+        {
+            return null;
+        }
+
+        var typeToReflect = originalObject.GetType();
+        if (typeToReflect.IsPrimitive())
+        {
+            return originalObject;
+        }
+
+        if (visited.ContainsKey(originalObject))
+        {
+            return visited[originalObject];
+        }
+
+        if (typeof(Delegate).IsAssignableFrom(typeToReflect))
+        {
+            return null;
+        }
+
+        var cloneObject = CloneMethod.Invoke(originalObject, null);
+        if (typeToReflect.IsArray)
+        {
+            var arrayType = typeToReflect.GetElementType();
+            if (arrayType.IsPrimitive() == false)
+            {
+                var clonedArray = (Array)cloneObject;
+                clonedArray.ForEach((array, indices) =>
+                    array.SetValue(InternalCopy(clonedArray.GetValue(indices), visited), indices));
+            }
+        }
+
+        visited.Add(originalObject, cloneObject);
+        CopyFields(originalObject, visited, cloneObject, typeToReflect);
+        RecursiveCopyBaseTypePrivateFields(originalObject, visited, cloneObject, typeToReflect);
+        return cloneObject;
+    }
+
+    private static void RecursiveCopyBaseTypePrivateFields(object originalObject, IDictionary<object, object> visited,
+        object cloneObject, Type typeToReflect)
+    {
+        if (typeToReflect.BaseType != null)
+        {
+            RecursiveCopyBaseTypePrivateFields(originalObject, visited, cloneObject, typeToReflect.BaseType);
+            CopyFields(originalObject, visited, cloneObject, typeToReflect.BaseType,
+                BindingFlags.Instance | BindingFlags.NonPublic, info => info.IsPrivate);
+        }
+    }
+
+    private static void CopyFields(object originalObject, IDictionary<object, object> visited, object cloneObject,
+        Type typeToReflect,
+        BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public |
+                                    BindingFlags.FlattenHierarchy, Func<FieldInfo, bool> filter = null)
+    {
+        foreach (var fieldInfo in typeToReflect.GetFields(bindingFlags))
+        {
+            if (filter != null && filter(fieldInfo) == false)
+            {
+                continue;
+            }
+
+            if (fieldInfo.FieldType.IsPrimitive())
+            {
+                continue;
+            }
+
+            var originalFieldValue = fieldInfo.GetValue(originalObject);
+            var clonedFieldValue = InternalCopy(originalFieldValue, visited);
+            fieldInfo.SetValue(cloneObject, clonedFieldValue);
+        }
+    }
+
+    public static T Copy<T>(T original)
+    {
+        return (T)Copy((object)original);
+    }
+
+    #endregion
 }
 
 public partial struct ChangedValue
@@ -232,61 +261,73 @@ public partial struct ChangedValue
     public object UpdateValue { get; set; }
 }
 
-
-partial class ReferenceEqualityComparer : EqualityComparer<object>
+internal partial class ReferenceEqualityComparer : EqualityComparer<object>
 {
     public override bool Equals(object x, object y)
     {
         return ReferenceEquals(x, y);
     }
+
     public override int GetHashCode(object obj)
     {
-        if (obj == null) return 0;
+        if (obj == null)
+        {
+            return 0;
+        }
+
         return obj.GetHashCode();
     }
 }
 
-
-static partial class ArrayExtensions
+internal static partial class ArrayExtensions
 {
     public static void ForEach(this Array array, Action<Array, int[]> action)
     {
-        if (array.LongLength == 0) return;
-        ArrayTraverse walker = new ArrayTraverse(array);
-        do action(array, walker.Position);
-        while (walker.Step());
+        if (array.LongLength == 0)
+        {
+            return;
+        }
+
+        var walker = new ArrayTraverse(array);
+        do
+        {
+            action(array, walker.Position);
+        } while (walker.Step());
     }
 }
 
 internal partial class ArrayTraverse
 {
+    private readonly int[] maxLengths;
     public int[] Position;
-    private int[] maxLengths;
 
     public ArrayTraverse(Array array)
     {
         maxLengths = new int[array.Rank];
-        for (int i = 0; i < array.Rank; ++i)
+        for (var i = 0; i < array.Rank; ++i)
         {
             maxLengths[i] = array.GetLength(i) - 1;
         }
+
         Position = new int[array.Rank];
     }
 
     public bool Step()
     {
-        for (int i = 0; i < Position.Length; ++i)
+        for (var i = 0; i < Position.Length; ++i)
         {
             if (Position[i] < maxLengths[i])
             {
                 Position[i]++;
-                for (int j = 0; j < i; j++)
+                for (var j = 0; j < i; j++)
                 {
                     Position[j] = 0;
                 }
+
                 return true;
             }
         }
+
         return false;
     }
 }

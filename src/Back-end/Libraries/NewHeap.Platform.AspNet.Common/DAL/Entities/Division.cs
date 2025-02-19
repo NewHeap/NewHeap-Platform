@@ -1,12 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
 public partial class Division
 {
+    public Division()
+    {
+        CreationDateTime = DateTimeOffset.UtcNow;
+        LastModifiedDateTime = DateTimeOffset.UtcNow;
+    }
+
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public Guid Id { get; set; }
@@ -22,19 +26,12 @@ public partial class Division
     public string Description { get; set; } = "";
 
     /// <summary>
-    /// The TimeZone id returned by the TimeZoneInfo.Id property.
+    ///     The TimeZone id returned by the TimeZoneInfo.Id property.
     /// </summary>
-    /// 
     [StringLength(50)]
     public string TimeZoneId { get; set; } = "";
 
     public bool UserSelectAllowed { get; set; }
 
     public ICollection<DivisionUser> DivisionUsers { get; set; } = new List<DivisionUser>();
-
-    public Division()
-    {
-        CreationDateTime = DateTimeOffset.UtcNow;
-        LastModifiedDateTime = DateTimeOffset.UtcNow;
-    } 
 }

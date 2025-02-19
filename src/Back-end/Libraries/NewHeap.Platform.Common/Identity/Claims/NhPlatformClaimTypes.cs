@@ -1,4 +1,5 @@
 ﻿namespace NewHeap.Platform.Common.Identity.Claims;
+
 public static partial class NhPlatformClaimTypes
 {
     public const string Permission = "nh.platform.permission";

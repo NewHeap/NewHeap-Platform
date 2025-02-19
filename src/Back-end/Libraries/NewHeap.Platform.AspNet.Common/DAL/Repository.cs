@@ -1,35 +1,30 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System.Linq.Expressions;
+using System.Reflection;
 
 namespace NewHeap.Platform.AspNet.Common.DAL;
 
 public partial class Repository<T> : IRepository<T> where T : class
 {
-    private readonly NhDbContext _context;
-    public NhDbContext Context 
-    { 
-        get
-        {
-            return _context;
-        }
-    }
-
     protected DbSet<T> DbSet;
 
     public Repository(NhDbContext context)
     {
-        _context = context;
+        Context = context;
         DbSet = context.Set<T>();
     }
 
+    public NhDbContext Context { get; }
+
     public DbSet<TDbSet> GetDbSet<TDbSet>()
-         where TDbSet : class
+        where TDbSet : class
     {
         return Context.Set<TDbSet>();
     }
 
-    public virtual CollectionEntry<TEntity, TProperty> Collection<TEntity, TProperty>(TEntity entity, Expression<Func<TEntity, IEnumerable<TProperty>>> propertyExpression)
+    public virtual CollectionEntry<TEntity, TProperty> Collection<TEntity, TProperty>(TEntity entity,
+        Expression<Func<TEntity, IEnumerable<TProperty>>> propertyExpression)
         where TProperty : class
         where TEntity : class
     {
@@ -43,7 +38,8 @@ public partial class Repository<T> : IRepository<T> where T : class
         return Context.Entry(entity).Collection(propertyName);
     }
 
-    public virtual ReferenceEntry<TEntity, TProperty> Reference<TEntity, TProperty>(TEntity entity, Expression<Func<TEntity, TProperty>> propertyExpression)
+    public virtual ReferenceEntry<TEntity, TProperty> Reference<TEntity, TProperty>(TEntity entity,
+        Expression<Func<TEntity, TProperty>> propertyExpression)
         where TProperty : class
         where TEntity : class
     {
@@ -57,22 +53,25 @@ public partial class Repository<T> : IRepository<T> where T : class
         return Context.Entry(entity).Reference(propertyName);
     }
 
-    public virtual async Task ConfirmLoaded<TEntity, TProperty>(TEntity entity, Expression<Func<TEntity, TProperty>> propertyExpression, CancellationToken cancellationToken = default)
+    public virtual async Task ConfirmLoaded<TEntity, TProperty>(TEntity entity,
+        Expression<Func<TEntity, TProperty>> propertyExpression, CancellationToken cancellationToken = default)
         where TProperty : class
         where TEntity : class
     {
-        var reference = Reference(entity, propertyExpression);
+        ReferenceEntry<TEntity, TProperty>? reference = Reference(entity, propertyExpression);
         if (!reference.IsLoaded)
         {
             await reference.LoadAsync(cancellationToken);
         }
     }
 
-    public virtual async Task ConfirmCollectionLoaded<TEntity, TProperty>(TEntity entity, Expression<Func<TEntity, IEnumerable<TProperty>>> propertyExpression, CancellationToken cancellationToken = default)
-     where TProperty : class
-     where TEntity : class
+    public virtual async Task ConfirmCollectionLoaded<TEntity, TProperty>(TEntity entity,
+        Expression<Func<TEntity, IEnumerable<TProperty>>> propertyExpression,
+        CancellationToken cancellationToken = default)
+        where TProperty : class
+        where TEntity : class
     {
-        var collection = Context.Entry(entity).Collection(propertyExpression);
+        CollectionEntry<TEntity, TProperty>? collection = Context.Entry(entity).Collection(propertyExpression);
         if (!collection.IsLoaded)
         {
             await collection.LoadAsync(cancellationToken);
@@ -96,7 +95,7 @@ public partial class Repository<T> : IRepository<T> where T : class
     }
 
     public virtual ValueTask<EntityEntry<TEntity>> AddAsync<TEntity>(TEntity entity)
-         where TEntity : class
+        where TEntity : class
     {
         return Context.Set<TEntity>().AddAsync(entity);
     }
@@ -107,14 +106,9 @@ public partial class Repository<T> : IRepository<T> where T : class
     }
 
     public virtual void AddRange<TEntity>(IEnumerable<TEntity> entities)
-         where TEntity : class
+        where TEntity : class
     {
         Context.Set<TEntity>().AddRange(entities);
-    }
-
-    public virtual Task AddRangeAsync(IEnumerable<T> entities)
-    {
-        return DbSet.AddRangeAsync(entities);
     }
 
     public virtual Task AddRangeAsync<TEntity>(IEnumerable<TEntity> entities)
@@ -215,7 +209,7 @@ public partial class Repository<T> : IRepository<T> where T : class
     public IRepository<T> NewScope()
     {
         var type = Context.GetType();
-        var opt = typeof(NhDbContext).GetField("_options", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+        var opt = typeof(NhDbContext).GetField("_options", BindingFlags.Instance | BindingFlags.NonPublic)
             .GetValue(Context);
         var context = (NhDbContext)Activator.CreateInstance(type, opt);
         return new Repository<T>(context);
@@ -235,5 +229,10 @@ public partial class Repository<T> : IRepository<T> where T : class
     public virtual Task<int> SaveChangesAsync()
     {
         return Context.SaveChangesAsync();
+    }
+
+    public virtual Task AddRangeAsync(IEnumerable<T> entities)
+    {
+        return DbSet.AddRangeAsync(entities);
     }
 }

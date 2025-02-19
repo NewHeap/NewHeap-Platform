@@ -1,5 +1,4 @@
-﻿using System;
-using System.Dynamic;
+﻿using System.Dynamic;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -10,8 +9,8 @@ public static partial class StringExtensions
     public static string SafeMaxStringLength(this string input, int maxLength)
     {
         input = string.IsNullOrWhiteSpace(input) || input.Length <= maxLength
-           ? input
-           : input.Substring(0, maxLength);
+            ? input
+            : input.Substring(0, maxLength);
 
         return input;
     }
@@ -23,16 +22,18 @@ public static partial class StringExtensions
             return Convert.ToBoolean(str);
         }
         catch { }
+
         try
         {
             return Convert.ToBoolean(Convert.ToInt32(str));
         }
         catch { }
+
         return false;
     }
 
     /// <summary>
-    /// Attempts to format string as JSON, if it fails the string will be returned
+    ///     Attempts to format string as JSON, if it fails the string will be returned
     /// </summary>
     /// <param name="input"></param>
     /// <returns></returns>
@@ -52,11 +53,10 @@ public static partial class StringExtensions
         {
             return input;
         }
-
     }
 
     public static string StripHTML(this string input)
     {
-        return Regex.Replace(input, "<.*?>", String.Empty);
+        return Regex.Replace(input, "<.*?>", string.Empty);
     }
 }

@@ -1,10 +1,4 @@
-﻿using Microsoft.Extensions.Localization;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace NewHeap.Platform.Common.Models;
+﻿namespace NewHeap.Platform.Common.Models;
 
 public partial class CollectionResponseModel<T>
 {

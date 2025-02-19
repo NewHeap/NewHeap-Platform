@@ -1,25 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
 public partial class DivisionRole
 {
-    [Key]
-    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    public Guid Id { get; set; }
-
     public DivisionRole()
     {
-
     }
 
     public DivisionRole(string roleName)
     {
         Name = roleName;
     }
+
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public Guid Id { get; set; }
 
     [StringLength(150)]
     public string Name { get; set; } = "";

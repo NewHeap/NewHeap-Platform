@@ -1,942 +1,948 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
-    Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
-    associated with the data types.
-    
-    Example:
-    
-    ... ado.net/XML headers & schema ...
-    <resheader name="resmimetype">text/microsoft-resx</resheader>
-    <resheader name="version">2.0</resheader>
-    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
-    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-        <value>[base64 mime encoded serialized .NET Framework object]</value>
-    </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
-        <comment>This is a comment</comment>
-    </data>
-                
-    There are any number of "resheader" rows that contain simple 
-    name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
-    mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
-    extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
-    read any of the formats listed below.
-    
-    mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
-            : and then encoded with base64 encoding.
-    
-    mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
-            : and then encoded with base64 encoding.
-
-    mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
-            : using a System.ComponentModel.TypeConverter
-            : and then encoded with base64 encoding.
-    -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
-    <xsd:element name="root" msdata:IsDataSet="true">
-      <xsd:complexType>
-        <xsd:choice maxOccurs="unbounded">
-          <xsd:element name="metadata">
+    <!-- 
+      Microsoft ResX Schema 
+      
+      Version 2.0
+      
+      The primary goals of this format is to allow a simple XML format 
+      that is mostly human readable. The generation and parsing of the 
+      various data types are done through the TypeConverter classes 
+      associated with the data types.
+      
+      Example:
+      
+      ... ado.net/XML headers & schema ...
+      <resheader name="resmimetype">text/microsoft-resx</resheader>
+      <resheader name="version">2.0</resheader>
+      <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+      <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+      <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+      <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+      <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+          <value>[base64 mime encoded serialized .NET Framework object]</value>
+      </data>
+      <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+          <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+          <comment>This is a comment</comment>
+      </data>
+                  
+      There are any number of "resheader" rows that contain simple 
+      name/value pairs.
+      
+      Each data row contains a name, and value. The row also contains a 
+      type or mimetype. Type corresponds to a .NET class that support 
+      text/value conversion through the TypeConverter architecture. 
+      Classes that don't support this are serialized and stored with the 
+      mimetype set.
+      
+      The mimetype is used for serialized objects, and tells the 
+      ResXResourceReader how to depersist the object. This is currently not 
+      extensible. For a given mimetype the value must be set accordingly:
+      
+      Note - application/x-microsoft.net.object.binary.base64 is the format 
+      that the ResXResourceWriter will generate, however the reader can 
+      read any of the formats listed below.
+      
+      mimetype: application/x-microsoft.net.object.binary.base64
+      value   : The object must be serialized with 
+              : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+              : and then encoded with base64 encoding.
+      
+      mimetype: application/x-microsoft.net.object.soap.base64
+      value   : The object must be serialized with 
+              : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+              : and then encoded with base64 encoding.
+  
+      mimetype: application/x-microsoft.net.object.bytearray.base64
+      value   : The object must be serialized into a byte array 
+              : using a System.ComponentModel.TypeConverter
+              : and then encoded with base64 encoding.
+      -->
+    <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata"
+                id="root"
+                xmlns="">
+        <xsd:import namespace="http://www.w3.org/XML/1998/namespace"/>
+        <xsd:element name="root" msdata:IsDataSet="true">
             <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
-              </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-              <xsd:attribute ref="xml:space" />
+                <xsd:choice maxOccurs="unbounded">
+                    <xsd:element name="metadata">
+                        <xsd:complexType>
+                            <xsd:sequence>
+                                <xsd:element name="value" type="xsd:string" minOccurs="0"/>
+                            </xsd:sequence>
+                            <xsd:attribute name="name" use="required" type="xsd:string"/>
+                            <xsd:attribute name="type" type="xsd:string"/>
+                            <xsd:attribute name="mimetype" type="xsd:string"/>
+                            <xsd:attribute ref="xml:space"/>
+                        </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="assembly">
+                        <xsd:complexType>
+                            <xsd:attribute name="alias" type="xsd:string"/>
+                            <xsd:attribute name="name" type="xsd:string"/>
+                        </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="data">
+                        <xsd:complexType>
+                            <xsd:sequence>
+                                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+                                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2"/>
+                            </xsd:sequence>
+                            <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1"/>
+                            <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3"/>
+                            <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4"/>
+                            <xsd:attribute ref="xml:space"/>
+                        </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="resheader">
+                        <xsd:complexType>
+                            <xsd:sequence>
+                                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+                            </xsd:sequence>
+                            <xsd:attribute name="name" type="xsd:string" use="required"/>
+                        </xsd:complexType>
+                    </xsd:element>
+                </xsd:choice>
             </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="assembly">
-            <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="data">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
-              <xsd:attribute ref="xml:space" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="resheader">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
-            </xsd:complexType>
-          </xsd:element>
-        </xsd:choice>
-      </xsd:complexType>
-    </xsd:element>
-  </xsd:schema>
-  <resheader name="resmimetype">
-    <value>text/microsoft-resx</value>
-  </resheader>
-  <resheader name="version">
-    <value>2.0</value>
-  </resheader>
-  <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </resheader>
-  <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </resheader>
-  <data name="AssignedToUser" xml:space="preserve">
+        </xsd:element>
+    </xsd:schema>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
+    </resheader>
+    <data name="AssignedToUser" xml:space="preserve">
     <value>Dem Benutzer zugewiesen</value>
   </data>
-  <data name="AssignmentReceivedDateTime" xml:space="preserve">
+    <data name="AssignmentReceivedDateTime" xml:space="preserve">
     <value>Datum der Zuweisung</value>
   </data>
-  <data name="BaseType" xml:space="preserve">
+    <data name="BaseType" xml:space="preserve">
     <value>Grundtyp</value>
   </data>
-  <data name="Birthdate" xml:space="preserve">
+    <data name="Birthdate" xml:space="preserve">
     <value>Geburtstag</value>
   </data>
-  <data name="BlanketOrderCode" xml:space="preserve">
+    <data name="BlanketOrderCode" xml:space="preserve">
     <value>Rahmenvertrag</value>
   </data>
-  <data name="CallbackUrl" xml:space="preserve">
+    <data name="CallbackUrl" xml:space="preserve">
     <value>Rückruf-Url</value>
   </data>
-  <data name="Chat" xml:space="preserve">
+    <data name="Chat" xml:space="preserve">
     <value>Gespräch</value>
   </data>
-  <data name="Checked" xml:space="preserve">
+    <data name="Checked" xml:space="preserve">
     <value>Markiert</value>
   </data>
-  <data name="Client" xml:space="preserve">
+    <data name="Client" xml:space="preserve">
     <value>Kunde</value>
   </data>
-  <data name="ClientPurchaseOrderCode" xml:space="preserve">
+    <data name="ClientPurchaseOrderCode" xml:space="preserve">
     <value>Kunden Einkaufscode</value>
   </data>
-  <data name="ClientResponsiblePerson" xml:space="preserve">
+    <data name="ClientResponsiblePerson" xml:space="preserve">
     <value>Verantwortlicher Kunde</value>
   </data>
-  <data name="Code" xml:space="preserve">
+    <data name="Code" xml:space="preserve">
     <value>Code</value>
   </data>
-  <data name="Code suffix" xml:space="preserve">
+    <data name="Code suffix" xml:space="preserve">
     <value>Code Suffix</value>
   </data>
-  <data name="CodeDuplicateAllowed" xml:space="preserve">
+    <data name="CodeDuplicateAllowed" xml:space="preserve">
     <value>Doppelte Codes zulassen</value>
   </data>
-  <data name="CodePrefix" xml:space="preserve">
+    <data name="CodePrefix" xml:space="preserve">
     <value>Code-Präfix</value>
   </data>
-  <data name="CombiCode" xml:space="preserve">
+    <data name="CombiCode" xml:space="preserve">
     <value>Referenz des Projekts</value>
   </data>
-  <data name="Comment" xml:space="preserve">
+    <data name="Comment" xml:space="preserve">
     <value>Kommentar</value>
   </data>
-  <data name="CommittedByUser" xml:space="preserve">
+    <data name="CommittedByUser" xml:space="preserve">
     <value>Vom Benutzer angewendet</value>
   </data>
-  <data name="CommittedByUserId" xml:space="preserve">
+    <data name="CommittedByUserId" xml:space="preserve">
     <value>Vom Benutzer angewendet</value>
   </data>
-  <data name="CompanyManager" xml:space="preserve">
+    <data name="CompanyManager" xml:space="preserve">
     <value>Geschäftsleiter</value>
   </data>
-  <data name="ComputedCompleteAddress" xml:space="preserve">
+    <data name="ComputedCompleteAddress" xml:space="preserve">
     <value>Adresse</value>
   </data>
-  <data name="ConcurrencyToken" xml:space="preserve">
+    <data name="ConcurrencyToken" xml:space="preserve">
     <value>Gleichzeitigkeitsbeteiligung</value>
   </data>
-  <data name="Condition" xml:space="preserve">
+    <data name="Condition" xml:space="preserve">
     <value>Zustand</value>
   </data>
-  <data name="Conditions" xml:space="preserve">
+    <data name="Conditions" xml:space="preserve">
     <value>Bedingungen</value>
   </data>
-  <data name="Confirm password" xml:space="preserve">
+    <data name="Confirm password" xml:space="preserve">
     <value>Bestätigen Sie das Passwort</value>
   </data>
-  <data name="Contact person" xml:space="preserve">
+    <data name="Contact person" xml:space="preserve">
     <value>Kontaktperson</value>
   </data>
-  <data name="ContentColumn" xml:space="preserve">
+    <data name="ContentColumn" xml:space="preserve">
     <value>Spalte Inhalt</value>
   </data>
-  <data name="Country" xml:space="preserve">
+    <data name="Country" xml:space="preserve">
     <value>Land</value>
   </data>
-  <data name="CountryCode" xml:space="preserve">
+    <data name="CountryCode" xml:space="preserve">
     <value>Ländercode</value>
   </data>
-  <data name="CountryShortCode" xml:space="preserve">
+    <data name="CountryShortCode" xml:space="preserve">
     <value>Ländercode</value>
   </data>
-  <data name="CreatedByUser" xml:space="preserve">
+    <data name="CreatedByUser" xml:space="preserve">
     <value>Erstellt von</value>
   </data>
-  <data name="CreatedByUserId" xml:space="preserve">
+    <data name="CreatedByUserId" xml:space="preserve">
     <value>Erstellt von</value>
   </data>
-  <data name="CreationDateTime" xml:space="preserve">
+    <data name="CreationDateTime" xml:space="preserve">
     <value>Erstellungsdatum</value>
   </data>
-  <data name="CreationSourceType" xml:space="preserve">
+    <data name="CreationSourceType" xml:space="preserve">
     <value>Erstellungsdatum</value>
   </data>
-  <data name="Culture" xml:space="preserve">
+    <data name="Culture" xml:space="preserve">
     <value>Kultur</value>
   </data>
-  <data name="Current password" xml:space="preserve">
+    <data name="Current password" xml:space="preserve">
     <value>Aktuelles Passwort</value>
   </data>
-  <data name="CustomCodeAllowed" xml:space="preserve">
+    <data name="CustomCodeAllowed" xml:space="preserve">
     <value>Eigenen Code zulassen</value>
   </data>
-  <data name="CustomCodePrefix" xml:space="preserve">
+    <data name="CustomCodePrefix" xml:space="preserve">
     <value>Eigener Code-Präfix</value>
   </data>
-  <data name="DateFieldEnabled" xml:space="preserve">
+    <data name="DateFieldEnabled" xml:space="preserve">
     <value>Datumsfeld aktiv</value>
   </data>
-  <data name="DateFieldRequired" xml:space="preserve">
+    <data name="DateFieldRequired" xml:space="preserve">
     <value>Datumsfeld obligatorisch</value>
   </data>
-  <data name="DateTime" xml:space="preserve">
+    <data name="DateTime" xml:space="preserve">
     <value>Datum Uhrzeit</value>
   </data>
-  <data name="Definition" xml:space="preserve">
+    <data name="Definition" xml:space="preserve">
     <value>Definition</value>
   </data>
-  <data name="DefinitionGroup" xml:space="preserve">
+    <data name="DefinitionGroup" xml:space="preserve">
     <value>Definition der Gruppe</value>
   </data>
-  <data name="Definitions" xml:space="preserve">
+    <data name="Definitions" xml:space="preserve">
     <value>Definitionen</value>
   </data>
-  <data name="DeleteAllowed" xml:space="preserve">
+    <data name="DeleteAllowed" xml:space="preserve">
     <value>Entfernung erlaubt</value>
   </data>
-  <data name="DeletedDateTime" xml:space="preserve">
+    <data name="DeletedDateTime" xml:space="preserve">
     <value>Datum entfernt</value>
   </data>
-  <data name="Description" xml:space="preserve">
+    <data name="Description" xml:space="preserve">
     <value>Beschreibung</value>
   </data>
-  <data name="DestinationStep" xml:space="preserve">
+    <data name="DestinationStep" xml:space="preserve">
     <value>Zielschritt</value>
   </data>
-  <data name="Directories" xml:space="preserve">
+    <data name="Directories" xml:space="preserve">
     <value>Prospekte</value>
   </data>
-  <data name="DirectoryDefinition" xml:space="preserve">
+    <data name="DirectoryDefinition" xml:space="preserve">
     <value>Definition des Merkblatts</value>
   </data>
-  <data name="Discipline" xml:space="preserve">
+    <data name="Discipline" xml:space="preserve">
     <value>Disziplinarverfahren</value>
   </data>
-  <data name="Disciplines" xml:space="preserve">
+    <data name="Disciplines" xml:space="preserve">
     <value>Disziplinen</value>
   </data>
-  <data name="Dismissable" xml:space="preserve">
+    <data name="Dismissable" xml:space="preserve">
     <value>Verschließbar</value>
   </data>
-  <data name="Display name" xml:space="preserve">
+    <data name="Display name" xml:space="preserve">
     <value>Name anzeigen</value>
   </data>
-  <data name="DisplayKey" xml:space="preserve">
+    <data name="DisplayKey" xml:space="preserve">
     <value>Display-Taste</value>
   </data>
-  <data name="DisplayName" xml:space="preserve">
+    <data name="DisplayName" xml:space="preserve">
     <value>Name anzeigen</value>
   </data>
-  <data name="Division" xml:space="preserve">
+    <data name="Division" xml:space="preserve">
     <value>Abteilung</value>
   </data>
-  <data name="Documents" xml:space="preserve">
+    <data name="Documents" xml:space="preserve">
     <value>Dokumente</value>
   </data>
-  <data name="DocumentType" xml:space="preserve">
+    <data name="DocumentType" xml:space="preserve">
     <value>Dokumenttyp</value>
   </data>
-  <data name="Eenheid" xml:space="preserve">
+    <data name="Eenheid" xml:space="preserve">
     <value>Einheit</value>
   </data>
-  <data name="Element" xml:space="preserve">
+    <data name="Element" xml:space="preserve">
     <value>Element</value>
   </data>
-  <data name="Email" xml:space="preserve">
+    <data name="Email" xml:space="preserve">
     <value>E-Mail Adresse</value>
   </data>
-  <data name="Email address" xml:space="preserve">
+    <data name="Email address" xml:space="preserve">
     <value>E-Mail Adresse</value>
   </data>
-  <data name="EndDate" xml:space="preserve">
+    <data name="EndDate" xml:space="preserve">
     <value>Enddatum</value>
   </data>
-  <data name="EndDateTime" xml:space="preserve">
+    <data name="EndDateTime" xml:space="preserve">
     <value>Enddatum Zeit</value>
   </data>
-  <data name="Engineer" xml:space="preserve">
+    <data name="Engineer" xml:space="preserve">
     <value>Ingenieur</value>
   </data>
-  <data name="EntryLines" xml:space="preserve">
+    <data name="EntryLines" xml:space="preserve">
     <value>Regeln</value>
   </data>
-  <data name="ErrorMessage" xml:space="preserve">
+    <data name="ErrorMessage" xml:space="preserve">
     <value>Fehlermeldung</value>
   </data>
-  <data name="ExecutionDateTime" xml:space="preserve">
+    <data name="ExecutionDateTime" xml:space="preserve">
     <value>Datum der Umsetzung</value>
   </data>
-  <data name="ExecutionType" xml:space="preserve">
+    <data name="ExecutionType" xml:space="preserve">
     <value>Versionstyp</value>
   </data>
-  <data name="Executor" xml:space="preserve">
+    <data name="Executor" xml:space="preserve">
     <value>Bauleiter</value>
   </data>
-  <data name="Expression" xml:space="preserve">
+    <data name="Expression" xml:space="preserve">
     <value>Ausdruck</value>
   </data>
-  <data name="ExternalCharacteristic" xml:space="preserve">
+    <data name="ExternalCharacteristic" xml:space="preserve">
     <value>Merkmal Kunde</value>
   </data>
-  <data name="ExternalContactFullName" xml:space="preserve">
+    <data name="ExternalContactFullName" xml:space="preserve">
     <value>Name gemeinsamer Kunde</value>
   </data>
-  <data name="ExternalReferenceCode" xml:space="preserve">
+    <data name="ExternalReferenceCode" xml:space="preserve">
     <value>Externe Referentinnen und Referenten</value>
   </data>
-  <data name="FieldRelations" xml:space="preserve">
+    <data name="FieldRelations" xml:space="preserve">
     <value>Feldbeziehungen</value>
   </data>
-  <data name="File" xml:space="preserve">
+    <data name="File" xml:space="preserve">
     <value>Datei</value>
   </data>
-  <data name="FilePath" xml:space="preserve">
+    <data name="FilePath" xml:space="preserve">
     <value>Speicherort der Datei</value>
   </data>
-  <data name="Files" xml:space="preserve">
+    <data name="Files" xml:space="preserve">
     <value>Dateien</value>
   </data>
-  <data name="First name" xml:space="preserve">
+    <data name="First name" xml:space="preserve">
     <value>Vorname</value>
   </data>
-  <data name="FirstName" xml:space="preserve">
+    <data name="FirstName" xml:space="preserve">
     <value>Vorname</value>
   </data>
-  <data name="Flow" xml:space="preserve">
+    <data name="Flow" xml:space="preserve">
     <value>Aktuell</value>
   </data>
-  <data name="FormElementType" xml:space="preserve">
+    <data name="FormElementType" xml:space="preserve">
     <value>Typ des Formularelements</value>
   </data>
-  <data name="FullName" xml:space="preserve">
+    <data name="FullName" xml:space="preserve">
     <value>Vollständiger Name</value>
   </data>
-  <data name="FullNameShort" xml:space="preserve">
+    <data name="FullNameShort" xml:space="preserve">
     <value>Vollständiger Name (kurz)</value>
   </data>
-  <data name="Group" xml:space="preserve">
+    <data name="Group" xml:space="preserve">
     <value>Gruppe</value>
   </data>
-  <data name="GroupInstanceCreationAllowed" xml:space="preserve">
+    <data name="GroupInstanceCreationAllowed" xml:space="preserve">
     <value>Erstellung von Gruppeninstanktionen gestattet</value>
   </data>
-  <data name="HexColorCode" xml:space="preserve">
+    <data name="HexColorCode" xml:space="preserve">
     <value>Hex Farbcode</value>
   </data>
-  <data name="IconName" xml:space="preserve">
+    <data name="IconName" xml:space="preserve">
     <value>Name des Symbols</value>
   </data>
-  <data name="Id" xml:space="preserve">
+    <data name="Id" xml:space="preserve">
     <value>ID</value>
   </data>
-  <data name="IndexDateTime" xml:space="preserve">
+    <data name="IndexDateTime" xml:space="preserve">
     <value>Datum der Indexierung</value>
   </data>
-  <data name="Initials" xml:space="preserve">
+    <data name="Initials" xml:space="preserve">
     <value>Kürzel</value>
   </data>
-  <data name="InitialStep" xml:space="preserve">
+    <data name="InitialStep" xml:space="preserve">
     <value>Erster Schritt</value>
   </data>
-  <data name="Insertions" xml:space="preserve">
+    <data name="Insertions" xml:space="preserve">
     <value>Begrüßung</value>
   </data>
-  <data name="IsActive" xml:space="preserve">
+    <data name="IsActive" xml:space="preserve">
     <value>Aktiv</value>
   </data>
-  <data name="IsAdditionalWorkActive" xml:space="preserve">
+    <data name="IsAdditionalWorkActive" xml:space="preserve">
     <value>Zusätzliche Arbeit aktiv</value>
   </data>
-  <data name="IsAttentionActive" xml:space="preserve">
+    <data name="IsAttentionActive" xml:space="preserve">
     <value>Achtung aktiv</value>
   </data>
-  <data name="IsDefault" xml:space="preserve">
+    <data name="IsDefault" xml:space="preserve">
     <value>Ist Standard</value>
   </data>
-  <data name="IsDeleted" xml:space="preserve">
+    <data name="IsDeleted" xml:space="preserve">
     <value>Ist entfernt worden</value>
   </data>
-  <data name="IsEnabled" xml:space="preserve">
+    <data name="IsEnabled" xml:space="preserve">
     <value>Ist aktiv</value>
   </data>
-  <data name="IsInapplicable" xml:space="preserve">
+    <data name="IsInapplicable" xml:space="preserve">
     <value>Nicht anwendbar</value>
   </data>
-  <data name="IsInapplicableDisabled" xml:space="preserve">
+    <data name="IsInapplicableDisabled" xml:space="preserve">
     <value>Nicht anwendbar inaktiv</value>
   </data>
-  <data name="IsIncrement" xml:space="preserve">
+    <data name="IsIncrement" xml:space="preserve">
     <value>Ist Inkrementierung</value>
   </data>
-  <data name="IsInitial" xml:space="preserve">
+    <data name="IsInitial" xml:space="preserve">
     <value>Ist die anfängliche</value>
   </data>
-  <data name="IsOnHold" xml:space="preserve">
+    <data name="IsOnHold" xml:space="preserve">
     <value>Warteschleife aktiv</value>
   </data>
-  <data name="IsSubGroup" xml:space="preserve">
+    <data name="IsSubGroup" xml:space="preserve">
     <value>Ist eine Untergruppe</value>
   </data>
-  <data name="Key" xml:space="preserve">
+    <data name="Key" xml:space="preserve">
     <value>Schlüssel</value>
   </data>
-  <data name="KindOfWork" xml:space="preserve">
+    <data name="KindOfWork" xml:space="preserve">
     <value>Art der Arbeit</value>
   </data>
-  <data name="Kostendrager" xml:space="preserve">
+    <data name="Kostendrager" xml:space="preserve">
     <value>Kostenträger</value>
   </data>
-  <data name="Kostensoort" xml:space="preserve">
+    <data name="Kostensoort" xml:space="preserve">
     <value>Kostenart</value>
   </data>
-  <data name="Last name" xml:space="preserve">
+    <data name="Last name" xml:space="preserve">
     <value>Nachname</value>
   </data>
-  <data name="LastModifiedDateTime" xml:space="preserve">
+    <data name="LastModifiedDateTime" xml:space="preserve">
     <value>Datum der letzten Änderung</value>
   </data>
-  <data name="LastName" xml:space="preserve">
+    <data name="LastName" xml:space="preserve">
     <value>Nachname</value>
   </data>
-  <data name="LastSyncDateTime" xml:space="preserve">
+    <data name="LastSyncDateTime" xml:space="preserve">
     <value>Datum und Uhrzeit der letzten Synchronisierung</value>
   </data>
-  <data name="LastSyncDownDateTime" xml:space="preserve">
+    <data name="LastSyncDownDateTime" xml:space="preserve">
     <value>Zeitpunkt der letzten Synchronisierung (abwärts)</value>
   </data>
-  <data name="LastSyncUpDateTime" xml:space="preserve">
+    <data name="LastSyncUpDateTime" xml:space="preserve">
     <value>Zeitpunkt der letzten Synchronisation (up)</value>
   </data>
-  <data name="Level" xml:space="preserve">
+    <data name="Level" xml:space="preserve">
     <value>Ebene</value>
   </data>
-  <data name="LocationDescription" xml:space="preserve">
+    <data name="LocationDescription" xml:space="preserve">
     <value>Beschreibung des Standorts</value>
   </data>
-  <data name="LocationLatitude" xml:space="preserve">
+    <data name="LocationLatitude" xml:space="preserve">
     <value>Breitengrad</value>
   </data>
-  <data name="LocationLongitude" xml:space="preserve">
+    <data name="LocationLongitude" xml:space="preserve">
     <value>Längengrad</value>
   </data>
-  <data name="LockoutEnd" xml:space="preserve">
+    <data name="LockoutEnd" xml:space="preserve">
     <value>Enddatum der Sperrung</value>
   </data>
-  <data name="LockOutEndDateTime" xml:space="preserve">
+    <data name="LockOutEndDateTime" xml:space="preserve">
     <value>Enddatum und Uhrzeit ausschließen</value>
   </data>
-  <data name="LockoutStart" xml:space="preserve">
+    <data name="LockoutStart" xml:space="preserve">
     <value>Startdatum des Blocks</value>
   </data>
-  <data name="LockOutStartDateTime" xml:space="preserve">
+    <data name="LockOutStartDateTime" xml:space="preserve">
     <value>Startdatum und Uhrzeit ausschließen</value>
   </data>
-  <data name="Logo file" xml:space="preserve">
+    <data name="Logo file" xml:space="preserve">
     <value>Logo Datei</value>
   </data>
-  <data name="MergePolicy" xml:space="preserve">
+    <data name="MergePolicy" xml:space="preserve">
     <value>Politik des Zusammenschlusses</value>
   </data>
-  <data name="Message" xml:space="preserve">
+    <data name="Message" xml:space="preserve">
     <value>Nachricht</value>
   </data>
-  <data name="MessageArguments" xml:space="preserve">
+    <data name="MessageArguments" xml:space="preserve">
     <value>Argumente der Nachricht</value>
   </data>
-  <data name="MessageTranslateds" xml:space="preserve">
+    <data name="MessageTranslateds" xml:space="preserve">
     <value>Übersetzungen von Nachrichten</value>
   </data>
-  <data name="MetaFieldDefinition" xml:space="preserve">
+    <data name="MetaFieldDefinition" xml:space="preserve">
     <value>Definition des Metafeldes</value>
   </data>
-  <data name="MetaFieldDefinitionGroup" xml:space="preserve">
+    <data name="MetaFieldDefinitionGroup" xml:space="preserve">
     <value>Metafeld Definitionsgruppe</value>
   </data>
-  <data name="Middle name" xml:space="preserve">
+    <data name="Middle name" xml:space="preserve">
     <value>Eingaben</value>
   </data>
-  <data name="MiddleName" xml:space="preserve">
+    <data name="MiddleName" xml:space="preserve">
     <value>Eingaben</value>
   </data>
-  <data name="Municipality" xml:space="preserve">
+    <data name="Municipality" xml:space="preserve">
     <value>Kommune</value>
   </data>
-  <data name="MutateNamespaceAllowed" xml:space="preserve">
+    <data name="MutateNamespaceAllowed" xml:space="preserve">
     <value>Bearbeitung von Namensräumen erlaubt</value>
   </data>
-  <data name="Name" xml:space="preserve">
+    <data name="Name" xml:space="preserve">
     <value>Name</value>
   </data>
-  <data name="Namespace" xml:space="preserve">
+    <data name="Namespace" xml:space="preserve">
     <value>Namensraum</value>
   </data>
-  <data name="NewOrderBudgets" xml:space="preserve">
+    <data name="NewOrderBudgets" xml:space="preserve">
     <value>Neue zusätzliche Arbeiten</value>
   </data>
-  <data name="NewProjectsAllowed" xml:space="preserve">
+    <data name="NewProjectsAllowed" xml:space="preserve">
     <value>Neue Projekte zulassen</value>
   </data>
-  <data name="NextStep" xml:space="preserve">
+    <data name="NextStep" xml:space="preserve">
     <value>Nächster Schritt</value>
   </data>
-  <data name="NormalizedEmail" xml:space="preserve">
+    <data name="NormalizedEmail" xml:space="preserve">
     <value>Normalisierte E-Mail Adresse</value>
   </data>
-  <data name="NormalizedName" xml:space="preserve">
+    <data name="NormalizedName" xml:space="preserve">
     <value>Standardisierter Name</value>
   </data>
-  <data name="NormalizedUserName" xml:space="preserve">
+    <data name="NormalizedUserName" xml:space="preserve">
     <value>Normalisierter Nutzername</value>
   </data>
-  <data name="ObjectId" xml:space="preserve">
+    <data name="ObjectId" xml:space="preserve">
     <value>Objekt ID</value>
   </data>
-  <data name="ObjectType" xml:space="preserve">
+    <data name="ObjectType" xml:space="preserve">
     <value>Objekttyp</value>
   </data>
-  <data name="ObjectTypeFull" xml:space="preserve">
+    <data name="ObjectTypeFull" xml:space="preserve">
     <value>Objekttyp vollständig</value>
   </data>
-  <data name="Options" xml:space="preserve">
+    <data name="Options" xml:space="preserve">
     <value>Optionen</value>
   </data>
-  <data name="Order" xml:space="preserve">
+    <data name="Order" xml:space="preserve">
     <value>Bestellung</value>
   </data>
-  <data name="OrderBudget" xml:space="preserve">
+    <data name="OrderBudget" xml:space="preserve">
     <value>Brennpunkt/mehr Arbeit</value>
   </data>
-  <data name="OrderBudgets" xml:space="preserve">
+    <data name="OrderBudgets" xml:space="preserve">
     <value>Brennpunkt und zusätzliche Arbeiten</value>
   </data>
-  <data name="OrderDiscipline" xml:space="preserve">
+    <data name="OrderDiscipline" xml:space="preserve">
     <value>Disziplinarverfahren</value>
   </data>
-  <data name="OrderDisciplines" xml:space="preserve">
+    <data name="OrderDisciplines" xml:space="preserve">
     <value>Disziplinen</value>
   </data>
-  <data name="OrderGroup" xml:space="preserve">
+    <data name="OrderGroup" xml:space="preserve">
     <value>Projekt</value>
   </data>
-  <data name="OrderGroupBudget" xml:space="preserve">
+    <data name="OrderGroupBudget" xml:space="preserve">
     <value>Arbeitshaushalt</value>
   </data>
-  <data name="OrderGroupBudgetTemplate" xml:space="preserve">
+    <data name="OrderGroupBudgetTemplate" xml:space="preserve">
     <value>Arbeitsbudgetvorlage</value>
   </data>
-  <data name="OrderGroupTeams" xml:space="preserve">
+    <data name="OrderGroupTeams" xml:space="preserve">
     <value>Pflüge</value>
   </data>
-  <data name="OrderProductionRecording" xml:space="preserve">
+    <data name="OrderProductionRecording" xml:space="preserve">
     <value>Verantwortlichkeit für die Produktion</value>
   </data>
-  <data name="OrderProductionRecordings" xml:space="preserve">
+    <data name="OrderProductionRecordings" xml:space="preserve">
     <value>Angaben zur Produktion</value>
   </data>
-  <data name="OrderProformaInvoice" xml:space="preserve">
+    <data name="OrderProformaInvoice" xml:space="preserve">
     <value>Abrechnungserklärung</value>
   </data>
-  <data name="OrderProformaInvoices" xml:space="preserve">
+    <data name="OrderProformaInvoices" xml:space="preserve">
     <value>Abrechnungen</value>
   </data>
-  <data name="Orders" xml:space="preserve">
+    <data name="Orders" xml:space="preserve">
     <value>Kaufaufträge</value>
   </data>
-  <data name="OriginalFileName" xml:space="preserve">
+    <data name="OriginalFileName" xml:space="preserve">
     <value>Name der Originaldatei</value>
   </data>
-  <data name="Page" xml:space="preserve">
+    <data name="Page" xml:space="preserve">
     <value>Seite</value>
   </data>
-  <data name="Password" xml:space="preserve">
+    <data name="Password" xml:space="preserve">
     <value>Password</value>
   </data>
-  <data name="Person" xml:space="preserve">
+    <data name="Person" xml:space="preserve">
     <value>Person</value>
   </data>
-  <data name="Persons" xml:space="preserve">
+    <data name="Persons" xml:space="preserve">
     <value>Personen</value>
   </data>
-  <data name="PhoneNumber" xml:space="preserve">
+    <data name="PhoneNumber" xml:space="preserve">
     <value>Telefonnummer</value>
   </data>
-  <data name="PhoneNumberConfirmed" xml:space="preserve">
+    <data name="PhoneNumberConfirmed" xml:space="preserve">
     <value>Telefonnummer bestätigt</value>
   </data>
-  <data name="Place" xml:space="preserve">
+    <data name="Place" xml:space="preserve">
     <value>Standort</value>
   </data>
-  <data name="Post_Code" xml:space="preserve">
+    <data name="Post_Code" xml:space="preserve">
     <value>Postleitzahl</value>
   </data>
-  <data name="PriceBook" xml:space="preserve">
+    <data name="PriceBook" xml:space="preserve">
     <value>Preisbuch</value>
   </data>
-  <data name="ProcessFlow" xml:space="preserve">
+    <data name="ProcessFlow" xml:space="preserve">
     <value>Prozessablauf</value>
   </data>
-  <data name="ProcessSteps" xml:space="preserve">
+    <data name="ProcessSteps" xml:space="preserve">
     <value>Phase</value>
   </data>
-  <data name="ProductionRecording" xml:space="preserve">
+    <data name="ProductionRecording" xml:space="preserve">
     <value>Verantwortlichkeit für die Produktion</value>
   </data>
-  <data name="ProductionRecordings" xml:space="preserve">
+    <data name="ProductionRecordings" xml:space="preserve">
     <value>Angaben zur Produktion</value>
   </data>
-  <data name="ProformaInvoice" xml:space="preserve">
+    <data name="ProformaInvoice" xml:space="preserve">
     <value>Abrechnungserklärung</value>
   </data>
-  <data name="Project" xml:space="preserve">
+    <data name="Project" xml:space="preserve">
     <value>Projekt</value>
   </data>
-  <data name="ProjectCode" xml:space="preserve">
+    <data name="ProjectCode" xml:space="preserve">
     <value>Projektcode</value>
   </data>
-  <data name="ProjectManager" xml:space="preserve">
+    <data name="ProjectManager" xml:space="preserve">
     <value>Projektleiter</value>
   </data>
-  <data name="ProjectType" xml:space="preserve">
+    <data name="ProjectType" xml:space="preserve">
     <value>Projekttyp</value>
   </data>
-  <data name="Province" xml:space="preserve">
+    <data name="Province" xml:space="preserve">
     <value>Provinz</value>
   </data>
-  <data name="Quantity" xml:space="preserve">
+    <data name="Quantity" xml:space="preserve">
     <value>Anzahl der Einheiten</value>
   </data>
-  <data name="QuantityFriday" xml:space="preserve">
+    <data name="QuantityFriday" xml:space="preserve">
     <value>Anzahl der Freitage</value>
   </data>
-  <data name="QuantityMonday" xml:space="preserve">
+    <data name="QuantityMonday" xml:space="preserve">
     <value>Anzahl von Montagen</value>
   </data>
-  <data name="QuantitySaturday" xml:space="preserve">
+    <data name="QuantitySaturday" xml:space="preserve">
     <value>Anzahl der Samstage</value>
   </data>
-  <data name="QuantitySunday" xml:space="preserve">
+    <data name="QuantitySunday" xml:space="preserve">
     <value>Anzahl der Sonntag</value>
   </data>
-  <data name="QuantityThursday" xml:space="preserve">
+    <data name="QuantityThursday" xml:space="preserve">
     <value>Anzahl der Donnerstage</value>
   </data>
-  <data name="QuantityTotal" xml:space="preserve">
+    <data name="QuantityTotal" xml:space="preserve">
     <value>Gesamtzahl</value>
   </data>
-  <data name="QuantityTuesday" xml:space="preserve">
+    <data name="QuantityTuesday" xml:space="preserve">
     <value>Anzahl der Dienstage</value>
   </data>
-  <data name="QuantityWednesday" xml:space="preserve">
+    <data name="QuantityWednesday" xml:space="preserve">
     <value>Anzahl der Mittwoche</value>
   </data>
-  <data name="ReadAllowed" xml:space="preserve">
+    <data name="ReadAllowed" xml:space="preserve">
     <value>Lesen erlaubt</value>
   </data>
-  <data name="ReadAllowedUserRoles" xml:space="preserve">
+    <data name="ReadAllowedUserRoles" xml:space="preserve">
     <value>Benutzerrollen Leserechte</value>
   </data>
-  <data name="Reference" xml:space="preserve">
+    <data name="Reference" xml:space="preserve">
     <value>Referenz</value>
   </data>
-  <data name="ReferenceId" xml:space="preserve">
+    <data name="ReferenceId" xml:space="preserve">
     <value>Referenz ID</value>
   </data>
-  <data name="RefreshToken" xml:space="preserve">
+    <data name="RefreshToken" xml:space="preserve">
     <value>Token aktualisieren</value>
   </data>
-  <data name="Regex" xml:space="preserve">
+    <data name="Regex" xml:space="preserve">
     <value>Regex</value>
   </data>
-  <data name="Regexes" xml:space="preserve">
+    <data name="Regexes" xml:space="preserve">
     <value>Regexes</value>
   </data>
-  <data name="Region" xml:space="preserve">
+    <data name="Region" xml:space="preserve">
     <value>Region</value>
   </data>
-  <data name="RegionId" xml:space="preserve">
+    <data name="RegionId" xml:space="preserve">
     <value>Region</value>
   </data>
-  <data name="Register url" xml:space="preserve">
+    <data name="Register url" xml:space="preserve">
     <value>Anmeldung url</value>
   </data>
-  <data name="RegistrationToken" xml:space="preserve">
+    <data name="RegistrationToken" xml:space="preserve">
     <value>Registrierungstoken</value>
   </data>
-  <data name="Remark" xml:space="preserve">
+    <data name="Remark" xml:space="preserve">
     <value>Kommentar</value>
   </data>
-  <data name="Remarks" xml:space="preserve">
+    <data name="Remarks" xml:space="preserve">
     <value>Kommentare</value>
   </data>
-  <data name="Remember me?" xml:space="preserve">
+    <data name="Remember me?" xml:space="preserve">
     <value>Daten aufbewahren?</value>
   </data>
-  <data name="ResetBySystem" xml:space="preserve">
+    <data name="ResetBySystem" xml:space="preserve">
     <value>Wiederherstellung nach System</value>
   </data>
-  <data name="Reviser" xml:space="preserve">
+    <data name="Reviser" xml:space="preserve">
     <value>Prüfer</value>
   </data>
-  <data name="Role" xml:space="preserve">
+    <data name="Role" xml:space="preserve">
     <value>Rolle</value>
   </data>
-  <data name="Roles" xml:space="preserve">
+    <data name="Roles" xml:space="preserve">
     <value>Rolle</value>
   </data>
-  <data name="Row" xml:space="preserve">
+    <data name="Row" xml:space="preserve">
     <value>Regel</value>
   </data>
-  <data name="RowNumber" xml:space="preserve">
+    <data name="RowNumber" xml:space="preserve">
     <value>Zeilennummer</value>
   </data>
-  <data name="Short code" xml:space="preserve">
+    <data name="Short code" xml:space="preserve">
     <value>Kurzer Code</value>
   </data>
-  <data name="ShortDisplayName" xml:space="preserve">
+    <data name="ShortDisplayName" xml:space="preserve">
     <value>Kurze Darstellung des Namens</value>
   </data>
-  <data name="Should remove" xml:space="preserve">
+    <data name="Should remove" xml:space="preserve">
     <value>Entfernen?</value>
   </data>
-  <data name="SortIndex" xml:space="preserve">
+    <data name="SortIndex" xml:space="preserve">
     <value>Sortierungsindex</value>
   </data>
-  <data name="Source" xml:space="preserve">
+    <data name="Source" xml:space="preserve">
     <value>Quelle</value>
   </data>
-  <data name="SourceType" xml:space="preserve">
+    <data name="SourceType" xml:space="preserve">
     <value>Quelle: Typ</value>
   </data>
-  <data name="StartDate" xml:space="preserve">
+    <data name="StartDate" xml:space="preserve">
     <value>Startsdatum</value>
   </data>
-  <data name="StartDateTime" xml:space="preserve">
+    <data name="StartDateTime" xml:space="preserve">
     <value>Startdatum Uhrzeit</value>
   </data>
-  <data name="Step" xml:space="preserve">
+    <data name="Step" xml:space="preserve">
     <value>Schritt</value>
   </data>
-  <data name="Steps" xml:space="preserve">
+    <data name="Steps" xml:space="preserve">
     <value>Schritte</value>
   </data>
-  <data name="Street" xml:space="preserve">
+    <data name="Street" xml:space="preserve">
     <value>Straße</value>
   </data>
-  <data name="StreetObjectNumber" xml:space="preserve">
+    <data name="StreetObjectNumber" xml:space="preserve">
     <value>Hausnummer</value>
   </data>
-  <data name="StreetObjectNumberSuffix" xml:space="preserve">
+    <data name="StreetObjectNumberSuffix" xml:space="preserve">
     <value>Hausnummer Zusatz</value>
   </data>
-  <data name="StreetObjectRoomNumber" xml:space="preserve">
+    <data name="StreetObjectRoomNumber" xml:space="preserve">
     <value>Zimmernummer der Immobilie</value>
   </data>
-  <data name="SubGroup" xml:space="preserve">
+    <data name="SubGroup" xml:space="preserve">
     <value>Untergruppe</value>
   </data>
-  <data name="SubName" xml:space="preserve">
+    <data name="SubName" xml:space="preserve">
     <value>Untertitel</value>
   </data>
-  <data name="SystemCanMutate" xml:space="preserve">
+    <data name="SystemCanMutate" xml:space="preserve">
     <value>Bearbeitung durch das System zulassen</value>
   </data>
-  <data name="Tab" xml:space="preserve">
+    <data name="Tab" xml:space="preserve">
     <value>Registerkarte</value>
   </data>
-  <data name="Tag" xml:space="preserve">
+    <data name="Tag" xml:space="preserve">
     <value>Tag</value>
   </data>
-  <data name="Team" xml:space="preserve">
+    <data name="Team" xml:space="preserve">
     <value>Pflug</value>
   </data>
-  <data name="TeamLeader" xml:space="preserve">
+    <data name="TeamLeader" xml:space="preserve">
     <value>Teamleiter</value>
   </data>
-  <data name="TeamUsers" xml:space="preserve">
+    <data name="TeamUsers" xml:space="preserve">
     <value>Kadermitglieder</value>
   </data>
-  <data name="TemporaryId" xml:space="preserve">
+    <data name="TemporaryId" xml:space="preserve">
     <value>Temporärer Schlüssel</value>
   </data>
-  <data name="Text" xml:space="preserve">
+    <data name="Text" xml:space="preserve">
     <value>Text</value>
   </data>
-  <data name="TextContent" xml:space="preserve">
+    <data name="TextContent" xml:space="preserve">
     <value>Inhalt des Textes</value>
   </data>
-  <data name="The {0} field is required and should atleast contain {1} characters." xml:space="preserve">
+    <data name="The {0} field is required and should atleast contain {1} characters." xml:space="preserve">
     <value>Das Feld {0} ist obligatorisch und muss mindestens {1} Zeichen enthalten.</value>
   </data>
-  <data name="The {0} field is required." xml:space="preserve">
+    <data name="The {0} field is required." xml:space="preserve">
     <value>{0} ist ein Pflichtfeld.</value>
   </data>
-  <data name="The {0} must be at least {2} and at max {1} characters long." xml:space="preserve">
+    <data name="The {0} must be at least {2} and at max {1} characters long." xml:space="preserve">
     <value>{0} muss mindestens {2} und höchstens {1} Zeichen enthalten.</value>
   </data>
-  <data name="The password and confirmation password do not match." xml:space="preserve">
+    <data name="The password and confirmation password do not match." xml:space="preserve">
     <value>Das Passwort und das bestätigte Passwort stimmen nicht überein.</value>
   </data>
-  <data name="The UniqueName is invalid." xml:space="preserve">
+    <data name="The UniqueName is invalid." xml:space="preserve">
     <value>Der eindeutige Name ist ungültig.</value>
   </data>
-  <data name="Title" xml:space="preserve">
+    <data name="Title" xml:space="preserve">
     <value>Titel</value>
   </data>
-  <data name="Token" xml:space="preserve">
+    <data name="Token" xml:space="preserve">
     <value>Token</value>
   </data>
-  <data name="TotalPrice" xml:space="preserve">
+    <data name="TotalPrice" xml:space="preserve">
     <value>Gesamtpreis</value>
   </data>
-  <data name="Type" xml:space="preserve">
+    <data name="Type" xml:space="preserve">
     <value>Typ</value>
   </data>
-  <data name="UniqueName" xml:space="preserve">
+    <data name="UniqueName" xml:space="preserve">
     <value>Eindeutiger Name</value>
   </data>
-  <data name="UnitCode" xml:space="preserve">
+    <data name="UnitCode" xml:space="preserve">
     <value>Code</value>
   </data>
-  <data name="UnitOfMeasure" xml:space="preserve">
+    <data name="UnitOfMeasure" xml:space="preserve">
     <value>Einheit</value>
   </data>
-  <data name="UnitPrice" xml:space="preserve">
+    <data name="UnitPrice" xml:space="preserve">
     <value>Preis pro Einheit</value>
   </data>
-  <data name="User" xml:space="preserve">
+    <data name="User" xml:space="preserve">
     <value>Benutzer</value>
   </data>
-  <data name="User settings" xml:space="preserve">
+    <data name="User settings" xml:space="preserve">
     <value>Benutzereinstellungen</value>
   </data>
-  <data name="UserCanBulkEdit" xml:space="preserve">
+    <data name="UserCanBulkEdit" xml:space="preserve">
     <value>Massenbearbeitung durch Benutzer zulassen</value>
   </data>
-  <data name="UserCanMutate" xml:space="preserve">
+    <data name="UserCanMutate" xml:space="preserve">
     <value>Bearbeitung durch den Benutzer zulassen</value>
   </data>
-  <data name="UserName" xml:space="preserve">
+    <data name="UserName" xml:space="preserve">
     <value>Benutzername</value>
   </data>
-  <data name="UserRole" xml:space="preserve">
+    <data name="UserRole" xml:space="preserve">
     <value>Rolle des Benutzers</value>
   </data>
-  <data name="UserRoles" xml:space="preserve">
+    <data name="UserRoles" xml:space="preserve">
     <value>Benutzerrollen</value>
   </data>
-  <data name="Users" xml:space="preserve">
+    <data name="Users" xml:space="preserve">
     <value>Benutzer</value>
   </data>
-  <data name="UserSelectAllowed" xml:space="preserve">
+    <data name="UserSelectAllowed" xml:space="preserve">
     <value>Benutzerauswahl erlaubt</value>
   </data>
-  <data name="UserSettings" xml:space="preserve">
+    <data name="UserSettings" xml:space="preserve">
     <value>Benutzereinstellungen</value>
   </data>
-  <data name="Value" xml:space="preserve">
+    <data name="Value" xml:space="preserve">
     <value>Wert</value>
   </data>
-  <data name="ViewSortIndex" xml:space="preserve">
+    <data name="ViewSortIndex" xml:space="preserve">
     <value>Einstufung</value>
   </data>
-  <data name="Week" xml:space="preserve">
+    <data name="Week" xml:space="preserve">
     <value>Woche</value>
   </data>
-  <data name="WishDateTime" xml:space="preserve">
+    <data name="WishDateTime" xml:space="preserve">
     <value>Wunschtermin</value>
   </data>
-  <data name="WorkPreparator" xml:space="preserve">
+    <data name="WorkPreparator" xml:space="preserve">
     <value>Arbeitsvorbereitung</value>
   </data>
-  <data name="WorkPreparer" xml:space="preserve">
+    <data name="WorkPreparer" xml:space="preserve">
     <value>Arbeitsvorbereitung</value>
   </data>
-  <data name="WriteAllowed" xml:space="preserve">
+    <data name="WriteAllowed" xml:space="preserve">
     <value>Schreiben erlaubt</value>
   </data>
-  <data name="WriteAllowedUserRoles" xml:space="preserve">
+    <data name="WriteAllowedUserRoles" xml:space="preserve">
     <value>Benutzerrollen Schreibrechte</value>
   </data>
-  <data name="Year" xml:space="preserve">
+    <data name="Year" xml:space="preserve">
     <value>Jahr</value>
   </data>
-  <data name="YearWeek" xml:space="preserve">
+    <data name="YearWeek" xml:space="preserve">
     <value>Jahr/Woche</value>
   </data>
-  <data name="DefaultCreate" xml:space="preserve">
+    <data name="DefaultCreate" xml:space="preserve">
     <value>Standard erstellen</value>
   </data>
-  <data name="EndTime" xml:space="preserve">
+    <data name="EndTime" xml:space="preserve">
     <value>Endzeit</value>
   </data>
-  <data name="IsFilter" xml:space="preserve">
+    <data name="IsFilter" xml:space="preserve">
     <value>Ist Filter</value>
   </data>
-  <data name="IsInactive" xml:space="preserve">
+    <data name="IsInactive" xml:space="preserve">
     <value>Ist inaktiv</value>
   </data>
-  <data name="MetaEntryDefinition" xml:space="preserve">
+    <data name="MetaEntryDefinition" xml:space="preserve">
     <value>Projektfelddefinition</value>
   </data>
-  <data name="StartTime" xml:space="preserve">
+    <data name="StartTime" xml:space="preserve">
     <value>Startzeit</value>
   </data>
 </root>

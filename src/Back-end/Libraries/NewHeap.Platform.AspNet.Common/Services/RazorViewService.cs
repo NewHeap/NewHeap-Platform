@@ -6,17 +6,18 @@ using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
+using Newtonsoft.Json;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
 public partial class RazorViewService
 {
-
     private readonly IRazorViewEngine _razorViewEngine;
-    private readonly ITempDataProvider _tempDataProvider;
     private readonly IServiceProvider _serviceProvider;
+    private readonly ITempDataProvider _tempDataProvider;
 
-    public RazorViewService(IRazorViewEngine razorViewEngine, ITempDataProvider tempDataProvider, IServiceProvider serviceProvider)
+    public RazorViewService(IRazorViewEngine razorViewEngine, ITempDataProvider tempDataProvider,
+        IServiceProvider serviceProvider)
     {
         _razorViewEngine = razorViewEngine;
         _tempDataProvider = tempDataProvider;
@@ -27,21 +28,20 @@ public partial class RazorViewService
     {
         var actionContext = GetActionContext();
 
-        using (var sw = new StringWriter())
+        using (StringWriter sw = new())
         {
             var viewResult = _razorViewEngine.FindView(actionContext, viewName, false);
 
             if (viewResult.View == null)
             {
-                throw new ArgumentNullException($"{viewName} does not match any available view." + " " + Newtonsoft.Json.JsonConvert.SerializeObject(viewResult.SearchedLocations));
+                throw new ArgumentNullException($"{viewName} does not match any available view." + " " +
+                                                JsonConvert.SerializeObject(viewResult.SearchedLocations));
             }
 
-            var viewDictionary = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary())
-            {
-                Model = model
-            };
+            ViewDataDictionary viewDictionary =
+                new(new EmptyModelMetadataProvider(), new ModelStateDictionary()) { Model = model };
 
-            var viewContext = new ViewContext(
+            ViewContext viewContext = new(
                 actionContext,
                 viewResult.View,
                 viewDictionary,
@@ -57,7 +57,7 @@ public partial class RazorViewService
 
     public ActionContext GetActionContext()
     {
-        var httpContext = new DefaultHttpContext { RequestServices = _serviceProvider };
+        DefaultHttpContext httpContext = new() { RequestServices = _serviceProvider };
         return new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
     }
 }

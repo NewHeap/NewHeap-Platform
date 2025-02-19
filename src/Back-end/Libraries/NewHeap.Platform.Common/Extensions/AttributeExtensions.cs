@@ -6,7 +6,8 @@ namespace NewHeap.Platform.Common.Extensions;
 
 public static partial class AttributeExtensions
 {
-    public static TResult TryGetAttribute<TSource, TResult>(this TSource instance, Expression<Func<TSource, object>> selector)
+    public static TResult TryGetAttribute<TSource, TResult>(this TSource instance,
+        Expression<Func<TSource, object>> selector)
         where TResult : Attribute
     {
         if (selector.NodeType != ExpressionType.Lambda)
@@ -14,7 +15,7 @@ public static partial class AttributeExtensions
             throw new ArgumentException("Selector must be lambda expression", "selector");
         }
 
-        var lambda = (LambdaExpression)selector;
+        LambdaExpression? lambda = selector;
 
         var memberExpression = ExtractMemberExpression(lambda.Body);
 
@@ -38,14 +39,15 @@ public static partial class AttributeExtensions
         return null;
     }
 
-    public static PropertyInfo TryGetPropertyInfo<TSource>(this TSource instance, Expression<Func<TSource, object>> selector)
+    public static PropertyInfo TryGetPropertyInfo<TSource>(this TSource instance,
+        Expression<Func<TSource, object>> selector)
     {
         if (selector.NodeType != ExpressionType.Lambda)
         {
             throw new ArgumentException("Selector must be lambda expression", "selector");
         }
 
-        var lambda = (LambdaExpression)selector;
+        LambdaExpression lambda = selector;
 
         var memberExpression = ExtractMemberExpression(lambda.Body);
 
@@ -66,7 +68,7 @@ public static partial class AttributeExtensions
     {
         if (expression.NodeType == ExpressionType.MemberAccess)
         {
-            return ((MemberExpression)expression);
+            return (MemberExpression)expression;
         }
 
         if (expression.NodeType == ExpressionType.Convert)
@@ -82,8 +84,8 @@ public static partial class AttributeExtensions
     {
         var attribute = TryGetAttribute<T, StringLengthAttribute>(instance, selector);
         var propertyInfo = TryGetPropertyInfo(instance, selector);
-        string propertyValue = (string)propertyInfo.GetValue(instance);
-        string result = propertyValue;
+        var propertyValue = (string)propertyInfo.GetValue(instance);
+        var result = propertyValue;
 
         if (attribute != null && propertyInfo != null && propertyValue != null && result != null)
         {

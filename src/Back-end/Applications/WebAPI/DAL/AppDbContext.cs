@@ -1,30 +1,24 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using NewHeap.Platform.AspNet.Common.DAL;
-using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
 using WebAPI.DAL.Entities;
 
-namespace WebAPI.DAL
+namespace WebAPI.DAL;
+
+public class AppDbContext : NhDbContext
 {
-    public class AppDbContext : NhDbContext
+    public AppDbContext()
     {
-        public DbSet<Address> Addresses { get; set; }
+    }
 
-        public AppDbContext()
-            : base()
-        {
-        }
+    public AppDbContext(DbContextOptions contextOptions)
+        : base(contextOptions)
+    {
+    }
 
-        public AppDbContext(DbContextOptions contextOptions)
-            : base(contextOptions)
-        {
-        }
+    public DbSet<Address> Addresses { get; set; }
 
-        protected override void OnModelCreating(ModelBuilder builder)
-        {
-            base.OnModelCreating(builder);
-        }
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
     }
 }

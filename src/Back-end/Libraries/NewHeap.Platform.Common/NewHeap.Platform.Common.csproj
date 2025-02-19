@@ -1,35 +1,35 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <Title>NewHeap Common</Title>
-    <Copyright>NewHeap B.V.</Copyright>
-    <PackageProjectUrl>https://dev.azure.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <RepositoryUrl>https://dev.azure.com/NewHeap/_git/NewHeap-Platform</RepositoryUrl>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <Title>NewHeap Common</Title>
+        <Copyright>NewHeap B.V.</Copyright>
+        <PackageProjectUrl>https://dev.azure.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <RepositoryUrl>https://dev.azure.com/NewHeap/_git/NewHeap-Platform</RepositoryUrl>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="13.0.1" />
-    <PackageReference Include="Hangfire" Version="1.8.17" />
-    <PackageReference Include="Hangfire.Console" Version="1.4.3" />
-    <PackageReference Include="KeyedSemaphores" Version="5.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="StackExchange.Utils.Configuration" Version="0.1.12" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="AutoMapper" Version="13.0.1"/>
+        <PackageReference Include="Hangfire" Version="1.8.17"/>
+        <PackageReference Include="Hangfire.Console" Version="1.4.3"/>
+        <PackageReference Include="KeyedSemaphores" Version="5.0.0"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.2"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
+        <PackageReference Include="StackExchange.Utils.Configuration" Version="0.1.12"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <None Update="README.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-  </ItemGroup>
+    <ItemGroup>
+        <None Update="README.md">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
 
 </Project>

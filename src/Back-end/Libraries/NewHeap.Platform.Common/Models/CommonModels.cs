@@ -1,41 +1,31 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System.Linq.Expressions;
-using System.Threading.Tasks;
 
 namespace NewHeap.Platform.Common.Models;
 
 public partial class MutationResultManagerModel<T>
     where T : class
 {
-    public T Result { get; set; }
-    public List<ErrorMutationResultManagerModel> ErrorMessages { get; set; }
-
     public MutationResultManagerModel()
     {
         ErrorMessages = new List<ErrorMutationResultManagerModel>();
     }
+
+    public T Result { get; set; }
+    public List<ErrorMutationResultManagerModel> ErrorMessages { get; set; }
 }
 
-public partial class ErrorMutationResultManagerModel
+public class ErrorMutationResultManagerModel
 {
     public string Key { get; set; }
     public string ErrorMessage { get; set; }
 }
 
-public partial class TaskResult<T>
+public class TaskResult<T>
 {
-    public class ResultItem
-    {
-        public string Name { get; set; }
-
-        public List<string> ErrorMessages { get; } = new List<string>();
-    }
-
     public bool Success { get; private set; } = true;
 
-    public List<ResultItem> Results { get; } = new List<ResultItem>();
+    public List<ResultItem> Results { get; } = new();
 
     public List<string> AllErrorMessages => Results.SelectMany(x => x.ErrorMessages).ToList();
 
@@ -44,7 +34,7 @@ public partial class TaskResult<T>
     public void AddError(Expression<Func<T, object>> selector, params string[] errorMessages)
     {
         var name = (selector.Body as MemberExpression
-            ?? ((UnaryExpression)selector.Body).Operand as MemberExpression).Member.Name;
+                    ?? ((UnaryExpression)selector.Body).Operand as MemberExpression).Member.Name;
 
         AddError(name, errorMessages);
     }
@@ -53,11 +43,11 @@ public partial class TaskResult<T>
     {
         Success = false;
 
-        var resultItem = Results.FirstOrDefault(x => x.Name == name);
+        ResultItem? resultItem = Results.FirstOrDefault(x => x.Name == name);
 
         if (resultItem == null)
         {
-            resultItem = new ResultItem() { Name = name };
+            resultItem = new ResultItem { Name = name };
             Results.Add(resultItem);
         }
 
@@ -69,7 +59,7 @@ public partial class TaskResult<T>
 
     public void ApplyToTaskResult<T2>(TaskResult<T2> taskResult)
     {
-        foreach (var result in Results)
+        foreach (ResultItem? result in Results)
         {
             foreach (var errorMessage in result.ErrorMessages)
             {
@@ -78,9 +68,9 @@ public partial class TaskResult<T>
         }
     }
 
-    public void ApplyToModelState(Microsoft.AspNetCore.Mvc.ModelBinding.ModelStateDictionary modelState)
+    public void ApplyToModelState(ModelStateDictionary modelState)
     {
-        foreach (var result in Results)
+        foreach (ResultItem? result in Results)
         {
             foreach (var errorMessage in result.ErrorMessages)
             {
@@ -89,13 +79,15 @@ public partial class TaskResult<T>
         }
     }
 
-    public TaskResult()
+    public class ResultItem
     {
+        public string Name { get; set; }
 
+        public List<string> ErrorMessages { get; } = new();
     }
 }
 
-public partial class CreateUpdateDeleteValidateModel<TTaskResult, TSourceObj, TMutateObj>
+public class CreateUpdateDeleteValidateModel<TTaskResult, TSourceObj, TMutateObj>
     where TTaskResult : class
     where TSourceObj : class
     where TMutateObj : class

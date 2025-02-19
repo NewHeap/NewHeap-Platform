@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
-namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
+﻿namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
 public partial class DivisionUserRole
 {

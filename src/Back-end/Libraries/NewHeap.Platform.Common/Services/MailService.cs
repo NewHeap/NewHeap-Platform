@@ -15,7 +15,8 @@ public partial class MailService
         _emailSettings = emailSettings.Value;
     }
 
-    public virtual async Task SendAsync(MailMessage mailMessage, MailAddress fromMailAddress = null, string formDisplayName = null)
+    public virtual async Task SendAsync(MailMessage mailMessage, MailAddress fromMailAddress = null,
+        string formDisplayName = null)
     {
         if (mailMessage == null)
         {
@@ -27,9 +28,9 @@ public partial class MailService
         mailMessage.BodyEncoding = Encoding.UTF8;
 
         var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-        if ((!string.IsNullOrWhiteSpace(environment) && environment.ToLower() != "production"))
+        if (!string.IsNullOrWhiteSpace(environment) && environment.ToLower() != "production")
         {
-            mailMessage.Subject = (string.IsNullOrWhiteSpace(mailMessage.Subject))
+            mailMessage.Subject = string.IsNullOrWhiteSpace(mailMessage.Subject)
                 ? $"[{environment}]"
                 : $"[{environment}] - " + mailMessage.Subject;
         }
@@ -38,19 +39,22 @@ public partial class MailService
         {
             foreach (var restrictedAllowedEntry in _emailSettings.RestrictedEmailWhitelist)
             {
-                var toInvalidEntries = mailMessage.To.Where(x => !x.Address.EndsWith(restrictedAllowedEntry)).ToList();
+                List<MailAddress> toInvalidEntries =
+                    mailMessage.To.Where(x => !x.Address.EndsWith(restrictedAllowedEntry)).ToList();
                 foreach (var invalidEntry in toInvalidEntries)
                 {
                     mailMessage.To.Remove(invalidEntry);
                 }
 
-                var ccInvalidEntries = mailMessage.CC.Where(x => !x.Address.EndsWith(restrictedAllowedEntry)).ToList();
+                List<MailAddress> ccInvalidEntries =
+                    mailMessage.CC.Where(x => !x.Address.EndsWith(restrictedAllowedEntry)).ToList();
                 foreach (var invalidEntry in ccInvalidEntries)
                 {
                     mailMessage.CC.Remove(invalidEntry);
                 }
 
-                var bccInvalidEntries = mailMessage.Bcc.Where(x => !x.Address.EndsWith(restrictedAllowedEntry)).ToList();
+                List<MailAddress> bccInvalidEntries =
+                    mailMessage.Bcc.Where(x => !x.Address.EndsWith(restrictedAllowedEntry)).ToList();
                 foreach (var invalidEntry in bccInvalidEntries)
                 {
                     mailMessage.Bcc.Remove(invalidEntry);
@@ -63,7 +67,7 @@ public partial class MailService
             }
         }
 
-        using (SmtpClient smtp = new SmtpClient(_emailSettings.Host, _emailSettings.Port))
+        using (SmtpClient smtp = new(_emailSettings.Host, _emailSettings.Port))
         {
             smtp.Credentials = new NetworkCredential(_emailSettings.User, _emailSettings.Password);
             smtp.EnableSsl = _emailSettings.EnableSsl;

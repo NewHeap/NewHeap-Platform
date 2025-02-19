@@ -1,4 +1,5 @@
 ﻿using NewHeap.Platform.Common.Models;
+using System.ComponentModel.DataAnnotations;
 
 namespace NewHeap.Platform.Common.Services;
 
@@ -11,12 +12,14 @@ public partial class ValidationService
         _serviceProvider = serviceProvider;
     }
 
-    public virtual void ValidateMutateModelModelState<TTaskResult, TSourceObj, TMutateObj>(CreateUpdateDeleteValidateModel<TTaskResult, TSourceObj, TMutateObj> model)
+    public virtual void ValidateMutateModelModelState<TTaskResult, TSourceObj, TMutateObj>(
+        CreateUpdateDeleteValidateModel<TTaskResult, TSourceObj, TMutateObj> model)
         where TTaskResult : class
         where TSourceObj : class
         where TMutateObj : class
     {
-        var myTaskResult = ValidateMutateModelModelState<TTaskResult, TMutateObj>(model.MutateModel);
+        TaskResult<TTaskResult>? myTaskResult =
+            ValidateMutateModelModelState<TTaskResult, TMutateObj>(model.MutateModel);
 
         if (!myTaskResult.Success && model.TaskResult != null)
         {
@@ -24,14 +27,15 @@ public partial class ValidationService
         }
     }
 
-    public virtual TaskResult<TTaskResult> ValidateMutateModelModelState<TTaskResult, TMutateObj>(TMutateObj mutateModel)
+    public virtual TaskResult<TTaskResult> ValidateMutateModelModelState<TTaskResult, TMutateObj>(
+        TMutateObj mutateModel)
         where TTaskResult : class
         where TMutateObj : class
     {
-        var taskResult = new TaskResult<TTaskResult>();
-        var context = new System.ComponentModel.DataAnnotations.ValidationContext(mutateModel, serviceProvider: _serviceProvider, items: null);
-        var results = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
-        var isValid = System.ComponentModel.DataAnnotations.Validator.TryValidateObject(mutateModel, context, results, validateAllProperties: true);
+        TaskResult<TTaskResult>? taskResult = new();
+        ValidationContext context = new(mutateModel, _serviceProvider, null);
+        List<ValidationResult> results = new();
+        var isValid = Validator.TryValidateObject(mutateModel, context, results, true);
 
         if (!isValid)
         {

@@ -1,10 +1,9 @@
 ﻿using Microsoft.Extensions.Localization;
 
 namespace NewHeap.Platform.AspNet.Common.Models;
+
 public partial class BadRequestHttpResponseModel
 {
-    public IEnumerable<string> Errors { get; set; }
-
     public BadRequestHttpResponseModel()
     {
         Errors = new List<string>();
@@ -12,10 +11,7 @@ public partial class BadRequestHttpResponseModel
 
     public BadRequestHttpResponseModel(string error)
     {
-        Errors = new List<string>()
-        {
-            error
-        };
+        Errors = new List<string> { error };
     }
 
     public BadRequestHttpResponseModel(IEnumerable<string> errors)
@@ -25,15 +21,12 @@ public partial class BadRequestHttpResponseModel
 
     public BadRequestHttpResponseModel(LocalizedString error)
     {
-        Errors = new List<string>()
-        {
-            error.Value
-        };
+        Errors = new List<string> { error.Value };
     }
 
     public BadRequestHttpResponseModel(IEnumerable<LocalizedString> errors)
     {
-        var errorList = new List<string>();
+        List<string>? errorList = new();
 
         foreach (var error in errors)
         {
@@ -42,4 +35,6 @@ public partial class BadRequestHttpResponseModel
 
         Errors = errorList;
     }
+
+    public IEnumerable<string> Errors { get; set; }
 }

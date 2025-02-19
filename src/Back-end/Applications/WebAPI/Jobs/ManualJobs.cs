@@ -1,17 +1,16 @@
-﻿using System;
-using AutoMapper;
+﻿using AutoMapper;
+using System;
 
-namespace WebAPI.Jobs
+namespace WebAPI.Jobs;
+
+public class ManualJobs
 {
-    public class ManualJobs
-    {
-        private readonly IMapper _mapper;
+    private readonly IMapper _mapper;
 
-        public ManualJobs(
-            IMapper mapper
-        )
-        {
-            _mapper = mapper ?? throw new NullReferenceException();
-        }
+    public ManualJobs(
+        IMapper mapper
+    )
+    {
+        _mapper = mapper ?? throw new NullReferenceException();
     }
 }

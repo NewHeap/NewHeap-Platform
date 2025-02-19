@@ -12,11 +12,11 @@ namespace NewHeap.Platform.AspNet.Common.Services;
 
 public partial class DbLogService
 {
-    protected readonly DbLogServiceSettings _logSettings;
-    protected readonly NewHeapAspNetCommonSettings _settings;
-    protected readonly IRepository<Log> _logRepository;
     protected readonly IHttpContextAccessor _httpContextAccessor;
     protected readonly IStringLocalizer<DbLogService> _logLocalizer;
+    protected readonly IRepository<Log> _logRepository;
+    protected readonly DbLogServiceSettings _logSettings;
+    protected readonly NewHeapAspNetCommonSettings _settings;
 
     public DbLogService(
         IOptions<DbLogServiceSettings> logSettings,
@@ -24,7 +24,7 @@ public partial class DbLogService
         IHttpContextAccessor httpContextAccessor,
         IStringLocalizer<DbLogService> logLocalizer,
         IOptions<NewHeapAspNetCommonSettings> settings
-        )
+    )
     {
         _logSettings = logSettings.Value;
         _logRepository = logRepository;
@@ -57,7 +57,7 @@ public partial class DbLogService
     {
         dbContext ??= _logRepository.Context;
 
-        var log = new Log()
+        Log log = new()
         {
             Message = message,
             Tag = tag,
@@ -82,12 +82,7 @@ public partial class DbLogService
         {
             for (var i = 0; i < messageArguments.Length; i++)
             {
-                var logMessageArgument = new LogMessageArgument()
-                {
-                    Log = log,
-                    Index = i,
-                    Value = messageArguments[i]
-                };
+                LogMessageArgument logMessageArgument = new() { Log = log, Index = i, Value = messageArguments[i] };
 
                 if (!string.IsNullOrWhiteSpace(logMessageArgument.Value))
                 {
@@ -113,7 +108,7 @@ public partial class DbLogService
         {
             LocalizedString localizedMessage = null;
 
-            var cultureInfo = new CultureInfo(culture);
+            CultureInfo cultureInfo = new(culture);
             CultureInfo.CurrentCulture = cultureInfo;
             CultureInfo.CurrentUICulture = cultureInfo;
 
@@ -123,9 +118,10 @@ public partial class DbLogService
                 localizedMessage = _logLocalizer.GetString(inputMsg, messageArguments);
             }
             catch
-            { }
+            {
+            }
 
-            await dbContext.LogMessageTranslateds.AddAsync(new LogMessageTranslated()
+            await dbContext.LogMessageTranslateds.AddAsync(new LogMessageTranslated
             {
                 Log = log,
                 Culture = culture,
@@ -160,7 +156,7 @@ public partial class DbLogService
                 var logDirectory = Path.Combine(_logSettings.RootDirectory, log.Id.ToString());
                 Directory.CreateDirectory(logDirectory);
 
-                int addedCount = 0;
+                var addedCount = 0;
                 foreach (var (name, contentStream) in files)
                 {
                     //Make 10 attempts of file naming and saving.
@@ -178,12 +174,7 @@ public partial class DbLogService
                             contentStream.CopyTo(fileStream);
                         }
 
-                        var logFile = new LogFile()
-                        {
-                            OriginalFileName = name,
-                            FilePath = filePath,
-                            LogId = log.Id
-                        };
+                        LogFile logFile = new() { OriginalFileName = name, FilePath = filePath, LogId = log.Id };
 
                         await dbContext.LogFiles.AddAsync(logFile);
 
@@ -196,7 +187,6 @@ public partial class DbLogService
                 {
                     await dbContext.SaveChangesAsync();
                 }
-
             }
             catch { }
         }
@@ -209,9 +199,9 @@ public partial class DbLogService
 
     protected static string GetRandomString(int length)
     {
-        var random = new Random();
+        Random random = new();
         const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         return new string(Enumerable.Repeat(chars, length)
-          .Select(s => s[random.Next(s.Length)]).ToArray());
+            .Select(s => s[random.Next(s.Length)]).ToArray());
     }
 }

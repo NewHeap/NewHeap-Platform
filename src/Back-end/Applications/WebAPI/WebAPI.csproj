@@ -1,92 +1,92 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <AspNetCoreHostingModel>InProcess</AspNetCoreHostingModel>
-    <Authors>NewHeap B.V.</Authors>
-    <Company>NewHeap B.V.</Company>
-    <Product>HIP WebAPI</Product>
-    <Copyright>Siers Groep B.V.</Copyright>
-    <UserSecretsId>a821b2e7-9787-421c-85f9-4a8e5443f12f</UserSecretsId>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <AspNetCoreHostingModel>InProcess</AspNetCoreHostingModel>
+        <Authors>NewHeap B.V.</Authors>
+        <Company>NewHeap B.V.</Company>
+        <Product>HIP WebAPI</Product>
+        <Copyright>Siers Groep B.V.</Copyright>
+        <UserSecretsId>a821b2e7-9787-421c-85f9-4a8e5443f12f</UserSecretsId>
+    </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-  </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+        <DefineConstants>DEBUG;TRACE</DefineConstants>
+    </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-  </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+        <DefineConstants>DEBUG;TRACE</DefineConstants>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="ContentDynamic\**" />
-    <Compile Remove="Models\Binding\**" />
-    <Content Remove="ContentDynamic\**" />
-    <Content Remove="Models\Binding\**" />
-    <EmbeddedResource Remove="ContentDynamic\**" />
-    <EmbeddedResource Remove="Models\Binding\**" />
-    <None Remove="ContentDynamic\**" />
-    <None Remove="Models\Binding\**" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Remove="ContentDynamic\**"/>
+        <Compile Remove="Models\Binding\**"/>
+        <Content Remove="ContentDynamic\**"/>
+        <Content Remove="Models\Binding\**"/>
+        <EmbeddedResource Remove="ContentDynamic\**"/>
+        <EmbeddedResource Remove="Models\Binding\**"/>
+        <None Remove="ContentDynamic\**"/>
+        <None Remove="Models\Binding\**"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="Properties\launchSettings.json" />
-  </ItemGroup>
+    <ItemGroup>
+        <Content Include="Properties\launchSettings.json"/>
+    </ItemGroup>
 
 
-  <ItemGroup>
-    <Folder Include="Managers\" />
-    <Folder Include="Models\View\" />
-    <Folder Include="wwwroot\images\" />
-  </ItemGroup>
+    <ItemGroup>
+        <Folder Include="Managers\"/>
+        <Folder Include="Models\View\"/>
+        <Folder Include="wwwroot\images\"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="13.0.1" />
-    <PackageReference Include="AutoMapper.Collection" Version="10.0.0" />
-    <PackageReference Include="Azure.Identity" Version="1.13.2" />
-    <PackageReference Include="EPPlus" Version="4.5.3.3" />
-    <PackageReference Include="Hangfire" Version="1.8.18" />
-    <PackageReference Include="Hangfire.Console" Version="1.4.3" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="9.0.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="9.0.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.DynamicLinq" Version="9.6.0.1" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.2">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="9.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="9.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Localization" Version="9.0.2" />
-    <PackageReference Include="StackExchange.Utils.Configuration" Version="0.1.12" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
-    <PackageReference Include="System.Formats.Asn1" Version="9.0.2" />
-    <PackageReference Include="System.IO.Pipelines" Version="9.0.2" />
-    <PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.0.2" />
-    <PackageReference Include="System.Net.Http" Version="4.3.4" />
-    <PackageReference Include="System.Text.Json" Version="9.0.2" />
-    <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="AutoMapper" Version="13.0.1"/>
+        <PackageReference Include="AutoMapper.Collection" Version="10.0.0"/>
+        <PackageReference Include="Azure.Identity" Version="1.13.2"/>
+        <PackageReference Include="EPPlus" Version="4.5.3.3"/>
+        <PackageReference Include="Hangfire" Version="1.8.18"/>
+        <PackageReference Include="Hangfire.Console" Version="1.4.3"/>
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.2"/>
+        <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="9.0.2"/>
+        <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.2"/>
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="9.0.2"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.DynamicLinq" Version="9.6.0.1"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.2"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.2">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.2"/>
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="9.0.2"/>
+        <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="9.0.2"/>
+        <PackageReference Include="Microsoft.Extensions.Localization" Version="9.0.2"/>
+        <PackageReference Include="StackExchange.Utils.Configuration" Version="0.1.12"/>
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0"/>
+        <PackageReference Include="System.Formats.Asn1" Version="9.0.2"/>
+        <PackageReference Include="System.IO.Pipelines" Version="9.0.2"/>
+        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.0.2"/>
+        <PackageReference Include="System.Net.Http" Version="4.3.4"/>
+        <PackageReference Include="System.Text.Json" Version="9.0.2"/>
+        <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="2.0.1" />
-  </ItemGroup>
+    <ItemGroup>
+        <DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="2.0.1"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AspNet.Common\NewHeap.Platform.AspNet.Common.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AspNet.Common\NewHeap.Platform.AspNet.Common.csproj"/>
+    </ItemGroup>
 
-  <ProjectExtensions>
-    <VisualStudio>
-      <UserProperties appsettings_1Production_1json__JSONSchema="" appsettings_1json__JSONSchema="" appsettings_1Staging_1json__JSONSchema="" />
-    </VisualStudio>
-  </ProjectExtensions>
+    <ProjectExtensions>
+        <VisualStudio>
+            <UserProperties appsettings_1Production_1json__JSONSchema="" appsettings_1json__JSONSchema="" appsettings_1Staging_1json__JSONSchema=""/>
+        </VisualStudio>
+    </ProjectExtensions>
 
 </Project>

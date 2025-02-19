@@ -1,18 +1,17 @@
-﻿using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Threading.Tasks;
-using System.Web;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using NewHeap.Platform.Common.Models.MicrosoftAuth;
 using NewHeap.Platform.Common.Models.Options;
 using Newtonsoft.Json;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Web;
 
 namespace NewHeap.Platform.Common.Services;
+
 public class MicrosoftAuthService
 {
+    private static readonly HttpClient _httpClient = new();
     private readonly MicrosoftAuthSettings _settings;
-    private static readonly HttpClient _httpClient = new HttpClient();
 
     public MicrosoftAuthService(IOptions<MicrosoftAuthSettings> options)
     {
@@ -21,13 +20,14 @@ public class MicrosoftAuthService
 
     public async Task<MicrosoftAuthUser> GetProfile(string token)
     {
-        using var requestMessage = new HttpRequestMessage(HttpMethod.Get, _settings.ProfileEndpoint);
+        using HttpRequestMessage requestMessage = new(HttpMethod.Get, _settings.ProfileEndpoint);
 
         requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var result = await _httpClient.SendAsync(requestMessage);
         if (result.IsSuccessStatusCode)
         {
-            var user = JsonConvert.DeserializeObject<MicrosoftAuthUser>(await result.Content.ReadAsStringAsync());
+            var user =
+                JsonConvert.DeserializeObject<MicrosoftAuthUser>(await result.Content.ReadAsStringAsync());
             return user;
         }
 
@@ -46,11 +46,14 @@ public class MicrosoftAuthService
         query.Add("grant_type", "authorization_code");
         query.Add("client_secret", _settings.ClientSecret);
 
-        var result = await _httpClient.PostAsync(url, new ReadOnlyMemoryContent(Encoding.UTF8.GetBytes(query.ToString())));
+        var result =
+            await _httpClient.PostAsync(url, new ReadOnlyMemoryContent(Encoding.UTF8.GetBytes(query.ToString())));
 
         if (result.IsSuccessStatusCode)
         {
-            var response = JsonConvert.DeserializeObject<MicosoftAuthTokenSuccessResponse>(await result.Content.ReadAsStringAsync());
+            var response =
+                JsonConvert.DeserializeObject<MicosoftAuthTokenSuccessResponse>(
+                    await result.Content.ReadAsStringAsync());
             return response;
         }
         else

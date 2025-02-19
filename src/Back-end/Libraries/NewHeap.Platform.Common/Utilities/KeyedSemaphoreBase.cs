@@ -1,12 +1,10 @@
 ﻿using KeyedSemaphores;
-using System.Threading.Tasks;
-using System.Threading;
-using System;
 
 namespace NewHeap.Platform.Common.Utilities;
+
 public abstract partial class KeyedSemaphoreBase<T>
 {
-    private static readonly KeyedSemaphoresCollection<T> Collection = new KeyedSemaphoresCollection<T>();
+    private static readonly KeyedSemaphoresCollection<T> Collection = new();
 
     protected KeyedSemaphoreBase()
     {
@@ -20,11 +18,16 @@ public abstract partial class KeyedSemaphoreBase<T>
     /// <param name="key">The unique key of this keyed semaphore</param>
     /// <param name="cancellationToken">A cancellation token that will interrupt trying to acquire the lock</param>
     /// <returns>
-    ///     An instance of <see cref="IKeyedSemaphore{TKey}" /> that has already acquired a lock on the inner <see cref="SemaphoreSlim" />
+    ///     An instance of <see cref="IKeyedSemaphore{TKey}" /> that has already acquired a lock on the inner
+    ///     <see cref="SemaphoreSlim" />
     /// </returns>
     public static ValueTask<IDisposable> LockAsync(T key, CancellationToken cancellationToken = default)
     {
-        if (key == null) throw new ArgumentNullException(nameof(key));
+        if (key == null)
+        {
+            throw new ArgumentNullException(nameof(key));
+        }
+
         return Collection.LockAsync(key, cancellationToken);
     }
 
@@ -38,11 +41,16 @@ public abstract partial class KeyedSemaphoreBase<T>
     /// <param name="key">The unique key of this keyed semaphore</param>
     /// <param name="cancellationToken">A cancellation token that will interrupt trying to acquire the lock</param>
     /// <returns>
-    ///     An instance of <see cref="IKeyedSemaphore{TKey}" /> that has already acquired a lock on the inner <see cref="SemaphoreSlim" />
+    ///     An instance of <see cref="IKeyedSemaphore{TKey}" /> that has already acquired a lock on the inner
+    ///     <see cref="SemaphoreSlim" />
     /// </returns>
     public static IDisposable Lock(T key, CancellationToken cancellationToken = default)
     {
-        if (key == null) throw new ArgumentNullException(nameof(key));
+        if (key == null)
+        {
+            throw new ArgumentNullException(nameof(key));
+        }
+
         return Collection.Lock(key, cancellationToken);
     }
 }

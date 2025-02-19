@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
@@ -30,10 +28,18 @@ public enum LogAction
 }
 
 /// <summary>
-/// Note: Immutable rows
+///     Note: Immutable rows
 /// </summary>
 public partial class Log
 {
+    public Log()
+    {
+        CreationDateTime = DateTimeOffset.UtcNow;
+        Source = LogSource.Unknown;
+        Type = LogType.Unknown;
+        Action = LogAction.Unknown;
+    }
+
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public Guid Id { get; set; }
@@ -44,19 +50,19 @@ public partial class Log
     public string Tag { get; set; }
 
     /// <summary>
-    /// The object type
+    ///     The object type
     /// </summary>
     [StringLength(100)]
     public string ObjectType { get; set; }
 
     /// <summary>
-    /// The object type including namespace
+    ///     The object type including namespace
     /// </summary>
     [StringLength(250)]
     public string ObjectTypeFull { get; set; }
 
     /// <summary>
-    /// The object id
+    ///     The object id
     /// </summary>
     [StringLength(64)]
     public string ObjectId { get; set; }
@@ -83,12 +89,4 @@ public partial class Log
     public Guid? DivisionId { get; set; }
 
     public Division Division { get; set; }
-
-    public Log()
-    {
-        CreationDateTime = DateTimeOffset.UtcNow;
-        Source = LogSource.Unknown;
-        Type = LogType.Unknown;
-        Action = LogAction.Unknown;
-    } 
 }

@@ -1,32 +1,27 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
-using Microsoft.IdentityModel.Logging;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
 public partial class DivisionService
 {
+    protected readonly DbLogService _dbLogService;
     protected readonly IRepository<Division> _divisionRepository;
+    protected readonly IRepository<DivisionRoleClaim> _divisionRoleClaimRepository;
     protected readonly IRepository<DivisionRole> _divisionRoleRepository;
     protected readonly IRepository<DivisionUser> _divisionUserRepository;
     protected readonly IRepository<DivisionUserRole> _divisionUserRoleRepository;
-    protected readonly IRepository<DivisionRoleClaim> _divisionRoleClaimRepository;
-    protected readonly DbLogService _dbLogService;
-    protected readonly LogHelperService _logHelperService;
     protected readonly IStringLocalizer _localizer;
+    protected readonly LogHelperService _logHelperService;
     protected readonly IMapper _mapper;
     protected readonly ValidationService _validationService;
 
@@ -69,9 +64,10 @@ public partial class DivisionService
         return _divisionRoleClaimRepository;
     }
 
-    public async Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel> model)
+    public async Task ValidateCreateUpdateDeleteAsync(
+        CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel> model)
     {
-        void sourceModelCheck() 
+        void sourceModelCheck()
         {
             if (model.SourceModel == null)
             {
@@ -79,10 +75,12 @@ public partial class DivisionService
             }
         }
 
-        void validateTimeZone() { 
-            if(!TimeZoneInfo.GetSystemTimeZones().Any(x => x.Id.Equals(model.MutateModel.TimeZoneId)))
+        void validateTimeZone()
+        {
+            if (!TimeZoneInfo.GetSystemTimeZones().Any(x => x.Id.Equals(model.MutateModel.TimeZoneId)))
             {
-                model.TaskResult.AddError(nameof(model.MutateModel.TimeZoneId), _localizer["Invalid time zone id provided."]);
+                model.TaskResult.AddError(nameof(model.MutateModel.TimeZoneId),
+                    _localizer["Invalid time zone id provided."]);
             }
         }
 
@@ -90,7 +88,8 @@ public partial class DivisionService
         {
             _validationService.ValidateMutateModelModelState(model);
 
-            if (await _divisionRepository.AnyAsync(x => x.Name.Trim().ToLower() == model.MutateModel.Name.Trim().ToLower()))
+            if (await _divisionRepository.AnyAsync(x =>
+                    x.Name.Trim().ToLower() == model.MutateModel.Name.Trim().ToLower()))
             {
                 model.TaskResult.AddError(nameof(model.MutateModel.Name), _localizer["Name is already exists."]);
             }
@@ -103,7 +102,8 @@ public partial class DivisionService
 
             sourceModelCheck();
 
-            if (await _divisionRepository.AnyAsync(x => x.Id != model.SourceModel.Id && x.Name.Trim().ToLower() == model.MutateModel.Name.Trim().ToLower()))
+            if (await _divisionRepository.AnyAsync(x =>
+                    x.Id != model.SourceModel.Id && x.Name.Trim().ToLower() == model.MutateModel.Name.Trim().ToLower()))
             {
                 model.TaskResult.AddError(nameof(model.MutateModel.Name), _localizer["Name is already exists."]);
             }
@@ -114,21 +114,18 @@ public partial class DivisionService
         {
             sourceModelCheck();
         }
-        else
-        {
-
-        }
     }
 
-    public async Task<TaskResult<Division>> CreateAsync(DivisionMutateModel mutateModel, Guid? committedByUserId = default)
+    public async Task<TaskResult<Division>> CreateAsync(DivisionMutateModel mutateModel,
+        Guid? committedByUserId = default)
     {
-        var result = new TaskResult<Division>();
+        TaskResult<Division> result = new();
 
-        await ValidateCreateUpdateDeleteAsync(new CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel>(CRUDActionType.Create) { 
-            TaskResult = result,
-            SourceModel = null,
-            MutateModel = mutateModel,
-        });
+        await ValidateCreateUpdateDeleteAsync(
+            new CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel>(CRUDActionType.Create)
+            {
+                TaskResult = result, SourceModel = null, MutateModel = mutateModel
+            });
 
         if (!result.Success)
         {
@@ -139,13 +136,11 @@ public partial class DivisionService
         await _divisionRepository.AddAsync(division);
 
         await _dbLogService.LogAsync(
-            message: "Division create successful.",
-            messageArguments: new string[] {
-                division.Id.ToString()
-            },
+            "Division create successful.",
+            messageArguments: new[] { division.Id.ToString() },
             objectId: division.Id.ToString(),
-            objectType: (typeof(Division)).Name,
-            objectTypeFull: (typeof(Division)).FullName,
+            objectType: typeof(Division).Name,
+            objectTypeFull: typeof(Division).FullName,
             userId: committedByUserId,
             action: LogAction.Create,
             type: LogType.Information,
@@ -162,18 +157,18 @@ public partial class DivisionService
         return result;
     }
 
-    public async Task<TaskResult<Division>> UpdateAsync(Guid id, DivisionMutateModel mutateModel, Guid? committedByUserId = default)
+    public async Task<TaskResult<Division>> UpdateAsync(Guid id, DivisionMutateModel mutateModel,
+        Guid? committedByUserId = default)
     {
-        var result = new TaskResult<Division>();
+        TaskResult<Division> result = new();
 
         var division = await _divisionRepository.FindOneByAsync(x => x.Id == id);
 
-        await ValidateCreateUpdateDeleteAsync(new CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel>(CRUDActionType.Update)
-        {
-            TaskResult = result,
-            SourceModel = division,
-            MutateModel = mutateModel,
-        });
+        await ValidateCreateUpdateDeleteAsync(
+            new CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel>(CRUDActionType.Update)
+            {
+                TaskResult = result, SourceModel = division, MutateModel = mutateModel
+            });
 
         if (!result.Success)
         {
@@ -189,10 +184,11 @@ public partial class DivisionService
 
         var updatedData = LogHelperService.Copy(division);
 
-        var changedProperties = await _logHelperService.ChangedProperties(originalData, updatedData, new Dictionary<Expression<Func<Division, object>>, Func<object, Task<string>>>
-        { 
-            // Method resolvers
-        },
+        var changedProperties = await _logHelperService.ChangedProperties(originalData,
+            updatedData, new Dictionary<Expression<Func<Division, object>>, Func<object, Task<string>>>
+            {
+                // Method resolvers
+            },
             x => x.Name,
             x => x.Description,
             x => x.UserSelectAllowed,
@@ -201,13 +197,11 @@ public partial class DivisionService
 
         if (changedProperties.Any())
         {
-            var values = string.Join("\n", changedProperties.Select(x => $"{x.Key}: '{x.OriginalValue}' -> '{x.UpdateValue}'"));
+            var values = string.Join("\n",
+                changedProperties.Select(x => $"{x.Key}: '{x.OriginalValue}' -> '{x.UpdateValue}'"));
             await _dbLogService.LogAsync(
                 "Entity values updated",
-                messageArguments: new string[]
-                {
-                    values
-                },
+                messageArguments: new[] { values },
                 objectId: division.Id.ToString(),
                 objectType: typeof(Division).Name,
                 objectTypeFull: typeof(Division).FullName,
@@ -217,16 +211,14 @@ public partial class DivisionService
                 source: LogSource.Internal,
                 tag: GetType().Name
             );
-        } 
+        }
 
         await _dbLogService.LogAsync(
-            message: "Division update successful.",
-            messageArguments: new string[] {
-                division.Id.ToString()
-            },
+            "Division update successful.",
+            messageArguments: new[] { division.Id.ToString() },
             objectId: division.Id.ToString(),
-            objectType: (typeof(Division)).Name,
-            objectTypeFull: (typeof(Division)).FullName,
+            objectType: typeof(Division).Name,
+            objectTypeFull: typeof(Division).FullName,
             userId: committedByUserId,
             action: LogAction.Update,
             type: LogType.Information,
@@ -245,17 +237,16 @@ public partial class DivisionService
 
     public async Task<TaskResult<Division>> DeleteAsync(Guid id, Guid? committedByUserId = default)
     {
-        var result = new TaskResult<Division>();
+        TaskResult<Division> result = new();
 
         var division = await _divisionRepository
             .FindOneByAsync(x => x.Id == id);
 
-        await ValidateCreateUpdateDeleteAsync(new CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel>(CRUDActionType.Delete)
-        {
-            TaskResult = result,
-            SourceModel = division,
-            MutateModel = null,
-        });
+        await ValidateCreateUpdateDeleteAsync(
+            new CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel>(CRUDActionType.Delete)
+            {
+                TaskResult = result, SourceModel = division, MutateModel = null
+            });
 
         if (!result.Success)
         {
@@ -266,13 +257,11 @@ public partial class DivisionService
         _divisionRepository.Remove(division);
 
         await _dbLogService.LogAsync(
-            message: "Division remove successful.",
-            messageArguments: new string[] {
-                division.Id.ToString()
-            },
+            "Division remove successful.",
+            messageArguments: new[] { division.Id.ToString() },
             objectId: division.Id.ToString(),
-            objectType: (typeof(Division)).Name,
-            objectTypeFull: (typeof(Division)).FullName,
+            objectType: typeof(Division).Name,
+            objectTypeFull: typeof(Division).FullName,
             userId: committedByUserId,
             action: LogAction.Delete,
             type: LogType.Information,
@@ -288,28 +277,25 @@ public partial class DivisionService
     }
 
     #region Roles
+
     public Task<bool> RoleExistsAsync(string roleName)
     {
         return _divisionRoleRepository.AnyAsync(x => x.Name.ToLower().Trim() == roleName.ToLower().Trim());
     }
+
     public async Task<TaskResult<DivisionRole>> RoleCreateAsync(string roleName, Guid? committedByUserId = default)
     {
-        var result = new TaskResult<DivisionRole>();
+        TaskResult<DivisionRole> result = new();
 
-        var divisionRole = new DivisionRole() 
-        { 
-            Name = roleName
-        };
+        DivisionRole divisionRole = new() { Name = roleName };
         await _divisionRoleRepository.AddAsync(divisionRole);
 
         await _dbLogService.LogAsync(
-            message: "Division role create successful.",
-            messageArguments: new string[] {
-                divisionRole.Id.ToString()
-            },
+            "Division role create successful.",
+            messageArguments: new[] { divisionRole.Id.ToString() },
             objectId: divisionRole.Id.ToString(),
-            objectType: (typeof(DivisionRole)).Name,
-            objectTypeFull: (typeof(DivisionRole)).FullName,
+            objectType: typeof(DivisionRole).Name,
+            objectTypeFull: typeof(DivisionRole).FullName,
             userId: committedByUserId,
             action: LogAction.Create,
             type: LogType.Information,
@@ -328,20 +314,18 @@ public partial class DivisionService
 
     public async Task<TaskResult<DivisionRole>> RoleDeleteAsync(string roleName, Guid? committedByUserId = default)
     {
-        var result = new TaskResult<DivisionRole>();
+        TaskResult<DivisionRole> result = new();
 
         var divisionRole = await _divisionRoleRepository.FindOneByAsync(x => x.Name == roleName);
 
         _divisionRoleRepository.Remove(divisionRole);
 
         await _dbLogService.LogAsync(
-            message: "Division role delete successful.",
-            messageArguments: new string[] {
-                divisionRole.Id.ToString()
-            },
+            "Division role delete successful.",
+            messageArguments: new[] { divisionRole.Id.ToString() },
             objectId: divisionRole.Id.ToString(),
-            objectType: (typeof(DivisionRole)).Name,
-            objectTypeFull: (typeof(DivisionRole)).FullName,
+            objectType: typeof(DivisionRole).Name,
+            objectTypeFull: typeof(DivisionRole).FullName,
             userId: committedByUserId,
             action: LogAction.Delete,
             type: LogType.Information,
@@ -357,23 +341,29 @@ public partial class DivisionService
 
         return result;
     }
+
     #endregion
 
     #region RoleClaims
+
     public Task<bool> RoleClaimExistsAsync(Guid roleId, string claimType, string claimValue)
     {
-        return _divisionRoleClaimRepository.AnyAsync(x => x.DivisionRoleId == roleId 
-            && x.ClaimType.ToLower().Trim() == claimType.ToLower().Trim()
-            && x.ClaimValue.ToLower().Trim() == claimValue.ToLower().Trim()
+        return _divisionRoleClaimRepository.AnyAsync(x => x.DivisionRoleId == roleId
+                                                          && x.ClaimType.ToLower().Trim() == claimType.ToLower().Trim()
+                                                          && x.ClaimValue.ToLower().Trim() ==
+                                                          claimValue.ToLower().Trim()
         );
     }
 
     public async Task<IEnumerable<Claim>> RoleClaimsAsync(Guid roleId)
     {
-        return (await _divisionRoleClaimRepository.GetAll().Where(x => x.DivisionRoleId == roleId).ToListAsync()).Select(x => {
-            var claim = new Claim(x.ClaimType, x.ClaimValue);
-            return claim;
-        });
+        return (await _divisionRoleClaimRepository.GetAll().Where(x => x.DivisionRoleId == roleId).ToListAsync())
+            .Select(x =>
+            {
+                Claim claim = new(x.ClaimType, x.ClaimValue);
+                return claim;
+            });
     }
+
     #endregion
 }

@@ -1,12 +1,13 @@
-﻿using System;
-using System.IO;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using StackExchange.Utils;
 
 namespace NewHeap.Platform.Common.Extensions;
+
 public static partial class HostBuilderExtensions
 {
+    private const string ConfigKey = "NewHeap:PlatformCommon:AppSecretsDirectoryPath";
+
     public static IHostBuilder UseNhCommonConfiguration(this IHostBuilder builder)
     {
         builder.ConfigureAppConfiguration(configBuilder =>
@@ -17,12 +18,10 @@ public static partial class HostBuilderExtensions
         return builder;
     }
 
-    private const string ConfigKey = "NewHeap:PlatformCommon:AppSecretsDirectoryPath";
-
     public static IConfigurationBuilder ConfigureNhCommonConfiguration(this IConfigurationBuilder configBuilder)
     {
         //Build a config just to read the app name...
-        IConfigurationRoot preConfiguration = new ConfigurationBuilder()
+        var preConfiguration = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
             .WithSubstitution(x => x
                 .AddJsonFile("appsettings.json")
@@ -40,8 +39,11 @@ public static partial class HostBuilderExtensions
         configBuilder
             .WithPrefix("Secrets",
                 c => c
-                    .AddJsonFile(Environment.ExpandEnvironmentVariables(Path.Combine(direcotryPath, "secrets.json")), true)
-                    .AddJsonFile(Environment.ExpandEnvironmentVariables(Path.Combine(direcotryPath, $"secrets.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json")), true)
+                    .AddJsonFile(Environment.ExpandEnvironmentVariables(Path.Combine(direcotryPath, "secrets.json")),
+                        true)
+                    .AddJsonFile(
+                        Environment.ExpandEnvironmentVariables(Path.Combine(direcotryPath,
+                            $"secrets.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json")), true)
             ).WithSubstitution(x => x
                 .AddJsonFile("appsettings.json")
                 .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json", true)

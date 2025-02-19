@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
@@ -10,11 +8,6 @@ public partial class DivisionRoleClaim
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public Guid Id { get; set; }
-
-    public DivisionRoleClaim()
-    {
-
-    }
 
     public Guid DivisionRoleId { get; set; }
     public DivisionRole DivisionRole { get; set; }

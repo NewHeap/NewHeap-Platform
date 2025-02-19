@@ -7,7 +7,18 @@ namespace NewHeap.Platform.AspNet.Common.DAL;
 
 public abstract partial class NhDbContext : IdentityDbContext<User, UserRole, Guid>
 {
-    public static readonly JsonSerializerSettings ConvertJsonSerializerSettings = new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore };
+    public static readonly JsonSerializerSettings ConvertJsonSerializerSettings =
+        new() { NullValueHandling = NullValueHandling.Ignore };
+
+    public NhDbContext()
+    {
+    }
+
+    public NhDbContext(DbContextOptions contextOptions)
+        : base(contextOptions)
+    {
+    }
+
     public DbSet<Division> Divisions { get; set; }
     public DbSet<Log> Logs { get; set; }
     public DbSet<LogMessageArgument> LogMessageArguments { get; set; }
@@ -17,16 +28,6 @@ public abstract partial class NhDbContext : IdentityDbContext<User, UserRole, Gu
     public DbSet<DivisionUser> DivisionUsers { get; set; }
     public DbSet<DivisionUserRole> DivisionUserRoles { get; set; }
     public DbSet<DivisionRoleClaim> DivisionRoleClaims { get; set; }
-
-    public NhDbContext()
-        : base()
-    {
-    }
-
-    public NhDbContext(DbContextOptions contextOptions)
-        : base(contextOptions)
-    {
-    }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -40,6 +41,7 @@ public abstract partial class NhDbContext : IdentityDbContext<User, UserRole, Gu
             .HasForeignKey(x => x.ActiveDivisionId)
             .OnDelete(DeleteBehavior.SetNull)
             ;
+
         #endregion
 
         #region Log
@@ -97,7 +99,6 @@ public abstract partial class NhDbContext : IdentityDbContext<User, UserRole, Gu
 
         builder.Entity<Division>(entity =>
         {
-            
         });
 
         builder.Entity<DivisionUser>(entity =>
