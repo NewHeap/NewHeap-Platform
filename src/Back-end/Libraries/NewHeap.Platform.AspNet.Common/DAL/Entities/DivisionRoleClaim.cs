@@ -10,7 +10,7 @@ public partial class DivisionRoleClaim
     public Guid Id { get; set; }
 
     public Guid DivisionRoleId { get; set; }
-    public DivisionRole DivisionRole { get; set; }
+    public DivisionRole? DivisionRole { get; set; }
     public string ClaimType { get; set; } = "";
     public string ClaimValue { get; set; } = "";
 }

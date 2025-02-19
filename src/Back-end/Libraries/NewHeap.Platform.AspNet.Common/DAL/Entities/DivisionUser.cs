@@ -11,11 +11,11 @@ public partial class DivisionUser
 
     public Guid UserId { get; set; }
 
-    public User User { get; set; }
+    public User User { get; set; } = null!;
 
     public Guid DivisionId { get; set; }
 
-    public Division Division { get; set; }
+    public Division Division { get; set; } = null!;
 
     public DateTimeOffset? LockOutStartDateTime { get; set; }
     public DateTimeOffset? LockOutEndDateTime { get; set; }

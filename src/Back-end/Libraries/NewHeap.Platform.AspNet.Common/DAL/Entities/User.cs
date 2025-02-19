@@ -15,7 +15,7 @@ public partial class User : IdentityUser<Guid>
     [Display(Name = "ActiveDivision")]
     public Guid? ActiveDivisionId { get; set; }
 
-    public Division ActiveDivision { get; set; }
+    public Division? ActiveDivision { get; set; }
 
     /// <summary>
     ///     Unlike <see cref="IdentityUser.LockoutEnd" /> this property not part of the identity framework. Therefore this

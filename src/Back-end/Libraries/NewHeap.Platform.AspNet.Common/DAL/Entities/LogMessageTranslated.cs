@@ -18,13 +18,13 @@ public partial class LogMessageTranslated
 
     public Guid LogId { get; set; }
 
-    public Log Log { get; set; }
+    public Log? Log { get; set; }
 
     /// <summary>
     ///     Ëxample: en-US
     /// </summary>
     [StringLength(5)]
-    public string Culture { get; set; }
+    public required string Culture { get; set; }
 
-    public string Message { get; set; }
+    public required string Message { get; set; }
 }

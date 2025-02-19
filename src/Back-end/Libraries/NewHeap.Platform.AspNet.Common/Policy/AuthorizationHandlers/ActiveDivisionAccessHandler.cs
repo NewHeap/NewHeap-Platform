@@ -28,7 +28,7 @@ public partial class ActiveDivisionAccessHandler : AuthorizationHandler<ActiveDi
         }
 
         var httpContext = _httpContextAccessor.HttpContext;
-        var userManager = httpContext.RequestServices.GetService(typeof(NhUserManager)) as NhUserManager;
+        var userManager = (httpContext!.RequestServices.GetService(typeof(NhUserManager)) as NhUserManager)!;
         var activeDivisionId = httpContext?.Request.GetActiveDivisionId();
 
         var userIdString = context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -38,8 +38,8 @@ public partial class ActiveDivisionAccessHandler : AuthorizationHandler<ActiveDi
         if (parseSucces)
         {
             var user = await userManager.FindByIdAsync(userId.ToString());
-            List<Claim>? userClaims = await userManager.GetValidClaims(user, true);
-            if (userManager != null && await userManager.DivisionAccessAsync(activeDivisionId, userClaims,
+            List<Claim>? userClaims = await userManager.GetValidClaims(user!, true);
+            if (await userManager.DivisionAccessAsync(activeDivisionId, userClaims,
                     requirement.RequiredClaims, requirement.RequiredRoles))
             {
                 context.Succeed(requirement);

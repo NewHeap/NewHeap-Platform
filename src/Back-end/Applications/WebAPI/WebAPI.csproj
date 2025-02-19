@@ -41,8 +41,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="AutoMapper" Version="13.0.1"/>
-        <PackageReference Include="AutoMapper.Collection" Version="10.0.0"/>
+        <PackageReference Include="AutoMapper" Version="14.0.0" />
+        <PackageReference Include="AutoMapper.Collection" Version="11.0.0" />
         <PackageReference Include="Azure.Identity" Version="1.13.2"/>
         <PackageReference Include="EPPlus" Version="4.5.3.3"/>
         <PackageReference Include="Hangfire" Version="1.8.18"/>
@@ -55,7 +55,7 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.EntityFrameworkCore.DynamicLinq" Version="9.6.0.1"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.DynamicLinq" Version="9.6.0.2" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.2"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.2">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

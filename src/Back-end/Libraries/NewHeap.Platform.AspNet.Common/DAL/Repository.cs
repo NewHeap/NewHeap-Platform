@@ -43,7 +43,7 @@ public partial class Repository<T> : IRepository<T> where T : class
         where TProperty : class
         where TEntity : class
     {
-        return Context.Entry(entity).Reference(propertyExpression);
+        return Context.Entry(entity).Reference(propertyExpression!);
     }
 
     public virtual ReferenceEntry Reference<TEntity, TProperty>(TEntity entity, string propertyName)
@@ -117,22 +117,22 @@ public partial class Repository<T> : IRepository<T> where T : class
         return Context.Set<TEntity>().AddRangeAsync(entities);
     }
 
-    public virtual T Find<TKey>(TKey id)
+    public virtual T? Find<TKey>(TKey id)
     {
         return DbSet.Find(id);
     }
 
-    public virtual ValueTask<T> FindAsync<TKey>(TKey id)
+    public virtual ValueTask<T?> FindAsync<TKey>(TKey id)
     {
         return DbSet.FindAsync(id);
     }
 
-    public virtual T FindOneBy(Expression<Func<T, bool>> predicate)
+    public virtual T? FindOneBy(Expression<Func<T, bool>> predicate)
     {
         return DbSet.FirstOrDefault(predicate);
     }
 
-    public virtual Task<T> FindOneByAsync(Expression<Func<T, bool>> predicate)
+    public virtual Task<T?> FindOneByAsync(Expression<Func<T, bool>> predicate)
     {
         return DbSet.FirstOrDefaultAsync(predicate);
     }
@@ -209,9 +209,9 @@ public partial class Repository<T> : IRepository<T> where T : class
     public IRepository<T> NewScope()
     {
         var type = Context.GetType();
-        var opt = typeof(NhDbContext).GetField("_options", BindingFlags.Instance | BindingFlags.NonPublic)
+        var opt = typeof(NhDbContext).GetField("_options", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(Context);
-        var context = (NhDbContext)Activator.CreateInstance(type, opt);
+        var context = (NhDbContext)Activator.CreateInstance(type, opt)!;
         return new Repository<T>(context);
     }
 

@@ -2,7 +2,7 @@
 
 namespace NewHeap.Platform.Common.Utilities;
 
-public abstract partial class KeyedSemaphoreBase<T>
+public abstract partial class KeyedSemaphoreBase<T> where T : notnull
 {
     private static readonly KeyedSemaphoresCollection<T> Collection = new();
 

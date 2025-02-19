@@ -7,7 +7,7 @@ public partial class ProfileAccountViewModel
         Claims = new List<ClaimViewModel>();
     }
 
-    public UserViewModel User { get; set; }
+    public UserViewModel User { get; set; } = null!;
 
     public List<DivisionViewModel> Divisions { get; set; } = new();
 

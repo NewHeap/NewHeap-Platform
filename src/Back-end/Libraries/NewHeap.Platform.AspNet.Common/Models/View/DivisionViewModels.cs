@@ -21,11 +21,11 @@ public partial class DivisionViewModel
     [Searchable]
     [Orderable]
     [Filterable]
-    public string Name { get; set; }
+    public string? Name { get; set; }
 
-    public string Description { get; set; }
+    public string? Description { get; set; }
 
-    public string TimeZoneId { get; set; }
+    public string? TimeZoneId { get; set; }
 
     [Orderable]
     [Filterable]
@@ -45,7 +45,7 @@ public class DivisionUserViewModel
     [Searchable]
     [Filterable]
     [Orderable]
-    public UserViewModel User { get; set; }
+    public UserViewModel User { get; set; } = null!;
 
     [Searchable]
     [Filterable]
@@ -54,7 +54,7 @@ public class DivisionUserViewModel
     [Searchable]
     [Filterable]
     [Orderable]
-    public DivisionViewModel Division { get; set; }
+    public DivisionViewModel Division { get; set; } = null!;
 
     [Filterable]
     [Orderable]
@@ -76,5 +76,5 @@ public class DivisionRoleViewModel
     [Searchable]
     [Filterable]
     [Orderable]
-    public string Name { get; set; }
+    public string Name { get; set; } = null!;
 }

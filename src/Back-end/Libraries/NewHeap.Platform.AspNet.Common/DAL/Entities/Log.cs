@@ -47,27 +47,27 @@ public partial class Log
     public DateTimeOffset CreationDateTime { get; set; }
 
     [StringLength(50)]
-    public string Tag { get; set; }
+    public string? Tag { get; set; }
 
     /// <summary>
     ///     The object type
     /// </summary>
     [StringLength(100)]
-    public string ObjectType { get; set; }
+    public string? ObjectType { get; set; }
 
     /// <summary>
     ///     The object type including namespace
     /// </summary>
     [StringLength(250)]
-    public string ObjectTypeFull { get; set; }
+    public string? ObjectTypeFull { get; set; }
 
     /// <summary>
     ///     The object id
     /// </summary>
     [StringLength(64)]
-    public string ObjectId { get; set; }
+    public string? ObjectId { get; set; }
 
-    public string Message { get; set; }
+    public string Message { get; set; } = "";
 
     public LogType Type { get; set; }
 
@@ -78,15 +78,15 @@ public partial class Log
     [Display(Name = "User")]
     public Guid? UserId { get; set; }
 
-    public User User { get; set; }
+    public User User { get; set; } = null!;
 
-    public List<LogFile> Files { get; set; }
+    public List<LogFile> Files { get; set; } = null!;
 
-    public List<LogMessageArgument> MessageArguments { get; set; }
+    public List<LogMessageArgument> MessageArguments { get; set; } = null!;
 
-    public List<LogMessageTranslated> MessageTranslateds { get; set; }
+    public List<LogMessageTranslated> MessageTranslateds { get; set; } = null!;
 
     public Guid? DivisionId { get; set; }
 
-    public Division Division { get; set; }
+    public Division? Division { get; set; }
 }

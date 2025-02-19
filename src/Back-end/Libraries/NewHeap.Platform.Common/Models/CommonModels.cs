@@ -11,14 +11,14 @@ public partial class MutationResultManagerModel<T>
         ErrorMessages = new List<ErrorMutationResultManagerModel>();
     }
 
-    public T Result { get; set; }
+    public T? Result { get; set; }
     public List<ErrorMutationResultManagerModel> ErrorMessages { get; set; }
 }
 
 public class ErrorMutationResultManagerModel
 {
-    public string Key { get; set; }
-    public string ErrorMessage { get; set; }
+    public required string Key { get; set; }
+    public required string ErrorMessage { get; set; }
 }
 
 public class TaskResult<T>
@@ -29,12 +29,12 @@ public class TaskResult<T>
 
     public List<string> AllErrorMessages => Results.SelectMany(x => x.ErrorMessages).ToList();
 
-    public T Data { get; set; }
+    public T? Data { get; set; }
 
     public void AddError(Expression<Func<T, object>> selector, params string[] errorMessages)
     {
         var name = (selector.Body as MemberExpression
-                    ?? ((UnaryExpression)selector.Body).Operand as MemberExpression).Member.Name;
+                    ?? ((UnaryExpression)selector.Body).Operand as MemberExpression)!.Member.Name;
 
         AddError(name, errorMessages);
     }
@@ -81,7 +81,7 @@ public class TaskResult<T>
 
     public class ResultItem
     {
-        public string Name { get; set; }
+        public required string Name { get; set; }
 
         public List<string> ErrorMessages { get; } = new();
     }
@@ -98,9 +98,9 @@ public class CreateUpdateDeleteValidateModel<TTaskResult, TSourceObj, TMutateObj
     }
 
     public CRUDActionType ActionType { get; private set; }
-    public TaskResult<TTaskResult> TaskResult { get; set; }
-    public TSourceObj SourceModel { get; set; }
-    public TMutateObj MutateModel { get; set; }
+    public required TaskResult<TTaskResult> TaskResult { get; set; }
+    public TSourceObj? SourceModel { get; set; }
+    public TMutateObj? MutateModel { get; set; }
 
     public Guid? UserId { get; set; }
 }

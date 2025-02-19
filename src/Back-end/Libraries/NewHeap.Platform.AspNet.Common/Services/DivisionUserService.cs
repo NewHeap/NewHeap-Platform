@@ -63,7 +63,7 @@ public partial class DivisionUserService
             _validationService.ValidateMutateModelModelState(model);
 
             if (await _divisionUserRepository.AnyAsync(x =>
-                    x.DivisionId == model.MutateModel.DivisionId.Value && x.UserId == model.MutateModel.UserId))
+                    x.DivisionId == model.MutateModel!.DivisionId!.Value && x.UserId == model.MutateModel.UserId))
             {
                 model.TaskResult.AddError(string.Empty, _localizer["Mapping already exists."]);
             }
@@ -75,7 +75,8 @@ public partial class DivisionUserService
             sourceModelCheck();
 
             if (await _divisionUserRepository.AnyAsync(x =>
-                    x.Id != model.SourceModel.Id && x.DivisionId == model.MutateModel.DivisionId.Value &&
+                    x.Id != model.SourceModel!.Id && 
+                    x.DivisionId == model.MutateModel!.DivisionId!.Value &&
                     x.UserId == model.MutateModel.UserId))
             {
                 model.TaskResult.AddError(string.Empty, _localizer["Mapping already exists."]);
@@ -154,7 +155,7 @@ public partial class DivisionUserService
 
         var originalData = LogHelperService.Copy(divisionUser);
 
-        divisionUser = _mapper.Map(mutateModel, divisionUser);
+        divisionUser = _mapper.Map(mutateModel, divisionUser)!;
 
         foreach (var divisionRoleId in mutateModel.RoleIds)
         {
@@ -173,12 +174,12 @@ public partial class DivisionUserService
         var updatedData = LogHelperService.Copy(divisionUser);
 
         var changedProperties = await _logHelperService.ChangedProperties(originalData,
-            updatedData, new Dictionary<Expression<Func<DivisionUser, object>>, Func<object, Task<string>>>
+            updatedData, new Dictionary<Expression<Func<DivisionUser?, object>>, Func<object?, Task<string>>>
             {
                 // Method resolvers
             },
-            x => x.UserId,
-            x => x.DivisionId
+            x => x!.UserId,
+            x => x!.DivisionId
         );
 
         if (changedProperties.Any())
@@ -242,11 +243,11 @@ public partial class DivisionUserService
         }
 
         result.Data = divisionUser;
-        _divisionUserRepository.Remove(divisionUser);
+        _divisionUserRepository.Remove(divisionUser!);
 
         await _logService.LogAsync(
             "DivisionUser remove successful.",
-            messageArguments: new[] { divisionUser.Id.ToString() },
+            messageArguments: new[] { divisionUser!.Id.ToString() },
             objectId: divisionUser.Id.ToString(),
             objectType: typeof(DivisionUser).Name,
             objectTypeFull: typeof(DivisionUser).FullName,

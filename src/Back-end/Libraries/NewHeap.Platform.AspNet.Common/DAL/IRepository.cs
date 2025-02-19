@@ -38,10 +38,10 @@ public partial interface IRepository<T> where T : class
         where TProperty : class
         where TEntity : class;
 
-    T Find<TKey>(TKey id);
-    ValueTask<T> FindAsync<TKey>(TKey id);
-    T FindOneBy(Expression<Func<T, bool>> predicate);
-    Task<T> FindOneByAsync(Expression<Func<T, bool>> predicate);
+    T? Find<TKey>(TKey id);
+    ValueTask<T?> FindAsync<TKey>(TKey id);
+    T? FindOneBy(Expression<Func<T, bool>> predicate);
+    Task<T?> FindOneByAsync(Expression<Func<T, bool>> predicate);
     bool Any(Expression<Func<T, bool>> predicate);
     Task<bool> AnyAsync(Expression<Func<T, bool>> predicate);
     IQueryable<T> GetAll();

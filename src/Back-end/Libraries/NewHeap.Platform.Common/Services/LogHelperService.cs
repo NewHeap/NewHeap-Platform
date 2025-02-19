@@ -23,7 +23,7 @@ public static partial class TypeExtensions
 
 public static partial class JObjectExtensions
 {
-    public static bool TryGetTokenValue<T>(this JObject obj, string name, out T value)
+    public static bool TryGetTokenValue<T>(this JObject obj, string name, out T? value)
     {
         var tokens = obj.SelectTokens($"$..{name}");
         if (!tokens.Any())
@@ -54,12 +54,13 @@ public partial class LogHelperService
     /// <typeparam name="T"></typeparam>
     /// <param name="original">Original object</param>
     /// <param name="updated">Updated object</param>
+    /// <param name="valueResolver"></param>
     /// <param name="selectors">Properties to check</param>
     /// <returns></returns>
     public async Task<IEnumerable<ChangedValue>> ChangedProperties<T>(
         T original,
         T updated,
-        Dictionary<Expression<Func<T, object>>, Func<object, Task<string>>> valueResolver,
+        Dictionary<Expression<Func<T, object>>, Func<object?, Task<string>>> valueResolver,
         params Expression<Func<T, object>>[] selectors)
     {
         var changedValues = new List<ChangedValue>();
@@ -84,7 +85,7 @@ public partial class LogHelperService
                                       ?.GetCustomAttributes(typeof(DisplayAttribute), true)
                                       ?.Cast<DisplayAttribute>()
                                       .SingleOrDefault()?.Name
-                                  ?? property.Name;
+                                  ?? property!.Name;
 
                     if (_localizer != null)
                     {
@@ -122,9 +123,9 @@ public partial class LogHelperService
     }
 
 
-    private static object GetMemberObject(MemberExpression expression, object obj)
+    private static object? GetMemberObject(MemberExpression expression, object? obj)
     {
-        if (obj == null || expression.Expression.NodeType == ExpressionType.Parameter)
+        if (obj == null || expression.Expression!.NodeType == ExpressionType.Parameter)
         {
             return obj;
         }
@@ -139,7 +140,7 @@ public partial class LogHelperService
         return null;
     }
 
-    private static MemberExpression ExtractMemberExpression(Expression expression)
+    private static MemberExpression? ExtractMemberExpression(Expression expression)
     {
         if (expression.NodeType == ExpressionType.MemberAccess)
         {
@@ -163,14 +164,14 @@ public partial class LogHelperService
     #region Copy
 
     private static readonly MethodInfo CloneMethod =
-        typeof(object).GetMethod("MemberwiseClone", BindingFlags.NonPublic | BindingFlags.Instance);
+        typeof(object).GetMethod("MemberwiseClone", BindingFlags.NonPublic | BindingFlags.Instance)!;
 
-    public static object Copy(object originalObject)
+    public static object? Copy(object originalObject)
     {
         return InternalCopy(originalObject, new Dictionary<object, object>(new ReferenceEqualityComparer()));
     }
 
-    private static object InternalCopy(object originalObject, IDictionary<object, object> visited)
+    private static object? InternalCopy(object? originalObject, IDictionary<object, object> visited)
     {
         if (originalObject == null)
         {
@@ -196,18 +197,18 @@ public partial class LogHelperService
         var cloneObject = CloneMethod.Invoke(originalObject, null);
         if (typeToReflect.IsArray)
         {
-            var arrayType = typeToReflect.GetElementType();
+            var arrayType = typeToReflect.GetElementType()!;
             if (arrayType.IsPrimitive() == false)
             {
-                var clonedArray = (Array)cloneObject;
+                var clonedArray = (Array)cloneObject!;
                 clonedArray.ForEach((array, indices) =>
                     array.SetValue(InternalCopy(clonedArray.GetValue(indices), visited), indices));
             }
         }
 
-        visited.Add(originalObject, cloneObject);
-        CopyFields(originalObject, visited, cloneObject, typeToReflect);
-        RecursiveCopyBaseTypePrivateFields(originalObject, visited, cloneObject, typeToReflect);
+        visited.Add(originalObject, cloneObject!);
+        CopyFields(originalObject, visited, cloneObject!, typeToReflect);
+        RecursiveCopyBaseTypePrivateFields(originalObject, visited, cloneObject!, typeToReflect);
         return cloneObject;
     }
 
@@ -225,7 +226,7 @@ public partial class LogHelperService
     private static void CopyFields(object originalObject, IDictionary<object, object> visited, object cloneObject,
         Type typeToReflect,
         BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public |
-                                    BindingFlags.FlattenHierarchy, Func<FieldInfo, bool> filter = null)
+                                    BindingFlags.FlattenHierarchy, Func<FieldInfo, bool>? filter = null)
     {
         foreach (var fieldInfo in typeToReflect.GetFields(bindingFlags))
         {
@@ -245,9 +246,9 @@ public partial class LogHelperService
         }
     }
 
-    public static T Copy<T>(T original)
+    public static T? Copy<T>(T original)
     {
-        return (T)Copy((object)original);
+        return (T?)Copy((object)original!);
     }
 
     #endregion
@@ -256,19 +257,19 @@ public partial class LogHelperService
 public partial struct ChangedValue
 {
     public string Key { get; set; }
-    public object OriginalValue { get; set; }
+    public object? OriginalValue { get; set; }
 
-    public object UpdateValue { get; set; }
+    public object? UpdateValue { get; set; }
 }
 
 internal partial class ReferenceEqualityComparer : EqualityComparer<object>
 {
-    public override bool Equals(object x, object y)
+    public override bool Equals(object? x, object? y)
     {
         return ReferenceEquals(x, y);
     }
 
-    public override int GetHashCode(object obj)
+    public override int GetHashCode(object? obj)
     {
         if (obj == null)
         {

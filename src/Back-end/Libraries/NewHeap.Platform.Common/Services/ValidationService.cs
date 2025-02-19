@@ -43,7 +43,7 @@ public partial class ValidationService
             {
                 foreach (var memberName in x.MemberNames)
                 {
-                    taskResult.AddError(memberName, x.ErrorMessage);
+                    taskResult.AddError(memberName, x.ErrorMessage!);
                 }
 
                 return x;

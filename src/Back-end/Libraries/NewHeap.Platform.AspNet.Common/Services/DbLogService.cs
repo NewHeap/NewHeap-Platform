@@ -40,18 +40,18 @@ public partial class DbLogService
     public virtual async Task LogAsync(
         string message,
         LogType type = LogType.Unknown,
-        string tag = null,
-        string[] messageArguments = null,
+        string? tag = null,
+        string?[]? messageArguments = null,
         LogAction action = LogAction.Unknown,
         LogSource source = LogSource.Unknown,
-        string objectType = null,
-        string objectTypeFull = null,
-        string objectId = null,
+        string? objectType = null,
+        string? objectTypeFull = null,
+        string? objectId = null,
         Guid? userId = null,
-        (string name, Stream contentStream)[] files = null,
+        (string name, Stream contentStream)[]? files = null,
         DateTimeOffset? overrideCreationDateTime = null,
         bool doSaveChanges = true,
-        NhDbContext dbContext = null
+        NhDbContext? dbContext = null
     )
     {
         dbContext ??= _logRepository.Context;
@@ -105,7 +105,7 @@ public partial class DbLogService
 
         foreach (var culture in cultures)
         {
-            LocalizedString localizedMessage = null;
+            LocalizedString? localizedMessage = null;
 
             CultureInfo cultureInfo = new(culture);
             CultureInfo.CurrentCulture = cultureInfo;
@@ -114,24 +114,25 @@ public partial class DbLogService
             try
             {
                 var inputMsg = log.StringGuidelineMaxLength(x => x.Message);
-                localizedMessage = _logLocalizer.GetString(inputMsg, messageArguments);
+                localizedMessage = _logLocalizer.GetString(inputMsg??"", [..messageArguments!]);
             }
             catch
             {
+                //Ignore
             }
 
             await dbContext.LogMessageTranslateds.AddAsync(new LogMessageTranslated
             {
                 Log = log,
                 Culture = culture,
-                Message = localizedMessage ?? log.StringGuidelineMaxLength(x => x.Message)
+                Message = localizedMessage ?? log.StringGuidelineMaxLength(x => x.Message)!
             });
         }
 
         CultureInfo.CurrentCulture = originCulture;
         CultureInfo.CurrentUICulture = originUICulture;
 
-        log.Message = log.StringGuidelineMaxLength(x => x.Message);
+        log.Message = log.StringGuidelineMaxLength(x => x.Message)!;
 
         if (doSaveChanges)
         {
@@ -187,7 +188,10 @@ public partial class DbLogService
                     await dbContext.SaveChangesAsync();
                 }
             }
-            catch { }
+            catch
+            {
+                //Ignore
+            }
         }
     }
 

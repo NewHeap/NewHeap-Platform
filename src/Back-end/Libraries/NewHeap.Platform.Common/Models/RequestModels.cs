@@ -28,6 +28,6 @@ public partial class FilterRequestModel
     public string Operator { get; set; } = string.Empty;
     public object? Value { get; set; }
 
-    public List<FilterRequestModel> Ors { get; set; } = [];
-    public List<FilterRequestModel> Ands { get; set; } = [];
+    public List<FilterRequestModel>? Ors { get; set; } = [];
+    public List<FilterRequestModel>? Ands { get; set; } = [];
 }

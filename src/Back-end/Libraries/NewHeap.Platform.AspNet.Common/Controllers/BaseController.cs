@@ -73,7 +73,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
         if (!User.HasClaim(NhPlatformClaimTypes.Permission,
                 Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll))
         {
-            query.Where(expression);
+            query = query.Where(expression);
         }
 
         return query;
@@ -135,7 +135,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
     [NonAction]
     protected void ProcessSearch<TEntity, TViewModel>(
         ref IQueryable<TEntity> queryable,
-        string qSearch
+        string? qSearch
     )
         where TEntity : class
         where TViewModel : class
@@ -143,10 +143,10 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
         if (!string.IsNullOrWhiteSpace(qSearch))
         {
             var _queryable = queryable;
-            Expression<Func<TEntity, bool>> searchExpression = null;
+            Expression<Func<TEntity, bool>>? searchExpression = null;
             var parameter = Expression.Parameter(typeof(TEntity), "x");
 
-            void processSearch(Type type, List<string> prefixes = null)
+            void processSearch(Type type, List<string>? prefixes = null)
             {
                 var searchProperties = type
                         .GetProperties()
@@ -180,7 +180,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
 
                             if (searchProperty.PropertyType != typeof(string))
                             {
-                                member = Expression.Call(member, typeof(object).GetMethod("ToString"));
+                                member = Expression.Call(member, typeof(object).GetMethod("ToString")!);
                             }
 
                             var closure = new SearchClosure($"%{qSearch}%");
@@ -189,7 +189,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
 
                             Expression body = Expression.Call(
                                 typeof(DbFunctionsExtensions).GetMethod(nameof(DbFunctionsExtensions.Like),
-                                    new[] { typeof(DbFunctions), typeof(string), typeof(string) }),
+                                    new[] { typeof(DbFunctions), typeof(string), typeof(string) })!,
                                 Expression.Constant(EF.Functions),
                                 member,
                                 memberAccess
@@ -266,7 +266,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
     [NonAction]
     protected List<FilterRequestModel> ProcessFilter<TEntity, TViewModel>(
         ref IQueryable<TEntity> queryable,
-        List<FilterRequestModel> filterCollection
+        List<FilterRequestModel>? filterCollection
     )
         where TEntity : class
         where TViewModel : class
@@ -285,7 +285,10 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                 foreach (var filter in filterCollection)
                 {
                     var filterLambda = GetFilterLambda<TEntity>(filter, filterProperties);
-                    queryable = queryable.Where(filterLambda);
+                    if (filterLambda != null)
+                    {
+                        queryable = queryable.Where(filterLambda);
+                    }
 
                     filterResult.Add(filter);
                 }
@@ -297,7 +300,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
 
     [NonAction]
     protected async Task<IActionResult> CollectionResultAsync<TModel, TViewModel>(IQueryable<TModel> query,
-        Func<IQueryable<TModel>, Task<IQueryable<TModel>>> resultQueryableFunc = null,
+        Func<IQueryable<TModel>, Task<IQueryable<TModel>>>? resultQueryableFunc = null,
         int? maxItemsPerPage = null,
         params (Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TModel : class where TViewModel : class
@@ -333,11 +336,13 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
     ///     <typeparam name="TModel"></typeparam>
     ///     . Can be used to include extra data.
     /// </param>
+    /// <param name="includeHeaders"></param>
     /// <param name="defaultOrderBy">Order by clauses</param>
+    /// <param name="delimiter"></param>
     /// <returns></returns>
     protected async Task<IActionResult> Csv<TModel, TRowModel>(IQueryable<TModel> query,
-        Func<IEnumerable<TModel>, IEnumerable<TRowModel>> convert = null,
-        Func<IQueryable<TModel>, Task<IQueryable<TModel>>> resultQueryableFunc = null,
+        Func<IEnumerable<TModel>, IEnumerable<TRowModel>>? convert = null,
+        Func<IQueryable<TModel>, Task<IQueryable<TModel>>>? resultQueryableFunc = null,
         char delimiter = ';',
         bool includeHeaders = false,
         params (Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
@@ -353,7 +358,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
             await GetCollectionResponseModel<TModel, TModel>(collectionRequestModel, query, resultQueryableFunc,
                 defaultOrderBy);
 
-        IEnumerable<TRowModel> rows = null;
+        IEnumerable<TRowModel>? rows = null;
 
         if (convert != null)
         {
@@ -365,7 +370,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
         }
         else
         {
-            rows = collectionResponseModel.Items.Select(x => x as TRowModel).ToList();
+            rows = collectionResponseModel.Items.Select(x => (x as TRowModel)!).ToList();
         }
 
         var rowType = typeof(TRowModel);
@@ -382,7 +387,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
         foreach (var row in rows)
         {
             await fileStream.WriteAsync(Encoding.UTF8.GetBytes(
-                    string.Join(delimiter, properties.Select(p => p.GetMethod.Invoke(row, null))) + Environment.NewLine
+                    string.Join(delimiter, properties.Select(p => p.GetMethod!.Invoke(row, null))) + Environment.NewLine
                 )
             );
         }
@@ -428,10 +433,10 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
     }
 
     [NonAction]
-    private static Expression JoinExpressions(IList<Expression> expressions,
+    private static Expression? JoinExpressions(IList<Expression> expressions,
         Func<Expression, Expression, Expression> join)
     {
-        Expression andExpression = null;
+        Expression? andExpression = null;
 
         foreach (var expression in expressions)
         {
@@ -463,8 +468,8 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
     }
 
     [NonAction]
-    private Expression<Func<T, bool>> GetFilterLambda<T>(FilterRequestModel filter,
-        IEnumerable<PropertyInfo> filterProperties, ParameterExpression parameter = null, bool skipValidation = false)
+    private Expression<Func<T, bool>>? GetFilterLambda<T>(FilterRequestModel filter,
+        IEnumerable<PropertyInfo> filterProperties, ParameterExpression? parameter = null, bool skipValidation = false)
     {
         if (!skipValidation && !IsFilterValid(filter, filterProperties))
         {
@@ -476,7 +481,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
 
         Expression member = parameter;
         var didCollectionHit = false;
-        Expression body = null;
+        Expression? body = null;
         var collectionMethodName = "any";
 
         var keyParts = filter.Key.Split('.').ToList();
@@ -523,8 +528,8 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                     Key = string.Join(".", remainderParts), Operator = filter.Operator, Value = filter.Value
                 };
 
-                dynamic lambda2 = typeof(BaseController<TController, TBaseEntity>)
-                    .GetMethod("GetFilterLambda", BindingFlags.Instance | BindingFlags.NonPublic)
+                dynamic? lambda2 = typeof(BaseController<TController, TBaseEntity>)
+                    .GetMethod("GetFilterLambda", BindingFlags.Instance | BindingFlags.NonPublic)!
                     .MakeGenericMethod(collectionItemType)
                     .Invoke(this, new object[] { filter2, filterProperties, parameter2, true });
 
@@ -586,11 +591,11 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                     {
                         var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
                         Expression<Func<object>> closure = () =>
-                            filter.Value == null
+                            (filter.Value == null
                                 ? null
-                                : memberTypeConverter.ConvertFrom(filter.Value == null
+                                : memberTypeConverter.ConvertFrom((filter.Value == null
                                     ? null
-                                    : filter.Value.ToString());
+                                    : filter.Value.ToString())!))!;
                         var constant = Expression.Convert(closure.Body, member.Type);
                         body = Expression.Equal(member, constant);
                         break;
@@ -600,11 +605,11 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                     {
                         var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
                         Expression<Func<object>> closure = () =>
-                            filter.Value == null
+                            (filter.Value == null
                                 ? null
-                                : memberTypeConverter.ConvertFrom(filter.Value == null
+                                : memberTypeConverter.ConvertFrom((filter.Value == null
                                     ? null
-                                    : filter.Value.ToString());
+                                    : filter.Value.ToString())!))!;
                         var constant = Expression.Convert(closure.Body, member.Type);
                         body = Expression.NotEqual(member, constant);
                         break;
@@ -613,11 +618,11 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                     {
                         var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
                         Expression<Func<object>> closure = () =>
-                            filter.Value == null
+                            (filter.Value == null
                                 ? null
-                                : memberTypeConverter.ConvertFrom(filter.Value == null
+                                : memberTypeConverter.ConvertFrom((filter.Value == null
                                     ? null
-                                    : filter.Value.ToString());
+                                    : filter.Value.ToString())!))!;
                         var constant = Expression.Convert(closure.Body, member.Type);
                         body = Expression.GreaterThan(member, constant);
                         break;
@@ -626,11 +631,11 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                     {
                         var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
                         Expression<Func<object>> closure = () =>
-                            filter.Value == null
+                            (filter.Value == null
                                 ? null
-                                : memberTypeConverter.ConvertFrom(filter.Value == null
+                                : memberTypeConverter.ConvertFrom((filter.Value == null
                                     ? null
-                                    : filter.Value.ToString());
+                                    : filter.Value.ToString())!))!;
                         var constant = Expression.Convert(closure.Body, member.Type);
                         body = Expression.GreaterThanOrEqual(member, constant);
                         break;
@@ -639,11 +644,11 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                     {
                         var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
                         Expression<Func<object>> closure = () =>
-                            filter.Value == null
+                            (filter.Value == null
                                 ? null
-                                : memberTypeConverter.ConvertFrom(filter.Value == null
+                                : memberTypeConverter.ConvertFrom((filter.Value == null
                                     ? null
-                                    : filter.Value.ToString());
+                                    : filter.Value.ToString())!))!;
                         var constant = Expression.Convert(closure.Body, member.Type);
                         body = Expression.LessThan(member, constant);
                         break;
@@ -652,11 +657,11 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                     {
                         var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
                         Expression<Func<object>> closure = () =>
-                            filter.Value == null
+                            (filter.Value == null
                                 ? null
-                                : memberTypeConverter.ConvertFrom(filter.Value == null
+                                : memberTypeConverter.ConvertFrom((filter.Value == null
                                     ? null
-                                    : filter.Value.ToString());
+                                    : filter.Value!.ToString())!))!;
                         var constant = Expression.Convert(closure.Body, member.Type);
                         body = Expression.LessThanOrEqual(member, constant);
                         break;
@@ -665,7 +670,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                     {
                         var valueSplit = filter.Value is string
                             ? ((string)filter.Value).Split(',')
-                            : ((IEnumerable)filter.Value).Cast<object>().Select(x => x?.ToString()).ToArray();
+                            : ((IEnumerable)filter.Value!).Cast<object>().Select(x => x?.ToString()).ToArray();
 
                         if (!valueSplit.Any())
                         {
@@ -673,7 +678,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                         }
 
                         var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
-                        Expression<Func<object>> closure = () => memberTypeConverter.ConvertFrom(valueSplit[0].Trim());
+                        Expression<Func<object>> closure = () => memberTypeConverter.ConvertFrom(valueSplit[0]!.Trim())!;
                         var constant = Expression.Convert(closure.Body, member.Type);
                         body = Expression.Equal(member, constant);
 
@@ -681,8 +686,8 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                         {
                             for (var i = 1; i < valueSplit.Length; i++)
                             {
-                                var value = valueSplit[i].Trim();
-                                Expression<Func<object>> closure2 = () => memberTypeConverter.ConvertFrom(value);
+                                var value = valueSplit[i]!.Trim();
+                                Expression<Func<object>> closure2 = () => memberTypeConverter.ConvertFrom(value)!;
                                 var constant2 = Expression.Convert(closure2.Body, member.Type);
                                 var body2 = Expression.Equal(member, constant2);
                                 body = Expression.OrElse(body, body2);
@@ -695,7 +700,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                     {
                         var valueSplit = filter.Value is string
                             ? ((string)filter.Value).Split(',')
-                            : ((IEnumerable)filter.Value).Cast<object>().Select(x => x?.ToString()).ToArray();
+                            : ((IEnumerable)filter.Value!).Cast<object>().Select(x => x?.ToString()).ToArray();
 
                         if (!valueSplit.Any())
                         {
@@ -703,7 +708,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                         }
 
                         var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
-                        Expression<Func<object>> closure = () => memberTypeConverter.ConvertFrom(valueSplit[0].Trim());
+                        Expression<Func<object>> closure = () => memberTypeConverter.ConvertFrom(valueSplit[0]!.Trim())!;
                         var constant = Expression.Convert(closure.Body, member.Type);
                         body = Expression.NotEqual(member, constant);
 
@@ -711,8 +716,8 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                         {
                             for (var i = 1; i < valueSplit.Length; i++)
                             {
-                                var value = valueSplit[i].Trim();
-                                Expression<Func<object>> closure2 = () => memberTypeConverter.ConvertFrom(value);
+                                var value = valueSplit[i]!.Trim();
+                                Expression<Func<object>> closure2 = () => memberTypeConverter.ConvertFrom(value)!;
                                 var constant2 = Expression.Convert(closure2.Body, member.Type);
                                 var body2 = Expression.NotEqual(member, constant2);
                                 body = Expression.AndAlso(body, body2);
@@ -725,11 +730,11 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                     {
                         var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
                         Expression<Func<object>> closure = () =>
-                            filter.Value == null
+                            (filter.Value == null
                                 ? null
-                                : memberTypeConverter.ConvertFrom(filter.Value == null
+                                : memberTypeConverter.ConvertFrom((filter.Value == null
                                     ? null
-                                    : filter.Value.ToString());
+                                    : filter.Value.ToString())!))!;
                         var constant = Expression.Convert(closure.Body, member.Type);
 
                         body = Expression.Call(
@@ -749,8 +754,8 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
         {
             foreach (var andFilter in filter.Ands)
             {
-                var andFilterLambda = GetFilterLambda<T>(andFilter, filterProperties, parameter);
-                body = Expression.AndAlso(body, andFilterLambda.Body);
+                var andFilterLambda = GetFilterLambda<T>(andFilter, filterProperties, parameter)!;
+                body = Expression.AndAlso(body!, andFilterLambda.Body);
             }
         }
 
@@ -759,11 +764,11 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
             foreach (var andFilter in filter.Ors)
             {
                 var andFilterLambda = GetFilterLambda<T>(andFilter, filterProperties, parameter);
-                body = Expression.OrElse(body, andFilterLambda.Body);
+                body = Expression.OrElse(body!, andFilterLambda!.Body);
             }
         }
 
-        return Expression.Lambda<Func<T, bool>>(body, parameter);
+        return Expression.Lambda<Func<T, bool>>(body!, parameter);
     }
 
     private static bool IsIEnumerable(Type type)
@@ -789,7 +794,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
     [NonAction]
     protected List<OrderByRequestModel> ProcessOrderBy<TEntity, TViewModel>(
         ref IQueryable<TEntity> queryable,
-        List<OrderByRequestModel> orderByCollection,
+        List<OrderByRequestModel>? orderByCollection,
         params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy
     )
         where TEntity : class
@@ -829,7 +834,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                                 .Replace("{last:desc}", "")
                             );
 
-                        PropertyInfo orderByField = null;
+                        PropertyInfo? orderByField = null;
                         var objOrderByProperties = typeof(TViewModel)
                                 .GetProperties()
                                 .Where(prop => prop.IsDefined(typeof(OrderableAttribute), false))
@@ -891,24 +896,24 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                         count++;
 
                         var orderByKey = string.Join(".", orderByItem
-                            ?.Key
-                            ?.ToLower()
-                            ?.Trim()
-                            ?.Split(".")
-                            .Select(x => x.Trim())
-                            .Select(x => x
-                                .Replace("{first:asc}" + $"{x.Replace("{first:asc}", "")}",
-                                    $"OrderBy(sub => sub.{x.Replace("{first:asc}", "")}).First()")
-                                .Replace("{first:desc}" + $"{x.Replace("{first:desc}", "")}",
-                                    $"OrderByDescending(sub => sub.{x.Replace("{first:desc}", "")}).Last()")
-                                .Replace("{last:asc}" + $"{x.Replace("{last:asc}", "")}",
-                                    $"OrderBy(sub => sub.{x.Replace("{last:asc}", "")}).First()")
-                                .Replace("{last:desc}" + $"{x.Replace("{last:desc}", "")}",
-                                    $"OrderByDescending(sub => sub.{x.Replace("{last:desc}", "")}).Last()")
-                            )
+                                ?.Key
+                                ?.ToLower()
+                                ?.Trim()
+                                ?.Split(".")
+                                .Select(x => x.Trim())
+                                .Select(x => x
+                                    .Replace("{first:asc}" + $"{x.Replace("{first:asc}", "")}",
+                                        $"OrderBy(sub => sub.{x.Replace("{first:asc}", "")}).First()")
+                                    .Replace("{first:desc}" + $"{x.Replace("{first:desc}", "")}",
+                                        $"OrderByDescending(sub => sub.{x.Replace("{first:desc}", "")}).Last()")
+                                    .Replace("{last:asc}" + $"{x.Replace("{last:asc}", "")}",
+                                        $"OrderBy(sub => sub.{x.Replace("{last:asc}", "")}).First()")
+                                    .Replace("{last:desc}" + $"{x.Replace("{last:desc}", "")}",
+                                        $"OrderByDescending(sub => sub.{x.Replace("{last:desc}", "")}).Last()")
+                                ) ?? []
                         );
 
-                        switch (orderByItem.Method)
+                        switch (orderByItem?.Method)
                         {
                             case OrderByMethod.Default:
                                 {
@@ -1020,9 +1025,9 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
 
         var qPage = request.Query["page"];
         var qItemsPerPage = request.Query["itemsPerPage"];
-        string qOrderBy = request.Query["orderBy"];
-        string qSearch = request.Query["search"];
-        string qFilter = request.Query["filter"];
+        string? qOrderBy = request.Query["orderBy"];
+        string? qSearch = request.Query["search"];
+        string? qFilter = request.Query["filter"];
 
         if (!int.TryParse(qPage.FirstOrDefault(), out var page) || page < 1)
         {
@@ -1045,7 +1050,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
         {
             if (!string.IsNullOrWhiteSpace(qOrderBy))
             {
-                orderBy = JsonConvert.DeserializeObject<List<OrderByRequestModel>>(qOrderBy);
+                orderBy = JsonConvert.DeserializeObject<List<OrderByRequestModel>>(qOrderBy)!;
             }
 
             if (!string.IsNullOrWhiteSpace(qFilter))
@@ -1053,7 +1058,10 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                 filter = JsonConvert.DeserializeObject<List<FilterRequestModel>>(qFilter);
             }
         }
-        catch { }
+        catch
+        {
+            //Ignore
+        }
 
         return new CollectionRequestModel
         {
@@ -1098,7 +1106,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
     protected virtual async Task<CollectionResponseModel<TViewModel>> GetCollectionResponseModel<TEntity, TViewModel>(
         CollectionRequestModel requestModel,
         IQueryable<TEntity> queryable,
-        Func<IQueryable<TEntity>, Task<IQueryable<TEntity>>> resultQueryableFunc = null,
+        Func<IQueryable<TEntity>, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
         params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class

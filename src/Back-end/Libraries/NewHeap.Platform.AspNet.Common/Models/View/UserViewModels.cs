@@ -25,7 +25,7 @@ public class UserViewModel
     [Searchable]
     [Orderable]
     [Filterable]
-    public string Email { get; set; }
+    public string? Email { get; set; }
 
     [Orderable]
     [Filterable]
@@ -42,7 +42,7 @@ public class UserViewModel
     [Searchable]
     [Orderable]
     [Filterable]
-    public string PhoneNumber { get; set; }
+    public string? PhoneNumber { get; set; }
 
     [Orderable]
     [Filterable]
@@ -58,7 +58,7 @@ public class UserViewModel
     [Searchable]
     [Orderable]
     [Filterable]
-    public DivisionViewModel ActiveDivision { get; set; }
+    public DivisionViewModel? ActiveDivision { get; set; }
 
-    public ICollection<string> Roles { get; set; }
+    public ICollection<string>? Roles { get; set; }
 }

@@ -7,16 +7,16 @@ public partial class DivisionMutateModel
 {
     [NhRequired]
     [StringLength(100)]
-    public string Name { get; set; }
+    public string? Name { get; set; }
 
     [StringLength(255)]
-    public string Description { get; set; }
+    public string? Description { get; set; }
 
     public bool UserSelectAllowed { get; set; }
 
 
     [StringLength(50, MinimumLength = 1)]
-    public string TimeZoneId { get; set; }
+    public string? TimeZoneId { get; set; }
 }
 
 public class DivisionUserMutateModel

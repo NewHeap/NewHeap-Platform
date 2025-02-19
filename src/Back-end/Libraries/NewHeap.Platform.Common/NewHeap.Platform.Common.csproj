@@ -12,7 +12,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AutoMapper" Version="13.0.1"/>
+        <PackageReference Include="AutoMapper" Version="14.0.0" />
         <PackageReference Include="Hangfire" Version="1.8.17"/>
         <PackageReference Include="Hangfire.Console" Version="1.4.3"/>
         <PackageReference Include="KeyedSemaphores" Version="5.0.0"/>

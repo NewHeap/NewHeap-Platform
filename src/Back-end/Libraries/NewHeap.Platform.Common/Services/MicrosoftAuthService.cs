@@ -18,7 +18,7 @@ public class MicrosoftAuthService
         _settings = options.Value;
     }
 
-    public async Task<MicrosoftAuthUser> GetProfile(string token)
+    public async Task<MicrosoftAuthUser?> GetProfile(string token)
     {
         using HttpRequestMessage requestMessage = new(HttpMethod.Get, _settings.ProfileEndpoint);
 
@@ -34,7 +34,7 @@ public class MicrosoftAuthService
         return null;
     }
 
-    public async Task<MicosoftAuthTokenSuccessResponse> GetToken(string code, string state = null)
+    public async Task<MicosoftAuthTokenSuccessResponse?> GetToken(string code, string? state = null)
     {
         var url = $"https://login.microsoftonline.com/{_settings.TenantId}/oauth2/v2.0/token";
 
@@ -47,14 +47,14 @@ public class MicrosoftAuthService
         query.Add("client_secret", _settings.ClientSecret);
 
         var result =
-            await _httpClient.PostAsync(url, new ReadOnlyMemoryContent(Encoding.UTF8.GetBytes(query.ToString())));
+            await _httpClient.PostAsync(url, new ReadOnlyMemoryContent(Encoding.UTF8.GetBytes(query.ToString()!)));
 
         if (result.IsSuccessStatusCode)
         {
             var response =
                 JsonConvert.DeserializeObject<MicosoftAuthTokenSuccessResponse>(
                     await result.Content.ReadAsStringAsync());
-            return response;
+            return response!;
         }
         else
         {
@@ -64,7 +64,7 @@ public class MicrosoftAuthService
         }
     }
 
-    public string GetLoginUrl(string state = null)
+    public string GetLoginUrl(string? state = null)
     {
         var query = HttpUtility.ParseQueryString(string.Empty);
 

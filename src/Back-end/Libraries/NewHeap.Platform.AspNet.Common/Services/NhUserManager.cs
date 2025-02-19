@@ -50,7 +50,7 @@ public partial class NhUserManager : UserManager<User>
         return _userRepository;
     }
 
-    private IQueryable<User> QueryableWithAllIncludes(IQueryable<User> queryable = null)
+    private IQueryable<User> QueryableWithAllIncludes(IQueryable<User>? queryable = null)
     {
         queryable ??= _userRepository.GetAll()
             .Include(x => x.ActiveDivision);
@@ -58,7 +58,7 @@ public partial class NhUserManager : UserManager<User>
         return queryable;
     }
 
-    public virtual async Task<User> FindOneByAsync(Expression<Func<User, bool>> predicate)
+    public virtual async Task<User?> FindOneByAsync(Expression<Func<User, bool>> predicate)
     {
         return await QueryableWithAllIncludes().FirstOrDefaultAsync(predicate);
     }
@@ -68,11 +68,11 @@ public partial class NhUserManager : UserManager<User>
         IdentityOptions _options = new();
         List<Claim> claims = new()
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Email),
+            new Claim(JwtRegisteredClaimNames.Sub, user.Email!),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new Claim(ClaimTypes.Name, user.UserName),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim(ClaimTypes.Name, user.UserName!),
+            new Claim(ClaimTypes.Email, user.Email!),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email!),
             new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString()),
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
         };
@@ -113,9 +113,9 @@ public partial class NhUserManager : UserManager<User>
                 divisionsQuery = divisionsQuery.Where(x => x.DivisionUsers.Any(c =>
                     c.UserId == user.Id
                     && c.LockOutStartDateTime == null ? true :
-                    !(c.LockOutStartDateTime.Value.Date <= DateTimeOffset.Now.Date)
+                    !(c.LockOutStartDateTime!.Value.Date <= DateTimeOffset.Now.Date)
                     && c.LockOutEndDateTime == null ? true :
-                    !(c.LockOutEndDateTime.Value.Date >= DateTimeOffset.Now.Date)
+                    !(c.LockOutEndDateTime!.Value.Date >= DateTimeOffset.Now.Date)
                 ));
             }
 
@@ -154,7 +154,7 @@ public partial class NhUserManager : UserManager<User>
                              .GroupBy(x => new { x.ClaimType, x.ClaimValue })
                              .Select(x => x.FirstOrDefault()))
                 {
-                    var claimValue = divisionId + "_" + divisionRoleClaim.ClaimValue;
+                    var claimValue = divisionId + "_" + divisionRoleClaim!.ClaimValue;
                     var claim = divisionRolesClaimClaims.FirstOrDefault(x =>
                         x.Type == divisionRoleClaim.ClaimType && x.Value == claimValue);
                     if (claim == null)
@@ -205,7 +205,7 @@ public partial class NhUserManager : UserManager<User>
 
     public virtual bool IsOauthAccount(User user)
     {
-        return IsOauthAccount(user.NormalizedEmail);
+        return IsOauthAccount(user.NormalizedEmail!);
     }
 
     public virtual string GenerateRegistrationToken()
@@ -213,7 +213,7 @@ public partial class NhUserManager : UserManager<User>
         return Guid.NewGuid().ToString() + '-' + Guid.NewGuid();
     }
 
-    public virtual string GenerateRandomPassword(PasswordOptions passwordOptions = null)
+    public virtual string GenerateRandomPassword(PasswordOptions? passwordOptions = null)
     {
         if (passwordOptions == null)
         {
@@ -272,11 +272,11 @@ public partial class NhUserManager : UserManager<User>
 
         await SetLockoutEndDateAsync(user, end);
         var userEntity = await _userRepository.FindOneByAsync(x => x.Id == user.Id);
-        userEntity.LockoutStart = start;
+        userEntity!.LockoutStart = start;
         await _userRepository.SaveChangesAsync();
     }
 
-    public Task<User> FindByIdWithIncludesAsync(Guid userId)
+    public Task<User?> FindByIdWithIncludesAsync(Guid userId)
     {
         return _userRepository
                 .GetAll()
@@ -302,7 +302,7 @@ public partial class NhUserManager : UserManager<User>
 
         if (mutateModel.DivisionId.HasValue)
         {
-            List<Claim> claims = await GetValidClaims(user);
+            List<Claim> claims = await GetValidClaims(user!);
             if (!claims.Any(x =>
                     x.Type == NhPlatformClaimTypes.Permission &&
                     x.Value == Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll))
@@ -320,14 +320,14 @@ public partial class NhUserManager : UserManager<User>
             return result;
         }
 
-        user.ActiveDivisionId = mutateModel.DivisionId;
+        user!.ActiveDivisionId = mutateModel.DivisionId;
         await _userRepository.SaveChangesAsync();
 
         return result;
     }
 
     public virtual Task<bool> DivisionAccessAsync(Guid? divisionId, IEnumerable<Claim> userClaims,
-        IEnumerable<Claim> requireClaims = null, IEnumerable<string> requireRoles = null)
+        IEnumerable<Claim>? requireClaims = null, IEnumerable<string>? requireRoles = null)
     {
         if (!divisionId.HasValue || (requireRoles?.Any() == false && requireRoles?.Any() == false))
         {

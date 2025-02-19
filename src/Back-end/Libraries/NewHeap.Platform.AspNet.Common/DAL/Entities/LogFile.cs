@@ -21,13 +21,13 @@ public partial class LogFile
 
     public Guid LogId { get; set; }
 
-    public Log Log { get; set; }
+    public Log Log { get; set; } = null!;
 
     [StringLength(254)]
-    public string OriginalFileName { get; set; }
+    public required string OriginalFileName { get; set; }
 
     /// <summary>
     ///     Relative path to a related file
     /// </summary>
-    public string FilePath { get; set; }
+    public string FilePath { get; set; } = "";
 }

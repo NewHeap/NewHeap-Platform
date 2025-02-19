@@ -14,11 +14,11 @@ public partial class InternalNhDbContextFactory<TDbContext>
         _config = config;
     }
 
-    public TDbContext CreateDbContext(Action<SqlServerDbContextOptionsBuilder> sqlServerOptionsAction = null)
+    public TDbContext CreateDbContext(Action<SqlServerDbContextOptionsBuilder>? sqlServerOptionsAction = null)
     {
         DbContextOptionsBuilder<NhDbContext>? optionsBuilder = new();
         optionsBuilder.UseSqlServer(_config.GetConnectionString("DefaultConnection"), sqlServerOptionsAction);
 
-        return (TDbContext)Activator.CreateInstance(typeof(TDbContext), optionsBuilder.Options);
+        return (TDbContext)Activator.CreateInstance(typeof(TDbContext), optionsBuilder.Options)!;
     }
 }

@@ -77,7 +77,7 @@ public partial class DivisionService
 
         void validateTimeZone()
         {
-            if (!TimeZoneInfo.GetSystemTimeZones().Any(x => x.Id.Equals(model.MutateModel.TimeZoneId)))
+            if (!TimeZoneInfo.GetSystemTimeZones().Any(x => x.Id.Equals(model.MutateModel!.TimeZoneId)))
             {
                 model.TaskResult.AddError(nameof(model.MutateModel.TimeZoneId),
                     _localizer["Invalid time zone id provided."]);
@@ -89,7 +89,7 @@ public partial class DivisionService
             _validationService.ValidateMutateModelModelState(model);
 
             if (await _divisionRepository.AnyAsync(x =>
-                    x.Name.Trim().ToLower() == model.MutateModel.Name.Trim().ToLower()))
+                    x.Name.Trim().ToLower() == model.MutateModel!.Name!.Trim().ToLower()))
             {
                 model.TaskResult.AddError(nameof(model.MutateModel.Name), _localizer["Name is already exists."]);
             }
@@ -103,7 +103,7 @@ public partial class DivisionService
             sourceModelCheck();
 
             if (await _divisionRepository.AnyAsync(x =>
-                    x.Id != model.SourceModel.Id && x.Name.Trim().ToLower() == model.MutateModel.Name.Trim().ToLower()))
+                    x.Id != model.SourceModel!.Id && x.Name.Trim().ToLower() == model.MutateModel!.Name!.Trim().ToLower()))
             {
                 model.TaskResult.AddError(nameof(model.MutateModel.Name), _localizer["Name is already exists."]);
             }
@@ -175,24 +175,24 @@ public partial class DivisionService
             return result;
         }
 
-        var currentDivisionName = division.Name;
+        var currentDivisionName = division?.Name;
 
         var originalData = LogHelperService.Copy(division);
 
-        division = _mapper.Map(mutateModel, division);
+        division = _mapper.Map(mutateModel, division)!;
         division.LastModifiedDateTime = DateTimeOffset.UtcNow;
 
         var updatedData = LogHelperService.Copy(division);
 
         var changedProperties = await _logHelperService.ChangedProperties(originalData,
-            updatedData, new Dictionary<Expression<Func<Division, object>>, Func<object, Task<string>>>
+            updatedData, new Dictionary<Expression<Func<Division?, object>>, Func<object?, Task<string>>>
             {
                 // Method resolvers
             },
-            x => x.Name,
-            x => x.Description,
-            x => x.UserSelectAllowed,
-            x => x.TimeZoneId
+            x => x!.Name,
+            x => x!.Description,
+            x => x!.UserSelectAllowed,
+            x => x!.TimeZoneId
         );
 
         if (changedProperties.Any())
@@ -254,12 +254,12 @@ public partial class DivisionService
         }
 
         result.Data = division;
-        _divisionRepository.Remove(division);
+        _divisionRepository.Remove(division!);
 
         await _dbLogService.LogAsync(
             "Division remove successful.",
-            messageArguments: new[] { division.Id.ToString() },
-            objectId: division.Id.ToString(),
+            messageArguments: new[] { division?.Id.ToString() },
+            objectId: division?.Id.ToString(),
             objectType: typeof(Division).Name,
             objectTypeFull: typeof(Division).FullName,
             userId: committedByUserId,
@@ -318,11 +318,11 @@ public partial class DivisionService
 
         var divisionRole = await _divisionRoleRepository.FindOneByAsync(x => x.Name == roleName);
 
-        _divisionRoleRepository.Remove(divisionRole);
+        _divisionRoleRepository.Remove(divisionRole!);
 
         await _dbLogService.LogAsync(
             "Division role delete successful.",
-            messageArguments: new[] { divisionRole.Id.ToString() },
+            messageArguments: new[] { divisionRole!.Id.ToString() },
             objectId: divisionRole.Id.ToString(),
             objectType: typeof(DivisionRole).Name,
             objectTypeFull: typeof(DivisionRole).FullName,
