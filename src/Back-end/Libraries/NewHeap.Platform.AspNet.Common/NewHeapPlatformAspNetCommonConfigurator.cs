@@ -17,22 +17,29 @@ using Microsoft.IdentityModel.Tokens;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Options;
-using NewHeap.Platform.AspNet.Common.Resolvers;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Policy.AuthorizationHandlers;
+using NewHeap.Platform.AspNet.Policy.Requirements;
+using NewHeap.Platform.AspNet.Policy.Resolvers;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Translations;
+using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
+using System.Security.Claims;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common;
 
 public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
     where TDbContext : NhDbContext
 {
+    private readonly IServiceCollection _serviceCollection;
     private readonly NewHeapPlatformCommonConfigurator _commonConfigurator;
     private readonly NewHeapAspNetCommonOptions _options;
-    private readonly IServiceCollection _serviceCollection;
 
     public NewHeapPlatformAspNetCommonConfigurator(
         IServiceCollection serviceCollection,
@@ -62,7 +69,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         _serviceCollection.AddHealthChecks();
 
         #region Services
-
         _serviceCollection.Configure(_options.DbLogSettingsAction);
         _serviceCollection.AddScoped<DbLogService>();
 
@@ -72,7 +78,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         _serviceCollection.AddScoped<RazorViewService>();
 
         _serviceCollection.AddSingleton<IAuthorizationHandler, ActiveDivisionAccessHandler>();
-
         #endregion
     }
 
@@ -87,15 +92,13 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         void AddRepository<TEntity>()
             where TEntity : class
         {
-            _serviceCollection.AddScoped<IRepository<TEntity>>(serviceProvider =>
-            {
+            _serviceCollection.AddScoped<IRepository<TEntity>>(serviceProvider => {
                 var dbContext = serviceProvider.GetRequiredService<TDbContext>();
                 return new Repository<TEntity>(dbContext);
             });
         }
 
         #region Repositories
-
         AddRepository<User>();
         AddRepository<UserRole>();
         AddRepository<Division>();
@@ -107,8 +110,9 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         AddRepository<LogMessageArgument>();
         AddRepository<LogMessageTranslated>();
         AddRepository<LogFile>();
-
         #endregion
+
+
     }
 
     private void AddHttpRelated()
@@ -116,44 +120,40 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         _serviceCollection.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
         _serviceCollection.AddTransient<IConfigureOptions<MvcNewtonsoftJsonOptions>, MvcNewtonsoftJsonOptionsWrapper>();
 
-        _serviceCollection.AddMvc(options =>
-            {
-                options.EnableEndpointRouting = false;
+        _serviceCollection.AddMvc(options => {
+            options.EnableEndpointRouting = false;
 
-                _options.MvcOptionsAction?.Invoke(options);
-            })
-            .AddNewtonsoftJson( /* Options are configured by MvcNewtonsoftJsonOptionsWrapper */)
-            .AddViewLocalization(LanguageViewLocationExpanderFormat.Suffix)
-            .AddDataAnnotationsLocalization(options =>
-            {
-                options.DataAnnotationLocalizerProvider =
-                    (type, factory) => factory.Create(typeof(SharedDataAnnotationRecources));
+            _options.MvcOptionsAction?.Invoke(options);
+        })
+        .AddNewtonsoftJson(/* Options are configured by MvcNewtonsoftJsonOptionsWrapper */ )
+        .AddViewLocalization(LanguageViewLocationExpanderFormat.Suffix)
+        .AddDataAnnotationsLocalization(options =>
+        {
+            options.DataAnnotationLocalizerProvider = (type, factory) => factory.Create(typeof(SharedDataAnnotationRecources));
 
-                _options.MvcDataAnnotationsLocalizationOptionsAction?.Invoke(options);
-            })
-            .ConfigureApiBehaviorOptions(options =>
-            {
-                options.SuppressConsumesConstraintForFormFileParameters = true;
-                options.SuppressInferBindingSourcesForParameters = true;
-                options.SuppressModelStateInvalidFilter = true;
-                options.SuppressMapClientErrors = true;
+            _options.MvcDataAnnotationsLocalizationOptionsAction?.Invoke(options);
+        })
+        .ConfigureApiBehaviorOptions(options =>
+        {
+            options.SuppressConsumesConstraintForFormFileParameters = true;
+            options.SuppressInferBindingSourcesForParameters = true;
+            options.SuppressModelStateInvalidFilter = true;
+            options.SuppressMapClientErrors = true;
 
-                _options.ApiBehaviorOptionsAction?.Invoke(options);
-            })
-            ;
+            _options.ApiBehaviorOptionsAction?.Invoke(options);
+        })
+        ;
 
         _serviceCollection.AddScoped<ExceptionHandlerService>();
 
         _serviceCollection.AddMvcCore();
         _serviceCollection.AddControllers();
 
-        _serviceCollection.AddCors(options =>
-        {
+        _serviceCollection.AddCors(options => {
             _options.CorsOptionsAction?.Invoke(options);
         });
 
-        _serviceCollection.AddAutoMapper(options =>
-        {
+        _serviceCollection.AddAutoMapper(options => {
             options.AddMaps(typeof(NewHeapPlatformAspNetCommonConfigurator<>));
 
             _options.AutoMapperConfigurationAction?.Invoke(options);
@@ -164,18 +164,18 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
     {
         _serviceCollection.Configure<RequestLocalizationOptions>(options =>
         {
-            NewHeapAspNetCommonSettings settings = new();
+            var settings = new NewHeapAspNetCommonSettings();
             _options.SettingsAction.Invoke(settings);
 
-            var defaultCulture = !string.IsNullOrWhiteSpace(settings.DefaultCulture)
+            var defaultCulture = !string.IsNullOrWhiteSpace(settings.DefaultCulture) 
                 ? settings.DefaultCulture
                 : "en-US";
 
-            List<CultureInfo> supportedCultures = (settings.SupportedCultures ?? [])
+            var supportedCultures = (settings.SupportedCultures ?? [])
                 .Select(x => new CultureInfo(x))
                 .ToList();
 
-            options.DefaultRequestCulture = new RequestCulture(defaultCulture, defaultCulture);
+            options.DefaultRequestCulture = new RequestCulture(culture: defaultCulture, uiCulture: defaultCulture);
             options.SupportedCultures = supportedCultures;
             options.SupportedUICultures = supportedCultures;
 
@@ -211,11 +211,10 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
     private void AddIdentityAndAuthenticationAuthorization()
     {
         #region Identity
-
         _serviceCollection.AddIdentity<User, UserRole>()
-            .AddEntityFrameworkStores<TDbContext>()
-            .AddDefaultTokenProviders()
-            ;
+          .AddEntityFrameworkStores<TDbContext>()
+          .AddDefaultTokenProviders()
+        ;
 
         Action<IdentityOptions> defaultIdentityOptionsAction = options =>
         {
@@ -233,14 +232,12 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         };
 
         _serviceCollection.Configure(defaultIdentityOptionsAction);
-
         #endregion
 
         JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
         JsonWebTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
         #region Authentication
-
         _serviceCollection.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -248,14 +245,16 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
             options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 
             _options.AuthenticationOptionsAction?.Invoke(options);
+
         }).AddJwtBearer(cfg =>
         {
             cfg.RequireHttpsMetadata = true;
             cfg.SaveToken = true;
 
-            cfg.TokenValidationParameters = new TokenValidationParameters
+            cfg.TokenValidationParameters = new TokenValidationParameters()
             {
-                ValidateLifetime = true, ClockSkew = TimeSpan.Zero
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
             };
 
             _options.JwtBearerOptionsTokenValidationParametersAction.Invoke(cfg.TokenValidationParameters);
@@ -279,21 +278,17 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
                             context.Request.Headers[Constants.HttpHeaderKeys.ActiveDivisionId] = divisionId;
                         }
                     }
-
                     return Task.CompletedTask;
                 }
             };
         });
-
         #endregion
 
         #region Authorization
-
         _serviceCollection.AddAuthorization(options =>
         {
             _options.AuthorizationOptionsAction?.Invoke(options);
         });
-
         #endregion
     }
 
@@ -307,21 +302,16 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         });
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> ConfigureCommon(
-        Action<NewHeapPlatformCommonConfigurator> action)
+    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> ConfigureCommon(Action<NewHeapPlatformCommonConfigurator> action)
     {
-        if (action == null)
-        {
-            throw new ArgumentNullException(nameof(action));
-        }
+        if (action == null) throw new ArgumentNullException(nameof(action));
 
         action.Invoke(_commonConfigurator);
 
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> WithDbLogService(
-        Action<DbLogServiceSettings> settingsAction)
+    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> WithDbLogService(Action<DbLogServiceSettings> settingsAction)
     {
         _serviceCollection.Configure(settingsAction);
         _serviceCollection.AddScoped<DbLogService>();
@@ -331,8 +321,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
 
     public NewHeapPlatformAspNetCommonConfigurator<TDbContext> WithSignalR(Action<HubOptions>? hubOptionsAction = null)
     {
-        _serviceCollection.AddSignalR(options =>
-        {
+        _serviceCollection.AddSignalR(options => {
             hubOptionsAction?.Invoke(options);
         });
 
@@ -340,25 +329,25 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
     }
 
     public NewHeapPlatformAspNetCommonConfigurator<TDbContext> WithHangfire(
-        string nameOrConnectionString,
-        Action<IGlobalConfiguration>? hangfireOptionsAction = null,
+        string nameOrConnectionString, 
+        Action<IGlobalConfiguration>? hangfireOptionsAction = null, 
         Action<ConsoleOptions>? consoleOptionsAction = null,
         Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null
-    )
+        )
     {
-        _serviceCollection.AddHangfire(options =>
-        {
+        _serviceCollection.AddHangfire(options => {
+
             options.UseSqlServerStorage(nameOrConnectionString);
 
             hangfireOptionsAction?.Invoke(options);
 
-            ConsoleOptions consoleOptions = new();
+            var consoleOptions = new ConsoleOptions();
             consoleOptionsAction?.Invoke(consoleOptions);
             options.UseConsole(consoleOptions);
+
         });
 
-        _serviceCollection.AddHangfireServer(options =>
-        {
+        _serviceCollection.AddHangfireServer(options => {
             backgroundJobServerOptions?.Invoke(options);
         });
 
