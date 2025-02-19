@@ -2,23 +2,23 @@
 using Microsoft.Extensions.Hosting;
 using NewHeap.Platform.Common;
 
-namespace NewHeap.Platform.AspNet;
+namespace NewHeap.Platform.AspNet.Common;
 
 public static partial class HostBuilderExtensions
 {
-    public static IHostBuilder UseNhAspnetCommonConfiguration(this IHostBuilder builder)
+    public static IHostBuilder UseNewHeapAspnetCommonConfiguration(this IHostBuilder builder)
     {
         builder.UseNhCommonConfiguration();
 
         builder.ConfigureAppConfiguration(configBuilder =>
         {
-            configBuilder.ConfigureNhAspNetCommonConfiguration();
+            configBuilder.ConfigureNewHeapAspNetCommonConfiguration();
         });
 
         return builder;
     }
 
-    public static IConfigurationBuilder ConfigureNhAspNetCommonConfiguration(this IConfigurationBuilder configBuilder)
+    public static IConfigurationBuilder ConfigureNewHeapAspNetCommonConfiguration(this IConfigurationBuilder configBuilder)
     {
         configBuilder.ConfigureNhCommonConfiguration();
 

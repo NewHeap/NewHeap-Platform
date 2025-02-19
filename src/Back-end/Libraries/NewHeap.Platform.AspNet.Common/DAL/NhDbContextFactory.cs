@@ -12,7 +12,7 @@ public abstract partial class NhDbContextFactory<TDBContext> : IDesignTimeDbCont
     protected IConfigurationRoot CreateConfigurationRoot()
     {
         var configuration = new ConfigurationBuilder()
-            .ConfigureNhAspNetCommonConfiguration()
+            .ConfigureNewHeapAspNetCommonConfiguration()
             .Build();
 
         return configuration;

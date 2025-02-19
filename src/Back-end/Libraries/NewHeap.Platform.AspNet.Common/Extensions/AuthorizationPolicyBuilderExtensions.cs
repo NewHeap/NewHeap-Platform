@@ -2,7 +2,7 @@
 using NewHeap.Platform.AspNet.Policy.Requirements;
 using System.Security.Claims;
 
-namespace NewHeap.Platform.AspNet;
+namespace NewHeap.Platform.AspNet.Common;
 
 public static partial class ServiceCollectionExtensions
 {

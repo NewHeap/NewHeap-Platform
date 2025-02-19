@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using NewHeap.Platform.AspNet.Common;
 
-namespace NewHeap.Platform.AspNet;
+namespace NewHeap.Platform.AspNet.Common;
 
 public static partial class HttpContextExtensions
 {

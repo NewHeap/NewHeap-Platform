@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Policy.Requirements;
-using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Identity.Claims;
 using System.Security.Claims;
 
@@ -21,7 +21,7 @@ public partial class ActiveDivisionAccessHandler : AuthorizationHandler<ActiveDi
         AuthorizationHandlerContext context,
         ActiveDivisionAccessRequirement requirement)
     {
-        if (context.User.HasClaim(NhPlatformClaimTypes.Permission, Constants.DivisionPermissionClaimValues.AccessAll))
+        if (context.User.HasClaim(NhPlatformClaimTypes.Permission, Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll))
         {
             context.Succeed(requirement);
             return;

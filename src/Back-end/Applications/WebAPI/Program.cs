@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
-using NewHeap.Platform.AspNet;
+using NewHeap.Platform.AspNet.Common;
 
 namespace WebAPI;
 
@@ -13,7 +13,7 @@ public class Program
 
     public static IHostBuilder CreateHostBuilder(string[] args) =>
         Host.CreateDefaultBuilder(args)
-            .UseNhAspnetCommonConfiguration()
+            .UseNewHeapAspnetCommonConfiguration()
             .ConfigureWebHostDefaults(webBuilder =>
             {
                 webBuilder.UseStartup<Startup>();
