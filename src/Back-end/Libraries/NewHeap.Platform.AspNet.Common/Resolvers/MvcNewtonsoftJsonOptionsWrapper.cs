@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Serialization;
 
-namespace NewHeap.Platform.AspNet.Policy.Resolvers;
+namespace NewHeap.Platform.AspNet.Common.Resolvers;
 
 public partial class MvcNewtonsoftJsonOptionsWrapper : IConfigureOptions<MvcNewtonsoftJsonOptions>
 {

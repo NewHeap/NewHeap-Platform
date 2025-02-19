@@ -34,7 +34,7 @@
   </ItemGroup>
 
     <ItemGroup>
-        <PackageReferenc Include="NewHeap.Platform.Common" />
+        <PackageReference Include="NewHeap.Platform.Common" />
     </ItemGroup>
 
   <ItemGroup>

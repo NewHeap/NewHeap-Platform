@@ -17,6 +17,8 @@ using System.Security.Claims;
 using NewHeap.Platform.AspNet.Common;
 using Microsoft.Extensions.Hosting;
 using Hangfire;
+using Microsoft.Extensions.Options;
+using NewHeap.Platform.AspNet.Common.DAL;
 
 namespace WebAPI
 {
@@ -42,9 +44,9 @@ namespace WebAPI
             {
                 CommonOptions = new NewHeapCommonOptions()
                 {
-                    SettingsAction = x => Configuration.GetSection("NewHeap:PlatformCommon:Settings").Get<NewHeapCommonSettings>(),
+                    SettingsAction = x => Configuration.GetSection("NewHeap:PlatformCommon:Settings").Bind(x),
                 },
-                SettingsAction = x => Configuration.GetSection("NewHeap:PlatformAspNetCommon:Settings").Get<NewHeapAspNetCommonSettings>(),
+                SettingsAction = x => Configuration.GetSection("NewHeap:PlatformAspNetCommon:Settings").Bind(x),
                 DbOptionsAction = (x => x
                     .UseSqlServer(Configuration.GetConnectionString("DefaultConnection"))
                     #if DEBUG
@@ -103,13 +105,13 @@ namespace WebAPI
                     // Optional, default is configured, only override if needed
                     options.AddMaps(typeof(Startup));
                 },
-                DbLogSettingsAction = x => Configuration.GetSection("NewHeap:PlatformAspNetCommon:DbLogServiceSettings").Get<DbLogServiceSettings>(),
+                DbLogSettingsAction = x => Configuration.GetSection("NewHeap:PlatformAspNetCommon:DbLogServiceSettings").Bind(x),
             })
             .ConfigureCommon(commonConfig =>
             {
                 commonConfig
-                    .WithMail(x => Configuration.GetSection("NewHeap:PlatformCommon:MailServiceSettings").Get<MailServiceSettings>())
-                    .WithMicrosoftAuth(x => Configuration.GetSection("NewHeap:PlatformCommon:MicrosoftAuthSettings").Get<MicrosoftAuthSettings>())
+                    .WithMail(x => Configuration.GetSection("NewHeap:PlatformCommon:MailServiceSettings").Bind(x))
+                    .WithMicrosoftAuth(x => Configuration.GetSection("NewHeap:PlatformCommon:MicrosoftAuthSettings").Bind(x))
                 ;
             })
             .WithSignalR(options => {
