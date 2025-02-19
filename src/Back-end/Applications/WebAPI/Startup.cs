@@ -35,41 +35,49 @@ public class Startup
     // This method gets called by the runtime. Use this method to add services to the container.
     public void ConfigureServices(IServiceCollection services)
     {
-        services.AddNewHeapPlatformAspNetCommon<AppDbContext>(
-                NewHeapAspNetCommonOptions.Builder("DefaultConnection", Configuration, "NewHeap")
-                    .ConfigureAutoMapper(options => options.AddMaps(typeof(Startup)))
-                    .ConfigureAuthorization(options =>
-                    {
-                        // Optional, default is configured, only override if needed
-                        options.AddPolicy("app.developer.general",
-                            policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.developer.general"));
-                        options.AddPolicy("app.division.view",
-                            policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.view"));
-                        options.AddPolicy("app.division.manage",
-                            policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.manage"));
+        var newHeapPlatformOptions = NewHeapAspNetCommonOptions.Builder(Configuration)
+            .ConfigureAutoMapper(options => options.AddMaps(typeof(Startup)))
+            .ConfigureAuthorization(options =>
+            {
+                // Optional, default is configured, only override if needed
+                options.AddPolicy("app.developer.general",
+                    policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.developer.general"));
+                options.AddPolicy("app.division.view",
+                    policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.view"));
+                options.AddPolicy("app.division.manage",
+                    policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.manage"));
 
-                        // Sample division permission policy
-                        options.AddPolicy("app.active-division.general.view",
-                            policy => policy.RequireActiveDivisionAccess(null,
-                                new Claim(NhPlatformClaimTypes.DivisionPermission, "general.view")));
-                    })
-                    .ConfigureDbContext(x =>
-                        {
-                            x.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"))
-#if DEBUG
-                                .UseLoggerFactory(AppLoggerFactory);
-#endif
-                        }
-                    )
-                    .Build()
-            )
+                // Sample division permission policy
+                options.AddPolicy("app.active-division.general.view",
+                    policy => policy.RequireActiveDivisionAccess(null,
+                        new Claim(NhPlatformClaimTypes.DivisionPermission, "general.view")));
+            })
+            .Build();
+
+        services
+            .AddNewHeapPlatformAspNetCommon(newHeapPlatformOptions)
             .ConfigureCommon(commonConfig =>
             {
                 commonConfig
-                    .WithMail(x => Configuration.GetSection("NewHeap:PlatformCommon:MailServiceSettings").Bind(x))
+                    .WithMail(x => Configuration.GetSection($"{NewHeapCommonOptions.DefaultSettingsPrefix}:MailServiceSettings").Bind(x))
                     .WithMicrosoftAuth(x =>
-                        Configuration.GetSection("NewHeap:PlatformCommon:MicrosoftAuthSettings").Bind(x))
+                        Configuration.GetSection($"{NewHeapCommonOptions.DefaultSettingsPrefix}:MicrosoftAuthSettings").Bind(x))
                     ;
+            })
+            .WithEntityFramework<AppDbContext>(x =>
+            {
+                x.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"))
+#if DEBUG
+                .UseLoggerFactory(AppLoggerFactory);
+#endif
+            })
+            .WithIdentity<AppDbContext>(x =>
+            {
+
+            })
+            .WithDbLogService(x =>
+            {
+                Configuration.GetSection($"{NewHeapAspNetCommonOptions.DefaultSettingsPrefix}:DbLogServiceSettings").Bind(x);
             })
             .WithSignalR(options =>
             {

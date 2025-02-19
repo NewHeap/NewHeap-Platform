@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -27,9 +28,9 @@ using System.IdentityModel.Tokens.Jwt;
 
 namespace NewHeap.Platform.AspNet.Common;
 
-public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
-    where TDbContext : NhDbContext
+public partial class NewHeapPlatformAspNetCommonConfigurator
 {
+    private bool EntityFrameworkConfigured = false;
     private readonly NewHeapPlatformCommonConfigurator _commonConfigurator;
     private readonly NewHeapAspNetCommonOptions _options;
     private readonly IServiceCollection _serviceCollection;
@@ -53,8 +54,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         _serviceCollection.AddSingleton(_options);
         _serviceCollection.Configure(_options.SettingsAction);
 
-        AddDAL();
-        AddIdentityAndAuthenticationAuthorization();
+        AddAuthenticationAuthorization();
         AddLocalization();
         AddHttpRelated();
         AddRequestLocalization();
@@ -62,52 +62,8 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         _serviceCollection.AddHealthChecks();
 
         #region Services
-
-        _serviceCollection.Configure(_options.DbLogSettingsAction);
-        _serviceCollection.AddScoped<DbLogService>();
-
-        _serviceCollection.AddScoped<NhUserManager>();
-        _serviceCollection.AddScoped<DivisionService>();
-        _serviceCollection.AddScoped<DivisionUserService>();
         _serviceCollection.AddScoped<RazorViewService>();
-
         _serviceCollection.AddSingleton<IAuthorizationHandler, ActiveDivisionAccessHandler>();
-
-        #endregion
-    }
-
-    private void AddDAL()
-    {
-        _serviceCollection.AddSingleton<InternalNhDbContextFactory<TDbContext>>();
-
-        _serviceCollection
-            .AddEntityFrameworkSqlServer()
-            .AddDbContext<TDbContext>(_options.DbOptionsAction);
-
-        void AddRepository<TEntity>()
-            where TEntity : class
-        {
-            _serviceCollection.AddScoped<IRepository<TEntity>>(serviceProvider =>
-            {
-                var dbContext = serviceProvider.GetRequiredService<TDbContext>();
-                return new Repository<TEntity>(dbContext);
-            });
-        }
-
-        #region Repositories
-
-        AddRepository<User>();
-        AddRepository<UserRole>();
-        AddRepository<Division>();
-        AddRepository<DivisionRole>();
-        AddRepository<DivisionRoleClaim>();
-        AddRepository<DivisionUser>();
-        AddRepository<DivisionUserRole>();
-        AddRepository<Log>();
-        AddRepository<LogMessageArgument>();
-        AddRepository<LogMessageTranslated>();
-        AddRepository<LogFile>();
-
         #endregion
     }
 
@@ -154,7 +110,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
 
         _serviceCollection.AddAutoMapper(options =>
         {
-            options.AddMaps(typeof(NewHeapPlatformAspNetCommonConfigurator<>));
+            options.AddMaps(typeof(NewHeapPlatformAspNetCommonConfigurator));
 
             _options.AutoMapperConfigurationAction?.Invoke(options);
         });
@@ -208,34 +164,8 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         });
     }
 
-    private void AddIdentityAndAuthenticationAuthorization()
+    private void AddAuthenticationAuthorization()
     {
-        #region Identity
-
-        _serviceCollection.AddIdentity<User, UserRole>()
-            .AddEntityFrameworkStores<TDbContext>()
-            .AddDefaultTokenProviders()
-            ;
-
-        Action<IdentityOptions> defaultIdentityOptionsAction = options =>
-        {
-            options.Password.RequiredLength = 6;
-            options.Password.RequireLowercase = true;
-            options.Password.RequireNonAlphanumeric = true;
-            options.Password.RequireUppercase = true;
-            options.User.RequireUniqueEmail = true;
-            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromHours(1);
-            options.Lockout.MaxFailedAccessAttempts = 7;
-            options.Lockout.AllowedForNewUsers = true;
-            options.SignIn.RequireConfirmedEmail = true;
-
-            _options.IdentityOptionsAction?.Invoke(options);
-        };
-
-        _serviceCollection.Configure(defaultIdentityOptionsAction);
-
-        #endregion
-
         JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
         JsonWebTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
@@ -307,7 +237,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         });
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> ConfigureCommon(
+    public NewHeapPlatformAspNetCommonConfigurator ConfigureCommon(
         Action<NewHeapPlatformCommonConfigurator> action)
     {
         if (action == null)
@@ -320,16 +250,98 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> WithDbLogService(
+    public NewHeapPlatformAspNetCommonConfigurator WithEntityFramework<TDbContext>(
+        Action<DbContextOptionsBuilder> dbOptionsAction)
+        where TDbContext : NhDbContext
+    {
+        _serviceCollection.AddSingleton<InternalNhDbContextFactory<TDbContext>>();
+
+        _serviceCollection
+            .AddEntityFrameworkSqlServer()
+            .AddDbContext<TDbContext>(dbOptionsAction);
+
+        void AddRepository<TEntity>()
+            where TEntity : class
+        {
+            _serviceCollection.AddScoped<IRepository<TEntity>>(serviceProvider =>
+            {
+                var dbContext = serviceProvider.GetRequiredService<TDbContext>();
+                return new Repository<TEntity>(dbContext);
+            });
+        }
+
+        #region Repositories
+        AddRepository<User>();
+        AddRepository<UserRole>();
+        AddRepository<Division>();
+        AddRepository<DivisionRole>();
+        AddRepository<DivisionRoleClaim>();
+        AddRepository<DivisionUser>();
+        AddRepository<DivisionUserRole>();
+        AddRepository<Log>();
+        AddRepository<LogMessageArgument>();
+        AddRepository<LogMessageTranslated>();
+        AddRepository<LogFile>();
+        #endregion
+
+        _serviceCollection.AddScoped<NhUserManager>();
+        _serviceCollection.AddScoped<DivisionService>();
+        _serviceCollection.AddScoped<DivisionUserService>();
+
+        EntityFrameworkConfigured = true;
+
+        return this;
+    }
+
+    public NewHeapPlatformAspNetCommonConfigurator WithIdentity<TDbContext>(
+        Action<IdentityOptions>? identityOptionsAction = null)
+          where TDbContext : NhDbContext
+    {
+        if (!EntityFrameworkConfigured) 
+        { 
+            throw new InvalidOperationException("EntityFramework must be configured before Identity can be configured.");
+        }
+
+        _serviceCollection.AddIdentity<User, UserRole>()
+            .AddEntityFrameworkStores<TDbContext>()
+            .AddDefaultTokenProviders()
+            ;
+
+        Action<IdentityOptions> defaultIdentityOptionsAction = options =>
+        {
+            options.Password.RequiredLength = 6;
+            options.Password.RequireLowercase = true;
+            options.Password.RequireNonAlphanumeric = true;
+            options.Password.RequireUppercase = true;
+            options.User.RequireUniqueEmail = true;
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromHours(1);
+            options.Lockout.MaxFailedAccessAttempts = 7;
+            options.Lockout.AllowedForNewUsers = true;
+            options.SignIn.RequireConfirmedEmail = true;
+
+            identityOptionsAction?.Invoke(options);
+        };
+
+        _serviceCollection.Configure(defaultIdentityOptionsAction);
+
+        return this;
+    }
+
+    public NewHeapPlatformAspNetCommonConfigurator WithDbLogService(
         Action<DbLogServiceSettings> settingsAction)
     {
+        if(!EntityFrameworkConfigured)
+        {
+            throw new InvalidOperationException("EntityFramework must be configured before DbLogService can be configured.");
+        }
+
         _serviceCollection.Configure(settingsAction);
         _serviceCollection.AddScoped<DbLogService>();
 
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> WithSignalR(Action<HubOptions>? hubOptionsAction = null)
+    public NewHeapPlatformAspNetCommonConfigurator WithSignalR(Action<HubOptions>? hubOptionsAction = null)
     {
         _serviceCollection.AddSignalR(options =>
         {
@@ -339,7 +351,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<TDbContext>
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<TDbContext> WithHangfire(
+    public NewHeapPlatformAspNetCommonConfigurator WithHangfire(
         string nameOrConnectionString,
         Action<IGlobalConfiguration>? hangfireOptionsAction = null,
         Action<ConsoleOptions>? consoleOptionsAction = null,

@@ -10,11 +10,10 @@ namespace NewHeap.Platform.AspNet.Common;
 
 public static partial class ServiceCollectionExtensions
 {
-    public static NewHeapPlatformAspNetCommonConfigurator<TDbContext> AddNewHeapPlatformAspNetCommon<TDbContext>(
+    public static NewHeapPlatformAspNetCommonConfigurator AddNewHeapPlatformAspNetCommon(
         this IServiceCollection services,
         NewHeapAspNetCommonOptions optionsObj
     )
-        where TDbContext : NhDbContext
     {
         if (services == null)
         {
@@ -28,7 +27,7 @@ public static partial class ServiceCollectionExtensions
 
         var commonConfigurator = services.AddNewHeapPlatformCommon(optionsObj.CommonOptions);
 
-        return new NewHeapPlatformAspNetCommonConfigurator<TDbContext>(services, commonConfigurator, optionsObj);
+        return new NewHeapPlatformAspNetCommonConfigurator(services, commonConfigurator, optionsObj);
     }
 
     public static NewHeapPlatformAspNetCommonApplicationBuilder UseNewHeapPlatformAspNetCommon(

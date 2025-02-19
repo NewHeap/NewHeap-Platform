@@ -1,10 +1,55 @@
-﻿namespace NewHeap.Platform.Common.Models.Options;
+﻿using Microsoft.Extensions.Configuration;
 
-public class NewHeapCommonOptions
-{
-    public required Action<NewHeapCommonSettings> SettingsAction { get; set; }
-}
+namespace NewHeap.Platform.Common.Models.Options;
 
 public class NewHeapCommonSettings
 {
+}
+
+
+public class NewHeapCommonOptions
+{
+    public static NewHeapCommonOptionsBuilder Builder(IConfiguration configuration)
+    => new(configuration);
+
+    public const string DefaultSettingsPrefix = "NewHeap:PlatformCommon";
+    public required Action<NewHeapCommonSettings> SettingsAction { get; set; }
+}
+
+public class NewHeapCommonOptionsBuilder
+{
+    private readonly IConfiguration _configuration;
+    private NewHeapCommonOptions? _options;
+
+    public NewHeapCommonOptionsBuilder(IConfiguration configuration)
+    {
+        _configuration = configuration;
+        _options = new NewHeapCommonOptions
+        {
+            SettingsAction =
+                x => _configuration.GetSection($"{NewHeapCommonOptions.DefaultSettingsPrefix}:Settings").Bind(x)
+        };
+    }
+
+    public NewHeapCommonOptionsBuilder ConfigureSettings(Action<NewHeapCommonSettings> settingsAction)
+    {
+        ThrowIfBuild();
+        _options!.SettingsAction = settingsAction;
+        return this;
+    }
+
+    public NewHeapCommonOptions Build()
+    {
+        var options = _options;
+        _options = null;
+        return options!;
+    }
+
+    private void ThrowIfBuild()
+    {
+        if (_options == null)
+        {
+            throw new InvalidOperationException("The options have already been built.");
+        }
+    }
 }
