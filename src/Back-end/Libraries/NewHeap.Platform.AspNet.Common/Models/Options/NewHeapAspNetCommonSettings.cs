@@ -70,7 +70,7 @@ public class NewHeapAspNetCommonOptionsBuilder
         };
     }
 
-    public NewHeapAspNetCommonOptionsBuilder WithCommonOptions(NewHeapCommonOptions options)
+    public NewHeapAspNetCommonOptionsBuilder ConfgureCommonOptions(NewHeapCommonOptions options)
     {
         ThrowIfBuild();
         _options!.CommonOptions = options;

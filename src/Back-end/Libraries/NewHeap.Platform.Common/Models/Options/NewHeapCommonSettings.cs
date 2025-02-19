@@ -9,10 +9,11 @@ public class NewHeapCommonSettings
 
 public class NewHeapCommonOptions
 {
+    public const string DefaultSettingsPrefix = "NewHeap:PlatformCommon";
+
     public static NewHeapCommonOptionsBuilder Builder(IConfiguration configuration)
     => new(configuration);
 
-    public const string DefaultSettingsPrefix = "NewHeap:PlatformCommon";
     public required Action<NewHeapCommonSettings> SettingsAction { get; set; }
 }
 
