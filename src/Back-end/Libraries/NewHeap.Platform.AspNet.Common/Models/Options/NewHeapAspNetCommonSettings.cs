@@ -15,6 +15,15 @@ using System.Text;
 
 namespace NewHeap.Platform.AspNet.Common.Models.Options;
 
+public class NewHeapAspNetCommonSettings
+{
+    public string DefaultCulture { get; set; } = "";
+    public string[] SupportedCultures { get; set; } = [];
+    public string[] AllowedOrigins { get; set; } = [];
+    public string SelfBaseUrl { get; set; } = "";
+    public bool RecurringJobsEnabled { get; set; }
+}
+
 public class NewHeapAspNetCommonOptions
 {
     public const string DefaultSettingsPrefix = "NewHeap:PlatformAspNetCommon";
@@ -33,15 +42,6 @@ public class NewHeapAspNetCommonOptions
     public Action<ApiBehaviorOptions>? ApiBehaviorOptionsAction { get; set; }
     public Action<CorsOptions>? CorsOptionsAction { get; set; }
     public Action<IMapperConfigurationExpression>? AutoMapperConfigurationAction { get; set; }
-}
-
-public class NewHeapAspNetCommonSettings
-{
-    public string DefaultCulture { get; set; } = "";
-    public string[] SupportedCultures { get; set; } = [];
-    public string[] AllowedOrigins { get; set; } = [];
-    public string SelfBaseUrl { get; set; } = "";
-    public bool RecurringJobsEnabled { get; set; }
 }
 
 public class NewHeapAspNetCommonOptionsBuilder
