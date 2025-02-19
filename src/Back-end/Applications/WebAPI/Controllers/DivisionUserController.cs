@@ -19,7 +19,6 @@ using System.Threading.Tasks;
 namespace WebAPI.Controllers;
 
 [Route("api/[controller]")]
-[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class DivisionUserController : NhBaseController
 {
     private readonly DivisionUserService _divisionUserService;

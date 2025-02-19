@@ -31,7 +31,6 @@ using WebAPI.Models.Mutate;
 namespace WebAPI.Controllers;
 
 [Route("api/[controller]")]
-[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class AccountController : NhBaseController
 {
     private readonly MailService _appMailManager;
