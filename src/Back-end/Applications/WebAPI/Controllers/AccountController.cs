@@ -32,7 +32,7 @@ namespace WebAPI.Controllers;
 
 [Route("api/[controller]")]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-public class AccountController : BaseController<AccountController, User>
+public class AccountController : NhBaseController
 {
     private readonly MailService _appMailManager;
     private readonly MicrosoftAuthService _appMicrosoftAuthManager;

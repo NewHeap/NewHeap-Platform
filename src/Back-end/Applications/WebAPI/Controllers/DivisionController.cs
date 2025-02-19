@@ -20,7 +20,7 @@ namespace WebAPI.Controllers;
 
 [Route("api/[controller]")]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-public class DivisionController : BaseController<DivisionController, Division>
+public class DivisionController : NhBaseController
 {
     private readonly DivisionService _divisionService;
 
