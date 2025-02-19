@@ -7,16 +7,24 @@ using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.Common;
 
 namespace NewHeap.Platform.AspNet;
+
 public static partial class ServiceCollectionExtensions
 {
     public static NewHeapPlatformAspNetCommonConfigurator<TDbContext> AddNewHeapPlatformAspNetCommon<TDbContext>(
-        this IServiceCollection services, 
+        this IServiceCollection services,
         NewHeapAspNetCommonOptions optionsObj
-        )
+    )
         where TDbContext : NhDbContext
     {
-        if (services == null) throw new ArgumentNullException(nameof(services));
-        if (optionsObj == null) throw new ArgumentNullException(nameof(optionsObj));
+        if (services == null)
+        {
+            throw new ArgumentNullException(nameof(services));
+        }
+
+        if (optionsObj == null)
+        {
+            throw new ArgumentNullException(nameof(optionsObj));
+        }
 
         var commonConfigurator = services.AddNewHeapPlatformCommon(optionsObj.CommonOptions);
 
@@ -24,9 +32,9 @@ public static partial class ServiceCollectionExtensions
     }
 
     public static NewHeapPlatformAspNetCommonApplicationBuilder UseNewHeapPlatformAspNetCommon(
-        this IApplicationBuilder app, 
-        IWebHostEnvironment env, 
-        IServiceProvider serviceProvider, 
+        this IApplicationBuilder app,
+        IWebHostEnvironment env,
+        IServiceProvider serviceProvider,
         NewHeapPlatformAspNetCommonApplicationBuilderOptions options)
     {
         return new NewHeapPlatformAspNetCommonApplicationBuilder(app, env, serviceProvider, options);
