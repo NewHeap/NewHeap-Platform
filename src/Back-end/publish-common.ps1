@@ -6,10 +6,10 @@ param (
 )
 
 # Genereer het timestamp-gedeelte (YYYYMMDD-HHMM)
-$timestamp = Get-Date -Format "yyyyMMdd-HHmm"
+$timestamp = Get-Date -Format "yyyyMMddHHmm"
 
 # Bouw de complete versie string
-$Version = "$Major.$Minor.$Patch-ci-$timestamp"
+$Version = "$Major.$Minor.$Patch$timestamp"
 
 Write-Host "Building package with version: $Version"
 
