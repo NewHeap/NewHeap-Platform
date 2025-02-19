@@ -48,7 +48,8 @@ public class Startup
                     .UseSqlServer(Configuration.GetConnectionString("DefaultConnection"))
 #if DEBUG
                     .UseLoggerFactory(AppLoggerFactory),
-                IdentityOptionsAction = options =>
+#endif
+            IdentityOptionsAction = options =>
                 {
                     // Optional, default is configured, only override if needed
                 },

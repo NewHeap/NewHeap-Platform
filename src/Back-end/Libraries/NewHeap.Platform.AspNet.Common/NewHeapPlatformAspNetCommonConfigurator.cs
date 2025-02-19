@@ -17,6 +17,7 @@ using Microsoft.IdentityModel.Tokens;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Options;
+using NewHeap.Platform.AspNet.Common.Resolvers;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Policy.AuthorizationHandlers;
 using NewHeap.Platform.Common;
