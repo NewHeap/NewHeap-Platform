@@ -2,7 +2,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace NewHeap.Platform.Common.Extensions;
+namespace NewHeap.Platform.Common;
 
 public static partial class AttributeExtensions
 {

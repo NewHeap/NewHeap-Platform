@@ -3,8 +3,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using NewHeap.Platform.Common.Extensions;
-using NewHeap.Platform.AspNet.Common.Extensions;
 using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +17,7 @@ using Microsoft.Extensions.Hosting;
 using Hangfire;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.DAL;
+using NewHeap.Platform.AspNet;
 
 namespace WebAPI
 {

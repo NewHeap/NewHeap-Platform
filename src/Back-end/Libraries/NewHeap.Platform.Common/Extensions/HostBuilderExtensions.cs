@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using StackExchange.Utils;
 
-namespace NewHeap.Platform.Common.Extensions;
+namespace NewHeap.Platform.Common;
 public static partial class HostBuilderExtensions
 {
     public static IHostBuilder UseNhCommonConfiguration(this IHostBuilder builder)

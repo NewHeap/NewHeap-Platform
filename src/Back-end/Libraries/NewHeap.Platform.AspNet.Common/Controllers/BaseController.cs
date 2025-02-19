@@ -15,7 +15,6 @@ using System.Collections;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using NewHeap.Platform.AspNet.Common.Extensions;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.AspNet.Common.Models;
 using System.Security.Principal;

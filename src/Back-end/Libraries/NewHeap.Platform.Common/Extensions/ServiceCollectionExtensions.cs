@@ -7,7 +7,7 @@ using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
 using StackExchange.Utils;
 
-namespace NewHeap.Platform.Common.Extensions;
+namespace NewHeap.Platform.Common;
 public static partial class ServiceCollectionExtensions
 {
     public static NewHeapPlatformCommonConfigurator AddNewHeapPlatformCommon(this IServiceCollection services, NewHeapCommonOptions optionsObj)

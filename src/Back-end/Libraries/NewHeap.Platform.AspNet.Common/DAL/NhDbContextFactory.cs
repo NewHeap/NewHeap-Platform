@@ -1,7 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
-using NewHeap.Platform.AspNet.Common.Extensions;
 
 namespace NewHeap.Platform.AspNet.Common.DAL;
 

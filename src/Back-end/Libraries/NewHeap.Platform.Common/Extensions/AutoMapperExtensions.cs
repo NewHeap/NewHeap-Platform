@@ -1,6 +1,6 @@
 ﻿using AutoMapper;
 
-namespace NewHeap.Platform.Common.Extensions;
+namespace NewHeap.Platform.Common;
 public static partial class AutomapperExtensions
 {
     public static IMappingExpression<TSource, TDestination> MapOnlyIfChanged<TSource, TDestination>(this IMappingExpression<TSource, TDestination> map)

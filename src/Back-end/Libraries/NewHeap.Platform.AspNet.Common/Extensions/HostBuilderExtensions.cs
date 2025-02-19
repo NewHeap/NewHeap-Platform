@@ -2,10 +2,10 @@
 using System.IO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using NewHeap.Platform.Common.Extensions;
-using StackExchange.Utils;
+using NewHeap.Platform.Common;
 
-namespace NewHeap.Platform.AspNet.Common.Extensions;
+namespace NewHeap.Platform.AspNet;
+
 public static partial class HostBuilderExtensions
 {
     public static IHostBuilder UseNhAspnetCommonConfiguration(this IHostBuilder builder)

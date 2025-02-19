@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
-using NewHeap.Platform.AspNet.Common.Extensions;
+using NewHeap.Platform.AspNet;
 
 namespace WebAPI
 {

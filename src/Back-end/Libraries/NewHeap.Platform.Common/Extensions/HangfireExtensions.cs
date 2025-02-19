@@ -1,7 +1,8 @@
 ﻿using Hangfire.Console;
 using Hangfire.Server;
 
-namespace NewHeap.Platform.Common.Extensions;
+namespace NewHeap.Platform.Common;
+
 public static partial class HangfireExtensions
 {
     public static PerformContext WriteError(this PerformContext context, string text)

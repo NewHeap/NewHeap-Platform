@@ -3,7 +3,7 @@ using System.Dynamic;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace NewHeap.Platform.Common.Extensions;
+namespace NewHeap.Platform.Common;
 
 public static partial class StringExtensions
 {

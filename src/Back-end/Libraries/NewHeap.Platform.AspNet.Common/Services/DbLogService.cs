@@ -3,9 +3,8 @@ using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
-using NewHeap.Platform.AspNet.Common.Extensions;
 using NewHeap.Platform.AspNet.Common.Models.Options;
-using NewHeap.Platform.Common.Extensions;
+using NewHeap.Platform.Common;
 using System.Globalization;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
