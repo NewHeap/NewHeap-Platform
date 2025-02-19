@@ -9,7 +9,7 @@ param (
 $timestamp = Get-Date -Format "yyyyMMddHHmm"
 
 # Bouw de complete versie string
-$Version = "$Major.$Minor.$Patch$timestamp"
+$Version = "$Major.$Minor.1$Patch$timestamp"
 
 Write-Host "Building package with version: $Version"
 
