@@ -25,9 +25,8 @@ namespace NewHeap.Platform.AspNet.Common.Controllers;
 
 [ApiController]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-public abstract partial class BaseController<TController, TBaseEntity> : ControllerBase
-    where TController : BaseController<TController, TBaseEntity>
-    where TBaseEntity : class
+public abstract partial class BaseController<TController> : ControllerBase
+    where TController : BaseController<TController>
 {
     protected readonly IConfiguration _config;
     protected readonly IStringLocalizer<TController> _localizer;
@@ -518,7 +517,7 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
                     Key = string.Join(".", remainderParts), Operator = filter.Operator, Value = filter.Value
                 };
 
-                dynamic? lambda2 = typeof(BaseController<TController, TBaseEntity>)
+                dynamic? lambda2 = typeof(BaseController<TController>)
                     .GetMethod("GetFilterLambda", BindingFlags.Instance | BindingFlags.NonPublic)!
                     .MakeGenericMethod(collectionItemType)
                     .Invoke(this, new object[] { filter2, filterProperties, parameter2, true });
