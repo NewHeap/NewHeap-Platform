@@ -43,6 +43,7 @@ public class AccountController : BaseController<AccountController, User>
     private readonly IStringLocalizer<SharedResources> _sharedLocalizer;
     private readonly SignInManager<User> _signInManager;
     private readonly IRepository<User> _userRepository;
+    private readonly NhUserManager _userManager;
 
     public AccountController(
         IStringLocalizer<SharedResources> sharedLocalizer,
@@ -59,8 +60,9 @@ public class AccountController : BaseController<AccountController, User>
         MicrosoftAuthService appMicrosoftAuthManager,
         IConfiguration config,
         IMapper mapper)
-        : base(mapper, logger, config, localizer, userManager)
+        : base(mapper, logger, config, localizer)
     {
+        _userManager = userManager;
         _sharedLocalizer = sharedLocalizer;
         _roleManager = roleManager;
         _signInManager = signInManager;

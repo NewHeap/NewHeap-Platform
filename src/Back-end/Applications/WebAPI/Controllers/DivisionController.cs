@@ -33,7 +33,7 @@ public class DivisionController : BaseController<DivisionController, Division>
         NhUserManager userManager,
         DivisionService divisionService
     )
-        : base(mapper, logger, config, localizer, userManager)
+        : base(mapper, logger, config, localizer)
     {
         _divisionService = divisionService;
     }

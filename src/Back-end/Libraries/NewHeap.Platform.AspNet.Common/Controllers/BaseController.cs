@@ -8,9 +8,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
-using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
-using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Attributes;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
@@ -35,21 +33,18 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
     protected readonly IStringLocalizer<TController> _localizer;
     protected readonly ILogger<TController> _logger;
     protected readonly IMapper _mapper;
-    protected readonly NhUserManager _userManager;
 
     public BaseController(
         IMapper mapper,
         ILogger<TController> logger,
         IConfiguration config,
-        IStringLocalizer<TController> localizer,
-        NhUserManager userManager
+        IStringLocalizer<TController> localizer
     )
     {
         _mapper = mapper;
         _logger = logger;
         _config = config;
         _localizer = localizer;
-        _userManager = userManager;
     }
 
     protected Guid? UserId
@@ -80,14 +75,6 @@ public abstract partial class BaseController<TController, TBaseEntity> : Control
         }
 
         return query;
-    }
-
-    [NonAction]
-    protected async Task<User?> GetUser()
-    {
-        var user = UserId.HasValue ? await _userManager.FindByIdWithIncludesAsync(UserId.Value) : null;
-
-        return user;
     }
 
     [NonAction]
