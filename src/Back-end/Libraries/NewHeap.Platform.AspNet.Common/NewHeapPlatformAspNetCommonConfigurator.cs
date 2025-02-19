@@ -20,6 +20,7 @@ using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Policy.AuthorizationHandlers;
 using NewHeap.Platform.AspNet.Policy.Requirements;
+using NewHeap.Platform.AspNet.Policy.Resolvers;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Translations;
 using System;
@@ -30,7 +31,6 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
-using NewHeap.Platform.AspNet.Common.Resolvers;
 
 namespace NewHeap.Platform.AspNet.Common;
 
