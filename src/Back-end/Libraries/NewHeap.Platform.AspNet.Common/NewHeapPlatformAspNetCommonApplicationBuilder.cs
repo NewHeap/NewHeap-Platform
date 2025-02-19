@@ -14,7 +14,7 @@ namespace NewHeap.Platform.AspNet.Common;
 
 public partial class NewHeapPlatformAspNetCommonApplicationBuilderOptions
 {
-    public static NhPlatformAspNetCommonOptionsBuilder Builder => new();
+    public static NewHeapPlatformAspNetCommonOptionsBuilder Builder => new();
     
     public bool UseHsts { get; set; } = true;
     public bool UseHttpsRedirection { get; set; } = true;
@@ -23,43 +23,43 @@ public partial class NewHeapPlatformAspNetCommonApplicationBuilderOptions
     public Action<IEndpointRouteBuilder>? EndpointRouteConfigureAction { get; set; }
 }
 
-public class NhPlatformAspNetCommonOptionsBuilder
+public class NewHeapPlatformAspNetCommonOptionsBuilder
 {
     private NewHeapPlatformAspNetCommonApplicationBuilderOptions? _options;
 
-    public NhPlatformAspNetCommonOptionsBuilder()
+    public NewHeapPlatformAspNetCommonOptionsBuilder()
     {
         _options = new NewHeapPlatformAspNetCommonApplicationBuilderOptions();
     }
-    public NhPlatformAspNetCommonOptionsBuilder UseHsTs(bool use = true)
+    public NewHeapPlatformAspNetCommonOptionsBuilder UseHsTs(bool use = true)
     {
         ThrowIfBuild();
         _options!.UseHsts = use;
         return this;
     }
 
-    public NhPlatformAspNetCommonOptionsBuilder UseHttpsRedirection(bool use = true)
+    public NewHeapPlatformAspNetCommonOptionsBuilder UseHttpsRedirection(bool use = true)
     {
         ThrowIfBuild();
         _options!.UseHttpsRedirection = use;
         return this;
     }
 
-    public NhPlatformAspNetCommonOptionsBuilder UseCors(Action<CorsPolicyBuilder> action)
+    public NewHeapPlatformAspNetCommonOptionsBuilder UseCors(Action<CorsPolicyBuilder> action)
     {
         ThrowIfBuild();
         _options!.CorsPolicyBuilderAction = action;
         return this;
     }
 
-    public NhPlatformAspNetCommonOptionsBuilder UseMvc(Action<IRouteBuilder> action)
+    public NewHeapPlatformAspNetCommonOptionsBuilder UseMvc(Action<IRouteBuilder> action)
     {
         ThrowIfBuild();
         _options!.MvcConfigureRoutesAction = action;
         return this;
     }
 
-    public NhPlatformAspNetCommonOptionsBuilder UseEndpoints(Action<IEndpointRouteBuilder> action)
+    public NewHeapPlatformAspNetCommonOptionsBuilder UseEndpoints(Action<IEndpointRouteBuilder> action)
     {
         ThrowIfBuild();
         _options!.EndpointRouteConfigureAction = action;
