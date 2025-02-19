@@ -6,7 +6,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
-using NewHeap.Platform.AspNet;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.Common.Identity.Claims;

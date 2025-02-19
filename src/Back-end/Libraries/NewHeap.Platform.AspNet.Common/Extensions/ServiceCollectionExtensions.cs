@@ -6,7 +6,7 @@ using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.Common;
 
-namespace NewHeap.Platform.AspNet;
+namespace NewHeap.Platform.AspNet.Common;
 
 public static partial class ServiceCollectionExtensions
 {
