@@ -17,6 +17,10 @@ namespace NewHeap.Platform.AspNet.Common.Models.Options;
 
 public class NewHeapAspNetCommonOptions
 {
+    public static NhAspNetCommonOptionsBuilder Builder(string connectionStringName, IConfiguration configuration,
+        string organizationName)
+        => new(connectionStringName, configuration, organizationName);
+
     public required NewHeapCommonOptions CommonOptions { get; set; }
     public required Action<NewHeapAspNetCommonSettings> SettingsAction { get; set; }
     public required Action<DbLogServiceSettings> DbLogSettingsAction { get; set; }
@@ -48,31 +52,159 @@ public class NhAspNetCommonOptionsBuilder
     private readonly IConfiguration _configuration;
     private NewHeapAspNetCommonOptions? _options;
 
-    public NhAspNetCommonOptionsBuilder(IConfiguration configuration)
+    public NhAspNetCommonOptionsBuilder(string connectionStringName, IConfiguration configuration,
+        string organizationName)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(organizationName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionStringName);
+
         _configuration = configuration;
         _options = new NewHeapAspNetCommonOptions
         {
             CommonOptions =
                 new NewHeapCommonOptions
                 {
-                    SettingsAction = x => _configuration.GetSection("NewHeap:PlatformCommon:Settings").Bind(x)
+                    SettingsAction = x =>
+                        _configuration.GetSection($"{organizationName}:PlatformCommon:Settings").Bind(x)
                 },
-            SettingsAction = x => _configuration.GetSection("NewHeap:PlatformAspNetCommon:Settings").Bind(x),
+            SettingsAction =
+                x => _configuration.GetSection($"{organizationName}:PlatformAspNetCommon:Settings").Bind(x),
             DbOptionsAction = x => x
-                .UseSqlServer(_configuration.GetConnectionString("DefaultConnection")),
+                .UseSqlServer(_configuration.GetConnectionString(connectionStringName)),
             JwtBearerOptionsTokenValidationParametersAction = options =>
             {
                 options.ValidIssuer =
-                    _configuration["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"];
+                    _configuration[$"{organizationName}:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"];
                 options.ValidAudience =
-                    _configuration["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:ValidAudience"];
+                    _configuration[$"{organizationName}:PlatformAspNetCommon:Authorization:JWT:Token:ValidAudience"];
                 options.IssuerSigningKey = new SymmetricSecurityKey(
                     Encoding.UTF8.GetBytes(
-                        _configuration["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"]!));
+                        _configuration[$"{organizationName}:PlatformAspNetCommon:Authorization:JWT:Token:Key"]!));
             },
             DbLogSettingsAction = x =>
-                _configuration.GetSection("NewHeap:PlatformAspNetCommon:DbLogServiceSettings").Bind(x)
+                _configuration.GetSection($"{organizationName}:PlatformAspNetCommon:DbLogServiceSettings").Bind(x)
         };
+    }
+
+    public NhAspNetCommonOptionsBuilder WithCommonOptions(NewHeapCommonOptions options)
+    {
+        ThrowIfBuild();
+        _options!.CommonOptions = options;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureSettings(Action<NewHeapAspNetCommonSettings> settingsAction)
+    {
+        ThrowIfBuild();
+        _options!.SettingsAction = settingsAction;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureDbLogging(Action<DbLogServiceSettings> action)
+    {
+        ThrowIfBuild();
+        _options!.DbLogSettingsAction = action;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureDbContext(Action<DbContextOptionsBuilder> dbOptionsAction)
+    {
+        ThrowIfBuild();
+        _options!.DbOptionsAction = dbOptionsAction;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureIdentity(Action<IdentityOptions> action)
+    {
+        ThrowIfBuild();
+        _options!.IdentityOptionsAction = action;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureAuthentication(Action<AuthenticationOptions> action)
+    {
+        ThrowIfBuild();
+        _options!.AuthenticationOptionsAction = action;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureJwtBearerValidationOptions(Action<TokenValidationParameters> action)
+    {
+        ThrowIfBuild();
+        _options!.JwtBearerOptionsTokenValidationParametersAction = action;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureJwtBearer(Action<JwtBearerOptions> action)
+    {
+        ThrowIfBuild();
+        _options!.JwtBearerOptionsAction = action;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureAuthorization(Action<AuthorizationOptions> action)
+    {
+        ThrowIfBuild();
+        _options!.AuthorizationOptionsAction = action;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureLocalization(Action<LocalizationOptions> action)
+    {
+        ThrowIfBuild();
+        _options!.LocalizationOptionsAction = action;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureMvc(Action<MvcOptions> action)
+    {
+        ThrowIfBuild();
+        _options!.MvcOptionsAction = action;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureMvcDataAnnotationsLocalization(
+        Action<MvcDataAnnotationsLocalizationOptions> action)
+    {
+        ThrowIfBuild();
+        _options!.MvcDataAnnotationsLocalizationOptionsAction = action;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureApiBehavior(Action<ApiBehaviorOptions> action)
+    {
+        ThrowIfBuild();
+        _options!.ApiBehaviorOptionsAction = action;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureCors(Action<CorsOptions> action)
+    {
+        ThrowIfBuild();
+        _options!.CorsOptionsAction = action;
+        return this;
+    }
+
+    public NhAspNetCommonOptionsBuilder ConfigureAutoMapper(Action<IMapperConfigurationExpression> action)
+    {
+        ThrowIfBuild();
+        _options!.AutoMapperConfigurationAction = action;
+        return this;
+    }
+
+
+    public NewHeapAspNetCommonOptions Build()
+    {
+        var options = _options;
+        _options = null;
+        return options!;
+    }
+
+    private void ThrowIfBuild()
+    {
+        if (_options == null)
+        {
+            throw new InvalidOperationException("The options have already been built.");
+        }
     }
 }

@@ -14,6 +14,8 @@ namespace NewHeap.Platform.AspNet.Common;
 
 public partial class NewHeapPlatformAspNetCommonApplicationBuilderOptions
 {
+    public static NhPlatformAspNetCommonOptionsBuilder Builder => new();
+    
     public bool UseHsts { get; set; } = true;
     public bool UseHttpsRedirection { get; set; } = true;
     public Action<CorsPolicyBuilder>? CorsPolicyBuilderAction { get; set; }
@@ -29,9 +31,6 @@ public class NhPlatformAspNetCommonOptionsBuilder
     {
         _options = new NewHeapPlatformAspNetCommonApplicationBuilderOptions();
     }
-
-    public static NhPlatformAspNetCommonOptionsBuilder Create => new();
-
     public NhPlatformAspNetCommonOptionsBuilder UseHsTs(bool use = true)
     {
         ThrowIfBuild();
