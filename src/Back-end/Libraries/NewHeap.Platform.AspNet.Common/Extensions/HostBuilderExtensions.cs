@@ -20,7 +20,25 @@ public static partial class HostBuilderExtensions
 
     public static IConfigurationBuilder ConfigureNewHeapAspNetCommonConfiguration(this IConfigurationBuilder configBuilder)
     {
-        configBuilder.ConfigureNhCommonConfiguration();
+        configBuilder.ConfigureNewHeapAspNetCommonConfiguration(
+            basePath: Directory.GetCurrentDirectory()
+        );
+
+        return configBuilder;
+    }
+
+    public static IConfigurationBuilder ConfigureNewHeapAspNetCommonConfiguration(
+        this IConfigurationBuilder configBuilder,
+        string basePath,
+        string appSettingsFileName = "appsettings",
+        string secretsFileName = "secrets"
+        )
+    {
+        configBuilder.ConfigureNhCommonConfiguration(
+            basePath: basePath,
+            appSettingsFileName: appSettingsFileName,
+            secretsFileName: secretsFileName
+        );
 
         return configBuilder;
     }

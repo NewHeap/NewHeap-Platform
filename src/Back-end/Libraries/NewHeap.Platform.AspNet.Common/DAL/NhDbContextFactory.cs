@@ -9,7 +9,17 @@ public abstract partial class NhDbContextFactory<TDBContext> : IDesignTimeDbCont
 {
     public abstract TDBContext CreateDbContext(string[] args);
 
-    protected IConfigurationRoot CreateConfigurationRoot()
+    protected virtual IConfigurationRoot CreateConfigurationRoot()
+    {
+        return CreateConfigurationRoot(
+            basePath: Directory.GetCurrentDirectory()
+        );
+    }
+
+    protected virtual IConfigurationRoot CreateConfigurationRoot(
+        string basePath,
+        string appSettingsFileName = "appsettings",
+        string secretsFileName = "secrets")
     {
         var configuration = new ConfigurationBuilder()
             .ConfigureNewHeapAspNetCommonConfiguration()
@@ -18,7 +28,7 @@ public abstract partial class NhDbContextFactory<TDBContext> : IDesignTimeDbCont
         return configuration;
     }
 
-    protected DbContextOptionsBuilder<TDBContext> CreateBuilder()
+    protected virtual DbContextOptionsBuilder<TDBContext> CreateBuilder()
     {
         DbContextOptionsBuilder<TDBContext> builder = new();
 
