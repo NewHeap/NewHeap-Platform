@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.Models.Options;
+using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models.Options;
 using System;
@@ -64,7 +65,7 @@ public class Startup
                         Configuration.GetSection($"{NewHeapCommonOptions.DefaultSettingsPrefix}:MicrosoftAuthSettings").Bind(x))
                     ;
             })
-            .WithIdentityEntityFramework<AppDbContext>(x =>
+            .WithIdentityEntityFramework<AppDbContext, NhUserManager>(x =>
             {
                 x.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"))
 #if DEBUG

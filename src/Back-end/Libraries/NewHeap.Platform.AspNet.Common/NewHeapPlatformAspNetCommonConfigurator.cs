@@ -250,25 +250,14 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator WithIdentityEntityFramework<TDbContext>(
-        Action<DbContextOptionsBuilder> dbOptionsAction)
+    public static void ConfigureWithIdentityEntityFramework<TDbContext, TUserManager>(IServiceCollection serviceCollection)
         where TDbContext : NhIdentityDbContext
+        where TUserManager : NhUserManager
     {
-        if(IdentityEntityFrameworkConfigured)
-        {
-            throw new InvalidOperationException("EntityFramework has already been configured.");
-        }
-
-        _serviceCollection.AddSingleton<InternalNhIdentityDbContextFactory<TDbContext>>();
-
-        _serviceCollection
-            .AddEntityFrameworkSqlServer()
-            .AddDbContext<TDbContext>(dbOptionsAction);
-
         void AddRepository<TEntity>()
             where TEntity : class
         {
-            _serviceCollection.AddScoped<IRepository<TEntity>>(serviceProvider =>
+            serviceCollection.AddScoped<IRepository<TEntity>>(serviceProvider =>
             {
                 var dbContext = serviceProvider.GetRequiredService<TDbContext>();
                 return new Repository<TEntity>(dbContext);
@@ -289,9 +278,28 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         AddRepository<LogFile>();
         #endregion
 
-        _serviceCollection.AddScoped<NhUserManager>();
-        _serviceCollection.AddScoped<DivisionService>();
-        _serviceCollection.AddScoped<DivisionUserService>();
+        serviceCollection.AddScoped<NhUserManager, TUserManager>(); // Do like this, allow sub projects to register their own 2.
+        serviceCollection.AddScoped<DivisionService>();
+        serviceCollection.AddScoped<DivisionUserService>();
+    }
+
+    public NewHeapPlatformAspNetCommonConfigurator WithIdentityEntityFramework<TDbContext, TUserManager>(
+        Action<DbContextOptionsBuilder> dbOptionsAction)
+        where TDbContext : NhIdentityDbContext
+        where TUserManager : NhUserManager
+    {
+        if(IdentityEntityFrameworkConfigured)
+        {
+            throw new InvalidOperationException("EntityFramework has already been configured.");
+        }
+
+        _serviceCollection.AddSingleton<InternalNhIdentityDbContextFactory<TDbContext>>();
+
+        _serviceCollection
+            .AddEntityFrameworkSqlServer()
+            .AddDbContext<TDbContext>(dbOptionsAction);
+
+        ConfigureWithIdentityEntityFramework<TDbContext, TUserManager>(_serviceCollection);
 
         IdentityEntityFrameworkConfigured = true;
 
@@ -302,11 +310,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         Action<IdentityOptions>? identityOptionsAction = null)
           where TDbContext : NhIdentityDbContext
     {
-        if (!IdentityEntityFrameworkConfigured) 
-        { 
-            throw new InvalidOperationException("EntityFramework must be configured before Identity can be configured.");
-        }
-
         _serviceCollection.AddIdentity<User, UserRole>()
             .AddEntityFrameworkStores<TDbContext>()
             .AddDefaultTokenProviders()
@@ -335,11 +338,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
     public NewHeapPlatformAspNetCommonConfigurator WithDbLogService(
         Action<DbLogServiceSettings> settingsAction)
     {
-        if(!IdentityEntityFrameworkConfigured)
-        {
-            throw new InvalidOperationException("EntityFramework must be configured before DbLogService can be configured.");
-        }
-
         _serviceCollection.Configure(settingsAction);
         _serviceCollection.AddScoped<DbLogService>();
 
