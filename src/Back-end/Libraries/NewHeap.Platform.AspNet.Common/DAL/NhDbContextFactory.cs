@@ -5,7 +5,7 @@ using Microsoft.Extensions.Configuration;
 namespace NewHeap.Platform.AspNet.Common.DAL;
 
 public abstract partial class NhDbContextFactory<TDBContext> : IDesignTimeDbContextFactory<TDBContext>
-    where TDBContext : NhDbContext
+    where TDBContext : NhIdentityDbContext
 {
     public abstract TDBContext CreateDbContext(string[] args);
 

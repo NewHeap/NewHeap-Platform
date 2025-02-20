@@ -6,7 +6,7 @@ namespace NewHeap.Platform.AspNet.Common.DAL;
 
 public partial interface IRepository<T> where T : class
 {
-    NhDbContext Context { get; }
+    NhIdentityDbContext Context { get; }
     DbSet<TDbSet> GetDbSet<TDbSet>() where TDbSet : class;
 
     CollectionEntry<TEntity, TProperty> Collection<TEntity, TProperty>(TEntity entity,

@@ -4,7 +4,7 @@ using WebAPI.DAL.Entities;
 
 namespace WebAPI.DAL;
 
-public class AppDbContext : NhDbContext
+public class AppDbContext : NhIdentityDbContext
 {
     public AppDbContext()
     {

@@ -9,13 +9,13 @@ public partial class Repository<T> : IRepository<T> where T : class
 {
     protected DbSet<T> DbSet;
 
-    public Repository(NhDbContext context)
+    public Repository(NhIdentityDbContext context)
     {
         Context = context;
         DbSet = context.Set<T>();
     }
 
-    public NhDbContext Context { get; }
+    public NhIdentityDbContext Context { get; }
 
     public DbSet<TDbSet> GetDbSet<TDbSet>()
         where TDbSet : class
@@ -209,9 +209,9 @@ public partial class Repository<T> : IRepository<T> where T : class
     public IRepository<T> NewScope()
     {
         var type = Context.GetType();
-        var opt = typeof(NhDbContext).GetField("_options", BindingFlags.Instance | BindingFlags.NonPublic)!
+        var opt = typeof(NhIdentityDbContext).GetField("_options", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(Context);
-        var context = (NhDbContext)Activator.CreateInstance(type, opt)!;
+        var context = (NhIdentityDbContext)Activator.CreateInstance(type, opt)!;
         return new Repository<T>(context);
     }
 

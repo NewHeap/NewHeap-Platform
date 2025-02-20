@@ -64,7 +64,7 @@ public class Startup
                         Configuration.GetSection($"{NewHeapCommonOptions.DefaultSettingsPrefix}:MicrosoftAuthSettings").Bind(x))
                     ;
             })
-            .WithEntityFramework<AppDbContext>(x =>
+            .WithIdentityEntityFramework<AppDbContext>(x =>
             {
                 x.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"))
 #if DEBUG

@@ -4,19 +4,19 @@ using Microsoft.Extensions.Configuration;
 
 namespace NewHeap.Platform.AspNet.Common.DAL;
 
-public partial class InternalNhDbContextFactory<TDbContext>
-    where TDbContext : NhDbContext
+public partial class InternalNhIdentityDbContextFactory<TDbContext>
+    where TDbContext : NhIdentityDbContext
 {
     private readonly IConfiguration _config;
 
-    public InternalNhDbContextFactory(IConfiguration config)
+    public InternalNhIdentityDbContextFactory(IConfiguration config)
     {
         _config = config;
     }
 
     public TDbContext CreateDbContext(Action<SqlServerDbContextOptionsBuilder>? sqlServerOptionsAction = null)
     {
-        DbContextOptionsBuilder<NhDbContext>? optionsBuilder = new();
+        DbContextOptionsBuilder<NhIdentityDbContext>? optionsBuilder = new();
         optionsBuilder.UseSqlServer(_config.GetConnectionString("DefaultConnection"), sqlServerOptionsAction);
 
         return (TDbContext)Activator.CreateInstance(typeof(TDbContext), optionsBuilder.Options)!;

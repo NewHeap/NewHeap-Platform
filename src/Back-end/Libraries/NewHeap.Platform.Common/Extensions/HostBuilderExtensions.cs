@@ -32,6 +32,8 @@ public static partial class HostBuilderExtensions
         string secretsFileName = "secrets"
         )
     {
+        basePath = Environment.ExpandEnvironmentVariables(basePath);
+
         appSettingsFileName = appSettingsFileName.EndsWith(".json") 
             ? appSettingsFileName.Replace(".json", "") 
             : appSettingsFileName;
@@ -44,8 +46,8 @@ public static partial class HostBuilderExtensions
         var preConfiguration = new ConfigurationBuilder()
             .SetBasePath(basePath)
             .WithSubstitution(x => x
-                .AddJsonFile($"{appSettingsFileName}.json")
-                .AddJsonFile($"{appSettingsFileName}.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json", true)
+                .AddJsonFile(Path.Combine(basePath, $"{appSettingsFileName}.json"))
+                .AddJsonFile(Path.Combine(basePath, $"{appSettingsFileName}.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json"), true)
             )
             .Build();
 
@@ -65,8 +67,8 @@ public static partial class HostBuilderExtensions
                         Environment.ExpandEnvironmentVariables(Path.Combine(direcotryPath,
                             $"{secretsFileName}.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json")), true)
             ).WithSubstitution(x => x
-                .AddJsonFile($"{appSettingsFileName}.json")
-                .AddJsonFile($"{appSettingsFileName}.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json", true)
+                .AddJsonFile(Path.Combine(basePath, $"{appSettingsFileName}.json"))
+                .AddJsonFile(Path.Combine(basePath, $"{appSettingsFileName}.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json"), true)
             );
 
         return configBuilder;

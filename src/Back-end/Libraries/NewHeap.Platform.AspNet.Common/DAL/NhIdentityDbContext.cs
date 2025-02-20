@@ -5,16 +5,16 @@ using Newtonsoft.Json;
 
 namespace NewHeap.Platform.AspNet.Common.DAL;
 
-public abstract partial class NhDbContext : IdentityDbContext<User, UserRole, Guid>
+public abstract partial class NhIdentityDbContext : IdentityDbContext<User, UserRole, Guid>
 {
     public static readonly JsonSerializerSettings ConvertJsonSerializerSettings =
         new() { NullValueHandling = NullValueHandling.Ignore };
 
-    public NhDbContext()
+    public NhIdentityDbContext()
     {
     }
 
-    public NhDbContext(DbContextOptions contextOptions)
+    public NhIdentityDbContext(DbContextOptions contextOptions)
         : base(contextOptions)
     {
     }

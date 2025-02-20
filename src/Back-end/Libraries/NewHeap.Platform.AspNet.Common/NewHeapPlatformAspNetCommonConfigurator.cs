@@ -30,7 +30,7 @@ namespace NewHeap.Platform.AspNet.Common;
 
 public partial class NewHeapPlatformAspNetCommonConfigurator
 {
-    private bool EntityFrameworkConfigured = false;
+    private bool IdentityEntityFrameworkConfigured = false;
     private readonly NewHeapPlatformCommonConfigurator _commonConfigurator;
     private readonly NewHeapAspNetCommonOptions _options;
     private readonly IServiceCollection _serviceCollection;
@@ -250,11 +250,16 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator WithEntityFramework<TDbContext>(
+    public NewHeapPlatformAspNetCommonConfigurator WithIdentityEntityFramework<TDbContext>(
         Action<DbContextOptionsBuilder> dbOptionsAction)
-        where TDbContext : NhDbContext
+        where TDbContext : NhIdentityDbContext
     {
-        _serviceCollection.AddSingleton<InternalNhDbContextFactory<TDbContext>>();
+        if(IdentityEntityFrameworkConfigured)
+        {
+            throw new InvalidOperationException("EntityFramework has already been configured.");
+        }
+
+        _serviceCollection.AddSingleton<InternalNhIdentityDbContextFactory<TDbContext>>();
 
         _serviceCollection
             .AddEntityFrameworkSqlServer()
@@ -288,16 +293,16 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         _serviceCollection.AddScoped<DivisionService>();
         _serviceCollection.AddScoped<DivisionUserService>();
 
-        EntityFrameworkConfigured = true;
+        IdentityEntityFrameworkConfigured = true;
 
         return this;
     }
 
     public NewHeapPlatformAspNetCommonConfigurator WithIdentity<TDbContext>(
         Action<IdentityOptions>? identityOptionsAction = null)
-          where TDbContext : NhDbContext
+          where TDbContext : NhIdentityDbContext
     {
-        if (!EntityFrameworkConfigured) 
+        if (!IdentityEntityFrameworkConfigured) 
         { 
             throw new InvalidOperationException("EntityFramework must be configured before Identity can be configured.");
         }
@@ -330,7 +335,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
     public NewHeapPlatformAspNetCommonConfigurator WithDbLogService(
         Action<DbLogServiceSettings> settingsAction)
     {
-        if(!EntityFrameworkConfigured)
+        if(!IdentityEntityFrameworkConfigured)
         {
             throw new InvalidOperationException("EntityFramework must be configured before DbLogService can be configured.");
         }
