@@ -36,6 +36,8 @@ public static partial class HostBuilderExtensions
             throw new Exception($"Failed to read {ConfigKey} for resolving appsettings.json SECRETS file.");
         }
 
+        direcotryPath = Environment.ExpandEnvironmentVariables(direcotryPath);
+
         configBuilder
             .WithPrefix("Secrets",
                 c => c
