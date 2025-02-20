@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
 
 namespace NewHeap.Platform.Common;
 
@@ -28,6 +30,33 @@ public class NewHeapPlatformCommonConfigurator
 
         _serviceCollection.AddSingleton<LogHelperService>();
         _serviceCollection.AddSingleton<ValidationService>();
+
+        AddOpenTelementry();
+    }
+
+    private void AddOpenTelementry()
+    {
+        _serviceCollection.AddOpenTelemetry()
+            .WithMetrics(metrics =>
+            {
+                metrics.AddRuntimeInstrumentation();
+            });
+
+        if (_options.OtlpUseExporter)
+        {
+            _serviceCollection.AddOpenTelemetry().UseOtlpExporter();
+        }
+
+        _serviceCollection.AddServiceDiscovery();
+
+        _serviceCollection.ConfigureHttpClientDefaults(http =>
+        {
+            // Turn on resilience by default
+            //http.AddStandardResilienceHandler();
+
+            // Turn on service discovery by default
+            http.AddServiceDiscovery();
+        });
     }
 
     public NewHeapPlatformCommonConfigurator WithMail(Action<MailServiceSettings> mailServiceSettingsAction)

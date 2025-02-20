@@ -53,6 +53,11 @@ public class Startup
                     policy => policy.RequireActiveDivisionAccess(null,
                         new Claim(NhPlatformClaimTypes.DivisionPermission, "general.view")));
             })
+            .ConfgureCommonOptions(NewHeapCommonOptions
+                .Builder(Configuration)
+                .UseOtlpUseExporter(!string.IsNullOrWhiteSpace(Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+                .Build()
+            )
             .Build();
 
         services

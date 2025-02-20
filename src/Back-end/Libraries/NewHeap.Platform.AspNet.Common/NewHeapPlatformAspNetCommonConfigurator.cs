@@ -23,6 +23,8 @@ using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Policy.AuthorizationHandlers;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Translations;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 
@@ -58,6 +60,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         AddLocalization();
         AddHttpRelated();
         AddRequestLocalization();
+        AddOpenTelementry();
 
         _serviceCollection.AddHealthChecks();
 
@@ -65,6 +68,23 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         _serviceCollection.AddScoped<RazorViewService>();
         _serviceCollection.AddSingleton<IAuthorizationHandler, ActiveDivisionAccessHandler>();
         #endregion
+    }
+
+    private void AddOpenTelementry()
+    {
+        _serviceCollection.AddOpenTelemetry()
+            .WithMetrics(metrics =>
+            {
+                metrics.AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation();
+            })
+            .WithTracing(tracing =>
+            {
+                tracing.AddAspNetCoreInstrumentation()
+                    // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
+                    //.AddGrpcClientInstrumentation()
+                    .AddHttpClientInstrumentation();
+            });
     }
 
     private void AddHttpRelated()
