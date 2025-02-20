@@ -22,7 +22,11 @@ public abstract partial class NhDbContextFactory<TDBContext> : IDesignTimeDbCont
         string secretsFileName = "secrets")
     {
         var configuration = new ConfigurationBuilder()
-            .ConfigureNewHeapAspNetCommonConfiguration()
+            .ConfigureNewHeapAspNetCommonConfiguration(
+                basePath: basePath,
+                appSettingsFileName: appSettingsFileName,
+                secretsFileName: secretsFileName
+            )
             .Build();
 
         return configuration;
