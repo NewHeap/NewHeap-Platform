@@ -25,7 +25,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("NewHeap.Media.FileStructureStorage.SqlServer.Entities.FileEntity", b =>
+            modelBuilder.Entity("NewHeap.Platform.Media.FileStructureStorage.SqlServer.Entities.FileEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -48,7 +48,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
                     b.ToTable("Files");
                 });
 
-            modelBuilder.Entity("NewHeap.Media.FileStructureStorage.SqlServer.Entities.FolderEntity", b =>
+            modelBuilder.Entity("NewHeap.Platform.Media.FileStructureStorage.SqlServer.Entities.FolderEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()

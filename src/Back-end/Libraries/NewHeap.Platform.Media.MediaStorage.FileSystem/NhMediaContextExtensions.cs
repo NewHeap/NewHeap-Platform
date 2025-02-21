@@ -1,4 +1,4 @@
-﻿using NewHeap.Media.MediaStorage.FileSystem;
+﻿using NewHeap.Platform.Media.MediaStorage.FileSystem;
 
 // ReSharper disable once CheckNamespace
 namespace NewHeap.Media;

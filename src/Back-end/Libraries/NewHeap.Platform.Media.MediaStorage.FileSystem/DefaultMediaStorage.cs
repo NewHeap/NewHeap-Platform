@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Options;
 using NewHeap.Media.Modules;
 
-namespace NewHeap.Media.MediaStorage.FileSystem;
+namespace NewHeap.Platform.Media.MediaStorage.FileSystem;
 
 public class DefaultMediaStorage : IMediaStorage
 {

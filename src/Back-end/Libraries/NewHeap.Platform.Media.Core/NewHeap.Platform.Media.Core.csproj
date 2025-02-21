@@ -4,7 +4,7 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <PackageId>NewHeap.Media.Core</PackageId>
+        <PackageId>NewHeap.Platform.Media.Core</PackageId>
         <Version>0.1.0</Version>
         <Copyright>NewHeap B.V.</Copyright>
         <Title>NewHeap Media Core</Title>
@@ -21,11 +21,15 @@
         <None Include="readme.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
-    <!--
+    
     <ItemGroup>
-        <PackageReference Include="NewHeap.Media.FileStructureStorage.SqlServer"/>
-        <PackageReference Include="NewHeap.Media.Http"/>
-        <PackageReference Include="NewHeap.Media.MediaStorage.FileSystem"/>
+<!--        <PackageReference Include="NewHeap.Media.FileStructureStorage.SqlServer"/>-->
+<!--        <PackageReference Include="NewHeap.Media.Http"/>-->
+<!--        <PackageReference Include="NewHeap.Media.MediaStorage.FileSystem"/>-->        
     </ItemGroup>
-    -->
+
+    <ItemGroup>
+        
+    </ItemGroup>
+    
 </Project>

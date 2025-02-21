@@ -4,19 +4,18 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <PackageId>NewHeap.Media</PackageId>
+        <PackageId>NewHeap.Platform.Media</PackageId>
         <Version>0.1.0</Version>
         <Copyright>NewHeap B.V.</Copyright>
         <Title>NewHeap Media</Title>
         <PackageProjectUrl>https://dev.azure.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
         <RepositoryUrl>https://dev.azure.com/NewHeap/_git/NewHeap-Platform</RepositoryUrl>
-        <RootNamespace>NewHeap.Media</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="NewHeap.Media.Core"/>
-        <PackageReference Include="NewHeap.Media.FileStructureStorage.SqlServer"/>
-        <PackageReference Include="NewHeap.Media.Http"/>
-        <PackageReference Include="NewHeap.Media.MediaStorage.FileSystem"/>
+        <PackageReference Include="NewHeap.Platform.Media.Core" Version="0.1.0-ci-20250221-1426"/>
+        <PackageReference Include="NewHeap.Platform.Media.FileStructureStorage.SqlServer" Version="0.1.0-ci-20250221-1426"/>
+        <PackageReference Include="NewHeap.Platform.Media.Http" Version="0.1.0-ci-20250221-1426"/>
+        <PackageReference Include="NewHeap.Platform.Media.MediaStorage.FileSystem" Version="0.1.0-ci-20250221-1426"/>
     </ItemGroup>
 </Project>

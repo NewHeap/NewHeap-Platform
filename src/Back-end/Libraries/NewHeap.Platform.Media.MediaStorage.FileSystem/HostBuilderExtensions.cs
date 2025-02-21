@@ -2,7 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Media.Modules;
 
-namespace NewHeap.Media.MediaStorage.FileSystem;
+namespace NewHeap.Platform.Media.MediaStorage.FileSystem;
 
 public static class HostBuilderExtensions
 {

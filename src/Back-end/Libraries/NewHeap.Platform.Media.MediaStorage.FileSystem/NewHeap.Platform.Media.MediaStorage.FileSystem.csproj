@@ -4,7 +4,7 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <PackageId>NewHeap.Media.MediaStorage.FileSystem</PackageId>
+        <PackageId>NewHeap.Platform.Media.MediaStorage.FileSystem</PackageId>
         <Version>0.1.0</Version>
         <Copyright>NewHeap B.V.</Copyright>
         <Title>NewHeap Media FileSystem Storage</Title>
@@ -14,7 +14,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\NewHeap.Media.Core\NewHeap.Media.Core.csproj" />      
+      <ProjectReference Include="..\NewHeap.Platform.Media.Core\NewHeap.Platform.Media.Core.csproj" />      
     </ItemGroup>
 
     <ItemGroup>

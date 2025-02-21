@@ -80,10 +80,10 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\Libraries\NewHeap.Media.FileStructureStorage.SqlServer\NewHeap.Media.FileStructureStorage.SqlServer.csproj" />
-        <ProjectReference Include="..\..\Libraries\NewHeap.Media.Http\NewHeap.Media.Http.csproj" />
-        <ProjectReference Include="..\..\Libraries\NewHeap.Media.MediaStorage.FileSystem\NewHeap.Media.MediaStorage.FileSystem.csproj" />
-        <ProjectReference Include="..\..\Libraries\NewHeap.Media.Core\NewHeap.Media.Core.csproj" />
+        <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.FileStructureStorage.SqlServer\NewHeap.Platform.Media.FileStructureStorage.SqlServer.csproj" />
+        <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.Http\NewHeap.Platform.Media.Http.csproj" />
+        <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.MediaStorage.FileSystem\NewHeap.Platform.Media.MediaStorage.FileSystem.csproj" />
+        <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.Core\NewHeap.Platform.Media.Core.csproj" />
         <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AspNet.Common\NewHeap.Platform.AspNet.Common.csproj"/>
     </ItemGroup>
 

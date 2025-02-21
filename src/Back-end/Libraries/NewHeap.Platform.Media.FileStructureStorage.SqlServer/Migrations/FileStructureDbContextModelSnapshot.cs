@@ -3,7 +3,6 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NewHeap.Media.FileStructureStorage.SqlServer;
 
@@ -12,11 +11,9 @@ using NewHeap.Media.FileStructureStorage.SqlServer;
 namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 {
     [DbContext(typeof(FileStructureDbContext))]
-    [Migration("20250114133652_LocalizationsAdded")]
-    partial class LocalizationsAdded
+    partial class FileStructureDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -25,7 +22,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("NewHeap.Media.FileStructureStorage.SqlServer.Entities.FileEntity", b =>
+            modelBuilder.Entity("NewHeap.Platform.Media.FileStructureStorage.SqlServer.Entities.FileEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -60,7 +57,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
                     b.ToTable("Files");
                 });
 
-            modelBuilder.Entity("NewHeap.Media.FileStructureStorage.SqlServer.Entities.FolderEntity", b =>
+            modelBuilder.Entity("NewHeap.Platform.Media.FileStructureStorage.SqlServer.Entities.FolderEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -80,7 +77,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
                     b.ToTable("Folders");
                 });
 
-            modelBuilder.Entity("NewHeap.Media.FileStructureStorage.SqlServer.Entities.Localization", b =>
+            modelBuilder.Entity("NewHeap.Platform.Media.FileStructureStorage.SqlServer.Entities.Localization", b =>
                 {
                     b.Property<string>("TypeName")
                         .HasColumnType("nvarchar(450)");

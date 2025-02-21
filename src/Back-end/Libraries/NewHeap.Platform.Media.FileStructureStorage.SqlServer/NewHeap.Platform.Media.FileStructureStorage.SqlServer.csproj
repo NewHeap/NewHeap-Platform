@@ -4,17 +4,17 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <PackageId>NewHeap.Media.FileStructureStorage.SqlServer</PackageId>
+        <PackageId>NewHeap.Platform.Media.FileStructureStorage.SqlServer</PackageId>
         <Version>0.1.0</Version>
         <Copyright>NewHeap B.V.</Copyright>
         <Title>NewHeap Media SqlServer FileStructure Storage</Title>
         <PackageProjectUrl>https://dev.azure.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
-        <RepositoryUrl>https://dev.azure.com/NewHeap/_git/NewHeap-Platform</RepositoryUrl>
-        <PackageReadmeFile>readme.md</PackageReadmeFile>
+        <RepositoryUrl>https://dev.azure.com/NewHeap/_git/NewHeap-Platform</RepositoryUrl>        
+        <RootNamespace>NewHeap.Media.FileStructureStorage.SqlServer</RootNamespace>        
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\NewHeap.Media.Core\NewHeap.Media.Core.csproj" />      
+      <ProjectReference Include="..\NewHeap.Platform.Media.Core\NewHeap.Platform.Media.Core.csproj" />      
     </ItemGroup>
 
     <ItemGroup>

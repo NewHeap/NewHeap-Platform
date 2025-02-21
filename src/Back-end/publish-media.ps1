@@ -5,6 +5,39 @@ param (
     [string]$Patch = "0"
 )
 
+
+function PackAndPublish {
+  param (
+    [string[]]$ProjectPaths,
+    [string]$Version    
+  )
+
+  $ProjectPaths | ForEach-Object {
+    $packageName = (Get-Item $_).Name  
+    Write-Host "dotnet pack "$_\$packageName.csproj" -c Release /p:Version=$Version"
+    dotnet pack "$_\$packageName.csproj" -c Release /p:Version=$Version    
+    # Controleer of het packen is geslaagd
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Packing failed!"
+        exit 1
+    }
+  }
+
+  $ProjectPaths | ForEach-Object {
+    $packageName = (Get-Item $_).Name
+
+    Write-Host "dotnet nuget push --source ""https://pkgs.dev.azure.com/NewHeap/NewHeap-Platform/_packaging/NewHeap-Platform/nuget/v3/index.json"" --interactive --api-key az ""$_/bin/Release/$packageName.$Version.nupkg"""
+
+    dotnet nuget push --source "https://pkgs.dev.azure.com/NewHeap/NewHeap-Platform/_packaging/NewHeap-Platform/nuget/v3/index.json" --api-key az "$_/bin/Release/$packageName.$Version.nupkg"
+    # Controleer of het packen is geslaagd
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Publishing failed!"
+        exit 1
+    }
+  }
+
+}
+
 # Paths zijn relatief tot dit script. Zorg dat we in de correcte directory zitten.
 cd $PSScriptRoot
 
@@ -16,34 +49,30 @@ $Version = "$Major.$Minor.$Patch-ci-$timestamp"
 
 Write-Host "Building package with version: $Version"
 
-$projectPaths = @(
-  ".\Libraries\NewHeap.Media",
-  ".\Libraries\NewHeap.Media.FileStructureStorage.SqlServer",
-  ".\Libraries\NewHeap.Media.Http",
-  ".\Libraries\NewHeap.Media.MediaStorage.FileSystem"
+$projectPaths = @(  
+  ".\Libraries\NewHeap.Platform.Media.Core"
+  ".\Libraries\NewHeap.Platform.Media.FileStructureStorage.SqlServer"
+  ,".\Libraries\NewHeap.Platform.Media.Http"
+  ,".\Libraries\NewHeap.Platform.Media.MediaStorage.FileSystem"
+  #,".\Libraries\NewHeap.Platform.Media"
 );
 
-# Voer `dotnet pack` uit met de juiste versie
 
-$projectPaths | ForEach-Object {
-  dotnet pack "$_" -c Release /p:Version=$Version    
-  # Controleer of het packen is geslaagd
-  if ($LASTEXITCODE -ne 0) {
-      Write-Host "Packing failed!"
-      exit 1
-  }
+#PackAndPublish $projectPaths $Version
+
+$mediaProjectFile = ".\Libraries\NewHeap.Platform.Media\NewHeap.Platform.Media.csproj"
+$xml = [xml](Get-Content -Path $mediaProjectFile)
+
+$xml.Project.ItemGroup.PackageReference | where {$_.Include.StartsWith("NewHeap.Platform.Media.")} | ForEach {
+  $_.Version = $Version
 }
 
-<#
-$projectPaths | ForEach-Object {
-  $packageName = (Get-Item $_).Name
-  dotnet nuget push --source "https://pkgs.dev.azure.com/NewHeap/NewHeap-Platform/_packaging/NewHeap-Platform/nuget/v3/index.json" --api-key az "$_/bin/Release/$packageName.$Version.nupkg"
-  # Controleer of het packen is geslaagd
-  if ($LASTEXITCODE -ne 0) {
-      Write-Host "Publishing failed!"
-      exit 1
-  }
-}
+Set-Content -Path $mediaProjectFile $xml
+
+Write-Host $nodes
+
+$projectPaths = @(".\Libraries\NewHeap.Platform.Media")
+
+#PackAndPublish $projectPaths $Version
 
 Write-Host "Package built successfully: Version $Version"
-#>
