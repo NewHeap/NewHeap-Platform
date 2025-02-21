@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using NewHeap.Media;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.Models.Options;
+using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models.Options;
 using System;
@@ -53,6 +54,11 @@ public class Startup
                     policy => policy.RequireActiveDivisionAccess(null,
                         new Claim(NhPlatformClaimTypes.DivisionPermission, "general.view")));
             })
+            .ConfgureCommonOptions(NewHeapCommonOptions
+                .Builder(Configuration)
+                .UseOtlpUseExporter(!string.IsNullOrWhiteSpace(Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+                .Build()
+            )
             .Build();
 
         services
@@ -70,7 +76,7 @@ public class Startup
                         Configuration.GetSection($"{NewHeapCommonOptions.DefaultSettingsPrefix}:MicrosoftAuthSettings").Bind(x))
                     ;
             })
-            .WithIdentityEntityFramework<AppDbContext>(x =>
+            .WithIdentityEntityFramework<AppDbContext, NhUserManager>(x =>
             {
                 x.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"))
 #if DEBUG

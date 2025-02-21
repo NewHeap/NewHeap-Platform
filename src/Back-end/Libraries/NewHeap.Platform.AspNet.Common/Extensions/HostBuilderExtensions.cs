@@ -18,6 +18,14 @@ public static partial class HostBuilderExtensions
         return builder;
     }
 
+    public static IHostApplicationBuilder UseNewHeapAspnetCommonConfiguration(this IHostApplicationBuilder builder)
+    {
+        builder.UseNhCommonConfiguration();
+        builder.Configuration.ConfigureNewHeapAspNetCommonConfiguration();
+
+        return builder;
+    }
+
     public static IConfigurationBuilder ConfigureNewHeapAspNetCommonConfiguration(this IConfigurationBuilder configBuilder)
     {
         configBuilder.ConfigureNewHeapAspNetCommonConfiguration(

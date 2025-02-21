@@ -15,6 +15,8 @@ public class NewHeapCommonOptions
     => new(configuration);
 
     public required Action<NewHeapCommonSettings> SettingsAction { get; set; }
+
+    public bool OtlpUseExporter = false;
 }
 
 public class NewHeapCommonOptionsBuilder
@@ -36,6 +38,13 @@ public class NewHeapCommonOptionsBuilder
     {
         ThrowIfBuild();
         _options!.SettingsAction = settingsAction;
+        return this;
+    }
+
+    public NewHeapCommonOptionsBuilder UseOtlpUseExporter(bool use = true)
+    {
+        ThrowIfBuild();
+        _options!.OtlpUseExporter = use;
         return this;
     }
 

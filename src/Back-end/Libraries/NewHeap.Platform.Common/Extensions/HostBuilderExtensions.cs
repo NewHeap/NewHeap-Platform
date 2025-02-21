@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using StackExchange.Utils;
 
 namespace NewHeap.Platform.Common;
@@ -14,6 +15,19 @@ public static partial class HostBuilderExtensions
         {
             configBuilder.ConfigureNhCommonConfiguration();
         });
+
+        builder.ConfigureLogging(logging =>
+        {
+            logging.ConfigureNhCommonLogging();
+        });
+
+        return builder;
+    }
+
+    public static IHostApplicationBuilder UseNhCommonConfiguration(this IHostApplicationBuilder builder)
+    {
+        builder.Configuration.ConfigureNhCommonConfiguration();
+        builder.Logging.ConfigureNhCommonLogging();
 
         return builder;
     }
@@ -72,5 +86,16 @@ public static partial class HostBuilderExtensions
             );
 
         return configBuilder;
+    }
+
+    public static ILoggingBuilder ConfigureNhCommonLogging(this ILoggingBuilder builder)
+    {
+        builder.AddOpenTelemetry(logging =>
+        {
+            logging.IncludeFormattedMessage = true;
+            logging.IncludeScopes = true;
+        });
+
+        return builder;
     }
 }
