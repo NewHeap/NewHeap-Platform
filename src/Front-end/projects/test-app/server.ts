@@ -11,6 +11,7 @@ import { Request, Response } from 'express';
 import {environment} from "./src/environments/environment";
 import crypto from "crypto";
 import {getClientSitemapAsync} from "./src/server-request-sitemap";
+import {setupOpenTelemetryServer} from "nh-common";
 
 // The Express app is exported so that it can be used by serverless Functions.
 export function app(): express.Express {
@@ -167,6 +168,8 @@ if(environment.name === 'development') {
     console.log(`Node Express server listening on http://localhost:${port}`);
   });
 }
+
+setupOpenTelemetryServer();
 
 console.warn('Node Express server started');
 
