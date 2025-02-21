@@ -298,7 +298,14 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         AddRepository<LogFile>();
         #endregion
 
-        serviceCollection.AddScoped<NhUserManager, TUserManager>(); // Do like this, allow sub projects to register their own 2.
+        serviceCollection.AddScoped<TUserManager, TUserManager>();
+
+        // Do like this, allow sub projects to register their own 2.
+        serviceCollection.AddScoped<NhUserManager>(serviceProvider =>
+        {
+            return serviceProvider.GetRequiredService<TUserManager>();
+        });
+
         serviceCollection.AddScoped<DivisionService>();
         serviceCollection.AddScoped<DivisionUserService>();
     }
