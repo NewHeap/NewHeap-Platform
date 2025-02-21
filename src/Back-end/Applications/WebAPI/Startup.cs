@@ -67,7 +67,7 @@ public class Startup
                 opt.UseSqlServerFileStructureStorage(Configuration.GetConnectionString("DefaultConnection")!, db =>
                 {
                     db.Scheme = "medialibrary";
-                    db.RunMigrations = true; // Defaults to true, here for demononstration purposes
+                    db.RunMigrations = true; // Defaults to true, here for demonstration purposes
                 });
                 opt.UseFileSystemMediaStorage(Configuration["Media:FileSystemRoot"]!);
             })
