@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using NewHeap.Media;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.Common.Identity.Claims;
@@ -55,6 +56,11 @@ public class Startup
             .Build();
 
         services
+            .AddNhMedia(opt =>
+            {
+                opt.UseSqlServerFileStructureStorage(Configuration.GetConnectionString("DefaultConnection")!);
+                opt.UseFileSystemMediaStorage(Configuration["Media:FileSystemRoot"]!);
+            })
             .AddNewHeapPlatformAspNetCommon(newHeapPlatformOptions)
             .ConfigureCommon(commonConfig =>
             {
@@ -92,6 +98,7 @@ public class Startup
                 {
                     //Optional, default is configured, only override if needed
                 })
+            
             ;
     }
 
