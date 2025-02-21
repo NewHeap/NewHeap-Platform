@@ -58,21 +58,25 @@ $projectPaths = @(
 );
 
 
-#PackAndPublish $projectPaths $Version
+PackAndPublish $projectPaths $Version
 
-$mediaProjectFile = ".\Libraries\NewHeap.Platform.Media\NewHeap.Platform.Media.csproj"
+$mediaProjectFile = Join-Path -Path $PSScriptRoot -ChildPath ".\Libraries\NewHeap.Platform.Media\NewHeap.Platform.Media.csproj"
 $xml = [xml](Get-Content -Path $mediaProjectFile)
 
 $xml.Project.ItemGroup.PackageReference | where {$_.Include.StartsWith("NewHeap.Platform.Media.")} | ForEach {
   $_.Version = $Version
 }
 
-Set-Content -Path $mediaProjectFile $xml
+$xml.Save($mediaProjectFile)
 
-Write-Host $nodes
+Write-Host "";
+Write-Host "Core packages published. Waiting 10 seconds before building and publishing bundle package so it's dependencies can be resolved."
+Write-Host "";
+
+Start-Sleep -Seconds 10
 
 $projectPaths = @(".\Libraries\NewHeap.Platform.Media")
 
-#PackAndPublish $projectPaths $Version
+PackAndPublish $projectPaths $Version
 
 Write-Host "Package built successfully: Version $Version"
