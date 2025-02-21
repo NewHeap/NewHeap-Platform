@@ -11,6 +11,6 @@ internal class FileStructureDbContextFactory : IDesignTimeDbContextFactory<FileS
         var builder = new DbContextOptionsBuilder<FileStructureDbContext>()
             .UseSqlServer(connectionString);
 
-        return new FileStructureDbContext(builder.Options);
+        return new FileStructureDbContext(builder.Options, new FileStructureDbContextOptions());
     }
 }

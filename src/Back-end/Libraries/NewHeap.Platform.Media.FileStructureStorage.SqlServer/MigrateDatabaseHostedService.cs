@@ -19,9 +19,16 @@ internal class MigrateDatabaseHostedService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Migrating database for SqlServer FileStructureStorage");
-        using var scope = _serviceProvider.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<FileStructureDbContext>();
-        await dbContext.Database.MigrateAsync(stoppingToken);
-        _logger.LogInformation("Migration completed for SqlServer FileStructureStorage");
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<FileStructureDbContext>();
+            await dbContext.Database.MigrateAsync(stoppingToken);
+            _logger.LogInformation("Migration completed for SqlServer FileStructureStorage");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception when migrating FileStructureStorage");
+        }
     }
 }
