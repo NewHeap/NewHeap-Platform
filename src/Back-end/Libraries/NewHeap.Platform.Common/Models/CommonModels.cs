@@ -21,33 +21,34 @@ public class ErrorMutationResultManagerModel
     public required string ErrorMessage { get; set; }
 }
 
-public class TaskResult<T>
+public class TaskResult
 {
-    public bool Success { get; private set; } = true;
-
-    public List<ResultItem> Results { get; } = new();
-
-    public List<string> AllErrorMessages => Results.SelectMany(x => x.ErrorMessages).ToList();
-
-    public T? Data { get; set; }
-
-    public void AddError(Expression<Func<T, object>> selector, params string[] errorMessages)
+    public class ResultItem
     {
-        var name = (selector.Body as MemberExpression
-                    ?? ((UnaryExpression)selector.Body).Operand as MemberExpression)!.Member.Name;
+        public string Name { get; set; }
 
-        AddError(name, errorMessages);
+        public List<string> ErrorMessages { get; } = new List<string>();
     }
 
-    public void AddError(string name, params string[] errorMessages)
+    public bool Success { get; private set; } = true;
+
+    public List<ResultItem> Results { get; } = new List<ResultItem>();
+
+    public TaskResult AddError(string error)
+    {
+        AddError("", error);
+        return this;
+    }
+
+    public TaskResult AddError(string error, params string[] errorMessages)
     {
         Success = false;
 
-        ResultItem? resultItem = Results.FirstOrDefault(x => x.Name == name);
+        var resultItem = Results.FirstOrDefault(x => x.Name == error);
 
         if (resultItem == null)
         {
-            resultItem = new ResultItem { Name = name };
+            resultItem = new ResultItem() { Name = error };
             Results.Add(resultItem);
         }
 
@@ -55,11 +56,25 @@ public class TaskResult<T>
         {
             resultItem.ErrorMessages.Add(errorMessage);
         }
+
+        return this;
     }
 
-    public void ApplyToTaskResult<T2>(TaskResult<T2> taskResult)
+    public TaskResult WithKeylessError(string errorMessage)
     {
-        foreach (ResultItem? result in Results)
+        AddError(string.Empty, errorMessage);
+        return this;
+    }
+
+    public TaskResult WithError(string name, string errorMessage)
+    {
+        AddError(name, errorMessage);
+        return this;
+    }
+
+    public void ApplyToTaskResult(TaskResult taskResult)
+    {
+        foreach (var result in Results)
         {
             foreach (var errorMessage in result.ErrorMessages)
             {
@@ -68,9 +83,9 @@ public class TaskResult<T>
         }
     }
 
-    public void ApplyToModelState(ModelStateDictionary modelState)
+    public void ApplyToModelState(Microsoft.AspNetCore.Mvc.ModelBinding.ModelStateDictionary modelState)
     {
-        foreach (ResultItem? result in Results)
+        foreach (var result in Results)
         {
             foreach (var errorMessage in result.ErrorMessages)
             {
@@ -79,11 +94,32 @@ public class TaskResult<T>
         }
     }
 
-    public class ResultItem
-    {
-        public required string Name { get; set; }
+    public static TaskResult Succeeded => new TaskResult();
 
-        public List<string> ErrorMessages { get; } = new();
+    public static TaskResult Failed(string error) => new TaskResult().AddError(error);
+    public static TaskResult Failed(string name, string error) => new TaskResult().AddError(name, error);
+
+    public List<string> AllErrorMessages => Results.SelectMany(x => x.ErrorMessages).ToList();
+
+}
+
+public class TaskResult<T> : TaskResult
+{
+    public T Data { get; set; }
+
+    public void AddError(Expression<Func<T, object>> selector, params string[] errorMessages)
+    {
+        var name = (selector.Body as MemberExpression
+            ?? ((UnaryExpression)selector.Body).Operand as MemberExpression).Member.Name;
+
+        AddError(name, errorMessages);
+    }
+
+    public static implicit operator TaskResult<T>(T data) => new TaskResult<T>() { Data = data };
+
+    public TaskResult()
+    {
+
     }
 }
 
