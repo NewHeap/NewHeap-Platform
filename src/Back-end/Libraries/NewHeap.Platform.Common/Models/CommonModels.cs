@@ -115,11 +115,50 @@ public class TaskResult<T> : TaskResult
         AddError(name, errorMessages);
     }
 
+    public static new TaskResult<T> Succeeded(T data) => new TaskResult<T> { Data = data };
     public static implicit operator TaskResult<T>(T data) => new TaskResult<T>() { Data = data };
+    
+    public static new TaskResult<T> Failed(string error)
+    {
+        var r = new TaskResult<T>();
+        r.AddError(error);
+        return r;
+    }
 
-    public TaskResult()
+    public static new TaskResult<T> Failed(string name, string error)
+    {
+        var r = new TaskResult<T>();
+        r.AddError(name, error);
+        return r;
+    }
+
+    public TaskResult() : base()
     {
 
+    }
+}
+
+public class DisposableTaskResult<T> : TaskResult<T>, IDisposable where T : IDisposable
+{
+    public void Dispose()
+    {
+        Data?.Dispose();
+    }
+
+    public static implicit operator DisposableTaskResult<T>(T data) => new DisposableTaskResult<T> { Data = data };
+    
+    public static new DisposableTaskResult<T> Failed(string name, string error)
+    {
+        var r = new DisposableTaskResult<T>();
+        r.AddError(name, error);
+        return r;
+    }
+    
+    public static new DisposableTaskResult<T> Failed(string error)
+    {
+        var r = new DisposableTaskResult<T>();
+        r.AddError(error);
+        return r;
     }
 }
 
