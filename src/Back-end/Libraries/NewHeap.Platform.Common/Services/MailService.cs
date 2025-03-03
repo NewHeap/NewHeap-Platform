@@ -37,29 +37,24 @@ public partial class MailService
 
         if (_emailSettings.IsSendRescritedActive)
         {
+            var validTo = new List<MailAddress>();
+            var validCC = new List<MailAddress>();
+            var validBcc = new List<MailAddress>();
+
             foreach (var restrictedAllowedEntry in _emailSettings.RestrictedEmailWhitelist)
             {
-                List<MailAddress> toInvalidEntries =
-                    mailMessage.To.Where(x => !x.Address.EndsWith(restrictedAllowedEntry)).ToList();
-                foreach (var invalidEntry in toInvalidEntries)
-                {
-                    mailMessage.To.Remove(invalidEntry);
-                }
-
-                List<MailAddress> ccInvalidEntries =
-                    mailMessage.CC.Where(x => !x.Address.EndsWith(restrictedAllowedEntry)).ToList();
-                foreach (var invalidEntry in ccInvalidEntries)
-                {
-                    mailMessage.CC.Remove(invalidEntry);
-                }
-
-                List<MailAddress> bccInvalidEntries =
-                    mailMessage.Bcc.Where(x => !x.Address.EndsWith(restrictedAllowedEntry)).ToList();
-                foreach (var invalidEntry in bccInvalidEntries)
-                {
-                    mailMessage.Bcc.Remove(invalidEntry);
-                }
+                validTo = mailMessage.To.Where(x => x.Address.EndsWith(restrictedAllowedEntry)).ToList();
+                validCC = mailMessage.CC.Where(x => x.Address.EndsWith(restrictedAllowedEntry)).ToList();
+                validBcc = mailMessage.Bcc.Where(x => x.Address.EndsWith(restrictedAllowedEntry)).ToList();
             }
+
+            mailMessage.To.Clear();
+            mailMessage.CC.Clear();
+            mailMessage.Bcc.Clear();
+
+            validTo.GroupBy(x => x.Address).Select(x => x.FirstOrDefault()).ToList().ForEach(x => mailMessage.To.Add(x));
+            validCC.GroupBy(x => x.Address).Select(x => x.FirstOrDefault()).ToList().ForEach(x => mailMessage.CC.Add(x));
+            validBcc.GroupBy(x => x.Address).Select(x => x.FirstOrDefault()).ToList().ForEach(x => mailMessage.Bcc.Add(x));
 
             if (!mailMessage.To.Any())
             {
