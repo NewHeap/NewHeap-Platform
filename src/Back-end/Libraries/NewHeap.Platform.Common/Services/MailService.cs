@@ -43,9 +43,9 @@ public partial class MailService
 
             foreach (var restrictedAllowedEntry in _emailSettings.RestrictedEmailWhitelist)
             {
-                validTo = mailMessage.To.Where(x => x.Address.EndsWith(restrictedAllowedEntry)).ToList();
-                validCC = mailMessage.CC.Where(x => x.Address.EndsWith(restrictedAllowedEntry)).ToList();
-                validBcc = mailMessage.Bcc.Where(x => x.Address.EndsWith(restrictedAllowedEntry)).ToList();
+                validTo.AddRange(mailMessage.To.Where(x => x.Address.EndsWith(restrictedAllowedEntry)).ToList());
+                validCC.AddRange(mailMessage.CC.Where(x => x.Address.EndsWith(restrictedAllowedEntry)).ToList());
+                validBcc.AddRange(mailMessage.Bcc.Where(x => x.Address.EndsWith(restrictedAllowedEntry)).ToList());
             }
 
             mailMessage.To.Clear();
