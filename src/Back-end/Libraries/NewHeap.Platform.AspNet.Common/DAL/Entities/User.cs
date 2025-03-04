@@ -25,4 +25,7 @@ public partial class User : IdentityUser<Guid>
     public DateTimeOffset? LockoutStart { get; set; }
 
     public ICollection<DivisionUser> DivisionUsers { get; set; } = new List<DivisionUser>();
+    
+    [StringLength(100)]
+    public string RefreshToken { get; set; }
 }
