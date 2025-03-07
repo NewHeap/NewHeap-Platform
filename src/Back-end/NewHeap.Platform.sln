@@ -30,6 +30,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MediaLibrary", "MediaLibrar
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewHeap.Platform.Media", "Libraries\NewHeap.Platform.Media\NewHeap.Platform.Media.csproj", "{CBD6D479-8DBC-41BB-A87E-03F5C97EDB76}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewHeap.Platform.AspNet.Caching", "Libraries\NewHeap.Platform.AspNet.Caching\NewHeap.Platform.AspNet.Caching.csproj", "{C81F7586-4617-4539-A43C-5FBB2EA7A964}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -68,6 +70,10 @@ Global
 		{CBD6D479-8DBC-41BB-A87E-03F5C97EDB76}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CBD6D479-8DBC-41BB-A87E-03F5C97EDB76}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CBD6D479-8DBC-41BB-A87E-03F5C97EDB76}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C81F7586-4617-4539-A43C-5FBB2EA7A964}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C81F7586-4617-4539-A43C-5FBB2EA7A964}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C81F7586-4617-4539-A43C-5FBB2EA7A964}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C81F7586-4617-4539-A43C-5FBB2EA7A964}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -82,5 +88,6 @@ Global
 		{905A6456-B046-4543-A66B-9BEB0B404C47} = {026E006D-3564-42A8-8CD0-484C1F9262CA}
 		{E7896109-A26A-4512-9796-9D1E2A0D9765} = {026E006D-3564-42A8-8CD0-484C1F9262CA}
 		{CBD6D479-8DBC-41BB-A87E-03F5C97EDB76} = {026E006D-3564-42A8-8CD0-484C1F9262CA}
+		{C81F7586-4617-4539-A43C-5FBB2EA7A964} = {5FC542AC-AA75-453A-8F5E-76CFF5D76D50}
 	EndGlobalSection
 EndGlobal

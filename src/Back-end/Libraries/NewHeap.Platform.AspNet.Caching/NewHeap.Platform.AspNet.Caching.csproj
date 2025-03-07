@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <OutputType>Library</OutputType>
+
+        <PackageId>NewHeap.Platform.AspNet.Caching</PackageId>
+        <Version>0.1.0</Version>
+        <Copyright>NewHeap B.V.</Copyright>
+        <Title>NewHeap AspNet Caching</Title>
+        <PackageProjectUrl>https://dev.azure.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
+        <RepositoryUrl>https://dev.azure.com/NewHeap/_git/NewHeap-Platform</RepositoryUrl>
+        <IsPackable>true</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="NeoSmart.Caching.Sqlite.AspNetCore" Version="9.0.1" />
+      <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.1.0" />
+    </ItemGroup>
+
+</Project>
