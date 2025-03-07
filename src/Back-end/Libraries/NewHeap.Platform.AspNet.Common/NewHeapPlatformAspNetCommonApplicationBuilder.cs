@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.Middlewares;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Services;
@@ -110,7 +111,7 @@ public class NewHeapPlatformAspNetCommonApplicationBuilder
     {
         ConfigureHealthEndpoints();
         ConfigureCors();
-
+        
         _applicationBuilder.UseAuthentication();
 
         if (_options.UseHsts)
@@ -199,7 +200,7 @@ public class NewHeapPlatformAspNetCommonApplicationBuilder
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonApplicationBuilder UserHangfireDashboard(
+    public NewHeapPlatformAspNetCommonApplicationBuilder UseHangfireDashboard(
         string pathMatch = "/hangfire",
         Action<DashboardOptions>? optionsAction = null,
         JobStorage? storage = null
@@ -210,6 +211,14 @@ public class NewHeapPlatformAspNetCommonApplicationBuilder
 
         _applicationBuilder.UseHangfireDashboard(pathMatch, options, storage);
 
+        return this;
+    }
+
+    public NewHeapPlatformAspNetCommonApplicationBuilder UseNhAuthentication(Action<NhAuthenticationConfigurationBuilder>? configure = null)
+    {
+        var builder = new NhAuthenticationConfigurationBuilder();
+        configure?.Invoke(builder);
+        builder.Build(_applicationBuilder, _services);
         return this;
     }
 }

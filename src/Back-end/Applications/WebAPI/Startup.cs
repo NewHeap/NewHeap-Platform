@@ -16,6 +16,7 @@ using System;
 using System.Security.Claims;
 using System.Text;
 using WebAPI.DAL;
+using WebAPI.Managers;
 
 namespace WebAPI;
 
@@ -39,6 +40,7 @@ public class Startup
     {
         var newHeapPlatformOptions = NewHeapAspNetCommonOptions.Builder(Configuration)
             .ConfigureAutoMapper(options => options.AddMaps(typeof(Startup)))
+            
             .ConfigureAuthorization(options =>
             {
                 // Optional, default is configured, only override if needed
@@ -54,6 +56,7 @@ public class Startup
                     policy => policy.RequireActiveDivisionAccess(null,
                         new Claim(NhPlatformClaimTypes.DivisionPermission, "general.view")));
             })
+            
             .ConfgureCommonOptions(NewHeapCommonOptions
                 .Builder(Configuration)
                 .UseOtlpUseExporter(!string.IsNullOrWhiteSpace(Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
@@ -62,16 +65,26 @@ public class Startup
             .Build();
 
         services
-            .AddNhMedia(opt =>
-            {
-                opt.UseSqlServerFileStructureStorage(Configuration.GetConnectionString("DefaultConnection")!, db =>
-                {
-                    db.Scheme = "medialibrary";
-                    db.RunMigrations = true; // Defaults to true, here for demonstration purposes
-                });
-                opt.UseFileSystemMediaStorage(Configuration["Media:FileSystemRoot"]!);
-            })
+            // .AddNhMedia(opt =>
+            // {
+            //     opt.UseSqlServerFileStructureStorage(Configuration.GetConnectionString("DefaultConnection")!, db =>
+            //     {
+            //         db.Scheme = "medialibrary";
+            //         db.RunMigrations = true; // Defaults to true, here for demonstration purposes
+            //     });
+            //     opt.UseFileSystemMediaStorage(Configuration["Media:FileSystemRoot"]!);
+            // })
             .AddNewHeapPlatformAspNetCommon(newHeapPlatformOptions)
+            .AddAuthentication(options =>
+            {
+                options.WithAuthenticationService<MockAuthenticationService>();
+                options.AddUserNamePasswordAuthentication(authOptions =>
+                {
+                    authOptions.EnableRefreshToken = true;
+                    authOptions.AccessTokenCookieName = "nh_auth_cookie";
+                    authOptions.RefreshTokenCookieName = "nh_refresh_cookie";
+                });
+            })
             .ConfigureCommon(commonConfig =>
             {
                 commonConfig
@@ -121,6 +134,10 @@ public class Startup
                     .UseHttpsRedirection(!env.IsDevelopment())
                     .Build()
             )
+            .UseNhAuthentication(configure =>
+            {
+                configure.AddUserNamePasswordEndpoint();
+            })
             .UseStaticFiles(options =>
             {
                 // Optional, default is configured, only override if needed
@@ -129,7 +146,7 @@ public class Startup
             {
                 // Optional, default is configured, only override if needed
             })
-            .UserHangfireDashboard("/hangfire", options =>
+            .UseHangfireDashboard("/hangfire", options =>
             {
                 // Optional, default is configured, only override if needed
             })

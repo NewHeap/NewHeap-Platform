@@ -35,7 +35,6 @@
 
 
     <ItemGroup>
-        <Folder Include="Managers\"/>
         <Folder Include="Models\View\"/>
         <Folder Include="wwwroot\images\"/>
     </ItemGroup>

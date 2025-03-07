@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Options;
@@ -69,7 +70,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         _serviceCollection.AddSingleton<IAuthorizationHandler, ActiveDivisionAccessHandler>();
         #endregion
     }
-
+    
     private void AddOpenTelementry()
     {
         _serviceCollection.AddOpenTelemetry()
@@ -257,6 +258,15 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         });
     }
 
+    public NewHeapPlatformAspNetCommonConfigurator AddAuthentication(Action<NhAuthenticationBuilder>? configure = null)
+    {
+        var builder = new NhAuthenticationBuilder();
+        configure?.Invoke(builder);
+        
+        builder.Build(_serviceCollection);
+        return this;
+    }
+    
     public NewHeapPlatformAspNetCommonConfigurator ConfigureCommon(
         Action<NewHeapPlatformCommonConfigurator> action)
     {
