@@ -1,5 +1,6 @@
 ﻿using NeoSmart.Caching.Sqlite;
 using ZiggyCreatures.Caching.Fusion;
+using ZiggyCreatures.Caching.Fusion.Serialization.NewtonsoftJson;
 
 // ReSharper disable once CheckNamespace
 namespace NewHeap.Platform.AspNet;
@@ -25,7 +26,9 @@ public static class Extensions
         };
         configure?.Invoke(options);
         builder.Services.AddFusionCache()
-            .WithOptions(options);
+            .WithOptions(options)
+            .WithSerializer(new FusionCacheNewtonsoftJsonSerializer())
+            ;
         return builder;
     }
     
@@ -68,6 +71,7 @@ public static class Extensions
         AddNewHeapPlatformCaching(builder, b =>
         {
             b.WithDistributedCache(new SqliteCache(sqliteOptions))
+                .WithSerializer(new FusionCacheNewtonsoftJsonSerializer())
                 .WithOptions(options);
         });
         
