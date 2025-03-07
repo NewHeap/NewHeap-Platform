@@ -2,7 +2,7 @@
 
 public static class NhCacheKey
 {
-    public static string Create(params IEnumerable<Span<char>> keyParts)
+    public static string Create(params string[] keyParts)
     {
         return string.Join('_', keyParts);
     }
