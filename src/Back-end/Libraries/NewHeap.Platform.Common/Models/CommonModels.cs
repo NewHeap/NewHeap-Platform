@@ -25,30 +25,40 @@ public class TaskResult
 {
     public class ResultItem
     {
-        public string Name { get; set; }
+        public string Name { get; set; } = "";
 
-        public List<string> ErrorMessages { get; } = new List<string>();
+        public List<string> ErrorMessages { get; } = [];
     }
 
-    public bool Success { get; private set; } = true;
+    public bool Success { get; protected set; } = true;
 
-    public List<ResultItem> Results { get; } = new List<ResultItem>();
+    public List<ResultItem> Results { get; } = [];
 
-    public TaskResult AddError(string error)
+    public virtual TaskResult AddError(string error)
     {
         AddError("", error);
         return this;
     }
 
-    public TaskResult AddError(string error, params string[] errorMessages)
+    public virtual TaskResult AddError(string name, IEnumerable<string> errorMessages)
+    {
+        foreach (var errorMessage in errorMessages)
+        {
+            AddError(name, errorMessage);
+        }
+
+        return this;
+    }
+
+    public virtual TaskResult AddError(string name, params string[] errorMessages)
     {
         Success = false;
 
-        var resultItem = Results.FirstOrDefault(x => x.Name == error);
+        var resultItem = Results.FirstOrDefault(x => x.Name == name);
 
         if (resultItem == null)
         {
-            resultItem = new ResultItem() { Name = error };
+            resultItem = new ResultItem() { Name = name };
             Results.Add(resultItem);
         }
 
@@ -60,19 +70,19 @@ public class TaskResult
         return this;
     }
 
-    public TaskResult WithKeylessError(string errorMessage)
+    public virtual TaskResult WithKeylessError(string errorMessage)
     {
         AddError(string.Empty, errorMessage);
         return this;
     }
 
-    public TaskResult WithError(string name, string errorMessage)
+    public virtual TaskResult WithError(string name, string errorMessage)
     {
         AddError(name, errorMessage);
         return this;
     }
 
-    public void ApplyToTaskResult(TaskResult taskResult)
+    public virtual void ApplyToTaskResult(TaskResult taskResult)
     {
         foreach (var result in Results)
         {
@@ -83,7 +93,7 @@ public class TaskResult
         }
     }
 
-    public void ApplyToModelState(Microsoft.AspNetCore.Mvc.ModelBinding.ModelStateDictionary modelState)
+    public virtual void ApplyToModelState(ModelStateDictionary modelState)
     {
         foreach (var result in Results)
         {
@@ -92,6 +102,16 @@ public class TaskResult
                 modelState.AddModelError(result.Name, errorMessage);
             }
         }
+    }
+
+    public virtual TaskResult ApplyModelStateErrors(Dictionary<string, string[]> errors)
+    {
+        foreach (var (key, value) in errors)
+        {
+            AddError(key, value);
+        }
+
+        return this;
     }
 
     public static TaskResult Succeeded => new TaskResult();
@@ -132,9 +152,83 @@ public class TaskResult<T> : TaskResult
         return r;
     }
 
-    public TaskResult() : base()
+    public new TaskResult<T> WithKeylessError(string errorMessage)
     {
+        AddError(string.Empty, errorMessage);
+        return this;
+    }
 
+    public new TaskResult<T> WithError(string name, string errorMessage)
+    {
+        AddError(name, errorMessage);
+        return this;
+    }
+
+    public TaskResult<T> WithError(Expression<Func<T, object>> selector, params string[] errorMessages)
+    {
+        AddError(selector, errorMessages);
+        return this;
+    }
+
+    public TaskResult<T> AddError(string[] errorMessages)
+    {
+        AddError(string.Empty, errorMessages);
+        return this;
+    }
+
+    public new TaskResult<T> AddError(string name, IEnumerable<string> errorMessages)
+    {
+        foreach (var errorMessage in errorMessages)
+        {
+            AddError(name, errorMessage);
+        }
+
+        return this;
+    }
+
+    public TaskResult<T> AddError(string name, string errorMessage)
+    {
+        Success = false;
+
+        var resultItem = Results.FirstOrDefault(x => x.Name == name);
+
+        if (resultItem == null)
+        {
+            resultItem = new ResultItem() { Name = name };
+            Results.Add(resultItem);
+        }
+
+        resultItem.ErrorMessages.Add(errorMessage);
+        return this;
+    }
+
+    public new TaskResult<T> ApplyModelStateErrors(Dictionary<string, string[]> errors)
+    {
+        foreach (var (key, value) in errors)
+        {
+            AddError(key, value);
+        }
+
+        return this;
+    }
+
+    public TaskResult<T2> ApplyToTaskResult<T2>(TaskResult<T2> taskResult)
+    {
+        foreach (var result in Results)
+        {
+            foreach (var errorMessage in result.ErrorMessages)
+            {
+                taskResult.AddError(result.Name, errorMessage);
+            }
+        }
+
+        return taskResult;
+    }
+
+    public TaskResult<T> WithData(T value)
+    {
+        Data = value;
+        return this;
     }
 }
 
