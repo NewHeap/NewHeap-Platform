@@ -15,13 +15,13 @@ public partial class MutationResultManagerModel<T>
     public List<ErrorMutationResultManagerModel> ErrorMessages { get; set; }
 }
 
-public class ErrorMutationResultManagerModel
+public partial class ErrorMutationResultManagerModel
 {
     public required string Key { get; set; }
     public required string ErrorMessage { get; set; }
 }
 
-public class TaskResult
+public partial class TaskResult
 {
     public class ResultItem
     {
@@ -123,7 +123,7 @@ public class TaskResult
 
 }
 
-public class TaskResult<T> : TaskResult
+public partial class TaskResult<T> : TaskResult
 {
     public T Data { get; set; }
 
@@ -232,7 +232,7 @@ public class TaskResult<T> : TaskResult
     }
 }
 
-public class DisposableTaskResult<T> : TaskResult<T>, IDisposable where T : IDisposable
+public partial class DisposableTaskResult<T> : TaskResult<T>, IDisposable where T : IDisposable
 {
     public void Dispose()
     {
@@ -256,7 +256,7 @@ public class DisposableTaskResult<T> : TaskResult<T>, IDisposable where T : IDis
     }
 }
 
-public class CreateUpdateDeleteValidateModel<TTaskResult, TSourceObj, TMutateObj>
+public partial class CreateUpdateDeleteValidateModel<TTaskResult, TSourceObj, TMutateObj>
     where TTaskResult : class
     where TSourceObj : class
     where TMutateObj : class
