@@ -1,10 +1,15 @@
 ﻿namespace NewHeap.Platform.Common.Models;
 
-public partial class CollectionRequestModel
+
+public abstract partial class BaseCollectionRequestModel
 {
     public int Page { get; set; }
     public int ItemsPerPage { get; set; }
     public string? Search { get; set; }
+}
+
+public partial class CollectionRequestModel : BaseCollectionRequestModel
+{
     public List<OrderByRequestModel> OrderBy { get; set; } = [];
     public List<FilterRequestModel> Filter { get; set; } = [];
 }
