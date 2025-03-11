@@ -58,8 +58,9 @@ public class AccountController : NhBaseController
         IOptions<MicrosoftAuthSettings> microsoftAuthSettings,
         MicrosoftAuthService appMicrosoftAuthManager,
         IConfiguration config,
+        IHttpCollectionRequestProcessingService collectionRequestProcessingService,
         IMapper mapper)
-        : base(mapper, logger, config, localizer)
+        : base(mapper, logger, config, localizer, collectionRequestProcessingService)
     {
         _userManager = userManager;
         _sharedLocalizer = sharedLocalizer;

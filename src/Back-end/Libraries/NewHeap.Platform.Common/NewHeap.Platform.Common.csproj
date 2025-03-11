@@ -28,6 +28,7 @@
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.11.1" />
         <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.11.0" />
         <PackageReference Include="StackExchange.Utils.Configuration" Version="0.1.12" />
+        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.0.2" />
     </ItemGroup>
 
     <ItemGroup>

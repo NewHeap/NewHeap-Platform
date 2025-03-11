@@ -30,9 +30,10 @@ public class DivisionController : NhBaseController
         DbLogService dbLogService,
         IStringLocalizer<DivisionController> localizer,
         NhUserManager userManager,
-        DivisionService divisionService
+        DivisionService divisionService,
+        IHttpCollectionRequestProcessingService collectionRequestProcessingService
     )
-        : base(mapper, logger, config, localizer)
+        : base(mapper, logger, config, localizer, collectionRequestProcessingService)
     {
         _divisionService = divisionService;
     }

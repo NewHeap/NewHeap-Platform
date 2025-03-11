@@ -5,10 +5,14 @@ public abstract partial class BaseCollectionRequestModel
 {
     public int Page { get; set; }
     public int ItemsPerPage { get; set; }
+}
+
+public abstract partial class SearchableBaseCollectionRequestModel : BaseCollectionRequestModel
+{
     public string? Search { get; set; }
 }
 
-public partial class CollectionRequestModel : BaseCollectionRequestModel
+public partial class CollectionRequestModel : SearchableBaseCollectionRequestModel
 {
     public List<OrderByRequestModel> OrderBy { get; set; } = [];
     public List<FilterRequestModel> Filter { get; set; } = [];

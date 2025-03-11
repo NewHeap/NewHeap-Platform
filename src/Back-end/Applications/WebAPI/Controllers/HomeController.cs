@@ -37,8 +37,9 @@ public class HomeController : NhBaseController
         IStringLocalizer<AccountController> localizer,
         ILogger<AccountController> logger,
         IConfiguration config,
+        IHttpCollectionRequestProcessingService collectionRequestProcessingService,
         IMapper mapper)
-        : base(mapper, logger, config, localizer)
+        : base(mapper, logger, config, localizer, collectionRequestProcessingService)
     {
     }
 
