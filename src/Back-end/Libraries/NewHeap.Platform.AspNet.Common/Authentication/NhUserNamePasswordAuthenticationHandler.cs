@@ -1,37 +1,42 @@
-﻿using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
-using HttpMethod = NewHeap.Platform.AspNet.Common.Builders.HttpMethod;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication;
 
-public class NhUserNamePasswordAuthenticationHandler : IAuthenticationEndpoint
+/// <summary>
+/// Endpoint for username and password authentication.
+/// </summary>
+public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpoint<AuthenticateRequest>
 {
     private readonly INhAuthenticationService _authenticationService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
-    public string Pattern { get; set; } = "authentication/login";
-
+    
+    /// <summary>
+    /// Name of the cookie that contains the access token
+    /// When empty the cookie is not set
+    /// </summary>
     internal string? TokenCookieName { get; set; } = "nh_access_token";
+    
+    /// <summary>
+    /// Name of the cookie that contains the refresh token
+    /// When empty the cookie is not set
+    /// </summary>
     internal string? RefreshTokenCookieName { get; set; } = "nh_access_token";
-
-    public HttpMethod Method => HttpMethod.Post;
-    public Delegate Handler => Authenticate;
-    public HttpContext? HttpContext => _httpContextAccessor.HttpContext;
-
+    
+    /// <summary>
+    /// Enables the refresh token cookie
+    /// </summary>
     public bool EnableRefreshToken { get; set; }
 
     public NhUserNamePasswordAuthenticationHandler(INhAuthenticationService authenticationService,
         IHttpContextAccessor httpContextAccessor)
+    :base(httpContextAccessor, "authentication/login")
     {
         _authenticationService = authenticationService;
-        _httpContextAccessor = httpContextAccessor;
     }
 
-
-    private async Task<IResult> Authenticate([FromBody] AuthenticateRequest? request)
+    protected override async Task<IResult> Authenticate([FromBody] AuthenticateRequest? request)
     {
         if (string.IsNullOrEmpty(request?.UserName) || string.IsNullOrEmpty(request?.Password))
         {
