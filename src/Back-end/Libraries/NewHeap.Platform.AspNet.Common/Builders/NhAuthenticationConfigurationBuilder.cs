@@ -53,6 +53,7 @@ public class NhAuthenticationConfigurationBuilder
     {
         app.UseEndpoints(endpoints =>
         {
+            
             foreach (var type in _diEndpoints)
             {
                 var endpoint = (IAuthenticationEndpoint)services.GetRequiredService(type);

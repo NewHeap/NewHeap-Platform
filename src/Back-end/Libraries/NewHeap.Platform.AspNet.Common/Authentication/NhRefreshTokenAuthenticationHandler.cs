@@ -8,29 +8,34 @@ using HttpMethod = NewHeap.Platform.AspNet.Common.Builders.HttpMethod;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication;
 
+/// <summary>
+/// Endpoint for refreshing the access token
+/// </summary>
 public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint<RefreshTokenRequest>
 {
-    private readonly INhAuthenticationService _authenticationService;
     internal string? TokenCookieName { get; set; } = "nh_access_token";
     internal string? RefreshTokenCookieName { get; set; } = "nh_access_token";
 
 
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="httpContextAccessor"></param>
     public NhRefreshTokenAuthenticationHandler(
-        INhAuthenticationService authenticationService,
         IHttpContextAccessor httpContextAccessor
         ) : base(httpContextAccessor, "authentication/refresh")
     {
-        _authenticationService = authenticationService;
+        Handler = Authenticate;
     }
 
-    protected override async Task<IResult> Authenticate([FromBody] RefreshTokenRequest? request)
+    private async Task<IResult> Authenticate([FromBody] RefreshTokenRequest? request, [FromServices] INhAuthenticationService authenticationService)
     {
         if (string.IsNullOrEmpty(request?.UserName) || string.IsNullOrEmpty(request.RefreshToken))
         {
             return TypedResults.BadRequest();
         }
 
-        var result = await _authenticationService.RefreshToken(request);
+        var result = await authenticationService.RefreshToken(request);
 
         if (!result.Success)
         {

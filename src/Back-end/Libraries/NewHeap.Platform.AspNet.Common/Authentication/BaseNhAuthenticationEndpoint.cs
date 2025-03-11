@@ -21,14 +21,7 @@ public abstract class BaseNhAuthenticationEndpoint<TRequest> : IAuthenticationEn
     {
         Pattern = pattern;
         _httpContextAccessor = httpContextAccessor;
-        Handler = Authenticate;
     }
 
-    /// <summary>
-    /// When implemented handles the login flow for the authentication method
-    /// </summary>
-    /// <param name="request"></param>
-    /// <returns></returns>
-    protected abstract Task<IResult> Authenticate(TRequest? request);
 }
 

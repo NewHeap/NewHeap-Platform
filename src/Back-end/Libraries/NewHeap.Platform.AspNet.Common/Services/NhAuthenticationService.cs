@@ -13,6 +13,9 @@ using System.Text;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
+/// <summary>
+/// Service for authenticating users
+/// </summary>
 public class NhAuthenticationService : INhAuthenticationService
 {
     private readonly SignInManager<User> _signInManager;
@@ -143,6 +146,10 @@ public class NhAuthenticationService : INhAuthenticationService
             token.Issuer);
     }
 
+    /// <summary>
+    /// Generate a random refresh token
+    /// </summary>
+    /// <returns></returns>
     protected string GenerateRefreshToken()
     {
         var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(16);
@@ -168,7 +175,7 @@ public class NhAuthenticationService : INhAuthenticationService
         }
 
         var tokenKey = GetTokenKey();
-        var issuer = GetTokenKey();
+        var issuer = GetIssuer();
 
         expiration ??= TimeSpan.FromDays(1);
 
@@ -185,6 +192,11 @@ public class NhAuthenticationService : INhAuthenticationService
         return token;
     }
 
+    /// <summary>
+    /// Decode a JWT token
+    /// </summary>
+    /// <param name="token"></param>
+    /// <returns></returns>
     public virtual JwtSecurityToken DecodeToken(string token)
     {
         var handler = new JwtSecurityTokenHandler();

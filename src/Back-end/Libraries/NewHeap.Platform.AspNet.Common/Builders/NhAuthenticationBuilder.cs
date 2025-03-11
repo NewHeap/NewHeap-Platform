@@ -47,6 +47,10 @@ public class NhAuthenticationBuilder
     
     internal void Build(IServiceCollection services)
     {
+        services.AddAuthentication(opt =>
+        {
+            
+        });
         services.AddScoped(typeof(INhAuthenticationService), AuthenticationServiceType);
         if (UserNamePasswordOptionsValue.Enabled)
         {
@@ -60,11 +64,10 @@ public class NhAuthenticationBuilder
 
     private void AddRefreshTokenHandler(IServiceCollection services)
     {
-        services.AddScoped<NhRefreshTokenAuthenticationHandler>(s =>
+        services.AddTransient<NhRefreshTokenAuthenticationHandler>(s =>
         {
-            var authService = s.GetRequiredService<INhAuthenticationService>();
             var httpContextAccessor = s.GetRequiredService<IHttpContextAccessor>();
-            var handler = new NhRefreshTokenAuthenticationHandler(authService,httpContextAccessor);
+            var handler = new NhRefreshTokenAuthenticationHandler(httpContextAccessor);
 
             if (UserNamePasswordOptionsValue.RefreshTokenEndpoint != null)
             {
@@ -87,11 +90,10 @@ public class NhAuthenticationBuilder
     
     private void AddUserNameLoginHandler(IServiceCollection services)
     {
-        services.AddScoped<NhUserNamePasswordAuthenticationHandler>(s =>
+        services.AddTransient<NhUserNamePasswordAuthenticationHandler>(s =>
         {
-            var authService = s.GetRequiredService<INhAuthenticationService>();
             var httpContextAccessor = s.GetRequiredService<IHttpContextAccessor>();
-            var handler = new NhUserNamePasswordAuthenticationHandler(authService,httpContextAccessor)
+            var handler = new NhUserNamePasswordAuthenticationHandler(httpContextAccessor)
             {
                 EnableRefreshToken = UserNamePasswordOptionsValue.EnableRefreshToken,
             };

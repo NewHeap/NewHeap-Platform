@@ -10,8 +10,6 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 /// </summary>
 public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpoint<AuthenticateRequest>
 {
-    private readonly INhAuthenticationService _authenticationService;
-    
     /// <summary>
     /// Name of the cookie that contains the access token
     /// When empty the cookie is not set
@@ -29,21 +27,25 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
     /// </summary>
     public bool EnableRefreshToken { get; set; }
 
-    public NhUserNamePasswordAuthenticationHandler(INhAuthenticationService authenticationService,
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="httpContextAccessor"></param>
+    public NhUserNamePasswordAuthenticationHandler(
         IHttpContextAccessor httpContextAccessor)
     :base(httpContextAccessor, "authentication/login")
     {
-        _authenticationService = authenticationService;
+        Handler = Authenticate;
     }
 
-    protected override async Task<IResult> Authenticate([FromBody] AuthenticateRequest? request)
+    private async Task<IResult> Authenticate([FromBody] AuthenticateRequest? request,[FromServices] INhAuthenticationService authenticationService)
     {
         if (string.IsNullOrEmpty(request?.UserName) || string.IsNullOrEmpty(request?.Password))
         {
             return TypedResults.BadRequest("Username or password is missing");
         }
 
-        var result = await _authenticationService.Authenticate(request);
+        var result = await authenticationService.Authenticate(request);
         if (!result.Success)
         {
             return TypedResults.BadRequest(result);
