@@ -203,7 +203,7 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
 
   async setPageByOffsetLimit(event: {offset: number, limit: number}) {
     await this.setPage({
-      page: (event.offset / event.limit) + 1,
+      page: event.offset + 1,
       itemsPerPage: event.limit
     });
   }
