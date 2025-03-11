@@ -28,7 +28,12 @@ public static partial class GlobalizationUtils
         System.Threading.Thread.CurrentThread.CurrentUICulture = currentUICulture;
     }
 
-    public static async Task TaskWithCultureAsync(CultureInfo culture, Func<Task> task, CultureInfo? uiCulture = null)
+    public static Task TaskWithCultureAsync(CultureInfo culture, Func<Task> task, CultureInfo? uiCulture = null)
+    {
+        return TaskWithCultureAsync(culture, async (fCancelToken) => await task(), uiCulture, default);
+    }
+
+    public static async Task TaskWithCultureAsync(CultureInfo culture, Func<CancellationToken, Task> task, CultureInfo? uiCulture = null, CancellationToken cancellationToken = default)
     {
         if (culture == null || task == null)
         {
@@ -42,7 +47,7 @@ public static partial class GlobalizationUtils
         System.Threading.Thread.CurrentThread.CurrentCulture = culture;
         System.Threading.Thread.CurrentThread.CurrentUICulture = uiCulture;
 
-        await task();
+        await task(cancellationToken);
 
         System.Threading.Thread.CurrentThread.CurrentCulture = currentCulture;
         System.Threading.Thread.CurrentThread.CurrentUICulture = currentUICulture;
