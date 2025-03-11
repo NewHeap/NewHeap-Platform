@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
 
@@ -38,6 +40,9 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
         Handler = Authenticate;
     }
 
+    [ApiExplorerSettings(GroupName = "Authentication")]
+    [EndpointName("Login")]
+    [Produces<Results<Ok<UserToken>,BadRequest>>]
     private async Task<IResult> Authenticate([FromBody] AuthenticateRequest? request,[FromServices] INhAuthenticationService authenticationService)
     {
         if (string.IsNullOrEmpty(request?.UserName) || string.IsNullOrEmpty(request?.Password))

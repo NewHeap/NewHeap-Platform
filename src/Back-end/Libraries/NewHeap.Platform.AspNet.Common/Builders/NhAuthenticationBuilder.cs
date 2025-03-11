@@ -43,6 +43,8 @@ public class NhAuthenticationBuilder
 
         public string? AccessTokenCookieName { get; set; }
         public string? RefreshTokenCookieName { get; set; }
+
+        public string? LogoutEndpoint { get; set; }
     }
     
     internal void Build(IServiceCollection services)
@@ -101,6 +103,28 @@ public class NhAuthenticationBuilder
             if (UserNamePasswordOptionsValue.Endpoint != null)
             {
                 handler.Pattern = UserNamePasswordOptionsValue.Endpoint;
+            }
+
+            if (!string.IsNullOrWhiteSpace(UserNamePasswordOptionsValue.AccessTokenCookieName))
+            {
+                handler.TokenCookieName = UserNamePasswordOptionsValue.AccessTokenCookieName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(UserNamePasswordOptionsValue.RefreshTokenCookieName))
+            {
+                handler.RefreshTokenCookieName = UserNamePasswordOptionsValue.RefreshTokenCookieName;
+            }
+                    
+            return handler;
+        });
+        
+        services.AddTransient<NhLogoutAuthenticationHandler>(s =>
+        {
+            var handler = new NhLogoutAuthenticationHandler();
+
+            if (!string.IsNullOrWhiteSpace(UserNamePasswordOptionsValue.LogoutEndpoint))
+            {
+                handler.Pattern = UserNamePasswordOptionsValue.LogoutEndpoint;
             }
 
             if (!string.IsNullOrWhiteSpace(UserNamePasswordOptionsValue.AccessTokenCookieName))
