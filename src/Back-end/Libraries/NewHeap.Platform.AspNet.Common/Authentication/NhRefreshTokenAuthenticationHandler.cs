@@ -1,9 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.Common.Models;
 using HttpMethod = NewHeap.Platform.AspNet.Common.Builders.HttpMethod;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication;
@@ -28,6 +31,9 @@ public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint<
         Handler = Authenticate;
     }
 
+    [ApiExplorerSettings(GroupName = "Authentication")]
+    [EndpointName("Refresh token")]
+    [Produces<Results<Ok<UserToken>,BadRequest>>]
     private async Task<IResult> Authenticate([FromBody] RefreshTokenRequest? request, [FromServices] INhAuthenticationService authenticationService)
     {
         if (string.IsNullOrEmpty(request?.UserName) || string.IsNullOrEmpty(request.RefreshToken))

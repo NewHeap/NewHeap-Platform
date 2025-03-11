@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.Services;
 using HttpMethod = NewHeap.Platform.AspNet.Common.Builders.HttpMethod;
@@ -15,6 +16,9 @@ public class NhLogoutAuthenticationHandler : IAuthenticationEndpoint
     internal string? TokenCookieName { get; set; } = "nh_access_token";
     internal string? RefreshTokenCookieName { get; set; } = "nh_access_token";
 
+    [ApiExplorerSettings(GroupName = "Authentication")]
+    [EndpointName("Logout")]
+    [Produces<NoContentResult>]
     private async Task<IResult> Logout([FromServices] IHttpContextAccessor httpContextAccessor, [FromServices] INhAuthenticationService authenticationService)
     {
         var domain = new Uri(authenticationService.GetIssuer()).Host;
