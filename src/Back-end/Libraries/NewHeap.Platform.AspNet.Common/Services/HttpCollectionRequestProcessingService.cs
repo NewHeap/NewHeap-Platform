@@ -29,10 +29,9 @@ public partial class HttpCollectionRequestProcessingService : CollectionRequestP
 
     public HttpCollectionRequestProcessingService(
         IMapper mapper,
-        ILogger logger,
         IHttpContextAccessor httpContextAccessor
         )
-        : base(mapper, logger)
+        : base(mapper)
     {
         _httpContextAccessor = httpContextAccessor;
     }

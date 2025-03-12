@@ -338,6 +338,12 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
             .AddEntityFrameworkSqlServer()
             .AddDbContext<TDbContext>(dbOptionsAction);
 
+        // Do like this, allow sub projects to register their own 2.
+        _serviceCollection.AddScoped<NhIdentityDbContext>(serviceProvider =>
+        {
+            return serviceProvider.GetRequiredService<TDbContext>();
+        });
+
         ConfigureWithIdentityEntityFramework<TDbContext, TUserManager>(_serviceCollection);
 
         IdentityEntityFrameworkConfigured = true;

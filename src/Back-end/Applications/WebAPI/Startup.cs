@@ -8,10 +8,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using NewHeap.Media;
 using NewHeap.Platform.AspNet.Common;
+using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models.Options;
+using OfficeOpenXml.FormulaParsing.Excel.Functions.RefAndLookup;
 using System;
 using System.Security.Claims;
 using System.Text;
@@ -120,9 +122,10 @@ public class Startup
                 }, consoleOptions =>
                 {
                     //Optional, default is configured, only override if needed
-                })
-            
+                })           
             ;
+
+        services.AddScoped<IRepository<Address>, Repository<Address>>(); 
     }
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

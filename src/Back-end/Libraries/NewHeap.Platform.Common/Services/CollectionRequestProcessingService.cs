@@ -34,15 +34,12 @@ public interface ICollectionRequestProcessingService
 
 public partial class CollectionRequestProcessingService : ICollectionRequestProcessingService
 {
-    protected readonly ILogger _logger;
     protected readonly IMapper _mapper;
 
     public CollectionRequestProcessingService(
-        IMapper mapper,
-        ILogger logger
+        IMapper mapper
         )
     {
-        _logger = logger;
         _mapper = mapper;
     }
 
