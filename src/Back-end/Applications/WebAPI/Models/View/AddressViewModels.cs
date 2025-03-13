@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace WebAPI.Models.View
 {
-    public class AddressRequestModel : CollectionRequestModel
+    public class AddressCollectionRequestModel : CollectionRequestModel
     {
         public List<string> CountryCodes { get; set; } = new();
     }

@@ -71,7 +71,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TViewMo
             .FirstOrDefaultAsync(m => m.Id == id);
     }
 
-    public async Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model)
+    public virtual async Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model)
     {
         void sourceModelCheck()
         {
@@ -111,7 +111,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TViewMo
         }
     }
 
-    public async Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null)
+    public virtual async Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null)
     {
         var result = new TaskResult<TEntity?>();
 
@@ -152,11 +152,17 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TViewMo
         return result;
     }
 
-    protected abstract Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(
+    protected virtual Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(
         TEntity original,
-        TEntity updated);
+        TEntity updated)
+    {
+        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<TEntity, object>>, Func<object, Task<string>>>
+        {
+            // Method resolvers
+        }, []);
+    }
 
-    public async Task<TaskResult<TEntity>> UpdateAsync(
+    public virtual async Task<TaskResult<TEntity>> UpdateAsync(
         Guid id, 
         TMutateModel mutateModel, 
         Guid? committedByUserId = default, 
@@ -236,7 +242,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TViewMo
         return result;
     }
 
-    public async Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = default)
+    public virtual async Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = default)
     {
         var result = new TaskResult<TEntity>();
 
