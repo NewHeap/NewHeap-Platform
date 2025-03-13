@@ -8,8 +8,8 @@ import {
 } from "@angular/common/http";
 import {
   IsAuthenticatedPipe,
-  IsClaimGrantedPipe, IsGrantedRolePipe,
-  IsOneClaimGrantedPipe,
+  IsClaimGrantedPipe, IsGrantedRolePipe, IsOneActiveDivisionPermissionGrantedPipe, IsOneActiveDivisionRoleGrantedPipe,
+  IsOneClaimGrantedPipe, IsOneDivisionPermissionGrantedPipe, IsOneDivisionRoleGrantedPipe,
   IsOnePermissionGrantedPipe, IsOneRoleGrantedPipe
 } from "./pipes/auth.pipes";
 import {NhDatePipe, NhDateUtcPipe} from "./pipes/date.pipes";
@@ -60,6 +60,10 @@ import {NhActiveDivisionInterceptor} from "./interceptors/nh-active-division.int
     IsOneClaimGrantedPipe,
     IsOneRoleGrantedPipe,
     IsGrantedRolePipe,
+    IsOneDivisionPermissionGrantedPipe,
+    IsOneDivisionRoleGrantedPipe,
+    IsOneActiveDivisionPermissionGrantedPipe,
+    IsOneActiveDivisionRoleGrantedPipe,
     NhUrlEncodePipe,
     SafeHtmlPipe,
     SafeUrlPipe,
@@ -87,6 +91,10 @@ import {NhActiveDivisionInterceptor} from "./interceptors/nh-active-division.int
     IsClaimGrantedPipe,
     IsOneClaimGrantedPipe,
     IsOneRoleGrantedPipe,
+    IsOneDivisionPermissionGrantedPipe,
+    IsOneDivisionRoleGrantedPipe,
+    IsOneActiveDivisionPermissionGrantedPipe,
+    IsOneActiveDivisionRoleGrantedPipe,
     IsGrantedRolePipe,
     NhUrlEncodePipe,
     SafeHtmlPipe,

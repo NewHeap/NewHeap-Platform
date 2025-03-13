@@ -85,3 +85,60 @@ export class IsOneRoleGrantedPipe implements PipeTransform {
     return this.authService.isOneRoleGranted(roles);
   }
 }
+
+@Pipe({
+  name: 'isOneDivisionPermissionGranted',
+  standalone: false
+})
+export class IsOneDivisionPermissionGrantedPipe implements PipeTransform {
+
+  constructor(private authService: NhAuthService) {
+  }
+
+  transform(divisionId: string, permissions: Array<string>): boolean {
+    return this.authService.isOneDivisionPermissionGranted(divisionId, permissions);
+  }
+}
+
+@Pipe({
+  name: 'isOneDivisionRoleGranted',
+  standalone: false
+})
+export class IsOneDivisionRoleGrantedPipe implements PipeTransform {
+
+  constructor(private authService: NhAuthService) {
+  }
+
+  transform(divisionId: string, roles: Array<string>): boolean {
+    return this.authService.isOneDivisionRoleGranted(divisionId, roles);
+  }
+}
+
+@Pipe({
+  name: 'isOneActiveDivisionPermissionGranted',
+  standalone: false
+})
+export class IsOneActiveDivisionPermissionGrantedPipe implements PipeTransform {
+
+  constructor(private authService: NhAuthService) {
+  }
+
+  transform(permissions: Array<string>): boolean {
+    return this.authService.isOneActiveDivisionPermissionGranted(permissions);
+  }
+}
+
+@Pipe({
+  name: 'isOneDivisionRoleGranted',
+  standalone: false
+})
+export class IsOneActiveDivisionRoleGrantedPipe implements PipeTransform {
+
+  constructor(private authService: NhAuthService) {
+  }
+
+  transform(roles: Array<string>): boolean {
+    return this.authService.isOneActiveDivisionRoleGranted(roles);
+  }
+}
+
