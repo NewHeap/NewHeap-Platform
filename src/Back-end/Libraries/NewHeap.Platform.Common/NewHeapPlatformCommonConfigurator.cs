@@ -30,6 +30,7 @@ public class NewHeapPlatformCommonConfigurator
 
         _serviceCollection.AddSingleton<LogHelperService>();
         _serviceCollection.AddSingleton<ValidationService>();
+        _serviceCollection.AddSingleton<ICollectionProcessingService, CollectionProcessingService>();
 
         AddOpenTelementry();
     }

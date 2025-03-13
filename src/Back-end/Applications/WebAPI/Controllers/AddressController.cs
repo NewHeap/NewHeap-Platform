@@ -1,73 +1,86 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.Controllers;
-using NewHeap.Platform.AspNet.Common.DAL.Entities;
-using NewHeap.Platform.AspNet.Common.Models.Mutate;
-using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
 using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
+using WebAPI.DAL.Entities;
+using WebAPI.Models.Mutate;
+using WebAPI.Models.View;
+using WebAPI.Services;
 
 namespace WebAPI.Controllers;
 
-[Route("api/[controller]")]
-public class DivisionUserController : ProtectedNhBaseController
+[Route("")]
+public class AddressController : ProtectedNhBaseController
 {
-    private readonly DivisionUserService _divisionUserService;
+    protected readonly AddressService _addressService;
 
-    public DivisionUserController(
+    public AddressController(
+        IStringLocalizer<AddressController> localizer,
+        ILogger<AddressController> logger,
         IConfiguration config,
+        IHttpCollectionProcessingService collectionRequestProcessingService,
         IMapper mapper,
-        ILogger<DivisionUserController> logger,
-        IStringLocalizer<DivisionUserController> localizer,
-        INhUserManager userService,
-        DivisionUserService divisionUserService,
-        IHttpCollectionProcessingService collectionRequestProcessingService
-    )
+        AddressService addressService
+        )
         : base(mapper, logger, config, localizer, collectionRequestProcessingService)
     {
-        _divisionUserService = divisionUserService;
+        _addressService = addressService;
     }
 
-    public Task<IQueryable<DivisionUser>> GetQueryableAsync()
+    [NonAction]
+    public Task<IQueryable<Address>> GetQueryableAsync()
     {
-        IQueryable<DivisionUser> query = _divisionUserService
-                .GetRepository()
-                .GetAll()
-                .Include(x => x.User)
-                .Include(x => x.Division)
-                .Include(x => x.DivisionUserRoles)
-                .ThenInclude(x => x.DivisionRole)
-            ;
+        var query = _addressService
+            .GetRepository()
+            .GetAll()
+            .AsSplitQuery()
+        ;
 
-        query = ApplyDivisionFilter(query, x => x.DivisionId == ActiveDivisionId);
+        query = AddBaseQueryableIncludesAsync(query);
 
         return Task.FromResult(query);
     }
 
-    [HttpGet]
-    [Authorize(Policy = "app.division.manage")]
-    public async Task<IActionResult> Get()
+    [NonAction]
+    public IQueryable<Address> AddBaseQueryableIncludesAsync(IQueryable<Address> query)
     {
+        return query
+            as IQueryable<Address>
+        ;
+    }
+
+    [HttpGet]
+    [Authorize(Policy = "app.address.view")]
+    public async Task<IActionResult> Get([FromQuery] AddressRequestModel requestModel)
+    {
+        requestModel ??= new AddressRequestModel();
         var query = (await GetQueryableAsync()).AsNoTracking();
 
-        var result =
-            await GetCollectionResultModel<DivisionUser, DivisionUserViewModel>(query,
-                (x => x.User.Email, ListSortDirection.Ascending));
+        if (requestModel.CountryCodes?.Any() == true)
+        {
+            query = query
+                .Where(x => requestModel.CountryCodes.Contains(x.CountryCode));
+        }
+
+        var result = await GetCollectionResultModel<Address, AddressViewModel>(query,
+            (x => x.CreationDateTime, ListSortDirection.Ascending));
 
         return Ok(result);
     }
 
     [HttpGet("{id}")]
-    [Authorize(Policy = "app.division.manage")]
+    [Authorize(Policy = "app.address.view")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var query = (await GetQueryableAsync()).AsNoTracking();
@@ -78,21 +91,21 @@ public class DivisionUserController : ProtectedNhBaseController
             return NotFound();
         }
 
-        var viewModel = _mapper.Map<DivisionUserViewModel>(entity);
+        var viewModel = _mapper.Map<AddressViewModel>(entity);
 
         return Ok(viewModel);
     }
 
     [HttpPost]
-    [Authorize(Policy = "app.division.manage")]
-    public async Task<IActionResult> Create([FromBody] DivisionUserMutateModel mutateModel)
+    [Authorize(Policy = "app.address.manage")]
+    public async Task<IActionResult> Create([FromBody] AddressMutateModel mutateModel)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        var createTaskResult = await _divisionUserService.CreateAsync(mutateModel, UserId);
+        var createTaskResult = await _addressService.CreateAsync(mutateModel, UserId);
 
         if (!createTaskResult.Success)
         {
@@ -100,21 +113,21 @@ public class DivisionUserController : ProtectedNhBaseController
             return BadRequest(ModelState);
         }
 
-        var divisionUser = createTaskResult.Data;
+        var address = createTaskResult.Data;
 
-        return CreatedAtAction(nameof(GetById), new { id = divisionUser.Id }, divisionUser);
+        return CreatedAtAction(nameof(GetById), new { id = address.Id }, address);
     }
 
     [HttpPut("{id}")]
-    [Authorize(Policy = "app.division.manage")]
-    public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] DivisionUserMutateModel mutateModel)
+    [Authorize(Policy = "app.address.manage")]
+    public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] AddressMutateModel mutateModel)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        var updateTaskResult = await _divisionUserService.UpdateAsync(id, mutateModel, UserId);
+        var updateTaskResult = await _addressService.UpdateAsync(id, mutateModel, UserId);
 
         if (!updateTaskResult.Success)
         {
@@ -126,7 +139,7 @@ public class DivisionUserController : ProtectedNhBaseController
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Policy = "app.division.manage")]
+    [Authorize(Policy = "app.address.manage")]
     public async Task<IActionResult> Delete([FromRoute] Guid id)
     {
         if (!ModelState.IsValid)
@@ -142,7 +155,7 @@ public class DivisionUserController : ProtectedNhBaseController
             return NotFound();
         }
 
-        var deleteTaskResult = await _divisionUserService.DeleteAsync(id, UserId);
+        var deleteTaskResult = await _addressService.DeleteAsync(id, UserId);
 
         if (!deleteTaskResult.Success)
         {

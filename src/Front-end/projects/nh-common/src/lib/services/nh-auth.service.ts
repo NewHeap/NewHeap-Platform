@@ -70,7 +70,7 @@ export class NhAuthService implements OnDestroy {
     if(result.isAuthenticated) {
       const auth = this.getAuthorization()!;
       const nowDate = DateTime.utc();
-      const authDate = DateTime.fromISO(auth.expiration ?? '').toUTC();
+      const authDate = DateTime.fromISO(auth.validTo ?? '').toUTC();
       const duration = authDate.diff(nowDate);
 
       result.expiresWithin15MinutesOrExpired = duration.minutes <= 15;
@@ -121,7 +121,7 @@ export class NhAuthService implements OnDestroy {
     let authenticated = ((auth?.token?.length ?? 0) > 0);
 
     if (authenticated && auth) {
-      authenticated = (DateTime.fromISO(auth.expiration ?? '') >= DateTime.utc());
+      authenticated = (DateTime.fromISO(auth.validTo ?? '') >= DateTime.utc());
     }
 
     return authenticated;
@@ -327,7 +327,7 @@ export class NhAuthService implements OnDestroy {
 
     model.realm = this.moduleConfig.authenticationRealm;
 
-    const request$ = this.httpClient.post<Authorization>(this.moduleConfig.authApiBaseUrl + '/auth/GetToken', model, {
+    const request$ = this.httpClient.post<Authorization>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.login, model, {
       params: httpParams,
       withCredentials: true
     });
@@ -352,6 +352,31 @@ export class NhAuthService implements OnDestroy {
     return result;
   }
 
+  async logout(): Promise<TaskResult<void>> {
+    const result = new TaskResult<void>();
+    let httpParams = new HttpParams();
+    if (httpParams.get('language') === null) {
+      httpParams = httpParams.set('language', this.moduleConfig.language);
+    }
+    const request$ = this.httpClient.post<void>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.logout, {}, {
+      params: httpParams,
+      withCredentials: true
+    });
+
+    try {
+      await lastValueFrom(request$);
+
+      if (result.isSuccess) {
+        this.clearAuthorization();
+      }
+    } catch (ex) {
+      const errResult = NhApiUtil.taskResultFromResponse(ex);
+      errResult.copyTo(result);
+    }
+
+    return result;
+  }
+
   async authenticateRefreshToken(model: RefreshTokenLoginAccountMutateModel): Promise<TaskResult<Authorization>> {
     const result = new TaskResult<Authorization>();
 
@@ -360,7 +385,7 @@ export class NhAuthService implements OnDestroy {
       httpParams = httpParams.set('language', this.moduleConfig.language);
     }
 
-    const request$ = this.httpClient.post<Authorization>(this.moduleConfig.authApiBaseUrl + '/auth/RefreshToken', model, {
+    const request$ = this.httpClient.post<Authorization>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.refresh, model, {
       params: httpParams,
       withCredentials: true
     });
@@ -383,6 +408,10 @@ export class NhAuthService implements OnDestroy {
     let httpParams = new HttpParams();
     if (httpParams.get('language') === null) {
       httpParams = httpParams.set('language', this.moduleConfig.language);
+    }
+
+    if(true) {
+      //throw new Error('Not implemented');
     }
 
     const request$ = this.httpClient.post<AuthenticationSessionCreateResponse>(this.moduleConfig.authApiBaseUrl + '/auth/CreateSession', {}, {

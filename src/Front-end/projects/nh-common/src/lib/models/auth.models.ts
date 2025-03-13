@@ -13,10 +13,10 @@ export class Authorization {
   realm: string = '';
   provider: string = '';
   token: string = '';
-  expiration: string | undefined;
+  validTo: string | undefined;
   refreshToken: string | undefined;
-  refreshTokenExpires: string | undefined;
-  user: User = new User();
+  refreshTokenExpires: string | undefined; // Not implemented yet
+  user: User = new User(); //
   claims: Claim[] = [];
   divisions: Division[] = [];
   activeDivision?: Division;

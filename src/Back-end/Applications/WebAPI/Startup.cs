@@ -6,19 +6,19 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.IdentityModel.Tokens;
-using NewHeap.Media;
 using NewHeap.Platform.AspNet.Common;
+using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models.Options;
+using OfficeOpenXml.FormulaParsing.Excel.Functions.RefAndLookup;
 using System;
 using System.Security.Claims;
-using System.Text;
 using WebAPI.DAL;
+using WebAPI.Services;
 using WebAPI.Jobs;
-using WebAPI.Managers;
+
 
 namespace WebAPI;
 
@@ -52,6 +52,9 @@ public class Startup
                     policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.view"));
                 options.AddPolicy("app.division.manage",
                     policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.manage"));
+
+                options.AddPolicy("app.address.view", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.address.view"));
+                options.AddPolicy("app.address.mutate", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.address.mutate"));
 
                 // Sample division permission policy
                 options.AddPolicy("app.active-division.general.view",
@@ -123,9 +126,11 @@ public class Startup
                 }, consoleOptions =>
                 {
                     //Optional, default is configured, only override if needed
-                })
-            
+                })           
             ;
+
+        services.AddScoped<IRepository<Address>, Repository<Address>>(); 
+        services.AddScoped<AddressService>(); 
     }
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

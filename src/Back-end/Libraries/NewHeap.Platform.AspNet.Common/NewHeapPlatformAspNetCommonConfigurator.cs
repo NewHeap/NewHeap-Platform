@@ -69,6 +69,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         #region Services
         _serviceCollection.AddScoped<RazorViewService>();
         _serviceCollection.AddSingleton<IAuthorizationHandler, ActiveDivisionAccessHandler>();
+        _serviceCollection.AddSingleton<IHttpCollectionProcessingService, HttpCollectionRequestProcessingService>();
         #endregion
     }
     
@@ -342,6 +343,12 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         _serviceCollection
             .AddEntityFrameworkSqlServer()
             .AddDbContext<TDbContext>(dbOptionsAction);
+
+        // Do like this, allow sub projects to register their own 2.
+        _serviceCollection.AddScoped<NhIdentityDbContext>(serviceProvider =>
+        {
+            return serviceProvider.GetRequiredService<TDbContext>();
+        });
 
         ConfigureWithIdentityEntityFramework<TDbContext, TUserManager>(_serviceCollection);
 
