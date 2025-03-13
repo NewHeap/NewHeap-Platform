@@ -16,7 +16,7 @@ export class NhCommonModuleConfig {
       login: '/authentication/login',
       logout: '/authentication/logout',
       refresh: '/authentication/refresh',
-      accountInformation: '/authentication/account'
+      accountInformation: '/account'
     }
   }
 
