@@ -1,10 +1,11 @@
-﻿using System;
+﻿using NewHeap.Platform.AspNet.Common.Models;
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace WebAPI.DAL.Entities;
 
-public class Address
+public class Address : IdDbEntity
 {
     public Address()
     {
