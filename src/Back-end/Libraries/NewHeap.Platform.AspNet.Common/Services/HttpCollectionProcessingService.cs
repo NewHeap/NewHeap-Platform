@@ -23,11 +23,11 @@ public interface IHttpCollectionProcessingService : ICollectionProcessingService
     int GetDefaultMaxItemsPerPage();
 }
 
-public partial class HttpCollectionRequestProcessingService : CollectionProcessingService, IHttpCollectionProcessingService
+public partial class HttpCollectionProcessingService : CollectionProcessingService, IHttpCollectionProcessingService
 {
     protected readonly IHttpContextAccessor _httpContextAccessor;
 
-    public HttpCollectionRequestProcessingService(
+    public HttpCollectionProcessingService(
         IMapper mapper,
         IHttpContextAccessor httpContextAccessor
         )

@@ -123,4 +123,17 @@ public abstract partial class NhBaseController : ControllerBase
 
         return BadRequest(response);
     }
+
+    [NonAction]
+    protected BadRequestObjectResult BadRequest(TaskResult result)
+    {
+        foreach (var item in result.Results)
+        {
+            foreach (var error in item.ErrorMessages)
+            {
+                ModelState.AddModelError(item.Name, _localizer[error]);
+            }
+        }
+        return BadRequest(ModelState);
+    }
 }
