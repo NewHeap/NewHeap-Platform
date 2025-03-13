@@ -19,21 +19,24 @@ namespace NewHeap.Platform.AspNet.Common.Services;
 public class NhAuthenticationService : INhAuthenticationService
 {
     private readonly SignInManager<User> _signInManager;
-    private readonly NhUserManager _userManager;
+    private readonly INhUserManager _userManager;
     private readonly ILogger<AuthenticationService> _logger;
     private readonly IConfiguration _configuration;
+    private readonly TokenValidationParameters _tokenValidationParameters;
 
     public NhAuthenticationService(
         SignInManager<User> signInManager,
-        NhUserManager userManager,
+        INhUserManager userManager,
         ILogger<AuthenticationService> logger,
-        IConfiguration configuration
+        IConfiguration configuration,
+        TokenValidationParameters tokenValidationParameters
     )
     {
         _signInManager = signInManager;
         _userManager = userManager;
         _logger = logger;
         _configuration = configuration;
+        _tokenValidationParameters = tokenValidationParameters;
     }
 
     /// <summary>
@@ -193,14 +196,14 @@ public class NhAuthenticationService : INhAuthenticationService
     }
 
     /// <summary>
-    /// Decode a JWT token
+    /// Validate and decode a JWT token
     /// </summary>
     /// <param name="token"></param>
     /// <returns></returns>
-    public virtual JwtSecurityToken DecodeToken(string token)
+    public virtual JwtSecurityToken? DecodeToken(string token)
     {
         var handler = new JwtSecurityTokenHandler();
-        var jwt = handler.ReadJwtToken(token);
-        return jwt;
+        var claims = handler.ValidateToken(token, _tokenValidationParameters, out var t);
+        return t as JwtSecurityToken;
     }
 }

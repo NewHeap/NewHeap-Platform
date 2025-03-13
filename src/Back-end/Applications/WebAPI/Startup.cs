@@ -1,3 +1,4 @@
+using Hangfire;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,7 @@ using System;
 using System.Security.Claims;
 using System.Text;
 using WebAPI.DAL;
+using WebAPI.Jobs;
 using WebAPI.Managers;
 
 namespace WebAPI;
@@ -77,12 +79,13 @@ public class Startup
             .AddNewHeapPlatformAspNetCommon(newHeapPlatformOptions)
             .AddAuthentication(options =>
             {
-                options.WithAuthenticationService<MockAuthenticationService>();
+                //options.WithAuthenticationService<MockAuthenticationService>();
                 options.AddUserNamePasswordAuthentication(authOptions =>
                 {
                     authOptions.EnableRefreshToken = true;
                     authOptions.AccessTokenCookieName = "nh_auth_cookie";
                     authOptions.RefreshTokenCookieName = "nh_refresh_cookie";
+                    authOptions.EnableDivisions = true;
                 });
             })
             .ConfigureCommon(commonConfig =>
@@ -151,5 +154,6 @@ public class Startup
                 // Optional, default is configured, only override if needed
             })
             ;
+        BackgroundJob.Enqueue<DatabaseJobs>(x => x.Seed());
     }
 }

@@ -7,8 +7,7 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 /// <summary>
 /// Base class for implementing authentication endpoints
 /// </summary>
-/// <typeparam name="TRequest"></typeparam>
-public abstract class BaseNhAuthenticationEndpoint<TRequest> : IAuthenticationEndpoint
+public abstract class BaseNhAuthenticationEndpoint : IAuthenticationEndpoint
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
 
@@ -22,6 +21,5 @@ public abstract class BaseNhAuthenticationEndpoint<TRequest> : IAuthenticationEn
         Pattern = pattern;
         _httpContextAccessor = httpContextAccessor;
     }
-
 }
 

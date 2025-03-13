@@ -15,7 +15,7 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class NhUserManager : UserManager<User>
+public partial class NhUserManager : UserManager<User>, INhUserManager
 {
     private readonly IWebHostEnvironment _environment;
     private readonly MicrosoftAuthSettings _microsoftAuthSettings;
@@ -50,7 +50,7 @@ public partial class NhUserManager : UserManager<User>
         return _userRepository;
     }
 
-    private IQueryable<User> QueryableWithAllIncludes(IQueryable<User>? queryable = null)
+    public IQueryable<User> QueryableWithAllIncludes(IQueryable<User>? queryable = null)
     {
         queryable ??= _userRepository.GetAll()
             .Include(x => x.ActiveDivision);

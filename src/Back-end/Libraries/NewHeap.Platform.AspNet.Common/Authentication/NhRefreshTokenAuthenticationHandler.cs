@@ -14,8 +14,9 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 /// <summary>
 /// Endpoint for refreshing the access token
 /// </summary>
-public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint<RefreshTokenRequest>
+public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint
 {
+    private readonly AuthenticationConfiguration _configuration;
     internal string? TokenCookieName { get; set; } = "nh_access_token";
     internal string? RefreshTokenCookieName { get; set; } = "nh_access_token";
 
@@ -23,11 +24,29 @@ public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint<
     /// <summary>
     /// 
     /// </summary>
+    /// <param name="configuration"></param>
     /// <param name="httpContextAccessor"></param>
     public NhRefreshTokenAuthenticationHandler(
+        AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor
         ) : base(httpContextAccessor, "authentication/refresh")
     {
+        _configuration = configuration;
+        
+        if(!string.IsNullOrWhiteSpace(configuration.RefreshTokenEndpoint))
+        {
+            Pattern = configuration.RefreshTokenEndpoint;
+        }
+        
+        if(!string.IsNullOrWhiteSpace(configuration.RefreshCookieName))
+        {
+            TokenCookieName = configuration.CookieName;
+        }
+        if(!string.IsNullOrWhiteSpace(configuration.RefreshCookieName))
+        {
+            RefreshTokenCookieName = configuration.RefreshCookieName;
+        }
+        
         Handler = Authenticate;
     }
 
@@ -36,6 +55,11 @@ public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint<
     [Produces<Results<Ok<UserToken>,BadRequest>>]
     private async Task<IResult> Authenticate([FromBody] RefreshTokenRequest? request, [FromServices] INhAuthenticationService authenticationService)
     {
+        if(_configuration.RefreshTokenEnabled == false)
+        {
+            return TypedResults.NotFound();
+        }
+        
         if (string.IsNullOrEmpty(request?.UserName) || string.IsNullOrEmpty(request.RefreshToken))
         {
             return TypedResults.BadRequest();

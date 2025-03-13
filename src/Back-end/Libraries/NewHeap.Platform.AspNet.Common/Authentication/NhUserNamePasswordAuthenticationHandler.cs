@@ -10,8 +10,10 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 /// <summary>
 /// Endpoint for username and password authentication.
 /// </summary>
-public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpoint<AuthenticateRequest>
+public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpoint
 {
+    private readonly AuthenticationConfiguration _configuration;
+
     /// <summary>
     /// Name of the cookie that contains the access token
     /// When empty the cookie is not set
@@ -32,12 +34,29 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
     /// <summary>
     /// 
     /// </summary>
+    /// <param name="configuration"></param>
     /// <param name="httpContextAccessor"></param>
     public NhUserNamePasswordAuthenticationHandler(
+        AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor)
     :base(httpContextAccessor, "authentication/login")
     {
+        _configuration = configuration;
         Handler = Authenticate;
+        
+        if(!string.IsNullOrWhiteSpace(configuration.AuthenticationEndpoint))
+        {
+            Pattern = configuration.AuthenticationEndpoint;
+        }
+        
+        if(!string.IsNullOrWhiteSpace(configuration.CookieName))
+        {
+            TokenCookieName = configuration.CookieName;
+        }
+        if(!string.IsNullOrWhiteSpace(configuration.RefreshCookieName))
+        {
+            RefreshTokenCookieName = configuration.RefreshCookieName;
+        }
     }
 
     [ApiExplorerSettings(GroupName = "Authentication")]

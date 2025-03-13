@@ -34,8 +34,8 @@ namespace WebAPI.Controllers;
 public class HomeController : NhBaseController
 {
     public HomeController(
-        IStringLocalizer<AccountController> localizer,
-        ILogger<AccountController> logger,
+        IStringLocalizer<HomeController> localizer,
+        ILogger<HomeController> logger,
         IConfiguration config,
         IMapper mapper)
         : base(mapper, logger, config, localizer)

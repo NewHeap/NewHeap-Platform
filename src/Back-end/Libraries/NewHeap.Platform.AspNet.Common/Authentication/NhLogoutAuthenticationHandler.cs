@@ -9,6 +9,7 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 
 public class NhLogoutAuthenticationHandler : IAuthenticationEndpoint
 {
+    private readonly AuthenticationConfiguration _configuration;
     public string Pattern { get; internal set; } = "authentication/logout";
     public HttpMethod Method { get; } = HttpMethod.Post;
     public Delegate Handler => Logout;
@@ -16,6 +17,23 @@ public class NhLogoutAuthenticationHandler : IAuthenticationEndpoint
     internal string? TokenCookieName { get; set; } = "nh_access_token";
     internal string? RefreshTokenCookieName { get; set; } = "nh_access_token";
 
+    public NhLogoutAuthenticationHandler(AuthenticationConfiguration configuration)
+    {
+        _configuration = configuration;
+        if (!string.IsNullOrWhiteSpace(configuration.LogoutEndpoint))
+        {
+            Pattern = configuration.LogoutEndpoint;
+        }
+        if(!string.IsNullOrWhiteSpace(configuration.CookieName))
+        {
+            TokenCookieName = configuration.CookieName;
+        }
+        if(!string.IsNullOrWhiteSpace(configuration.RefreshCookieName))
+        {
+            RefreshTokenCookieName = configuration.RefreshCookieName;
+        }
+    }
+    
     [ApiExplorerSettings(GroupName = "Authentication")]
     [EndpointName("Logout")]
     [Produces<NoContentResult>]

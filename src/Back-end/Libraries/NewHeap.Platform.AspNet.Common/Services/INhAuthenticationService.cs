@@ -7,6 +7,9 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
+/// <summary>
+/// 
+/// </summary>
 public interface INhAuthenticationService
 {
     /// <summary>
@@ -16,7 +19,15 @@ public interface INhAuthenticationService
     /// <returns>A new token when refresh token is valid</returns>
     Task<TaskResult<UserToken>> RefreshToken(RefreshTokenRequest request);
 
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <returns></returns>
     string GetIssuer();
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <returns></returns>
     string GetIssuerDomain();
 
     /// <summary>
@@ -41,5 +52,5 @@ public interface INhAuthenticationService
     /// <exception cref="ConfigurationException">Throws when JWT configuration is missing</exception>
     Task<JwtSecurityToken> CreateToken(User user, TimeSpan? expiration = null);
 
-    JwtSecurityToken DecodeToken(string token);
+    JwtSecurityToken? DecodeToken(string token);
 }

@@ -165,6 +165,7 @@ public class DatabaseJobs
                 Email = email,
                 UserName = email,
                 EmailConfirmed = true,
+                RefreshToken = "",
                 Id = Guid.Parse("07e35556-54f2-4975-a563-417eb5fbfa7d")
             };
 
@@ -176,23 +177,26 @@ public class DatabaseJobs
         }
 
         var backgroundWorkerUserEmail = configuration["AppSettings:SystemUser"];
-        var backgroundWorkerUser = await userManager.FindByNameAsync(backgroundWorkerUserEmail);
-        if (backgroundWorkerUser == null)
+        if (!string.IsNullOrWhiteSpace(backgroundWorkerUserEmail))
         {
-            User userToInsert = new()
+            var backgroundWorkerUser = await userManager.FindByNameAsync(backgroundWorkerUserEmail);
+            if (backgroundWorkerUser == null)
             {
-                Email = backgroundWorkerUserEmail,
-                UserName = backgroundWorkerUserEmail,
-                EmailConfirmed = true,
-                Id = Guid.Parse("d1c237fe-7d51-476f-8412-4d2424114ce6")
-            };
+                User userToInsert = new()
+                {
+                    Email = backgroundWorkerUserEmail,
+                    UserName = backgroundWorkerUserEmail,
+                    EmailConfirmed = true,
+                    Id = Guid.Parse("d1c237fe-7d51-476f-8412-4d2424114ce6")
+                };
 
-            var result =
-                await userManager.CreateAsync(userToInsert, configuration["AppSettings:SystemUserPassword"]);
+                var result =
+                    await userManager.CreateAsync(userToInsert, configuration["AppSettings:SystemUserPassword"]!);
 
-            //Add roles
-            await userManager.AddToRoleAsync(await userManager.FindByNameAsync(backgroundWorkerUserEmail),
-                "SuperAdministrator");
+                //Add roles
+                await userManager.AddToRoleAsync((await userManager.FindByNameAsync(backgroundWorkerUserEmail))!,
+                    "SuperAdministrator");
+            }
         }
 
         await dbContext.SaveChangesAsync();

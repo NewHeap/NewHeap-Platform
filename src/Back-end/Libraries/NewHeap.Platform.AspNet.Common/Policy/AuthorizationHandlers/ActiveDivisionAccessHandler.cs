@@ -28,7 +28,7 @@ public partial class ActiveDivisionAccessHandler : AuthorizationHandler<ActiveDi
         }
 
         var httpContext = _httpContextAccessor.HttpContext;
-        var userManager = (httpContext!.RequestServices.GetService(typeof(NhUserManager)) as NhUserManager)!;
+        var userManager = (httpContext!.RequestServices.GetService(typeof(INhUserManager)) as INhUserManager)!;
         var activeDivisionId = httpContext?.Request.GetActiveDivisionId();
 
         var userIdString = context.User?.FindFirstValue(ClaimTypes.NameIdentifier);

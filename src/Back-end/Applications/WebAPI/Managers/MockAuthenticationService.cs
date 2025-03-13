@@ -30,6 +30,7 @@ public class MockAuthenticationService : INhAuthenticationService
     {
         var user = new User
         {
+            Id = Guid.NewGuid(),
             UserName = request.UserName,
             Email = request.UserName,
             PasswordHash = Guid.NewGuid().ToString(),
@@ -43,7 +44,15 @@ public class MockAuthenticationService : INhAuthenticationService
     public async Task<JwtSecurityToken> CreateToken(User user, TimeSpan? expiration = null)
     {
         return new JwtSecurityToken(
-            claims: [new Claim(ClaimTypes.NameIdentifier, user.UserName)],
+            claims: [
+                new Claim(JwtRegisteredClaimNames.Sub, user.Email!),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(ClaimTypes.Name, user.UserName!),
+                new Claim(ClaimTypes.Email, user.Email!),
+                new Claim(JwtRegisteredClaimNames.Email, user.Email!),
+                new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
+            ],
             expires: DateTime.Now.Add(expiration ?? TimeSpan.FromDays(1)),
             issuer: GetIssuer(),
             audience: GetIssuer()

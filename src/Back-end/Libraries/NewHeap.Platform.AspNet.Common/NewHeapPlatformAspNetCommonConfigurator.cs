@@ -193,6 +193,16 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
 
         #region Authentication
 
+        var tokenValidationParams = new TokenValidationParameters
+        {
+            ValidateLifetime = true, ClockSkew = TimeSpan.Zero
+        };
+        
+        _options.JwtBearerOptionsTokenValidationParametersAction.Invoke(tokenValidationParams);
+        
+        _serviceCollection.AddSingleton(tokenValidationParams);
+        
+        
         _serviceCollection.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -205,12 +215,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
             cfg.RequireHttpsMetadata = true;
             cfg.SaveToken = true;
 
-            cfg.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateLifetime = true, ClockSkew = TimeSpan.Zero
-            };
-
-            _options.JwtBearerOptionsTokenValidationParametersAction.Invoke(cfg.TokenValidationParameters);
+            cfg.TokenValidationParameters = tokenValidationParams;
 
             cfg.Events = new JwtBearerEvents
             {
@@ -235,6 +240,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
                     return Task.CompletedTask;
                 }
             };
+            
         });
 
         #endregion
@@ -283,7 +289,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
 
     public static void ConfigureWithIdentityEntityFramework<TDbContext, TUserManager>(IServiceCollection serviceCollection)
         where TDbContext : NhIdentityDbContext
-        where TUserManager : NhUserManager
+        where TUserManager : class, INhUserManager
     {
         void AddRepository<TEntity>()
             where TEntity : class
@@ -312,7 +318,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         serviceCollection.AddScoped<TUserManager, TUserManager>();
 
         // Do like this, allow sub projects to register their own 2.
-        serviceCollection.AddScoped<NhUserManager>(serviceProvider =>
+        serviceCollection.AddScoped<INhUserManager>(serviceProvider =>
         {
             return serviceProvider.GetRequiredService<TUserManager>();
         });
@@ -324,7 +330,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
     public NewHeapPlatformAspNetCommonConfigurator WithIdentityEntityFramework<TDbContext, TUserManager>(
         Action<DbContextOptionsBuilder> dbOptionsAction)
         where TDbContext : NhIdentityDbContext
-        where TUserManager : NhUserManager
+        where TUserManager : class, INhUserManager
     {
         if(IdentityEntityFrameworkConfigured)
         {

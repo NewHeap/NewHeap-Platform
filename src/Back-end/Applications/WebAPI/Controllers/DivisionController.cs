@@ -27,9 +27,7 @@ public class DivisionController : NhBaseController
         IConfiguration config,
         IMapper mapper,
         ILogger<DivisionController> logger,
-        DbLogService dbLogService,
         IStringLocalizer<DivisionController> localizer,
-        NhUserManager userManager,
         DivisionService divisionService
     )
         : base(mapper, logger, config, localizer)

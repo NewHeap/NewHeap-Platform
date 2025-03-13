@@ -40,6 +40,7 @@ public class NhAuthenticationConfigurationBuilder
         }
 
         UseAuthenticationEndpoint<NhLogoutAuthenticationHandler>();
+        UseAuthenticationEndpoint<NhAccountInformationEndpointHandler>();
         return this;
     }
 

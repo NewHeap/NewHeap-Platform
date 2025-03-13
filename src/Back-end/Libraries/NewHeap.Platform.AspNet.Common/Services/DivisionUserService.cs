@@ -19,7 +19,6 @@ public partial class DivisionUserService
     protected readonly LogHelperService _logHelperService;
     protected readonly DbLogService _logService;
     protected readonly IMapper _mapper;
-    protected readonly NhUserManager _userManager;
     protected readonly ValidationService _validationService;
 
     public DivisionUserService(
@@ -28,7 +27,6 @@ public partial class DivisionUserService
         IStringLocalizer<DivisionUserService> localizer,
         DbLogService logManager,
         LogHelperService logHelper,
-        NhUserManager userManager,
         ValidationService validationManager,
         IMapper mapper)
     {
@@ -39,7 +37,6 @@ public partial class DivisionUserService
         _logService = logManager;
         _logHelperService = logHelper;
         _validationService = validationManager;
-        _userManager = userManager;
     }
 
     public IRepository<DivisionUser> GetRepository()
