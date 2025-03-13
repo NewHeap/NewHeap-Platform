@@ -11,6 +11,13 @@ export class NhCommonModuleConfig {
   authenticationRealm: string = '';
   environment: string = '';
   cookieDomain: string = '';
+  authentication = {
+    endpoints: {
+      login: '/authentication/login',
+      logout: '/authentication/logout',
+      refresh: '/authentication/refresh'
+    }
+  }
 
   public constructor(init?: Partial<NhCommonModuleConfig>) {
     Object.assign(this, init);
