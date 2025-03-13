@@ -58,7 +58,7 @@ public class AccountController : NhBaseController
         IOptions<MicrosoftAuthSettings> microsoftAuthSettings,
         MicrosoftAuthService appMicrosoftAuthManager,
         IConfiguration config,
-        IHttpCollectionRequestProcessingService collectionRequestProcessingService,
+        IHttpCollectionProcessingService collectionRequestProcessingService,
         IMapper mapper)
         : base(mapper, logger, config, localizer, collectionRequestProcessingService)
     {

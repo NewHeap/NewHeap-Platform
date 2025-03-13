@@ -31,7 +31,7 @@ public class DivisionController : NhBaseController
         IStringLocalizer<DivisionController> localizer,
         NhUserManager userManager,
         DivisionService divisionService,
-        IHttpCollectionRequestProcessingService collectionRequestProcessingService
+        IHttpCollectionProcessingService collectionRequestProcessingService
     )
         : base(mapper, logger, config, localizer, collectionRequestProcessingService)
     {

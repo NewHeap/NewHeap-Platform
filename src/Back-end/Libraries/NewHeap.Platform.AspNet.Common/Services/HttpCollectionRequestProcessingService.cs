@@ -10,20 +10,20 @@ using System.Net;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public interface IHttpCollectionRequestProcessingService : ICollectionRequestProcessingService
+public interface IHttpCollectionProcessingService : ICollectionProcessingService
 {
-    CollectionRequestModel GetCollectionRequestModel(int? maxItemsPerPage = null);
-    Task<CollectionResponseModel<TViewModel>> GetCollectionResponseModelAsync<TEntity, TViewModel>(IQueryable<TEntity> queryable, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+    ICollectionRequestModel GetCollectionRequestModel(int? maxItemsPerPage = null);
+    Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(IQueryable<TEntity> queryable, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
-    Task<IQueryable<TEntity>> GetCollectionResponseQueryAsync<TEntity, TViewModel>(IQueryable<TEntity> queryable, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+    Task<IQueryable<TEntity>> GetCollectionResultQueryAsync<TEntity, TViewModel>(IQueryable<TEntity> queryable, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
 
     int GetDefaultMaxItemsPerPage();
 }
 
-public partial class HttpCollectionRequestProcessingService : CollectionRequestProcessingService, IHttpCollectionRequestProcessingService
+public partial class HttpCollectionRequestProcessingService : CollectionProcessingService, IHttpCollectionProcessingService
 {
     protected readonly IHttpContextAccessor _httpContextAccessor;
 
@@ -42,7 +42,7 @@ public partial class HttpCollectionRequestProcessingService : CollectionRequestP
         return 1000;
     }
 
-    public virtual CollectionRequestModel GetCollectionRequestModel(int? maxItemsPerPage = null)
+    public virtual ICollectionRequestModel GetCollectionRequestModel(int? maxItemsPerPage = null)
     {
         var request = _httpContextAccessor?.HttpContext?.Request;
 
@@ -74,19 +74,19 @@ public partial class HttpCollectionRequestProcessingService : CollectionRequestP
 
         qSearch = qSearch?.Trim();
 
-        List<OrderByRequestModel> orderBy = new List<OrderByRequestModel>();
-        var filter = new List<FilterRequestModel>();
+        List<OrderByCollectionRequestModel> orderBy = new List<OrderByCollectionRequestModel>();
+        var filter = new List<FilterCollectionRequestModel>();
 
         try
         {
             if (!string.IsNullOrWhiteSpace(qOrderBy))
             {
-                orderBy = JsonConvert.DeserializeObject<List<OrderByRequestModel>>(qOrderBy)!;
+                orderBy = JsonConvert.DeserializeObject<List<OrderByCollectionRequestModel>>(qOrderBy)!;
             }
 
             if (!string.IsNullOrWhiteSpace(qFilter))
             {
-                filter = JsonConvert.DeserializeObject<List<FilterRequestModel>>(qFilter);
+                filter = JsonConvert.DeserializeObject<List<FilterCollectionRequestModel>>(qFilter);
             }
         }
         catch
@@ -104,7 +104,7 @@ public partial class HttpCollectionRequestProcessingService : CollectionRequestP
         };
     }
 
-    public virtual async Task<CollectionResponseModel<TViewModel>> GetCollectionResponseModelAsync<TEntity, TViewModel>(
+    public virtual async Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(
         IQueryable<TEntity> queryable,
         params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
@@ -112,10 +112,10 @@ public partial class HttpCollectionRequestProcessingService : CollectionRequestP
     {
         var requestModel = GetCollectionRequestModel();
 
-        return await GetCollectionResponseModelAsync<TEntity, TViewModel>(requestModel, queryable, null, defaultOrderBy);
+        return await GetCollectionResultModelAsync<TEntity, TViewModel>(requestModel, queryable, null, defaultOrderBy);
     }
 
-    public virtual async Task<IQueryable<TEntity>> GetCollectionResponseQueryAsync<TEntity, TViewModel>(
+    public virtual async Task<IQueryable<TEntity>> GetCollectionResultQueryAsync<TEntity, TViewModel>(
         IQueryable<TEntity> queryable,
         params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class

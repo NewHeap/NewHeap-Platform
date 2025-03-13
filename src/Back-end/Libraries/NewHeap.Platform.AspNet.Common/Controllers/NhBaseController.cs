@@ -32,21 +32,21 @@ public abstract partial class NhBaseController : ControllerBase
     protected readonly IStringLocalizer _localizer;
     protected readonly ILogger _logger;
     protected readonly IMapper _mapper;
-    protected readonly IHttpCollectionRequestProcessingService _httpCollectionRequestProcessingService;
+    protected readonly IHttpCollectionProcessingService _httpCollectionProcessingService;
 
     public NhBaseController(
         IMapper mapper,
         ILogger logger,
         IConfiguration config,
         IStringLocalizer localizer,
-        IHttpCollectionRequestProcessingService httpCollectionRequestProcessingService
+        IHttpCollectionProcessingService httpCollectionRequestProcessingService
     )
     {
         _mapper = mapper;
         _logger = logger;
         _config = config;
         _localizer = localizer;
-        _httpCollectionRequestProcessingService = httpCollectionRequestProcessingService;
+        _httpCollectionProcessingService = httpCollectionRequestProcessingService;
     }
 
     protected Guid? UserId
@@ -125,13 +125,13 @@ public abstract partial class NhBaseController : ControllerBase
     }
 
     [NonAction]
-    protected async Task<IActionResult> CollectionResultAsync<TModel, TViewModel>(IQueryable<TModel> query,
+    protected async Task<IActionResult> GetCollectionResultAsync<TModel, TViewModel>(IQueryable<TModel> query,
         Func<IQueryable<TModel>, Task<IQueryable<TModel>>>? resultQueryableFunc = null,
         int? maxItemsPerPage = null,
         params (Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TModel : class where TViewModel : class
     {
-        maxItemsPerPage ??= _httpCollectionRequestProcessingService.GetDefaultMaxItemsPerPage();
+        maxItemsPerPage ??= _httpCollectionProcessingService.GetDefaultMaxItemsPerPage();
         var collectionRequestModel = GetCollectionRequestModel(maxItemsPerPage);
 
         var collectionResponse = await GetCollectionResponseModel<TModel, TViewModel>(
@@ -143,6 +143,62 @@ public abstract partial class NhBaseController : ControllerBase
 
         return Ok(collectionResponse);
     }
+
+    [NonAction]
+    protected virtual ICollectionRequestModel GetCollectionRequestModel(int? maxItemsPerPage = null)
+    {
+        return _httpCollectionProcessingService.GetCollectionRequestModel(maxItemsPerPage);
+    }
+
+    [NonAction]
+    protected virtual Task<IQueryable<TEntity>> GetCollectionResultQuery<TEntity, TViewModel>(
+        IQueryable<TEntity> queryable,
+        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TEntity : class
+        where TViewModel : class
+    {
+       return _httpCollectionProcessingService.GetCollectionResultQueryAsync<TEntity, TViewModel>(queryable, defaultOrderBy);
+    }
+
+    [NonAction]
+    protected virtual Task<CollectionResultModel<TViewModel>> GetCollectionResponseModel<TEntity, TViewModel>(
+        ICollectionRequestModel requestModel,
+        IQueryable<TEntity> queryable,
+        Func<IQueryable<TEntity>, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TEntity : class
+        where TViewModel : class
+    {
+        return _httpCollectionProcessingService.GetCollectionResultModelAsync<TEntity, TViewModel>(
+            requestModel,
+            queryable,
+            resultQueryableFunc,
+            defaultOrderBy
+        );
+    }
+
+    [NonAction]
+    protected virtual async Task<CollectionResultModel<TViewModel>> GetCollectionResponseModel<TEntity, TViewModel>(
+        IQueryable<TEntity> queryable,
+        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TEntity : class
+        where TViewModel : class
+    {
+        var requestModel = GetCollectionRequestModel();
+
+        return await GetCollectionResponseModel<TEntity, TViewModel>(requestModel, queryable, null, defaultOrderBy);
+    }
+
+    [NonAction]
+    protected virtual async Task<OkObjectResult> Ok<TEntity, TViewModel>(
+        IQueryable<TEntity> queryable,
+        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TEntity : class
+        where TViewModel : class
+    {
+        return Ok(await GetCollectionResponseModel<TEntity, TViewModel>(queryable, defaultOrderBy));
+    }
+
 
     /// <summary>
     ///     Output a CSV file
@@ -224,70 +280,6 @@ public abstract partial class NhBaseController : ControllerBase
         return File(fileStream, "text/csv");
     }
 
-
-    [NonAction]
-    protected virtual CollectionRequestModel GetCollectionRequestModel(int? maxItemsPerPage = null)
-    {
-        return _httpCollectionRequestProcessingService.GetCollectionRequestModel(maxItemsPerPage);
-    }
-
-    [NonAction]
-    protected virtual Task<IQueryable<TEntity>> GetCollectionResponseQuery<TEntity, TViewModel>(
-        IQueryable<TEntity> queryable,
-        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
-        where TEntity : class
-        where TViewModel : class
-    {
-       return _httpCollectionRequestProcessingService.GetCollectionResponseQueryAsync<TEntity, TViewModel>(queryable, defaultOrderBy);
-    }
-
-    /// <summary>
-    /// </summary>
-    /// <typeparam name="TEntity"></typeparam>
-    /// <typeparam name="TViewModel"></typeparam>
-    /// <param name="requestModel">RequestModel, <see cref="GetCollectionRequestModel" /></param>
-    /// <param name="queryable">Collection to search</param>
-    /// <param name="resultQueryableFunc">Function to execute on the result</param>
-    /// <param name="defaultOrderBy">Order by properties</param>
-    /// <returns></returns>
-    [NonAction]
-    protected virtual Task<CollectionResponseModel<TViewModel>> GetCollectionResponseModel<TEntity, TViewModel>(
-        CollectionRequestModel requestModel,
-        IQueryable<TEntity> queryable,
-        Func<IQueryable<TEntity>, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
-        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
-        where TEntity : class
-        where TViewModel : class
-    {
-        return _httpCollectionRequestProcessingService.GetCollectionResponseModelAsync<TEntity, TViewModel>(
-            requestModel,
-            queryable,
-            resultQueryableFunc,
-            defaultOrderBy
-        );
-    }
-
-    [NonAction]
-    protected virtual async Task<CollectionResponseModel<TViewModel>> GetCollectionResponseModel<TEntity, TViewModel>(
-        IQueryable<TEntity> queryable,
-        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
-        where TEntity : class
-        where TViewModel : class
-    {
-        var requestModel = GetCollectionRequestModel();
-
-        return await GetCollectionResponseModel<TEntity, TViewModel>(requestModel, queryable, null, defaultOrderBy);
-    }
-
-    [NonAction]
-    protected virtual async Task<OkObjectResult> Ok<TEntity, TViewModel>(
-        IQueryable<TEntity> queryable,
-        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
-        where TEntity : class
-        where TViewModel : class
-    {
-        return Ok(await GetCollectionResponseModel<TEntity, TViewModel>(queryable, defaultOrderBy));
-    }
 }
 
 internal record SearchClosure(string Value);

@@ -69,7 +69,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         #region Services
         _serviceCollection.AddScoped<RazorViewService>();
         _serviceCollection.AddSingleton<IAuthorizationHandler, ActiveDivisionAccessHandler>();
-        _serviceCollection.AddSingleton<IHttpCollectionRequestProcessingService, HttpCollectionRequestProcessingService>();
+        _serviceCollection.AddSingleton<IHttpCollectionProcessingService, HttpCollectionRequestProcessingService>();
         #endregion
     }
     

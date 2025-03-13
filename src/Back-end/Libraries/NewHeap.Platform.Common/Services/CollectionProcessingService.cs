@@ -13,18 +13,18 @@ using System.Linq.Dynamic.Core;
 
 namespace NewHeap.Platform.Common.Services;
 internal record SearchClosure(string Value);
-public interface ICollectionRequestProcessingService
+public interface ICollectionProcessingService
 {
-    Task<CollectionResponseModel<TViewModel>> GetCollectionResponseModelAsync<TEntity, TViewModel>(CollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+    Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
-    Task<(IQueryable<TEntity> queryable, long totalCount, List<FilterRequestModel> filterResult, List<OrderByRequestModel> orderByResult)> ProcessQueryable<TEntity, TViewModel>(CollectionRequestModel requestModel, IQueryable<TEntity> queryable, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+    Task<(IQueryable<TEntity> queryable, long totalCount, List<FilterCollectionRequestModel> filterResult, List<OrderByCollectionRequestModel> orderByResult)> ProcessQueryable<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
-    List<FilterRequestModel> ProcessFilter<TEntity, TViewModel>(ref IQueryable<TEntity> queryable, List<FilterRequestModel>? filterCollection)
+    List<FilterCollectionRequestModel> ProcessFilter<TEntity, TViewModel>(ref IQueryable<TEntity> queryable, List<FilterCollectionRequestModel>? filterCollection)
         where TEntity : class
         where TViewModel : class;
-    List<OrderByRequestModel> ProcessOrderBy<TEntity, TViewModel>(ref IQueryable<TEntity> queryable, List<OrderByRequestModel>? orderByCollection, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+    List<OrderByCollectionRequestModel> ProcessOrderBy<TEntity, TViewModel>(ref IQueryable<TEntity> queryable, List<OrderByCollectionRequestModel>? orderByCollection, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
     void ProcessSearch<TEntity, TViewModel>(ref IQueryable<TEntity> queryable, string? qSearch)
@@ -32,11 +32,11 @@ public interface ICollectionRequestProcessingService
         where TViewModel : class;
 }
 
-public partial class CollectionRequestProcessingService : ICollectionRequestProcessingService
+public partial class CollectionProcessingService : ICollectionProcessingService
 {
     protected readonly IMapper _mapper;
 
-    public CollectionRequestProcessingService(
+    public CollectionProcessingService(
         IMapper mapper
         )
     {
@@ -173,14 +173,14 @@ public partial class CollectionRequestProcessingService : ICollectionRequestProc
         }
     }
 
-    public List<FilterRequestModel> ProcessFilter<TEntity, TViewModel>(
+    public List<FilterCollectionRequestModel> ProcessFilter<TEntity, TViewModel>(
         ref IQueryable<TEntity> queryable,
-        List<FilterRequestModel>? filterCollection
+        List<FilterCollectionRequestModel>? filterCollection
     )
         where TEntity : class
         where TViewModel : class
     {
-        var filterResult = new List<FilterRequestModel>();
+        var filterResult = new List<FilterCollectionRequestModel>();
 
         if (filterCollection != null && filterCollection.Any())
         {
@@ -207,7 +207,7 @@ public partial class CollectionRequestProcessingService : ICollectionRequestProc
         return filterResult;
     }
 
-    private bool IsFilterValid(FilterRequestModel filter, IEnumerable<PropertyInfo> filterProperties)
+    private bool IsFilterValid(FilterCollectionRequestModel filter, IEnumerable<PropertyInfo> filterProperties)
     {
         if (string.IsNullOrWhiteSpace(filter.Key) || string.IsNullOrWhiteSpace(filter.Operator))
         {
@@ -239,7 +239,7 @@ public partial class CollectionRequestProcessingService : ICollectionRequestProc
         return true;
     }
 
-    private Expression<Func<T, bool>>? GetFilterLambda<T>(FilterRequestModel filter,
+    private Expression<Func<T, bool>>? GetFilterLambda<T>(FilterCollectionRequestModel filter,
         IEnumerable<PropertyInfo> filterProperties, ParameterExpression? parameter = null, bool skipValidation = false)
     {
         if (!skipValidation && !IsFilterValid(filter, filterProperties))
@@ -294,14 +294,14 @@ public partial class CollectionRequestProcessingService : ICollectionRequestProc
                 var parameter2 = Expression.Parameter(collectionItemType, selector2);
                 var expression2 = ExpressionUtils.CreateMemberAccess(parameter2, string.Join('.', remainderParts));
 
-                var filter2 = new FilterRequestModel
+                var filter2 = new FilterCollectionRequestModel
                 {
                     Key = string.Join(".", remainderParts),
                     Operator = filter.Operator,
                     Value = filter.Value
                 };
 
-                dynamic? lambda2 = typeof(CollectionRequestProcessingService)
+                dynamic? lambda2 = typeof(CollectionProcessingService)
                     .GetMethod("GetFilterLambda", BindingFlags.Instance | BindingFlags.NonPublic)!
                     .MakeGenericMethod(collectionItemType)
                     .Invoke(this, new object[] { filter2, filterProperties, parameter2, true });
@@ -544,15 +544,15 @@ public partial class CollectionRequestProcessingService : ICollectionRequestProc
         return Expression.Lambda<Func<T, bool>>(body!, parameter);
     }
 
-    public List<OrderByRequestModel> ProcessOrderBy<TEntity, TViewModel>(
+    public List<OrderByCollectionRequestModel> ProcessOrderBy<TEntity, TViewModel>(
         ref IQueryable<TEntity> queryable,
-        List<OrderByRequestModel>? orderByCollection,
+        List<OrderByCollectionRequestModel>? orderByCollection,
         params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy
     )
         where TEntity : class
         where TViewModel : class
     {
-        var orderByResult = new List<OrderByRequestModel>();
+        var orderByResult = new List<OrderByCollectionRequestModel>();
 
         if (orderByCollection != null && orderByCollection.Any())
         {
@@ -722,7 +722,7 @@ public partial class CollectionRequestProcessingService : ICollectionRequestProc
                     ? "DESC"
                     : "ASC";
 
-                orderByResult.Add(new OrderByRequestModel { Key = memberName, Direction = sortOrderString });
+                orderByResult.Add(new OrderByCollectionRequestModel { Key = memberName, Direction = sortOrderString });
 
                 defaultOrderByList.Add($"{memberName} {sortOrderString}");
             }
@@ -736,9 +736,9 @@ public partial class CollectionRequestProcessingService : ICollectionRequestProc
 
 
     public virtual async
-        Task<(IQueryable<TEntity> queryable, long totalCount, List<FilterRequestModel> filterResult,
-            List<OrderByRequestModel> orderByResult)> ProcessQueryable<TEntity, TViewModel>(
-            CollectionRequestModel requestModel,
+        Task<(IQueryable<TEntity> queryable, long totalCount, List<FilterCollectionRequestModel> filterResult,
+            List<OrderByCollectionRequestModel> orderByResult)> ProcessQueryable<TEntity, TViewModel>(
+            ICollectionRequestModel requestModel,
             IQueryable<TEntity> queryable,
             params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy
         )
@@ -754,15 +754,15 @@ public partial class CollectionRequestProcessingService : ICollectionRequestProc
             : queryable.LongCount();
 
         queryable = queryable
-                .Skip((requestModel.Page - 1) * requestModel.ItemsPerPage)
-                .Take(requestModel.ItemsPerPage)
-            ;
+            .Skip((requestModel.Page - 1) * requestModel.ItemsPerPage)
+            .Take(requestModel.ItemsPerPage)
+        ;
 
         return (queryable, totalCount, filterResult, orderByResult);
     }
 
-    public virtual async Task<CollectionResponseModel<TViewModel>> GetCollectionResponseModelAsync<TEntity, TViewModel>(
-        CollectionRequestModel requestModel,
+    public virtual async Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(
+        ICollectionRequestModel requestModel,
         IQueryable<TEntity> queryable,
         Func<IQueryable<TEntity>, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
         params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
@@ -791,7 +791,7 @@ public partial class CollectionRequestProcessingService : ICollectionRequestProc
             ? (List<TViewModel>)(object)dbItems
             : _mapper.Map<List<TViewModel>>(dbItems);
 
-        return new CollectionResponseModel<TViewModel>
+        return new CollectionResultModel<TViewModel>
         {
             Page = requestModel.Page,
             ItemsPerPage = requestModel.ItemsPerPage,
