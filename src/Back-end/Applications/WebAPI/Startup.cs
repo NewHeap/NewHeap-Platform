@@ -42,7 +42,6 @@ public class Startup
     {
         var newHeapPlatformOptions = NewHeapAspNetCommonOptions.Builder(Configuration)
             .ConfigureAutoMapper(options => options.AddMaps(typeof(Startup)))
-            
             .ConfigureAuthorization(options =>
             {
                 // Optional, default is configured, only override if needed
