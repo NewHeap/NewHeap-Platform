@@ -6,7 +6,9 @@ import {
 } from '@angular/common/http';
 import {Injectable} from '@angular/core';
 import {Observable} from 'rxjs';
-import {NhApiService, NhAuthService, NhCommonModuleConfig} from "nh-common";
+import { NhCommonModuleConfig } from '../models/config.models';
+import { NhAuthService } from '../services/nh-auth.service';
+import { NhApiService } from '../services/nh-api.service';
 
 @Injectable()
 export class NhActiveDivisionInterceptor implements HttpInterceptor {
