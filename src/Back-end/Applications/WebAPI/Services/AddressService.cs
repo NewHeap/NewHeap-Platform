@@ -1,16 +1,10 @@
 ﻿using AutoMapper;
-using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NewHeap.Platform.AspNet.Common.DAL;
-using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Services;
-using NewHeap.Platform.Common;
-using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using WebAPI.DAL.Entities;
