@@ -1,8 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using NewHeap.Platform.AspNet.Common.DAL.Entities;
+﻿using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Models;
@@ -12,7 +8,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
-namespace WebAPI.Managers;
+namespace WebAPI.Services;
 
 public class MockAuthenticationService : INhAuthenticationService
 {

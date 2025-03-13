@@ -18,7 +18,7 @@ using System;
 using System.Security.Claims;
 using System.Text;
 using WebAPI.DAL;
-using WebAPI.Managers;
+using WebAPI.Services;
 
 namespace WebAPI;
 
@@ -52,6 +52,9 @@ public class Startup
                     policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.view"));
                 options.AddPolicy("app.division.manage",
                     policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.manage"));
+
+                options.AddPolicy("app.address.view", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.address.view"));
+                options.AddPolicy("app.address.mutate", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.address.mutate"));
 
                 // Sample division permission policy
                 options.AddPolicy("app.active-division.general.view",
@@ -126,6 +129,7 @@ public class Startup
             ;
 
         services.AddScoped<IRepository<Address>, Repository<Address>>(); 
+        services.AddScoped<AddressService>(); 
     }
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

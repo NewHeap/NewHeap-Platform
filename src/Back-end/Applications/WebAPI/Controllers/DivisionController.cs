@@ -19,7 +19,7 @@ using System.Threading.Tasks;
 namespace WebAPI.Controllers;
 
 [Route("api/[controller]")]
-public class DivisionController : NhBaseController
+public class DivisionController : ProtectedNhBaseController
 {
     private readonly DivisionService _divisionService;
 
@@ -57,7 +57,7 @@ public class DivisionController : NhBaseController
         var query = (await GetQueryableAsync()).AsNoTracking();
 
         var result =
-            await GetCollectionResponseModel<Division, DivisionViewModel>(query,
+            await GetCollectionResultModel<Division, DivisionViewModel>(query,
                 (x => x.Name, ListSortDirection.Ascending));
 
         return Ok(result);
@@ -157,7 +157,7 @@ public class DivisionController : NhBaseController
         var query = _divisionService.GetRoleRepository().GetAll();
 
         var result =
-            await GetCollectionResponseModel<DivisionRole, DivisionRoleViewModel>(query,
+            await GetCollectionResultModel<DivisionRole, DivisionRoleViewModel>(query,
                 (x => x.Name, ListSortDirection.Ascending));
 
         return Ok(result);

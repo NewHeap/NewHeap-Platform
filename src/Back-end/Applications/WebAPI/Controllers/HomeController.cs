@@ -31,11 +31,11 @@ using WebAPI.Models.Mutate;
 namespace WebAPI.Controllers;
 
 [Route("")]
-public class HomeController : NhBaseController
+public class HomeController : PublicNhBaseController
 {
     public HomeController(
-        IStringLocalizer<AccountController> localizer,
-        ILogger<AccountController> logger,
+        IStringLocalizer<HomeController> localizer,
+        ILogger<HomeController> logger,
         IConfiguration config,
         IHttpCollectionProcessingService collectionRequestProcessingService,
         IMapper mapper)

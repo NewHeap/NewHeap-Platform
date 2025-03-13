@@ -31,7 +31,7 @@ using WebAPI.Models.Mutate;
 namespace WebAPI.Controllers;
 
 [Route("api/[controller]")]
-public class AccountController : NhBaseController
+public class AccountController : PublicNhBaseController
 {
     private readonly MailService _appMailManager;
     private readonly MicrosoftAuthService _appMicrosoftAuthManager;

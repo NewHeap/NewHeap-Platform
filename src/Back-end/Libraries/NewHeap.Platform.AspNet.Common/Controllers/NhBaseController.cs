@@ -39,14 +39,14 @@ public abstract partial class NhBaseController : ControllerBase
         ILogger logger,
         IConfiguration config,
         IStringLocalizer localizer,
-        IHttpCollectionProcessingService httpCollectionRequestProcessingService
+        IHttpCollectionProcessingService httpCollectionProcessingService
     )
     {
         _mapper = mapper;
         _logger = logger;
         _config = config;
         _localizer = localizer;
-        _httpCollectionProcessingService = httpCollectionRequestProcessingService;
+        _httpCollectionProcessingService = httpCollectionProcessingService;
     }
 
     protected Guid? UserId
@@ -123,163 +123,4 @@ public abstract partial class NhBaseController : ControllerBase
 
         return BadRequest(response);
     }
-
-    [NonAction]
-    protected async Task<IActionResult> GetCollectionResultAsync<TModel, TViewModel>(IQueryable<TModel> query,
-        Func<IQueryable<TModel>, Task<IQueryable<TModel>>>? resultQueryableFunc = null,
-        int? maxItemsPerPage = null,
-        params (Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
-        where TModel : class where TViewModel : class
-    {
-        maxItemsPerPage ??= _httpCollectionProcessingService.GetDefaultMaxItemsPerPage();
-        var collectionRequestModel = GetCollectionRequestModel(maxItemsPerPage);
-
-        var collectionResponse = await GetCollectionResponseModel<TModel, TViewModel>(
-            collectionRequestModel,
-            query,
-            resultQueryableFunc,
-            defaultOrderBy
-        );
-
-        return Ok(collectionResponse);
-    }
-
-    [NonAction]
-    protected virtual ICollectionRequestModel GetCollectionRequestModel(int? maxItemsPerPage = null)
-    {
-        return _httpCollectionProcessingService.GetCollectionRequestModel(maxItemsPerPage);
-    }
-
-    [NonAction]
-    protected virtual Task<IQueryable<TEntity>> GetCollectionResultQuery<TEntity, TViewModel>(
-        IQueryable<TEntity> queryable,
-        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
-        where TEntity : class
-        where TViewModel : class
-    {
-       return _httpCollectionProcessingService.GetCollectionResultQueryAsync<TEntity, TViewModel>(queryable, defaultOrderBy);
-    }
-
-    [NonAction]
-    protected virtual Task<CollectionResultModel<TViewModel>> GetCollectionResponseModel<TEntity, TViewModel>(
-        ICollectionRequestModel requestModel,
-        IQueryable<TEntity> queryable,
-        Func<IQueryable<TEntity>, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
-        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
-        where TEntity : class
-        where TViewModel : class
-    {
-        return _httpCollectionProcessingService.GetCollectionResultModelAsync<TEntity, TViewModel>(
-            requestModel,
-            queryable,
-            resultQueryableFunc,
-            defaultOrderBy
-        );
-    }
-
-    [NonAction]
-    protected virtual async Task<CollectionResultModel<TViewModel>> GetCollectionResponseModel<TEntity, TViewModel>(
-        IQueryable<TEntity> queryable,
-        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
-        where TEntity : class
-        where TViewModel : class
-    {
-        var requestModel = GetCollectionRequestModel();
-
-        return await GetCollectionResponseModel<TEntity, TViewModel>(requestModel, queryable, null, defaultOrderBy);
-    }
-
-    [NonAction]
-    protected virtual async Task<OkObjectResult> Ok<TEntity, TViewModel>(
-        IQueryable<TEntity> queryable,
-        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
-        where TEntity : class
-        where TViewModel : class
-    {
-        return Ok(await GetCollectionResponseModel<TEntity, TViewModel>(queryable, defaultOrderBy));
-    }
-
-
-    /// <summary>
-    ///     Output a CSV file
-    /// </summary>
-    /// <typeparam name="TModel">Type to query</typeparam>
-    /// <typeparam name="TRowModel">Type representing the csv rows</typeparam>
-    /// <param name="query">Query object</param>
-    /// <param name="convert">
-    ///     Method to convert
-    ///     <typeparam name="TModel"></typeparam>
-    ///     to
-    ///     <typeparam name="TRowModel"></typeparam>
-    ///     .
-    ///     When null the default mapper will be used.
-    /// </param>
-    /// <param name="resultQueryableFunc">Function for selecting
-    ///     <typeparam name="TModel"></typeparam>
-    ///     . Can be used to include extra data.
-    /// </param>
-    /// <param name="includeHeaders"></param>
-    /// <param name="defaultOrderBy">Order by clauses</param>
-    /// <param name="delimiter"></param>
-    /// <returns></returns>
-    protected async Task<IActionResult> Csv<TModel, TRowModel>(IQueryable<TModel> query,
-        Func<IEnumerable<TModel>, IEnumerable<TRowModel>>? convert = null,
-        Func<IQueryable<TModel>, Task<IQueryable<TModel>>>? resultQueryableFunc = null,
-        char delimiter = ';',
-        bool includeHeaders = false,
-        params (Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
-        where TModel : class
-        where TRowModel : class
-    {
-        var collectionRequestModel = GetCollectionRequestModel(int.MaxValue);
-        collectionRequestModel.ItemsPerPage = int.MaxValue;
-
-        query = query.AsNoTracking();
-
-        var collectionResponseModel =
-            await GetCollectionResponseModel<TModel, TModel>(collectionRequestModel, query, resultQueryableFunc,
-                defaultOrderBy);
-
-        IEnumerable<TRowModel>? rows = null;
-
-        if (convert != null)
-        {
-            rows = convert(collectionResponseModel.Items);
-        }
-        else if (typeof(TRowModel) != typeof(TModel))
-        {
-            rows = _mapper.Map<IEnumerable<TRowModel>>(collectionResponseModel.Items);
-        }
-        else
-        {
-            rows = collectionResponseModel.Items.Select(x => (x as TRowModel)!).ToList();
-        }
-
-        var rowType = typeof(TRowModel);
-        var properties = rowType.GetProperties();
-        var fileStream = new MemoryStream(); // This is disposed by the File method call
-        await fileStream.WriteAsync(Encoding.UTF8.GetPreamble()); //Set file encoding to UTF-8
-
-        if (includeHeaders)
-        {
-            await fileStream.WriteAsync(Encoding.UTF8.GetBytes(string.Join(delimiter, properties.Select(x => x.Name)) +
-                                                               Environment.NewLine));
-        }
-
-        foreach (var row in rows)
-        {
-            await fileStream.WriteAsync(Encoding.UTF8.GetBytes(
-                    string.Join(delimiter, properties.Select(p => p.GetMethod!.Invoke(row, null))) + Environment.NewLine
-                )
-            );
-        }
-
-        fileStream.Seek(0,
-            SeekOrigin.Begin); // Reset stream to the start or else we're not going to write much to the response
-
-        return File(fileStream, "text/csv");
-    }
-
 }
-
-internal record SearchClosure(string Value);
