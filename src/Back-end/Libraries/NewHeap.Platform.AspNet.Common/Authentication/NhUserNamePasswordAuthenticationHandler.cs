@@ -72,7 +72,7 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
         var result = await authenticationService.Authenticate(request);
         if (!result.Success)
         {
-            return TypedResults.BadRequest(result);
+            return BadRequest(result);
         }
 
         var token = result.Data;
