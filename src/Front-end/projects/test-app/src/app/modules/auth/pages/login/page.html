@@ -1,0 +1,29 @@
+<!--todo fix limit.. -->
+
+<ngx-datatable
+  #myTable
+  class="material"
+  [rows]="items"
+  [columnMode]="'flex'"
+  [headerHeight]="50"
+  [footerHeight]="50"
+  [externalPaging]="true"
+  [count]="data().totalCount"
+  [offset]="data().pageIndex"
+  [limit]="data().pageSize"
+  [loadingIndicator]="isLoading"
+  (page)='setPage($event)'>
+
+  <ngx-datatable-column name="Naam" prop="name" [flexGrow]="2">
+    <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
+      {{value}}
+    </ng-template>
+  </ngx-datatable-column>
+
+  <ngx-datatable-column name="Release datum" prop="releaseDate" [flexGrow]="2">
+    <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
+      {{value?.name}}
+    </ng-template>
+  </ngx-datatable-column>
+
+</ngx-datatable>
