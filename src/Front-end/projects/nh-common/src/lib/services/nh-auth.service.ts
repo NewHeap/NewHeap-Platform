@@ -1,6 +1,7 @@
 import {Inject, Injectable, NgZone, OnDestroy, Optional, PLATFORM_ID, REQUEST_CONTEXT} from '@angular/core';
 import {BehaviorSubject, lastValueFrom} from 'rxjs';
 import {
+  AccountInformationResponse,
   AuthenticateModel,
   AuthenticationSessionCreateResponse,
   Authorization,
@@ -11,7 +12,7 @@ import {
 } from "../models/auth.models";
 import {DateTime} from "luxon";
 import {TaskResult} from "../models/misc.models";
-import {HttpClient, HttpParams} from '@angular/common/http';
+import {HttpClient, HttpHeaders, HttpParams} from '@angular/common/http';
 import {Base64} from "js-base64";
 import {NhCommonModuleConfig} from "../models/config.models";
 import {NhApiUtil} from "../util/nh-api-util";
@@ -340,6 +341,51 @@ export class NhAuthService implements OnDestroy {
       }
 
       this.setAuthorization(result.data);
+    } catch (ex) {
+      if(this.isAuthenticated()) {
+        this.clearAuthorization();
+      }
+
+      const errResult = NhApiUtil.taskResultFromResponse(ex);
+      errResult.copyTo(result);
+    }
+
+    return result;
+  }
+
+  public async reloadAuthorizationProfile(): Promise<TaskResult<Authorization>> {
+    const result = new TaskResult<Authorization>();
+
+    const auth = this.getAuthorization();
+    if(!auth) {
+      return result.withError('', 'Not authenticated.');
+    }
+
+    let httpParams = new HttpParams();
+    if (httpParams.get('language') === null) {
+      httpParams = httpParams.set('language', this.moduleConfig.language);
+    }
+
+    let httpHeaders = new HttpHeaders();
+    httpHeaders = httpHeaders.set('Authorization', `Bearer ${auth.token}`);
+
+    const request$ = this.httpClient.get<AccountInformationResponse>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.accountInformation, {
+      params: httpParams,
+      headers: httpHeaders,
+      withCredentials: true
+    });
+
+    try {
+      const informationResponse = await lastValueFrom(request$);
+
+      auth.claims = informationResponse.claims;
+      auth.user = informationResponse.user;
+      auth.divisions = informationResponse.divisions;
+      auth.activeDivision = informationResponse.activeDivision;
+
+      this.setAuthorization(auth);
+
+      result.data = this.getAuthorization();
     } catch (ex) {
       if(this.isAuthenticated()) {
         this.clearAuthorization();

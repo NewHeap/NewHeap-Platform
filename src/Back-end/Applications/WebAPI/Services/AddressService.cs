@@ -30,7 +30,7 @@ namespace WebAPI.Services
         private readonly IHttpContextAccessor _httpContextAccessor;
 
         public AddressService(
-            Repository<Address> addressRepository,
+            IRepository<Address> addressRepository,
             DbLogService dbLogService,
             LogHelperService logHelperService,
             IMapper mapper,

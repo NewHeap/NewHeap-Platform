@@ -1,30 +1,21 @@
-import {Component, signal} from "@angular/core";
-import {ActivatedRoute} from "@angular/router";
-import {NhPageBaseComponent} from "@newheap/platform-common";
-import {ZenoEditionModel} from "../../../../models/zeno-edition-model";
-import {ZenoService} from "../../services/zeno.service";
-import {
-  ApiCollectionRequestOptions,
-  ApiCollectionResponse
-} from "../../../../models/api-collection-request-options-model";
-import {CollectionHttpRequestOptions} from "@newheap/platform-common/lib/models/http.models";
+import {Component, ViewChild} from "@angular/core";
+import {AuthenticateModel, NhPageBaseComponent, NhRouterService} from "nh-common";
+import {UntypedFormControl} from "@angular/forms";
 
 @Component({
-    selector: 'app-zeno-page-index',
+    selector: 'app-auth-page-login',
     templateUrl: './page.html',
     styleUrls: ['./page.scss'],
     standalone: false
 })
-export class ZenoPage extends NhPageBaseComponent {
-
-  data = signal<ApiCollectionResponse<ZenoEditionModel>>(new ApiCollectionResponse<ZenoEditionModel>());
-  items : ZenoEditionModel[] = [];
-  isLoading = false;
-  protected requestOptions = new ApiCollectionRequestOptions();
+export class LoginAuthPage extends NhPageBaseComponent {
+  @ViewChild('appForm') form: any;
+  isLoading: boolean = false;
+  isSubmitting: boolean = false;
+  formData: AuthenticateModel = new AuthenticateModel();
 
   constructor(
-    private route: ActivatedRoute,
-    private zenoService: ZenoService
+    private routerService: NhRouterService
   ) {
     super();
   }
@@ -34,27 +25,37 @@ export class ZenoPage extends NhPageBaseComponent {
   }
   override async appOnInitAndLoadWithSkipBrowserInitial() {
     this.load().then();
-    this.pageSettings.title = this.translateService.instant('Zeno');
-    this.pageSettings.description = this.translateService.instant('Zeno description');
+    this.pageSettings.title = this.translateService.instant('Login');
+    this.pageSettings.description = this.translateService.instant('Login');
   }
 
   override async appAfterViewInit() {
   }
 
   async load() {
-    this.isLoading = true;
-    this.zenoService.getEditions(this.requestOptions).subscribe(x => {
-      this.data.set(x);
-      this.items = x.items!;
-      console.log(this.data());
-      this.isLoading = false;
-    });
+    this.formData = new AuthenticateModel();
   }
 
+  async onSubmit(event: any) {
+    if(this.isSubmitting) {
+      return;
+    }
 
-  async setPage(event: {pageSize: number, limit: number, offset: number}) {
-    this.requestOptions.page = event.offset;
+    try {
+      this.isSubmitting = true;
+      const loginResult = await this.authService.authenticate(this.formData);
+      if(loginResult.isSuccess) {
+        const authResult = await this.authService.reloadAuthorizationProfile();
+        if(authResult.isSuccess) {
+          await this.routerService.navigate({ 'id': 'home/index' });
+        }
+      }
+      await this.load();
 
-    await this.load();
+    } catch (err: any) {
+
+    } finally {
+      this.isSubmitting = false;
+    }
   }
 }

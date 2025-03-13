@@ -20,7 +20,7 @@ using WebAPI.Services;
 
 namespace WebAPI.Controllers;
 
-[Route("")]
+[Route("address")]
 public class AddressController : ProtectedNhBaseController
 {
     protected readonly AddressService _addressService;

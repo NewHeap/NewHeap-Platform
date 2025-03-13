@@ -11,7 +11,7 @@ import { Request, Response } from 'express';
 import {environment} from "./src/environments/environment";
 import crypto from "crypto";
 import {getClientSitemapAsync} from "./src/server-request-sitemap";
-import {setupOpenTelemetryServer} from "nh-common";
+//import {setupOpenTelemetryServer} from "nh-common";
 
 // The Express app is exported so that it can be used by serverless Functions.
 export function app(): express.Express {
@@ -31,7 +31,7 @@ export function app(): express.Express {
     if(!_cspHeaderValue) {
       const cspHeaderData = {
         defaultSrc: [
-          "'self'"
+          "'self'",
         ],
         imageSrc: [
           "'self'",
@@ -59,8 +59,10 @@ export function app(): express.Express {
       };
 
       cspHeaderData.connectSrc.push(environment.baseUrl);
+      cspHeaderData.connectSrc.push(environment.apiBaseUrl);
 
       cspHeaderData.imageSrc.push(environment.baseUrl);
+      cspHeaderData.imageSrc.push(environment.apiBaseUrl);
 
       const cspHeaderValues = [];
       cspHeaderValues.push(`default-src ${cspHeaderData.defaultSrc.join(' ').trim()}`);
@@ -169,7 +171,7 @@ if(environment.name === 'development') {
   });
 }
 
-setupOpenTelemetryServer();
+//setupOpenTelemetryServer();
 
 console.warn('Node Express server started');
 

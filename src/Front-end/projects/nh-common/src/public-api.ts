@@ -15,7 +15,7 @@ export * from './lib/util/nh-angular-util';
 export * from './lib/util/nh-api-util';
 export * from './lib/util/nh-form.util';
 export * from './lib/util/nh-mutex.util';
-export * from './lib/util/nh-open-telementry-server';
+//export * from './lib/util/nh-open-telementry-server';
 
 export * from './lib/interceptors/nh-encode-http-params.interceptor';
 export * from './lib/interceptors/nh-server-http.interceptor';

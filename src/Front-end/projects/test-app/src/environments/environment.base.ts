@@ -7,7 +7,7 @@ export const baseEnvironment = {
   supportedLanguages: ['nl', 'en'],
   cookieDomain: 'test-app.local',
   baseUrl: 'https://localhost:4200',
-  apiBaseUrl: 'https://localhost:5001'
+  apiBaseUrl: 'https://localhost:5301'
 };
 
 /*

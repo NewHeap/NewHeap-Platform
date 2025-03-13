@@ -12,12 +12,12 @@ using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models.Options;
-using OfficeOpenXml.FormulaParsing.Excel.Functions.RefAndLookup;
 using System;
 using System.Security.Claims;
 using WebAPI.DAL;
 using WebAPI.Services;
 using WebAPI.Jobs;
+using WebAPI.DAL.Entities;
 
 
 namespace WebAPI;
@@ -54,7 +54,7 @@ public class Startup
                     policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.manage"));
 
                 options.AddPolicy("app.address.view", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.address.view"));
-                options.AddPolicy("app.address.mutate", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.address.mutate"));
+                options.AddPolicy("app.address.manage", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.address.manage"));
 
                 // Sample division permission policy
                 options.AddPolicy("app.active-division.general.view",

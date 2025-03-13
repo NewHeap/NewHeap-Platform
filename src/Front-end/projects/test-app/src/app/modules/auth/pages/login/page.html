@@ -1,29 +1,28 @@
-<!--todo fix limit.. -->
+<form #appForm="ngForm" (ngSubmit)="onSubmit($event)" class="text-left">
+  <div class="row">
+    <div class="col">
+      <div class="form-group required">
+        <label>{{ 'general.username'|translate }}</label>
+        <input class="form-control" type="email" name="username"
+               [readonly]="isSubmitting"
+               [(ngModel)]="formData.username"/>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col">
+      <div class="form-group required">
+        <label>{{ 'general.password'|translate }}</label>
+        <input class="form-control" type="password" name="password"
+               [readonly]="isSubmitting"
+               [(ngModel)]="formData.password"/>
+      </div>
+    </div>
+  </div>
 
-<ngx-datatable
-  #myTable
-  class="material"
-  [rows]="items"
-  [columnMode]="'flex'"
-  [headerHeight]="50"
-  [footerHeight]="50"
-  [externalPaging]="true"
-  [count]="data().totalCount"
-  [offset]="data().pageIndex"
-  [limit]="data().pageSize"
-  [loadingIndicator]="isLoading"
-  (page)='setPage($event)'>
+  <button type="button" class="btn btn-primary"
+          (click)="onSubmit($event)">{{ 'general.sign-in' | translate }}
+  </button>
+</form>
 
-  <ngx-datatable-column name="Naam" prop="name" [flexGrow]="2">
-    <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
-      {{value}}
-    </ng-template>
-  </ngx-datatable-column>
 
-  <ngx-datatable-column name="Release datum" prop="releaseDate" [flexGrow]="2">
-    <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
-      {{value?.name}}
-    </ng-template>
-  </ngx-datatable-column>
-
-</ngx-datatable>

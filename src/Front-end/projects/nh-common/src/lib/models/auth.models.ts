@@ -26,6 +26,16 @@ export class Authorization {
   }
 }
 
+export class AccountInformationResponse {
+  user: User = new User();
+  claims: Claim[] = [];
+  divisions: Division[] = [];
+  activeDivision?: Division;
+  public constructor(init?: Partial<AccountInformationResponse>) {
+    Object.assign(this, init);
+  }
+}
+
 export class Division {
   id: string = '';
   creationDateTime: any;

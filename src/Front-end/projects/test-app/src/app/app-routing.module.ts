@@ -39,6 +39,17 @@ export function routes(configService: NhConfigCommonService, translateService: T
           ],
           canActivate: [],
           loadChildren: () => import('./modules/home/home.module').then(m => m.HomeModule),
+        })),
+        ...nhRouterSetupService.createRoute(new NhRegisterRoute({
+          id: 'home',
+          parentIds: ['root'],
+          routes: [
+            new NhRoute({ language: 'nl', path: 'auth' }),
+            new NhRoute({ language: 'en', path: 'auth' }),
+            new NhRoute({ language: 'de', path: 'auth' }),
+          ],
+          canActivate: [],
+          loadChildren: () => import('./modules/auth/auth.module').then(m => m.AuthModule),
         }))
       ]
     })),

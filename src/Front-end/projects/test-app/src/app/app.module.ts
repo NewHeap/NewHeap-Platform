@@ -55,6 +55,8 @@ registerLocaleData(localeEN, 'en');
     }),
     NhCommonModule.forRoot(new NhCommonModuleConfig({
       baseUrl: environment.baseUrl,
+      apiBaseUrl: environment.apiBaseUrl,
+      authApiBaseUrl: environment.apiBaseUrl,
       language: environment.defaultLanguage,
       defaultLanguage: environment.defaultLanguage,
       supportedLanguages: environment.supportedLanguages,
