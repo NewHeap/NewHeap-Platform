@@ -48,24 +48,6 @@ public abstract partial class PublicNhBaseController : NhBaseController
             ItemsPerPage = requestModel.ItemsPerPage
         };
 
-        var defaultItemsPerPage = _httpCollectionProcessingService.GetDefaultItemsPerPage();
-        var defaultMaxItemsPerPage = _httpCollectionProcessingService.GetDefaultMaxItemsPerPage();
-
-        if (collectionRequestModel.ItemsPerPage < 1)
-        {
-            collectionRequestModel.ItemsPerPage = _httpCollectionProcessingService.GetDefaultItemsPerPage();
-        }
-
-        if (collectionRequestModel.ItemsPerPage > defaultMaxItemsPerPage)
-        {
-            collectionRequestModel.ItemsPerPage = defaultMaxItemsPerPage;
-        }
-
-        if (collectionRequestModel.Page < 1)
-        {
-            collectionRequestModel.Page = 1;
-        }
-
         var collectionResult = await _httpCollectionProcessingService.GetCollectionResultModelAsync<TEntity, TViewModel>(
             collectionRequestModel,
             queryable,

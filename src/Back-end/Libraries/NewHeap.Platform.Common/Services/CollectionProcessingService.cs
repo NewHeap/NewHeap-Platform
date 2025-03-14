@@ -30,6 +30,9 @@ public interface ICollectionProcessingService
     void ProcessSearch<TEntity, TViewModel>(ref IQueryable<TEntity> queryable, string? qSearch)
         where TEntity : class
         where TViewModel : class;
+
+    int GetDefaultMaxItemsPerPage();
+    int GetDefaultItemsPerPage();
 }
 
 public partial class CollectionProcessingService : ICollectionProcessingService
@@ -41,6 +44,17 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         )
     {
         _mapper = mapper;
+    }
+    public virtual int GetDefaultMaxItemsPerPage()
+    {
+        // TODO: Get this from the configuration / factory
+        return 1000;
+    }
+
+    public virtual int GetDefaultItemsPerPage()
+    {
+        // TODO: Get this from the configuration / factory
+        return 20;
     }
 
     public void ProcessSearch<TEntity, TViewModel>(
@@ -769,6 +783,24 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         where TEntity : class
         where TViewModel : class
     {
+        var defaultItemsPerPage = GetDefaultItemsPerPage();
+        var defaultMaxItemsPerPage = GetDefaultMaxItemsPerPage();
+
+        if (requestModel.ItemsPerPage < 1)
+        {
+            requestModel.ItemsPerPage = defaultItemsPerPage;
+        }
+
+        if (requestModel.ItemsPerPage > defaultMaxItemsPerPage)
+        {
+            requestModel.ItemsPerPage = defaultMaxItemsPerPage;
+        }
+
+        if (requestModel.Page < 1)
+        {
+            requestModel.Page = 1;
+        }
+
         queryable = queryable.AsNoTracking();
         var processedResult = await ProcessQueryable<TEntity, TViewModel>(
             requestModel,

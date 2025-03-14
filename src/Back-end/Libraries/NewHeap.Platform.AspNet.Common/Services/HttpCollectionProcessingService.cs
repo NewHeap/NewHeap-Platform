@@ -19,9 +19,6 @@ public interface IHttpCollectionProcessingService : ICollectionProcessingService
     Task<IQueryable<TEntity>> GetCollectionResultQueryAsync<TEntity, TViewModel>(IQueryable<TEntity> queryable, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
-
-    int GetDefaultMaxItemsPerPage();
-    int GetDefaultItemsPerPage();
 }
 
 public partial class HttpCollectionProcessingService : CollectionProcessingService, IHttpCollectionProcessingService
@@ -35,18 +32,6 @@ public partial class HttpCollectionProcessingService : CollectionProcessingServi
         : base(mapper)
     {
         _httpContextAccessor = httpContextAccessor;
-    }
-
-    public virtual int GetDefaultMaxItemsPerPage()
-    {
-        // TODO: Get this from the configuration / factory
-        return 1000;
-    }
-
-    public virtual int GetDefaultItemsPerPage()
-    {
-        // TODO: Get this from the configuration / factory
-        return 20;
     }
 
     public virtual ICollectionRequestModel GetCollectionRequestModel(int? maxItemsPerPage = null)
