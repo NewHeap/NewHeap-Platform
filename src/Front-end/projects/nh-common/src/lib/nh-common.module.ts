@@ -36,6 +36,8 @@ import {NhInternetConnectionService} from "./services/nh-internet-connection.ser
 import {NhConfigCommonService} from "./services/nh-config.service";
 import {Observable} from "rxjs";
 import {NhActiveDivisionInterceptor} from "./interceptors/nh-active-division.interceptor";
+import {NhDivisionUserService} from "./services/nh-division-user.service";
+import {NhDivisionService} from "./services/nh-division.service";
 
 
 @NgModule({
@@ -145,7 +147,9 @@ import {NhActiveDivisionInterceptor} from "./interceptors/nh-active-division.int
     // Services
     NhTaskResultFormValidationService,
     NhCookieService,
-    NhInternetConnectionService
+    NhInternetConnectionService,
+    NhDivisionUserService,
+    NhDivisionService
   ]
 })
 export class NhCommonModule {
