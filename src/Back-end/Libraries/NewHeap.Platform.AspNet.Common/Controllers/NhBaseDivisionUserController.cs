@@ -14,7 +14,7 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
-public class NhBaseDivisionUserController : DbEntityProtectedNhBaseController<DivisionUser, DivisionUserMutateModel, DivisionUserViewModel, DivisionUserService, DivisionUserCollectionRequestModel>
+public abstract class NhBaseDivisionUserController : DbEntityProtectedNhBaseController<DivisionUser, DivisionUserMutateModel, DivisionUserViewModel, DivisionUserService, DivisionUserCollectionRequestModel>
 {
     protected const string READ_POLICY = "app.division.view";
     protected const string MANAGE_POLICY = "app.division.manage";
