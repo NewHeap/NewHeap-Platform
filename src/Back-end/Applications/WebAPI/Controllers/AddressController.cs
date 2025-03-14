@@ -13,6 +13,7 @@ using NewHeap.Platform.Common.Models;
 using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using WebAPI.DAL.Entities;
 using WebAPI.Models.Mutate;
@@ -34,6 +35,13 @@ public class AddressController : DbEntityProtectedNhBaseController<Address, Addr
         )
         : base(mapper, logger, config, localizer, collectionRequestProcessingService, addressService)
     {
+    }
+
+    protected override (Expression<Func<Address, object>> orderByKey, ListSortDirection sortDirection)[] GetDefaultCollectionResultOrderBy()
+    {
+        return [
+            (x => x.CreationDateTime, ListSortDirection.Ascending)
+        ];
     }
 
     [HttpGet]

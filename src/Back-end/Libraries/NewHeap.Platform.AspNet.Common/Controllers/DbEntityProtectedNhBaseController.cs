@@ -9,6 +9,7 @@ using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Models;
 using System.ComponentModel;
+using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
@@ -33,6 +34,14 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMuta
         ) : base(mapper, logger, config, localizer, httpCollectionProcessingService)
     {
         _dbEntityService = dbEntityService;
+    }
+
+    [NonAction]
+    protected virtual (Expression<Func<TDbEntity, object>> orderByKey, ListSortDirection sortDirection)[] GetDefaultCollectionResultOrderBy()
+    {
+        return [
+            (x => x.CreationDateTime, ListSortDirection.Ascending)
+        ];
     }
 
     [NonAction]
@@ -62,8 +71,7 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMuta
         requestModel ??= new TCollectionRequestModel();
         var query = (await GetQueryableAsync()).AsNoTracking();
 
-        var result = await GetCollectionResultModel<TDbEntity, TViewModel>(query,
-            (x => x.CreationDateTime, ListSortDirection.Ascending));
+        var result = await GetCollectionResultModel<TDbEntity, TViewModel>(query, GetDefaultCollectionResultOrderBy());
 
         return Ok(result);
     }

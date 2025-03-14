@@ -4,6 +4,7 @@ using Microsoft.Extensions.Localization;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
+using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
@@ -12,18 +13,13 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class DivisionService
+public partial class DivisionService : BaseDbEntityService<Division, DivisionMutateModel, DivisionViewModel, DivisionService>
 {
-    protected readonly DbLogService _dbLogService;
     protected readonly IRepository<Division> _divisionRepository;
     protected readonly IRepository<DivisionRoleClaim> _divisionRoleClaimRepository;
     protected readonly IRepository<DivisionRole> _divisionRoleRepository;
     protected readonly IRepository<DivisionUser> _divisionUserRepository;
     protected readonly IRepository<DivisionUserRole> _divisionUserRoleRepository;
-    protected readonly IStringLocalizer _localizer;
-    protected readonly LogHelperService _logHelperService;
-    protected readonly IMapper _mapper;
-    protected readonly ValidationService _validationService;
 
     public DivisionService(
         IRepository<Division> divisionRepository,
@@ -32,26 +28,18 @@ public partial class DivisionService
         IRepository<DivisionUserRole> divisionUserRoleRepository,
         IRepository<DivisionRoleClaim> divisionRoleClaimRepository,
         IStringLocalizer<DivisionService> localizer,
-        DbLogService dbLogManager,
-        LogHelperService logHelper,
-        ValidationService validationManager,
+        DbLogService dbLogService,
+        LogHelperService logHelperService,
+        ValidationService validationService,
+        NhUserManager userManager,
         IMapper mapper)
+            : base(divisionRepository, dbLogService, logHelperService, mapper, localizer, validationService, userManager)
     {
         _divisionRepository = divisionRepository;
         _divisionRoleRepository = divisionRoleRepository;
         _divisionUserRepository = divisionUserRepository;
         _divisionUserRoleRepository = divisionUserRoleRepository;
         _divisionRoleClaimRepository = divisionRoleClaimRepository;
-        _validationService = validationManager;
-        _mapper = mapper;
-        _localizer = localizer;
-        _dbLogService = dbLogManager;
-        _logHelperService = logHelper;
-    }
-
-    public IRepository<Division> GetRepository()
-    {
-        return _divisionRepository;
     }
 
     public IRepository<DivisionRole> GetRoleRepository()
@@ -64,7 +52,7 @@ public partial class DivisionService
         return _divisionRoleClaimRepository;
     }
 
-    public async Task ValidateCreateUpdateDeleteAsync(
+    public override async Task ValidateCreateUpdateDeleteAsync(
         CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel> model)
     {
         void sourceModelCheck()
@@ -116,164 +104,17 @@ public partial class DivisionService
         }
     }
 
-    public async Task<TaskResult<Division>> CreateAsync(DivisionMutateModel mutateModel,
-        Guid? committedByUserId = default)
+    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(Division original, Division updated)
     {
-        TaskResult<Division> result = new();
-
-        await ValidateCreateUpdateDeleteAsync(
-            new CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel>(CRUDActionType.Create)
-            {
-                TaskResult = result, SourceModel = null, MutateModel = mutateModel
-            });
-
-        if (!result.Success)
+        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<Division, object>>, Func<object, Task<string>>>
         {
-            return result;
-        }
-
-        var division = _mapper.Map<Division>(mutateModel);
-        await _divisionRepository.AddAsync(division);
-
-        await _dbLogService.LogAsync(
-            "Division create successful.",
-            messageArguments: new[] { division.Id.ToString() },
-            objectId: division.Id.ToString(),
-            objectType: typeof(Division).Name,
-            objectTypeFull: typeof(Division).FullName,
-            userId: committedByUserId,
-            action: LogAction.Create,
-            type: LogType.Information,
-            source: LogSource.Internal,
-            tag: GetType().Name,
-            doSaveChanges: false,
-            dbContext: _divisionRepository.Context
-        );
-
-        await _divisionRepository.SaveChangesAsync();
-
-        result.Data = division;
-
-        return result;
-    }
-
-    public async Task<TaskResult<Division>> UpdateAsync(Guid id, DivisionMutateModel mutateModel,
-        Guid? committedByUserId = default)
-    {
-        TaskResult<Division> result = new();
-
-        var division = await _divisionRepository.FindOneByAsync(x => x.Id == id);
-
-        await ValidateCreateUpdateDeleteAsync(
-            new CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel>(CRUDActionType.Update)
-            {
-                TaskResult = result, SourceModel = division, MutateModel = mutateModel
-            });
-
-        if (!result.Success)
-        {
-            return result;
-        }
-
-        var currentDivisionName = division?.Name;
-
-        var originalData = LogHelperService.Copy(division);
-
-        division = _mapper.Map(mutateModel, division)!;
-        division.LastModifiedDateTime = DateTimeOffset.UtcNow;
-
-        var updatedData = LogHelperService.Copy(division);
-
-        var changedProperties = await _logHelperService.ChangedProperties(originalData,
-            updatedData, new Dictionary<Expression<Func<Division?, object>>, Func<object?, Task<string>>>
-            {
-                // Method resolvers
-            },
+            // Method resolvers
+        },
             x => x!.Name,
             x => x!.Description,
             x => x!.UserSelectAllowed,
             x => x!.TimeZoneId
         );
-
-        if (changedProperties.Any())
-        {
-            var values = string.Join("\n",
-                changedProperties.Select(x => $"{x.Key}: '{x.OriginalValue}' -> '{x.UpdateValue}'"));
-            await _dbLogService.LogAsync(
-                "Entity values updated",
-                messageArguments: new[] { values },
-                objectId: division.Id.ToString(),
-                objectType: typeof(Division).Name,
-                objectTypeFull: typeof(Division).FullName,
-                userId: committedByUserId,
-                action: LogAction.Update,
-                type: LogType.Information,
-                source: LogSource.Internal,
-                tag: GetType().Name
-            );
-        }
-
-        await _dbLogService.LogAsync(
-            "Division update successful.",
-            messageArguments: new[] { division.Id.ToString() },
-            objectId: division.Id.ToString(),
-            objectType: typeof(Division).Name,
-            objectTypeFull: typeof(Division).FullName,
-            userId: committedByUserId,
-            action: LogAction.Update,
-            type: LogType.Information,
-            source: LogSource.Internal,
-            tag: GetType().Name,
-            doSaveChanges: false,
-            dbContext: _divisionRepository.Context
-        );
-
-        await _divisionRepository.SaveChangesAsync();
-
-        result.Data = division;
-
-        return result;
-    }
-
-    public async Task<TaskResult<Division>> DeleteAsync(Guid id, Guid? committedByUserId = default)
-    {
-        TaskResult<Division> result = new();
-
-        var division = await _divisionRepository
-            .FindOneByAsync(x => x.Id == id);
-
-        await ValidateCreateUpdateDeleteAsync(
-            new CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel>(CRUDActionType.Delete)
-            {
-                TaskResult = result, SourceModel = division, MutateModel = null
-            });
-
-        if (!result.Success)
-        {
-            return result;
-        }
-
-        result.Data = division;
-        _divisionRepository.Remove(division!);
-
-        await _dbLogService.LogAsync(
-            "Division remove successful.",
-            messageArguments: new[] { division?.Id.ToString() },
-            objectId: division?.Id.ToString(),
-            objectType: typeof(Division).Name,
-            objectTypeFull: typeof(Division).FullName,
-            userId: committedByUserId,
-            action: LogAction.Delete,
-            type: LogType.Information,
-            source: LogSource.Internal,
-            tag: GetType().Name,
-            doSaveChanges: false,
-            dbContext: _divisionRepository.Context
-        );
-
-        await _divisionRepository.SaveChangesAsync();
-
-        return result;
     }
 
     #region Roles

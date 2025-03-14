@@ -22,7 +22,9 @@ namespace WebAPI.Services
             IMapper mapper, 
             IStringLocalizer<AddressService> localizer, 
             ValidationService validationService, 
-            NhUserManager userManager) 
+            NhUserManager userManager
+            
+            ) 
             : base(repository, dbLogService, logHelperService, mapper, localizer, validationService, userManager)
         {
         }

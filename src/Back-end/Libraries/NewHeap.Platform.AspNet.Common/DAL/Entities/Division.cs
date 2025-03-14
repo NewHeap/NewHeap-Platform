@@ -1,9 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using NewHeap.Platform.AspNet.Common.Models;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
-public partial class Division
+public partial class Division : IdDbEntity
 {
     public Division()
     {

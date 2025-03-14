@@ -1,6 +1,12 @@
 ﻿using NewHeap.Platform.Common.Attributes;
+using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AspNet.Common.Models.View;
+
+public partial class DivisionCollectionRequestModel : CollectionRequestModel
+{ 
+    
+}
 
 public partial class DivisionViewModel
 {
@@ -30,6 +36,11 @@ public partial class DivisionViewModel
     [Orderable]
     [Filterable]
     public bool UserSelectAllowed { get; set; }
+}
+
+public class DivisionUserCollectionRequestModel : CollectionRequestModel
+{ 
+    
 }
 
 public class DivisionUserViewModel
