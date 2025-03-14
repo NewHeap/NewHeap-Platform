@@ -1,5 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
+using System.Linq;
+using Microsoft.Extensions.Localization;
 
 namespace NewHeap.Platform.Common.Models;
 
@@ -27,20 +30,37 @@ public partial class TaskResult
     {
         public string Name { get; set; } = "";
 
-        public List<string> ErrorMessages { get; } = [];
+        public List<FormattableString> ErrorMessages { get; } = [];
     }
 
     public bool Success { get; protected set; } = true;
 
     public List<ResultItem> Results { get; } = [];
 
+    protected FormattableString CreateFormattableString(string format, object[] args = null)
+    {
+        return FormattableStringFactory.Create(format ?? "", args);
+    }
+
     public virtual TaskResult AddError(string error)
     {
-        AddError("", error);
+        AddError(CreateFormattableString(error));
+        return this;
+    }
+
+    public virtual TaskResult AddError(FormattableString error)
+    {
+        AddError(string.Empty, error);
         return this;
     }
 
     public virtual TaskResult AddError(string name, IEnumerable<string> errorMessages)
+    {
+        AddError(name, errorMessages.Select(x => CreateFormattableString(x)));
+        return this;
+    }
+
+    public virtual TaskResult AddError(string name, IEnumerable<FormattableString> errorMessages)
     {
         foreach (var errorMessage in errorMessages)
         {
@@ -51,6 +71,12 @@ public partial class TaskResult
     }
 
     public virtual TaskResult AddError(string name, params string[] errorMessages)
+    {
+        AddError(name, errorMessages.Select(x => CreateFormattableString(x)));
+        return this;
+    }
+
+    public virtual TaskResult AddError(string name, params FormattableString[] errorMessages)
     {
         Success = false;
 
@@ -72,11 +98,23 @@ public partial class TaskResult
 
     public virtual TaskResult WithKeylessError(string errorMessage)
     {
+        AddError(CreateFormattableString(errorMessage));
+        return this;
+    }
+
+    public virtual TaskResult WithKeylessError(FormattableString errorMessage)
+    {
         AddError(string.Empty, errorMessage);
         return this;
     }
 
     public virtual TaskResult WithError(string name, string errorMessage)
+    {
+        AddError(name, CreateFormattableString(errorMessage));
+        return this;
+    }
+
+    public virtual TaskResult WithError(string name, FormattableString errorMessage)
     {
         AddError(name, errorMessage);
         return this;
@@ -93,18 +131,33 @@ public partial class TaskResult
         }
     }
 
-    public virtual void ApplyToModelState(ModelStateDictionary modelState)
+    public virtual void ApplyToModelState(ModelStateDictionary modelState, IStringLocalizer? stringLocalizer = null)
     {
         foreach (var result in Results)
         {
             foreach (var errorMessage in result.ErrorMessages)
             {
-                modelState.AddModelError(result.Name, errorMessage);
+                var errorString = stringLocalizer != null 
+                    ? stringLocalizer[errorMessage.Format, (errorMessage.GetArguments() ?? []).Select(x => x == null ? "" : x)] 
+                    : errorMessage.ToString();
+
+                modelState.AddModelError(result.Name, errorMessage.ToString());
             }
         }
     }
 
     public virtual TaskResult ApplyModelStateErrors(Dictionary<string, string[]> errors)
+    {
+        foreach (var (key, value) in errors)
+        {
+            var values = value.Select(x => CreateFormattableString(x)).ToArray();
+            AddError(key, values);
+        }
+
+        return this;
+    }
+
+    public virtual TaskResult ApplyModelStateErrors(Dictionary<string, FormattableString[]> errors)
     {
         foreach (var (key, value) in errors)
         {
@@ -117,9 +170,11 @@ public partial class TaskResult
     public static TaskResult Succeeded => new TaskResult();
 
     public static TaskResult Failed(string error) => new TaskResult().AddError(error);
+    public static TaskResult Failed(FormattableString error) => new TaskResult().AddError(error);
+    public static TaskResult Failed(string name, FormattableString error) => new TaskResult().AddError(name, error);
     public static TaskResult Failed(string name, string error) => new TaskResult().AddError(name, error);
 
-    public List<string> AllErrorMessages => Results.SelectMany(x => x.ErrorMessages).ToList();
+    public List<FormattableString> AllErrorMessages => Results.SelectMany(x => x.ErrorMessages).ToList();
 
 }
 
@@ -127,18 +182,32 @@ public partial class TaskResult<T> : TaskResult
 {
     public T Data { get; set; }
 
-    public void AddError(Expression<Func<T, object>> selector, params string[] errorMessages)
+    public TaskResult<T> AddError(Expression<Func<T, object>> selector, params string[] errorMessages)
+    {
+        AddError(selector, errorMessages.Select(x => CreateFormattableString(x)).ToArray());
+        return this;
+    }
+
+    public TaskResult<T> AddError(Expression<Func<T, object>> selector, params FormattableString[] errorMessages)
     {
         var name = (selector.Body as MemberExpression
             ?? ((UnaryExpression)selector.Body).Operand as MemberExpression).Member.Name;
 
         AddError(name, errorMessages);
+        return this;
     }
 
     public static new TaskResult<T> Succeeded(T data) => new TaskResult<T> { Data = data };
     public static implicit operator TaskResult<T>(T data) => new TaskResult<T>() { Data = data };
-    
+
     public static new TaskResult<T> Failed(string error)
+    {
+        var r = new TaskResult<T>();
+        r.AddError(error);
+        return r;
+    }
+
+    public static new TaskResult<T> Failed(FormattableString error)
     {
         var r = new TaskResult<T>();
         r.AddError(error);
@@ -152,7 +221,19 @@ public partial class TaskResult<T> : TaskResult
         return r;
     }
 
+    public static new TaskResult<T> Failed(string name, FormattableString error)
+    {
+        var r = new TaskResult<T>();
+        r.AddError(name, error);
+        return r;
+    }
+
     public new TaskResult<T> WithKeylessError(string errorMessage)
+    {
+        return WithKeylessError(CreateFormattableString(errorMessage));
+    }
+
+    public new TaskResult<T> WithKeylessError(FormattableString errorMessage)
     {
         AddError(string.Empty, errorMessage);
         return this;
@@ -160,23 +241,43 @@ public partial class TaskResult<T> : TaskResult
 
     public new TaskResult<T> WithError(string name, string errorMessage)
     {
+        return WithError(name, CreateFormattableString(errorMessage));
+    }
+
+    public new TaskResult<T> WithError(string name, FormattableString errorMessage)
+    {
         AddError(name, errorMessage);
         return this;
     }
 
     public TaskResult<T> WithError(Expression<Func<T, object>> selector, params string[] errorMessages)
+    { 
+        return WithError(selector, errorMessages.Select(x => CreateFormattableString(x)).ToArray());
+    }
+
+    public TaskResult<T> WithError(Expression<Func<T, object>> selector, params FormattableString[] errorMessages)
     {
         AddError(selector, errorMessages);
         return this;
     }
 
     public TaskResult<T> AddError(string[] errorMessages)
+    { 
+        return AddError(errorMessages.Select(x => CreateFormattableString(x)).ToArray());
+    }
+
+    public TaskResult<T> AddError(FormattableString[] errorMessages)
     {
         AddError(string.Empty, errorMessages);
         return this;
     }
 
     public new TaskResult<T> AddError(string name, IEnumerable<string> errorMessages)
+    { 
+        return AddError(name, errorMessages.Select(x => CreateFormattableString(x)));
+    }
+
+    public new TaskResult<T> AddError(string name, IEnumerable<FormattableString> errorMessages)
     {
         foreach (var errorMessage in errorMessages)
         {
@@ -187,6 +288,11 @@ public partial class TaskResult<T> : TaskResult
     }
 
     public TaskResult<T> AddError(string name, string errorMessage)
+    { 
+        return AddError(name, CreateFormattableString(errorMessage));
+    }
+
+    public TaskResult<T> AddError(string name, FormattableString errorMessage)
     {
         Success = false;
 
@@ -203,6 +309,14 @@ public partial class TaskResult<T> : TaskResult
     }
 
     public new TaskResult<T> ApplyModelStateErrors(Dictionary<string, string[]> errors)
+    { 
+        var newDict = new Dictionary<string, FormattableString[]>();
+        newDict = errors.ToDictionary(x => x.Key, x => x.Value.Select(y => CreateFormattableString(y)).ToArray());
+
+        return ApplyModelStateErrors(newDict);
+    }
+
+    public new TaskResult<T> ApplyModelStateErrors(Dictionary<string, FormattableString[]> errors)
     {
         foreach (var (key, value) in errors)
         {
@@ -240,15 +354,29 @@ public partial class DisposableTaskResult<T> : TaskResult<T>, IDisposable where 
     }
 
     public static implicit operator DisposableTaskResult<T>(T data) => new DisposableTaskResult<T> { Data = data };
-    
+
     public static new DisposableTaskResult<T> Failed(string name, string error)
     {
         var r = new DisposableTaskResult<T>();
         r.AddError(name, error);
         return r;
     }
-    
+
+    public static new DisposableTaskResult<T> Failed(string name, FormattableString error)
+    {
+        var r = new DisposableTaskResult<T>();
+        r.AddError(name, error);
+        return r;
+    }
+
     public static new DisposableTaskResult<T> Failed(string error)
+    {
+        var r = new DisposableTaskResult<T>();
+        r.AddError(error);
+        return r;
+    }
+
+    public static new DisposableTaskResult<T> Failed(FormattableString error)
     {
         var r = new DisposableTaskResult<T>();
         r.AddError(error);
