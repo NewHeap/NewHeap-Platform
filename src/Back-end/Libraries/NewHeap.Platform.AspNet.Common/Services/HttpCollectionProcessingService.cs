@@ -21,6 +21,7 @@ public interface IHttpCollectionProcessingService : ICollectionProcessingService
         where TViewModel : class;
 
     int GetDefaultMaxItemsPerPage();
+    int GetDefaultItemsPerPage();
 }
 
 public partial class HttpCollectionProcessingService : CollectionProcessingService, IHttpCollectionProcessingService
@@ -40,6 +41,12 @@ public partial class HttpCollectionProcessingService : CollectionProcessingServi
     {
         // TODO: Get this from the configuration / factory
         return 1000;
+    }
+
+    public virtual int GetDefaultItemsPerPage()
+    {
+        // TODO: Get this from the configuration / factory
+        return 20;
     }
 
     public virtual ICollectionRequestModel GetCollectionRequestModel(int? maxItemsPerPage = null)
