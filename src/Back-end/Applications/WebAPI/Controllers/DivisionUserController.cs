@@ -9,19 +9,20 @@ using NewHeap.Platform.AspNet.Common.Services;
 namespace WebAPI.Controllers;
 
 [Route("[controller]")]
-public class DivisionController : NhBaseDivisionController
+public class DivisionUserController : NhBaseDivisionUserController
 {
     protected const string READ_POLICY = "app.division.view";
     protected const string MANAGE_POLICY = "app.division.manage";
 
-    public DivisionController(
+    public DivisionUserController(
         IConfiguration config, 
         IMapper mapper, 
-        ILogger<DivisionController> logger, 
-        IStringLocalizer<DivisionController> localizer, 
-        DivisionService divisionService, 
+        ILogger<DivisionUserController> logger, 
+        IStringLocalizer<DivisionUserController> localizer, 
+        INhUserManager userService, 
+        DivisionUserService divisionUserService, 
         IHttpCollectionProcessingService collectionRequestProcessingService
-        ) : base(config, mapper, logger, localizer, divisionService, collectionRequestProcessingService)
+        ) : base(config, mapper, logger, localizer, userService, divisionUserService, collectionRequestProcessingService)
     {
     }
 }
