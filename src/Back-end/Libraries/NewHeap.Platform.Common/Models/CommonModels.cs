@@ -39,7 +39,7 @@ public partial class TaskResult
 
     protected FormattableString CreateFormattableString(string format, object[] args = null)
     {
-        return FormattableStringFactory.Create(format ?? "", args);
+        return FormattableStringFactory.Create(format ?? "", args ?? []);
     }
 
     public virtual TaskResult AddError(string error)
