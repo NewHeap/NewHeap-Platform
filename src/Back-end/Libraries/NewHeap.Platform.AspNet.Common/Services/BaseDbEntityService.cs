@@ -30,10 +30,9 @@ public interface IBaseDbEntityService<TEntity, TMutateModel>
 }
 
 
-public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TViewModel, TBaseDbEntityService> : IBaseDbEntityService<TEntity, TMutateModel> where TEntity : class, IdDbEntity
+public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDbEntityService> : IBaseDbEntityService<TEntity, TMutateModel> where TEntity : class, IdDbEntity
     where TMutateModel : class
-    where TViewModel : class
-    where TBaseDbEntityService : BaseDbEntityService<TEntity, TMutateModel, TViewModel, TBaseDbEntityService>
+    where TBaseDbEntityService : BaseDbEntityService<TEntity, TMutateModel, TBaseDbEntityService>
 {
     protected readonly IStringLocalizer<TBaseDbEntityService> _localizer;
     protected readonly IRepository<TEntity> _repository;

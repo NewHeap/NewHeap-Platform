@@ -13,7 +13,7 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class DivisionService : BaseDbEntityService<Division, DivisionMutateModel, DivisionViewModel, DivisionService>
+public partial class DivisionService : BaseDbEntityService<Division, DivisionMutateModel, DivisionService>
 {
     protected readonly IRepository<Division> _divisionRepository;
     protected readonly IRepository<DivisionRoleClaim> _divisionRoleClaimRepository;

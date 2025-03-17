@@ -13,7 +13,7 @@ using WebAPI.Models.View;
 
 namespace WebAPI.Services
 {
-    public class AddressService : BaseDbEntityService<Address, AddressMutateModel, AddressViewModel, AddressService>
+    public class AddressService : BaseDbEntityService<Address, AddressMutateModel, AddressService>
     {
         public AddressService(
             IRepository<Address> repository, 

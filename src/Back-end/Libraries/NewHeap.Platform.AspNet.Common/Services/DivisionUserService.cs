@@ -12,7 +12,7 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class DivisionUserService : BaseDbEntityService<DivisionUser, DivisionUserMutateModel, DivisionUserViewModel, DivisionUserService>
+public partial class DivisionUserService : BaseDbEntityService<DivisionUser, DivisionUserMutateModel, DivisionUserService>
 {
     protected readonly IRepository<DivisionUserRole> _divisionUserRoleRepository;
     protected readonly IStringLocalizer _localizer;
