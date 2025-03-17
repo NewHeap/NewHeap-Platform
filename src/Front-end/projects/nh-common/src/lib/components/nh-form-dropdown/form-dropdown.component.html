@@ -1,0 +1,27 @@
+<div>
+  <ngx-bootstrap-multiselect
+    #lazyLoadComponent
+    *ngIf="settings.lazyLoad"
+    (focus)="hasFocus = true"
+    (blur)="hasFocus = false"
+    [options]="options"
+    [disabled]="disabled"
+    [texts]="settings.multiSelectTexts"
+    [settings]="settings.multiSelectSettings"
+    [ngModel]="value"
+    (ngModelChange)="onModelChange($event)"
+    (lazyLoad)="lazyLoadData($event)"
+  ></ngx-bootstrap-multiselect>
+  <ngx-bootstrap-multiselect
+    #noLazyLoadComponent
+    (focus)="hasFocus = true"
+    (blur)="hasFocus = false"
+    *ngIf="!settings.lazyLoad"
+    [options]="options"
+    [disabled]="disabled"
+    [texts]="settings.multiSelectTexts"
+    [settings]="settings.multiSelectSettings"
+    [ngModel]="value"
+    (ngModelChange)="onModelChange($event)"
+  ></ngx-bootstrap-multiselect>
+</div>

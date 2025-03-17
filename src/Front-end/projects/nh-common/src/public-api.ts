@@ -20,6 +20,8 @@ export * from './lib/util/nh-mutex.util';
 export * from './lib/interceptors/nh-encode-http-params.interceptor';
 export * from './lib/interceptors/nh-server-http.interceptor';
 
+export * from './lib/accessors/abstract-value.accessor';
+
 export * from './lib/services/nh-app.service';
 export * from './lib/services/nh-page.service';
 export * from './lib/services/nh-config.service';
@@ -56,6 +58,7 @@ export * from './lib/components/nh-json-ld/nh-json-ld.component';
 export * from './lib/components/nh-loading-modal/component';
 export * from './lib/components/nh-confirm-modal/component';
 export * from './lib/components/nh-page-base-component/nh-page-base.component';
+export * from './lib/components/nh-form-dropdown/form-dropdown.component';
 
 export * from './lib/nh-common.module';
 export * from './lib/guards/nh-cancel-navigation.guard';

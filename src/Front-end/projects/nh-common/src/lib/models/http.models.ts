@@ -43,6 +43,8 @@ export class CollectionHttpResponse<T> {
 
   page = 1;
   itemsPerPage = 10;
+  resultCount: number = 0;
+  totalCount: number = 0;
   orderBy: OrderByRequestOptions[] = [];
   filter: FilterRequestOptions[] = [];
   search = '';

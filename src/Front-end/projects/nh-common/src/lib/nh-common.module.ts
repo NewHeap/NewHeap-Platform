@@ -38,12 +38,17 @@ import {Observable} from "rxjs";
 import {NhActiveDivisionInterceptor} from "./interceptors/nh-active-division.interceptor";
 import {NhDivisionUserService} from "./services/nh-division-user.service";
 import {NhDivisionService} from "./services/nh-division.service";
+import {NhFormDropDownComponent} from "./components/nh-form-dropdown/form-dropdown.component";
+import {NgxBootstrapMultiselectModule} from "ngx-bootstrap-multiselect";
+import {FormsModule} from "@angular/forms";
 
 
 @NgModule({
   imports: [
     CommonModule,
-    TranslateModule
+    TranslateModule,
+    NgxBootstrapMultiselectModule,
+    FormsModule
   ],
   declarations: [
     // Components
@@ -52,6 +57,7 @@ import {NhDivisionService} from "./services/nh-division.service";
     NhJsonLdComponent,
     NhModalLoadingComponent,
     NhModalConfirmComponent,
+    NhFormDropDownComponent,
     // Pipes
     NhDatePipe,
     NhDateUtcPipe,
@@ -84,6 +90,7 @@ import {NhDivisionService} from "./services/nh-division.service";
     NhJsonLdComponent,
     NhModalLoadingComponent,
     NhModalConfirmComponent,
+    NhFormDropDownComponent,
     // Pipes
     NhDatePipe,
     NhDateUtcPipe,

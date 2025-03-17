@@ -1,0 +1,13 @@
+app-form-dropdown {
+  ngx-bootstrap-multiselect > div.dropdown {
+    width: 100%;
+  }
+
+  ngx-bootstrap-multiselect > div.dropdown > button.dropdown-toggle {
+    width: 100%;
+  }
+
+  ngx-bootstrap-multiselect > div.dropdown > div.dropdown-menu {
+    width: 100%;
+  }
+}
