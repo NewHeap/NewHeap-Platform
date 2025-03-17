@@ -129,7 +129,7 @@ export class IsOneActiveDivisionPermissionGrantedPipe implements PipeTransform {
 }
 
 @Pipe({
-  name: 'isOneDivisionRoleGranted',
+  name: 'isOneActiveDivisionRoleGranted',
   standalone: false
 })
 export class IsOneActiveDivisionRoleGrantedPipe implements PipeTransform {
