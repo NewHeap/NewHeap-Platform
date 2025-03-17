@@ -41,6 +41,8 @@ import {NhDivisionService} from "./services/nh-division.service";
 import {NhFormDropDownComponent} from "./components/nh-form-dropdown/form-dropdown.component";
 import {NgxBootstrapMultiselectModule} from "ngx-bootstrap-multiselect";
 import {FormsModule} from "@angular/forms";
+import {NhServerSideFormValidationService} from "./services/nh-server-side-form-validator.service";
+import {NhFormErrorMessageComponent} from "./components/nh-form-error-message/form-error-message.component";
 
 
 @NgModule({
@@ -58,6 +60,7 @@ import {FormsModule} from "@angular/forms";
     NhModalLoadingComponent,
     NhModalConfirmComponent,
     NhFormDropDownComponent,
+    NhFormErrorMessageComponent,
     // Pipes
     NhDatePipe,
     NhDateUtcPipe,
@@ -91,6 +94,7 @@ import {FormsModule} from "@angular/forms";
     NhModalLoadingComponent,
     NhModalConfirmComponent,
     NhFormDropDownComponent,
+    NhFormErrorMessageComponent,
     // Pipes
     NhDatePipe,
     NhDateUtcPipe,
@@ -156,7 +160,8 @@ import {FormsModule} from "@angular/forms";
     NhCookieService,
     NhInternetConnectionService,
     NhDivisionUserService,
-    NhDivisionService
+    NhDivisionService,
+    NhServerSideFormValidationService
   ]
 })
 export class NhCommonModule {

@@ -6,6 +6,8 @@ export * from './lib/models/config.models';
 export * from './lib/models/misc.models';
 export * from './lib/models/http.models';
 export * from './lib/models/auth.models';
+export * from './lib/models/user.models';
+export * from './lib/models/division.models';
 
 export * from './lib/util/nh-common-util';
 export * from './lib/util/nh-string-util';
@@ -38,6 +40,10 @@ export * from './lib/services/nh-router-setup.service';
 export * from './lib/services/nh-json-ld.service';
 export * from './lib/services/nh-internet-connection.service';
 export * from './lib/services/nh-server.service';
+export * from './lib/services/nh-server-side-form-validator.service';
+export * from './lib/services/nh-division.service';
+export * from './lib/services/nh-division-user.service';
+export * from './lib/services/nh-user.service';
 
 export * from './lib/guards/nh-auth.guards';
 
@@ -59,6 +65,7 @@ export * from './lib/components/nh-loading-modal/component';
 export * from './lib/components/nh-confirm-modal/component';
 export * from './lib/components/nh-page-base-component/nh-page-base.component';
 export * from './lib/components/nh-form-dropdown/form-dropdown.component';
+export * from './lib/components/nh-form-error-message/form-error-message.component';
 
 export * from './lib/nh-common.module';
 export * from './lib/guards/nh-cancel-navigation.guard';

@@ -1,0 +1,5 @@
+<div class="error-list" *ngIf="getErrors().length > 0">
+    <div *ngFor="let error of this.getErrors()">
+        <p class="text-danger m-0"><i>{{ error|translate }}</i></p>
+    </div>
+</div>

@@ -6,9 +6,9 @@ import {CollectionHttpRequestOptions, CollectionHttpResponse} from '../models/ht
 import {UserCollectionHttpRequestOptions} from "../models/user.models";
 import {
   DivisionCollectionRequestModel,
-  DivisionUser,
   DivisionUserCollectionRequestModel
 } from "../models/division.models";
+import { DivisionUser } from '../models/auth.models';
 
 @Injectable()
 export class NhDivisionUserService {
