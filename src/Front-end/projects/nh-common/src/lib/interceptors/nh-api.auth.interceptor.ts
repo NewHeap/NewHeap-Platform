@@ -1,0 +1,36 @@
+import {
+  HttpInterceptor,
+  HttpRequest,
+  HttpHandler,
+  HttpParams, HttpEvent
+} from '@angular/common/http';
+import {Injectable} from '@angular/core';
+import {Observable} from 'rxjs';
+import { NhCommonModuleConfig } from '../models/config.models';
+import { NhAuthService } from '../services/nh-auth.service';
+import { NhApiService } from '../services/nh-api.service';
+
+@Injectable()
+export class NhActiveDivisionInterceptor implements HttpInterceptor {
+  constructor(
+    private moduleConfig: NhCommonModuleConfig,
+    private authService: NhAuthService
+  ) {
+  }
+
+  intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
+    let params = new HttpParams();
+    let headers = req.headers;
+
+    if(req.url.startsWith(this.moduleConfig.apiBaseUrl) || req.url.startsWith(this.moduleConfig.authApiBaseUrl)) {
+      const authorization = this.authService.getAuthorization();
+      if((authorization?.activeDivision?.id?.length ?? 0) > 0) {
+        if(!headers.get(NhApiService.ActiveDivisionHeaderKey)) {
+          headers = headers.append(NhApiService.ActiveDivisionHeaderKey, authorization?.activeDivision?.id ?? '');
+        }
+      }
+    }
+
+    return next.handle(req.clone({params, headers}));
+  }
+}
