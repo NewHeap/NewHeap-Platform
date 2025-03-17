@@ -122,7 +122,9 @@ export abstract class NhMutateBaseComponent<TFormData>
       this.mutationType = mutationType;
       this.formData = await this.onNewFormData(mutationType);
 
-    }finally {
+    } catch (ex) {
+      console.error(ex);
+    } finally {
       this.isLoading = false;
     }
   }
