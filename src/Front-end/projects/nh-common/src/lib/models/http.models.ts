@@ -26,9 +26,17 @@ export class HttpDownloadRequestOptions {
   }
 }
 
-export class CollectionHttpRequestOptions extends HttpRequestOptions {
+export class SimpleCollectionHttpRequestOptions extends HttpRequestOptions {
   page: number = 1;
   itemsPerPage: number = 30;
+
+  public constructor(init?: Partial<SimpleCollectionHttpRequestOptions>) {
+    super(init);
+    Object.assign(this, init);
+  }
+}
+
+export class CollectionHttpRequestOptions extends SimpleCollectionHttpRequestOptions {
   orderBy: OrderByRequestOptions[] = [];
   filter: FilterRequestOptions[] = [];
   search: string | undefined;
@@ -39,18 +47,24 @@ export class CollectionHttpRequestOptions extends HttpRequestOptions {
   }
 }
 
-export class CollectionHttpResponse<T> {
-
+export class SimpleCollectionHttpResponse<T> {
   page = 1;
   itemsPerPage = 10;
   resultCount: number = 0;
   totalCount: number = 0;
+  public constructor(init?: Partial<SimpleCollectionHttpResponse<T>>) {
+    Object.assign(this, init);
+  }
+}
+
+export class CollectionHttpResponse<T> extends SimpleCollectionHttpResponse<T> {
   orderBy: OrderByRequestOptions[] = [];
   filter: FilterRequestOptions[] = [];
   search = '';
   items: T[] = [];
 
   public constructor(init?: Partial<CollectionHttpResponse<T>>) {
+    super(init);
     Object.assign(this, init);
   }
 }

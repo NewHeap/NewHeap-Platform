@@ -166,7 +166,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
 
             //    if (context?.User?.Identity?.IsAuthenticated == true)
             //    {
-            //        var userManager = context.RequestServices.GetService<NhUserManager>();
+            //        var userManager = context.RequestServices.GetService<INhUserManager>();
             //        var userEmail = context.User.FindFirstValue(ClaimTypes.Email);
 
             //        if (userEmail != null)

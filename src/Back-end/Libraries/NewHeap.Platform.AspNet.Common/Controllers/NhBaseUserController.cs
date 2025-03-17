@@ -23,14 +23,14 @@ public abstract class NhBaseUserController : ProtectedNhBaseController
 {
     protected const string READ_POLICY = "app.user.view";
     protected const string MANAGE_POLICY = "app.user.manage";
-    protected readonly NhUserManager _userManager;
+    protected readonly INhUserManager _userManager;
 
     public NhBaseUserController(
         IConfiguration config,
         IMapper mapper,
         ILogger<NhBaseUserController> logger,
         IStringLocalizer<NhBaseUserController> localizer,
-        NhUserManager userManager,
+        INhUserManager userManager,
         IHttpCollectionProcessingService collectionRequestProcessingService
     )
         : base(mapper, logger, config, localizer, collectionRequestProcessingService)

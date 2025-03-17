@@ -16,8 +16,21 @@ using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TViewModel, TBaseDbEntityService>
+public interface IBaseDbEntityService<TEntity, TMutateModel>
     where TEntity : class, IdDbEntity
+    where TMutateModel : class
+{
+    Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null);
+    Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = null);
+    Task<TEntity?> GetAsync(Guid id);
+    IRepository<TEntity> GetRepository();
+    IQueryable<TEntity> QueryableWithAllIncludes(IQueryable<TEntity> queryable = null);
+    Task<TaskResult<TEntity>> UpdateAsync(Guid id, TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null);
+    Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model);
+}
+
+
+public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TViewModel, TBaseDbEntityService> : IBaseDbEntityService<TEntity, TMutateModel> where TEntity : class, IdDbEntity
     where TMutateModel : class
     where TViewModel : class
     where TBaseDbEntityService : BaseDbEntityService<TEntity, TMutateModel, TViewModel, TBaseDbEntityService>
@@ -28,7 +41,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TViewMo
     protected readonly IMapper _mapper;
     protected readonly LogHelperService _logHelper;
     protected readonly ValidationService _validationService;
-    protected readonly NhUserManager _userManager;
+    protected readonly INhUserManager _userManager;
 
     public BaseDbEntityService(
         IRepository<TEntity> repository,
@@ -37,7 +50,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TViewMo
         IMapper mapper,
         IStringLocalizer<TBaseDbEntityService> localizer,
         ValidationService validationService,
-        NhUserManager userManager
+        INhUserManager userManager
         )
     {
         _repository = repository;
@@ -132,7 +145,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TViewMo
 
         await _dbLogService.LogAsync(
             message: "Entity create successful.",
-            messageArguments: new string[] {},
+            messageArguments: new string[] { },
             objectId: entity.Id.ToString(),
             objectType: (typeof(TEntity)).Name,
             objectTypeFull: (typeof(TEntity)).FullName,
@@ -163,9 +176,9 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TViewMo
     }
 
     public virtual async Task<TaskResult<TEntity>> UpdateAsync(
-        Guid id, 
-        TMutateModel mutateModel, 
-        Guid? committedByUserId = default, 
+        Guid id,
+        TMutateModel mutateModel,
+        Guid? committedByUserId = default,
         Action<TEntity>? beforeSave = null
         )
     {

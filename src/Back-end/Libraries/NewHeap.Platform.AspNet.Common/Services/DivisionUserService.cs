@@ -25,7 +25,7 @@ public partial class DivisionUserService : BaseDbEntityService<DivisionUser, Div
         DbLogService dbLogService,
         LogHelperService logHelperService,
         ValidationService validationService,
-        NhUserManager userManager,
+        INhUserManager userManager,
         IMapper mapper)
         : base(divisionUserRepository, dbLogService, logHelperService, mapper, localizer, validationService, userManager)
     {

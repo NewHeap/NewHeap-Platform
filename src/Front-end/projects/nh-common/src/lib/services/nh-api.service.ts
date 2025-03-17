@@ -5,7 +5,7 @@ import {
   CollectionHttpRequestOptions,
   CollectionHttpResponse,
   HttpDownloadRequestOptions,
-  HttpRequestOptions
+  HttpRequestOptions, SimpleCollectionHttpRequestOptions, SimpleCollectionHttpResponse
 } from '../models/http.models';
 import { NhApiUtil } from '../util/nh-api-util';
 import { NhAuthService } from './nh-auth.service';
@@ -164,6 +164,26 @@ export class NhApiService implements OnDestroy {
     }
 
     return this.httpClient.get<CollectionHttpResponse<T>>(url, {
+      headers: headers,
+      observe: 'body',
+      params: httpParams,
+      reportProgress: requestOptions.reportProgress,
+      responseType: 'json',
+      withCredentials: requestOptions.withCredentials
+    }).pipe(share());
+  }
+
+  public getSimpleCollection<T>(url: string, requestOptions?: SimpleCollectionHttpRequestOptions): Observable<SimpleCollectionHttpResponse<T>> {
+    requestOptions = requestOptions || new CollectionHttpRequestOptions();
+    let httpParams = requestOptions.params || new HttpParams();
+    let headers = requestOptions.headers || new HttpHeaders();
+
+    headers = this.prepareHeaders(headers);
+    httpParams = this.setCultureHttpParam(httpParams);
+    httpParams = httpParams.set('page', requestOptions.page);
+    httpParams = httpParams.set('itemsPerPage', requestOptions.itemsPerPage);
+
+    return this.httpClient.get<SimpleCollectionHttpResponse<T>>(url, {
       headers: headers,
       observe: 'body',
       params: httpParams,
