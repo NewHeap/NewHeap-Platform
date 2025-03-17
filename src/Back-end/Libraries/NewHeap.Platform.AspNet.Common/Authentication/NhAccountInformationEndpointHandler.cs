@@ -60,7 +60,13 @@ public class NhAccountInformationEndpointHandler : BaseNhAuthenticationEndpoint
         }
 
         var userId = Guid.Parse(jwt.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)!.Value!);
-        var user = await userManager.FindByIdAsync(userId.ToString());
+        var user = await userManager
+            .GetRepository()
+            .GetAll()
+            .Where(x => x.Id == userId)
+            .Include(x => x.ActiveDivision)
+            .FirstOrDefaultAsync();
+
         if (user == null)
         {
             return TypedResults.Unauthorized();
@@ -75,6 +81,11 @@ public class NhAccountInformationEndpointHandler : BaseNhAuthenticationEndpoint
         {
             await GetUserDivisions(userManager, divisionRepository, mapper, response, claims);
         }
+
+        response.ActiveDivision = response.User.ActiveDivision;
+        response.ActiveDivisionId = response.User.ActiveDivisionId;
+        response.Roles = await userManager.GetRolesAsync(user)
+            .ContinueWith(x => response.Roles = x.Result.ToList());
 
         return TypedResults.Ok(response);
     }
@@ -128,4 +139,7 @@ public record AccountResponse
     public List<DivisionViewModel> Divisions { get; set; } = new();
     public IEnumerable<ClaimViewModel> Claims { get; set; }
     public UserViewModel User { get; set; }
+    public Guid? ActiveDivisionId { get; set; }
+    public DivisionViewModel? ActiveDivision { get; set; }
+    public List<string> Roles { get; set; } = new();
 };

@@ -66,16 +66,17 @@ public partial class NhUserManager : UserManager<User>, INhUserManager
     public virtual async Task<List<Claim>> GetValidClaims(User user, bool withDivision = false)
     {
         IdentityOptions _options = new();
-        List<Claim> claims = new()
-        {
+        List<Claim> claims =
+        [
             new Claim(JwtRegisteredClaimNames.Sub, user.Email!),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(ClaimTypes.Name, user.UserName!),
             new Claim(ClaimTypes.Email, user.Email!),
             new Claim(JwtRegisteredClaimNames.Email, user.Email!),
             new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString()),
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
-        };
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(NhPlatformClaimTypes.Permission, Platform.Common.Constants.PermissionClaimValues.AuthenticatedAccess),
+        ];
 
         IList<Claim> userClaims = await GetClaimsAsync(user);
         IList<string> userRoles = await GetRolesAsync(user);

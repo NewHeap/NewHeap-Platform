@@ -144,8 +144,8 @@ export class NhAuthService implements OnDestroy {
     let divisionId: string|undefined = undefined;
     const auth = this.getAuthorization();
 
-    if(auth && auth.user && auth.activeDivision?.id) {
-      divisionId = auth.activeDivision.id;
+    if((auth?.user?.activeDivisionId?.length ?? 0) > 0) {
+      divisionId = auth!.user!.activeDivisionId;
     }
 
     return divisionId;

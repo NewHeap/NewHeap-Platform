@@ -12,6 +12,7 @@ export class NhCommonModuleConfig {
   environment: string = '';
   cookieDomain: string = '';
   authentication = {
+    addAuthTokensToRequests: true,
     endpoints: {
       login: '/authentication/login',
       logout: '/authentication/logout',
