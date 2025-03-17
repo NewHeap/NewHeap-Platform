@@ -1,5 +1,7 @@
 ﻿import {Component, HostListener, Input, OnInit, input, output} from '@angular/core';
 import {INhModalComponent, NhModalComponentRef, NhModalService} from "../../services/nh-modal.service";
+import { SafeHtml } from '@angular/platform-browser';
+import {TaskResult} from "../../models/misc.models";
 
 @Component({
     selector: 'nh-confirm-modal',
@@ -8,11 +10,16 @@ import {INhModalComponent, NhModalComponentRef, NhModalService} from "../../serv
     standalone: false
 })
 export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModalConfirmComponent> {
-  @Input() description?: string;
-  readonly cancelText = input<string>('Annuleren');
-  readonly confirmText = input<string>('Bevestigen');
-  readonly showCancel = input<boolean>(true);
-  readonly showConfirm = input<boolean>(true);
+  @Input() title: string = '';
+  @Input() message: string|SafeHtml = '';
+  @Input() btnConfirmText: string = 'Ja';
+  @Input() btnCancelText: string = 'Nee';
+  @Input() modalClass: ''|'success'|'danger'|'warning'|'info' = '';
+  @Input() btnConfirmDisabled: boolean = false;
+  @Input() btnCancelDisabled: boolean = false;
+  @Input() allBtnsDisabled: boolean = false;
+  @Input() showLoader: boolean = false;
+  @Input() errorResult: TaskResult<any>|undefined;
 
   readonly confirmed = output();
 
@@ -38,5 +45,18 @@ export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModa
 
   closeDialog(event?: any) {
     this.modalComponentRef?.close();
+  }
+
+  @Input() onConfirm: (() => void) | (() => Promise<void>) = () => {};
+  @Input() onCancel: (() => void) | (() => Promise<void>) = () => {};
+
+  readonly value = input<any>();
+
+  confirm() {
+    this.onConfirm();
+  }
+
+  cancel() {
+    this.onCancel();
   }
 }

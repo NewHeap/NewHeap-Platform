@@ -73,7 +73,7 @@ export class NhModalService {
 
   confirmDialog(text: string,onConfirm: (() => void) | (() => Promise<any>), onClose?: (() => void), options?: NhModalOptions) {
     const modal = this.open(NhModalConfirmComponent, options);
-    modal.contentComponent!.description = text;
+    modal.contentComponent!.message = text;
     const onConfirm$ = modal.contentComponent!.confirmed.subscribe(() => {
       Promise.resolve(onConfirm()).then();
     });

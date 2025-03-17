@@ -14,9 +14,10 @@ import { NhAuthService } from "../../services/nh-auth.service";
 import { NhModalService } from "../../services/nh-modal.service";
 import {CollectionHttpRequestOptions, CollectionHttpResponse, OrderByRequestOptions} from "../../models/http.models";
 import { ClaimTypes } from "../../models/auth.models";
+import {NhRouterService} from "../../services/nh-router.service";
 
 @Component({
-    selector: 'app-shared-collection-base-component',
+    selector: 'nh-shared-collection-base-component',
     template: ``,
     standalone: false
 })
@@ -37,6 +38,7 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
   protected toastrService: ToastrService = inject(ToastrService);
   protected router: Router = inject(Router);
   protected activatedRoute: ActivatedRoute = inject(ActivatedRoute);
+  protected nhRouterService: NhRouterService = inject(NhRouterService);
   iconPlus = faPlus;
   iconRefresh = faSync;
   iconImport = faFileImport;
