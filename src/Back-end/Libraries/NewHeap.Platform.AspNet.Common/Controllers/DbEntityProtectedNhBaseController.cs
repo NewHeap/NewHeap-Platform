@@ -17,7 +17,7 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMuta
     where TDbEntity : class, IdDbEntity
     where TMutateModel : class
     where TViewModel : class
-    where TBaseDbEntityService : BaseDbEntityService<TDbEntity, TMutateModel, TBaseDbEntityService>
+    where TBaseDbEntityService : IBaseDbEntityService<TDbEntity, TMutateModel>
     where TCollectionRequestModel : CollectionRequestModel, new()
 {
     protected readonly TBaseDbEntityService _dbEntityService;
