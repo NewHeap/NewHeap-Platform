@@ -1,8 +1,13 @@
 export class User {
-  username?: string;
-  customerId?: number;
-  customerGuid?: string;
-  isGuest: boolean = false;
+  id: string|undefined;
+  email: string|undefined;
+  creationDateTime: any;
+  emailConfirmed: boolean = false;
+  lockoutEnd: any;
+  lockoutStart: any;
+  activeDivisionId: string|undefined;
+  activeDivision: Division|undefined;
+  roles: Array<string> = [];
 
   public constructor(init?: Partial<User>) {
     Object.assign(this, init);
