@@ -20,7 +20,7 @@ public interface IBaseDbEntityService<TEntity, TMutateModel>
     where TEntity : class, IdDbEntity
     where TMutateModel : class
 {
-    Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null);
+    Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null);
     Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = null);
     Task<TEntity?> GetAsync(Guid id);
     IRepository<TEntity> GetRepository();
@@ -123,7 +123,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
         }
     }
 
-    public virtual async Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null)
+    public virtual async Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null)
     {
         var result = new TaskResult<TEntity?>();
 
@@ -141,6 +141,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
 
         var entity = _mapper.Map<TEntity>(mutateModel);
         await _repository.AddAsync(entity);
+        beforeSave?.Invoke(entity);
 
         await _dbLogService.LogAsync(
             message: "Entity create successful.",
