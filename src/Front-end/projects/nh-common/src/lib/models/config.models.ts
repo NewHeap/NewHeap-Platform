@@ -1,3 +1,26 @@
+
+export class EndpointsAuthenticationNhCommonModuleConfig {
+  login: string = '/authentication/login';
+  logout: string = '/authentication/logout';
+  refresh: string = '/authentication/refresh';
+  accountInformation: string ='/account';
+
+  public constructor(init?: Partial<EndpointsAuthenticationNhCommonModuleConfig>) {
+    Object.assign(this, init);
+  }
+}
+
+export class AuthenticationNhCommonModuleConfig {
+  addAuthTokensToRequests: boolean = true;
+  additionalClaimPermissionTypes: string[] = [];
+  additionalDivisionClaimPermissionTypes: string[] = [];
+  endpoints: EndpointsAuthenticationNhCommonModuleConfig = new EndpointsAuthenticationNhCommonModuleConfig();
+
+  public constructor(init?: Partial<AuthenticationNhCommonModuleConfig>) {
+    Object.assign(this, init);
+  }
+}
+
 export class NhCommonModuleConfig {
   appDisplayName: string = '';
   baseUrl: string = '';
@@ -11,15 +34,7 @@ export class NhCommonModuleConfig {
   authenticationRealm: string = '';
   environment: string = '';
   cookieDomain: string = '';
-  authentication = {
-    addAuthTokensToRequests: true,
-    endpoints: {
-      login: '/authentication/login',
-      logout: '/authentication/logout',
-      refresh: '/authentication/refresh',
-      accountInformation: '/account'
-    }
-  }
+  authentication: AuthenticationNhCommonModuleConfig = new AuthenticationNhCommonModuleConfig();
 
   public constructor(init?: Partial<NhCommonModuleConfig>) {
     Object.assign(this, init);

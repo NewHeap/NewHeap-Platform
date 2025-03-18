@@ -63,6 +63,28 @@ export class NhAuthService implements OnDestroy {
     }
   }
 
+  private getAllPermissionClaimTypes() {
+    let types = new Array<string>();
+    types.push(ClaimTypes.Permission);
+
+    for(const type of this.moduleConfig?.authentication?.additionalClaimPermissionTypes ?? []) {
+      types.push(type);
+    }
+
+    return types;
+  }
+
+  private getAllDivisionPermissionClaimTypes() {
+    let types = new Array<string>();
+    types.push(ClaimTypes.DivisionPermission);
+
+    for(const type of this.moduleConfig?.authentication?.additionalDivisionClaimPermissionTypes ?? []) {
+      types.push(type);
+    }
+
+    return types;
+  }
+
   public getSessionExpirationInformation() {
     const result = new AuthSessionExpirationInformation({
       isAuthenticated: this.isAuthenticated()
@@ -196,8 +218,10 @@ export class NhAuthService implements OnDestroy {
     }
 
     for (const permission of permissions) {
-      if (this.isClaimGranted(<Claim>{type: ClaimTypes.Permission, value: permission})) {
-        return true;
+      for(const claimType of this.getAllPermissionClaimTypes()) {
+        if (this.isClaimGranted(<Claim>{type: claimType, value: permission})) {
+          return true;
+        }
       }
     }
 
@@ -224,8 +248,10 @@ export class NhAuthService implements OnDestroy {
     }
 
     for (const permission of permissions) {
-      if (this.isClaimGranted(<Claim>{type: ClaimTypes.DivisionPermission, value: (divisionId ?? '') + '_' + permission})) {
-        return true;
+      for(const claimType of this.getAllDivisionPermissionClaimTypes()) {
+        if (this.isClaimGranted(<Claim>{type: claimType, value: (divisionId ?? '') + '_' + permission})) {
+          return true;
+        }
       }
     }
 
