@@ -76,7 +76,7 @@ public partial class DivisionUserService : BaseDbEntityService<DivisionUser, Div
     }
 
     public override async Task<TaskResult<DivisionUser>> CreateAsync(DivisionUserMutateModel mutateModel,
-        Guid? committedByUserId = default)
+        Guid? committedByUserId = default, Action<DivisionUser>? beforeSave = null)
     {
         TaskResult<DivisionUser> result = new();
 
@@ -101,6 +101,8 @@ public partial class DivisionUserService : BaseDbEntityService<DivisionUser, Div
 
             await _divisionUserRoleRepository.AddRangeAsync(divisionUserRoles);
         }
+
+        beforeSave?.Invoke(divisionUser);
 
         await _dbLogService.LogAsync(
             "DivisionUser create successful.",
