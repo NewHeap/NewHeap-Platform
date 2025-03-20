@@ -51,7 +51,7 @@ public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint
     }
 
     [ApiExplorerSettings(GroupName = "Authentication")]
-    [EndpointGroupName("Authentication")]
+    [Tags("Authentication")]
     [EndpointName("Refresh token")]
     [Produces<Results<Ok<UserToken>,BadRequest>>]
     private async Task<IResult> Authenticate([FromBody] RefreshTokenRequest? request, [FromServices] INhAuthenticationService authenticationService)

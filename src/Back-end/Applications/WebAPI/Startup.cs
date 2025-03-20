@@ -18,6 +18,7 @@ using WebAPI.DAL;
 using WebAPI.Services;
 using WebAPI.Jobs;
 using WebAPI.DAL.Entities;
+using Scalar.AspNetCore;
 
 
 namespace WebAPI;
@@ -40,6 +41,7 @@ public class Startup
     // This method gets called by the runtime. Use this method to add services to the container.
     public void ConfigureServices(IServiceCollection services)
     {
+        services.AddOpenApi("v1");
         var newHeapPlatformOptions = NewHeapAspNetCommonOptions.Builder(Configuration)
             .ConfigureAutoMapper(options => options.AddMaps(typeof(Startup)))
             .ConfigureAuthorization(options =>
@@ -142,6 +144,11 @@ public class Startup
     {
         app.UseNewHeapPlatformAspNetCommon(env, services,
                 NewHeapPlatformAspNetCommonApplicationBuilderOptions.Builder
+                    .UseEndpoints(e =>
+                    {
+                        e.MapOpenApi();
+                        e.MapScalarApiReference("/scalar");
+                    })
                     .UseHsTs(!env.IsDevelopment())
                     .UseHttpsRedirection(!env.IsDevelopment())
                     .Build()
