@@ -7,7 +7,7 @@ import {TranslateModule} from "@ngx-translate/core";
 import {NhCommonModule} from "nh-common";
 import {AppSharedModule} from "../../shared/app-shared.module";
 import {FormsModule} from "@angular/forms";
-import {NhSharedErrorComponent} from "../../../../../nh-common/src/lib/components/nh-error/component";
+import {NhErrorComponent} from "../../../../../nh-common/src/lib/components/nh-error/component";
 import {SitemapXmlHomePage} from "../sitemap-xml/page";
 
 @NgModule({

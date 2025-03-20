@@ -2,12 +2,12 @@ import {Component, input} from '@angular/core'
 import { TaskResult } from '../../models/misc.models';
 
 @Component({
-  selector: 'nh-shared-error',
+  selector: 'nh-error',
   templateUrl: 'component.html',
   styleUrls: ['component.scss'],
   standalone: false
 })
-export class NhSharedErrorComponent {
+export class NhErrorComponent {
   key = input.required<string | undefined>();
   errors = input.required<TaskResult<any> | undefined>();
 
