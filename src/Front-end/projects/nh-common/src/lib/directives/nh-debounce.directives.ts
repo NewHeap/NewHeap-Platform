@@ -13,7 +13,7 @@ export class NhDebounceDirective implements OnInit, OnDestroy {
   public readonly onDebounce = output<any>();
   public readonly preDebounce = output<any>();
 
-  public readonly debounceTime = input(500, { alias: "debounce" });
+  public readonly debounceTime = input(500, { alias: "nhDebounce" });
 
   private isFirstChange = true;
   private ngUnsubscribe: Subject<void> = new Subject<void>();

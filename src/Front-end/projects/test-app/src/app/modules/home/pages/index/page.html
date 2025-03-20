@@ -5,3 +5,6 @@ Homepage
 <br />
 Heeft add permissie?
 {{ ['app.address.manage'] | isOnePermissionGranted }}
+
+<input class="form-control" type="text" placeholder="{{ 'general.search' | translate }}..."
+       [(ngModel)]="searchValue" [nhDebounce]="500" (onDebounce)="search($event)"/>

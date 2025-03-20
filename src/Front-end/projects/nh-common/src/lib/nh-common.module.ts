@@ -44,6 +44,7 @@ import {FormsModule} from "@angular/forms";
 import {NhServerSideFormValidationService} from "./services/nh-server-side-form-validator.service";
 import {NhFormErrorMessageComponent} from "./components/nh-form-error-message/form-error-message.component";
 import {NhApiAuthInterceptor} from "./interceptors/nh-api.auth.interceptor";
+import {NhSharedErrorComponent} from "./components/nh-error/component";
 
 
 @NgModule({
@@ -62,6 +63,7 @@ import {NhApiAuthInterceptor} from "./interceptors/nh-api.auth.interceptor";
     NhModalConfirmComponent,
     NhFormDropDownComponent,
     NhFormErrorMessageComponent,
+    NhSharedErrorComponent,
     // Pipes
     NhDatePipe,
     NhDateUtcPipe,
@@ -96,6 +98,7 @@ import {NhApiAuthInterceptor} from "./interceptors/nh-api.auth.interceptor";
     NhModalConfirmComponent,
     NhFormDropDownComponent,
     NhFormErrorMessageComponent,
+    NhSharedErrorComponent,
     // Pipes
     NhDatePipe,
     NhDateUtcPipe,

@@ -9,6 +9,8 @@ import {CollectionHttpRequestOptions, NhApiService, NhPageBaseComponent} from "n
     standalone: false
 })
 export class IndexHomePage extends NhPageBaseComponent {
+  searchValue: string = '';
+
   constructor(
     private route: ActivatedRoute,
     private apiService: NhApiService
@@ -35,5 +37,9 @@ export class IndexHomePage extends NhPageBaseComponent {
   }
 
   async load() {
+  }
+
+  search($event: any){
+
   }
 }

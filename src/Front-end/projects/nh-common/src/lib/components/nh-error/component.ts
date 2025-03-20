@@ -5,10 +5,7 @@ import { TaskResult } from '../../models/misc.models';
   selector: 'nh-shared-error',
   templateUrl: 'component.html',
   styleUrls: ['component.scss'],
-  imports: [
-
-  ],
-  standalone: true
+  standalone: false
 })
 export class NhSharedErrorComponent {
   key = input.required<string | undefined>();

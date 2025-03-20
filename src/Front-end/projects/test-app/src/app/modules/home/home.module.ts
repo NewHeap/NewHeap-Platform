@@ -19,8 +19,7 @@ import {SitemapXmlHomePage} from "../sitemap-xml/page";
     NhCommonModule,
     AppSharedModule,
     NgOptimizedImage,
-    FormsModule,
-    NhSharedErrorComponent
+    FormsModule
   ],
   declarations: [
     IndexHomePage,
