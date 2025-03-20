@@ -66,20 +66,34 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMuta
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoGet([FromQuery] TCollectionRequestModel requestModel)
+    protected virtual Task<IActionResult> DoGet(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null)
+    {
+        return DoGet<TViewModel>(requestModel, overrideQuery);
+    }
+
+    [NonAction]
+    protected virtual async Task<IActionResult> DoGet<TCustomViewModel>(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null)
+        where TCustomViewModel : class
     {
         requestModel ??= new TCollectionRequestModel();
-        var query = (await GetQueryableAsync()).AsNoTracking();
+        var query = overrideQuery?.AsNoTracking() ?? (await GetQueryableAsync()).AsNoTracking();
 
-        var result = await GetCollectionResultModel<TDbEntity, TViewModel>(query, GetDefaultCollectionResultOrderBy());
+        var result = await GetCollectionResultModel<TDbEntity, TCustomViewModel>(query, GetDefaultCollectionResultOrderBy());
 
         return Ok(result);
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoGetById(Guid id)
+    protected virtual Task<IActionResult> DoGetById(Guid id, IQueryable<TDbEntity>? overrideQuery = null)
+    { 
+        return DoGetById<TViewModel>(id, overrideQuery);
+    }
+
+    [NonAction]
+    protected virtual async Task<IActionResult> DoGetById<TCustomViewModel>(Guid id, IQueryable<TDbEntity>? overrideQuery = null)
+        where TCustomViewModel : class
     {
-        var query = (await GetQueryableAsync()).AsNoTracking();
+        var query = overrideQuery?.AsNoTracking() ?? (await GetQueryableAsync()).AsNoTracking();
         var entity = await query.FirstOrDefaultAsync(x => x.Id == id);
 
         if (entity == null)
@@ -87,7 +101,7 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMuta
             return NotFound();
         }
 
-        var viewModel = _mapper.Map<TViewModel>(entity);
+        var viewModel = _mapper.Map<TCustomViewModel>(entity);
 
         return Ok(viewModel);
     }
