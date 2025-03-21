@@ -35,6 +35,7 @@ public class NhLogoutAuthenticationHandler : IAuthenticationEndpoint
     }
     
     [ApiExplorerSettings(GroupName = "Authentication")]
+    [Tags("Authentication")]
     [EndpointName("Logout")]
     [Produces<NoContentResult>]
     private async Task<IResult> Logout([FromServices] IHttpContextAccessor httpContextAccessor, [FromServices] INhAuthenticationService authenticationService)

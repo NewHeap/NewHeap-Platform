@@ -42,6 +42,7 @@ public class NhAccountInformationEndpointHandler : BaseNhAuthenticationEndpoint
     }
 
     [ApiExplorerSettings(GroupName = "Authentication")]
+    [Tags("Account")]
     [EndpointName("Account information")]
     [Produces<Ok<AccountResponse>>]
     private async Task<IResult> ProcessRequest(

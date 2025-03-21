@@ -60,6 +60,7 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
     }
 
     [ApiExplorerSettings(GroupName = "Authentication")]
+    [Tags("Authentication")]
     [EndpointName("Login")]
     [Produces<Results<Ok<UserToken>,BadRequest>>]
     private async Task<IResult> Authenticate([FromBody] AuthenticateRequest? request,[FromServices] INhAuthenticationService authenticationService)
