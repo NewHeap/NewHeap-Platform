@@ -159,7 +159,10 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
       await this.beforeLoad();
       this.updateRequestOptions();
 
-      const loadObservable = await this.onLoad(this.requestOptions);
+      // Pass a copy instead of the source to allow modifications without it modifying the URL;
+      // If u need them both modified, modify via this.requestOptions. in the load.
+      const requestOptions =JSON.parse(JSON.stringify(this.requestOptions));
+      const loadObservable = await this.onLoad(requestOptions);
 
       this.activeRequestSubscription = loadObservable.subscribe({
         next: (response) => {
