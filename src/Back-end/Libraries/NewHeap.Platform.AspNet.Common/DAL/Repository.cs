@@ -94,10 +94,10 @@ public partial class Repository<T> : IRepository<T> where T : class
         return DbSet.AddAsync(entity);
     }
 
-    public virtual ValueTask<EntityEntry<TEntity>> AddAsync<TEntity>(TEntity entity)
+    public virtual ValueTask<EntityEntry<TEntity>> AddAsync<TEntity>(TEntity entity, CancellationToken cancellationToken = default)
         where TEntity : class
     {
-        return Context.Set<TEntity>().AddAsync(entity);
+        return Context.Set<TEntity>().AddAsync(entity, cancellationToken);
     }
 
     public virtual void AddRange(IEnumerable<T> entities)
@@ -111,10 +111,10 @@ public partial class Repository<T> : IRepository<T> where T : class
         Context.Set<TEntity>().AddRange(entities);
     }
 
-    public virtual Task AddRangeAsync<TEntity>(IEnumerable<TEntity> entities)
+    public virtual Task AddRangeAsync<TEntity>(IEnumerable<TEntity> entities, CancellationToken cancellationToken = default)
         where TEntity : class
     {
-        return Context.Set<TEntity>().AddRangeAsync(entities);
+        return Context.Set<TEntity>().AddRangeAsync(entities, cancellationToken);
     }
 
     public virtual T? Find<TKey>(TKey id)
@@ -122,9 +122,9 @@ public partial class Repository<T> : IRepository<T> where T : class
         return DbSet.Find(id);
     }
 
-    public virtual ValueTask<T?> FindAsync<TKey>(TKey id)
+    public virtual ValueTask<T?> FindAsync<TKey>(TKey id, CancellationToken cancellationToken = default)
     {
-        return DbSet.FindAsync(id);
+        return DbSet.FindAsync(id, cancellationToken);
     }
 
     public virtual T? FindOneBy(Expression<Func<T, bool>> predicate)
@@ -132,9 +132,9 @@ public partial class Repository<T> : IRepository<T> where T : class
         return DbSet.FirstOrDefault(predicate);
     }
 
-    public virtual Task<T?> FindOneByAsync(Expression<Func<T, bool>> predicate)
+    public virtual Task<T?> FindOneByAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
     {
-        return DbSet.FirstOrDefaultAsync(predicate);
+        return DbSet.FirstOrDefaultAsync(predicate, cancellationToken);
     }
 
     public virtual IQueryable<T> FindBy(Expression<Func<T, bool>> predicate)
@@ -147,9 +147,9 @@ public partial class Repository<T> : IRepository<T> where T : class
         return DbSet.Any(predicate);
     }
 
-    public virtual Task<bool> AnyAsync(Expression<Func<T, bool>> predicate)
+    public virtual Task<bool> AnyAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
     {
-        return DbSet.AnyAsync(predicate);
+        return DbSet.AnyAsync(predicate, cancellationToken);
     }
 
     public virtual IQueryable<T> GetAll()
@@ -215,9 +215,9 @@ public partial class Repository<T> : IRepository<T> where T : class
         return new Repository<T>(context);
     }
 
-    public async Task<ITransaction> StartTransactionAsync()
+    public async Task<ITransaction> StartTransactionAsync(CancellationToken cancellationToken = default)
     {
-        var trans = await Context.Database.BeginTransactionAsync();
+        var trans = await Context.Database.BeginTransactionAsync(cancellationToken);
         return new Transaction(trans);
     }
 
@@ -226,13 +226,13 @@ public partial class Repository<T> : IRepository<T> where T : class
         return Context.SaveChanges();
     }
 
-    public virtual Task<int> SaveChangesAsync()
+    public virtual Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        return Context.SaveChangesAsync();
+        return Context.SaveChangesAsync(cancellationToken);
     }
 
-    public virtual Task AddRangeAsync(IEnumerable<T> entities)
+    public virtual Task AddRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)
     {
-        return DbSet.AddRangeAsync(entities);
+        return DbSet.AddRangeAsync(entities, cancellationToken);
     }
 }
