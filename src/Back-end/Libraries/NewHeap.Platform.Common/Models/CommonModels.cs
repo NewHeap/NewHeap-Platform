@@ -385,7 +385,7 @@ public partial class DisposableTaskResult<T> : TaskResult<T>, IDisposable where 
 }
 
 public partial class CreateUpdateDeleteValidateModel<TTaskResult, TSourceObj, TMutateObj>
-    where TTaskResult : class
+    where TTaskResult : class?
     where TSourceObj : class
     where TMutateObj : class
 {
