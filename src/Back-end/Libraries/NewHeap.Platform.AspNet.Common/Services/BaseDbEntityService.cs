@@ -80,7 +80,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
     public virtual async Task<TEntity?> GetAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await QueryableWithAllIncludes()
-            .FirstOrDefaultAsync(m => m.Id == id);
+            .FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
     }
 
     public virtual async Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
@@ -132,7 +132,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
             TaskResult = result,
             SourceModel = null,
             MutateModel = mutateModel,
-        });
+        }, cancellationToken);
 
         if (!result.Success)
         {
@@ -140,7 +140,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
         }
 
         var entity = _mapper.Map<TEntity>(mutateModel);
-        await _repository.AddAsync(entity);
+        await _repository.AddAsync(entity, cancellationToken);
         beforeSave?.Invoke(entity);
 
         await _dbLogService.LogAsync(
@@ -155,10 +155,11 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
             source: LogSource.Internal,
             tag: GetType().Name,
             doSaveChanges: false,
-            dbContext: _repository.Context
+            dbContext: _repository.Context,
+            cancellationToken: cancellationToken
         );
 
-        await _repository.SaveChangesAsync();
+        await _repository.SaveChangesAsync(cancellationToken);
 
         result.Data = entity;
 
@@ -190,14 +191,14 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
         var entity = await _repository
             .GetAll()
             .OrderBy(x => x.Id)
-            .FirstOrDefaultAsync(x => x.Id == id);
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         await ValidateCreateUpdateDeleteAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel>(CRUDActionType.Update)
         {
             TaskResult = result,
             SourceModel = entity,
             MutateModel = mutateModel,
-        });
+        }, cancellationToken);
 
         if (!result.Success)
         {
@@ -211,7 +212,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
         beforeSave?.Invoke(entity);
 
         var updatedData = LogHelperService.Copy(entity);
-        var changedProperties = await OnUpdateGetChangedProperies(originalData, updatedData);
+        var changedProperties = await OnUpdateGetChangedProperies(originalData, updatedData, cancellationToken);
 
         if (changedProperties.Any())
         {
@@ -231,7 +232,8 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
                 source: LogSource.Internal,
                 tag: GetType().Name,
                 doSaveChanges: false,
-                dbContext: _repository.Context
+                dbContext: _repository.Context,
+                cancellationToken: cancellationToken
             );
         }
 
@@ -248,10 +250,11 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
             source: LogSource.Internal,
             tag: GetType().Name,
             doSaveChanges: false,
-            dbContext: _repository.Context
+            dbContext: _repository.Context,
+            cancellationToken: cancellationToken
         );
 
-        await _repository.SaveChangesAsync();
+        await _repository.SaveChangesAsync(cancellationToken);
 
         result.Data = entity;
 
@@ -263,14 +266,14 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
         var result = new TaskResult<TEntity>();
 
         var entity = await _repository
-            .FindOneByAsync(x => x.Id == id);
+            .FindOneByAsync(x => x.Id == id, cancellationToken);
 
         await ValidateCreateUpdateDeleteAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel>(CRUDActionType.Delete)
         {
             TaskResult = result,
             SourceModel = entity,
             MutateModel = null,
-        });
+        }, cancellationToken);
 
         if (!result.Success)
         {
@@ -294,10 +297,11 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
             source: LogSource.Internal,
             tag: GetType().Name,
             doSaveChanges: false,
-            dbContext: _repository.Context
+            dbContext: _repository.Context,
+            cancellationToken: cancellationToken
         );
 
-        await _repository.SaveChangesAsync();
+        await _repository.SaveChangesAsync(cancellationToken);
 
         return result;
     }
