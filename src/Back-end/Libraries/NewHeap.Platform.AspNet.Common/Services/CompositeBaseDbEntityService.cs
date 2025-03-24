@@ -7,7 +7,7 @@ using NewHeap.Platform.Common.Services;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public interface IBaseDbEntityService<TEntity, TMutateModel> : IAbstractBaseDbEntityService<TEntity, TMutateModel>
+public interface ICompositeBaseDbEntityService<TEntity, TMutateModel> : IAbstractBaseDbEntityService<TEntity, TMutateModel>
     where TEntity : class, IdDbEntity
     where TMutateModel : class
 {
@@ -20,17 +20,17 @@ public interface IBaseDbEntityService<TEntity, TMutateModel> : IAbstractBaseDbEn
     Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default);
 }
 
-public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDbEntityService> : AbstractBaseDbEntityService<TEntity, TMutateModel, TBaseDbEntityService>, IBaseDbEntityService<TEntity, TMutateModel> 
+public abstract partial class CompositeBaseDbEntityService<TEntity, TMutateModel, TCompositeBaseDbEntityService> : AbstractBaseDbEntityService<TEntity, TMutateModel, TCompositeBaseDbEntityService>, ICompositeBaseDbEntityService<TEntity, TMutateModel> 
     where TEntity : class, IdDbEntity
     where TMutateModel : class
-    where TBaseDbEntityService : BaseDbEntityService<TEntity, TMutateModel, TBaseDbEntityService>
+    where TCompositeBaseDbEntityService : CompositeBaseDbEntityService<TEntity, TMutateModel, TCompositeBaseDbEntityService>
 {
-    protected BaseDbEntityService(
+    protected CompositeBaseDbEntityService(
         IRepository<TEntity> repository, 
         DbLogService dbLogService, 
         LogHelperService logHelperService, 
         IMapper mapper, 
-        IStringLocalizer<TBaseDbEntityService> localizer, 
+        IStringLocalizer<TCompositeBaseDbEntityService> localizer, 
         ValidationService validationService, 
         INhUserManager userManager
         ) : base(repository, dbLogService, logHelperService, mapper, localizer, validationService, userManager)
@@ -39,26 +39,20 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
 
     #region TEntity
 
-    public virtual Task<TEntity?> GetAsync(Guid id, CancellationToken cancellationToken = default) 
-        => base.DoGetAsync(id, cancellationToken);
+    public abstract Task<TEntity?> GetAsync(Guid id, CancellationToken cancellationToken = default);
 
-    public virtual Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
-        => base.DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    public abstract Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default);
 
-    public virtual Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default)
-        => base.DoCreateAsync(mutateModel, committedByUserId, beforeSave, cancellationToken);
+    public abstract Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default);
 
-    public virtual Task<TaskResult<TEntity>> UpdateAsync(
+    public abstract Task<TaskResult<TEntity>> UpdateAsync(
         Guid id,
         TMutateModel mutateModel,
         Guid? committedByUserId = default,
         Action<TEntity>? beforeSave = null,
         CancellationToken cancellationToken = default
-        )
-        => base.DoUpdateAsync(id, mutateModel, committedByUserId, beforeSave, cancellationToken);
+        );
 
-    public virtual Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default)
-        => base.DoDeleteAsync(id, committedByUserId, cancellationToken);
-
+    public abstract Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default);
     #endregion
 }
