@@ -20,13 +20,13 @@ public interface IBaseDbEntityService<TEntity, TMutateModel>
     where TEntity : class, IdDbEntity
     where TMutateModel : class
 {
-    Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null);
-    Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = null);
-    Task<TEntity?> GetAsync(Guid id);
+    Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default);
+    Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = null, CancellationToken cancellationToken = default);
+    Task<TEntity?> GetAsync(Guid id, CancellationToken cancellationToken = default);
     IRepository<TEntity> GetRepository();
     IQueryable<TEntity> QueryableWithAllIncludes(IQueryable<TEntity> queryable = null);
-    Task<TaskResult<TEntity>> UpdateAsync(Guid id, TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null);
-    Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model);
+    Task<TaskResult<TEntity>> UpdateAsync(Guid id, TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default);
+    Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default);
 }
 
 
@@ -77,13 +77,13 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
 
     #region TEntity
 
-    public virtual async Task<TEntity?> GetAsync(Guid id)
+    public virtual async Task<TEntity?> GetAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await QueryableWithAllIncludes()
             .FirstOrDefaultAsync(m => m.Id == id);
     }
 
-    public virtual async Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model)
+    public virtual async Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
         void sourceModelCheck()
         {
@@ -123,7 +123,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
         }
     }
 
-    public virtual async Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null)
+    public virtual async Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default)
     {
         var result = new TaskResult<TEntity?>();
 
@@ -167,7 +167,9 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
 
     protected virtual Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(
         TEntity original,
-        TEntity updated)
+        TEntity updated, 
+        CancellationToken cancellationToken = default
+        )
     {
         return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<TEntity, object>>, Func<object, Task<string>>>
         {
@@ -179,7 +181,8 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
         Guid id,
         TMutateModel mutateModel,
         Guid? committedByUserId = default,
-        Action<TEntity>? beforeSave = null
+        Action<TEntity>? beforeSave = null, 
+        CancellationToken cancellationToken = default
         )
     {
         var result = new TaskResult<TEntity>();
@@ -255,7 +258,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
         return result;
     }
 
-    public virtual async Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = default)
+    public virtual async Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default)
     {
         var result = new TaskResult<TEntity>();
 

@@ -53,7 +53,7 @@ public partial class DivisionService : BaseDbEntityService<Division, DivisionMut
     }
 
     public override async Task ValidateCreateUpdateDeleteAsync(
-        CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel> model)
+        CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel> model, CancellationToken cancellationToken)
     {
         void sourceModelCheck()
         {
@@ -104,7 +104,7 @@ public partial class DivisionService : BaseDbEntityService<Division, DivisionMut
         }
     }
 
-    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(Division original, Division updated)
+    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(Division original, Division updated, CancellationToken cancellationToken = default)
     {
         return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<Division, object>>, Func<object, Task<string>>>
         {

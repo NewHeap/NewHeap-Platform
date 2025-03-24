@@ -35,7 +35,7 @@ public partial class DivisionUserService : BaseDbEntityService<DivisionUser, Div
     }
 
     public override async Task ValidateCreateUpdateDeleteAsync(
-        CreateUpdateDeleteValidateModel<DivisionUser, DivisionUser, DivisionUserMutateModel> model)
+        CreateUpdateDeleteValidateModel<DivisionUser, DivisionUser, DivisionUserMutateModel> model, CancellationToken cancellationToken = default)
     {
         void sourceModelCheck()
         {
@@ -76,7 +76,7 @@ public partial class DivisionUserService : BaseDbEntityService<DivisionUser, Div
     }
 
     public override async Task<TaskResult<DivisionUser>> CreateAsync(DivisionUserMutateModel mutateModel,
-        Guid? committedByUserId = default, Action<DivisionUser>? beforeSave = null)
+        Guid? committedByUserId = default, Action<DivisionUser>? beforeSave = null, CancellationToken cancellationToken = default)
     {
         TaskResult<DivisionUser> result = new();
 
@@ -130,7 +130,8 @@ public partial class DivisionUserService : BaseDbEntityService<DivisionUser, Div
         Guid id, 
         DivisionUserMutateModel mutateModel,
         Guid? committedByUserId = default,
-        Action<DivisionUser>? beforeSave = null
+        Action<DivisionUser>? beforeSave = null, 
+        CancellationToken cancellationToken = default
         )
     {
         TaskResult<DivisionUser> result = new();

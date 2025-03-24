@@ -15,8 +15,12 @@ public partial class MailService
         _emailSettings = emailSettings.Value;
     }
 
-    public virtual async Task SendAsync(MailMessage mailMessage, MailAddress? fromMailAddress = null,
-        string? formDisplayName = null)
+    public virtual async Task SendAsync(
+        MailMessage mailMessage, 
+        MailAddress? fromMailAddress = null,
+        string? formDisplayName = null, 
+        CancellationToken cancellationToken = default
+        )
     {
         if (mailMessage == null)
         {

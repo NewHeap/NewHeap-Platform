@@ -6,6 +6,7 @@ using NewHeap.Platform.Common.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 using WebAPI.DAL.Entities;
 using WebAPI.Models.Mutate;
@@ -29,7 +30,7 @@ namespace WebAPI.Services
         {
         }
 
-        protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(Address original, Address updated)
+        protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(Address original, Address updated, CancellationToken cancellationToken = default)
         {
             return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<Address, object>>, Func<object, Task<string>>>
             {

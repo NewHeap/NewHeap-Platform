@@ -51,7 +51,8 @@ public partial class DbLogService
         (string name, Stream contentStream)[]? files = null,
         DateTimeOffset? overrideCreationDateTime = null,
         bool doSaveChanges = true,
-        NhIdentityDbContext? dbContext = null
+        NhIdentityDbContext? dbContext = null,
+        CancellationToken cancellationToken = default
     )
     {
         dbContext ??= _logRepository.Context;
