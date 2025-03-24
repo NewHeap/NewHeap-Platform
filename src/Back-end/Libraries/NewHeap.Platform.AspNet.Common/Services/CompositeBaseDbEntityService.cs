@@ -14,8 +14,6 @@ public interface ICompositeBaseDbEntityService<TEntity, TMutateModel> : IAbstrac
     Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default);
     Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = null, CancellationToken cancellationToken = default);
     Task<TEntity?> GetAsync(Guid id, CancellationToken cancellationToken = default);
-    IRepository<TEntity> GetRepository();
-    IQueryable<TEntity> QueryableWithAllIncludes(IQueryable<TEntity> queryable = null);
     Task<TaskResult<TEntity>> UpdateAsync(Guid id, TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default);
     Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default);
 }
