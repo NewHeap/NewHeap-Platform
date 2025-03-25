@@ -93,6 +93,7 @@ export class NhApiService implements OnDestroy {
     return httpParams;
   }
 
+  // TODO: dit is een front-end API functie voor non management requesten
   public setObjectParams(httpParams: HttpParams, requestOptions?: HttpRequestOptions|HttpDownloadRequestOptions): HttpParams {
     const customPropertyNames = Object.getOwnPropertyNames(requestOptions).filter(x => x).filter(x => !NhApiService.skipObjectParamParseKeys.find(c => c === x));
     for (const propertyName of customPropertyNames) {
@@ -132,7 +133,7 @@ export class NhApiService implements OnDestroy {
 
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
-    httpParams = this.setObjectParams(httpParams, requestOptions);
+    //httpParams = this.setObjectParams(httpParams, requestOptions);
 
     return this.httpClient.get<T>(url, {
       headers: headers,
@@ -155,13 +156,21 @@ export class NhApiService implements OnDestroy {
 
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
-    httpParams = this.setObjectParams(httpParams, requestOptions);
     httpParams = httpParams.set('page', requestOptions.page);
     httpParams = httpParams.set('itemsPerPage', requestOptions.itemsPerPage);
 
-    if (null != requestOptions.search && requestOptions.search.length > 0) {
-      httpParams = httpParams.set('search', requestOptions.search);
+    if (null != requestOptions.orderBy && requestOptions.orderBy.length > 0) {
+      httpParams = httpParams.set('orderBy', JSON.stringify(requestOptions.orderBy));
     }
+
+    if (null != requestOptions.filter && requestOptions.filter.length > 0) {
+      httpParams = httpParams.set('filter', JSON.stringify(requestOptions.filter));
+    }
+
+    if ((requestOptions.search?.length ?? 0) > 0) {
+      httpParams = httpParams.set('search', requestOptions.search ?? '');
+    }
+
     return this.httpClient.get<CollectionHttpResponse<T>>(url, {
       headers: headers,
       observe: 'body',
@@ -200,7 +209,7 @@ export class NhApiService implements OnDestroy {
 
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
-    httpParams = this.setObjectParams(httpParams, requestOptions);
+    //httpParams = this.setObjectParams(httpParams, requestOptions);
 
     return this.httpClient.get(url, {
       headers: headers,
@@ -220,7 +229,7 @@ export class NhApiService implements OnDestroy {
 
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
-    httpParams = this.setObjectParams(httpParams, requestOptions);
+    //httpParams = this.setObjectParams(httpParams, requestOptions);
 
     return this.httpClient.get(url, {
       headers: headers,
@@ -240,7 +249,7 @@ export class NhApiService implements OnDestroy {
 
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
-    httpParams = this.setObjectParams(httpParams, requestOptions);
+    //httpParams = this.setObjectParams(httpParams, requestOptions);
 
     return this.httpClient.delete<T>(url, {
       headers: headers,
@@ -264,7 +273,7 @@ export class NhApiService implements OnDestroy {
 
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
-    httpParams = this.setObjectParams(httpParams, requestOptions);
+    //httpParams = this.setObjectParams(httpParams, requestOptions);
 
     return this.httpClient.delete<T>(url, {
       body: body,
@@ -286,7 +295,7 @@ export class NhApiService implements OnDestroy {
 
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
-    httpParams = this.setObjectParams(httpParams, requestOptions);
+    //httpParams = this.setObjectParams(httpParams, requestOptions);
 
     return this.httpClient.post<T>(url, body, {
       headers: headers,
@@ -310,7 +319,7 @@ export class NhApiService implements OnDestroy {
 
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
-    httpParams = this.setObjectParams(httpParams, requestOptions);
+    //httpParams = this.setObjectParams(httpParams, requestOptions);
 
     return this.httpClient.put<T>(url, body, {
       headers: headers,

@@ -1,6 +1,6 @@
 import {Component} from "@angular/core";
 import {ActivatedRoute} from "@angular/router";
-import {CollectionHttpRequestOptions, NhApiService, NhPageBaseComponent} from "nh-common";
+import {CollectionHttpRequestOptions, FilterRequestOptions, NhApiService, NhPageBaseComponent} from "nh-common";
 
 @Component({
     selector: 'app-home-page-index',
@@ -29,7 +29,15 @@ export class IndexHomePage extends NhPageBaseComponent {
 
   override async appAfterViewInit() {
     if(this.isPlatformBrowser()) {
-      this.apiService.getCollection<any>('https://localhost:5301/address', new CollectionHttpRequestOptions({})).subscribe((x) => {
+      this.apiService.getCollection<any>('https://localhost:5301/address', new CollectionHttpRequestOptions({
+        filter: [
+          new FilterRequestOptions({
+            key: 'name',
+            value: null,
+            operator: '!='
+          })
+        ]
+      })).subscribe((x) => {
       });
     }
 

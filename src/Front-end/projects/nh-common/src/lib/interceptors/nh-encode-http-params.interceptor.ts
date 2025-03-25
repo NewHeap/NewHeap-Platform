@@ -12,16 +12,7 @@ import {Observable, tap} from 'rxjs';
 @Injectable()
 export class NhEncodeHttpParamsInterceptor implements HttpInterceptor {
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    let params = new HttpParams();
-
-    for(const paramKey of req.params.keys()) {
-      const param = req.params.get(paramKey);
-      if(param && param.length > 0 && param !== 'undefined') {
-        params = params.append(paramKey, param);
-      }
-    }
-
-    params = new HttpParams({encoder: new CustomEncoder(), fromString: params.toString()});
+    const params = new HttpParams({encoder: new CustomEncoder(), fromString: req.params.toString()});
 
     return next.handle(req.clone({params}));
   }
@@ -33,9 +24,6 @@ class CustomEncoder implements HttpParameterCodec {
   }
 
   encodeValue(value: string): string {
-    if(!value || value.length < 1) {
-      return '';
-    }
     return encodeURIComponent(value);
   }
 
