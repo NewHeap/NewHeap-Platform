@@ -19,7 +19,6 @@ export class NhActiveDivisionInterceptor implements HttpInterceptor {
   }
 
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    let params = new HttpParams();
     let headers = req.headers;
 
     if(req.url.startsWith(this.moduleConfig.apiBaseUrl) || req.url.startsWith(this.moduleConfig.authApiBaseUrl)) {
@@ -31,6 +30,6 @@ export class NhActiveDivisionInterceptor implements HttpInterceptor {
       }
     }
 
-    return next.handle(req.clone({params, headers}));
+    return next.handle(req.clone({headers}));
   }
 }

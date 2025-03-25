@@ -162,7 +162,6 @@ export class NhApiService implements OnDestroy {
     if (null != requestOptions.search && requestOptions.search.length > 0) {
       httpParams = httpParams.set('search', requestOptions.search);
     }
-
     return this.httpClient.get<CollectionHttpResponse<T>>(url, {
       headers: headers,
       observe: 'body',

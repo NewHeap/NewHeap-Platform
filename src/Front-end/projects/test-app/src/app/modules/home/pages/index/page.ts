@@ -30,7 +30,6 @@ export class IndexHomePage extends NhPageBaseComponent {
   override async appAfterViewInit() {
     if(this.isPlatformBrowser()) {
       this.apiService.getCollection<any>('https://localhost:5301/address', new CollectionHttpRequestOptions({})).subscribe((x) => {
-        //debugger;
       });
     }
 

@@ -10,8 +10,7 @@ import {NhErrorComponent} from "../../../../nh-common/src/lib/components/nh-erro
     CommonModule,
     TranslateModule,
     FormsModule,
-    NhCommonModule,
-    NhErrorComponent
+    NhCommonModule
   ],
   declarations: [
   ],
