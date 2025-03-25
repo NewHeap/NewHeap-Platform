@@ -13,11 +13,12 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
-public abstract partial class CompositeDbEntityProtectedNhBaseController<TDbEntity, TMutateModel, TViewModel, TBaseDbEntityService, TCollectionRequestModel> : ProtectedNhBaseController
+public abstract partial class CompositeDbEntityProtectedNhBaseController<TDbEntity, TMutateModel, TServiceResultModel, TViewModel, TBaseDbEntityService, TCollectionRequestModel> : ProtectedNhBaseController
     where TDbEntity : class, IdDbEntity
     where TMutateModel : class
+    where TServiceResultModel : class
     where TViewModel : class
-    where TBaseDbEntityService : ICompositeBaseDbEntityService<TDbEntity, TMutateModel, TViewModel>
+    where TBaseDbEntityService : ICompositeBaseDbEntityService<TDbEntity, TMutateModel, TServiceResultModel>
     where TCollectionRequestModel : CollectionRequestModel, new()
 {
     protected readonly TBaseDbEntityService _compositeDbEntityService;
@@ -107,7 +108,14 @@ public abstract partial class CompositeDbEntityProtectedNhBaseController<TDbEnti
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoCreate([FromBody] TMutateModel mutateModel)
+    protected virtual Task<IActionResult> DoCreate([FromBody] TMutateModel mutateModel)
+    {
+        return DoCreate<TViewModel>(mutateModel);
+    }
+
+    [NonAction]
+    protected virtual async Task<IActionResult> DoCreate<TCustomViewModel>([FromBody] TMutateModel mutateModel)
+        where TCustomViewModel : class
     {
         if (!ModelState.IsValid)
         {
@@ -123,7 +131,7 @@ public abstract partial class CompositeDbEntityProtectedNhBaseController<TDbEnti
         }
 
         var entity = createTaskResult.Data;
-        var viewModel = _mapper.Map<TViewModel>(entity);
+        var viewModel = _mapper.Map<TCustomViewModel>(entity);
 
         return Ok(viewModel);
     }
