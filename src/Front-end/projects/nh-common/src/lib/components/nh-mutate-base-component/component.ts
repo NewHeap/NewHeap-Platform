@@ -58,22 +58,8 @@ export abstract class NhMutateBaseComponent<TFormData>
   private _mutationType: MutationType = MutationType.Create;
   private _formData: TFormData|undefined;
 
-  private _title: string = '';
-  @Input() set title(title: string) {
-    this._title = title;
-    if(this.modalComponentRef) {
-      this.modalComponentRef.modalComponent.title = title;
-    }
-  };
-  get title(): string {
-    return this._title;
-  }
-
   setModalComponentRef(ref: NhModalComponentRef<NhMutateBaseComponent<TFormData>>): void {
     this.modalComponentRef = ref;
-    if(this.modalComponentRef) {
-      this.modalComponentRef.modalComponent.title = this.title;
-    }
   }
 
   public get isLoading(): boolean {
