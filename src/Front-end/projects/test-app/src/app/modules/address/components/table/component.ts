@@ -78,8 +78,9 @@ export class TableAddressComponent extends NhCollectionBaseComponent<Address> im
   }
 
   showDeleteConfirmModal(id: string) {
-    const modal = this.modalService.open(NhModalConfirmComponent, new NhModalOptions({}));
-    modal.contentComponent!.title = this.translateService.instant('modal.confirm.address');
+    const modal = this.modalService.open(NhModalConfirmComponent, new NhModalOptions({
+      title: this.translateService.instant('modal.confirm.address')
+    }));
     modal.contentComponent!.message = this.translateService.instant('modal.confirm.message');
     modal.contentComponent!.onConfirm = async () => {
       await this.addressService.delete(id).lastValueFrom();

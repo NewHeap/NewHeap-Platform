@@ -149,6 +149,7 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
   }
 
   load(): Promise<CollectionHttpResponse<TCollectionResponseItem>> {
+debugger;
     return new Promise<CollectionHttpResponse<TCollectionResponseItem>>(async (resolve, reject) => {
       this.activeRequestSubscription?.unsubscribe();
       this.isLoading = true;
@@ -177,6 +178,10 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
 
 
   async search(search: string) {
+    if(search === this.requestOptions.search) {
+      return;
+    }
+
     this.requestOptions.page = 1;
     this.requestOptions.search = search;
     await this.load();
@@ -210,6 +215,10 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
   }
 
   async setPage(event: {page: number, itemsPerPage: number}) {
+    if(event.page === this.collectionResponse.page && event.itemsPerPage === this.collectionResponse.itemsPerPage) {
+      return;
+    }
+
     this.requestOptions.page = event.page;
     this.requestOptions.itemsPerPage = event.itemsPerPage;
 
