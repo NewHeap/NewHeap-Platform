@@ -1,4 +1,14 @@
-import {Component, EventEmitter, HostListener, inject, OnDestroy, OnInit, Output, ViewChild} from "@angular/core";
+import {
+  Component,
+  EventEmitter,
+  HostListener,
+  inject,
+  Input,
+  OnDestroy,
+  OnInit,
+  Output,
+  ViewChild
+} from "@angular/core";
 import {INhModalComponent, NhModalComponentRef, NhModalService} from "../../services/nh-modal.service";
 import { NhAuthService } from "../../services/nh-auth.service";
 import {TranslateService} from "@ngx-translate/core";
@@ -48,10 +58,23 @@ export abstract class NhMutateBaseComponent<TFormData>
   private _mutationType: MutationType = MutationType.Create;
   private _formData: TFormData|undefined;
 
-  setModalComponentRef(ref: NhModalComponentRef<NhMutateBaseComponent<TFormData>>): void {
-    this.modalComponentRef = ref;
+  private _title: string = '';
+  @Input() set title(title: string) {
+    this._title = title;
+    if(this.modalComponentRef) {
+      this.modalComponentRef.modalComponent.title = title;
+    }
+  };
+  get title(): string {
+    return this._title;
   }
 
+  setModalComponentRef(ref: NhModalComponentRef<NhMutateBaseComponent<TFormData>>): void {
+    this.modalComponentRef = ref;
+    if(this.modalComponentRef) {
+      this.modalComponentRef.modalComponent.title = this.title;
+    }
+  }
 
   public get isLoading(): boolean {
     return this._isLoading;

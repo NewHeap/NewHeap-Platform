@@ -10,7 +10,17 @@ import {TaskResult} from "../../models/misc.models";
     standalone: false
 })
 export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModalConfirmComponent> {
-  @Input() title: string = '';
+  private _title: string = '';
+  @Input() set title(title: string) {
+    this._title = title;
+    if(this.modalComponentRef) {
+      this.modalComponentRef.modalComponent.title = title;
+    }
+  };
+  get title(): string {
+    return this._title;
+  }
+
   @Input() message: string|SafeHtml = '';
   @Input() btnConfirmText: string = 'general.yes';
   @Input() btnCancelText: string = 'general.no';
@@ -27,10 +37,13 @@ export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModa
 
   constructor(
     private modalService: NhModalService
-  ) { }
+  ) {}
 
   setModalComponentRef(ref: NhModalComponentRef<NhModalConfirmComponent>): void {
     this.modalComponentRef = ref;
+    if(this.modalComponentRef) {
+      this.modalComponentRef.modalComponent.title = this.title;
+    }
   }
 
   @HostListener('document:keyup', ['$event'])
