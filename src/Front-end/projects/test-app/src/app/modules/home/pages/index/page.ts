@@ -32,7 +32,7 @@ export class IndexHomePage extends NhPageBaseComponent {
       this.apiService.getCollection<any>('https://localhost:5301/address', new CollectionHttpRequestOptions({
         filter: [
           new FilterRequestOptions({
-            key: 'name',
+            key: 'place',
             value: null,
             operator: '!='
           })
@@ -48,5 +48,9 @@ export class IndexHomePage extends NhPageBaseComponent {
 
   search($event: any){
 
+  }
+
+  async logout() {
+    this.authService.logout().then();
   }
 }

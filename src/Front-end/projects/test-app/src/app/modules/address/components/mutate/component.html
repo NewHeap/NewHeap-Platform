@@ -1,0 +1,34 @@
+
+<form #appForm="ngForm" (ngSubmit)="submit($event)" class="text-left">
+  <ng-container *ngIf="formData">
+    <div class="row">
+      <div class="col">
+        <div class="form-group required">
+          <label>{{ 'general.place' | translate }}</label>
+          <input
+            type="text"
+            class="form-control"
+            [readonly]="isLoadingOrSubmitting"
+            [(ngModel)]="formData.place"
+            [placeholder]="'general.place' | translate"
+            name="name"
+          />
+          <nh-form-error-message [control]="appForm.controls['place']"></nh-form-error-message>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+  <div class="row">
+    <div class="col">
+      <nh-form-error-message [control]="appForm.controls['']"></nh-form-error-message>
+    </div>
+  </div>
+
+  <button [attr.disabled]="isLoadingOrSubmitting ? true : null" type="button" class="btn btn-default"
+          (click)="closeDialog('Close click')">{{ 'general.cancel' | translate }}
+  </button>
+  <button [attr.disabled]="isLoadingOrSubmitting ? true : null" type="button" class="btn btn-primary"
+          (click)="submit($event)">{{ 'general.save' | translate }}
+  </button>
+  <div *ngIf="isLoadingOrSubmitting" class="app-modal-loader"></div>
+</form>

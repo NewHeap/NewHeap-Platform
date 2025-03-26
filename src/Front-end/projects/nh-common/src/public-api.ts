@@ -44,6 +44,7 @@ export * from './lib/services/nh-server-side-form-validator.service';
 export * from './lib/services/nh-division.service';
 export * from './lib/services/nh-division-user.service';
 export * from './lib/services/nh-user.service';
+export * from './lib/services/nh-base-api.service';
 
 export * from './lib/guards/nh-auth.guards';
 

@@ -2,11 +2,10 @@ import {
   Component, inject,
   OnDestroy,
   OnInit,
-  input
+  input, PLATFORM_ID
 } from "@angular/core";
 import {Observable, Subscription} from "rxjs";
 import {ActivatedRoute, Router} from "@angular/router";
-import {faDownload, faEye, faFileImport, faPlus, faSearch, faSync, faTrash} from "@fortawesome/free-solid-svg-icons";
 import {TranslateService} from "@ngx-translate/core";
 import {ToastrService} from "ngx-toastr";
 import { ColumnMode } from "@swimlane/ngx-datatable";
@@ -15,6 +14,8 @@ import { NhModalService } from "../../services/nh-modal.service";
 import {CollectionHttpRequestOptions, CollectionHttpResponse, OrderByRequestOptions} from "../../models/http.models";
 import { ClaimTypes } from "../../models/auth.models";
 import {NhRouterService} from "../../services/nh-router.service";
+import {platformServer} from "@angular/platform-server";
+import {DOCUMENT, isPlatformServer} from "@angular/common";
 
 @Component({
     selector: 'nh-shared-collection-base-component',
@@ -28,9 +29,8 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
     OnDestroy
 {
   protected readonly ColumnMode = ColumnMode;
-  iconEye = faEye;
-  iconTrash = faTrash;
-  iconDownload = faDownload;
+  protected document: Document = inject(DOCUMENT)
+  protected platformId: Object = inject(PLATFORM_ID);
   protected static readonly URL_QUERY_PARAM_KEY = 'q';
   protected authService: NhAuthService = inject(NhAuthService);
   protected modalService: NhModalService = inject(NhModalService);
@@ -39,10 +39,6 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
   protected router: Router = inject(Router);
   protected activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   protected nhRouterService: NhRouterService = inject(NhRouterService);
-  iconPlus = faPlus;
-  iconRefresh = faSync;
-  iconImport = faFileImport;
-  iconSearch = faSearch;
   tableInfo: any = {offset: 0, limit: 10};
   claimTypes = ClaimTypes;
   readonly queryParamUpdates = input<boolean>(true);
@@ -135,7 +131,7 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
       });
     }
 
-    if(this.localStorageUpdates()) {
+    if(this.localStorageUpdates() && !isPlatformServer(this.platformId)) {
       localStorage.setItem(this.localStorageKey, JSON.stringify(this.requestOptions));
     }
 

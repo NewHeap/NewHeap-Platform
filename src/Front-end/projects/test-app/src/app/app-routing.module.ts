@@ -6,6 +6,8 @@ import {TranslateService} from "@ngx-translate/core";
 import {NhConfigCommonService, NhRegisterRoute, NhRoute, NhRouterSetupService} from "nh-common";
 
 import {routes as getHomeRoutes} from "./modules/home/home-routing";
+import {routes as getAuthRoutes} from "./modules/auth/auth-routing.module";
+import {routes as getAddressRoutes} from "./modules/address/address-routing.module";
 
 export function routes(configService: NhConfigCommonService, translateService: TranslateService, nhRouterSetupService: NhRouterSetupService): Routes {
   const config = configService.getConfig();
@@ -41,7 +43,7 @@ export function routes(configService: NhConfigCommonService, translateService: T
           loadChildren: () => import('./modules/home/home.module').then(m => m.HomeModule),
         })),
         ...nhRouterSetupService.createRoute(new NhRegisterRoute({
-          id: 'home',
+          id: 'auth',
           parentIds: ['root'],
           routes: [
             new NhRoute({ language: 'nl', path: 'auth' }),
@@ -50,7 +52,18 @@ export function routes(configService: NhConfigCommonService, translateService: T
           ],
           canActivate: [],
           loadChildren: () => import('./modules/auth/auth.module').then(m => m.AuthModule),
-        }))
+        })),
+        ...nhRouterSetupService.createRoute(new NhRegisterRoute({
+          id: 'address',
+          parentIds: ['root'],
+          routes: [
+            new NhRoute({ language: 'nl', path: 'address' }),
+            new NhRoute({ language: 'en', path: 'address' }),
+            new NhRoute({ language: 'de', path: 'address' }),
+          ],
+          canActivate: [],
+          loadChildren: () => import('./modules/address/address.module').then(m => m.AddressModule),
+        })),
       ]
     })),
     // Fallback when no prior route is matched
@@ -64,10 +77,14 @@ export function routes(configService: NhConfigCommonService, translateService: T
 
   const rootRoutes = routes;
   const homeRoutes = getHomeRoutes(configService, translateService, nhRouterSetupService);
+  const authRoutes = getAuthRoutes(configService, translateService, nhRouterSetupService);
+  const addressRoutes = getAddressRoutes(configService, translateService, nhRouterSetupService);
 
   const allRoutes = [
     ...rootRoutes,
-    ...homeRoutes
+    ...homeRoutes,
+    ...authRoutes,
+    ...addressRoutes
   ];
 
   nhRouterSetupService.processRegisteredRoutes();

@@ -14,6 +14,7 @@ import { NhFormHelper } from "../../util/nh-form.util";
 import { NhRouterService } from "../../services/nh-router.service";
 import { NhTaskResultFormValidationService } from "../../services/nh-task-result-form.validator";
 import { TaskResult } from "../../models/misc.models";
+import {HttpErrorResponse} from "@angular/common/http";
 
 
 export enum MutationType {
@@ -165,10 +166,10 @@ export abstract class NhMutateBaseComponent<TFormData>
         this.form.reset();
         await this.newFormData(this.mutationType);
       } catch (err: any) {
-        if (err.error instanceof Error) {
-          this.form.controls[''].setErrors({remote: [this.translateService.instant('An unknown error occurred.')]});
-        } else {
+        if (err.error instanceof HttpErrorResponse) {
           this.formValidator.validate(AspMvcFormServerSideFormValidator, this.form, err);
+        } else {
+          this.form.controls[''].setErrors({remote: [this.translateService.instant('An unknown error occurred.')]});
         }
       }
     } finally {

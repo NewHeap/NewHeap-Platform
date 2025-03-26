@@ -1,0 +1,81 @@
+<div class="row" *ngIf="['app.address.view']|isOnePermissionGranted">
+  <div class="col-md-4">
+    <div class="input-group mb-2">
+      <div class="input-group-prepend">
+        <span class="input-group-text">search</span>
+      </div>
+      <input *ngIf="[{type: claimTypes.Permission, value: 'app.address.view'}]|isOneClaimGranted"
+             class="form-control" type="text" placeholder="{{ 'general.search' | translate }}..."
+             [(ngModel)]="requestOptions.search" [nhDebounce]="500" (onDebounce)="search($event)"/>
+    </div>
+  </div>
+  <div class="col-md-8 text-end">
+    <div class="buttons-right">
+      <button class="btn btn-pill btn-primary" (click)="load()">
+        Refresh
+      </button>
+      <button class="btn btn-pill btn-success" (click)="showMutateModal(undefined)">
+        Plus
+      </button>
+    </div>
+  </div>
+</div>
+
+<ngx-datatable
+  ngSkipHydration
+  #myTable
+  class="bootstrap"
+  [messages]="{ emptyMessage: 'ngx-datatable.messages.empty' | translate, totalMessage: 'ngx-datatable.messages.total' | translate, selectedMessage: 'ngx-datatable.messages.selected' | translate }"
+  [rows]="collectionResponse.items"
+  [columnMode]="'force'"
+  [headerHeight]="40"
+  [footerHeight]="50"
+  [rowHeight]="45"
+  [externalPaging]="true"
+  [count]="collectionResponse.totalCount"
+  [offset]="tableInfo.offset"
+  [limit]="tableInfo.limit"
+  [loadingIndicator]="isLoading"
+  [sorts]="tableInfo.sorts"
+  (page)='setPageByOffsetLimit($event)'
+  (activate)="onTableActivate($event)"
+  (sort)='sort($event)'>
+
+  <ngx-datatable-column name="{{ 'general.place' | translate }}" prop="place">
+    <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
+      {{ value }}
+    </ng-template>
+  </ngx-datatable-column>
+
+  <ngx-datatable-column
+    name="{{ 'general.actions' | translate }}"
+    prop="id"
+    [width]="200"
+    [resizeable]="false"
+    [sortable]="false"
+    [draggable]="false"
+    [canAutoResize]="false">
+    <ng-template let-column="column" let-sort="sortFn" ngx-datatable-header-template>
+      {{ column.name }}
+    </ng-template>
+
+    <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
+      <div class="table-actions">
+        <button [nhRouterLink]="{ id: '/address/view', arguments: { id: row.id}}"
+                class="btn btn-pill btn-sm btn-primary"
+                *ngIf="['app.address.view']|isOnePermissionGranted"
+        >eye</button>
+        <button
+          (click)="showMutateModal(row)"
+          class="btn btn-pill btn-sm btn-secondary"
+          *ngIf="['app.address.manage']|isOnePermissionGranted"
+        >edit</button>
+        <button
+          (click)="showDeleteConfirmModal(row.id)"
+          class="btn btn-pill btn-sm btn-danger"
+          *ngIf="['app.address.manage']|isOnePermissionGranted"
+        >Trash</button>
+      </div>
+    </ng-template>
+  </ngx-datatable-column>
+</ngx-datatable>

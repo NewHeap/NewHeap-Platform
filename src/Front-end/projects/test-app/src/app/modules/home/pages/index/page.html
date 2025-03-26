@@ -8,3 +8,13 @@ Heeft add permissie?
 
 <input class="form-control" type="text" placeholder="{{ 'general.search' | translate }}..."
        [(ngModel)]="searchValue" [nhDebounce]="500" (onDebounce)="search($event)"/>
+<br />
+<br />
+<a class="btn btn-primary" [nhRouterLink]="{ id: 'address/overview' }">Adressen</a>
+<br />
+<br />
+<br />
+<button class="btn btn-primary" (click)="logout()">Logout</button>
+<br />
+<br />
+<a class="btn btn-primary" [nhRouterLink]="{ id: 'auth/login' }">Login</a>

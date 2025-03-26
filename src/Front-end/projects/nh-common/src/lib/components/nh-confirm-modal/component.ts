@@ -12,8 +12,8 @@ import {TaskResult} from "../../models/misc.models";
 export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModalConfirmComponent> {
   @Input() title: string = '';
   @Input() message: string|SafeHtml = '';
-  @Input() btnConfirmText: string = 'Ja';
-  @Input() btnCancelText: string = 'Nee';
+  @Input() btnConfirmText: string = 'general.yes';
+  @Input() btnCancelText: string = 'general.no';
   @Input() modalClass: ''|'success'|'danger'|'warning'|'info' = '';
   @Input() btnConfirmDisabled: boolean = false;
   @Input() btnCancelDisabled: boolean = false;
