@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.DAL;
@@ -51,7 +52,7 @@ public partial class DbLogService
         (string name, Stream contentStream)[]? files = null,
         DateTimeOffset? overrideCreationDateTime = null,
         bool doSaveChanges = true,
-        NhIdentityDbContext? dbContext = null,
+        DbContext? dbContext = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -79,7 +80,7 @@ public partial class DbLogService
             log.CreationDateTime = overrideCreationDateTime.Value;
         }
 
-        await dbContext.Logs.AddAsync(log);
+        await _logRepository.AddAsync(log);
 
         if (messageArguments?.Any() == true)
         {
@@ -185,7 +186,7 @@ public partial class DbLogService
 
                         NhLogFile logFile = new() { OriginalFileName = name, FilePath = filePath, LogId = log.Id };
 
-                        await dbContext.LogFiles.AddAsync(logFile);
+                        log.Files.Add(logFile);
 
                         addedCount++;
                         break;

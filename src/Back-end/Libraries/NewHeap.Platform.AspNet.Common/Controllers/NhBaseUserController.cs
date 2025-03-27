@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -62,7 +63,7 @@ public abstract class NhBaseUserController : ProtectedNhBaseController
 
         if (requestModel?.Roles?.Any() == true)
         {
-            query = query.Where(x => _userManager.GetRepository().Context.UserRoles.Any(c => c.UserId == x.Id && _userManager.GetRepository().Context.Roles.Where(v => requestModel.Roles.Contains(v.Name)).Select(c => c.Id).Contains(c.RoleId)));
+            query = query.Where(x => _userManager.GetRepository().Context.UserRoles.Any(c => c.UserId == x.Id.ToString() && _userManager.GetRepository().Context.Roles.Where(v => requestModel.Roles.Contains(v.Name)).Select(c => c.Id).Contains(c.RoleId)));
         }
 
         if (requestModel?.DivisionIds?.Any() == true)
