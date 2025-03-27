@@ -24,7 +24,7 @@ public class MockAuthenticationService : INhAuthenticationService
     public async Task<TaskResult<UserToken>> Authenticate(AuthenticateRequest request,
         IEnumerable<Claim> requiredClaims = null)
     {
-        var user = new User
+        var user = new NhUser
         {
             Id = Guid.NewGuid(),
             UserName = request.UserName,
@@ -37,7 +37,7 @@ public class MockAuthenticationService : INhAuthenticationService
             token.Issuer);
     }
 
-    public async Task<JwtSecurityToken> CreateToken(User user, TimeSpan? expiration = null)
+    public async Task<JwtSecurityToken> CreateToken(NhUser user, TimeSpan? expiration = null)
     {
         return new JwtSecurityToken(
             claims: [

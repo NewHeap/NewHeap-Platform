@@ -39,12 +39,12 @@ public abstract class NhBaseUserController : ProtectedNhBaseController
     }
 
     [NonAction]
-    public Task<IQueryable<User>> GetQueryableAsync()
+    public Task<IQueryable<NhUser>> GetQueryableAsync()
     {
         
         var query = _userManager
             .GetRepository()
-            as IQueryable<User>
+            as IQueryable<NhUser>
         ;
 
         query = ApplyDivisionFilter(query, x => x.DivisionUsers.Any(c => c.DivisionId == ActiveDivisionId));
@@ -75,7 +75,7 @@ public abstract class NhBaseUserController : ProtectedNhBaseController
             query = query.Where(x => x.DivisionUsers.Any(c => c.DivisionUserRoles.Any(v => v.DivisionRole.Name == "User")));
         }
 
-        return await Ok<User, UserViewModel>(query,
+        return await Ok<NhUser, UserViewModel>(query,
             (x => x.Email, ListSortDirection.Ascending));
     }
 

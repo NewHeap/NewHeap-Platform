@@ -13,13 +13,13 @@ public partial class DbLogService
 {
     protected readonly IHttpContextAccessor _httpContextAccessor;
     protected readonly IStringLocalizer<DbLogService> _logLocalizer;
-    protected readonly IRepository<Log> _logRepository;
+    protected readonly IRepository<NhLog> _logRepository;
     protected readonly DbLogServiceSettings _logSettings;
     protected readonly NewHeapAspNetCommonSettings _settings;
 
     public DbLogService(
         IOptions<DbLogServiceSettings> logSettings,
-        IRepository<Log> logRepository,
+        IRepository<NhLog> logRepository,
         IHttpContextAccessor httpContextAccessor,
         IStringLocalizer<DbLogService> logLocalizer,
         IOptions<NewHeapAspNetCommonSettings> settings
@@ -32,7 +32,7 @@ public partial class DbLogService
         _settings = settings.Value;
     }
 
-    public virtual IQueryable<Log> GetQueryable()
+    public virtual IQueryable<NhLog> GetQueryable()
     {
         return _logRepository.GetAll();
     }
@@ -57,7 +57,7 @@ public partial class DbLogService
     {
         dbContext ??= _logRepository.Context;
 
-        Log log = new()
+        NhLog log = new()
         {
             Message = message,
             Tag = tag,
@@ -69,9 +69,9 @@ public partial class DbLogService
             UserId = userId,
             Source = LogSource.Internal,
             DivisionId = _httpContextAccessor?.HttpContext?.Request?.GetActiveDivisionId(),
-            MessageTranslateds = new List<LogMessageTranslated>(),
-            MessageArguments = new List<LogMessageArgument>(),
-            Files = new List<LogFile>()
+            MessageTranslateds = new List<NhLogMessageTranslated>(),
+            MessageArguments = new List<NhLogMessageArgument>(),
+            Files = new List<NhLogFile>()
         };
 
         if (overrideCreationDateTime.HasValue)
@@ -83,11 +83,11 @@ public partial class DbLogService
 
         if (messageArguments?.Any() == true)
         {
-            log.MessageArguments ??= new List<LogMessageArgument>();
+            log.MessageArguments ??= new List<NhLogMessageArgument>();
 
             for (var i = 0; i < messageArguments.Length; i++)
             {
-                LogMessageArgument logMessageArgument = new() { Index = i, Value = messageArguments[i] };
+                NhLogMessageArgument logMessageArgument = new() { Index = i, Value = messageArguments[i] };
 
                 if (!string.IsNullOrWhiteSpace(logMessageArgument.Value))
                 {
@@ -111,7 +111,7 @@ public partial class DbLogService
         var originCulture = CultureInfo.CurrentCulture;
         var originUICulture = CultureInfo.CurrentUICulture;
 
-        log.MessageTranslateds ??= new List<LogMessageTranslated>();
+        log.MessageTranslateds ??= new List<NhLogMessageTranslated>();
 
         foreach (var culture in cultures)
         {
@@ -131,7 +131,7 @@ public partial class DbLogService
                 //Ignore
             }
 
-            log.MessageTranslateds.Add(new LogMessageTranslated
+            log.MessageTranslateds.Add(new NhLogMessageTranslated
             {
                 Culture = culture,
                 Message = localizedMessage ?? log.StringGuidelineMaxLength(x => x.Message)!
@@ -183,7 +183,7 @@ public partial class DbLogService
                             contentStream.CopyTo(fileStream);
                         }
 
-                        LogFile logFile = new() { OriginalFileName = name, FilePath = filePath, LogId = log.Id };
+                        NhLogFile logFile = new() { OriginalFileName = name, FilePath = filePath, LogId = log.Id };
 
                         await dbContext.LogFiles.AddAsync(logFile);
 

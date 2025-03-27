@@ -303,17 +303,17 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         }
 
         #region Repositories
-        AddRepository<User>();
-        AddRepository<UserRole>();
+        AddRepository<NhUser>();
+        AddRepository<NhUserRole>();
         AddRepository<NhDivision>();
-        AddRepository<DivisionRole>();
-        AddRepository<DivisionRoleClaim>();
-        AddRepository<DivisionUser>();
-        AddRepository<DivisionUserRole>();
-        AddRepository<Log>();
-        AddRepository<LogMessageArgument>();
-        AddRepository<LogMessageTranslated>();
-        AddRepository<LogFile>();
+        AddRepository<NhDivisionRole>();
+        AddRepository<NhDivisionRoleClaim>();
+        AddRepository<NhDivisionUser>();
+        AddRepository<NhDivisionUserRole>();
+        AddRepository<NhLog>();
+        AddRepository<NhLogMessageArgument>();
+        AddRepository<NhLogMessageTranslated>();
+        AddRepository<NhLogFile>();
         #endregion
 
         serviceCollection.AddScoped<TUserManager, TUserManager>();
@@ -361,7 +361,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         Action<IdentityOptions>? identityOptionsAction = null)
           where TDbContext : NhIdentityDbContext
     {
-        _serviceCollection.AddIdentity<User, UserRole>()
+        _serviceCollection.AddIdentity<NhUser, NhUserRole>()
             .AddEntityFrameworkStores<TDbContext>()
             .AddDefaultTokenProviders()
             .AddErrorDescriber<MultiLanguageIdentityErrorDescriber>()

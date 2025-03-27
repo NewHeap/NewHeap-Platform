@@ -3,9 +3,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
-public partial class LogMessageTranslated
+public partial class NhLogMessageTranslated
 {
-    public LogMessageTranslated()
+    public NhLogMessageTranslated()
     {
         CreationDateTime = DateTimeOffset.UtcNow;
     }

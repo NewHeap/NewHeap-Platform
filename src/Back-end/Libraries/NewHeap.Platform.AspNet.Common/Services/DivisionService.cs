@@ -16,17 +16,17 @@ namespace NewHeap.Platform.AspNet.Common.Services;
 public partial class DivisionService : BaseDbEntityService<NhDivision, DivisionMutateModel, DivisionService>
 {
     protected readonly IRepository<NhDivision> _divisionRepository;
-    protected readonly IRepository<DivisionRoleClaim> _divisionRoleClaimRepository;
-    protected readonly IRepository<DivisionRole> _divisionRoleRepository;
-    protected readonly IRepository<DivisionUser> _divisionUserRepository;
-    protected readonly IRepository<DivisionUserRole> _divisionUserRoleRepository;
+    protected readonly IRepository<NhDivisionRoleClaim> _divisionRoleClaimRepository;
+    protected readonly IRepository<NhDivisionRole> _divisionRoleRepository;
+    protected readonly IRepository<NhDivisionUser> _divisionUserRepository;
+    protected readonly IRepository<NhDivisionUserRole> _divisionUserRoleRepository;
 
     public DivisionService(
         IRepository<NhDivision> divisionRepository,
-        IRepository<DivisionRole> divisionRoleRepository,
-        IRepository<DivisionUser> divisionUserRepository,
-        IRepository<DivisionUserRole> divisionUserRoleRepository,
-        IRepository<DivisionRoleClaim> divisionRoleClaimRepository,
+        IRepository<NhDivisionRole> divisionRoleRepository,
+        IRepository<NhDivisionUser> divisionUserRepository,
+        IRepository<NhDivisionUserRole> divisionUserRoleRepository,
+        IRepository<NhDivisionRoleClaim> divisionRoleClaimRepository,
         IStringLocalizer<DivisionService> localizer,
         DbLogService dbLogService,
         LogHelperService logHelperService,
@@ -42,12 +42,12 @@ public partial class DivisionService : BaseDbEntityService<NhDivision, DivisionM
         _divisionRoleClaimRepository = divisionRoleClaimRepository;
     }
 
-    public IRepository<DivisionRole> GetRoleRepository()
+    public IRepository<NhDivisionRole> GetRoleRepository()
     {
         return _divisionRoleRepository;
     }
 
-    public IRepository<DivisionRoleClaim> GetRoleClaimRepository()
+    public IRepository<NhDivisionRoleClaim> GetRoleClaimRepository()
     {
         return _divisionRoleClaimRepository;
     }
@@ -124,19 +124,19 @@ public partial class DivisionService : BaseDbEntityService<NhDivision, DivisionM
         return _divisionRoleRepository.AnyAsync(x => x.Name.ToLower().Trim() == roleName.ToLower().Trim());
     }
 
-    public async Task<TaskResult<DivisionRole>> RoleCreateAsync(string roleName, Guid? committedByUserId = default)
+    public async Task<TaskResult<NhDivisionRole>> RoleCreateAsync(string roleName, Guid? committedByUserId = default)
     {
-        TaskResult<DivisionRole> result = new();
+        TaskResult<NhDivisionRole> result = new();
 
-        DivisionRole divisionRole = new() { Name = roleName };
+        NhDivisionRole divisionRole = new() { Name = roleName };
         await _divisionRoleRepository.AddAsync(divisionRole);
 
         await _dbLogService.LogAsync(
             "Division role create successful.",
             messageArguments: new[] { divisionRole.Id.ToString() },
             objectId: divisionRole.Id.ToString(),
-            objectType: typeof(DivisionRole).Name,
-            objectTypeFull: typeof(DivisionRole).FullName,
+            objectType: typeof(NhDivisionRole).Name,
+            objectTypeFull: typeof(NhDivisionRole).FullName,
             userId: committedByUserId,
             action: LogAction.Create,
             type: LogType.Information,
@@ -153,9 +153,9 @@ public partial class DivisionService : BaseDbEntityService<NhDivision, DivisionM
         return result;
     }
 
-    public async Task<TaskResult<DivisionRole>> RoleDeleteAsync(string roleName, Guid? committedByUserId = default)
+    public async Task<TaskResult<NhDivisionRole>> RoleDeleteAsync(string roleName, Guid? committedByUserId = default)
     {
-        TaskResult<DivisionRole> result = new();
+        TaskResult<NhDivisionRole> result = new();
 
         var divisionRole = await _divisionRoleRepository.FindOneByAsync(x => x.Name == roleName);
 
@@ -165,8 +165,8 @@ public partial class DivisionService : BaseDbEntityService<NhDivision, DivisionM
             "Division role delete successful.",
             messageArguments: new[] { divisionRole!.Id.ToString() },
             objectId: divisionRole.Id.ToString(),
-            objectType: typeof(DivisionRole).Name,
-            objectTypeFull: typeof(DivisionRole).FullName,
+            objectType: typeof(NhDivisionRole).Name,
+            objectTypeFull: typeof(NhDivisionRole).FullName,
             userId: committedByUserId,
             action: LogAction.Delete,
             type: LogType.Information,

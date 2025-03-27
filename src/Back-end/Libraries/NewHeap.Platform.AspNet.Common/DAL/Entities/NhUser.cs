@@ -3,13 +3,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
-public class User : User<
+public class NhUser : User<
     NhDivision, 
-    DivisionUser, 
-    DivisionUserRole,
-    DivisionRole,
-    DivisionRoleClaim,
-    User
+    NhDivisionUser, 
+    NhDivisionUserRole,
+    NhDivisionRole,
+    NhDivisionRoleClaim,
+    NhUser
     >
 {
 }
@@ -19,7 +19,7 @@ public partial class User<TDivision, TDivisionUser, TDivisionUserRole, TDivision
     where TDivisionUser : DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionUserRole : DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
     where TDivisionRole : DivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
-    where TDivisionRoleClaim : DivisionRoleClaim
+    where TDivisionRoleClaim : NhDivisionRoleClaim
     where TUser : User<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
 {
     public User()

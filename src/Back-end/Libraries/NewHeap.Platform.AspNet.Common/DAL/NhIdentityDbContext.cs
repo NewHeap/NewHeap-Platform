@@ -6,17 +6,17 @@ using Newtonsoft.Json;
 namespace NewHeap.Platform.AspNet.Common.DAL;
 
 public abstract partial class NhIdentityDbContext : NhIdentityDbContext<
-    NhDivision, 
-    DivisionUser, 
-    DivisionRole, 
-    DivisionUserRole, 
-    DivisionRoleClaim, 
-    User, 
-    UserRole, 
-    Log, 
-    LogMessageArgument, 
-    LogFile, 
-    LogMessageTranslated>
+    NhDivision,
+    NhDivisionUser,
+    NhDivisionRole,
+    NhDivisionUserRole,
+    NhDivisionRoleClaim,
+    NhUser,
+    NhUserRole,
+    NhLog,
+    NhLogMessageArgument,
+    NhLogFile,
+    NhLogMessageTranslated>
 {
     public NhIdentityDbContext()
     {
@@ -46,12 +46,12 @@ public abstract partial class NhIdentityDbContext<
     where TDivisionUser : DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionRole : DivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
     where TDivisionUserRole : DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
-    where TDivisionRoleClaim : DivisionRoleClaim
-    where TUserRole : UserRole
+    where TDivisionRoleClaim : NhDivisionRoleClaim
+    where TUserRole : NhUserRole
     where TLog : Log<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>
-    where TLogMessageArgument : LogMessageArgument
-    where TLogFile : LogFile
-    where TLogMessageTranslated : LogMessageTranslated
+    where TLogMessageArgument : NhLogMessageArgument
+    where TLogFile : NhLogFile
+    where TLogMessageTranslated : NhLogMessageTranslated
 {
     public static readonly JsonSerializerSettings ConvertJsonSerializerSettings =
         new() { NullValueHandling = NullValueHandling.Ignore };

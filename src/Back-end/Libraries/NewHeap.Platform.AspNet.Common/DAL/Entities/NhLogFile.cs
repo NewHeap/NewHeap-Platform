@@ -6,12 +6,11 @@ namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 /// <summary>
 ///     Note: Immutable rows
 /// </summary>
-public partial class LogMessageArgument
+public partial class NhLogFile
 {
-    public LogMessageArgument()
+    public NhLogFile()
     {
         CreationDateTime = DateTimeOffset.UtcNow;
-        Index = 0;
     }
 
     [Key]
@@ -22,7 +21,11 @@ public partial class LogMessageArgument
 
     public Guid LogId { get; set; }
 
-    public int Index { get; set; }
+    [StringLength(254)]
+    public required string OriginalFileName { get; set; }
 
-    public string? Value { get; set; }
+    /// <summary>
+    ///     Relative path to a related file
+    /// </summary>
+    public string FilePath { get; set; } = "";
 }

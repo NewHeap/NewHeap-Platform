@@ -7,16 +7,16 @@ namespace WebAPI.DAL;
 
 public class AppDbContext : NhIdentityDbContext<
     NhDivision,
-    DivisionUser,
-    DivisionRole,
-    DivisionUserRole,
-    DivisionRoleClaim,
-    User,
-    UserRole,
-    Log,
-    LogMessageArgument,
-    LogFile,
-    LogMessageTranslated
+    NhDivisionUser,
+    NhDivisionRole,
+    NhDivisionUserRole,
+    NhDivisionRoleClaim,
+    NhUser,
+    NhUserRole,
+    NhLog,
+    NhLogMessageArgument,
+    NhLogFile,
+    NhLogMessageTranslated
     >
 {
     public AppDbContext()

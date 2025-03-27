@@ -9,16 +9,16 @@ namespace WebAPI.DAL;
 internal class AppDbContextFactory : NhDbContextFactory<
     AppDbContext,
     NhDivision,
-    DivisionUser,
-    DivisionRole,
-    DivisionUserRole,
-    DivisionRoleClaim,
-    User,
-    UserRole,
-    Log,
-    LogMessageArgument,
-    LogFile,
-    LogMessageTranslated
+    NhDivisionUser,
+    NhDivisionRole,
+    NhDivisionUserRole,
+    NhDivisionRoleClaim,
+    NhUser,
+    NhUserRole,
+    NhLog,
+    NhLogMessageArgument,
+    NhLogFile,
+    NhLogMessageTranslated
     >
 {
     public override AppDbContext CreateDbContext(string[] args)

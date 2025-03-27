@@ -10,41 +10,41 @@ namespace NewHeap.Platform.AspNet.Common.Services;
 
 public interface INhUserManager
 {
-    Task<User?> FindByIdAsync(string userId);
+    Task<NhUser?> FindByIdAsync(string userId);
     
-    IRepository<User> GetRepository();
-    IQueryable<User> QueryableWithAllIncludes(IQueryable<User>? queryable = null);
-    Task<User?> FindOneByAsync(Expression<Func<User, bool>> predicate);
-    Task<List<Claim>> GetValidClaims(User user, bool withDivision = false);
+    IRepository<NhUser> GetRepository();
+    IQueryable<NhUser> QueryableWithAllIncludes(IQueryable<NhUser>? queryable = null);
+    Task<NhUser?> FindOneByAsync(Expression<Func<NhUser, bool>> predicate);
+    Task<List<Claim>> GetValidClaims(NhUser user, bool withDivision = false);
 
     /// <summary>
     ///     Function to check if a user is allowed to login
     /// </summary>
     /// <param name="user"></param>
     /// <returns></returns>
-    Task<bool> IsBlocked(User user);
+    Task<bool> IsBlocked(NhUser user);
 
     bool IsOauthAccount(string email);
-    bool IsOauthAccount(User user);
+    bool IsOauthAccount(NhUser user);
     string GenerateRegistrationToken();
     string GenerateRandomPassword(PasswordOptions? passwordOptions = null);
-    Task UpdateUserLockout(User user, DateTimeOffset? start = null, DateTimeOffset? end = null);
-    Task<User?> FindByIdWithIncludesAsync(Guid userId);
+    Task UpdateUserLockout(NhUser user, DateTimeOffset? start = null, DateTimeOffset? end = null);
+    Task<NhUser?> FindByIdWithIncludesAsync(Guid userId);
 
-    Task<TaskResult<User>> ChangeActiviveDivisionAsync(Guid id,
+    Task<TaskResult<NhUser>> ChangeActiviveDivisionAsync(Guid id,
         ChangeActiveDivisionAccountModel mutateModel);
 
     Task<bool> DivisionAccessAsync(Guid? divisionId, IEnumerable<Claim> userClaims,
         IEnumerable<Claim>? requireClaims = null, IEnumerable<string>? requireRoles = null);
 
-    Task<IdentityResult> CreateAsync(User user);
-    Task<IdentityResult> UpdateAsync(User user);
-    Task<IdentityResult> DeleteAsync(User user);
+    Task<IdentityResult> CreateAsync(NhUser user);
+    Task<IdentityResult> UpdateAsync(NhUser user);
+    Task<IdentityResult> DeleteAsync(NhUser user);
     string? NormalizeName(string? name);
     string? NormalizeEmail(string? email);
-    Task<IList<string>> GetRolesAsync(User user);
-    Task<bool> IsInRoleAsync(User user, string role);
-    Task<IdentityResult> ConfirmEmailAsync(User user, string token);
-    Task<bool> IsEmailConfirmedAsync(User user);
-    Task<User> FindByEmailAsync(string requestUserName);
+    Task<IList<string>> GetRolesAsync(NhUser user);
+    Task<bool> IsInRoleAsync(NhUser user, string role);
+    Task<IdentityResult> ConfirmEmailAsync(NhUser user, string token);
+    Task<bool> IsEmailConfirmedAsync(NhUser user);
+    Task<NhUser> FindByEmailAsync(string requestUserName);
 }

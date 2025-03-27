@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
-public partial class DivisionRoleClaim
+public partial class NhDivisionRoleClaim
 {
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]

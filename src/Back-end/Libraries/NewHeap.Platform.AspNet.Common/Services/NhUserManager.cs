@@ -15,27 +15,27 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class NhUserManager : UserManager<User>, INhUserManager
+public partial class NhUserManager : UserManager<NhUser>, INhUserManager
 {
     private readonly IWebHostEnvironment _environment;
     private readonly MicrosoftAuthSettings _microsoftAuthSettings;
-    protected readonly RoleManager<UserRole> _roleManager;
-    protected readonly IRepository<User> _userRepository;
+    protected readonly RoleManager<NhUserRole> _roleManager;
+    protected readonly IRepository<NhUser> _userRepository;
 
     public NhUserManager(
         IWebHostEnvironment environment,
-        IUserStore<User> store,
+        IUserStore<NhUser> store,
         IOptions<IdentityOptions> optionsAccessor,
-        IPasswordHasher<User> passwordHasher,
-        IEnumerable<IUserValidator<User>> userValidators,
-        IEnumerable<IPasswordValidator<User>> passwordValidators,
+        IPasswordHasher<NhUser> passwordHasher,
+        IEnumerable<IUserValidator<NhUser>> userValidators,
+        IEnumerable<IPasswordValidator<NhUser>> passwordValidators,
         ILookupNormalizer keyNormalizer,
         IdentityErrorDescriber errors,
         IServiceProvider services,
-        ILogger<UserManager<User>> logger,
+        ILogger<UserManager<NhUser>> logger,
         IOptions<MicrosoftAuthSettings> microsoftAuthSettings,
-        IRepository<User> userRepository,
-        RoleManager<UserRole> roleManager
+        IRepository<NhUser> userRepository,
+        RoleManager<NhUserRole> roleManager
     ) : base(store, optionsAccessor, passwordHasher, userValidators, passwordValidators, keyNormalizer, errors,
         services, logger)
     {
@@ -45,12 +45,12 @@ public partial class NhUserManager : UserManager<User>, INhUserManager
         _roleManager = roleManager;
     }
 
-    public virtual IRepository<User> GetRepository()
+    public virtual IRepository<NhUser> GetRepository()
     {
         return _userRepository;
     }
 
-    public IQueryable<User> QueryableWithAllIncludes(IQueryable<User>? queryable = null)
+    public IQueryable<NhUser> QueryableWithAllIncludes(IQueryable<NhUser>? queryable = null)
     {
         queryable ??= _userRepository.GetAll()
             .Include(x => x.ActiveDivision);
@@ -58,12 +58,12 @@ public partial class NhUserManager : UserManager<User>, INhUserManager
         return queryable;
     }
 
-    public virtual async Task<User?> FindOneByAsync(Expression<Func<User, bool>> predicate)
+    public virtual async Task<NhUser?> FindOneByAsync(Expression<Func<NhUser, bool>> predicate)
     {
         return await QueryableWithAllIncludes().FirstOrDefaultAsync(predicate);
     }
 
-    public virtual async Task<List<Claim>> GetValidClaims(User user, bool withDivision = false)
+    public virtual async Task<List<Claim>> GetValidClaims(NhUser user, bool withDivision = false)
     {
         IdentityOptions _options = new();
         List<Claim> claims =
@@ -120,14 +120,14 @@ public partial class NhUserManager : UserManager<User>, INhUserManager
                 ));
             }
 
-            List<DivisionRoleClaim> divisionRolesClaims =
-                await _userRepository.GetDbSet<DivisionRoleClaim>().AsNoTracking().ToListAsync();
+            List<NhDivisionRoleClaim> divisionRolesClaims =
+                await _userRepository.GetDbSet<NhDivisionRoleClaim>().AsNoTracking().ToListAsync();
             List<Claim> divisionRolesClaimClaims = new();
 
             var divisionIds = await divisionsQuery.Select(x => x.Id).ToListAsync();
             foreach (var divisionId in divisionIds)
             {
-                IQueryable<DivisionRole> divisionRolesQuery = _userRepository.GetDbSet<DivisionRole>().AsNoTracking();
+                IQueryable<NhDivisionRole> divisionRolesQuery = _userRepository.GetDbSet<NhDivisionRole>().AsNoTracking();
                 if (!divisionAccessAll)
                 {
                     divisionRolesQuery = divisionRolesQuery.Where(x =>
@@ -180,7 +180,7 @@ public partial class NhUserManager : UserManager<User>, INhUserManager
     /// </summary>
     /// <param name="user"></param>
     /// <returns></returns>
-    public virtual async Task<bool> IsBlocked(User user)
+    public virtual async Task<bool> IsBlocked(NhUser user)
     {
         if (await IsLockedOutAsync(user))
         {
@@ -204,7 +204,7 @@ public partial class NhUserManager : UserManager<User>, INhUserManager
             StringComparer.InvariantCultureIgnoreCase) == true;
     }
 
-    public virtual bool IsOauthAccount(User user)
+    public virtual bool IsOauthAccount(NhUser user)
     {
         return IsOauthAccount(user.NormalizedEmail!);
     }
@@ -264,7 +264,7 @@ public partial class NhUserManager : UserManager<User>, INhUserManager
         return new string(chars.ToArray());
     }
 
-    public virtual async Task UpdateUserLockout(User user, DateTimeOffset? start = null, DateTimeOffset? end = null)
+    public virtual async Task UpdateUserLockout(NhUser user, DateTimeOffset? start = null, DateTimeOffset? end = null)
     {
         if (user == null)
         {
@@ -277,7 +277,7 @@ public partial class NhUserManager : UserManager<User>, INhUserManager
         await _userRepository.SaveChangesAsync();
     }
 
-    public Task<User?> FindByIdWithIncludesAsync(Guid userId)
+    public Task<NhUser?> FindByIdWithIncludesAsync(Guid userId)
     {
         return _userRepository
                 .GetAll()
@@ -287,10 +287,10 @@ public partial class NhUserManager : UserManager<User>, INhUserManager
             ;
     }
 
-    public virtual async Task<TaskResult<User>> ChangeActiviveDivisionAsync(Guid id,
+    public virtual async Task<TaskResult<NhUser>> ChangeActiviveDivisionAsync(Guid id,
         ChangeActiveDivisionAccountModel mutateModel)
     {
-        TaskResult<User> result = new();
+        TaskResult<NhUser> result = new();
 
         var user = await _userRepository.GetAll()
             .Where(x => x.Id == id)
@@ -308,7 +308,7 @@ public partial class NhUserManager : UserManager<User>, INhUserManager
                     x.Type == NhPlatformClaimTypes.Permission &&
                     x.Value == Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll))
             {
-                if (!await _userRepository.GetDbSet<DivisionUser>()
+                if (!await _userRepository.GetDbSet<NhDivisionUser>()
                         .AnyAsync(x => x.UserId == id && x.DivisionId == mutateModel.DivisionId))
                 {
                     result.AddError(string.Empty, "User division mapping not found.");

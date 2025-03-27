@@ -24,12 +24,12 @@ public abstract partial class NhDbContextFactory<
     where TDivisionUser : DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionRole : DivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
     where TDivisionUserRole : DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
-    where TDivisionRoleClaim : DivisionRoleClaim
-    where TUserRole : UserRole
+    where TDivisionRoleClaim : NhDivisionRoleClaim
+    where TUserRole : NhUserRole
     where TLog : Log<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>
-    where TLogMessageArgument : LogMessageArgument
-    where TLogFile : LogFile
-    where TLogMessageTranslated : LogMessageTranslated
+    where TLogMessageArgument : NhLogMessageArgument
+    where TLogFile : NhLogFile
+    where TLogMessageTranslated : NhLogMessageTranslated
     where TDBContext : NhIdentityDbContext<
         TDivision,
         TDivisionUser,

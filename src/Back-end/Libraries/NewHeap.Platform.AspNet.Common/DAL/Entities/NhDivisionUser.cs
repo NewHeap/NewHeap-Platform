@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
-public partial class DivisionUser : DivisionUser<DivisionUserRole, DivisionUser, DivisionRole, DivisionRoleClaim, NhDivision, User>
+public partial class NhDivisionUser : DivisionUser<NhDivisionUserRole, NhDivisionUser, NhDivisionRole, NhDivisionRoleClaim, NhDivision, NhUser>
 {
 }
 
@@ -12,7 +12,7 @@ public partial class DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRol
     where TDivisionUserRole : DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
     where TDivisionUser : DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionRole : DivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
-    where TDivisionRoleClaim : DivisionRoleClaim
+    where TDivisionRoleClaim : NhDivisionRoleClaim
     where TDivision : Division<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TUser : User<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
 {

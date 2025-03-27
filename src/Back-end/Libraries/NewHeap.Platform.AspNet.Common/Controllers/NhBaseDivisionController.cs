@@ -89,7 +89,7 @@ public abstract class NhBaseDivisionController : DbEntityProtectedNhBaseControll
         var query = _dbEntityService.GetRoleRepository().GetAll();
 
         var result =
-            await GetCollectionResultModel<DivisionRole, DivisionRoleViewModel>(query,
+            await GetCollectionResultModel<NhDivisionRole, DivisionRoleViewModel>(query,
                 (x => x.Name, ListSortDirection.Ascending));
 
         return Ok(result);

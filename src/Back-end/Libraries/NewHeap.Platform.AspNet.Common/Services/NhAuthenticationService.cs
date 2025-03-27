@@ -18,14 +18,14 @@ namespace NewHeap.Platform.AspNet.Common.Services;
 /// </summary>
 public class NhAuthenticationService : INhAuthenticationService
 {
-    private readonly SignInManager<User> _signInManager;
+    private readonly SignInManager<NhUser> _signInManager;
     private readonly INhUserManager _userManager;
     private readonly ILogger<AuthenticationService> _logger;
     private readonly IConfiguration _configuration;
     private readonly TokenValidationParameters _tokenValidationParameters;
 
     public NhAuthenticationService(
-        SignInManager<User> signInManager,
+        SignInManager<NhUser> signInManager,
         INhUserManager userManager,
         ILogger<AuthenticationService> logger,
         IConfiguration configuration,
@@ -167,7 +167,7 @@ public class NhAuthenticationService : INhAuthenticationService
     /// <param name="expiration">Duration token is valid for. Defaults to 1 day</param>
     /// <returns></returns>
     /// <exception cref="ConfigurationException">Throws when JWT configuration is missing</exception>
-    public virtual async Task<JwtSecurityToken> CreateToken(User user, TimeSpan? expiration = null)
+    public virtual async Task<JwtSecurityToken> CreateToken(NhUser user, TimeSpan? expiration = null)
     {
         if (
             string.IsNullOrWhiteSpace(GetTokenKey())

@@ -3,13 +3,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
-public partial class DivisionRole : DivisionRole<DivisionUserRole, DivisionRoleClaim, DivisionUser, DivisionRole, NhDivision, User>
+public partial class NhDivisionRole : DivisionRole<NhDivisionUserRole, NhDivisionRoleClaim, NhDivisionUser, NhDivisionRole, NhDivision, NhUser>
 {
 }
 
 public partial class DivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
     where TDivisionUserRole : DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
-    where TDivisionRoleClaim : DivisionRoleClaim
+    where TDivisionRoleClaim : NhDivisionRoleClaim
     where TDivisionUser : DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionRole : DivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
     where TDivision : Division<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>

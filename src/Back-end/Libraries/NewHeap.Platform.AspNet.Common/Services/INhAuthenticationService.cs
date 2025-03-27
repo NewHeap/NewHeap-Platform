@@ -50,7 +50,7 @@ public interface INhAuthenticationService
     /// <param name="expiration">Duration token is valid for. Defaults to 1 day</param>
     /// <returns></returns>
     /// <exception cref="ConfigurationException">Throws when JWT configuration is missing</exception>
-    Task<JwtSecurityToken> CreateToken(User user, TimeSpan? expiration = null);
+    Task<JwtSecurityToken> CreateToken(NhUser user, TimeSpan? expiration = null);
 
     JwtSecurityToken? DecodeToken(string token);
 }

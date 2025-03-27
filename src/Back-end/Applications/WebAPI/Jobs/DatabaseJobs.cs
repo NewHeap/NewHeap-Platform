@@ -50,9 +50,9 @@ public class DatabaseJobs
     {
         var userRoles = new[] { "SuperAdministrator", "Administrator", "User" };
 
-        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<UserRole>>();
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<NhUserRole>>();
 
-        Func<UserRole, IEnumerable<Claim>, Task> addIdentityRoleClaims = async (identityRole, claims) =>
+        Func<NhUserRole, IEnumerable<Claim>, Task> addIdentityRoleClaims = async (identityRole, claims) =>
         {
             var identityRoleClaims = await roleManager.GetClaimsAsync(identityRole);
 
@@ -78,7 +78,7 @@ public class DatabaseJobs
 
         foreach (var role in userRoles)
         {
-            UserRole identityRole = new(role);
+            NhUserRole identityRole = new(role);
             if (!await roleManager.RoleExistsAsync(role))
             {
                 await roleManager.CreateAsync(identityRole);
@@ -131,14 +131,14 @@ public class DatabaseJobs
 
     private async Task SeedUsers(IServiceScope scope, AppDbContext dbContext)
     {
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
         var user = await userManager.FindByNameAsync("info@newheap.com");
         if (user == null)
         {
             var email = "info@newheap.com";
-            User userToInsert = new()
+            NhUser userToInsert = new()
             {
                 Email = email,
                 UserName = email,
@@ -160,7 +160,7 @@ public class DatabaseJobs
             var backgroundWorkerUser = await userManager.FindByNameAsync(backgroundWorkerUserEmail);
             if (backgroundWorkerUser == null)
             {
-                User userToInsert = new()
+                NhUser userToInsert = new()
                 {
                     Email = backgroundWorkerUserEmail,
                     UserName = backgroundWorkerUserEmail,
@@ -185,13 +185,13 @@ public class DatabaseJobs
         var divisionRoleNames = new[] { "SuperAdministrator", "Administrator", "User" };
         var divisionManager = scope.ServiceProvider.GetRequiredService<DivisionService>();
 
-        Func<DivisionRole, IEnumerable<Claim>, Task> addDivisionRoleClaims = async (divisionRole, claims) =>
+        Func<NhDivisionRole, IEnumerable<Claim>, Task> addDivisionRoleClaims = async (divisionRole, claims) =>
         {
             var divisionRoleClaimRepository = divisionManager.GetRoleClaimRepository();
             var divisionRoleClaims = await divisionRoleClaimRepository.GetAll()
                 .Where(x => x.DivisionRoleId == divisionRole.Id).ToListAsync();
 
-            List<DivisionRoleClaim> newRoleClaims = new();
+            List<NhDivisionRoleClaim> newRoleClaims = new();
 
             foreach (var claim in claims)
             {
@@ -199,7 +199,7 @@ public class DatabaseJobs
                     x.ClaimType.Equals(claim.Type) && x.ClaimValue.Equals(claim.Value));
                 if (null == existingClaim)
                 {
-                    newRoleClaims.Add(new DivisionRoleClaim
+                    newRoleClaims.Add(new NhDivisionRoleClaim
                     {
                         DivisionRoleId = divisionRole.Id, ClaimType = claim.Type, ClaimValue = claim.Value
                     });

@@ -38,20 +38,20 @@ public class AccountController : PublicNhBaseController
     private readonly RazorViewService _appRazorViewManager;
     private readonly DbLogService _dbLogService;
     private readonly MicrosoftAuthSettings _microsoftAuthSettings;
-    private readonly RoleManager<UserRole> _roleManager;
+    private readonly RoleManager<NhUserRole> _roleManager;
     private readonly IStringLocalizer<SharedResources> _sharedLocalizer;
-    private readonly SignInManager<User> _signInManager;
-    private readonly IRepository<User> _userRepository;
+    private readonly SignInManager<NhUser> _signInManager;
+    private readonly IRepository<NhUser> _userRepository;
     private readonly INhUserManager _userManager;
 
     public AccountController(
         IStringLocalizer<SharedResources> sharedLocalizer,
         IStringLocalizer<AccountController> localizer,
         INhUserManager userManager,
-        RoleManager<UserRole> roleManager,
-        SignInManager<User> signInManager,
+        RoleManager<NhUserRole> roleManager,
+        SignInManager<NhUser> signInManager,
         ILogger<AccountController> logger,
-        IRepository<User> appUserRepository,
+        IRepository<NhUser> appUserRepository,
         MailService appMailManager,
         RazorViewService appRazorViewManager,
         DbLogService dbLogService,
@@ -75,7 +75,7 @@ public class AccountController : PublicNhBaseController
     }
 
     [NonAction]
-    private bool IsLockedOut(User user)
+    private bool IsLockedOut(NhUser user)
     {
         var lockoutEnd = user.LockoutEnd;
         if (lockoutEnd <= user.LockoutStart)
@@ -93,7 +93,7 @@ public class AccountController : PublicNhBaseController
     [Route("Authorize")]
     public async Task<IActionResult> Authorize([FromBody] LoginAccountMutateModel model)
     {
-        User user = null;
+        NhUser user = null;
         if (ModelState.IsValid)
         {
             user = await _userManager.FindByEmailAsync(model.Email);
@@ -107,8 +107,8 @@ public class AccountController : PublicNhBaseController
                 "Failed login attempt for user {0}.",
                 messageArguments: new[] { model.Email },
                 objectId: null,
-                objectType: typeof(User).Name,
-                objectTypeFull: typeof(User).FullName,
+                objectType: typeof(NhUser).Name,
+                objectTypeFull: typeof(NhUser).FullName,
                 userId: UserId,
                 action: LogAction.Read,
                 type: LogType.Warning,
@@ -128,8 +128,8 @@ public class AccountController : PublicNhBaseController
                 "Failed login attempt for user {0}.",
                 messageArguments: new[] { model.Email },
                 objectId: user.Id.ToString(),
-                objectType: typeof(User).Name,
-                objectTypeFull: typeof(User).FullName,
+                objectType: typeof(NhUser).Name,
+                objectTypeFull: typeof(NhUser).FullName,
                 userId: UserId,
                 action: LogAction.Read,
                 type: LogType.Warning,
@@ -150,8 +150,8 @@ public class AccountController : PublicNhBaseController
                 "User login blocked {0}.",
                 messageArguments: new[] { user.Id.ToString() },
                 objectId: user.Id.ToString(),
-                objectType: typeof(User).Name,
-                objectTypeFull: typeof(User).FullName,
+                objectType: typeof(NhUser).Name,
+                objectTypeFull: typeof(NhUser).FullName,
                 userId: UserId,
                 action: LogAction.Read,
                 type: LogType.Warning,
@@ -184,8 +184,8 @@ public class AccountController : PublicNhBaseController
                 "User login succesfull {0}.",
                 messageArguments: new[] { user.Id.ToString() },
                 objectId: user.Id.ToString(),
-                objectType: typeof(User).Name,
-                objectTypeFull: typeof(User).FullName,
+                objectType: typeof(NhUser).Name,
+                objectTypeFull: typeof(NhUser).FullName,
                 userId: user.Id,
                 action: LogAction.Read,
                 type: LogType.Information,
@@ -204,8 +204,8 @@ public class AccountController : PublicNhBaseController
         await _dbLogService.LogAsync(
             "Invalid application state when authorizing.",
             objectId: user.Id.ToString(),
-            objectType: typeof(User).Name,
-            objectTypeFull: typeof(User).FullName,
+            objectType: typeof(NhUser).Name,
+            objectTypeFull: typeof(NhUser).FullName,
             userId: UserId,
             action: LogAction.Read,
             type: LogType.Error,

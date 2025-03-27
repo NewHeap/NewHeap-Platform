@@ -14,7 +14,7 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
-public abstract class NhBaseDivisionUserController : DbEntityProtectedNhBaseController<DivisionUser, DivisionUserMutateModel, DivisionUserViewModel, DivisionUserService, DivisionUserCollectionRequestModel>
+public abstract class NhBaseDivisionUserController : DbEntityProtectedNhBaseController<NhDivisionUser, DivisionUserMutateModel, DivisionUserViewModel, DivisionUserService, DivisionUserCollectionRequestModel>
 {
     protected const string READ_POLICY = "app.division.view";
     protected const string MANAGE_POLICY = "app.division.manage";
@@ -32,16 +32,16 @@ public abstract class NhBaseDivisionUserController : DbEntityProtectedNhBaseCont
     {
     }
 
-    protected override (Expression<Func<DivisionUser, object>> orderByKey, ListSortDirection sortDirection)[] GetDefaultCollectionResultOrderBy()
+    protected override (Expression<Func<NhDivisionUser, object>> orderByKey, ListSortDirection sortDirection)[] GetDefaultCollectionResultOrderBy()
     {
         return [
             (x => x.User.Email, ListSortDirection.Ascending)
         ];
     }
 
-    protected override Task<IQueryable<DivisionUser>> GetQueryableAsync()
+    protected override Task<IQueryable<NhDivisionUser>> GetQueryableAsync()
     {
-        IQueryable<DivisionUser> query = _dbEntityService
+        IQueryable<NhDivisionUser> query = _dbEntityService
                 .GetRepository()
                 .GetAll()
                 .Include(x => x.User)
