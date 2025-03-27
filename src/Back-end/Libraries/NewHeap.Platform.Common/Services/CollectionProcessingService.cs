@@ -371,7 +371,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
 
         if (!didCollectionHit)
         {
-            switch (filter.Operator)
+            switch (filter.Operator?.Trim().ToUpper())
             {
                 case "IS":
                 case "==":
