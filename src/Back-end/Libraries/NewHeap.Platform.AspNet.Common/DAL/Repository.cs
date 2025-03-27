@@ -1,21 +1,61 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using System.Linq.Expressions;
 using System.Reflection;
 
 namespace NewHeap.Platform.AspNet.Common.DAL;
 
-public partial class Repository<T> : IRepository<T> where T : class
+public partial class Repository<
+    T, 
+    TDbContext,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim,
+    TUser,
+    TUserRole,
+    TLog,
+    TLogMessageArgument,
+    TLogFile,
+    TLogMessageTranslated
+    > : IRepository<T> 
+    where T : class
+    where TDbContext : NhIdentityDbContext<
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TUser,
+        TUserRole,
+        TLog,
+        TLogMessageArgument,
+        TLogFile,
+        TLogMessageTranslated
+    >
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivisionRoleClaim : NhDivisionRoleClaim
+    where TUserRole : NhUserRole
+    where TLog : NhLog<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>
+    where TLogMessageArgument : NhLogMessageArgument
+    where TLogFile : NhLogFile
+    where TLogMessageTranslated : NhLogMessageTranslated
 {
     protected DbSet<T> DbSet;
 
-    public Repository(NhIdentityDbContext context)
+    public Repository(TDbContext context)
     {
         Context = context;
         DbSet = context.Set<T>();
     }
 
-    public NhIdentityDbContext Context { get; }
+    public TDbContext Context { get; }
 
     public DbSet<TDbSet> GetDbSet<TDbSet>()
         where TDbSet : class
@@ -209,10 +249,24 @@ public partial class Repository<T> : IRepository<T> where T : class
     public IRepository<T> NewScope()
     {
         var type = Context.GetType();
-        var opt = typeof(NhIdentityDbContext).GetField("_options", BindingFlags.Instance | BindingFlags.NonPublic)!
+        var opt = typeof(TDbContext).GetField("_options", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(Context);
-        var context = (NhIdentityDbContext)Activator.CreateInstance(type, opt)!;
-        return new Repository<T>(context);
+        var context = (TDbContext)Activator.CreateInstance(type, opt)!;
+        return new Repository<
+            T,
+            TDbContext,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim,
+            TUser,
+            TUserRole,
+            TLog,
+            TLogMessageArgument,
+            TLogFile,
+            TLogMessageTranslated
+        >(context);
     }
 
     public async Task<ITransaction> StartTransactionAsync(CancellationToken cancellationToken = default)
