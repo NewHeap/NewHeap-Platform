@@ -13,10 +13,10 @@ public class User : User<
 }
 
 public partial class User<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim> : IdentityUser<Guid>
-    where TDivision : Division<TDivisionUser, DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim>, TDivisionRole, TDivisionRoleClaim>
-    where TDivisionUser : DivisionUser<DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim>, TDivisionUser, TDivisionRole, TDivisionRoleClaim>
-    where TDivisionUserRole : DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim>
-    where TDivisionRole : DivisionRole<DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim>, TDivisionRoleClaim, TDivisionUser, TDivisionRole>
+    where TDivision : Division<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim>
+    where TDivisionUser : DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim>
+    where TDivisionUserRole : DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole>
+    where TDivisionRole : DivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole>
     where TDivisionRoleClaim : DivisionRoleClaim
 {
     public User()

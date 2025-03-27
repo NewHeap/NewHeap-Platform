@@ -27,7 +27,7 @@ public enum LogAction
     Delete = 4000
 }
 
-public class Log : Log<User, LogMessageArgument, LogMessageTranslated, LogFile, Division, DivisionUser, DivisionUserRole>
+public class Log : Log<User, LogMessageArgument, LogMessageTranslated, LogFile, Division, DivisionUser, DivisionRole, DivisionUserRole, DivisionRoleClaim>
 {
 }
 
@@ -41,15 +41,19 @@ public partial class Log<
     TLogFile,
     TDivision,
     TDivisionUser,
-    TDivisionUserRole
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
     >
-    where TUser : User<TDivision, TDivisionUser, TDivisionUserRole>
+    where TUser : User<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim>
     where TLogMessageArgument : LogMessageArgument
     where TLogMessageTranslated : LogMessageTranslated
     where TLogFile : LogFile
-    where TDivision : Division<TDivisionUser, TDivisionUserRole>
-    where TDivisionUser : DivisionUser<TDivisionUserRole>
-    where TDivisionUserRole : DivisionUserRole
+    where TDivision : Division<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim>
+    where TDivisionRole : DivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole>
+    where TDivisionUser : DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim>
+    where TDivisionUserRole : DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole>
+    where TDivisionRoleClaim : DivisionRoleClaim
 {
     public Log()
     {
@@ -97,7 +101,7 @@ public partial class Log<
     [Display(Name = "User")]
     public Guid? UserId { get; set; }
 
-    public TUser User { get; set; } = null!;
+    public TUser? User { get; set; }
 
     public List<TLogFile> Files { get; set; } = null!;
 
