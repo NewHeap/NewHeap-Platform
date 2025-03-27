@@ -13,16 +13,16 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class DivisionService : BaseDbEntityService<Division, DivisionMutateModel, DivisionService>
+public partial class DivisionService : BaseDbEntityService<NhDivision, DivisionMutateModel, DivisionService>
 {
-    protected readonly IRepository<Division> _divisionRepository;
+    protected readonly IRepository<NhDivision> _divisionRepository;
     protected readonly IRepository<DivisionRoleClaim> _divisionRoleClaimRepository;
     protected readonly IRepository<DivisionRole> _divisionRoleRepository;
     protected readonly IRepository<DivisionUser> _divisionUserRepository;
     protected readonly IRepository<DivisionUserRole> _divisionUserRoleRepository;
 
     public DivisionService(
-        IRepository<Division> divisionRepository,
+        IRepository<NhDivision> divisionRepository,
         IRepository<DivisionRole> divisionRoleRepository,
         IRepository<DivisionUser> divisionUserRepository,
         IRepository<DivisionUserRole> divisionUserRoleRepository,
@@ -53,7 +53,7 @@ public partial class DivisionService : BaseDbEntityService<Division, DivisionMut
     }
 
     public override async Task ValidateCreateUpdateDeleteAsync(
-        CreateUpdateDeleteValidateModel<Division, Division, DivisionMutateModel> model, CancellationToken cancellationToken)
+        CreateUpdateDeleteValidateModel<NhDivision, NhDivision, DivisionMutateModel> model, CancellationToken cancellationToken)
     {
         void sourceModelCheck()
         {
@@ -104,9 +104,9 @@ public partial class DivisionService : BaseDbEntityService<Division, DivisionMut
         }
     }
 
-    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(Division original, Division updated, CancellationToken cancellationToken = default)
+    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(NhDivision original, NhDivision updated, CancellationToken cancellationToken = default)
     {
-        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<Division, object>>, Func<object, Task<string>>>
+        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<NhDivision, object>>, Func<object, Task<string>>>
         {
             // Method resolvers
         },

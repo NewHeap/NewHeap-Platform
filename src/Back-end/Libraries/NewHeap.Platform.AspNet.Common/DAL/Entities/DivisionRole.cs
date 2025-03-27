@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
-public partial class DivisionRole : DivisionRole<DivisionUserRole, DivisionRoleClaim, DivisionUser, DivisionRole, Division, User>
+public partial class DivisionRole : DivisionRole<DivisionUserRole, DivisionRoleClaim, DivisionUser, DivisionRole, NhDivision, User>
 {
 }
 

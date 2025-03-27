@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 namespace NewHeap.Platform.AspNet.Common.DAL;
 
 public abstract partial class NhIdentityDbContext : NhIdentityDbContext<
-    Division, 
+    NhDivision, 
     DivisionUser, 
     DivisionRole, 
     DivisionUserRole, 
@@ -21,6 +21,7 @@ public abstract partial class NhIdentityDbContext : NhIdentityDbContext<
     public NhIdentityDbContext()
     {
     }
+
     public NhIdentityDbContext(DbContextOptions contextOptions)
         : base(contextOptions)
     {

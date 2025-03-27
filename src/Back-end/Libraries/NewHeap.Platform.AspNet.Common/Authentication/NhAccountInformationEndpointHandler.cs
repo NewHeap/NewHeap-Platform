@@ -48,7 +48,7 @@ public class NhAccountInformationEndpointHandler : BaseNhAuthenticationEndpoint
     private async Task<IResult> ProcessRequest(
         [FromServices] INhAuthenticationService authenticationService,
         [FromServices] INhUserManager userManager,
-        [FromServices] IRepository<Division> divisionRepository,
+        [FromServices] IRepository<NhDivision> divisionRepository,
         [FromServices] IMapper mapper
     )
     {
@@ -93,7 +93,7 @@ public class NhAccountInformationEndpointHandler : BaseNhAuthenticationEndpoint
 
     private static async Task GetUserDivisions(
         INhUserManager userManager,
-        IRepository<Division> divisionRepository,
+        IRepository<NhDivision> divisionRepository,
         IMapper mapper,
         AccountResponse accountResponse,
         List<Claim> claims

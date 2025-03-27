@@ -1,6 +1,6 @@
 ﻿namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
-public partial class DivisionUserRole : DivisionUserRole<DivisionUser, DivisionRole, DivisionRoleClaim, DivisionUserRole, Division, User>
+public partial class DivisionUserRole : DivisionUserRole<DivisionUser, DivisionRole, DivisionRoleClaim, DivisionUserRole, NhDivision, User>
 {
 }
 

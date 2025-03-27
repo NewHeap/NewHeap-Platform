@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
 public class User : User<
-    Division, 
+    NhDivision, 
     DivisionUser, 
     DivisionUserRole,
     DivisionRole,

@@ -1,11 +1,25 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using NewHeap.Platform.AspNet.Common.DAL;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using System;
 
 namespace WebAPI.DAL;
 
-internal class AppDbContextFactory : NhDbContextFactory<AppDbContext>
+internal class AppDbContextFactory : NhDbContextFactory<
+    AppDbContext,
+    NhDivision,
+    DivisionUser,
+    DivisionRole,
+    DivisionUserRole,
+    DivisionRoleClaim,
+    User,
+    UserRole,
+    Log,
+    LogMessageArgument,
+    LogFile,
+    LogMessageTranslated
+    >
 {
     public override AppDbContext CreateDbContext(string[] args)
     {

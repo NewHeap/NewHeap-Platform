@@ -237,8 +237,8 @@ public class AccountController : PublicNhBaseController
         var user = await _userManager.FindByIdAsync(UserId.ToString());
         await _userRepository.Reference(user, x => x.ActiveDivision).LoadAsync();
 
-        IQueryable<Division> divisionsQuery = _userRepository
-            .GetDbSet<Division>();
+        IQueryable<NhDivision> divisionsQuery = _userRepository
+            .GetDbSet<NhDivision>();
 
         if (!User.HasClaim(x =>
                 x.Type == NhPlatformClaimTypes.Permission &&
@@ -278,7 +278,7 @@ public class AccountController : PublicNhBaseController
             await _userRepository.SaveChangesAsync();
         }
 
-        List<Division> removeDivisions = new();
+        List<NhDivision> removeDivisions = new();
         foreach (var division in divisions)
         {
             if (!await _userManager.DivisionAccessAsync(division.Id, claims,

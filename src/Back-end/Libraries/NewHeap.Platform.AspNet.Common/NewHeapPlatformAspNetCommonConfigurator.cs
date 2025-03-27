@@ -305,7 +305,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         #region Repositories
         AddRepository<User>();
         AddRepository<UserRole>();
-        AddRepository<Division>();
+        AddRepository<NhDivision>();
         AddRepository<DivisionRole>();
         AddRepository<DivisionRoleClaim>();
         AddRepository<DivisionUser>();

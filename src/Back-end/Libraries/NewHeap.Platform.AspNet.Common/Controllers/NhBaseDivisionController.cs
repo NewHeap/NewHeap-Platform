@@ -18,7 +18,7 @@ using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
-public abstract class NhBaseDivisionController : DbEntityProtectedNhBaseController<Division, DivisionMutateModel, DivisionViewModel, DivisionService, DivisionCollectionRequestModel>
+public abstract class NhBaseDivisionController : DbEntityProtectedNhBaseController<NhDivision, DivisionMutateModel, DivisionViewModel, DivisionService, DivisionCollectionRequestModel>
 {
     protected const string READ_POLICY = "app.division.view";
     protected const string MANAGE_POLICY = "app.division.manage";
@@ -35,7 +35,7 @@ public abstract class NhBaseDivisionController : DbEntityProtectedNhBaseControll
     {
     }
 
-    protected override Task<IQueryable<Division>> GetQueryableAsync()
+    protected override Task<IQueryable<NhDivision>> GetQueryableAsync()
     {
         var query = _dbEntityService
                 .GetRepository()

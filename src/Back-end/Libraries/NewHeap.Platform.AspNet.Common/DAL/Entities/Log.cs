@@ -27,7 +27,7 @@ public enum LogAction
     Delete = 4000
 }
 
-public class Log : Log<User, LogMessageArgument, LogMessageTranslated, LogFile, Division, DivisionUser, DivisionRole, DivisionUserRole, DivisionRoleClaim>
+public class Log : Log<User, LogMessageArgument, LogMessageTranslated, LogFile, NhDivision, DivisionUser, DivisionRole, DivisionUserRole, DivisionRoleClaim>
 {
 }
 

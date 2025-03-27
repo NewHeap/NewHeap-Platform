@@ -107,7 +107,7 @@ public partial class NhUserManager : UserManager<User>, INhUserManager
             var divisionAccessAll = claims.Any(x =>
                 x.Type == NhPlatformClaimTypes.Permission &&
                 x.Value == Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll);
-            IQueryable<Division> divisionsQuery = _userRepository.GetDbSet<Division>().AsNoTracking();
+            IQueryable<NhDivision> divisionsQuery = _userRepository.GetDbSet<NhDivision>().AsNoTracking();
 
             if (!divisionAccessAll)
             {
