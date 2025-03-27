@@ -19,6 +19,7 @@ using WebAPI.Services;
 using WebAPI.Jobs;
 using WebAPI.DAL.Entities;
 using Scalar.AspNetCore;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
 
 
 namespace WebAPI;
@@ -105,14 +106,41 @@ public class Startup
                         Configuration.GetSection($"{NewHeapCommonOptions.DefaultSettingsPrefix}:MicrosoftAuthSettings").Bind(x))
                     ;
             })
-            .WithIdentityEntityFramework<AppDbContext, NhUserManager>(x =>
+            .WithIdentityEntityFramework<
+                AppDbContext, 
+                NhUserManager,
+                NhDivision,
+                NhDivisionUser,
+                NhDivisionRole,
+                NhDivisionUserRole,
+                NhDivisionRoleClaim,
+                NhUser,
+                NhUserRole,
+                NhLog,
+                NhLogMessageArgument,
+                NhLogFile,
+                NhLogMessageTranslated
+            >(x =>
             {
                 x.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"))
 #if DEBUG
                 .UseLoggerFactory(AppLoggerFactory);
 #endif
             })
-            .WithIdentity<AppDbContext>(x =>
+            .WithIdentity<
+                AppDbContext,
+                NhDivision,
+                NhDivisionUser,
+                NhDivisionRole,
+                NhDivisionUserRole,
+                NhDivisionRoleClaim,
+                NhUser,
+                NhUserRole,
+                NhLog,
+                NhLogMessageArgument,
+                NhLogFile,
+                NhLogMessageTranslated
+                >(x =>
             {
 
             })

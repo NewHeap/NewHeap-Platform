@@ -5,7 +5,7 @@ using System.Linq.Expressions;
 namespace NewHeap.Platform.AspNet.Common.DAL;
 public interface IRepository<T> where T : class
 {
-    NhIdentityDbContext Context { get; }
+    DbContext Context { get; }
 
     void Add(T entity);
     void Add<TEntity>(TEntity entity) where TEntity : class;

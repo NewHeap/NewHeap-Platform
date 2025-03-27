@@ -354,21 +354,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
             serviceCollection.AddScoped<IRepository<TEntity>>(serviceProvider =>
             {
                 var dbContext = serviceProvider.GetRequiredService<TDbContext>();
-                return new Repository<
-                    TEntity,
-                    TDbContext,
-                    TDivision,
-                    TDivisionUser,
-                    TDivisionRole,
-                    TDivisionUserRole,
-                    TDivisionRoleClaim,
-                    TUser,
-                    TUserRole,
-                    TLog,
-                    TLogMessageArgument,
-                    TLogFile,
-                    TLogMessageTranslated
-                >(dbContext);
+                return new Repository<TEntity>(dbContext);
             });
         }
 
@@ -529,7 +515,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
     { 
         return WithIdentity<
             TDbContext,
-            TUserManager,
             NhDivision,
             NhDivisionUser,
             NhDivisionRole,
@@ -545,7 +530,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
 
     public NewHeapPlatformAspNetCommonConfigurator WithIdentity<
         TDbContext,
-        TUserManager,
         TDivision,
         TDivisionUser,
         TDivisionRole,
