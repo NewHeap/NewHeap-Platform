@@ -4,7 +4,16 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
-public partial class Division : IdDbEntity
+public partial class Division : Division<DivisionUser, DivisionUserRole, DivisionRole, DivisionRoleClaim>
+{
+
+}
+
+public partial class Division<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim> : IdDbEntity
+    where TDivisionUser : DivisionUser<DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim>, TDivisionUser, TDivisionRole, TDivisionRoleClaim>
+    where TDivisionUserRole : DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim>
+    where TDivisionRole : DivisionRole<DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim>, TDivisionRoleClaim, TDivisionUser, TDivisionRole>
+    where TDivisionRoleClaim : DivisionRoleClaim
 {
     public Division()
     {
@@ -34,5 +43,5 @@ public partial class Division : IdDbEntity
 
     public bool UserSelectAllowed { get; set; }
 
-    public ICollection<DivisionUser> DivisionUsers { get; set; } = new List<DivisionUser>();
+    public ICollection<TDivisionUser> DivisionUsers { get; set; } = new List<TDivisionUser>();
 }

@@ -27,10 +27,29 @@ public enum LogAction
     Delete = 4000
 }
 
+public class Log : Log<User, LogMessageArgument, LogMessageTranslated, LogFile, Division, DivisionUser, DivisionUserRole>
+{
+}
+
 /// <summary>
 ///     Note: Immutable rows
 /// </summary>
-public partial class Log
+public partial class Log<
+    TUser, 
+    TLogMessageArgument, 
+    TLogMessageTranslated,
+    TLogFile,
+    TDivision,
+    TDivisionUser,
+    TDivisionUserRole
+    >
+    where TUser : User<TDivision, TDivisionUser, TDivisionUserRole>
+    where TLogMessageArgument : LogMessageArgument
+    where TLogMessageTranslated : LogMessageTranslated
+    where TLogFile : LogFile
+    where TDivision : Division<TDivisionUser, TDivisionUserRole>
+    where TDivisionUser : DivisionUser<TDivisionUserRole>
+    where TDivisionUserRole : DivisionUserRole
 {
     public Log()
     {
@@ -78,15 +97,15 @@ public partial class Log
     [Display(Name = "User")]
     public Guid? UserId { get; set; }
 
-    public User User { get; set; } = null!;
+    public TUser User { get; set; } = null!;
 
-    public List<LogFile> Files { get; set; } = null!;
+    public List<TLogFile> Files { get; set; } = null!;
 
-    public List<LogMessageArgument> MessageArguments { get; set; } = null!;
+    public List<TLogMessageArgument> MessageArguments { get; set; } = null!;
 
-    public List<LogMessageTranslated> MessageTranslateds { get; set; } = null!;
+    public List<TLogMessageTranslated> MessageTranslateds { get; set; } = null!;
 
     public Guid? DivisionId { get; set; }
 
-    public Division? Division { get; set; }
+    public TDivision? Division { get; set; }
 }

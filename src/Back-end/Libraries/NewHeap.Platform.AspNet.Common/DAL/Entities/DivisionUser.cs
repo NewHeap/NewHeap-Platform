@@ -4,7 +4,15 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
-public partial class DivisionUser : IdDbEntity
+public partial class DivisionUser : DivisionUser<DivisionUserRole, DivisionUser, DivisionRole, DivisionRoleClaim>
+{
+}
+
+public partial class DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim> : IdDbEntity
+    where TDivisionUserRole : DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim>
+    where TDivisionUser : DivisionUser<DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim>, TDivisionUser, TDivisionRole, TDivisionRoleClaim>
+    where TDivisionRole : DivisionRole<DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim>, TDivisionRoleClaim, TDivisionUser, TDivisionRole>
+    where TDivisionRoleClaim : DivisionRoleClaim
 {
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -14,14 +22,10 @@ public partial class DivisionUser : IdDbEntity
 
     public Guid UserId { get; set; }
 
-    public User User { get; set; } = null!;
-
     public Guid DivisionId { get; set; }
-
-    public Division Division { get; set; } = null!;
 
     public DateTimeOffset? LockOutStartDateTime { get; set; }
     public DateTimeOffset? LockOutEndDateTime { get; set; }
 
-    public ICollection<DivisionUserRole> DivisionUserRoles { get; set; } = new List<DivisionUserRole>();
+    public ICollection<TDivisionUserRole> DivisionUserRoles { get; set; } = new List<TDivisionUserRole>();
 }

@@ -68,7 +68,10 @@ public partial class DbLogService
             Type = type,
             UserId = userId,
             Source = LogSource.Internal,
-            DivisionId = _httpContextAccessor?.HttpContext?.Request?.GetActiveDivisionId()
+            DivisionId = _httpContextAccessor?.HttpContext?.Request?.GetActiveDivisionId(),
+            MessageTranslateds = new List<LogMessageTranslated>(),
+            MessageArguments = new List<LogMessageArgument>(),
+            Files = new List<LogFile>()
         };
 
         if (overrideCreationDateTime.HasValue)
@@ -80,16 +83,20 @@ public partial class DbLogService
 
         if (messageArguments?.Any() == true)
         {
+            log.MessageArguments ??= new List<LogMessageArgument>();
+
             for (var i = 0; i < messageArguments.Length; i++)
             {
-                LogMessageArgument logMessageArgument = new() { Log = log, Index = i, Value = messageArguments[i] };
+                LogMessageArgument logMessageArgument = new() { Index = i, Value = messageArguments[i] };
 
                 if (!string.IsNullOrWhiteSpace(logMessageArgument.Value))
                 {
                     logMessageArgument.Value = logMessageArgument.StringGuidelineMaxLength(x => x.Value);
                 }
 
-                await dbContext.LogMessageArguments.AddAsync(logMessageArgument);
+                log.MessageArguments.Add(logMessageArgument);
+
+                //await dbContext.LogMessageArguments.AddAsync(logMessageArgument);
             }
         }
 
@@ -103,6 +110,8 @@ public partial class DbLogService
 
         var originCulture = CultureInfo.CurrentCulture;
         var originUICulture = CultureInfo.CurrentUICulture;
+
+        log.MessageTranslateds ??= new List<LogMessageTranslated>();
 
         foreach (var culture in cultures)
         {
@@ -122,9 +131,8 @@ public partial class DbLogService
                 //Ignore
             }
 
-            await dbContext.LogMessageTranslateds.AddAsync(new LogMessageTranslated
+            log.MessageTranslateds.Add(new LogMessageTranslated
             {
-                Log = log,
                 Culture = culture,
                 Message = localizedMessage ?? log.StringGuidelineMaxLength(x => x.Message)!
             });

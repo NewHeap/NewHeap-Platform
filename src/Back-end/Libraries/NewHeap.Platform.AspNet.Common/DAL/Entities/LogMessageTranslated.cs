@@ -18,8 +18,6 @@ public partial class LogMessageTranslated
 
     public Guid LogId { get; set; }
 
-    public Log? Log { get; set; }
-
     /// <summary>
     ///     Ëxample: en-US
     /// </summary>

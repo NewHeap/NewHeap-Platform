@@ -21,8 +21,6 @@ public partial class LogFile
 
     public Guid LogId { get; set; }
 
-    public Log Log { get; set; } = null!;
-
     [StringLength(254)]
     public required string OriginalFileName { get; set; }
 

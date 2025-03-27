@@ -22,8 +22,6 @@ public partial class LogMessageArgument
 
     public Guid LogId { get; set; }
 
-    public Log Log { get; set; } = null!;
-
     public int Index { get; set; }
 
     public string? Value { get; set; }
