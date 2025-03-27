@@ -594,22 +594,11 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator WithDbLogService<TNhLog>(
+    public NewHeapPlatformAspNetCommonConfigurator WithDbLogService(
         Action<DbLogServiceSettings> settingsAction)
-        where TNhLog : NhLog
     {
         _serviceCollection.Configure(settingsAction);
-        _serviceCollection.AddScoped<DbLogService<TNhLog>>();
-
-        return this;
-    }
-
-    public NewHeapPlatformAspNetCommonConfigurator WithDbLogService<TNhLog>(
-    Action<DbLogServiceSettings> settingsAction)
-    where TNhLog : NhLog<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>
-    {
-        _serviceCollection.Configure(settingsAction);
-        _serviceCollection.AddScoped<DbLogService<TNhLog>>();
+        _serviceCollection.AddScoped<DbLogService>();
 
         return this;
     }

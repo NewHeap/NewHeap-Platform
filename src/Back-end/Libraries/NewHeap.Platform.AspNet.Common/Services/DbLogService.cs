@@ -10,11 +10,10 @@ using System.Globalization;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class DbLogService<TNhLog>
-    where TNhLog : NhLog
+public partial class DbLogService
 {
     protected readonly IHttpContextAccessor _httpContextAccessor;
-    protected readonly IStringLocalizer<DbLogService<TNhLog>> _logLocalizer;
+    protected readonly IStringLocalizer<DbLogService> _logLocalizer;
     protected readonly IRepository<NhLog> _logRepository;
     protected readonly DbLogServiceSettings _logSettings;
     protected readonly NewHeapAspNetCommonSettings _settings;
@@ -23,7 +22,7 @@ public partial class DbLogService<TNhLog>
         IOptions<DbLogServiceSettings> logSettings,
         IRepository<NhLog> logRepository,
         IHttpContextAccessor httpContextAccessor,
-        IStringLocalizer<DbLogService<TNhLog>> logLocalizer,
+        IStringLocalizer<DbLogService> logLocalizer,
         IOptions<NewHeapAspNetCommonSettings> settings
     )
     {
