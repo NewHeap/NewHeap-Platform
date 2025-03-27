@@ -221,8 +221,9 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         return filterResult;
     }
 
-    private bool IsFilterValid(FilterCollectionRequestModel filter, IEnumerable<PropertyInfo> filterProperties)
+    private bool IsFilterValid(FilterCollectionRequestModel filter, IEnumerable<PropertyInfo> filterProperties, out string? error)
     {
+        error = null;
         if (string.IsNullOrWhiteSpace(filter.Key) || string.IsNullOrWhiteSpace(filter.Operator))
         {
             return false;
@@ -230,23 +231,25 @@ public partial class CollectionProcessingService : ICollectionProcessingService
 
         var supportedOperators = new[] { "==", "!=", ">", ">=", "<", "<=", "IS", "IS NOT", "IN", "NOT IN", "LIKE" };
 
-        if (!supportedOperators.Contains(filter.Operator))
+        if (!supportedOperators.Contains(filter.Operator?.Trim(),StringComparer.InvariantCultureIgnoreCase))
         {
+            error = $"Invalid operator '{filter.Operator}'";
             return false;
         }
 
         var key = filter.Key.Split(".")[0]
-                .Replace("{any}", "")
-                .Replace("{!any}", "")
-                .Replace("{not any}", "")
-                .Replace("{all}", "")
-                .Replace("{!all}", "")
-                .Replace("{not all}", "")
+                .Replace("{any}", "",StringComparison.InvariantCultureIgnoreCase)
+                .Replace("{!any}", "",StringComparison.InvariantCultureIgnoreCase)
+                .Replace("{not any}", "",StringComparison.InvariantCultureIgnoreCase)
+                .Replace("{all}", "",StringComparison.InvariantCultureIgnoreCase)
+                .Replace("{!all}", "",StringComparison.InvariantCultureIgnoreCase)
+                .Replace("{not all}", "",StringComparison.InvariantCultureIgnoreCase)
             ;
 
         var filterField = filterProperties.FirstOrDefault(x => x.Name.Equals(key, (StringComparison)3));
         if (null == filterField)
         {
+            error = $"Invalid filter field '{key}'";
             return false;
         }
 
@@ -256,9 +259,16 @@ public partial class CollectionProcessingService : ICollectionProcessingService
     private Expression<Func<T, bool>>? GetFilterLambda<T>(FilterCollectionRequestModel filter,
         IEnumerable<PropertyInfo> filterProperties, ParameterExpression? parameter = null, bool skipValidation = false)
     {
-        if (!skipValidation && !IsFilterValid(filter, filterProperties))
+        if (!skipValidation && !IsFilterValid(filter, filterProperties, out var err))
         {
-            throw new Exception("Invalid filter found");
+            if (err is not null)
+            {
+                throw new Exception(err);
+            }
+            else
+            {
+                throw new Exception("Invalid filter found");
+            }
         }
 
         var selector = Guid.NewGuid().ToString().Replace("-", string.Empty).Substring(0, 8);
