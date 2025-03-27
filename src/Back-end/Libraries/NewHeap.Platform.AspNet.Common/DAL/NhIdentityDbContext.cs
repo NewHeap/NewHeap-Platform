@@ -158,12 +158,6 @@ public abstract partial class NhIdentityDbContext<
 
         builder.Entity<TDivision>(entity =>
         {
-            entity
-                .HasMany(x => x.DivisionUsers)
-                .WithOne()
-                .HasForeignKey(x => x.DivisionId)
-                .OnDelete(DeleteBehavior.Cascade)
-            ;
         });
 
         builder.Entity<TDivisionUser>(entity =>
@@ -172,33 +166,47 @@ public abstract partial class NhIdentityDbContext<
                 .IsUnique();
 
             entity
-                .HasMany(x => x.DivisionUserRoles)
-                .WithOne()
+                .HasOne(x => x.Division)
+                .WithMany(x => x.DivisionUsers)
+                .HasForeignKey(x => x.DivisionId)
+                .OnDelete(DeleteBehavior.Cascade)
+                ;
+
+            entity
+                .HasOne(x => x.User)
+                .WithMany(x => x.DivisionUsers)
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                ;
+        });
+
+        builder.Entity<TDivisionUserRole>(entity =>
+        {
+            entity.HasKey(x => new { x.DivisionUserId, x.DivisionRoleId });
+
+            entity
+                .HasOne(x => x.DivisionUser)
+                .WithMany(x => x.DivisionUserRoles)
                 .HasForeignKey(x => x.DivisionUserId)
                 .OnDelete(DeleteBehavior.Cascade)
-            ;
+                ;
+
+            entity
+                .HasOne(x => x.DivisionRole)
+                .WithMany(x => x.DivisionUserRoles)
+                .HasForeignKey(x => x.DivisionRoleId)
+                .OnDelete(DeleteBehavior.Cascade)
+                ;
         });
 
         builder.Entity<TDivisionRole>(entity =>
         {
-            entity
-                .HasMany(x => x.DivisionUserRoles)
-                .WithOne()
-                .HasForeignKey(x => x.DivisionRoleId)
-                .OnDelete(DeleteBehavior.Cascade)
-            ;
-
             entity
                 .HasMany(x => x.DivisionRoleClaims)
                 .WithOne()
                 .HasForeignKey(x => x.DivisionRoleId)
                 .OnDelete(DeleteBehavior.Cascade)
             ;
-        });
-
-        builder.Entity<TDivisionRoleClaim>(entity =>
-        {
-            entity.HasIndex(x => x.DivisionRoleId);
         });
 
         #endregion

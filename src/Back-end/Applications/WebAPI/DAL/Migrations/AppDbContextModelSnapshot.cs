@@ -157,7 +157,7 @@ namespace WebAPI.DAL.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Divisions");
+                    b.ToTable("Divisions", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.DivisionRole", b =>
@@ -173,7 +173,7 @@ namespace WebAPI.DAL.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("DivisionRoles");
+                    b.ToTable("DivisionRoles", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.DivisionRoleClaim", b =>
@@ -197,7 +197,7 @@ namespace WebAPI.DAL.Migrations
 
                     b.HasIndex("DivisionRoleId");
 
-                    b.ToTable("DivisionRoleClaims");
+                    b.ToTable("DivisionRoleClaims", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.DivisionUser", b =>
@@ -231,7 +231,7 @@ namespace WebAPI.DAL.Migrations
                     b.HasIndex("DivisionId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("DivisionUsers");
+                    b.ToTable("DivisionUsers", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.DivisionUserRole", b =>
@@ -246,7 +246,7 @@ namespace WebAPI.DAL.Migrations
 
                     b.HasIndex("DivisionRoleId");
 
-                    b.ToTable("DivisionUserRoles");
+                    b.ToTable("DivisionUserRoles", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.Log", b =>
@@ -305,7 +305,7 @@ namespace WebAPI.DAL.Migrations
 
                     b.HasIndex("ObjectTypeFull", "ObjectId");
 
-                    b.ToTable("Logs");
+                    b.ToTable("Logs", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.LogFile", b =>
@@ -333,7 +333,7 @@ namespace WebAPI.DAL.Migrations
 
                     b.HasIndex("LogId");
 
-                    b.ToTable("LogFiles");
+                    b.ToTable("LogFiles", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.LogMessageArgument", b =>
@@ -358,7 +358,7 @@ namespace WebAPI.DAL.Migrations
 
                     b.HasIndex("LogId");
 
-                    b.ToTable("LogMessageArguments");
+                    b.ToTable("LogMessageArguments", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.LogMessageTranslated", b =>
@@ -386,7 +386,7 @@ namespace WebAPI.DAL.Migrations
 
                     b.HasIndex("LogId");
 
-                    b.ToTable("LogMessageTranslateds");
+                    b.ToTable("LogMessageTranslateds", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.User", b =>
@@ -566,7 +566,7 @@ namespace WebAPI.DAL.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Addresses");
+                    b.ToTable("Addresses", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
