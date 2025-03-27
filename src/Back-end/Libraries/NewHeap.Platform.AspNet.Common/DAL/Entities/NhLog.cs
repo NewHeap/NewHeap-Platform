@@ -27,14 +27,14 @@ public enum LogAction
     Delete = 4000
 }
 
-public class NhLog : Log<NhUser, NhLogMessageArgument, NhLogMessageTranslated, NhLogFile, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim>
+public class NhLog : NhLog<NhUser, NhLogMessageArgument, NhLogMessageTranslated, NhLogFile, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim>
 {
 }
 
 /// <summary>
 ///     Note: Immutable rows
 /// </summary>
-public partial class Log<
+public partial class NhLog<
     TUser, 
     TLogMessageArgument, 
     TLogMessageTranslated,
@@ -45,17 +45,17 @@ public partial class Log<
     TDivisionUserRole,
     TDivisionRoleClaim
     >
-    where TUser : User<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
     where TLogMessageArgument : NhLogMessageArgument
     where TLogMessageTranslated : NhLogMessageTranslated
     where TLogFile : NhLogFile
-    where TDivision : Division<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
-    where TDivisionRole : DivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
-    where TDivisionUser : DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
-    where TDivisionUserRole : DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
     where TDivisionRoleClaim : NhDivisionRoleClaim
 {
-    public Log()
+    public NhLog()
     {
         CreationDateTime = DateTimeOffset.UtcNow;
         Source = LogSource.Unknown;
