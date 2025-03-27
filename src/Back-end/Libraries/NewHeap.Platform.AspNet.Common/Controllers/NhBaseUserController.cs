@@ -20,7 +20,8 @@ using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
-public abstract class NhBaseUserController : ProtectedNhBaseController
+public abstract class NhBaseUserController<TUser> : ProtectedNhBaseController
+    where TUser : NhUser
 {
     protected const string READ_POLICY = "app.user.view";
     protected const string MANAGE_POLICY = "app.user.manage";
@@ -29,8 +30,8 @@ public abstract class NhBaseUserController : ProtectedNhBaseController
     public NhBaseUserController(
         IConfiguration config,
         IMapper mapper,
-        ILogger<NhBaseUserController> logger,
-        IStringLocalizer<NhBaseUserController> localizer,
+        ILogger<NhBaseUserController<TUser>> logger,
+        IStringLocalizer<NhBaseUserController<TUser>> localizer,
         INhUserManager userManager,
         IHttpCollectionProcessingService collectionRequestProcessingService
     )
@@ -40,12 +41,12 @@ public abstract class NhBaseUserController : ProtectedNhBaseController
     }
 
     [NonAction]
-    public Task<IQueryable<NhUser>> GetQueryableAsync()
+    public Task<IQueryable<TUser>> GetQueryableAsync()
     {
         
         var query = _userManager
             .GetRepository()
-            as IQueryable<NhUser>
+            as IQueryable<TUser>
         ;
 
         query = ApplyDivisionFilter(query, x => x.DivisionUsers.Any(c => c.DivisionId == ActiveDivisionId));
@@ -63,7 +64,8 @@ public abstract class NhBaseUserController : ProtectedNhBaseController
 
         if (requestModel?.Roles?.Any() == true)
         {
-            query = query.Where(x => _userManager.GetRepository().Context.UserRoles.Any(c => c.UserId == x.Id.ToString() && _userManager.GetRepository().Context.Roles.Where(v => requestModel.Roles.Contains(v.Name)).Select(c => c.Id).Contains(c.RoleId)));
+            //TODO:
+            //query = query.Where(x => _userManager.GetRepository().Context.UserRoles.Any(c => c.UserId == x.Id.ToString() && _userManager.GetRepository().Context.Roles.Where(v => requestModel.Roles.Contains(v.Name)).Select(c => c.Id).Contains(c.RoleId)));
         }
 
         if (requestModel?.DivisionIds?.Any() == true)

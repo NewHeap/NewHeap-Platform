@@ -359,17 +359,17 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         }
 
         #region Repositories
-        AddRepository<NhUser>();
-        AddRepository<NhUserRole>();
-        AddRepository<NhDivision>();
-        AddRepository<NhDivisionRole>();
-        AddRepository<NhDivisionRoleClaim>();
-        AddRepository<NhDivisionUser>();
-        AddRepository<NhDivisionUserRole>();
-        AddRepository<NhLog>();
-        AddRepository<NhLogMessageArgument>();
-        AddRepository<NhLogMessageTranslated>();
-        AddRepository<NhLogFile>();
+        AddRepository<TUser>();
+        AddRepository<TUserRole>();
+        AddRepository<TDivision>();
+        AddRepository<TDivisionRole>();
+        AddRepository<TDivisionRoleClaim>();
+        AddRepository<TDivisionUser>();
+        AddRepository<TDivisionUserRole>();
+        AddRepository<TLog>();
+        AddRepository<TLogMessageArgument>();
+        AddRepository<TLogMessageTranslated>();
+        AddRepository<TLogFile>();
         #endregion
 
         serviceCollection.AddScoped<TUserManager, TUserManager>();
@@ -594,11 +594,22 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator WithDbLogService(
+    public NewHeapPlatformAspNetCommonConfigurator WithDbLogService<TNhLog>(
         Action<DbLogServiceSettings> settingsAction)
+        where TNhLog : NhLog
     {
         _serviceCollection.Configure(settingsAction);
-        _serviceCollection.AddScoped<DbLogService>();
+        _serviceCollection.AddScoped<DbLogService<TNhLog>>();
+
+        return this;
+    }
+
+    public NewHeapPlatformAspNetCommonConfigurator WithDbLogService<TNhLog>(
+    Action<DbLogServiceSettings> settingsAction)
+    where TNhLog : NhLog<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>
+    {
+        _serviceCollection.Configure(settingsAction);
+        _serviceCollection.AddScoped<DbLogService<TNhLog>>();
 
         return this;
     }
