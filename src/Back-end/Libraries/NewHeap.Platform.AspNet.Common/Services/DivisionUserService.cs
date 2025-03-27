@@ -12,11 +12,7 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class DivisionUserService<TDivisionUser, TDivisionUserMutateModel, TDivision, TDivisionUserRole> : BaseDbEntityService<DivisionUser, DivisionUserMutateModel, DivisionUserService<TDivisionUser, TDivisionUserMutateModel, TDivision, TDivisionUserRole>>
-    where TDivisionUser : DivisionUser<TDivisionUserRole>
-    where TDivisionUserMutateModel : DivisionUserMutateModel
-    where TDivision : Division<TDivisionUser, TDivisionUserRole>
-    where TDivisionUserRole : DivisionUserRole
+public partial class DivisionUserService : BaseDbEntityService<DivisionUser, DivisionUserMutateModel, DivisionUserService>
 {
     protected readonly IRepository<DivisionUserRole> _divisionUserRoleRepository;
     protected readonly IStringLocalizer _localizer;
@@ -25,7 +21,7 @@ public partial class DivisionUserService<TDivisionUser, TDivisionUserMutateModel
     public DivisionUserService(
         IRepository<DivisionUser> divisionUserRepository,
         IRepository<DivisionUserRole> divisionUserRoleRepository,
-        IStringLocalizer<DivisionUserService<TDivisionUser, TDivisionUserMutateModel, TDivision, TDivisionUserRole>> localizer,
+        IStringLocalizer<DivisionUserService> localizer,
         DbLogService dbLogService,
         LogHelperService logHelperService,
         ValidationService validationService,

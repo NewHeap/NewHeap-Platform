@@ -4,15 +4,17 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
 
-public partial class DivisionUser : DivisionUser<DivisionUserRole, DivisionUser, DivisionRole, DivisionRoleClaim>
+public partial class DivisionUser : DivisionUser<DivisionUserRole, DivisionUser, DivisionRole, DivisionRoleClaim, Division, User>
 {
 }
 
-public partial class DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim> : IdDbEntity
-    where TDivisionUserRole : DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole>
-    where TDivisionUser : DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim>
-    where TDivisionRole : DivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole>
+public partial class DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser> : IdDbEntity
+    where TDivisionUserRole : DivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivisionUser : DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : DivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
     where TDivisionRoleClaim : DivisionRoleClaim
+    where TDivision : Division<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TUser : User<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
 {
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -22,7 +24,11 @@ public partial class DivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRol
 
     public Guid UserId { get; set; }
 
+    public TUser User { get; set; } = null!;
+
     public Guid DivisionId { get; set; }
+
+    public TDivision Division { get; set; } = null!;
 
     public DateTimeOffset? LockOutStartDateTime { get; set; }
     public DateTimeOffset? LockOutEndDateTime { get; set; }
