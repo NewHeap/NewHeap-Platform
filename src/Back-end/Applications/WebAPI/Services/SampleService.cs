@@ -35,7 +35,7 @@ namespace WebAPI.Services
             }
 
             var result2 = Check2(id);
-            result2.ApplyTo(result1);
+            result2.ApplyTo(result);
 
             if (!result.Success)
             {
@@ -61,8 +61,9 @@ namespace WebAPI.Services
             var result2 = Check2(id);
             var result3 = CheckNoT(id);
 
-            result1.ApplyTo(result1);
+            result1.ApplyTo(result);
             result2.ApplyTo(result);
+            result3.ApplyTo(result);
 
             return result;
         }
