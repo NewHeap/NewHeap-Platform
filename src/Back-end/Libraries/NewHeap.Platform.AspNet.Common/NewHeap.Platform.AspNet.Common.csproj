@@ -14,6 +14,9 @@
 		<NoWarn>$(NoWarn);CS1591</NoWarn>
 		<IncludeSymbols>True</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<EmbedAllSources>True</EmbedAllSources>
+		<DebugType>Embedded</DebugType>
+		<PackageIcon>NH_logo.png</PackageIcon>
     </PropertyGroup>
 
     <ItemGroup>
@@ -21,23 +24,26 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Hangfire" Version="1.8.18" />
-        <PackageReference Include="Hangfire.Console" Version="1.4.3" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.2" />
-        <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.2" />
-        <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="9.0.2" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.2" />
-        <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.11.0" />
-        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.11.0" />
-        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.0.2" />
+      <None Include="..\..\Assets\NH_logo.png">
+        <Pack>True</Pack>
+        <PackagePath>\</PackagePath>
+      </None>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Hangfire" />
+        <PackageReference Include="Hangfire.Console" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+        <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+        <PackageReference Include="System.Linq.Dynamic.Core" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Include="NewHeap.Platform.Common" />
     </ItemGroup>
 
     <ItemGroup>
