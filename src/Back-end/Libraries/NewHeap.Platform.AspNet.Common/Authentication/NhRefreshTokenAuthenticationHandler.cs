@@ -63,14 +63,14 @@ public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint
         
         if (string.IsNullOrEmpty(request?.UserName) || string.IsNullOrEmpty(request.RefreshToken))
         {
-            return TypedResults.BadRequest();
+            return BadRequest(TaskResult.Failed("Invalid request"));
         }
 
         var result = await authenticationService.RefreshToken(request);
 
         if (!result.Success)
         {
-            return TypedResults.BadRequest(result);
+            return BadRequest(result);
         }
 
         var token = result.Data;

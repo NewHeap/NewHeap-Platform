@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication;
 
@@ -65,12 +66,13 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
     [Produces<Results<Ok<UserToken>,BadRequest>>]
     private async Task<IResult> Authenticate([FromBody] AuthenticateRequest? request,[FromServices] INhAuthenticationService authenticationService)
     {
-        if (string.IsNullOrEmpty(request?.UserName) || string.IsNullOrEmpty(request?.Password))
+        var modelValid = ValidateModel(request);
+        if (!modelValid.Success)
         {
-            return TypedResults.BadRequest("Username or password is missing");
+            return BadRequest(modelValid);
         }
 
-        var result = await authenticationService.Authenticate(request);
+        var result = await authenticationService.Authenticate(request!);
         if (!result.Success)
         {
             return BadRequest(result);
@@ -107,5 +109,20 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
         }
 
         return TypedResults.Ok(token);
+    }
+
+    private TaskResult ValidateModel(AuthenticateRequest? request)
+    {
+        var result = new TaskResult();
+        if (string.IsNullOrEmpty(request?.UserName))
+        {
+            result.AddError(nameof(request.UserName),"Field is required");
+        }
+        
+        if (string.IsNullOrEmpty(request?.Password))
+        {
+            result.AddError(nameof(request.Password),"Field is required");
+        }
+        return result;
     }
 }
