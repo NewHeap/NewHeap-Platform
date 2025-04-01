@@ -14,8 +14,8 @@ $Version = "$Major.$Minor.$Patch-ci-$timestamp"
 Write-Host "Building package with version: $Version"
 
 # Voer `dotnet pack` uit met de juiste versie
-dotnet pack .\Libraries\NewHeap.Platform.Common -c Release /p:Version=$Version
-dotnet pack .\Libraries\NewHeap.Platform.AspNet.Common -c Release /p:Version=$Version
+dotnet pack .\Libraries\NewHeap.Platform.Common -c Release /p:Version=$Version -Symbols -SymbolPackageFormat snupkg
+dotnet pack .\Libraries\NewHeap.Platform.AspNet.Common -c Release /p:Version=$Version -Symbols -SymbolPackageFormat snupkg
 
 # Controleer of het packen is geslaagd
 if ($LASTEXITCODE -ne 0) {
