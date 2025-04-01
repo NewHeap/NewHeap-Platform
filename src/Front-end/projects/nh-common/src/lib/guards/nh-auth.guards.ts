@@ -18,8 +18,8 @@ export const NhIsAuthenticatedGuard = (route: ActivatedRouteSnapshot, state: Rou
     const redirectUrl = route.data['isAuthenticatedGuardRedirectPath'] as string|undefined|null;
 
     let url = '/';
-    if(platformConfig.authenticationLoginPath && platformConfig.authenticationLoginPath.length > 0) {
-      url = platformConfig.authenticationLoginPath;
+    if(platformConfig?.authentication?.loginPath && platformConfig.authentication.loginPath.length > 0) {
+      url = platformConfig.authentication.loginPath;
     }
 
     if (redirectUrl) {

@@ -15,6 +15,7 @@ export class AuthenticationNhCommonModuleConfig {
   additionalClaimPermissionTypes: string[] = [];
   additionalDivisionClaimPermissionTypes: string[] = [];
   endpoints: EndpointsAuthenticationNhCommonModuleConfig = new EndpointsAuthenticationNhCommonModuleConfig();
+  loginPath: string = '/';
 
   public constructor(init?: Partial<AuthenticationNhCommonModuleConfig>) {
     Object.assign(this, init);
@@ -32,7 +33,6 @@ export class NhCommonModuleConfig {
   defaultCulture: string = '';
   culture: string = '';
   authenticationRealm: string = '';
-  authenticationLoginPath: string = '';
   environment: string = '';
   cookieDomain: string = '';
   authentication: AuthenticationNhCommonModuleConfig = new AuthenticationNhCommonModuleConfig();
