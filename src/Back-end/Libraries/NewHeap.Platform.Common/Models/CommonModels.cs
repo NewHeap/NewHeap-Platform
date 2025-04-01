@@ -167,12 +167,31 @@ public partial class TaskResult
         return this;
     }
 
-    public static TaskResult Succeeded => new TaskResult();
+    public static TaskResult Succeeded() => new TaskResult();
+    public static TaskResult Succeeded(TaskResult taskResult)
+    {
+        var result = new TaskResult();
+        taskResult?.ApplyToTaskResult(result);
+
+        return result;
+    }
 
     public static TaskResult Failed(string error) => new TaskResult().AddError(error);
     public static TaskResult Failed(FormattableString error) => new TaskResult().AddError(error);
     public static TaskResult Failed(string name, FormattableString error) => new TaskResult().AddError(name, error);
     public static TaskResult Failed(string name, string error) => new TaskResult().AddError(name, error);
+    public static TaskResult Failed(TaskResult taskResult)
+    { 
+        var taskResult1 = new TaskResult();
+        taskResult.ApplyToTaskResult(taskResult1);
+
+        if(taskResult.Success)
+        {
+            taskResult1.Success = false;
+        }
+
+        return taskResult1;
+    }
 
     public List<FormattableString> AllErrorMessages => Results.SelectMany(x => x.ErrorMessages).ToList();
 
@@ -180,7 +199,7 @@ public partial class TaskResult
 
 public partial class TaskResult<T> : TaskResult
 {
-    public T Data { get; set; }
+    public T? Data { get; set; }
 
     public TaskResult<T> AddError(Expression<Func<T, object>> selector, params string[] errorMessages)
     {
@@ -197,7 +216,15 @@ public partial class TaskResult<T> : TaskResult
         return this;
     }
 
-    public static new TaskResult<T> Succeeded(T data) => new TaskResult<T> { Data = data };
+    public static TaskResult<T> Succeeded(T data) => new TaskResult<T> { Data = data };
+    public static TaskResult<T> Succeeded(TaskResult<T> data)
+    { 
+        var result = new TaskResult<T>();
+        result.Data = data.Data;
+
+        return result;
+    }
+
     public static implicit operator TaskResult<T>(T data) => new TaskResult<T>() { Data = data };
 
     public static new TaskResult<T> Failed(string error)
@@ -226,6 +253,32 @@ public partial class TaskResult<T> : TaskResult
         var r = new TaskResult<T>();
         r.AddError(name, error);
         return r;
+    }
+
+    public static new TaskResult<T> Failed(TaskResult taskResult)
+    {
+        var taskResult1 = new TaskResult<T>();
+        taskResult.ApplyToTaskResult(taskResult1);
+
+        if (taskResult.Success)
+        {
+            taskResult1.Success = false;
+        }
+
+        return taskResult1;
+    }
+
+    public static TaskResult<T> Failed(TaskResult<T> taskResult)
+    {
+        var taskResult1 = new TaskResult<T>();
+        taskResult.ApplyToTaskResult(taskResult1);
+
+        if (taskResult.Success)
+        {
+            taskResult1.Success = false;
+        }
+
+        return taskResult1;
     }
 
     public new TaskResult<T> WithKeylessError(string errorMessage)
