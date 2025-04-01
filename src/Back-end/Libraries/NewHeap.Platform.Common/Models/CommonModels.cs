@@ -120,6 +120,9 @@ public partial class TaskResult
         return this;
     }
 
+    public void ApplyTo(TaskResult taskResult) => ApplyToTaskResult(taskResult);
+    public void ApplyTo(ModelStateDictionary modelState) => ApplyToModelState(modelState);
+
     public virtual void ApplyToTaskResult(TaskResult taskResult)
     {
         foreach (var result in Results)
