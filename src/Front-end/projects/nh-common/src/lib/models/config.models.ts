@@ -32,6 +32,7 @@ export class NhCommonModuleConfig {
   defaultCulture: string = '';
   culture: string = '';
   authenticationRealm: string = '';
+  authenticationLoginPath: string = '';
   environment: string = '';
   cookieDomain: string = '';
   authentication: AuthenticationNhCommonModuleConfig = new AuthenticationNhCommonModuleConfig();

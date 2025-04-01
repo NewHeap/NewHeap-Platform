@@ -3,22 +3,29 @@ import {isPlatformServer} from '@angular/common';
 import {ActivatedRoute, ActivatedRouteSnapshot, Router, RouterStateSnapshot} from '@angular/router';
 import {NhAuthService} from "../services/nh-auth.service";
 import {Claim} from "../models/auth.models";
+import {NhCommonModuleConfig} from "../models/config.models";
 
 
 export const NhIsAuthenticatedGuard = (route: ActivatedRouteSnapshot, state: RouterStateSnapshot) => {
   const authService = inject(NhAuthService);
   const router = inject(Router);
   const platformId = inject(PLATFORM_ID);
+  const platformConfig = inject(NhCommonModuleConfig);
 
   const canActivate = authService.isAuthenticated();
 
   if (!canActivate && !isPlatformServer(platformId)) {
     const redirectUrl = route.data['isAuthenticatedGuardRedirectPath'] as string|undefined|null;
 
+    let url = '/';
+    if(platformConfig.authenticationLoginPath && platformConfig.authenticationLoginPath.length > 0) {
+      url = platformConfig.authenticationLoginPath;
+    }
+
     if (redirectUrl) {
       router.navigate([redirectUrl]);
     } else {
-      router.navigate(['/']);
+      router.navigate([url]);
     }
   }
 
