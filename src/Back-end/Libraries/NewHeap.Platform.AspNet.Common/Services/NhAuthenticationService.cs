@@ -16,17 +16,36 @@ namespace NewHeap.Platform.AspNet.Common.Services;
 /// <summary>
 /// Service for authenticating users
 /// </summary>
-public class NhAuthenticationService : INhAuthenticationService
+public class NhAuthenticationService<
+    TUser,
+    TLogMessageArgument,
+    TLogMessageTranslated,
+    TLogFile,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    > : INhAuthenticationService
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+    where TLogMessageArgument : NhLogMessageArgument, new()
+    where TLogMessageTranslated : NhLogMessageTranslated, new()
+    where TLogFile : NhLogFile, new()
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivisionRoleClaim : NhDivisionRoleClaim
 {
-    private readonly SignInManager<NhUser> _signInManager;
-    private readonly INhUserManager _userManager;
+    private readonly SignInManager<TUser> _signInManager;
+    private readonly INhUserManager<TUser> _userManager;
     private readonly ILogger<AuthenticationService> _logger;
     private readonly IConfiguration _configuration;
     private readonly TokenValidationParameters _tokenValidationParameters;
 
     public NhAuthenticationService(
-        SignInManager<NhUser> signInManager,
-        INhUserManager userManager,
+        SignInManager<TUser> signInManager,
+        INhUserManager<TUser> userManager,
         ILogger<AuthenticationService> logger,
         IConfiguration configuration,
         TokenValidationParameters tokenValidationParameters
@@ -60,8 +79,7 @@ public class NhAuthenticationService : INhAuthenticationService
         user.RefreshToken = GenerateRefreshToken();
         await _userManager.UpdateAsync(user);
 
-        var token = await CreateToken(user);
-
+        var token = await CreateToken(user.Id);
 
         return new UserToken(new JwtSecurityTokenHandler().WriteToken(token), token.ValidTo, user.RefreshToken,
             token.Issuer);
@@ -132,7 +150,7 @@ public class NhAuthenticationService : INhAuthenticationService
         await _userManager.UpdateAsync(user);
 
         _logger.LogInformation("User {user} logged in", user.UserName);
-        var token = await CreateToken(user);
+        var token = await CreateToken(user.Id);
 
         if (requiredClaims != null)
         {
@@ -163,11 +181,12 @@ public class NhAuthenticationService : INhAuthenticationService
     /// <summary>
     /// Create a JWT for a specific user
     /// </summary>
-    /// <param name="user"></param>
+    /// <param name="userId"></param>
     /// <param name="expiration">Duration token is valid for. Defaults to 1 day</param>
+    /// <param name="withDivisionClaims">Default false</param>
     /// <returns></returns>
     /// <exception cref="ConfigurationException">Throws when JWT configuration is missing</exception>
-    public virtual async Task<JwtSecurityToken> CreateToken(NhUser user, TimeSpan? expiration = null)
+    public virtual async Task<JwtSecurityToken> CreateToken(Guid userId, TimeSpan? expiration = null, bool withDivisionClaims = false)
     {
         if (
             string.IsNullOrWhiteSpace(GetTokenKey())
@@ -182,7 +201,8 @@ public class NhAuthenticationService : INhAuthenticationService
 
         expiration ??= TimeSpan.FromDays(1);
 
-        var claims = await _userManager.GetValidClaims(user);
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        var claims = await _userManager.GetValidClaims(user!, withDivisionClaims);
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 

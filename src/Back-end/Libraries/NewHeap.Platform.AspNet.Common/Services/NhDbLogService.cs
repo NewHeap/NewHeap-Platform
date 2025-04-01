@@ -10,19 +10,68 @@ using System.Globalization;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class DbLogService
+public partial class NhDbLogService : NhDbLogService<
+    NhLog, 
+    NhUser, 
+    NhLogMessageArgument, 
+    NhLogMessageTranslated, 
+    NhLogFile, 
+    NhDivision, 
+    NhDivisionUser, 
+    NhDivisionRole, 
+    NhDivisionUserRole, 
+    NhDivisionRoleClaim>
 {
-    protected readonly IHttpContextAccessor _httpContextAccessor;
-    protected readonly IStringLocalizer<DbLogService> _logLocalizer;
-    protected readonly IRepository<NhLog> _logRepository;
-    protected readonly DbLogServiceSettings _logSettings;
-    protected readonly NewHeapAspNetCommonSettings _settings;
-
-    public DbLogService(
+    public NhDbLogService(
         IOptions<DbLogServiceSettings> logSettings,
         IRepository<NhLog> logRepository,
         IHttpContextAccessor httpContextAccessor,
-        IStringLocalizer<DbLogService> logLocalizer,
+        IStringLocalizer<INhDbLogService> logLocalizer,
+        IOptions<NewHeapAspNetCommonSettings> settings
+    ) : base(logSettings, logRepository, httpContextAccessor, logLocalizer, settings)
+    {
+    }
+}
+
+public interface INhDbLogService
+{
+    Task LogAsync(string message, LogType type = LogType.Unknown, string? tag = null, string?[]? messageArguments = null, LogAction action = LogAction.Unknown, LogSource source = LogSource.Unknown, string? objectType = null, string? objectTypeFull = null, string? objectId = null, Guid? userId = null, (string name, Stream contentStream)[]? files = null, DateTimeOffset? overrideCreationDateTime = null, bool doSaveChanges = true, DbContext? dbContext = null, CancellationToken cancellationToken = default);
+}
+
+public abstract partial class NhDbLogService<
+    TLog,
+    TUser,
+    TLogMessageArgument,
+    TLogMessageTranslated,
+    TLogFile,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    > : INhDbLogService 
+    where TLog : NhLog<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>, new()
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+    where TLogMessageArgument : NhLogMessageArgument, new()
+    where TLogMessageTranslated : NhLogMessageTranslated, new()
+    where TLogFile : NhLogFile, new()
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivisionRoleClaim : NhDivisionRoleClaim
+{
+    protected readonly IHttpContextAccessor _httpContextAccessor;
+    protected readonly IStringLocalizer<INhDbLogService> _logLocalizer;
+    protected readonly IRepository<TLog> _logRepository;
+    protected readonly DbLogServiceSettings _logSettings;
+    protected readonly NewHeapAspNetCommonSettings _settings;
+
+    public NhDbLogService(
+        IOptions<DbLogServiceSettings> logSettings,
+        IRepository<TLog> logRepository,
+        IHttpContextAccessor httpContextAccessor,
+        IStringLocalizer<INhDbLogService> logLocalizer,
         IOptions<NewHeapAspNetCommonSettings> settings
     )
     {
@@ -33,7 +82,7 @@ public partial class DbLogService
         _settings = settings.Value;
     }
 
-    public virtual IQueryable<NhLog> GetQueryable()
+    public virtual IQueryable<TLog> GetQueryable()
     {
         return _logRepository.GetAll();
     }
@@ -58,7 +107,7 @@ public partial class DbLogService
     {
         dbContext ??= _logRepository.Context;
 
-        NhLog log = new()
+        TLog log = new()
         {
             Message = message,
             Tag = tag,
@@ -70,9 +119,9 @@ public partial class DbLogService
             UserId = userId,
             Source = LogSource.Internal,
             DivisionId = _httpContextAccessor?.HttpContext?.Request?.GetActiveDivisionId(),
-            MessageTranslateds = new List<NhLogMessageTranslated>(),
-            MessageArguments = new List<NhLogMessageArgument>(),
-            Files = new List<NhLogFile>()
+            MessageTranslateds = [],
+            MessageArguments = [],
+            Files = []
         };
 
         if (overrideCreationDateTime.HasValue)
@@ -84,11 +133,11 @@ public partial class DbLogService
 
         if (messageArguments?.Any() == true)
         {
-            log.MessageArguments ??= new List<NhLogMessageArgument>();
+            log.MessageArguments ??= [];
 
             for (var i = 0; i < messageArguments.Length; i++)
             {
-                NhLogMessageArgument logMessageArgument = new() { Index = i, Value = messageArguments[i] };
+                TLogMessageArgument logMessageArgument = new() { Index = i, Value = messageArguments[i] };
 
                 if (!string.IsNullOrWhiteSpace(logMessageArgument.Value))
                 {
@@ -112,7 +161,7 @@ public partial class DbLogService
         var originCulture = CultureInfo.CurrentCulture;
         var originUICulture = CultureInfo.CurrentUICulture;
 
-        log.MessageTranslateds ??= new List<NhLogMessageTranslated>();
+        log.MessageTranslateds ??= [];
 
         foreach (var culture in cultures)
         {
@@ -125,14 +174,14 @@ public partial class DbLogService
             try
             {
                 var inputMsg = log.StringGuidelineMaxLength(x => x.Message);
-                localizedMessage = _logLocalizer.GetString(inputMsg??"", [..messageArguments!]);
+                localizedMessage = _logLocalizer.GetString(inputMsg ?? "", [.. messageArguments!]);
             }
             catch
             {
                 //Ignore
             }
 
-            log.MessageTranslateds.Add(new NhLogMessageTranslated
+            log.MessageTranslateds.Add(new TLogMessageTranslated
             {
                 Culture = culture,
                 Message = localizedMessage ?? log.StringGuidelineMaxLength(x => x.Message)!
@@ -184,7 +233,7 @@ public partial class DbLogService
                             contentStream.CopyTo(fileStream);
                         }
 
-                        NhLogFile logFile = new() { OriginalFileName = name, FilePath = filePath, LogId = log.Id };
+                        TLogFile logFile = new() { OriginalFileName = name, FilePath = filePath, LogId = log.Id };
 
                         log.Files.Add(logFile);
 

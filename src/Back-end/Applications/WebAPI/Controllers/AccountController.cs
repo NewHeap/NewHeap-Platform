@@ -36,7 +36,7 @@ public class AccountController : PublicNhBaseController
     private readonly MailService _appMailManager;
     private readonly MicrosoftAuthService _appMicrosoftAuthManager;
     private readonly RazorViewService _appRazorViewManager;
-    private readonly DbLogService _dbLogService;
+    private readonly NhDbLogService _dbLogService;
     private readonly MicrosoftAuthSettings _microsoftAuthSettings;
     private readonly RoleManager<NhUserRole> _roleManager;
     private readonly IStringLocalizer<SharedResources> _sharedLocalizer;
@@ -54,7 +54,7 @@ public class AccountController : PublicNhBaseController
         IRepository<NhUser> appUserRepository,
         MailService appMailManager,
         RazorViewService appRazorViewManager,
-        DbLogService dbLogService,
+        NhDbLogService dbLogService,
         IOptions<MicrosoftAuthSettings> microsoftAuthSettings,
         MicrosoftAuthService appMicrosoftAuthManager,
         IConfiguration config,

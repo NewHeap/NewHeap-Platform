@@ -18,15 +18,14 @@ namespace WebAPI.Services
     {
         public AddressService(
             IRepository<Address> repository, 
-            DbLogService dbLogService, 
+            NhDbLogService dbLogService, 
             LogHelperService logHelperService, 
             IMapper mapper, 
             IStringLocalizer<AddressService> localizer, 
-            ValidationService validationService, 
-            NhUserManager userManager
+            ValidationService validationService
             
             ) 
-            : base(repository, dbLogService, logHelperService, mapper, localizer, validationService, userManager)
+            : base(repository, dbLogService, logHelperService, mapper, localizer, validationService)
         {
         }
 

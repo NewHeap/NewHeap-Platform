@@ -1,4 +1,5 @@
-﻿using NewHeap.Platform.AspNet.Common.DAL.Entities;
+﻿using Microsoft.AspNetCore.Identity;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Exceptions;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.Common.Models;
@@ -46,11 +47,12 @@ public interface INhAuthenticationService
     /// <summary>
     /// Create a JWT for a specific user
     /// </summary>
-    /// <param name="user"></param>
+    /// <param name="userId"></param>
     /// <param name="expiration">Duration token is valid for. Defaults to 1 day</param>
+    /// <param name="withDivisionClaims">Default false</param>
     /// <returns></returns>
     /// <exception cref="ConfigurationException">Throws when JWT configuration is missing</exception>
-    Task<JwtSecurityToken> CreateToken(NhUser user, TimeSpan? expiration = null);
+    Task<JwtSecurityToken> CreateToken(Guid userId, TimeSpan? expiration = null, bool withDivisionClaims = false);
 
     JwtSecurityToken? DecodeToken(string token);
 }

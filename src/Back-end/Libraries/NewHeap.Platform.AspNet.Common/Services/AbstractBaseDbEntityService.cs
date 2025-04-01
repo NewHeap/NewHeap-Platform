@@ -26,20 +26,18 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
 {
     protected readonly IStringLocalizer<TAbstractBaseDbEntityService> _localizer;
     protected readonly IRepository<TEntity> _repository;
-    protected readonly DbLogService _dbLogService;
+    protected readonly INhDbLogService _dbLogService;
     protected readonly IMapper _mapper;
     protected readonly LogHelperService _logHelper;
     protected readonly ValidationService _validationService;
-    protected readonly INhUserManager _userManager;
 
     public AbstractBaseDbEntityService(
         IRepository<TEntity> repository,
-        DbLogService dbLogService,
+        INhDbLogService dbLogService,
         LogHelperService logHelperService,
         IMapper mapper,
         IStringLocalizer<TAbstractBaseDbEntityService> localizer,
-        ValidationService validationService,
-        INhUserManager userManager
+        ValidationService validationService
         )
     {
         _repository = repository;
@@ -48,7 +46,6 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
         _logHelper = logHelperService;
         _localizer = localizer;
         _validationService = validationService;
-        _userManager = userManager;
     }
 
     public IRepository<TEntity> GetRepository()

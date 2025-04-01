@@ -22,12 +22,11 @@ public partial class DivisionUserService : BaseDbEntityService<NhDivisionUser, D
         IRepository<NhDivisionUser> divisionUserRepository,
         IRepository<NhDivisionUserRole> divisionUserRoleRepository,
         IStringLocalizer<DivisionUserService> localizer,
-        DbLogService dbLogService,
+        INhDbLogService dbLogService,
         LogHelperService logHelperService,
         ValidationService validationService,
-        INhUserManager userManager,
         IMapper mapper)
-        : base(divisionUserRepository, dbLogService, logHelperService, mapper, localizer, validationService, userManager)
+        : base(divisionUserRepository, dbLogService, logHelperService, mapper, localizer, validationService)
     {
         _divisionUserRoleRepository = divisionUserRoleRepository;
         _mapper = mapper;

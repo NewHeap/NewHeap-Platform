@@ -144,7 +144,19 @@ public class Startup
             {
 
             })
-            .WithDbLogService(x =>
+            .WithDbLogService<
+                NhDbLogService,
+                NhLog,
+                NhUser,
+                NhLogMessageArgument,
+                NhLogMessageTranslated,
+                NhLogFile,
+                NhDivision,
+                NhDivisionUser,
+                NhDivisionRole,
+                NhDivisionUserRole,
+                NhDivisionRoleClaim
+            >(x =>
             {
                 Configuration.GetSection($"{NewHeapAspNetCommonOptions.DefaultSettingsPrefix}:DbLogServiceSettings").Bind(x);
             })

@@ -24,14 +24,13 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
     where TBaseDbEntityService : BaseDbEntityService<TEntity, TMutateModel, TBaseDbEntityService>
 {
     protected BaseDbEntityService(
-        IRepository<TEntity> repository, 
-        DbLogService dbLogService, 
+        IRepository<TEntity> repository,
+        INhDbLogService dbLogService, 
         LogHelperService logHelperService, 
         IMapper mapper, 
         IStringLocalizer<TBaseDbEntityService> localizer, 
-        ValidationService validationService, 
-        INhUserManager userManager
-        ) : base(repository, dbLogService, logHelperService, mapper, localizer, validationService, userManager)
+        ValidationService validationService
+        ) : base(repository, dbLogService, logHelperService, mapper, localizer, validationService)
     {
     }
 

@@ -19,7 +19,7 @@ public class UserController : NhBaseUserController
         IMapper mapper, 
         ILogger<UserController> logger, 
         IStringLocalizer<UserController> localizer, 
-        NhUserManager userManager, 
+        INhUserManager userManager, 
         IHttpCollectionProcessingService collectionRequestProcessingService
         ) 
         : base(config, mapper, logger, localizer, userManager, collectionRequestProcessingService)

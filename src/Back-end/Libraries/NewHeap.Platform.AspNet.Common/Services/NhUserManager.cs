@@ -15,27 +15,163 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class NhUserManager : UserManager<NhUser>, INhUserManager
+public interface INhUserManager<TUser>
+    where TUser : class
+{
+    Task<TaskResult<TUser>> ChangeActiviveDivisionAsync(Guid id, ChangeActiveDivisionAccountModel mutateModel);
+    Task<bool> DivisionAccessAsync(Guid? divisionId, IEnumerable<Claim> userClaims, IEnumerable<Claim>? requireClaims = null, IEnumerable<string>? requireRoles = null);
+    Task<TUser?> FindByIdWithIncludesAsync(Guid userId);
+    Task<TUser?> FindOneByAsync(Expression<Func<TUser, bool>> predicate);
+    string GenerateRandomPassword(PasswordOptions? passwordOptions = null);
+    string GenerateRegistrationToken();
+    IRepository<TUser> GetRepository();
+    Task<List<Claim>> GetValidClaims(TUser user, bool withDivision = false);
+    Task<bool> IsBlocked(TUser user);
+    bool IsOauthAccount(string email);
+    bool IsOauthAccount(TUser user);
+    IQueryable<TUser> QueryableWithAllIncludes(IQueryable<TUser>? queryable = null);
+    Task UpdateUserLockout(TUser user, DateTimeOffset? start = null, DateTimeOffset? end = null);
+
+    #region Generated for Identity framework base class
+    Task<IdentityResult> CreateAsync(TUser user);
+    Task<IdentityResult> CreateAsync(TUser user, string password);
+    Task<IdentityResult> UpdateAsync(TUser user);
+    Task<IdentityResult> DeleteAsync(TUser user);
+    Task<TUser?> FindByIdAsync(string userId);
+    Task<TUser?> FindByNameAsync(string userName);
+    Task<TUser?> FindByEmailAsync(string email);
+    Task<string?> GetUserIdAsync(TUser user);
+    Task<string?> GetUserNameAsync(TUser user);
+    Task<IdentityResult> SetUserNameAsync(TUser user, string userName);
+    Task<string?> GetEmailAsync(TUser user);
+    Task<IdentityResult> SetEmailAsync(TUser user, string email);
+    Task<bool> IsEmailConfirmedAsync(TUser user);
+    Task<IdentityResult> ConfirmEmailAsync(TUser user, string token);
+    Task<IdentityResult> ChangeEmailAsync(TUser user, string newEmail, string token);
+    Task<IdentityResult> AddPasswordAsync(TUser user, string password);
+    Task<IdentityResult> ChangePasswordAsync(TUser user, string currentPassword, string newPassword);
+    Task<IdentityResult> RemovePasswordAsync(TUser user);
+    Task<bool> HasPasswordAsync(TUser user);
+    Task<bool> CheckPasswordAsync(TUser user, string password);
+    Task<string> GeneratePasswordResetTokenAsync(TUser user);
+    Task<IdentityResult> ResetPasswordAsync(TUser user, string token, string newPassword);
+    Task<IList<Claim>> GetClaimsAsync(TUser user);
+    Task<IdentityResult> AddClaimAsync(TUser user, Claim claim);
+    Task<IdentityResult> AddClaimsAsync(TUser user, IEnumerable<Claim> claims);
+    Task<IdentityResult> RemoveClaimAsync(TUser user, Claim claim);
+    Task<IdentityResult> RemoveClaimsAsync(TUser user, IEnumerable<Claim> claims);
+    Task<IdentityResult> ReplaceClaimAsync(TUser user, Claim claim, Claim newClaim);
+    Task<IList<TUser>> GetUsersForClaimAsync(Claim claim);
+    Task<IdentityResult> AddToRoleAsync(TUser user, string role);
+    Task<IdentityResult> RemoveFromRoleAsync(TUser user, string role);
+    Task<IList<string>> GetRolesAsync(TUser user);
+    Task<bool> IsInRoleAsync(TUser user, string role);
+    Task<IList<TUser>> GetUsersInRoleAsync(string role);
+    Task<string> GenerateEmailConfirmationTokenAsync(TUser user);
+    Task<string> GenerateChangeEmailTokenAsync(TUser user, string newEmail);
+    Task<string> GenerateChangePhoneNumberTokenAsync(TUser user, string phoneNumber);
+    Task<bool> VerifyChangePhoneNumberTokenAsync(TUser user, string token, string phoneNumber);
+    Task<IdentityResult> ChangePhoneNumberAsync(TUser user, string phoneNumber, string token);
+    Task<string?> GetPhoneNumberAsync(TUser user);
+    Task<IdentityResult> SetPhoneNumberAsync(TUser user, string phoneNumber);
+    Task<bool> IsPhoneNumberConfirmedAsync(TUser user);
+    Task<bool> GetTwoFactorEnabledAsync(TUser user);
+    Task<IdentityResult> SetTwoFactorEnabledAsync(TUser user, bool enabled);
+    Task<string> GenerateTwoFactorTokenAsync(TUser user, string tokenProvider);
+    Task<bool> VerifyTwoFactorTokenAsync(TUser user, string tokenProvider, string token);
+    Task<IList<string>> GetValidTwoFactorProvidersAsync(TUser user);
+    Task<string?> GetAuthenticatorKeyAsync(TUser user);
+    Task<IdentityResult> ResetAuthenticatorKeyAsync(TUser user);
+    Task<IEnumerable<string>?> GenerateNewTwoFactorRecoveryCodesAsync(TUser user, int number);
+    Task<IdentityResult> RedeemTwoFactorRecoveryCodeAsync(TUser user, string code);
+    Task<int> CountRecoveryCodesAsync(TUser user);
+    Task<IdentityResult> AccessFailedAsync(TUser user);
+    Task<IdentityResult> ResetAccessFailedCountAsync(TUser user);
+    Task<int> GetAccessFailedCountAsync(TUser user);
+    Task<bool> IsLockedOutAsync(TUser user);
+    Task<IdentityResult> SetLockoutEnabledAsync(TUser user, bool enabled);
+    Task<bool> GetLockoutEnabledAsync(TUser user);
+    Task<DateTimeOffset?> GetLockoutEndDateAsync(TUser user);
+    Task<IdentityResult> SetLockoutEndDateAsync(TUser user, DateTimeOffset? lockoutEnd);
+    #endregion
+}
+
+public partial class NhUserManager : NhUserManager<
+    NhUser,
+    NhUserRole,
+    NhLogMessageArgument,
+    NhLogMessageTranslated,
+    NhLogFile,
+    NhDivision,
+    NhDivisionUser,
+    NhDivisionRole,
+    NhDivisionUserRole,
+    NhDivisionRoleClaim>
+{
+    public NhUserManager(
+        IWebHostEnvironment environment, 
+        IUserStore<NhUser> store, 
+        IOptions<IdentityOptions> optionsAccessor, 
+        IPasswordHasher<NhUser> passwordHasher, 
+        IEnumerable<IUserValidator<NhUser>> userValidators, 
+        IEnumerable<IPasswordValidator<NhUser>> passwordValidators, 
+        ILookupNormalizer keyNormalizer, 
+        IdentityErrorDescriber errors, 
+        IServiceProvider services, 
+        ILogger<UserManager<NhUser>> logger, 
+        IOptions<MicrosoftAuthSettings> microsoftAuthSettings, 
+        IRepository<NhUser> userRepository, 
+        RoleManager<NhUserRole> roleManager
+        ) : base(
+            environment, 
+            store, optionsAccessor, passwordHasher, userValidators, passwordValidators, 
+            keyNormalizer, errors, services, logger, microsoftAuthSettings, userRepository, roleManager)
+    {
+    }
+}
+
+public abstract partial class NhUserManager<
+    TUser,
+    TUserRole,
+    TLogMessageArgument,
+    TLogMessageTranslated,
+    TLogFile,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    > : UserManager<TUser>, INhUserManager<TUser> 
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>, new()
+    where TUserRole : NhUserRole
+    where TLogMessageArgument : NhLogMessageArgument, new()
+    where TLogMessageTranslated : NhLogMessageTranslated, new()
+    where TLogFile : NhLogFile, new()
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivisionRoleClaim : NhDivisionRoleClaim
 {
     private readonly IWebHostEnvironment _environment;
     private readonly MicrosoftAuthSettings _microsoftAuthSettings;
-    protected readonly RoleManager<NhUserRole> _roleManager;
-    protected readonly IRepository<NhUser> _userRepository;
+    protected readonly RoleManager<TUserRole> _roleManager;
+    protected readonly IRepository<TUser> _userRepository;
 
     public NhUserManager(
         IWebHostEnvironment environment,
-        IUserStore<NhUser> store,
+        IUserStore<TUser> store,
         IOptions<IdentityOptions> optionsAccessor,
-        IPasswordHasher<NhUser> passwordHasher,
-        IEnumerable<IUserValidator<NhUser>> userValidators,
-        IEnumerable<IPasswordValidator<NhUser>> passwordValidators,
+        IPasswordHasher<TUser> passwordHasher,
+        IEnumerable<IUserValidator<TUser>> userValidators,
+        IEnumerable<IPasswordValidator<TUser>> passwordValidators,
         ILookupNormalizer keyNormalizer,
         IdentityErrorDescriber errors,
         IServiceProvider services,
-        ILogger<UserManager<NhUser>> logger,
+        ILogger<UserManager<TUser>> logger,
         IOptions<MicrosoftAuthSettings> microsoftAuthSettings,
-        IRepository<NhUser> userRepository,
-        RoleManager<NhUserRole> roleManager
+        IRepository<TUser> userRepository,
+        RoleManager<TUserRole> roleManager
     ) : base(store, optionsAccessor, passwordHasher, userValidators, passwordValidators, keyNormalizer, errors,
         services, logger)
     {
@@ -45,12 +181,12 @@ public partial class NhUserManager : UserManager<NhUser>, INhUserManager
         _roleManager = roleManager;
     }
 
-    public virtual IRepository<NhUser> GetRepository()
+    public virtual IRepository<TUser> GetRepository()
     {
         return _userRepository;
     }
 
-    public IQueryable<NhUser> QueryableWithAllIncludes(IQueryable<NhUser>? queryable = null)
+    public IQueryable<TUser> QueryableWithAllIncludes(IQueryable<TUser>? queryable = null)
     {
         queryable ??= _userRepository.GetAll()
             .Include(x => x.ActiveDivision);
@@ -58,12 +194,12 @@ public partial class NhUserManager : UserManager<NhUser>, INhUserManager
         return queryable;
     }
 
-    public virtual async Task<NhUser?> FindOneByAsync(Expression<Func<NhUser, bool>> predicate)
+    public virtual async Task<TUser?> FindOneByAsync(Expression<Func<TUser, bool>> predicate)
     {
         return await QueryableWithAllIncludes().FirstOrDefaultAsync(predicate);
     }
 
-    public virtual async Task<List<Claim>> GetValidClaims(NhUser user, bool withDivision = false)
+    public virtual async Task<List<Claim>> GetValidClaims(TUser user, bool withDivision = false)
     {
         IdentityOptions _options = new();
         List<Claim> claims =
@@ -107,7 +243,7 @@ public partial class NhUserManager : UserManager<NhUser>, INhUserManager
             var divisionAccessAll = claims.Any(x =>
                 x.Type == NhPlatformClaimTypes.Permission &&
                 x.Value == Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll);
-            IQueryable<NhDivision> divisionsQuery = _userRepository.GetDbSet<NhDivision>().AsNoTracking();
+            IQueryable<TDivision> divisionsQuery = _userRepository.GetDbSet<TDivision>().AsNoTracking();
 
             if (!divisionAccessAll)
             {
@@ -120,14 +256,14 @@ public partial class NhUserManager : UserManager<NhUser>, INhUserManager
                 ));
             }
 
-            List<NhDivisionRoleClaim> divisionRolesClaims =
-                await _userRepository.GetDbSet<NhDivisionRoleClaim>().AsNoTracking().ToListAsync();
+            List<TDivisionRoleClaim> divisionRolesClaims =
+                await _userRepository.GetDbSet<TDivisionRoleClaim>().AsNoTracking().ToListAsync();
             List<Claim> divisionRolesClaimClaims = new();
 
             var divisionIds = await divisionsQuery.Select(x => x.Id).ToListAsync();
             foreach (var divisionId in divisionIds)
             {
-                IQueryable<NhDivisionRole> divisionRolesQuery = _userRepository.GetDbSet<NhDivisionRole>().AsNoTracking();
+                IQueryable<TDivisionRole> divisionRolesQuery = _userRepository.GetDbSet<TDivisionRole>().AsNoTracking();
                 if (!divisionAccessAll)
                 {
                     divisionRolesQuery = divisionRolesQuery.Where(x =>
@@ -180,7 +316,7 @@ public partial class NhUserManager : UserManager<NhUser>, INhUserManager
     /// </summary>
     /// <param name="user"></param>
     /// <returns></returns>
-    public virtual async Task<bool> IsBlocked(NhUser user)
+    public virtual async Task<bool> IsBlocked(TUser user)
     {
         if (await IsLockedOutAsync(user))
         {
@@ -204,7 +340,7 @@ public partial class NhUserManager : UserManager<NhUser>, INhUserManager
             StringComparer.InvariantCultureIgnoreCase) == true;
     }
 
-    public virtual bool IsOauthAccount(NhUser user)
+    public virtual bool IsOauthAccount(TUser user)
     {
         return IsOauthAccount(user.NormalizedEmail!);
     }
@@ -264,7 +400,7 @@ public partial class NhUserManager : UserManager<NhUser>, INhUserManager
         return new string(chars.ToArray());
     }
 
-    public virtual async Task UpdateUserLockout(NhUser user, DateTimeOffset? start = null, DateTimeOffset? end = null)
+    public virtual async Task UpdateUserLockout(TUser user, DateTimeOffset? start = null, DateTimeOffset? end = null)
     {
         if (user == null)
         {
@@ -277,7 +413,7 @@ public partial class NhUserManager : UserManager<NhUser>, INhUserManager
         await _userRepository.SaveChangesAsync();
     }
 
-    public Task<NhUser?> FindByIdWithIncludesAsync(Guid userId)
+    public Task<TUser?> FindByIdWithIncludesAsync(Guid userId)
     {
         return _userRepository
                 .GetAll()
@@ -287,10 +423,10 @@ public partial class NhUserManager : UserManager<NhUser>, INhUserManager
             ;
     }
 
-    public virtual async Task<TaskResult<NhUser>> ChangeActiviveDivisionAsync(Guid id,
+    public virtual async Task<TaskResult<TUser>> ChangeActiviveDivisionAsync(Guid id,
         ChangeActiveDivisionAccountModel mutateModel)
     {
-        TaskResult<NhUser> result = new();
+        TaskResult<TUser> result = new();
 
         var user = await _userRepository.GetAll()
             .Where(x => x.Id == id)
@@ -308,7 +444,7 @@ public partial class NhUserManager : UserManager<NhUser>, INhUserManager
                     x.Type == NhPlatformClaimTypes.Permission &&
                     x.Value == Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll))
             {
-                if (!await _userRepository.GetDbSet<NhDivisionUser>()
+                if (!await _userRepository.GetDbSet<TDivisionUser>()
                         .AnyAsync(x => x.UserId == id && x.DivisionId == mutateModel.DivisionId))
                 {
                     result.AddError(string.Empty, "User division mapping not found.");

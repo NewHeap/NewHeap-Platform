@@ -24,14 +24,13 @@ public abstract partial class CompositeBaseDbEntityService<TEntity, TMutateModel
     where TCompositeBaseDbEntityService : CompositeBaseDbEntityService<TEntity, TMutateModel, TViewModel, TCompositeBaseDbEntityService>
 {
     protected CompositeBaseDbEntityService(
-        IRepository<TEntity> repository, 
-        DbLogService dbLogService, 
+        IRepository<TEntity> repository,
+        INhDbLogService dbLogService, 
         LogHelperService logHelperService, 
         IMapper mapper, 
         IStringLocalizer<TCompositeBaseDbEntityService> localizer, 
-        ValidationService validationService, 
-        INhUserManager userManager
-        ) : base(repository, dbLogService, logHelperService, mapper, localizer, validationService, userManager)
+        ValidationService validationService
+        ) : base(repository, dbLogService, logHelperService, mapper, localizer, validationService)
     {
     }
 

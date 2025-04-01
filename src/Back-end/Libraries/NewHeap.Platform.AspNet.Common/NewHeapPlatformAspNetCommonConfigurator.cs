@@ -288,12 +288,13 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         return this;
     }
 
-    public static void ConfigureWithIdentityEntityFramework<TDbContext, TUserManager>(IServiceCollection serviceCollectionn)
-    where TDbContext : NhIdentityDbContext
-    where TUserManager : class, INhUserManager
+    public static void ConfigureWithIdentityEntityFramework<TDbContext, TUser>(IServiceCollection serviceCollectionn)
+        where TDbContext : NhIdentityDbContext
+        where TUser : class
     {
         ConfigureWithIdentityEntityFramework<
-            TDbContext, TUserManager,
+            TDbContext, 
+            NhUserManager,
             NhDivision,
             NhDivisionUser,
             NhDivisionRole,
@@ -335,7 +336,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
             TLogFile,
             TLogMessageTranslated
         >
-        where TUserManager : class, INhUserManager
+        where TUserManager : class, INhUserManager<TUser>
         where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
         where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
         where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
@@ -375,7 +376,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         serviceCollection.AddScoped<TUserManager, TUserManager>();
 
         // Do like this, allow sub projects to register their own 2.
-        serviceCollection.AddScoped<INhUserManager>(serviceProvider =>
+        serviceCollection.AddScoped<INhUserManager<TUser>>(serviceProvider =>
         {
             return serviceProvider.GetRequiredService<TUserManager>();
         });
@@ -384,13 +385,14 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         serviceCollection.AddScoped<DivisionUserService>();
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator WithIdentityEntityFramework<TDbContext, TUserManager>(
+    public NewHeapPlatformAspNetCommonConfigurator WithIdentityEntityFramework<TDbContext, TUser>(
         Action<DbContextOptionsBuilder> dbOptionsAction)
         where TDbContext : NhIdentityDbContext
-        where TUserManager : class, INhUserManager
+        where TUser : class
     {
         return WithIdentityEntityFramework<
-            TDbContext, TUserManager,
+            TDbContext, 
+            NhUserManager,
             NhDivision,
             NhDivisionUser,
             NhDivisionRole,
@@ -433,7 +435,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
             TLogFile,
             TLogMessageTranslated
         >
-        where TUserManager : class, INhUserManager
+        where TUserManager : class, INhUserManager<TUser>
         where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
         where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
         where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
@@ -509,9 +511,8 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator WithIdentity<TDbContext, TUserManager>()
+    public NewHeapPlatformAspNetCommonConfigurator WithIdentity<TDbContext>()
         where TDbContext : NhIdentityDbContext
-        where TUserManager : class, INhUserManager
     { 
         return WithIdentity<
             TDbContext,
@@ -568,7 +569,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         where TLogFile : NhLogFile
         where TLogMessageTranslated : NhLogMessageTranslated
     {
-        _serviceCollection.AddIdentity<NhUser, NhUserRole>()
+        _serviceCollection.AddIdentity<TUser, TUserRole>()
             .AddEntityFrameworkStores<TDbContext>()
             .AddDefaultTokenProviders()
             .AddErrorDescriber<MultiLanguageIdentityErrorDescriber>()
@@ -594,11 +595,34 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator WithDbLogService(
+    public NewHeapPlatformAspNetCommonConfigurator WithDbLogService<
+        TDbLogService,
+        TLog,
+        TUser,
+        TLogMessageArgument,
+        TLogMessageTranslated,
+        TLogFile,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim
+    >(
         Action<DbLogServiceSettings> settingsAction)
+        where TDbLogService : NhDbLogService<TLog, TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>
+        where TLog : NhLog<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>, new()
+        where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+        where TLogMessageArgument : NhLogMessageArgument, new()
+        where TLogMessageTranslated : NhLogMessageTranslated, new()
+        where TLogFile : NhLogFile, new()
+        where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+        where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
+        where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+        where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+        where TDivisionRoleClaim : NhDivisionRoleClaim
     {
         _serviceCollection.Configure(settingsAction);
-        _serviceCollection.AddScoped<DbLogService>();
+        _serviceCollection.AddScoped<INhDbLogService, TDbLogService>();
 
         return this;
     }
