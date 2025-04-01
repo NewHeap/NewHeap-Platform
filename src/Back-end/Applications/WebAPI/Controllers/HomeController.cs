@@ -16,6 +16,7 @@ using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Identity.Claims;
+using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
 using NewHeap.Platform.Common.Translations;
@@ -47,6 +48,13 @@ public class HomeController : PublicNhBaseController
     [AllowAnonymous]
     public async Task<IActionResult> Get()
     {
+        var typedTaskResult = new TaskResult<object>();
+        var nonTypedTaskResult = new TaskResult();
+
+        typedTaskResult.ApplyToTaskResult(nonTypedTaskResult);
+        nonTypedTaskResult.ApplyToTaskResult(typedTaskResult);
+
+
         return Ok("Hi");
     }
 }

@@ -149,7 +149,6 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
   }
 
   load(): Promise<CollectionHttpResponse<TCollectionResponseItem>> {
-debugger;
     return new Promise<CollectionHttpResponse<TCollectionResponseItem>>(async (resolve, reject) => {
       this.activeRequestSubscription?.unsubscribe();
       this.isLoading = true;

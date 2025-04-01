@@ -16,9 +16,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="NeoSmart.Caching.Sqlite.AspNetCore" Version="9.0.1" />
-      <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.1.0" />
-      <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.NewtonsoftJson" Version="2.1.0" />
+      <PackageReference Include="NeoSmart.Caching.Sqlite.AspNetCore" />
+      <PackageReference Include="ZiggyCreatures.FusionCache" />
+      <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.NewtonsoftJson" />
     </ItemGroup>
 
 </Project>

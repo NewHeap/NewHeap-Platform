@@ -13,27 +13,37 @@
 		<!-- If all members are not documented, you can disable the compiler warnings -->
 		<NoWarn>$(NoWarn);CS1591</NoWarn>
 		<IncludeSymbols>True</IncludeSymbols>
+		<EmbedAllSources>True</EmbedAllSources>
+		<DebugType>Embedded</DebugType>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<PackageIcon>NH_logo.png</PackageIcon>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AutoMapper" Version="14.0.0" />
-        <PackageReference Include="Hangfire" Version="1.8.17" />
-        <PackageReference Include="Hangfire.Console" Version="1.4.3" />
-        <PackageReference Include="KeyedSemaphores" Version="5.0.0" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.2" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2">
+      <None Include="..\..\Assets\NH_logo.png">
+        <Pack>True</Pack>
+        <PackagePath>\</PackagePath>
+      </None>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="AutoMapper" />
+        <PackageReference Include="Hangfire" />
+        <PackageReference Include="Hangfire.Console" />
+        <PackageReference Include="KeyedSemaphores" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="9.0.0" />
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-        <PackageReference Include="OpenTelemetry" Version="1.11.1" />
-        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.1" />
-        <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.11.1" />
-        <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.11.0" />
-        <PackageReference Include="StackExchange.Utils.Configuration" Version="0.1.12" />
-        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.0.2" />
+        <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" />
+        <PackageReference Include="Newtonsoft.Json" />
+        <PackageReference Include="OpenTelemetry" />
+        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+        <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+        <PackageReference Include="StackExchange.Utils.Configuration" />
+        <PackageReference Include="System.Linq.Dynamic.Core" />
     </ItemGroup>
 
     <ItemGroup>
