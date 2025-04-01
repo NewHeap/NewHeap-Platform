@@ -15,19 +15,27 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public interface INhUserManager<TUser>
+public interface INhUserManager
+{
+    Task<bool> DivisionAccessAsync(Guid? divisionId, IEnumerable<Claim> userClaims, IEnumerable<Claim>? requireClaims = null, IEnumerable<string>? requireRoles = null);
+    string GenerateRandomPassword(PasswordOptions? passwordOptions = null);
+    string GenerateRegistrationToken();
+    bool IsOauthAccount(string email);
+
+    Task<List<Claim>> GetValidClaimsByUserId(Guid userId, bool withDivision = false);
+}
+
+public interface INhUserManager<TUser> : INhUserManager
     where TUser : class
 {
     Task<TaskResult<TUser>> ChangeActiviveDivisionAsync(Guid id, ChangeActiveDivisionAccountModel mutateModel);
-    Task<bool> DivisionAccessAsync(Guid? divisionId, IEnumerable<Claim> userClaims, IEnumerable<Claim>? requireClaims = null, IEnumerable<string>? requireRoles = null);
     Task<TUser?> FindByIdWithIncludesAsync(Guid userId);
+
     Task<TUser?> FindOneByAsync(Expression<Func<TUser, bool>> predicate);
-    string GenerateRandomPassword(PasswordOptions? passwordOptions = null);
-    string GenerateRegistrationToken();
+
     IRepository<TUser> GetRepository();
     Task<List<Claim>> GetValidClaims(TUser user, bool withDivision = false);
     Task<bool> IsBlocked(TUser user);
-    bool IsOauthAccount(string email);
     bool IsOauthAccount(TUser user);
     IQueryable<TUser> QueryableWithAllIncludes(IQueryable<TUser>? queryable = null);
     Task UpdateUserLockout(TUser user, DateTimeOffset? start = null, DateTimeOffset? end = null);
@@ -199,8 +207,15 @@ public abstract partial class NhUserManager<
         return await QueryableWithAllIncludes().FirstOrDefaultAsync(predicate);
     }
 
-    public virtual async Task<List<Claim>> GetValidClaims(TUser user, bool withDivision = false)
+    public Task<List<Claim>> GetValidClaims(TUser user, bool withDivision = false) 
+    { 
+        return GetValidClaimsByUserId(user.Id, withDivision);
+    }
+
+    public virtual async Task<List<Claim>> GetValidClaimsByUserId(Guid userId, bool withDivision = false)
     {
+        var user = await FindByIdAsync(userId.ToString());
+
         IdentityOptions _options = new();
         List<Claim> claims =
         [

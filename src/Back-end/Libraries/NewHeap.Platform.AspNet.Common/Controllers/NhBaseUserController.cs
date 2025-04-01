@@ -20,18 +20,19 @@ using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
-public abstract class NhBaseUserController : ProtectedNhBaseController
+public abstract class NhBaseUserController<TUser> : ProtectedNhBaseController
+    where TUser : class
 {
     protected const string READ_POLICY = "app.user.view";
     protected const string MANAGE_POLICY = "app.user.manage";
-    protected readonly INhUserManager _userManager;
+    protected readonly INhUserManager<TUser> _userManager;
 
     public NhBaseUserController(
         IConfiguration config,
         IMapper mapper,
-        ILogger<NhBaseUserController> logger,
-        IStringLocalizer<NhBaseUserController> localizer,
-        INhUserManager userManager,
+        ILogger<NhBaseUserController<TUser>> logger,
+        IStringLocalizer<NhBaseUserController<TUser>> localizer,
+        INhUserManager<TUser> userManager,
         IHttpCollectionProcessingService collectionRequestProcessingService
     )
         : base(mapper, logger, config, localizer, collectionRequestProcessingService)
@@ -40,12 +41,12 @@ public abstract class NhBaseUserController : ProtectedNhBaseController
     }
 
     [NonAction]
-    public Task<IQueryable<NhUser>> GetQueryableAsync()
+    public Task<IQueryable<TUser>> GetQueryableAsync()
     {
         
         var query = _userManager
             .GetRepository()
-            as IQueryable<NhUser>
+            as IQueryable<TUser>
         ;
 
         query = ApplyDivisionFilter(query, x => x.DivisionUsers.Any(c => c.DivisionId == ActiveDivisionId));

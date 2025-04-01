@@ -376,6 +376,11 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         serviceCollection.AddScoped<TUserManager, TUserManager>();
 
         // Do like this, allow sub projects to register their own 2.
+        serviceCollection.AddScoped<INhUserManager>(serviceProvider =>
+        {
+            return serviceProvider.GetRequiredService<TUserManager>();
+        });
+
         serviceCollection.AddScoped<INhUserManager<TUser>>(serviceProvider =>
         {
             return serviceProvider.GetRequiredService<TUserManager>();
