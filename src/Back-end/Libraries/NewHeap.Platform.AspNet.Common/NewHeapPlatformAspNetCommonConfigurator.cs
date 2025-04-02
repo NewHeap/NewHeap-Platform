@@ -128,13 +128,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection.AddHealthChecks();
 
         #region Services
-
-        _serviceCollection.AddScoped<INhDbLogService, TDbLogService>(serviceProvider =>
-        {
-            return serviceProvider.GetRequiredService<TDbLogService>();
-        });
-        _serviceCollection.AddScoped<TDbLogService>();
-
         _serviceCollection.AddScoped<RazorViewService>();
         _serviceCollection.AddSingleton<IHttpCollectionProcessingService, HttpCollectionProcessingService>();
         #endregion
@@ -597,6 +590,13 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         Action<DbLogServiceSettings> settingsAction)
     {
         _serviceCollection.Configure(settingsAction);
+
+        _serviceCollection.AddScoped<INhDbLogService, TDbLogService>(serviceProvider =>
+        {
+            return serviceProvider.GetRequiredService<TDbLogService>();
+        });
+
+        _serviceCollection.AddScoped<TDbLogService>();
 
         return this;
     }
