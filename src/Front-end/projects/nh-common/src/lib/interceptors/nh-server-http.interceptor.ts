@@ -9,10 +9,10 @@ import {
 import {Inject, Injectable, Optional, PLATFORM_ID, REQUEST_CONTEXT} from '@angular/core';
 import {Observable, tap} from 'rxjs';
 import {DOCUMENT, isPlatformServer} from "@angular/common";
-import { Cookie } from 'tough-cookie';
 import {NhCommonConfig, NhCommonModuleConfig} from "../models/config.models";
 import {NhCookieService} from "../services/nh-cookie.service";
 import {NhAuthService} from "../services/nh-auth.service";
+import {Cookie} from "../util/though-cookie-custom/cookie";
 
 @Injectable({
   providedIn: 'root'

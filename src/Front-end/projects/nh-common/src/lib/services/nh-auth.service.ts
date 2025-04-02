@@ -110,22 +110,26 @@ export class NhAuthService implements OnDestroy {
     return result;
   }
 
-  public clearAuthorization(): void {
+  public clearAuthorization(doDispatchEvent: boolean = true): void {
     if (this.isAuthenticated()) {
       try {
         localStorage.removeItem('at');
       }finally {}
 
       this.authorization = undefined;
-      this.authSubject.next(this.authorization);
+      if(doDispatchEvent) {
+        this.authSubject.next(this.authorization);
+      }
       this.dispatchSessionExpirationInformationChanged();
     }
   }
 
-  public setAuthorization(auth: Authorization): void {
+  public setAuthorization(auth: Authorization, noEvent = false): void {
     localStorage.setItem('at', btoa(JSON.stringify(auth)));
     this.authorization = auth;
-    this.authSubject.next(this.getAuthorization());
+    if(!noEvent) {
+      this.authSubject.next(this.authorization);
+    }
     this.dispatchSessionExpirationInformationChanged();
   }
 

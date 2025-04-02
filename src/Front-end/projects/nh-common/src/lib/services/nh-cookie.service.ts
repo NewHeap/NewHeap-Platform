@@ -2,7 +2,7 @@ import {Inject, Injectable, Optional, PLATFORM_ID, REQUEST_CONTEXT} from '@angul
 import {DOCUMENT, isPlatformServer} from "@angular/common";
 import {CookieService} from "ngx-cookie-service";
 import {CookieOptions, SameSite} from "ngx-cookie-service/lib/cookie.service";
-import {Cookie} from "tough-cookie";
+import {Cookie} from "../util/though-cookie-custom/cookie";
 
 @Injectable()
 export class NhCookieService {
