@@ -223,4 +223,9 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
 
     await this.load();
   }
+
+  async firstPage() {
+    this.requestOptions.page = 1;
+    await this.load();
+  }
 }
