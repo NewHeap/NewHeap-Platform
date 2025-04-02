@@ -18,9 +18,6 @@ namespace NewHeap.Platform.AspNet.Common.Services;
 /// </summary>
 public class NhAuthenticationService<
     TUser,
-    TLogMessageArgument,
-    TLogMessageTranslated,
-    TLogFile,
     TDivision,
     TDivisionUser,
     TDivisionRole,
@@ -28,9 +25,6 @@ public class NhAuthenticationService<
     TDivisionRoleClaim
     > : INhAuthenticationService
     where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
-    where TLogMessageArgument : NhLogMessageArgument, new()
-    where TLogMessageTranslated : NhLogMessageTranslated, new()
-    where TLogFile : NhLogFile, new()
     where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
     where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>

@@ -13,21 +13,36 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class DivisionService : BaseDbEntityService<NhDivision, DivisionMutateModel, DivisionService>
+public partial class DivisionService<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim,
+    TDivisionMutateModel
+    > : BaseDbEntityService<TDivision, TDivisionMutateModel, DivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>>
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>, new()
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivisionRoleClaim : NhDivisionRoleClaim
+    where TDivisionMutateModel : DivisionMutateModel
 {
-    protected readonly IRepository<NhDivision> _divisionRepository;
-    protected readonly IRepository<NhDivisionRoleClaim> _divisionRoleClaimRepository;
-    protected readonly IRepository<NhDivisionRole> _divisionRoleRepository;
-    protected readonly IRepository<NhDivisionUser> _divisionUserRepository;
-    protected readonly IRepository<NhDivisionUserRole> _divisionUserRoleRepository;
+    protected readonly IRepository<TDivision> _divisionRepository;
+    protected readonly IRepository<TDivisionRoleClaim> _divisionRoleClaimRepository;
+    protected readonly IRepository<TDivisionRole> _divisionRoleRepository;
+    protected readonly IRepository<TDivisionUser> _divisionUserRepository;
+    protected readonly IRepository<TDivisionUserRole> _divisionUserRoleRepository;
 
     public DivisionService(
-        IRepository<NhDivision> divisionRepository,
-        IRepository<NhDivisionRole> divisionRoleRepository,
-        IRepository<NhDivisionUser> divisionUserRepository,
-        IRepository<NhDivisionUserRole> divisionUserRoleRepository,
-        IRepository<NhDivisionRoleClaim> divisionRoleClaimRepository,
-        IStringLocalizer<DivisionService> localizer,
+        IRepository<TDivision> divisionRepository,
+        IRepository<TDivisionRole> divisionRoleRepository,
+        IRepository<TDivisionUser> divisionUserRepository,
+        IRepository<TDivisionUserRole> divisionUserRoleRepository,
+        IRepository<TDivisionRoleClaim> divisionRoleClaimRepository,
+        IStringLocalizer<DivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>> localizer,
         INhDbLogService dbLogService,
         LogHelperService logHelperService,
         ValidationService validationService,
@@ -41,18 +56,18 @@ public partial class DivisionService : BaseDbEntityService<NhDivision, DivisionM
         _divisionRoleClaimRepository = divisionRoleClaimRepository;
     }
 
-    public IRepository<NhDivisionRole> GetRoleRepository()
+    public IRepository<TDivisionRole> GetRoleRepository()
     {
         return _divisionRoleRepository;
     }
 
-    public IRepository<NhDivisionRoleClaim> GetRoleClaimRepository()
+    public IRepository<TDivisionRoleClaim> GetRoleClaimRepository()
     {
         return _divisionRoleClaimRepository;
     }
 
     public override async Task ValidateCreateUpdateDeleteAsync(
-        CreateUpdateDeleteValidateModel<NhDivision, NhDivision, DivisionMutateModel> model, CancellationToken cancellationToken)
+        CreateUpdateDeleteValidateModel<TDivision, TDivision, TDivisionMutateModel> model, CancellationToken cancellationToken)
     {
         void sourceModelCheck()
         {
@@ -103,9 +118,9 @@ public partial class DivisionService : BaseDbEntityService<NhDivision, DivisionM
         }
     }
 
-    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(NhDivision original, NhDivision updated, CancellationToken cancellationToken = default)
+    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(TDivision original, TDivision updated, CancellationToken cancellationToken = default)
     {
-        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<NhDivision, object>>, Func<object, Task<string>>>
+        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<TDivision, object>>, Func<object, Task<string>>>
         {
             // Method resolvers
         },
@@ -123,18 +138,18 @@ public partial class DivisionService : BaseDbEntityService<NhDivision, DivisionM
         return _divisionRoleRepository.AnyAsync(x => x.Name.ToLower().Trim() == roleName.ToLower().Trim());
     }
 
-    public async Task<TaskResult<NhDivisionRole>> RoleCreateAsync(string roleName, Guid? committedByUserId = default)
+    public async Task<TaskResult<TDivisionRole>> RoleCreateAsync(string roleName, Guid? committedByUserId = default)
     {
-        TaskResult<NhDivisionRole> result = new();
+        TaskResult<TDivisionRole> result = new();
 
-        NhDivisionRole divisionRole = new() { Name = roleName };
+        TDivisionRole divisionRole = new() { Name = roleName };
         await _divisionRoleRepository.AddAsync(divisionRole);
 
         await _dbLogService.LogAsync(
             "Division role create successful.",
             messageArguments: new[] { divisionRole.Id.ToString() },
             objectId: divisionRole.Id.ToString(),
-            objectType: typeof(NhDivisionRole).Name,
+            objectType: typeof(TDivisionRole).Name,
             objectTypeFull: typeof(NhDivisionRole).FullName,
             userId: committedByUserId,
             action: LogAction.Create,
@@ -152,9 +167,9 @@ public partial class DivisionService : BaseDbEntityService<NhDivision, DivisionM
         return result;
     }
 
-    public async Task<TaskResult<NhDivisionRole>> RoleDeleteAsync(string roleName, Guid? committedByUserId = default)
+    public async Task<TaskResult<TDivisionRole>> RoleDeleteAsync(string roleName, Guid? committedByUserId = default)
     {
-        TaskResult<NhDivisionRole> result = new();
+        TaskResult<TDivisionRole> result = new();
 
         var divisionRole = await _divisionRoleRepository.FindOneByAsync(x => x.Name == roleName);
 
@@ -164,8 +179,8 @@ public partial class DivisionService : BaseDbEntityService<NhDivision, DivisionM
             "Division role delete successful.",
             messageArguments: new[] { divisionRole!.Id.ToString() },
             objectId: divisionRole.Id.ToString(),
-            objectType: typeof(NhDivisionRole).Name,
-            objectTypeFull: typeof(NhDivisionRole).FullName,
+            objectType: typeof(TDivisionRole).Name,
+            objectTypeFull: typeof(TDivisionRole).FullName,
             userId: committedByUserId,
             action: LogAction.Delete,
             type: LogType.Information,

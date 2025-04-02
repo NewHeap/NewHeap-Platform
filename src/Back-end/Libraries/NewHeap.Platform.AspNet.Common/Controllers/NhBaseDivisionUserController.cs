@@ -14,7 +14,24 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
-public abstract class NhBaseDivisionUserController : DbEntityProtectedNhBaseController<NhDivisionUser, DivisionUserMutateModel, DivisionUserViewModel, DivisionUserService, DivisionUserCollectionRequestModel>
+public abstract class NhBaseDivisionUserController<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim,
+    TDivisionUserMutateModel,
+    TDivisionUserViewModel
+    > : DbEntityProtectedNhBaseController<TDivisionUser, TDivisionUserMutateModel, TDivisionUserViewModel, DivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>, DivisionUserCollectionRequestModel>
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>, new()
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>, new()
+    where TDivisionRoleClaim : NhDivisionRoleClaim
+    where TDivisionUserMutateModel : DivisionUserMutateModel
+    where TDivisionUserViewModel : DivisionUserViewModel
 {
     protected const string READ_POLICY = "app.division.view";
     protected const string MANAGE_POLICY = "app.division.manage";
@@ -22,26 +39,26 @@ public abstract class NhBaseDivisionUserController : DbEntityProtectedNhBaseCont
     public NhBaseDivisionUserController(
         IConfiguration config,
         IMapper mapper,
-        ILogger<NhBaseDivisionUserController> logger,
-        IStringLocalizer<NhBaseDivisionUserController> localizer,
+        ILogger<NhBaseDivisionUserController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel, TDivisionUserViewModel>> logger,
+        IStringLocalizer<NhBaseDivisionUserController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel, DivisionUserViewModel>> localizer,
         INhUserManager userService,
-        DivisionUserService divisionUserService,
+        DivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel> divisionUserService,
         IHttpCollectionProcessingService collectionRequestProcessingService
     )
         : base(mapper, logger, config, localizer, collectionRequestProcessingService, divisionUserService)
     {
     }
 
-    protected override (Expression<Func<NhDivisionUser, object>> orderByKey, ListSortDirection sortDirection)[] GetDefaultCollectionResultOrderBy()
+    protected override (Expression<Func<TDivisionUser, object>> orderByKey, ListSortDirection sortDirection)[] GetDefaultCollectionResultOrderBy()
     {
         return [
             (x => x.User.Email, ListSortDirection.Ascending)
         ];
     }
 
-    protected override Task<IQueryable<NhDivisionUser>> GetQueryableAsync()
+    protected override Task<IQueryable<TDivisionUser>> GetQueryableAsync()
     {
-        IQueryable<NhDivisionUser> query = _dbEntityService
+        IQueryable<TDivisionUser> query = _dbEntityService
                 .GetRepository()
                 .GetAll()
                 .Include(x => x.User)
@@ -71,14 +88,14 @@ public abstract class NhBaseDivisionUserController : DbEntityProtectedNhBaseCont
 
     [HttpPost]
     [Authorize(Policy = MANAGE_POLICY)]
-    public virtual Task<IActionResult> Create([FromBody] DivisionUserMutateModel mutateModel)
+    public virtual Task<IActionResult> Create([FromBody] TDivisionUserMutateModel mutateModel)
     {
         return DoCreate(mutateModel);
     }
 
     [HttpPut("{id}")]
     [Authorize(Policy = MANAGE_POLICY)]
-    public virtual Task<IActionResult> Update([FromRoute] Guid id, [FromBody] DivisionUserMutateModel mutateModel)
+    public virtual Task<IActionResult> Update([FromRoute] Guid id, [FromBody] TDivisionUserMutateModel mutateModel)
     {
         return DoUpdate(id, mutateModel);
     }

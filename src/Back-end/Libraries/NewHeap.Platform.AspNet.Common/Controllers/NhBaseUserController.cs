@@ -20,8 +20,22 @@ using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
-public abstract class NhBaseUserController<TUser> : ProtectedNhBaseController
-    where TUser : class
+public abstract class NhBaseUserController<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim,
+    TUserViewModel
+    > : ProtectedNhBaseController
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivisionRoleClaim : NhDivisionRoleClaim
+    where TUserViewModel : UserViewModel
 {
     protected const string READ_POLICY = "app.user.view";
     protected const string MANAGE_POLICY = "app.user.manage";
@@ -30,8 +44,8 @@ public abstract class NhBaseUserController<TUser> : ProtectedNhBaseController
     public NhBaseUserController(
         IConfiguration config,
         IMapper mapper,
-        ILogger<NhBaseUserController<TUser>> logger,
-        IStringLocalizer<NhBaseUserController<TUser>> localizer,
+        ILogger<NhBaseUserController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel>> logger,
+        IStringLocalizer<NhBaseUserController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel>> localizer,
         INhUserManager<TUser> userManager,
         IHttpCollectionProcessingService collectionRequestProcessingService
     )
@@ -78,7 +92,7 @@ public abstract class NhBaseUserController<TUser> : ProtectedNhBaseController
             query = query.Where(x => x.DivisionUsers.Any(c => c.DivisionUserRoles.Any(v => v.DivisionRole.Name == "User")));
         }
 
-        return await Ok<NhUser, UserViewModel>(query,
+        return await Ok<TUser, TUserViewModel>(query,
             (x => x.Email, ListSortDirection.Ascending));
     }
 
@@ -99,7 +113,7 @@ public abstract class NhBaseUserController<TUser> : ProtectedNhBaseController
             return NotFound();
         }
 
-        var userViewModel = _mapper.Map<UserViewModel>(user);
+        var userViewModel = _mapper.Map<TUserViewModel>(user);
         userViewModel.Roles = await _userManager.GetRolesAsync(user);
 
         return Ok(userViewModel);

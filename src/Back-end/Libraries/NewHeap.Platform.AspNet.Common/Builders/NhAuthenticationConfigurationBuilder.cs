@@ -3,10 +3,24 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.Authentication;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
 
 namespace NewHeap.Platform.AspNet.Common.Builders;
 
-public class NhAuthenticationConfigurationBuilder
+public class NhAuthenticationConfigurationBuilder<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    >
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivisionRoleClaim : NhDivisionRoleClaim
 {
     private readonly List<IAuthenticationEndpoint> _endpoints = [];
     private readonly List<Type> _diEndpoints = [];
@@ -18,7 +32,14 @@ public class NhAuthenticationConfigurationBuilder
     /// <param name="method"></param>
     /// <param name="handler"></param>
     /// <returns></returns>
-    public NhAuthenticationConfigurationBuilder AddAuthenticationEndpoint(string pattern, HttpMethod method,
+    public NhAuthenticationConfigurationBuilder<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    > AddAuthenticationEndpoint(string pattern, HttpMethod method,
         Delegate handler)
     {
         _endpoints.Add(new AuthenticationEndpoint { Pattern = pattern, Method = method, Handler = handler });
@@ -31,7 +52,14 @@ public class NhAuthenticationConfigurationBuilder
     /// </summary>
     /// <param name="enableRefreshToken"></param>
     /// <returns></returns>
-    public NhAuthenticationConfigurationBuilder AddUserNamePasswordEndpoint(bool enableRefreshToken = true)
+    public NhAuthenticationConfigurationBuilder<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    > AddUserNamePasswordEndpoint(bool enableRefreshToken = true)
     {
         UseAuthenticationEndpoint<NhUserNamePasswordAuthenticationHandler>();
         if (enableRefreshToken)
@@ -40,7 +68,7 @@ public class NhAuthenticationConfigurationBuilder
         }
 
         UseAuthenticationEndpoint<NhLogoutAuthenticationHandler>();
-        UseAuthenticationEndpoint<NhAccountInformationEndpointHandler>();
+        UseAuthenticationEndpoint<NhAccountInformationEndpointHandler<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>>();
         return this;
     }
 
@@ -48,7 +76,14 @@ public class NhAuthenticationConfigurationBuilder
     /// Add endpoints for handling refresh token login flow
     /// </summary>
     /// <returns></returns>
-    public NhAuthenticationConfigurationBuilder AddRefreshTokenEndpoint()
+    public NhAuthenticationConfigurationBuilder<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    > AddRefreshTokenEndpoint()
     {
         UseAuthenticationEndpoint<NhRefreshTokenAuthenticationHandler>();
         return this;
@@ -59,7 +94,14 @@ public class NhAuthenticationConfigurationBuilder
     /// </summary>
     /// <typeparam name="TEndpoint"></typeparam>
     /// <returns></returns>
-    public NhAuthenticationConfigurationBuilder UseAuthenticationEndpoint<TEndpoint>()
+    public NhAuthenticationConfigurationBuilder<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    > UseAuthenticationEndpoint<TEndpoint>()
         where TEndpoint : IAuthenticationEndpoint
     {
         _diEndpoints.Add(typeof(TEndpoint));
@@ -71,7 +113,14 @@ public class NhAuthenticationConfigurationBuilder
     /// </summary>
     /// <param name="endpoint"></param>
     /// <returns></returns>
-    public NhAuthenticationConfigurationBuilder UseAuthenticationEndpoint(IAuthenticationEndpoint endpoint)
+    public NhAuthenticationConfigurationBuilder<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    > UseAuthenticationEndpoint(IAuthenticationEndpoint endpoint)
     {
         _endpoints.Add(endpoint);
         return this;

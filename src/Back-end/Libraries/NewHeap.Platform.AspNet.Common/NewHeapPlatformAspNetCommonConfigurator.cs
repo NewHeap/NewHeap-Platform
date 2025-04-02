@@ -19,6 +19,7 @@ using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Identity.Describers;
+using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Resolvers;
 using NewHeap.Platform.AspNet.Common.Services;
@@ -32,7 +33,54 @@ using System.IdentityModel.Tokens.Jwt;
 
 namespace NewHeap.Platform.AspNet.Common;
 
-public partial class NewHeapPlatformAspNetCommonConfigurator
+public partial class NewHeapPlatformAspNetCommonConfigurator<
+        TUser,
+        TUserRole,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TLog,
+        TLogMessageArgument,
+        TLogFile,
+        TLogMessageTranslated,
+        TDbContext,
+        TUserManager,
+        TDivisionService,
+        TDivisionMutateModel,
+        TDivisionUserService,
+        TDivisionUserMutateModel
+    >
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>, new()
+    where TUserRole : NhUserRole, new()
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>, new()
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>, new()
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>, new()
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>, new()
+    where TDivisionRoleClaim : NhDivisionRoleClaim, new()
+    where TLog : NhLog<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>, new()
+    where TLogMessageArgument : NhLogMessageArgument, new()
+    where TLogFile : NhLogFile, new()
+    where TLogMessageTranslated : NhLogMessageTranslated, new()
+    where TDbContext : NhIdentityDbContext<
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TUser,
+        TUserRole,
+        TLog,
+        TLogMessageArgument,
+        TLogFile,
+        TLogMessageTranslated
+    >
+    where TUserManager : class, INhUserManager<TUser>
+    where TDivisionService : DivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>
+    where TDivisionMutateModel : DivisionMutateModel
+    where TDivisionUserService : DivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>
+    where TDivisionUserMutateModel : DivisionUserMutateModel
 {
     private bool IdentityEntityFrameworkConfigured = false;
     private readonly NewHeapPlatformCommonConfigurator _commonConfigurator;
@@ -68,7 +116,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
 
         #region Services
         _serviceCollection.AddScoped<RazorViewService>();
-        _serviceCollection.AddSingleton<IAuthorizationHandler, ActiveDivisionAccessHandler>();
         _serviceCollection.AddSingleton<IHttpCollectionProcessingService, HttpCollectionProcessingService>();
         #endregion
     }
@@ -133,7 +180,25 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
 
         _serviceCollection.AddAutoMapper(options =>
         {
-            options.AddMaps(typeof(NewHeapPlatformAspNetCommonConfigurator));
+            options.AddMaps(typeof(NewHeapPlatformAspNetCommonConfigurator<
+                TUser,
+                TUserRole,
+                TDivision,
+                TDivisionUser,
+                TDivisionRole,
+                TDivisionUserRole,
+                TDivisionRoleClaim,
+                TLog,
+                TLogMessageArgument,
+                TLogFile,
+                TLogMessageTranslated,
+                TDbContext,
+                TUserManager,
+                TDivisionService,
+                TDivisionMutateModel,
+                TDivisionUserService,
+                TDivisionUserMutateModel
+            >));
 
             _options.AutoMapperConfigurationAction?.Invoke(options);
         });
@@ -266,16 +331,54 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         });
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator AddAuthentication(Action<NhAuthenticationBuilder>? configure = null)
+    public NewHeapPlatformAspNetCommonConfigurator<
+                TUser,
+                TUserRole,
+                TDivision,
+                TDivisionUser,
+                TDivisionRole,
+                TDivisionUserRole,
+                TDivisionRoleClaim,
+                TLog,
+                TLogMessageArgument,
+                TLogFile,
+                TLogMessageTranslated,
+                TDbContext,
+                TUserManager,
+                TDivisionService,
+                TDivisionMutateModel,
+                TDivisionUserService,
+                TDivisionUserMutateModel
+            > 
+        AddAuthentication(Action<NhAuthenticationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>>? configure = null)
     {
-        var builder = new NhAuthenticationBuilder();
+        var builder = new NhAuthenticationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>();
         configure?.Invoke(builder);
         
         builder.Build(_serviceCollection);
         return this;
     }
     
-    public NewHeapPlatformAspNetCommonConfigurator ConfigureCommon(
+    public NewHeapPlatformAspNetCommonConfigurator<
+                TUser,
+                TUserRole,
+                TDivision,
+                TDivisionUser,
+                TDivisionRole,
+                TDivisionUserRole,
+                TDivisionRoleClaim,
+                TLog,
+                TLogMessageArgument,
+                TLogFile,
+                TLogMessageTranslated,
+                TDbContext,
+                TUserManager,
+                TDivisionService,
+                TDivisionMutateModel,
+                TDivisionUserService,
+                TDivisionUserMutateModel
+            >
+        ConfigureCommon(
         Action<NewHeapPlatformCommonConfigurator> action)
     {
         if (action == null)
@@ -288,40 +391,9 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         return this;
     }
 
-    public static void ConfigureWithIdentityEntityFramework<TDbContext, TUser>(IServiceCollection serviceCollectionn)
-        where TDbContext : NhIdentityDbContext
-        where TUser : class
-    {
-        ConfigureWithIdentityEntityFramework<
-            TDbContext, 
-            NhUserManager,
-            NhDivision,
-            NhDivisionUser,
-            NhDivisionRole,
-            NhDivisionUserRole,
-            NhDivisionRoleClaim,
-            NhUser,
-            NhUserRole,
-            NhLog,
-            NhLogMessageArgument,
-            NhLogFile,
-            NhLogMessageTranslated>(serviceCollectionn);
-    }
-
     public static void ConfigureWithIdentityEntityFramework<
         TDbContext, 
-        TUserManager,
-        TDivision,
-        TDivisionUser,
-        TDivisionRole,
-        TDivisionUserRole,
-        TDivisionRoleClaim,
-        TUser,
-        TUserRole,
-        TLog,
-        TLogMessageArgument,
-        TLogFile,
-        TLogMessageTranslated
+        TUserManager
         >(IServiceCollection serviceCollection)
         where TDbContext : NhIdentityDbContext<
             TDivision,
@@ -337,17 +409,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
             TLogMessageTranslated
         >
         where TUserManager : class, INhUserManager<TUser>
-        where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
-        where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
-        where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
-        where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
-        where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
-        where TDivisionRoleClaim : NhDivisionRoleClaim
-        where TUserRole : NhUserRole
-        where TLog : NhLog<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>
-        where TLogMessageArgument : NhLogMessageArgument
-        where TLogFile : NhLogFile
-        where TLogMessageTranslated : NhLogMessageTranslated
     {
         void AddRepository<TEntity>()
             where TEntity : class
@@ -386,72 +447,31 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
             return serviceProvider.GetRequiredService<TUserManager>();
         });
 
-        serviceCollection.AddScoped<DivisionService>();
-        serviceCollection.AddScoped<DivisionUserService>();
+        serviceCollection.AddScoped<TDivisionService>();
+        serviceCollection.AddScoped<TDivisionUserService>();
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator WithIdentityEntityFramework<TDbContext, TUser>(
-        Action<DbContextOptionsBuilder> dbOptionsAction)
-        where TDbContext : NhIdentityDbContext
-        where TUser : class
-    {
-        return WithIdentityEntityFramework<
-            TDbContext, 
-            NhUserManager,
-            NhDivision,
-            NhDivisionUser,
-            NhDivisionRole,
-            NhDivisionUserRole,
-            NhDivisionRoleClaim,
-            NhUser,
-            NhUserRole,
-            NhLog,
-            NhLogMessageArgument,
-            NhLogFile,
-            NhLogMessageTranslated>(dbOptionsAction);
-    }
-
-    public NewHeapPlatformAspNetCommonConfigurator WithIdentityEntityFramework<
-        TDbContext, 
-        TUserManager,
-        TDivision,
-        TDivisionUser,
-        TDivisionRole,
-        TDivisionUserRole,
-        TDivisionRoleClaim,
-        TUser,
-        TUserRole,
-        TLog,
-        TLogMessageArgument,
-        TLogFile,
-        TLogMessageTranslated
-        >(
-        Action<DbContextOptionsBuilder> dbOptionsAction)
-        where TDbContext : NhIdentityDbContext<
+    public NewHeapPlatformAspNetCommonConfigurator<
+            TUser,
+            TUserRole,
             TDivision,
             TDivisionUser,
             TDivisionRole,
             TDivisionUserRole,
             TDivisionRoleClaim,
-            TUser,
-            TUserRole,
             TLog,
             TLogMessageArgument,
             TLogFile,
-            TLogMessageTranslated
+            TLogMessageTranslated,
+            TDbContext,
+            TUserManager,
+            TDivisionService,
+            TDivisionMutateModel,
+            TDivisionUserService,
+            TDivisionUserMutateModel
         >
-        where TUserManager : class, INhUserManager<TUser>
-        where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
-        where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
-        where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
-        where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
-        where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
-        where TDivisionRoleClaim : NhDivisionRoleClaim
-        where TUserRole : NhUserRole
-        where TLog : NhLog<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>
-        where TLogMessageArgument : NhLogMessageArgument
-        where TLogFile : NhLogFile
-        where TLogMessageTranslated : NhLogMessageTranslated
+        WithIdentityEntityFramework(
+        Action<DbContextOptionsBuilder> dbOptionsAction)
     {
         if(IdentityEntityFrameworkConfigured)
         {
@@ -497,18 +517,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
 
         ConfigureWithIdentityEntityFramework<
             TDbContext, 
-            TUserManager,
-            TDivision,
-            TDivisionUser,
-            TDivisionRole,
-            TDivisionUserRole,
-            TDivisionRoleClaim,
-            TUser,
-            TUserRole,
-            TLog,
-            TLogMessageArgument,
-            TLogFile,
-            TLogMessageTranslated
+            TUserManager
         >(_serviceCollection);
 
         IdentityEntityFrameworkConfigured = true;
@@ -516,63 +525,27 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator WithIdentity<TDbContext>()
-        where TDbContext : NhIdentityDbContext
-    { 
-        return WithIdentity<
-            TDbContext,
-            NhDivision,
-            NhDivisionUser,
-            NhDivisionRole,
-            NhDivisionUserRole,
-            NhDivisionRoleClaim,
-            NhUser,
-            NhUserRole,
-            NhLog,
-            NhLogMessageArgument,
-            NhLogFile,
-            NhLogMessageTranslated>();
-    }
-
-    public NewHeapPlatformAspNetCommonConfigurator WithIdentity<
-        TDbContext,
-        TDivision,
-        TDivisionUser,
-        TDivisionRole,
-        TDivisionUserRole,
-        TDivisionRoleClaim,
-        TUser,
-        TUserRole,
-        TLog,
-        TLogMessageArgument,
-        TLogFile,
-        TLogMessageTranslated
-        >(
+    public NewHeapPlatformAspNetCommonConfigurator<
+                TUser,
+                TUserRole,
+                TDivision,
+                TDivisionUser,
+                TDivisionRole,
+                TDivisionUserRole,
+                TDivisionRoleClaim,
+                TLog,
+                TLogMessageArgument,
+                TLogFile,
+                TLogMessageTranslated,
+                TDbContext,
+                TUserManager,
+                TDivisionService,
+                TDivisionMutateModel,
+                TDivisionUserService,
+                TDivisionUserMutateModel
+            >
+        WithIdentity(
         Action<IdentityOptions>? identityOptionsAction = null)
-        where TDbContext : NhIdentityDbContext<
-        TDivision,
-        TDivisionUser,
-        TDivisionRole,
-        TDivisionUserRole,
-        TDivisionRoleClaim,
-        TUser,
-        TUserRole,
-        TLog,
-        TLogMessageArgument,
-        TLogFile,
-        TLogMessageTranslated
-        >
-        where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
-        where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
-        where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
-        where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
-        where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
-        where TDivisionRoleClaim : NhDivisionRoleClaim
-        where TUserRole : NhUserRole
-        where TLog : NhLog<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>
-        where TLogMessageArgument : NhLogMessageArgument
-        where TLogFile : NhLogFile
-        where TLogMessageTranslated : NhLogMessageTranslated
     {
         _serviceCollection.AddIdentity<TUser, TUserRole>()
             .AddEntityFrameworkStores<TDbContext>()
@@ -596,35 +569,33 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         };
 
         _serviceCollection.Configure(defaultIdentityOptionsAction);
+        _serviceCollection.AddSingleton<IAuthorizationHandler, ActiveDivisionAccessHandler<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>>();
 
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator WithDbLogService<
-        TDbLogService,
-        TLog,
-        TUser,
-        TLogMessageArgument,
-        TLogMessageTranslated,
-        TLogFile,
-        TDivision,
-        TDivisionUser,
-        TDivisionRole,
-        TDivisionUserRole,
-        TDivisionRoleClaim
-    >(
+    public NewHeapPlatformAspNetCommonConfigurator<
+                TUser,
+                TUserRole,
+                TDivision,
+                TDivisionUser,
+                TDivisionRole,
+                TDivisionUserRole,
+                TDivisionRoleClaim,
+                TLog,
+                TLogMessageArgument,
+                TLogFile,
+                TLogMessageTranslated,
+                TDbContext,
+                TUserManager,
+                TDivisionService,
+                TDivisionMutateModel,
+                TDivisionUserService,
+                TDivisionUserMutateModel
+            >
+        WithDbLogService<TDbLogService>(
         Action<DbLogServiceSettings> settingsAction)
         where TDbLogService : NhDbLogService<TLog, TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>
-        where TLog : NhLog<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>, new()
-        where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
-        where TLogMessageArgument : NhLogMessageArgument, new()
-        where TLogMessageTranslated : NhLogMessageTranslated, new()
-        where TLogFile : NhLogFile, new()
-        where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
-        where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
-        where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
-        where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
-        where TDivisionRoleClaim : NhDivisionRoleClaim
     {
         _serviceCollection.Configure(settingsAction);
         _serviceCollection.AddScoped<INhDbLogService, TDbLogService>();
@@ -632,7 +603,26 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator WithSignalR(Action<HubOptions>? hubOptionsAction = null)
+    public NewHeapPlatformAspNetCommonConfigurator<
+                TUser,
+                TUserRole,
+                TDivision,
+                TDivisionUser,
+                TDivisionRole,
+                TDivisionUserRole,
+                TDivisionRoleClaim,
+                TLog,
+                TLogMessageArgument,
+                TLogFile,
+                TLogMessageTranslated,
+                TDbContext,
+                TUserManager,
+                TDivisionService,
+                TDivisionMutateModel,
+                TDivisionUserService,
+                TDivisionUserMutateModel
+            >
+        WithSignalR(Action<HubOptions>? hubOptionsAction = null)
     {
         _serviceCollection.AddSignalR(options =>
         {
@@ -642,7 +632,26 @@ public partial class NewHeapPlatformAspNetCommonConfigurator
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator WithHangfire(
+    public NewHeapPlatformAspNetCommonConfigurator<
+                TUser,
+                TUserRole,
+                TDivision,
+                TDivisionUser,
+                TDivisionRole,
+                TDivisionUserRole,
+                TDivisionRoleClaim,
+                TLog,
+                TLogMessageArgument,
+                TLogFile,
+                TLogMessageTranslated,
+                TDbContext,
+                TUserManager,
+                TDivisionService,
+                TDivisionMutateModel,
+                TDivisionUserService,
+                TDivisionUserMutateModel
+            >
+        WithHangfire(
         string nameOrConnectionString,
         Action<IGlobalConfiguration>? hangfireOptionsAction = null,
         Action<ConsoleOptions>? consoleOptionsAction = null,

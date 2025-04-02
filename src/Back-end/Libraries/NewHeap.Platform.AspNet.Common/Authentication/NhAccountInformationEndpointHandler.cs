@@ -17,7 +17,20 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 /// <summary>
 /// 
 /// </summary>
-public class NhAccountInformationEndpointHandler : BaseNhAuthenticationEndpoint
+public class NhAccountInformationEndpointHandler<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    > : BaseNhAuthenticationEndpoint
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivisionRoleClaim : NhDivisionRoleClaim
 {
     private readonly AuthenticationConfiguration _configuration;
 
@@ -47,8 +60,8 @@ public class NhAccountInformationEndpointHandler : BaseNhAuthenticationEndpoint
     [Produces<Ok<AccountResponse>>]
     private async Task<IResult> ProcessRequest(
         [FromServices] INhAuthenticationService authenticationService,
-        [FromServices] INhUserManager userManager,
-        [FromServices] IRepository<NhDivision> divisionRepository,
+        [FromServices] INhUserManager<TUser> userManager,
+        [FromServices] IRepository<TDivision> divisionRepository,
         [FromServices] IMapper mapper
     )
     {
@@ -92,8 +105,8 @@ public class NhAccountInformationEndpointHandler : BaseNhAuthenticationEndpoint
     }
 
     private static async Task GetUserDivisions(
-        INhUserManager userManager,
-        IRepository<NhDivision> divisionRepository,
+        INhUserManager<TUser> userManager,
+        IRepository<TDivision> divisionRepository,
         IMapper mapper,
         AccountResponse accountResponse,
         List<Claim> claims

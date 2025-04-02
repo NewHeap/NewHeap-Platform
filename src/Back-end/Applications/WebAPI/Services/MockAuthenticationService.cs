@@ -5,6 +5,7 @@ using NewHeap.Platform.Common.Models;
 using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
@@ -12,6 +13,17 @@ namespace WebAPI.Services;
 
 public class MockAuthenticationService : INhAuthenticationService
 {
+    private class User
+    {
+        public Guid Id { get; set; }
+        public string UserName { get; set; }
+        public string Email { get; set; }
+        public string PasswordHash { get; set; }
+        public string RefreshToken { get; set; }
+    }
+
+    private List<User> _users = new List<User>();
+
     public MockAuthenticationService()
     {
     }
@@ -24,7 +36,15 @@ public class MockAuthenticationService : INhAuthenticationService
     public async Task<TaskResult<UserToken>> Authenticate(AuthenticateRequest request,
         IEnumerable<Claim> requiredClaims = null)
     {
-        var user = new NhUser
+        var (user, token) = await CreateToken(request);
+
+        return new UserToken(new JwtSecurityTokenHandler().WriteToken(token), token.ValidTo, user.RefreshToken,
+            token.Issuer);
+    }
+
+    private async Task<(User user, JwtSecurityToken)> CreateToken(AuthenticateRequest request)
+    {
+        var user = new User
         {
             Id = Guid.NewGuid(),
             UserName = request.UserName,
@@ -32,13 +52,26 @@ public class MockAuthenticationService : INhAuthenticationService
             PasswordHash = Guid.NewGuid().ToString(),
             RefreshToken = Guid.NewGuid().ToString(),
         };
-        var token = await CreateToken(user);
-        return new UserToken(new JwtSecurityTokenHandler().WriteToken(token), token.ValidTo, user.RefreshToken,
-            token.Issuer);
+
+        if (!_users.Any(u => u.UserName.Equals(user.UserName, StringComparison.InvariantCultureIgnoreCase)))
+        { 
+            _users.Add(user);
+        }
+
+        var token = await CreateToken(user.Id);
+
+        return (user, token);
     }
 
-    public async Task<JwtSecurityToken> CreateToken(NhUser user, TimeSpan? expiration = null)
+    public async Task<JwtSecurityToken> CreateToken(Guid userId, TimeSpan? expiration = null, bool withDivisionClaims = false)
     {
+        var user = _users.FirstOrDefault(u => u.Id == userId);
+        
+        if (user == null)
+        {
+            throw new Exception("User not found");
+        }
+
         return new JwtSecurityToken(
             claims: [
                 new Claim(JwtRegisteredClaimNames.Sub, user.Email!),
@@ -52,7 +85,7 @@ public class MockAuthenticationService : INhAuthenticationService
             expires: DateTime.Now.Add(expiration ?? TimeSpan.FromDays(1)),
             issuer: GetIssuer(),
             audience: GetIssuer()
-            );
+        );
     }
 
     public JwtSecurityToken DecodeToken(string token)

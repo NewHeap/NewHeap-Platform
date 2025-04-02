@@ -12,16 +12,31 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class DivisionUserService : BaseDbEntityService<NhDivisionUser, DivisionUserMutateModel, DivisionUserService>
+public partial class DivisionUserService<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim,
+    TDivisionUserMutateModel
+    > : BaseDbEntityService<TDivisionUser, TDivisionUserMutateModel, DivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>>
+        where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>, new()
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>, new()
+    where TDivisionRoleClaim : NhDivisionRoleClaim
+    where TDivisionUserMutateModel : DivisionUserMutateModel
 {
-    protected readonly IRepository<NhDivisionUserRole> _divisionUserRoleRepository;
+    protected readonly IRepository<TDivisionUserRole> _divisionUserRoleRepository;
     protected readonly IStringLocalizer _localizer;
     protected readonly IMapper _mapper;
 
     public DivisionUserService(
-        IRepository<NhDivisionUser> divisionUserRepository,
-        IRepository<NhDivisionUserRole> divisionUserRoleRepository,
-        IStringLocalizer<DivisionUserService> localizer,
+        IRepository<TDivisionUser> divisionUserRepository,
+        IRepository<TDivisionUserRole> divisionUserRoleRepository,
+        IStringLocalizer<DivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>> localizer,
         INhDbLogService dbLogService,
         LogHelperService logHelperService,
         ValidationService validationService,
@@ -34,7 +49,7 @@ public partial class DivisionUserService : BaseDbEntityService<NhDivisionUser, D
     }
 
     public override async Task ValidateCreateUpdateDeleteAsync(
-        CreateUpdateDeleteValidateModel<NhDivisionUser, NhDivisionUser, DivisionUserMutateModel> model, CancellationToken cancellationToken = default)
+        CreateUpdateDeleteValidateModel<TDivisionUser, TDivisionUser, TDivisionUserMutateModel> model, CancellationToken cancellationToken = default)
     {
         void sourceModelCheck()
         {
@@ -74,13 +89,13 @@ public partial class DivisionUserService : BaseDbEntityService<NhDivisionUser, D
         }
     }
 
-    public override async Task<TaskResult<NhDivisionUser>> CreateAsync(DivisionUserMutateModel mutateModel,
-        Guid? committedByUserId = default, Action<NhDivisionUser>? beforeSave = null, CancellationToken cancellationToken = default)
+    public override async Task<TaskResult<TDivisionUser>> CreateAsync(TDivisionUserMutateModel mutateModel,
+        Guid? committedByUserId = default, Action<TDivisionUser>? beforeSave = null, CancellationToken cancellationToken = default)
     {
-        TaskResult<NhDivisionUser> result = new();
+        TaskResult<TDivisionUser> result = new();
 
         await ValidateCreateUpdateDeleteAsync(
-            new CreateUpdateDeleteValidateModel<NhDivisionUser, NhDivisionUser, DivisionUserMutateModel>(CRUDActionType
+            new CreateUpdateDeleteValidateModel<TDivisionUser, TDivisionUser, TDivisionUserMutateModel>(CRUDActionType
                 .Create) { TaskResult = result, SourceModel = null, MutateModel = mutateModel });
 
         if (!result.Success)
@@ -88,12 +103,12 @@ public partial class DivisionUserService : BaseDbEntityService<NhDivisionUser, D
             return result;
         }
 
-        var divisionUser = _mapper.Map<NhDivisionUser>(mutateModel);
+        var divisionUser = _mapper.Map<TDivisionUser>(mutateModel);
         await _repository.AddAsync(divisionUser);
 
         if (mutateModel.RoleIds?.Any() == true)
         {
-            IEnumerable<NhDivisionUserRole> divisionUserRoles = mutateModel.RoleIds.Select(roleId => new NhDivisionUserRole
+            IEnumerable<TDivisionUserRole> divisionUserRoles = mutateModel.RoleIds.Select(roleId => new TDivisionUserRole
             {
                 DivisionUser = divisionUser, DivisionRoleId = roleId
             });
@@ -107,8 +122,8 @@ public partial class DivisionUserService : BaseDbEntityService<NhDivisionUser, D
             "DivisionUser create successful.",
             messageArguments: new[] { divisionUser.Id.ToString() },
             objectId: divisionUser.Id.ToString(),
-            objectType: typeof(NhDivisionUser).Name,
-            objectTypeFull: typeof(NhDivisionUser).FullName,
+            objectType: typeof(TDivisionUser).Name,
+            objectTypeFull: typeof(TDivisionUser).FullName,
             userId: committedByUserId,
             action: LogAction.Create,
             type: LogType.Information,
@@ -125,20 +140,20 @@ public partial class DivisionUserService : BaseDbEntityService<NhDivisionUser, D
         return result;
     }
 
-    public override async Task<TaskResult<NhDivisionUser>> UpdateAsync(
+    public override async Task<TaskResult<TDivisionUser>> UpdateAsync(
         Guid id, 
-        DivisionUserMutateModel mutateModel,
+        TDivisionUserMutateModel mutateModel,
         Guid? committedByUserId = default,
-        Action<NhDivisionUser>? beforeSave = null, 
+        Action<TDivisionUser>? beforeSave = null, 
         CancellationToken cancellationToken = default
         )
     {
-        TaskResult<NhDivisionUser> result = new();
+        TaskResult<TDivisionUser> result = new();
 
         var divisionUser = await _repository.FindOneByAsync(x => x.Id == id);
 
         await ValidateCreateUpdateDeleteAsync(
-            new CreateUpdateDeleteValidateModel<NhDivisionUser, NhDivisionUser, DivisionUserMutateModel>(CRUDActionType
+            new CreateUpdateDeleteValidateModel<TDivisionUser, TDivisionUser, TDivisionUserMutateModel>(CRUDActionType
                 .Update) { TaskResult = result, SourceModel = divisionUser, MutateModel = mutateModel });
 
         if (!result.Success)
@@ -161,7 +176,7 @@ public partial class DivisionUserService : BaseDbEntityService<NhDivisionUser, D
                 continue;
             }
 
-            NhDivisionUserRole divisionUserRole = new() { DivisionRoleId = divisionRoleId, DivisionUser = divisionUser };
+            TDivisionUserRole divisionUserRole = new() { DivisionRoleId = divisionRoleId, DivisionUser = divisionUser };
 
             await _divisionUserRoleRepository.AddAsync(divisionUserRole);
         }
@@ -169,7 +184,7 @@ public partial class DivisionUserService : BaseDbEntityService<NhDivisionUser, D
         var updatedData = LogHelperService.Copy(divisionUser);
 
         var changedProperties = await _logHelper.ChangedProperties(originalData,
-            updatedData, new Dictionary<Expression<Func<NhDivisionUser?, object>>, Func<object?, Task<string>>>
+            updatedData, new Dictionary<Expression<Func<TDivisionUser?, object>>, Func<object?, Task<string>>>
             {
                 // Method resolvers
             },
@@ -185,8 +200,8 @@ public partial class DivisionUserService : BaseDbEntityService<NhDivisionUser, D
                 "Entity values updated",
                 messageArguments: new[] { values },
                 objectId: divisionUser.Id.ToString(),
-                objectType: typeof(NhDivisionUser).Name,
-                objectTypeFull: typeof(NhDivisionUser).FullName,
+                objectType: typeof(TDivisionUser).Name,
+                objectTypeFull: typeof(TDivisionUser).FullName,
                 userId: committedByUserId,
                 action: LogAction.Update,
                 type: LogType.Information,
@@ -199,8 +214,8 @@ public partial class DivisionUserService : BaseDbEntityService<NhDivisionUser, D
             "DivisionUser update successful.",
             messageArguments: new[] { divisionUser.Id.ToString() },
             objectId: divisionUser.Id.ToString(),
-            objectType: typeof(NhDivisionUser).Name,
-            objectTypeFull: typeof(NhDivisionUser).FullName,
+            objectType: typeof(TDivisionUser).Name,
+            objectTypeFull: typeof(TDivisionUser).FullName,
             userId: committedByUserId,
             action: LogAction.Update,
             type: LogType.Information,

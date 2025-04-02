@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.Builders;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Middlewares;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Services;
@@ -214,9 +215,23 @@ public class NewHeapPlatformAspNetCommonApplicationBuilder
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonApplicationBuilder UseNhAuthentication(Action<NhAuthenticationConfigurationBuilder>? configure = null)
+    public NewHeapPlatformAspNetCommonApplicationBuilder UseNhAuthentication<
+        TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TUserViewModel
+        >(Action<NhAuthenticationConfigurationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>>? configure = null)
+        where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+        where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+        where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
+        where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+        where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+        where TDivisionRoleClaim : NhDivisionRoleClaim
     {
-        var builder = new NhAuthenticationConfigurationBuilder();
+        var builder = new NhAuthenticationConfigurationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>();
         configure?.Invoke(builder);
         builder.Build(_applicationBuilder, _services);
         return this;

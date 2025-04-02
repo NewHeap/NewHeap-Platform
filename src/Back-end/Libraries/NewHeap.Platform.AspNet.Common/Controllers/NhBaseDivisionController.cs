@@ -18,7 +18,26 @@ using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
-public abstract class NhBaseDivisionController : DbEntityProtectedNhBaseController<NhDivision, DivisionMutateModel, DivisionViewModel, DivisionService, DivisionCollectionRequestModel>
+public abstract class NhBaseDivisionController<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim,
+    TDivisionMutateModel,
+    TDivisionViewModel,
+    TDivisionRoleViewModel
+    > : DbEntityProtectedNhBaseController<TDivision, TDivisionMutateModel, TDivisionViewModel, DivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>, DivisionCollectionRequestModel>
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>, new()
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivisionRoleClaim : NhDivisionRoleClaim
+    where TDivisionMutateModel : DivisionMutateModel
+    where TDivisionViewModel : DivisionViewModel
+    where TDivisionRoleViewModel : DivisionRoleViewModel
 {
     protected const string READ_POLICY = "app.division.view";
     protected const string MANAGE_POLICY = "app.division.manage";
@@ -26,16 +45,16 @@ public abstract class NhBaseDivisionController : DbEntityProtectedNhBaseControll
     public NhBaseDivisionController(
         IConfiguration config,
         IMapper mapper,
-        ILogger<NhBaseDivisionController> logger,
-        IStringLocalizer<NhBaseDivisionController> localizer,
-        DivisionService divisionService,
+        ILogger<NhBaseDivisionController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel, TDivisionViewModel, TDivisionRoleViewModel>> logger,
+        IStringLocalizer<NhBaseDivisionController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel, TDivisionViewModel, TDivisionRoleViewModel>> localizer,
+        DivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel> divisionService,
         IHttpCollectionProcessingService collectionRequestProcessingService
     )
         : base(mapper, logger, config, localizer, collectionRequestProcessingService, divisionService)
     {
     }
 
-    protected override Task<IQueryable<NhDivision>> GetQueryableAsync()
+    protected override Task<IQueryable<TDivision>> GetQueryableAsync()
     {
         var query = _dbEntityService
                 .GetRepository()
@@ -63,14 +82,14 @@ public abstract class NhBaseDivisionController : DbEntityProtectedNhBaseControll
 
     [HttpPost]
     [Authorize(Policy = MANAGE_POLICY)]
-    public virtual Task<IActionResult> Create([FromBody] DivisionMutateModel mutateModel)
+    public virtual Task<IActionResult> Create([FromBody] TDivisionMutateModel mutateModel)
     {
         return DoCreate(mutateModel);
     }
 
     [HttpPut("{id}")]
     [Authorize(Policy = MANAGE_POLICY)]
-    public virtual Task<IActionResult> Update([FromRoute] Guid id, [FromBody] DivisionMutateModel mutateModel)
+    public virtual Task<IActionResult> Update([FromRoute] Guid id, [FromBody] TDivisionMutateModel mutateModel)
     {
         return DoUpdate(id, mutateModel);
     }
@@ -89,7 +108,7 @@ public abstract class NhBaseDivisionController : DbEntityProtectedNhBaseControll
         var query = _dbEntityService.GetRoleRepository().GetAll();
 
         var result =
-            await GetCollectionResultModel<NhDivisionRole, DivisionRoleViewModel>(query,
+            await GetCollectionResultModel<TDivisionRole, DivisionRoleViewModel>(query,
                 (x => x.Name, ListSortDirection.Ascending));
 
         return Ok(result);

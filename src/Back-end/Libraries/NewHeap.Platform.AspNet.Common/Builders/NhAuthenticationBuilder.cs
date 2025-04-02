@@ -1,13 +1,27 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.Authentication;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Services;
 
 namespace NewHeap.Platform.AspNet.Common.Builders;
 
-public class NhAuthenticationBuilder
+public class NhAuthenticationBuilder<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    >
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivisionRoleClaim : NhDivisionRoleClaim
 {
-    private Type AuthenticationServiceType { get; set; } = typeof(NhAuthenticationService);
+    private Type AuthenticationServiceType { get; set; } = typeof(NhAuthenticationService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>);
     
     private UserNamePasswordOptions UserNamePasswordOptionsValue { get; set; } = new();
     
@@ -16,17 +30,31 @@ public class NhAuthenticationBuilder
     {
     }
 
-    public NhAuthenticationBuilder WithAuthenticationService<T>() where T : INhAuthenticationService
+    public NhAuthenticationBuilder<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    > WithAuthenticationService<T>() where T : INhAuthenticationService
     {
         AuthenticationServiceType = typeof(T);
         return this;
     }
 
-    public NhAuthenticationBuilder AddUserNamePasswordAuthentication(Action<UserNamePasswordOptions>? configure = null)
+    public NhAuthenticationBuilder<
+    TUser,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    > AddUserNamePasswordAuthentication(Action<UserNamePasswordOptions>? configure = null)
     {
         var options = new UserNamePasswordOptions();
         configure?.Invoke(this.UserNamePasswordOptionsValue);
-        
+
         return this;
     }
 
@@ -88,7 +116,14 @@ public class NhAuthenticationBuilder
     private void AddUserNameLoginHandler(IServiceCollection services)
     {
         services.AddTransient<NhUserNamePasswordAuthenticationHandler>();
-        services.AddTransient<NhAccountInformationEndpointHandler>();
+        services.AddTransient<NhAccountInformationEndpointHandler<
+            TUser,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim
+        >>();
         services.AddTransient<NhLogoutAuthenticationHandler>();
     }
 }
