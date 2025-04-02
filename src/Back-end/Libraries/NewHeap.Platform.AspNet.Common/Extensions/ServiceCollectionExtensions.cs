@@ -25,6 +25,7 @@ public static partial class ServiceCollectionExtensions
         TLogMessageArgument,
         TLogFile,
         TLogMessageTranslated,
+        TDbLogService,
         TDbContext,
         TUserManager,
         TDivisionService,
@@ -43,6 +44,7 @@ public static partial class ServiceCollectionExtensions
         TLogMessageArgument,
         TLogFile,
         TLogMessageTranslated,
+        TDbLogService,
         TDbContext,
         TUserManager,
         TDivisionService,
@@ -64,6 +66,18 @@ public static partial class ServiceCollectionExtensions
         where TLogMessageArgument : NhLogMessageArgument, new()
         where TLogFile : NhLogFile, new()
         where TLogMessageTranslated : NhLogMessageTranslated, new()
+        where TDbLogService : NhDbLogService<
+            TLog,
+            TUser,
+            TLogMessageArgument,
+            TLogMessageTranslated,
+            TLogFile,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim
+        >
         where TDbContext : NhIdentityDbContext<
             TDivision,
             TDivisionUser,
@@ -78,9 +92,9 @@ public static partial class ServiceCollectionExtensions
             TLogMessageTranslated
         >
         where TUserManager : class, INhUserManager<TUser>
-        where TDivisionService : DivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>
+        where TDivisionService : NhDivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>
         where TDivisionMutateModel : DivisionMutateModel
-        where TDivisionUserService : DivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>
+        where TDivisionUserService : NhDivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>
         where TDivisionUserMutateModel : DivisionUserMutateModel
     {
         if (services == null)
@@ -107,6 +121,7 @@ public static partial class ServiceCollectionExtensions
             TLogMessageArgument,
             TLogFile,
             TLogMessageTranslated,
+            TDbLogService,
             TDbContext,
             TUserManager,
             TDivisionService,

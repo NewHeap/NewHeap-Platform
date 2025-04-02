@@ -28,7 +28,7 @@ public abstract class NhBaseDivisionController<
     TDivisionMutateModel,
     TDivisionViewModel,
     TDivisionRoleViewModel
-    > : DbEntityProtectedNhBaseController<TDivision, TDivisionMutateModel, TDivisionViewModel, DivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>, DivisionCollectionRequestModel>
+    > : DbEntityProtectedNhBaseController<TDivision, TDivisionMutateModel, TDivisionViewModel, NhDivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>, DivisionCollectionRequestModel>
     where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
     where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>, new()
@@ -47,7 +47,7 @@ public abstract class NhBaseDivisionController<
         IMapper mapper,
         ILogger<NhBaseDivisionController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel, TDivisionViewModel, TDivisionRoleViewModel>> logger,
         IStringLocalizer<NhBaseDivisionController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel, TDivisionViewModel, TDivisionRoleViewModel>> localizer,
-        DivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel> divisionService,
+        NhDivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel> divisionService,
         IHttpCollectionProcessingService collectionRequestProcessingService
     )
         : base(mapper, logger, config, localizer, collectionRequestProcessingService, divisionService)

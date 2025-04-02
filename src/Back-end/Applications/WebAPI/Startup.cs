@@ -20,6 +20,8 @@ using WebAPI.Jobs;
 using WebAPI.DAL.Entities;
 using Scalar.AspNetCore;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Models.Mutate;
+using NewHeap.Platform.AspNet.Common.Models.View;
 
 
 namespace WebAPI;
@@ -86,7 +88,26 @@ public class Startup
             //     });
             //     opt.UseFileSystemMediaStorage(Configuration["Media:FileSystemRoot"]!);
             // })
-            .AddNewHeapPlatformAspNetCommon(newHeapPlatformOptions)
+            .AddNewHeapPlatformAspNetCommon<
+                NhUser,
+                NhUserRole,
+                NhDivision,
+                NhDivisionUser,
+                NhDivisionRole,
+                NhDivisionUserRole,
+                NhDivisionRoleClaim,
+                NhLog,
+                NhLogMessageArgument,
+                NhLogFile,
+                NhLogMessageTranslated,
+                NhDbLogService,
+                AppDbContext,
+                NhUserManager,
+                NhDivisionService,
+                DivisionMutateModel,
+                NhDivisionUserService,
+                DivisionUserMutateModel
+            >(newHeapPlatformOptions)
             .AddAuthentication(options =>
             {
                 //options.WithAuthenticationService<MockAuthenticationService>();
@@ -106,57 +127,18 @@ public class Startup
                         Configuration.GetSection($"{NewHeapCommonOptions.DefaultSettingsPrefix}:MicrosoftAuthSettings").Bind(x))
                     ;
             })
-            .WithIdentityEntityFramework<
-                AppDbContext, 
-                NhUserManager,
-                NhDivision,
-                NhDivisionUser,
-                NhDivisionRole,
-                NhDivisionUserRole,
-                NhDivisionRoleClaim,
-                NhUser,
-                NhUserRole,
-                NhLog,
-                NhLogMessageArgument,
-                NhLogFile,
-                NhLogMessageTranslated
-            >(x =>
+            .WithIdentityEntityFramework(x =>
             {
                 x.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"))
 #if DEBUG
                 .UseLoggerFactory(AppLoggerFactory);
 #endif
             })
-            .WithIdentity<
-                AppDbContext,
-                NhDivision,
-                NhDivisionUser,
-                NhDivisionRole,
-                NhDivisionUserRole,
-                NhDivisionRoleClaim,
-                NhUser,
-                NhUserRole,
-                NhLog,
-                NhLogMessageArgument,
-                NhLogFile,
-                NhLogMessageTranslated
-                >(x =>
+            .WithIdentity(x =>
             {
 
             })
-            .WithDbLogService<
-                NhDbLogService,
-                NhLog,
-                NhUser,
-                NhLogMessageArgument,
-                NhLogMessageTranslated,
-                NhLogFile,
-                NhDivision,
-                NhDivisionUser,
-                NhDivisionRole,
-                NhDivisionUserRole,
-                NhDivisionRoleClaim
-            >(x =>
+            .WithDbLogService(x =>
             {
                 Configuration.GetSection($"{NewHeapAspNetCommonOptions.DefaultSettingsPrefix}:DbLogServiceSettings").Bind(x);
             })
@@ -193,7 +175,7 @@ public class Startup
                     .UseHttpsRedirection(!env.IsDevelopment())
                     .Build()
             )
-            .UseNhAuthentication(configure =>
+            .UseNhAuthentication<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, UserViewModel>(configure =>
             {
                 configure.AddUserNamePasswordEndpoint();
             })

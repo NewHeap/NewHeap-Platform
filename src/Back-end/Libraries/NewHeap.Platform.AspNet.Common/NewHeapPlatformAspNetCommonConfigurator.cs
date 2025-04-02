@@ -45,6 +45,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         TLogMessageArgument,
         TLogFile,
         TLogMessageTranslated,
+        TDbLogService,
         TDbContext,
         TUserManager,
         TDivisionService,
@@ -63,6 +64,18 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
     where TLogMessageArgument : NhLogMessageArgument, new()
     where TLogFile : NhLogFile, new()
     where TLogMessageTranslated : NhLogMessageTranslated, new()
+    where TDbLogService : NhDbLogService<
+        TLog,
+        TUser,
+        TLogMessageArgument,
+        TLogMessageTranslated,
+        TLogFile,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim
+    >
     where TDbContext : NhIdentityDbContext<
         TDivision,
         TDivisionUser,
@@ -77,9 +90,9 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         TLogMessageTranslated
     >
     where TUserManager : class, INhUserManager<TUser>
-    where TDivisionService : DivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>
+    where TDivisionService : NhDivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>
     where TDivisionMutateModel : DivisionMutateModel
-    where TDivisionUserService : DivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>
+    where TDivisionUserService : NhDivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>
     where TDivisionUserMutateModel : DivisionUserMutateModel
 {
     private bool IdentityEntityFrameworkConfigured = false;
@@ -192,6 +205,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
                 TLogMessageArgument,
                 TLogFile,
                 TLogMessageTranslated,
+                TDbLogService,
                 TDbContext,
                 TUserManager,
                 TDivisionService,
@@ -343,6 +357,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
                 TLogMessageArgument,
                 TLogFile,
                 TLogMessageTranslated,
+                TDbLogService,
                 TDbContext,
                 TUserManager,
                 TDivisionService,
@@ -371,6 +386,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
                 TLogMessageArgument,
                 TLogFile,
                 TLogMessageTranslated,
+                TDbLogService,
                 TDbContext,
                 TUserManager,
                 TDivisionService,
@@ -391,24 +407,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         return this;
     }
 
-    public static void ConfigureWithIdentityEntityFramework<
-        TDbContext, 
-        TUserManager
-        >(IServiceCollection serviceCollection)
-        where TDbContext : NhIdentityDbContext<
-            TDivision,
-            TDivisionUser,
-            TDivisionRole,
-            TDivisionUserRole,
-            TDivisionRoleClaim,
-            TUser,
-            TUserRole,
-            TLog,
-            TLogMessageArgument,
-            TLogFile,
-            TLogMessageTranslated
-        >
-        where TUserManager : class, INhUserManager<TUser>
+    public static void ConfigureWithIdentityEntityFramework(IServiceCollection serviceCollection)
     {
         void AddRepository<TEntity>()
             where TEntity : class
@@ -463,6 +462,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             TLogMessageArgument,
             TLogFile,
             TLogMessageTranslated,
+            TDbLogService,
             TDbContext,
             TUserManager,
             TDivisionService,
@@ -515,10 +515,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             return serviceProvider.GetRequiredService<TDbContext>();
         });
 
-        ConfigureWithIdentityEntityFramework<
-            TDbContext, 
-            TUserManager
-        >(_serviceCollection);
+        ConfigureWithIdentityEntityFramework(_serviceCollection);
 
         IdentityEntityFrameworkConfigured = true;
 
@@ -537,6 +534,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
                 TLogMessageArgument,
                 TLogFile,
                 TLogMessageTranslated,
+                TDbLogService,
                 TDbContext,
                 TUserManager,
                 TDivisionService,
@@ -586,6 +584,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
                 TLogMessageArgument,
                 TLogFile,
                 TLogMessageTranslated,
+                TDbLogService,
                 TDbContext,
                 TUserManager,
                 TDivisionService,
@@ -593,9 +592,8 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
                 TDivisionUserService,
                 TDivisionUserMutateModel
             >
-        WithDbLogService<TDbLogService>(
+        WithDbLogService(
         Action<DbLogServiceSettings> settingsAction)
-        where TDbLogService : NhDbLogService<TLog, TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>
     {
         _serviceCollection.Configure(settingsAction);
         _serviceCollection.AddScoped<INhDbLogService, TDbLogService>();
@@ -615,6 +613,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
                 TLogMessageArgument,
                 TLogFile,
                 TLogMessageTranslated,
+                TDbLogService,
                 TDbContext,
                 TUserManager,
                 TDivisionService,
@@ -644,6 +643,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
                 TLogMessageArgument,
                 TLogFile,
                 TLogMessageTranslated,
+                TDbLogService,
                 TDbContext,
                 TUserManager,
                 TDivisionService,

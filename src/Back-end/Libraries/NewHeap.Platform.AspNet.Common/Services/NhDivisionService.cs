@@ -13,7 +13,25 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class DivisionService<
+public partial class NhDivisionService : NhDivisionService<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, DivisionMutateModel>
+{
+    public NhDivisionService(
+        IRepository<NhDivision> divisionRepository,
+        IRepository<NhDivisionRole> divisionRoleRepository,
+        IRepository<NhDivisionUser> divisionUserRepository,
+        IRepository<NhDivisionUserRole> divisionUserRoleRepository,
+        IRepository<NhDivisionRoleClaim> divisionRoleClaimRepository,
+        IStringLocalizer<NhDivisionService> localizer,
+        INhDbLogService dbLogService,
+        LogHelperService logHelperService,
+        ValidationService validationService,
+        IMapper mapper)
+        : base(divisionRepository, divisionRoleRepository, divisionUserRepository, divisionUserRoleRepository, divisionRoleClaimRepository, localizer, dbLogService, logHelperService, validationService, mapper)
+    {
+    }
+}
+
+public abstract partial class NhDivisionService<
     TUser,
     TDivision,
     TDivisionUser,
@@ -21,7 +39,7 @@ public partial class DivisionService<
     TDivisionUserRole,
     TDivisionRoleClaim,
     TDivisionMutateModel
-    > : BaseDbEntityService<TDivision, TDivisionMutateModel, DivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>>
+    > : BaseDbEntityService<TDivision, TDivisionMutateModel, NhDivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>>
     where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
     where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>, new()
@@ -36,13 +54,13 @@ public partial class DivisionService<
     protected readonly IRepository<TDivisionUser> _divisionUserRepository;
     protected readonly IRepository<TDivisionUserRole> _divisionUserRoleRepository;
 
-    public DivisionService(
+    public NhDivisionService(
         IRepository<TDivision> divisionRepository,
         IRepository<TDivisionRole> divisionRoleRepository,
         IRepository<TDivisionUser> divisionUserRepository,
         IRepository<TDivisionUserRole> divisionUserRoleRepository,
         IRepository<TDivisionRoleClaim> divisionRoleClaimRepository,
-        IStringLocalizer<DivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>> localizer,
+        IStringLocalizer<NhDivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>> localizer,
         INhDbLogService dbLogService,
         LogHelperService logHelperService,
         ValidationService validationService,

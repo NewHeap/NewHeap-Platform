@@ -12,7 +12,22 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class DivisionUserService<
+public partial class NhDivisionUserService : NhDivisionUserService<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, DivisionUserMutateModel>
+{
+    public NhDivisionUserService(
+        IRepository<NhDivisionUser> divisionUserRepository,
+        IRepository<NhDivisionUserRole> divisionUserRoleRepository,
+        IStringLocalizer<NhDivisionUserService> localizer,
+        INhDbLogService dbLogService,
+        LogHelperService logHelperService,
+        ValidationService validationService,
+        IMapper mapper)
+        : base(divisionUserRepository, divisionUserRoleRepository, localizer, dbLogService, logHelperService, validationService, mapper)
+    {
+    }
+}
+
+public abstract partial class NhDivisionUserService<
     TUser,
     TDivision,
     TDivisionUser,
@@ -20,7 +35,7 @@ public partial class DivisionUserService<
     TDivisionUserRole,
     TDivisionRoleClaim,
     TDivisionUserMutateModel
-    > : BaseDbEntityService<TDivisionUser, TDivisionUserMutateModel, DivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>>
+    > : BaseDbEntityService<TDivisionUser, TDivisionUserMutateModel, NhDivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>>
         where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
     where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>, new()
@@ -33,10 +48,10 @@ public partial class DivisionUserService<
     protected readonly IStringLocalizer _localizer;
     protected readonly IMapper _mapper;
 
-    public DivisionUserService(
+    public NhDivisionUserService(
         IRepository<TDivisionUser> divisionUserRepository,
         IRepository<TDivisionUserRole> divisionUserRoleRepository,
-        IStringLocalizer<DivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>> localizer,
+        IStringLocalizer<NhDivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>> localizer,
         INhDbLogService dbLogService,
         LogHelperService logHelperService,
         ValidationService validationService,

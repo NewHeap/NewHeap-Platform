@@ -42,12 +42,12 @@ public class AccountController : PublicNhBaseController
     private readonly IStringLocalizer<SharedResources> _sharedLocalizer;
     private readonly SignInManager<NhUser> _signInManager;
     private readonly IRepository<NhUser> _userRepository;
-    private readonly INhUserManager _userManager;
+    private readonly INhUserManager<NhUser> _userManager;
 
     public AccountController(
         IStringLocalizer<SharedResources> sharedLocalizer,
         IStringLocalizer<AccountController> localizer,
-        INhUserManager userManager,
+        INhUserManager<NhUser> userManager,
         RoleManager<NhUserRole> roleManager,
         SignInManager<NhUser> signInManager,
         ILogger<AccountController> logger,

@@ -23,7 +23,7 @@ public abstract class NhBaseDivisionUserController<
     TDivisionRoleClaim,
     TDivisionUserMutateModel,
     TDivisionUserViewModel
-    > : DbEntityProtectedNhBaseController<TDivisionUser, TDivisionUserMutateModel, TDivisionUserViewModel, DivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>, DivisionUserCollectionRequestModel>
+    > : DbEntityProtectedNhBaseController<TDivisionUser, TDivisionUserMutateModel, TDivisionUserViewModel, NhDivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>, DivisionUserCollectionRequestModel>
     where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
     where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>, new()
@@ -42,7 +42,7 @@ public abstract class NhBaseDivisionUserController<
         ILogger<NhBaseDivisionUserController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel, TDivisionUserViewModel>> logger,
         IStringLocalizer<NhBaseDivisionUserController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel, DivisionUserViewModel>> localizer,
         INhUserManager userService,
-        DivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel> divisionUserService,
+        NhDivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel> divisionUserService,
         IHttpCollectionProcessingService collectionRequestProcessingService
     )
         : base(mapper, logger, config, localizer, collectionRequestProcessingService, divisionUserService)

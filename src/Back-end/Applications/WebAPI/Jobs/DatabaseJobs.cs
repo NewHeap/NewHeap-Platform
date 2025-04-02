@@ -183,7 +183,7 @@ public class DatabaseJobs
     private async Task SeedDivisionRoles(IServiceScope scope)
     {
         var divisionRoleNames = new[] { "SuperAdministrator", "Administrator", "User" };
-        var divisionManager = scope.ServiceProvider.GetRequiredService<DivisionService>();
+        var divisionManager = scope.ServiceProvider.GetRequiredService<NhDivisionService>();
 
         Func<NhDivisionRole, IEnumerable<Claim>, Task> addDivisionRoleClaims = async (divisionRole, claims) =>
         {
