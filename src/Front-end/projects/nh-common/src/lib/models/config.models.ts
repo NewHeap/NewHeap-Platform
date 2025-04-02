@@ -15,6 +15,7 @@ export class AuthenticationNhCommonModuleConfig {
   additionalClaimPermissionTypes: string[] = [];
   additionalDivisionClaimPermissionTypes: string[] = [];
   endpoints: EndpointsAuthenticationNhCommonModuleConfig = new EndpointsAuthenticationNhCommonModuleConfig();
+  loginPath: string = '/';
 
   public constructor(init?: Partial<AuthenticationNhCommonModuleConfig>) {
     Object.assign(this, init);

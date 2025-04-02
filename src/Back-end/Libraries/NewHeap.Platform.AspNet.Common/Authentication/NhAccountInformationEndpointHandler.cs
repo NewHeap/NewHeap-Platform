@@ -9,6 +9,7 @@ using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Identity.Claims;
+using NewHeap.Platform.Common.Models;
 using System.Security.Claims;
 using HttpMethod = NewHeap.Platform.AspNet.Common.Builders.HttpMethod;
 
@@ -70,7 +71,7 @@ public class NhAccountInformationEndpointHandler<
 
         if (jwt == null)
         {
-            return TypedResults.BadRequest();
+            return BadRequest(TaskResult.Failed("Invalid JWT"));
         }
 
         var userId = Guid.Parse(jwt.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)!.Value!);
