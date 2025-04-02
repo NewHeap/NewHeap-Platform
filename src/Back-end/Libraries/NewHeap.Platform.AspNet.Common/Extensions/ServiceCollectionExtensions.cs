@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.DAL;
@@ -138,5 +139,20 @@ public static partial class ServiceCollectionExtensions
         NewHeapPlatformAspNetCommonApplicationBuilderOptions options)
     {
         return new NewHeapPlatformAspNetCommonApplicationBuilder(app, env, serviceProvider, options);
+    }
+
+    public static IServiceCollection AddScopedNhDbRepository<TEntity>(
+        this IServiceCollection serviceCollection
+    )
+        where TEntity : class
+    {
+
+        serviceCollection.AddScoped<IRepository<TEntity>, Repository<TEntity>>(serviceProvider =>
+        {
+            var dbContext = (DbContext)serviceProvider.GetRequiredService<INhIdentityDbContext>();
+            return new Repository<TEntity>(dbContext);
+        });
+
+        return serviceCollection;
     }
 }

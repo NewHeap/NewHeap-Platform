@@ -128,6 +128,13 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection.AddHealthChecks();
 
         #region Services
+
+        _serviceCollection.AddScoped<INhDbLogService, TDbLogService>(serviceProvider =>
+        {
+            return serviceProvider.GetRequiredService<TDbLogService>();
+        });
+        _serviceCollection.AddScoped<TDbLogService>();
+
         _serviceCollection.AddScoped<RazorViewService>();
         _serviceCollection.AddSingleton<IHttpCollectionProcessingService, HttpCollectionProcessingService>();
         #endregion
@@ -409,28 +416,18 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
 
     public static void ConfigureWithIdentityEntityFramework(IServiceCollection serviceCollection)
     {
-        void AddRepository<TEntity>()
-            where TEntity : class
-        {
-            serviceCollection.AddScoped<IRepository<TEntity>>(serviceProvider =>
-            {
-                var dbContext = serviceProvider.GetRequiredService<TDbContext>();
-                return new Repository<TEntity>(dbContext);
-            });
-        }
-
         #region Repositories
-        AddRepository<TUser>();
-        AddRepository<TUserRole>();
-        AddRepository<TDivision>();
-        AddRepository<TDivisionRole>();
-        AddRepository<TDivisionRoleClaim>();
-        AddRepository<TDivisionUser>();
-        AddRepository<TDivisionUserRole>();
-        AddRepository<TLog>();
-        AddRepository<TLogMessageArgument>();
-        AddRepository<TLogMessageTranslated>();
-        AddRepository<TLogFile>();
+        serviceCollection.AddScopedNhDbRepository<TUser>();
+        serviceCollection.AddScopedNhDbRepository<TUserRole>();
+        serviceCollection.AddScopedNhDbRepository<TDivision>();
+        serviceCollection.AddScopedNhDbRepository<TDivisionRole>();
+        serviceCollection.AddScopedNhDbRepository<TDivisionRoleClaim>();
+        serviceCollection.AddScopedNhDbRepository<TDivisionUser>();
+        serviceCollection.AddScopedNhDbRepository<TDivisionUserRole>();
+        serviceCollection.AddScopedNhDbRepository<TLog>();
+        serviceCollection.AddScopedNhDbRepository<TLogMessageArgument>();
+        serviceCollection.AddScopedNhDbRepository<TLogMessageTranslated>();
+        serviceCollection.AddScopedNhDbRepository<TLogFile>();
         #endregion
 
         serviceCollection.AddScoped<TUserManager, TUserManager>();
@@ -470,8 +467,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             TDivisionUserService,
             TDivisionUserMutateModel
         >
-        WithIdentityEntityFramework(
-        Action<DbContextOptionsBuilder> dbOptionsAction)
+        WithIdentityEntityFramework(Action<DbContextOptionsBuilder> dbOptionsAction)
     {
         if(IdentityEntityFrameworkConfigured)
         {
@@ -496,6 +492,11 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection
             .AddEntityFrameworkSqlServer()
             .AddDbContext<TDbContext>(dbOptionsAction);
+
+        _serviceCollection.AddScoped<INhIdentityDbContext>(serviceProvider =>
+        {
+            return serviceProvider.GetRequiredService<TDbContext>();
+        });
 
         // Do like this, allow sub projects to register their own 2.
         _serviceCollection.AddScoped<NhIdentityDbContext<
@@ -596,7 +597,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         Action<DbLogServiceSettings> settingsAction)
     {
         _serviceCollection.Configure(settingsAction);
-        _serviceCollection.AddScoped<INhDbLogService, TDbLogService>();
 
         return this;
     }

@@ -28,6 +28,10 @@ public abstract partial class NhIdentityDbContext : NhIdentityDbContext<
     }
 }
 
+public interface INhIdentityDbContext
+{
+}
+
 public abstract partial class NhIdentityDbContext<
     TDivision,
     TDivisionUser,
@@ -40,7 +44,7 @@ public abstract partial class NhIdentityDbContext<
     TLogMessageArgument,
     TLogFile,
     TLogMessageTranslated
-    > : IdentityDbContext<TUser, TUserRole, Guid>
+    > : IdentityDbContext<TUser, TUserRole, Guid>, INhIdentityDbContext
     where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
     where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>

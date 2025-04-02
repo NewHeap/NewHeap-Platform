@@ -157,7 +157,7 @@ public class Startup
                 })           
             ;
 
-        services.AddScoped<IRepository<Address>, Repository<Address>>(); 
+        services.AddScopedNhDbRepository<Address>(); 
         services.AddScoped<AddressService>(); 
     }
 
