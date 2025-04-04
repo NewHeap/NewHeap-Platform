@@ -4,6 +4,7 @@ using Microsoft.Extensions.Localization;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
+using NewHeap.Platform.AspNet.Services;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
@@ -11,7 +12,7 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public interface IAbstractBaseDbEntityService<TEntity, TMutateModel>
+public interface IAbstractBaseDbEntityService<TEntity, TMutateModel> : IBaseCRUDService<TEntity, TMutateModel>
     where TEntity : class, IdDbEntity
     where TMutateModel : class
 {
@@ -19,17 +20,13 @@ public interface IAbstractBaseDbEntityService<TEntity, TMutateModel>
     IQueryable<TEntity> QueryableWithAllIncludes(IQueryable<TEntity> queryable = null);
 }
 
-public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel, TAbstractBaseDbEntityService> : IAbstractBaseDbEntityService<TEntity, TMutateModel> 
+public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel, TAbstractBaseDbEntityService> : BaseCRUDService<TEntity, TMutateModel, TAbstractBaseDbEntityService>, IAbstractBaseDbEntityService<TEntity, TMutateModel>
     where TEntity : class, IdDbEntity
     where TMutateModel : class
     where TAbstractBaseDbEntityService : AbstractBaseDbEntityService<TEntity, TMutateModel, TAbstractBaseDbEntityService>
 {
-    protected readonly IStringLocalizer<TAbstractBaseDbEntityService> _localizer;
     protected readonly IRepository<TEntity> _repository;
     protected readonly INhDbLogService _dbLogService;
-    protected readonly IMapper _mapper;
-    protected readonly LogHelperService _logHelper;
-    protected readonly ValidationService _validationService;
 
     public AbstractBaseDbEntityService(
         IRepository<TEntity> repository,
@@ -39,13 +36,10 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
         IStringLocalizer<TAbstractBaseDbEntityService> localizer,
         ValidationService validationService
         )
+        : base(logHelperService, mapper, localizer, validationService)
     {
         _repository = repository;
-        _mapper = mapper;
         _dbLogService = dbLogService;
-        _logHelper = logHelperService;
-        _localizer = localizer;
-        _validationService = validationService;
     }
 
     public IRepository<TEntity> GetRepository()
@@ -63,14 +57,13 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
     }
 
     #region TEntity
-
-    protected virtual async Task<TEntity?> DoGetAsync(Guid id, CancellationToken cancellationToken = default)
+    protected override async Task<TEntity?> DoGetAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await QueryableWithAllIncludes()
             .FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
     }
 
-    protected virtual async Task DoValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
+    protected override async Task DoValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
         void sourceModelCheck()
         {
@@ -110,7 +103,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
         }
     }
 
-    protected virtual async Task<TaskResult<TEntity?>> DoCreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default)
+    protected override async Task<TaskResult<TEntity?>> DoCreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default)
     {
         var result = new TaskResult<TEntity?>();
 
@@ -153,7 +146,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
         return result;
     }
 
-    protected virtual Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(
+    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(
         TEntity original,
         TEntity updated, 
         CancellationToken cancellationToken = default
@@ -165,7 +158,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
         }, []);
     }
 
-    protected virtual async Task<TaskResult<TEntity>> DoUpdateAsync(
+    protected override async Task<TaskResult<TEntity>> DoUpdateAsync(
         Guid id,
         TMutateModel mutateModel,
         Guid? committedByUserId = default,
@@ -248,7 +241,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
         return result;
     }
 
-    protected virtual async Task<TaskResult<TEntity>> DoDeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default)
+    protected override async Task<TaskResult<TEntity>> DoDeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default)
     {
         var result = new TaskResult<TEntity>();
 
