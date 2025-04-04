@@ -14,6 +14,7 @@ using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 using WebAPI.DAL.Entities;
 using WebAPI.Models.Mutate;
@@ -46,36 +47,36 @@ public class AddressController : DbEntityProtectedNhBaseController<Address, Addr
 
     [HttpGet]
     [Authorize(Policy = "app.address.view")]
-    public Task<IActionResult> Get([FromQuery] AddressCollectionRequestModel requestModel)
+    public Task<IActionResult> Get([FromQuery] AddressCollectionRequestModel requestModel, CancellationToken cancellationToken)
     {
-        return DoGet(requestModel);
+        return DoGet(requestModel, cancellationToken: cancellationToken);
     }
 
     [HttpGet("{id}")]
     [Authorize(Policy = "app.address.view")]
-    public Task<IActionResult> GetById(Guid id)
+    public Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
-        return DoGetById(id);
+        return DoGetById(id, cancellationToken: cancellationToken);
     }
 
     [HttpPost]
     [Authorize(Policy = "app.address.manage")]
-    public Task<IActionResult> Create([FromBody] AddressMutateModel mutateModel)
+    public Task<IActionResult> Create([FromBody] AddressMutateModel mutateModel, CancellationToken cancellationToken)
     {
-        return DoCreate(mutateModel);
+        return DoCreate(mutateModel, cancellationToken: cancellationToken);
     }
 
     [HttpPut("{id}")]
     [Authorize(Policy = "app.address.manage")]
-    public Task<IActionResult> Update([FromRoute] Guid id, [FromBody] AddressMutateModel mutateModel)
+    public Task<IActionResult> Update([FromRoute] Guid id, [FromBody] AddressMutateModel mutateModel, CancellationToken cancellationToken)
     {
-        return DoUpdate(id, mutateModel);
+        return DoUpdate(id, mutateModel, cancellationToken: cancellationToken);
     }
 
     [HttpDelete("{id}")]
     [Authorize(Policy = "app.address.manage")]
-    public Task<IActionResult> Delete([FromRoute] Guid id)
+    public Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken cancellationToken)
     {
-        return DoDelete(id);
+        return DoDelete(id, cancellationToken: cancellationToken);
     }
 }

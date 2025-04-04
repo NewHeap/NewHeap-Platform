@@ -45,20 +45,20 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMuta
     }
 
     [NonAction]
-    protected virtual Task<IQueryable<TDbEntity>> GetQueryableAsync()
+    protected virtual Task<IQueryable<TDbEntity>> GetQueryableAsync(CancellationToken cancellationToken = default)
     {
         var query = _dbEntityService
             .GetRepository()
             .GetAll()
         ;
 
-        query = AddBaseQueryableIncludesAsync(query);
+        query = AddBaseQueryableIncludesAsync(query, cancellationToken);
 
         return Task.FromResult(query);
     }
 
     [NonAction]
-    protected virtual IQueryable<TDbEntity> AddBaseQueryableIncludesAsync(IQueryable<TDbEntity> query)
+    protected virtual IQueryable<TDbEntity> AddBaseQueryableIncludesAsync(IQueryable<TDbEntity> query, CancellationToken cancellationToken = default)
     {
         return query
             as IQueryable<TDbEntity>
@@ -66,35 +66,35 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMuta
     }
 
     [NonAction]
-    protected virtual Task<IActionResult> DoGet(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null)
+    protected virtual Task<IActionResult> DoGet(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null, CancellationToken cancellationToken = default)
     {
-        return DoGet<TViewModel>(requestModel, overrideQuery);
+        return DoGet<TViewModel>(requestModel, overrideQuery, cancellationToken);
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoGet<TCustomViewModel>(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null)
+    protected virtual async Task<IActionResult> DoGet<TCustomViewModel>(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null, CancellationToken cancellationToken = default)
         where TCustomViewModel : class
     {
         requestModel ??= new TCollectionRequestModel();
-        var query = overrideQuery?.AsNoTracking() ?? (await GetQueryableAsync()).AsNoTracking();
+        var query = overrideQuery?.AsNoTracking() ?? (await GetQueryableAsync(cancellationToken)).AsNoTracking();
 
-        var result = await GetCollectionResultModel<TDbEntity, TCustomViewModel>(query, GetDefaultCollectionResultOrderBy());
+        var result = await GetCollectionResultModel<TDbEntity, TCustomViewModel>(query, cancellationToken: cancellationToken, GetDefaultCollectionResultOrderBy());
 
         return Ok(result);
     }
 
     [NonAction]
-    protected virtual Task<IActionResult> DoGetById(Guid id, IQueryable<TDbEntity>? overrideQuery = null)
+    protected virtual Task<IActionResult> DoGetById(Guid id, IQueryable<TDbEntity>? overrideQuery = null, CancellationToken cancellationToken = default)
     { 
-        return DoGetById<TViewModel>(id, overrideQuery);
+        return DoGetById<TViewModel>(id, overrideQuery, cancellationToken);
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoGetById<TCustomViewModel>(Guid id, IQueryable<TDbEntity>? overrideQuery = null)
+    protected virtual async Task<IActionResult> DoGetById<TCustomViewModel>(Guid id, IQueryable<TDbEntity>? overrideQuery = null, CancellationToken cancellationToken = default)
         where TCustomViewModel : class
     {
-        var query = overrideQuery?.AsNoTracking() ?? (await GetQueryableAsync()).AsNoTracking();
-        var entity = await query.FirstOrDefaultAsync(x => x.Id == id);
+        var query = overrideQuery?.AsNoTracking() ?? (await GetQueryableAsync(cancellationToken)).AsNoTracking();
+        var entity = await query.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (entity == null)
         {
@@ -107,14 +107,14 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMuta
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoCreate([FromBody] TMutateModel mutateModel)
+    protected virtual async Task<IActionResult> DoCreate([FromBody] TMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        var createTaskResult = await _dbEntityService.CreateAsync(mutateModel, UserId);
+        var createTaskResult = await _dbEntityService.CreateAsync(mutateModel, UserId, cancellationToken: cancellationToken);
 
         if (!createTaskResult.Success)
         {
@@ -129,14 +129,14 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMuta
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoUpdate([FromRoute] Guid id, [FromBody] TMutateModel mutateModel)
+    protected virtual async Task<IActionResult> DoUpdate([FromRoute] Guid id, [FromBody] TMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        var updateTaskResult = await _dbEntityService.UpdateAsync(id, mutateModel, UserId);
+        var updateTaskResult = await _dbEntityService.UpdateAsync(id, mutateModel, UserId, cancellationToken: cancellationToken);
 
         if (!updateTaskResult.Success)
         {
@@ -148,22 +148,22 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMuta
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoDelete([FromRoute] Guid id)
+    protected virtual async Task<IActionResult> DoDelete([FromRoute] Guid id, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        var query = (await GetQueryableAsync()).AsNoTracking();
-        var entity = await query.FirstOrDefaultAsync(x => x.Id == id);
+        var query = (await GetQueryableAsync(cancellationToken)).AsNoTracking();
+        var entity = await query.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (entity == null)
         {
             return NotFound();
         }
 
-        var deleteTaskResult = await _dbEntityService.DeleteAsync(id, UserId);
+        var deleteTaskResult = await _dbEntityService.DeleteAsync(id, UserId, cancellationToken: cancellationToken);
 
         if (!deleteTaskResult.Success)
         {

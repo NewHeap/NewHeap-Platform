@@ -94,8 +94,6 @@ public abstract partial class BaseCRUDService<T, TMutateModel, TBaseCRUDService>
 
     protected abstract Task<TaskResult<T?>> DoCreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<T>? beforeSave = null, CancellationToken cancellationToken = default);
 
-
-
     protected abstract Task<TaskResult<T>> DoUpdateAsync(
         Guid id,
         TMutateModel mutateModel,

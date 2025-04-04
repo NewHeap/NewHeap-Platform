@@ -12,6 +12,7 @@ using NewHeap.Platform.AspNet.Common.Services;
 using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using WebAPI.DAL.Entities;
 using WebAPI.Models.Mutate;
@@ -62,7 +63,7 @@ public class PublicAddressController : PublicNhBaseController
 
     [HttpGet]
     [AllowAnonymous]
-    public async Task<IActionResult> Get([FromQuery] PublicAddressRequestModel requestModel)
+    public async Task<IActionResult> Get([FromQuery] PublicAddressRequestModel requestModel, CancellationToken cancellationToken)
     {
         requestModel ??= new PublicAddressRequestModel();
         var query = (await GetQueryableAsync()).AsNoTracking();
@@ -75,7 +76,8 @@ public class PublicAddressController : PublicNhBaseController
 
         var result = await GetCollectionResultModel<Address, AddressViewModel>(
             requestModel, 
-            query,
+            query
+            , cancellationToken: cancellationToken,
             (x => x.CreationDateTime, ListSortDirection.Ascending)
         );
 

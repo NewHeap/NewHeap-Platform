@@ -55,7 +55,7 @@ public abstract class NhBaseUserController<
     }
 
     [NonAction]
-    public Task<IQueryable<TUser>> GetQueryableAsync()
+    public Task<IQueryable<TUser>> GetQueryableAsync(CancellationToken cancellationToken)
     {
         
         var query = _userManager
@@ -70,11 +70,11 @@ public abstract class NhBaseUserController<
 
     [HttpGet]
     [Authorize(Policy = "app.user.view")]
-    public async Task<IActionResult> Get([FromQuery] UserCollectionRequestModel requestModel)
+    public async Task<IActionResult> Get([FromQuery] UserCollectionRequestModel requestModel, CancellationToken cancellationToken = default)
     {
         var currentUser = await _userManager.FindByIdAsync(UserId!.Value.ToString());
 
-        var query = (await GetQueryableAsync()).AsNoTracking();
+        var query = (await GetQueryableAsync(cancellationToken)).AsNoTracking();
 
         if (requestModel?.Roles?.Any() == true)
         {
@@ -92,20 +92,20 @@ public abstract class NhBaseUserController<
             query = query.Where(x => x.DivisionUsers.Any(c => c.DivisionUserRoles.Any(v => v.DivisionRole.Name == "User")));
         }
 
-        return await Ok<TUser, TUserViewModel>(query,
+        return await Ok<TUser, TUserViewModel>(query, cancellationToken: cancellationToken,
             (x => x.Email, ListSortDirection.Ascending));
     }
 
     [HttpGet("{id}")]
     [Authorize(Policy = "app.user.view")]
-    public async Task<IActionResult> Get([FromRoute] Guid id)
+    public async Task<IActionResult> Get([FromRoute] Guid id, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        var user = await (await GetQueryableAsync())
+        var user = await (await GetQueryableAsync(cancellationToken))
             .FirstOrDefaultAsync(m => m.Id == id);
 
         if (user == null)
