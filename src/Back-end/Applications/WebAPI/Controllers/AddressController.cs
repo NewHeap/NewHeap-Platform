@@ -47,7 +47,7 @@ public class AddressController : DbEntityProtectedNhBaseController<Address, Addr
 
     [HttpGet]
     [Authorize(Policy = "app.address.view")]
-    public Task<IActionResult> Get([FromQuery] AddressCollectionRequestModel requestModel, CancellationToken cancellationToken)
+    public Task<IActionResult> Get([FromQuery] AddressCollectionRequestModel requestModel, CancellationToken cancellationToken = default)
     {
         return DoGet(requestModel, cancellationToken: cancellationToken);
     }
@@ -61,14 +61,14 @@ public class AddressController : DbEntityProtectedNhBaseController<Address, Addr
 
     [HttpPost]
     [Authorize(Policy = "app.address.manage")]
-    public Task<IActionResult> Create([FromBody] AddressMutateModel mutateModel, CancellationToken cancellationToken)
+    public Task<IActionResult> Create([FromBody] AddressMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
         return DoCreate(mutateModel, cancellationToken: cancellationToken);
     }
 
     [HttpPut("{id}")]
     [Authorize(Policy = "app.address.manage")]
-    public Task<IActionResult> Update([FromRoute] Guid id, [FromBody] AddressMutateModel mutateModel, CancellationToken cancellationToken)
+    public Task<IActionResult> Update([FromRoute] Guid id, [FromBody] AddressMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
         return DoUpdate(id, mutateModel, cancellationToken: cancellationToken);
     }

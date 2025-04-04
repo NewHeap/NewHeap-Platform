@@ -40,7 +40,7 @@ public class PublicAddressController : PublicNhBaseController
     }
 
     [NonAction]
-    public Task<IQueryable<Address>> GetQueryableAsync()
+    public Task<IQueryable<Address>> GetQueryableAsync(CancellationToken cancellationToken = default)
     {
         var query = _addressService
             .GetRepository()
@@ -63,10 +63,10 @@ public class PublicAddressController : PublicNhBaseController
 
     [HttpGet]
     [AllowAnonymous]
-    public async Task<IActionResult> Get([FromQuery] PublicAddressRequestModel requestModel, CancellationToken cancellationToken)
+    public async Task<IActionResult> Get([FromQuery] PublicAddressRequestModel requestModel, CancellationToken cancellationToken = default)
     {
         requestModel ??= new PublicAddressRequestModel();
-        var query = (await GetQueryableAsync()).AsNoTracking();
+        var query = (await GetQueryableAsync(cancellationToken)).AsNoTracking();
 
         if (requestModel.CountryCodes?.Any() == true)
         {
@@ -86,10 +86,10 @@ public class PublicAddressController : PublicNhBaseController
 
     [HttpGet("{id:guid}")]
     [AllowAnonymous]
-    public async Task<IActionResult> GetById(Guid id)
+    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken = default)
     {
-        var query = (await GetQueryableAsync()).AsNoTracking();
-        var entity = await query.FirstOrDefaultAsync(x => x.Id == id);
+        var query = (await GetQueryableAsync(cancellationToken)).AsNoTracking();
+        var entity = await query.FirstOrDefaultAsync(x => x.Id == id, cancellationToken: cancellationToken);
 
         if (entity == null)
         {
