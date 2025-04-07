@@ -30,7 +30,11 @@ public static class HostBuilderExtensions
             {
                 opt.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             }
-            opt.UseSqlServer(connectionString);
+            opt.UseSqlServer(connectionString, efOptions =>
+            {
+                var scheme = string.IsNullOrWhiteSpace(options.Scheme) ? "medialibrary" : options.Scheme;
+                efOptions.MigrationsHistoryTable("_migrations", scheme);
+            });
         });
 
         if (options.RunMigrations)

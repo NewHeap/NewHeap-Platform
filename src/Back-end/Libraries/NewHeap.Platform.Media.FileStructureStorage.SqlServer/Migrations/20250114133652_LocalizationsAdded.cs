@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 {
     /// <inheritdoc />
-    public partial class LocalizationsAdded : Migration
+    public partial class LocalizationsAdded : BaseMigration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -14,6 +14,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
             migrationBuilder.AddColumn<string>(
                 name: "AltText",
                 table: "Files",
+                schema: DefaultScheme,
                 type: "nvarchar(100)",
                 maxLength: 100,
                 nullable: true);
@@ -21,6 +22,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
             migrationBuilder.AddColumn<string>(
                 name: "Description",
                 table: "Files",
+                schema: DefaultScheme,
                 type: "nvarchar(500)",
                 maxLength: 500,
                 nullable: true);
@@ -28,12 +30,14 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
             migrationBuilder.AddColumn<string>(
                 name: "Title",
                 table: "Files",
+                schema: DefaultScheme,
                 type: "nvarchar(100)",
                 maxLength: 100,
                 nullable: true);
 
             migrationBuilder.CreateTable(
                 name: "Localizations",
+                schema: DefaultScheme,
                 columns: table => new
                 {
                     TypeName = table.Column<string>(type: "nvarchar(450)", nullable: false),
@@ -48,6 +52,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                schema: DefaultScheme,
                 name: "IX_Localizations_TypeName_EntityId_Language",
                 table: "Localizations",
                 columns: new[] { "TypeName", "EntityId", "Language" });
@@ -57,17 +62,21 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                schema: DefaultScheme,
                 name: "Localizations");
 
             migrationBuilder.DropColumn(
+                schema: DefaultScheme,
                 name: "AltText",
                 table: "Files");
 
             migrationBuilder.DropColumn(
+                schema: DefaultScheme,
                 name: "Description",
                 table: "Files");
 
             migrationBuilder.DropColumn(
+                schema: DefaultScheme,
                 name: "Title",
                 table: "Files");
         }

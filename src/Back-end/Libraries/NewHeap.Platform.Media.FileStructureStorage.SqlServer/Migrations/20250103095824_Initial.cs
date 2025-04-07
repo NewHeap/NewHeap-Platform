@@ -6,13 +6,14 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 {
     /// <inheritdoc />
-    public partial class Initial : Migration
+    public partial class Initial : BaseMigration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
                 name: "Files",
+                schema: DefaultScheme,
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -27,6 +28,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 
             migrationBuilder.CreateTable(
                 name: "Folders",
+                schema: DefaultScheme,
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -43,9 +45,11 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                schema: DefaultScheme,
                 name: "Files");
 
             migrationBuilder.DropTable(
+                schema: DefaultScheme,
                 name: "Folders");
         }
     }

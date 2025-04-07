@@ -27,9 +27,18 @@ public static class WebApplicationExtensions
         group.MapDelete("folder", DeleteFolder).WithDescription("Delete a folder and all files and subfolders");
         group.MapDelete("file", DeleteFile).WithDescription("Delete a file");
 
+
         return group;
     }
 
+    private static BadRequest<Dictionary<string, string[]>> BadRequest(string error, string field = "")
+    {
+        return TypedResults.BadRequest(new Dictionary<string, string[]> { { field, [error] } });
+    }
+
+    [ApiExplorerSettings(GroupName = "Media")]
+    [Tags("Media")]
+    [EndpointName("Search media library")]
     private static async Task<Results<Ok<IEnumerable<FileReference>>, UnauthorizedHttpResult>> Search(string? path,
         string searchTerm, string? language,
         IMediaLibraryService mediaLibraryService)
@@ -45,13 +54,25 @@ public static class WebApplicationExtensions
         }
     }
 
-    private static async Task<Results<NoContent, UnauthorizedHttpResult>> DeleteFile(string? path, string fileName,
+    [ApiExplorerSettings(GroupName = "Media")]
+    [Tags("Media")]
+    [EndpointName("Delete file")]
+    private static async Task<Results<
+        NoContent,
+        UnauthorizedHttpResult,
+        NotFound
+    >> DeleteFile(string? path, string fileName,
         IMediaLibraryService mediaLibraryService)
     {
         try
         {
-            await mediaLibraryService.DeleteFile(path, fileName);
-            return TypedResults.NoContent();
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return TypedResults.NotFound();
+            }
+
+            var deleted = await mediaLibraryService.DeleteFile(path, fileName);
+            return deleted ? TypedResults.NoContent() : TypedResults.NotFound();
         }
         catch (UnauthorizedAccessException)
         {
@@ -59,13 +80,25 @@ public static class WebApplicationExtensions
         }
     }
 
-    private static async Task<Results<NoContent, UnauthorizedHttpResult>> DeleteFolder(string? path, string folderName,
+    [ApiExplorerSettings(GroupName = "Media")]
+    [Tags("Media")]
+    [EndpointName("Delete folder")]
+    private static async Task<Results<
+        NoContent,
+        UnauthorizedHttpResult,
+        NotFound
+    >> DeleteFolder(string? path, string folderName,
         IMediaLibraryService mediaLibraryService)
     {
         try
         {
-            await mediaLibraryService.DeleteFolder(path, folderName);
-            return TypedResults.NoContent();
+            if (string.IsNullOrWhiteSpace(folderName))
+            {
+                return TypedResults.NotFound();
+            }
+
+            var deleted = await mediaLibraryService.DeleteFolder(path, folderName);
+            return deleted ? TypedResults.NoContent() : TypedResults.NotFound();
         }
         catch (UnauthorizedAccessException)
         {
@@ -73,12 +106,23 @@ public static class WebApplicationExtensions
         }
     }
 
-    private static async Task<Results<Ok<FolderReference>, UnauthorizedHttpResult>> CreateFolder(string? path,
-        string folderName,
-        IMediaLibraryService mediaLibraryService)
+    [ApiExplorerSettings(GroupName = "Media")]
+    [Tags("Media")]
+    [EndpointName("Create folder")]
+    private static async
+        Task<Results<Ok<FolderReference>, UnauthorizedHttpResult, BadRequest<Dictionary<string, string[]>>>>
+        CreateFolder(
+            string? path,
+            string folderName,
+            IMediaLibraryService mediaLibraryService)
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(folderName))
+            {
+                return BadRequest("Field is required", nameof(folderName));
+            }
+
             var folderRef = await mediaLibraryService.CreateFolder(path, folderName);
             return TypedResults.Ok(folderRef);
         }
@@ -88,12 +132,26 @@ public static class WebApplicationExtensions
         }
     }
 
-    private static async Task<Results<FileStreamHttpResult, NotFound, UnauthorizedHttpResult>> Download(string? path,
+    [ApiExplorerSettings(GroupName = "Media")]
+    [Tags("Media")]
+    [EndpointName("Download file")]
+    private static async Task<Results<
+        Ok,
+        FileStreamHttpResult,
+        NotFound,
+        UnauthorizedHttpResult
+    >> Download(
+        string? path,
         string fileName,
         IMediaLibraryService mediaLibraryService)
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return TypedResults.NotFound();
+            }
+
             var stream = await mediaLibraryService.DownloadFile(path, fileName);
             if (stream == null)
             {
@@ -108,20 +166,34 @@ public static class WebApplicationExtensions
         }
     }
 
-    private static async Task<Results<Ok<FileReference>, UnauthorizedHttpResult>> Upload([FromQuery] string? path,
-        [FromForm] UploadRequest request,
-        IMediaLibraryService mediaLibraryService)
+    [ApiExplorerSettings(GroupName = "Media")]
+    [Tags("Media")]
+    [EndpointName("Upload file")]
+    private static async
+        Task<Results<
+            Ok<FileReference>,
+            UnauthorizedHttpResult,
+            BadRequest<Dictionary<string, string[]>>
+        >> Upload([FromQuery] string? path,
+            [FromForm] UploadRequest request,
+            IFormFile file,
+            [FromServices]IMediaLibraryService mediaLibraryService)
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(request?.FileName))
+            {
+                return BadRequest("Field is required", nameof(request.FileName));
+            }
+
             var fileRef = await mediaLibraryService.GetFile(path, request.FileName);
             if (fileRef == null)
             {
-                fileRef = await mediaLibraryService.CreateFile(path, request.FileName, request.File.OpenReadStream());
+                fileRef = await mediaLibraryService.CreateFile(path, request.FileName, file.OpenReadStream());
             }
             else
             {
-                await mediaLibraryService.UpdateFile(path, request.FileName, request.File.OpenReadStream());
+                await mediaLibraryService.UpdateFile(path, request.FileName, file.OpenReadStream());
             }
 
             return TypedResults.Ok(fileRef);
@@ -132,6 +204,9 @@ public static class WebApplicationExtensions
         }
     }
 
+    [ApiExplorerSettings(GroupName = "Media")]
+    [Tags("Media")]
+    [EndpointName("Localize file")]
     private static async Task<Results<NoContent, NotFound, UnauthorizedHttpResult>> LocalizeFile(
         [FromQuery, Required] string? path,
         [FromQuery, Required] string fileName,
@@ -142,6 +217,11 @@ public static class WebApplicationExtensions
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return TypedResults.NotFound();
+            }
+
             var reference = await mediaLibraryService.GetFile(path, fileName, null);
             if (reference == null)
             {
@@ -157,6 +237,9 @@ public static class WebApplicationExtensions
         }
     }
 
+    [ApiExplorerSettings(GroupName = "Media")]
+    [Tags("Media")]
+    [EndpointName("List folder contents")]
     private static async Task<Results<Ok<FolderContents>, UnauthorizedHttpResult>> List(string? path, string? language,
         IMediaLibraryService mediaLibraryService)
     {

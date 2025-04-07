@@ -16,7 +16,7 @@ public interface IFileStructureStorage
     Task<bool> DeleteFile(string? path, string filename);
 
     public Task<IEnumerable<FileReference>> Search(string searchTerm, string? path, string? language);
-    Task Localize(Guid entityId, string language, string propertyName, string value);
+    Task<bool> Localize(Guid entityId, string language, string propertyName, string value);
 }
 
 public class FolderContents

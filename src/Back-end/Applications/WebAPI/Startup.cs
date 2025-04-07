@@ -87,7 +87,7 @@ public class Startup
                     db.Scheme = "medialibrary";
                     db.RunMigrations = true; // Defaults to true, here for demonstration purposes
                 });
-                opt.AddAuthentication<LoggedInUserMediaAuthorizationModule>();
+                // opt.AddAuthentication<LoggedInUserMediaAuthorizationModule>();
                 opt.UseFileSystemMediaStorage(Configuration);
             })
             .AddNewHeapPlatformAspNetCommon<
@@ -172,7 +172,10 @@ public class Startup
                     {
                         e.MapOpenApi();
                         e.MapScalarApiReference("/scalar");
+                        e.MapNhMediaEndpoints();
                     })
+                    .UseHsTs(true)
+                    .UseHttpsRedirection(true)
                     .UseHsTs(!env.IsDevelopment())
                     .UseHttpsRedirection(!env.IsDevelopment())
                     .Build()

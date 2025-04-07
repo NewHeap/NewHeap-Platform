@@ -5,7 +5,7 @@
 namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 {
     /// <inheritdoc />
-    public partial class StringLengths : Migration
+    public partial class StringLengths : BaseMigration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -14,6 +14,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
                 name: "Name",
                 table: "Folders",
                 type: "nvarchar(2000)",
+                schema: DefaultScheme,
                 maxLength: 2000,
                 nullable: false,
                 oldClrType: typeof(string),
@@ -23,6 +24,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
                 name: "Path",
                 table: "Files",
                 type: "nvarchar(max)",
+                schema: DefaultScheme,
                 maxLength: 10000,
                 nullable: true,
                 oldClrType: typeof(string),
@@ -32,6 +34,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
                 name: "Name",
                 table: "Files",
                 type: "nvarchar(2000)",
+                schema: DefaultScheme,
                 maxLength: 2000,
                 nullable: false,
                 oldClrType: typeof(string),
@@ -45,6 +48,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
                 name: "Name",
                 table: "Folders",
                 type: "nvarchar(max)",
+                schema: DefaultScheme,
                 nullable: false,
                 oldClrType: typeof(string),
                 oldType: "nvarchar(2000)",
@@ -54,6 +58,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
                 name: "Path",
                 table: "Files",
                 type: "nvarchar(max)",
+                schema: DefaultScheme,
                 nullable: false,
                 defaultValue: "",
                 oldClrType: typeof(string),
@@ -65,6 +70,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
                 name: "Name",
                 table: "Files",
                 type: "nvarchar(max)",
+                schema: DefaultScheme,
                 nullable: false,
                 oldClrType: typeof(string),
                 oldType: "nvarchar(2000)",

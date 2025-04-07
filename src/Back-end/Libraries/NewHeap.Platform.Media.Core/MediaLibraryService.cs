@@ -12,10 +12,10 @@ public interface IMediaLibraryService
     Task<Stream?> DownloadFile(string? path, string fileName);
     Task<FolderContents> GetFolder(string? path, string? language = null);
     Task<bool> UpdateFile(string? path, string fileName, Stream file);
-    Task DeleteFolder(string? path, string folderName);
-    Task DeleteFile(string? path, string fileName);
+    Task<bool> DeleteFolder(string? path, string folderName);
+    Task<bool> DeleteFile(string? path, string fileName);
     Task<IEnumerable<FileReference>> Search(string? path, string searchTerm, string? language = null);
-    Task LocalizeField(Guid fileReferenceId, string propertyName, string language, string value);
+    Task<bool> LocalizeField(Guid fileReferenceId, string propertyName, string language, string value);
 }
 
 public class MediaLibraryService : IMediaLibraryService
@@ -35,7 +35,7 @@ public class MediaLibraryService : IMediaLibraryService
         _authorizationModule = authorizationModule;
     }
 
-    public Task LocalizeField(Guid fileReferenceId, string propertyName, string language, string value)
+    public Task<bool> LocalizeField(Guid fileReferenceId, string propertyName, string language, string value)
     {
         return _fileStructureStorage.Localize(fileReferenceId, language, propertyName, value);
     }
@@ -108,23 +108,37 @@ public class MediaLibraryService : IMediaLibraryService
         return await _fileStorage.UpdateFile(file, fileRef.Id);
     }
 
-    public async Task DeleteFolder(string? path, string folderName)
+    public async Task<bool> DeleteFolder(string? path, string folderName)
     {
         await EnsureAuthorized(path, null, null, ActionType.Delete);
-        await _fileStructureStorage.DeleteFolder(path, folderName);
+
+        var files = await _fileStructureStorage.GetFiles(path + "/" + folderName, null);
+
+        var deleted =  await _fileStructureStorage.DeleteFolder(path, folderName);
+        if (deleted)
+        {
+            var ids = files.Select(x => x.Id).ToList();
+            foreach (var id in ids)
+            {
+                await _fileStorage.Delete(id);
+            }    
+        }
+        
+        return deleted;
     }
 
-    public async Task DeleteFile(string? path, string fileName)
+    public async Task<bool> DeleteFile(string? path, string fileName)
     {
         await EnsureAuthorized(path, fileName, null, ActionType.Delete);
         var fileRef = await _fileStructureStorage.GetFile(path, fileName, null);
         if (fileRef == null)
         {
-            return;
+            return false;
         }
 
         await _fileStorage.Delete(fileRef.Id);
         await _fileStructureStorage.DeleteFile(path, fileName);
+        return true;
     }
 
     public async Task<IEnumerable<FileReference>> Search(string? path, string searchTerm, string? language = null)
