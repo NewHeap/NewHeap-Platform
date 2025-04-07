@@ -12,6 +12,7 @@ using NewHeap.Platform.AspNet.Common.Services;
 using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using WebAPI.DAL.Entities;
 using WebAPI.Models.Mutate;
@@ -39,7 +40,7 @@ public class PublicAddressController : PublicNhBaseController
     }
 
     [NonAction]
-    public Task<IQueryable<Address>> GetQueryableAsync()
+    public Task<IQueryable<Address>> GetQueryableAsync(CancellationToken cancellationToken = default)
     {
         var query = _addressService
             .GetRepository()
@@ -62,10 +63,10 @@ public class PublicAddressController : PublicNhBaseController
 
     [HttpGet]
     [AllowAnonymous]
-    public async Task<IActionResult> Get([FromQuery] PublicAddressRequestModel requestModel)
+    public async Task<IActionResult> Get([FromQuery] PublicAddressRequestModel requestModel, CancellationToken cancellationToken = default)
     {
         requestModel ??= new PublicAddressRequestModel();
-        var query = (await GetQueryableAsync()).AsNoTracking();
+        var query = (await GetQueryableAsync(cancellationToken)).AsNoTracking();
 
         if (requestModel.CountryCodes?.Any() == true)
         {
@@ -75,7 +76,8 @@ public class PublicAddressController : PublicNhBaseController
 
         var result = await GetCollectionResultModel<Address, AddressViewModel>(
             requestModel, 
-            query,
+            query
+            , cancellationToken: cancellationToken,
             (x => x.CreationDateTime, ListSortDirection.Ascending)
         );
 
@@ -84,10 +86,10 @@ public class PublicAddressController : PublicNhBaseController
 
     [HttpGet("{id:guid}")]
     [AllowAnonymous]
-    public async Task<IActionResult> GetById(Guid id)
+    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken = default)
     {
-        var query = (await GetQueryableAsync()).AsNoTracking();
-        var entity = await query.FirstOrDefaultAsync(x => x.Id == id);
+        var query = (await GetQueryableAsync(cancellationToken)).AsNoTracking();
+        var entity = await query.FirstOrDefaultAsync(x => x.Id == id, cancellationToken: cancellationToken);
 
         if (entity == null)
         {

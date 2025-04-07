@@ -9,14 +9,19 @@ public static class HostBuilderExtensions
     public static IServiceCollection AddMediaFileSystemStorage(this IServiceCollection services, IConfiguration configuration)
     {
         return AddMediaFileSystemStorage(services,
-            configuration.GetValue<string>("MediaStorage:FileSystem:StoragePath")!);
+            configuration.GetValue<string>("NewHeap:MediaLibrary:RootDirectory")!, true);
     }
     
-    public static IServiceCollection AddMediaFileSystemStorage(this IServiceCollection services, string storagePath)
+    public static IServiceCollection AddMediaFileSystemStorage(this IServiceCollection services, string storagePath, bool createIfNotExists = false)
     {
-        if (!Directory.Exists(storagePath))
+        if (!Directory.Exists(storagePath) && !createIfNotExists)
         {
             throw new ArgumentException($"Storage path root {storagePath} does not exist");
+        }
+
+        if (!Directory.Exists(storagePath))
+        {
+            Directory.CreateDirectory(storagePath);
         }
         return AddMediaFileSystemStorage(services, x =>
         {

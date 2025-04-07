@@ -54,7 +54,7 @@ public abstract class NhBaseDivisionController<
     {
     }
 
-    protected override Task<IQueryable<TDivision>> GetQueryableAsync()
+    protected override Task<IQueryable<TDivision>> GetQueryableAsync(CancellationToken cancellationToken = default)
     {
         var query = _dbEntityService
                 .GetRepository()
@@ -68,47 +68,47 @@ public abstract class NhBaseDivisionController<
 
     [HttpGet]
     [Authorize(Policy = READ_POLICY)]
-    public virtual Task<IActionResult> Get([FromQuery] DivisionCollectionRequestModel requestModel)
+    public virtual Task<IActionResult> Get([FromQuery] DivisionCollectionRequestModel requestModel, CancellationToken cancellationToken = default)
     {
-        return DoGet(requestModel);
+        return DoGet(requestModel, cancellationToken: cancellationToken);
     }
 
     [HttpGet("{id}")]
     [Authorize(Policy = READ_POLICY)]
-    public virtual Task<IActionResult> GetById(Guid id)
+    public virtual Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken = default)
     {
         return DoGetById(id);
     }
 
     [HttpPost]
     [Authorize(Policy = MANAGE_POLICY)]
-    public virtual Task<IActionResult> Create([FromBody] TDivisionMutateModel mutateModel)
+    public virtual Task<IActionResult> Create([FromBody] TDivisionMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
         return DoCreate(mutateModel);
     }
 
     [HttpPut("{id}")]
     [Authorize(Policy = MANAGE_POLICY)]
-    public virtual Task<IActionResult> Update([FromRoute] Guid id, [FromBody] TDivisionMutateModel mutateModel)
+    public virtual Task<IActionResult> Update([FromRoute] Guid id, [FromBody] TDivisionMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
         return DoUpdate(id, mutateModel);
     }
 
     [HttpDelete("{id}")]
     [Authorize(Policy = MANAGE_POLICY)]
-    public virtual Task<IActionResult> Delete([FromRoute] Guid id)
+    public virtual Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken cancellationToken = default)
     {
         return DoDelete(id);
     }
 
     [HttpGet("roles")]
     [Authorize(Policy = READ_POLICY)]
-    public virtual async Task<IActionResult> GetDivisionRoles()
+    public virtual async Task<IActionResult> GetDivisionRoles(CancellationToken cancellationToken = default)
     {
         var query = _dbEntityService.GetRoleRepository().GetAll();
 
         var result =
-            await GetCollectionResultModel<TDivisionRole, DivisionRoleViewModel>(query,
+            await GetCollectionResultModel<TDivisionRole, DivisionRoleViewModel>(query, cancellationToken: cancellationToken,
                 (x => x.Name, ListSortDirection.Ascending));
 
         return Ok(result);

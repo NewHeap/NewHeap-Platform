@@ -26,18 +26,20 @@ public abstract partial class PublicNhBaseController : NhBaseController
     protected virtual Task<SimpleCollectionResultModel<TViewModel>> GetCollectionResultModel<TEntity, TViewModel>(
         IBaseCollectionRequestModel requestModel,
         IQueryable<TEntity> queryable,
+        CancellationToken cancellationToken = default,
         params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class
     { 
-        return GetCollectionResultModel<TEntity, TViewModel>(requestModel, queryable, null, defaultOrderBy);
+        return GetCollectionResultModel<TEntity, TViewModel>(requestModel, queryable, null, cancellationToken: cancellationToken, defaultOrderBy);
     }
 
     [NonAction]
     protected virtual async Task<SimpleCollectionResultModel<TViewModel>> GetCollectionResultModel<TEntity, TViewModel>(
             IBaseCollectionRequestModel requestModel,
             IQueryable<TEntity> queryable,
-            Func<IQueryable<TEntity>, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+            Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+            CancellationToken cancellationToken = default,
             params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
             where TEntity : class
             where TViewModel : class
@@ -52,6 +54,7 @@ public abstract partial class PublicNhBaseController : NhBaseController
             collectionRequestModel,
             queryable,
             resultQueryableFunc,
+            cancellationToken: cancellationToken,
             defaultOrderBy
         );
 
@@ -68,10 +71,11 @@ public abstract partial class PublicNhBaseController : NhBaseController
     [NonAction]
     protected virtual Task<IQueryable<TEntity>> GetCollectionResultQuery<TEntity, TViewModel>(
         IQueryable<TEntity> queryable,
+        CancellationToken cancellationToken = default,
         params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class
     {
-        return _httpCollectionProcessingService.GetCollectionResultQueryAsync<TEntity, TViewModel>(queryable, defaultOrderBy);
+        return _httpCollectionProcessingService.GetCollectionResultQueryAsync<TEntity, TViewModel>(queryable, cancellationToken: cancellationToken, defaultOrderBy);
     }
 }

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NewHeap.Media;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Models.Options;
@@ -79,15 +80,16 @@ public class Startup
             .Build();
 
         services
-            // .AddNhMedia(opt =>
-            // {
-            //     opt.UseSqlServerFileStructureStorage(Configuration.GetConnectionString("DefaultConnection")!, db =>
-            //     {
-            //         db.Scheme = "medialibrary";
-            //         db.RunMigrations = true; // Defaults to true, here for demonstration purposes
-            //     });
-            //     opt.UseFileSystemMediaStorage(Configuration["Media:FileSystemRoot"]!);
-            // })
+            .AddNhMedia(opt =>
+            {
+                opt.UseSqlServerFileStructureStorage(Configuration.GetConnectionString("DefaultConnection")!, db =>
+                {
+                    db.Scheme = "medialibrary";
+                    db.RunMigrations = true; // Defaults to true, here for demonstration purposes
+                });
+                // opt.AddAuthentication<LoggedInUserMediaAuthorizationModule>();
+                opt.UseFileSystemMediaStorage(Configuration);
+            })
             .AddNewHeapPlatformAspNetCommon<
                 NhUser,
                 NhUserRole,
@@ -170,7 +172,10 @@ public class Startup
                     {
                         e.MapOpenApi();
                         e.MapScalarApiReference("/scalar");
+                        e.MapNhMediaEndpoints();
                     })
+                    .UseHsTs(true)
+                    .UseHttpsRedirection(true)
                     .UseHsTs(!env.IsDevelopment())
                     .UseHttpsRedirection(!env.IsDevelopment())
                     .Build()

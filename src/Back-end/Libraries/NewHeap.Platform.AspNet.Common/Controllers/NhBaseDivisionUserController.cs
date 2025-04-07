@@ -56,7 +56,7 @@ public abstract class NhBaseDivisionUserController<
         ];
     }
 
-    protected override Task<IQueryable<TDivisionUser>> GetQueryableAsync()
+    protected override Task<IQueryable<TDivisionUser>> GetQueryableAsync(CancellationToken cancellationToken = default)
     {
         IQueryable<TDivisionUser> query = _dbEntityService
                 .GetRepository()
@@ -74,7 +74,7 @@ public abstract class NhBaseDivisionUserController<
 
     [HttpGet]
     [Authorize(Policy = READ_POLICY)]
-    public virtual Task<IActionResult> Get([FromQuery] DivisionUserCollectionRequestModel requestModel)
+    public virtual Task<IActionResult> Get([FromQuery] DivisionUserCollectionRequestModel requestModel, CancellationToken cancellationToken = default)
     {
         return DoGet(requestModel);
     }
@@ -88,21 +88,21 @@ public abstract class NhBaseDivisionUserController<
 
     [HttpPost]
     [Authorize(Policy = MANAGE_POLICY)]
-    public virtual Task<IActionResult> Create([FromBody] TDivisionUserMutateModel mutateModel)
+    public virtual Task<IActionResult> Create([FromBody] TDivisionUserMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
         return DoCreate(mutateModel);
     }
 
     [HttpPut("{id}")]
     [Authorize(Policy = MANAGE_POLICY)]
-    public virtual Task<IActionResult> Update([FromRoute] Guid id, [FromBody] TDivisionUserMutateModel mutateModel)
+    public virtual Task<IActionResult> Update([FromRoute] Guid id, [FromBody] TDivisionUserMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
         return DoUpdate(id, mutateModel);
     }
 
     [HttpDelete("{id}")]
     [Authorize(Policy = MANAGE_POLICY)]
-    public virtual Task<IActionResult> Delete([FromRoute] Guid id)
+    public virtual Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken cancellationToken = default)
     {
         return DoDelete(id);
     }

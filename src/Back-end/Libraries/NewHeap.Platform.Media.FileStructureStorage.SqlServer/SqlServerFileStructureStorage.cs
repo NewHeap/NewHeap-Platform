@@ -35,6 +35,8 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
     
     public async Task<FileReference> CreateFile(string? path, string fileName, Guid id)
     {
+        path = NormalizePath(path);
+
         var file = new FileEntity
         {
             Id = id,
@@ -43,7 +45,7 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
         };
 
 
-        if (path != null)
+        if (path != "/")
         {
             string? folderPath = null;
             var folderName = path;
@@ -72,9 +74,24 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
         };
     }
 
+    private string NormalizePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "/";
+        }
+        path = path.Replace('\\', '/');
+        if (!path.StartsWith("/"))
+        {
+            path = "/" + path;
+        }
+        return path;
+    }
+
     public async Task<FolderReference> CreateFolder(string? path, string folderName)
     {
-        if (path != null)
+        path = NormalizePath(path);
+        if (path != "/")
         {
             var parts = path.Split(NhMediaValues.DirectorySeparator);
             string? currentPath = null;
@@ -120,16 +137,18 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
 
     public async Task<bool> DeleteFolder(string? path, string folderName)
     {
-        var fullPath = path != null ? path + NhMediaValues.DirectorySeparator + folderName : folderName;
+        path = NormalizePath(path);
+
+        var fullPath = path != "/" ? path + NhMediaValues.DirectorySeparator + folderName : path + folderName;
 
         var fileIds = await _dbContext.Files.Where(x => x.Path!.StartsWith(fullPath)).Select(x => x.Id)
             .ToListAsync();
-        
-        await _dbContext.Localizations.Where(x => fileIds.Contains(x.EntityId) && x.TypeName == nameof(FileEntity)).ExecuteDeleteAsync();
-        await _dbContext.Files.Where(x => x.Path!.StartsWith(fullPath)).ExecuteDeleteAsync();
-        await _dbContext.Folders.Where(x => x.Path!.StartsWith(fullPath)).ExecuteDeleteAsync();
-        await _dbContext.Folders.Where(x => x.Path == path && x.Name == folderName).ExecuteDeleteAsync();
-        return true;
+        var count = fileIds.Count;
+        count += await _dbContext.Localizations.Where(x => fileIds.Contains(x.EntityId) && x.TypeName == nameof(FileEntity)).ExecuteDeleteAsync();
+        count += await _dbContext.Files.Where(x => x.Path!.StartsWith(fullPath)).ExecuteDeleteAsync();
+        count += await _dbContext.Folders.Where(x => x.Path!.StartsWith(fullPath)).ExecuteDeleteAsync();
+        count += await _dbContext.Folders.Where(x => x.Path == path && x.Name == folderName).ExecuteDeleteAsync();
+        return count > 0;
     }
 
     public async Task<IEnumerable<FileReference>> GetFiles(string? path, string? language)
@@ -140,7 +159,7 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
 
     private Task<FolderReference> GetFolderReference(string? path)
     {
-        path ??= "";
+        path = NormalizePath(path);
         var splitAt = path.LastIndexOf('/');
         if (splitAt == -1)
         {
@@ -162,9 +181,11 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
     
     public async Task<FolderContents> GetFolder(string? path, string? language)
     {
+        path = NormalizePath(path);
         var result = new FolderContents();
         var folders = await _dbContext.Folders.AsNoTracking()
             .Where(x => x.Path == path)
+            .Where(x => !string.IsNullOrEmpty(x.Name))
             .ToArrayAsync();
 
         foreach (var folder in folders)
@@ -199,6 +220,8 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
 
     public async Task<FileReference?> GetFile(string? path, string fileName, string? language)
     {
+        path = NormalizePath(path);
+
         var file = await _dbContext.Files.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Path == path && x.Name == fileName);
         if(file == null)
@@ -237,6 +260,7 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
 
     public async Task<bool> DeleteFile(string? path, string filename)
     {
+        path = NormalizePath(path);
         var fileQuery = _dbContext.Files.Where(x => x.Path == path && x.Name == filename);
         await _dbContext.Localizations.Where(x => fileQuery.Select(y => y.Id).Contains(x.EntityId) && x.TypeName == nameof(FileEntity)).ExecuteDeleteAsync();
         var count = await fileQuery.ExecuteDeleteAsync();
@@ -245,6 +269,7 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
 
     public async Task<IEnumerable<FileReference>> Search(string searchTerm, string? path, string? language)
     {
+        path = NormalizePath(path);
         var q = _dbContext.Files.AsNoTracking();
         if (!string.IsNullOrEmpty(path))
         {
@@ -267,7 +292,7 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
         return result;
     }
 
-    public async Task Localize(Guid entityId, string language, string propertyName, string? value)
+    public async Task<bool> Localize(Guid entityId, string language, string propertyName, string? value)
     {
         var entity = await _dbContext.Localizations.FirstOrDefaultAsync(x => 
             x.TypeName == nameof(FileEntity) 
@@ -280,12 +305,12 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
         {
             if (entity == null)
             {
-                return; // Doesn't exist, nothing to delete
+                return false; // Doesn't exist, nothing to delete
             }
             
             _dbContext.Localizations.Remove(entity);
             await _dbContext.SaveChangesAsync();
-            return;
+            return true;
         }
         
         if (entity == null)
@@ -306,5 +331,6 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
         }
 
         await _dbContext.SaveChangesAsync();
+        return true;
     }
 }
