@@ -1,16 +1,21 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using NewHeap.Media.FileStructureStorage.SqlServer.Entities;
 using NewHeap.Media.Modules;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace NewHeap.Media.FileStructureStorage.SqlServer;
 
-internal class SqlServerFileStructureStorage : IFileStructureStorage
+internal partial class SqlServerFileStructureStorage : IFileStructureStorage
 {
     private readonly FileStructureDbContext _dbContext;
 
-    private static Dictionary<string, Action<FileReference,object>>? _fileReferenceAccessors = null;
-    
-    private static Dictionary<string, Action<FileReference,object>> FileReferenceAccessors
+    private static Dictionary<string, Action<FileReference, object>>? _fileReferenceAccessors = null;
+
+    [GeneratedRegex(@"\/\/+")]
+    private static partial Regex DuplicatedSlashesRegex();
+
+    private static Dictionary<string, Action<FileReference, object>> FileReferenceAccessors
     {
         get
         {
@@ -18,12 +23,13 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
             {
                 return _fileReferenceAccessors;
             }
-            
-            _fileReferenceAccessors = new Dictionary<string, Action<FileReference,object>>();
+
+            _fileReferenceAccessors = new Dictionary<string, Action<FileReference, object>>();
             foreach (var property in typeof(FileReference).GetProperties())
             {
                 _fileReferenceAccessors.Add(property.Name.ToLower(), property.SetValue);
             }
+
             return _fileReferenceAccessors;
         }
     }
@@ -32,45 +38,122 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
     {
         _dbContext = dbContext;
     }
-    
-    public async Task<FileReference> CreateFile(string? path, string fileName, Guid id)
-    {
-        path = NormalizePath(path);
 
-        var file = new FileEntity
+    public async Task<FileReference> CreateFile(FileModel model, Guid id)
+    {
+        model.Path = NormalizePath(model.Path);
+
+        if (string.IsNullOrWhiteSpace(model.Name))
+        {
+            return null!;
+        }
+
+        string? metaDataJson = null;
+        if (model.MetaData != null)
+        {
+            metaDataJson = JsonSerializer.Serialize(model.MetaData);
+        }
+
+        var entity = new FileEntity
         {
             Id = id,
-            Path = path,
-            Name = fileName
+            Path = model.Path,
+            Name = model.Name,
+            Creator = model.Creator,
+            Description = model.Description,
+            Title = model.Title,
+            Tags = model.Tags?.ToList() ?? [],
+            AltText = model.AltText,
+            MetaData = metaDataJson
         };
 
-
-        if (path != "/")
+        if (entity.Path != "/")
         {
             string? folderPath = null;
-            var folderName = path;
+            var folderName = entity.Path;
 
-            var sep = path.LastIndexOf(NhMediaValues.DirectorySeparator, StringComparison.Ordinal);
+            var sep = entity.Path.LastIndexOf(NhMediaValues.DirectorySeparator, StringComparison.Ordinal);
             if (sep != -1)
             {
-                folderPath = path[..sep];
-                folderName = path[(sep + 1)..];
+                folderPath = entity.Path[..sep];
+                folderName = entity.Path[(sep + 1)..];
             }
+
             var folderExists = await _dbContext.Folders.AnyAsync(x => x.Path == folderPath && x.Name == folderName);
             if (!folderExists)
             {
                 await CreateFolder(folderPath, folderName);
             }
         }
-        
-        _dbContext.Files.Add(file);
+
+        _dbContext.Files.Add(entity);
         await _dbContext.SaveChangesAsync();
 
         return new FileReference
         {
-            Id = file.Id,
-            Name = file.Name,
-            Folder = await GetFolderReference(path)
+            Id = entity.Id,
+            Name = entity.Name,
+            Tags = entity.Tags,
+            AltText = entity.AltText,
+            Description = entity.Description,
+            Creator = entity.Creator,
+            Title = entity.Title,
+            MetaData = string.IsNullOrEmpty(entity.MetaData)
+                ? null
+                : JsonSerializer.Deserialize<Dictionary<string, object>>(entity.MetaData),
+            Folder = await GetFolderReference(entity.Path)
+        };
+    }
+
+    public async Task<FileReference?> UpdateFile(Guid id, FileModel model)
+    {
+        model.Path = NormalizePath(model.Path);
+        var entity = await _dbContext.Files.FirstOrDefaultAsync(x => x.Id == id);
+
+        if (entity == null)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(model.Name))
+        {
+            return null;
+        }
+
+        var sep = model.Path.LastIndexOf('/');
+        var folderPath = model.Path[..sep];
+        var folderName = model.Path[sep..];
+
+        var existingFolder =
+            await _dbContext.Folders.FirstOrDefaultAsync(x => x.Path == folderName && x.Name == folderName);
+        if (existingFolder == null)
+        {
+            await CreateFolder(folderPath, folderName);
+        }
+
+        entity.Path = model.Path;
+        entity.Name = model.Name;
+        entity.Creator = model.Creator;
+        entity.Description = model.Description;
+        entity.Title = model.Title;
+        entity.Tags = model.Tags?.ToList() ?? [];
+        entity.AltText = model.AltText;
+        entity.MetaData = JsonSerializer.Serialize(model.MetaData);
+
+        await _dbContext.SaveChangesAsync();
+        return new FileReference
+        {
+            Id = entity.Id,
+            Name = entity.Name,
+            Tags = entity.Tags,
+            AltText = entity.AltText,
+            Description = entity.Description,
+            Creator = entity.Creator,
+            Title = entity.Title,
+            MetaData = string.IsNullOrEmpty(entity.MetaData)
+                ? null
+                : JsonSerializer.Deserialize<Dictionary<string, object>>(entity.MetaData),
+            Folder = await GetFolderReference(entity.Path),
         };
     }
 
@@ -80,11 +163,14 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
         {
             return "/";
         }
+        
         path = path.Replace('\\', '/');
+        path = DuplicatedSlashesRegex().Replace(path, "/");
         if (!path.StartsWith("/"))
         {
             path = "/" + path;
         }
+
         return path;
     }
 
@@ -97,14 +183,11 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
             string? currentPath = null;
             foreach (var part in parts)
             {
-                var existing = await _dbContext.Folders.FirstOrDefaultAsync(x => x.Path == currentPath && x.Name == part);
+                var existing =
+                    await _dbContext.Folders.FirstOrDefaultAsync(x => x.Path == currentPath && x.Name == part);
                 if (existing == null)
                 {
-                    existing = new FolderEntity
-                    {
-                        Name = part,
-                        Path = currentPath
-                    };
+                    existing = new FolderEntity { Name = part, Path = currentPath };
                     _dbContext.Folders.Add(existing);
                 }
 
@@ -118,21 +201,13 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
                 }
             }
         }
-        
-        var folder = new FolderEntity
-        {
-            Name = folderName,
-            Path = path
-        };
-        
+
+        var folder = new FolderEntity { Name = folderName, Path = path };
+
         _dbContext.Folders.Add(folder);
         await _dbContext.SaveChangesAsync();
-        
-        return new FolderReference
-        {
-            Path = folder.Path,
-            Name = folder.Name
-        };
+
+        return await GetFolderReference($"{path}/{folderName}");
     }
 
     public async Task<bool> DeleteFolder(string? path, string folderName)
@@ -144,7 +219,8 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
         var fileIds = await _dbContext.Files.Where(x => x.Path!.StartsWith(fullPath)).Select(x => x.Id)
             .ToListAsync();
         var count = fileIds.Count;
-        count += await _dbContext.Localizations.Where(x => fileIds.Contains(x.EntityId) && x.TypeName == nameof(FileEntity)).ExecuteDeleteAsync();
+        count += await _dbContext.Localizations
+            .Where(x => fileIds.Contains(x.EntityId) && x.TypeName == nameof(FileEntity)).ExecuteDeleteAsync();
         count += await _dbContext.Files.Where(x => x.Path!.StartsWith(fullPath)).ExecuteDeleteAsync();
         count += await _dbContext.Folders.Where(x => x.Path!.StartsWith(fullPath)).ExecuteDeleteAsync();
         count += await _dbContext.Folders.Where(x => x.Path == path && x.Name == folderName).ExecuteDeleteAsync();
@@ -163,22 +239,25 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
         var splitAt = path.LastIndexOf('/');
         if (splitAt == -1)
         {
-            return Task.FromResult(new FolderReference
-            {
-                Path = null,
-                Name = ""
-            });
+            return Task.FromResult(new FolderReference { Path = "/", Name = "", FullPath = "/" });
         }
-        var folderPath  = path[0..splitAt];
+
+        var folderPath = path[0..splitAt];
         var folderName = path[(splitAt + 1)..];
-        
-        return Task.FromResult(new FolderReference
+
+        if (!folderPath.StartsWith('/'))
         {
-            Path = folderPath,
-            Name = folderName
-        });
+            folderPath = "/" + folderPath;
+        }
+        
+        if (!path.StartsWith('/'))
+        {
+            path = "/" + path;
+        }
+
+        return Task.FromResult(new FolderReference { Path = folderPath, Name = folderName, FullPath = path });
     }
-    
+
     public async Task<FolderContents> GetFolder(string? path, string? language)
     {
         path = NormalizePath(path);
@@ -190,26 +269,34 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
 
         foreach (var folder in folders)
         {
-            var folderReference = new FolderReference
+            if (string.IsNullOrEmpty(folder.Name) || folder.Name == "/")
             {
-                Path = folder.Path,
-                Name = folder.Name
-            };
+                continue;
+            }
+
+            var folderReference = await GetFolderReference($"{folder.Path}/{folder.Name}");
             result.Folders.Add(folderReference);
-            
         }
-        
+
         var files = await _dbContext.Files.AsNoTracking()
             .Where(x => x.Path == path)
             .ToArrayAsync();
-        
+
         foreach (var file in files)
         {
             var fileReference = new FileReference
             {
                 Id = file.Id,
                 Name = file.Name,
-                Folder = await GetFolderReference(file.Path)
+                Tags = file.Tags,
+                AltText = file.AltText,
+                Description = file.Description,
+                Creator = file.Creator,
+                Title = file.Title,
+                MetaData = string.IsNullOrEmpty(file.MetaData)
+                    ? null
+                    : JsonSerializer.Deserialize<Dictionary<string, object>>(file.MetaData),
+                Folder = await GetFolderReference(path),
             };
             result.Files.Add(fileReference);
             await ApplyLocalizations(fileReference, language);
@@ -224,16 +311,24 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
 
         var file = await _dbContext.Files.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Path == path && x.Name == fileName);
-        if(file == null)
+        if (file == null)
         {
             return null;
         }
-        
+
         var reference = new FileReference
         {
             Id = file.Id,
             Name = file.Name,
-            Folder = await GetFolderReference(path)
+            Tags = file.Tags,
+            AltText = file.AltText,
+            Description = file.Description,
+            Creator = file.Creator,
+            Title = file.Title,
+            MetaData = string.IsNullOrEmpty(file.MetaData)
+                ? null
+                : JsonSerializer.Deserialize<Dictionary<string, object>>(file.MetaData),
+            Folder = await GetFolderReference(path),
         };
 
         await ApplyLocalizations(reference, language);
@@ -242,10 +337,11 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
 
     private async Task ApplyLocalizations(FileReference file, string? language)
     {
-        if(string.IsNullOrEmpty(language))
+        if (string.IsNullOrEmpty(language))
         {
             return;
         }
+
         var localizations = await _dbContext.Localizations
             .Where(x => x.TypeName == nameof(FileEntity) && x.EntityId == file.Id && x.Language == language)
             .ToListAsync();
@@ -262,12 +358,15 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
     {
         path = NormalizePath(path);
         var fileQuery = _dbContext.Files.Where(x => x.Path == path && x.Name == filename);
-        await _dbContext.Localizations.Where(x => fileQuery.Select(y => y.Id).Contains(x.EntityId) && x.TypeName == nameof(FileEntity)).ExecuteDeleteAsync();
+        await _dbContext.Localizations
+            .Where(x => fileQuery.Select(y => y.Id).Contains(x.EntityId) && x.TypeName == nameof(FileEntity))
+            .ExecuteDeleteAsync();
         var count = await fileQuery.ExecuteDeleteAsync();
         return count > 0;
     }
 
-    public async Task<IEnumerable<FileReference>> Search(string searchTerm, string? path, string? language)
+    public async Task<IEnumerable<FileReference>> Search(string searchTerm, string? path, string? language,
+        string[]? tags = null)
     {
         path = NormalizePath(path);
         var q = _dbContext.Files.AsNoTracking();
@@ -275,7 +374,21 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
         {
             q = q.Where(x => x.Path!.StartsWith(path));
         }
-        q = q.Where(x => x.Name.Contains(searchTerm));
+
+        if (searchTerm?.Length > 0)
+        {
+            q = q.Where(x =>
+                x.Name.Contains(searchTerm)
+                || x.Tags.Any(y => y.Contains(searchTerm))
+            );
+            q = q.Where(x => x.Tags.Any(y => y.Contains(searchTerm)));
+        }
+
+        if (tags?.Length > 0)
+        {
+            q = q.Where(x => tags.All(y => x.Tags.Contains(y)));
+        }
+
         var files = await q.ToListAsync();
         var result = new List<FileReference>();
         foreach (var file in files)
@@ -284,22 +397,31 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
             {
                 Id = file.Id,
                 Name = file.Name,
-                Folder = await GetFolderReference(file.Path)
+                Tags = file.Tags,
+                AltText = file.AltText,
+                Description = file.Description,
+                Creator = file.Creator,
+                Title = file.Title,
+                MetaData = string.IsNullOrEmpty(file.MetaData)
+                    ? null
+                    : JsonSerializer.Deserialize<Dictionary<string, object>>(file.MetaData),
+                Folder = await GetFolderReference(file.Path),
             };
             result.Add(reference);
             await ApplyLocalizations(reference, language);
         }
+
         return result;
     }
 
     public async Task<bool> Localize(Guid entityId, string language, string propertyName, string? value)
     {
-        var entity = await _dbContext.Localizations.FirstOrDefaultAsync(x => 
-            x.TypeName == nameof(FileEntity) 
-            && x.EntityId == entityId 
+        var entity = await _dbContext.Localizations.FirstOrDefaultAsync(x =>
+            x.TypeName == nameof(FileEntity)
+            && x.EntityId == entityId
             && x.Language == language
             && x.PropertyName == propertyName
-            );
+        );
 
         if (string.IsNullOrEmpty(value))
         {
@@ -307,12 +429,12 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
             {
                 return false; // Doesn't exist, nothing to delete
             }
-            
+
             _dbContext.Localizations.Remove(entity);
             await _dbContext.SaveChangesAsync();
             return true;
         }
-        
+
         if (entity == null)
         {
             entity = new Localization
@@ -332,5 +454,59 @@ internal class SqlServerFileStructureStorage : IFileStructureStorage
 
         await _dbContext.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> UpdateTags(string path, string fileName, IEnumerable<string> tags)
+    {
+        path = NormalizePath(path);
+        var file = await _dbContext.Files.FirstOrDefaultAsync(x => x.Path == path && x.Name == fileName);
+        if (file == null)
+        {
+            return false;
+        }
+
+        file.Tags = tags.ToList();
+        await _dbContext.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<FileReference?> GetById(Guid id)
+    {
+        var entity = await _dbContext.Files.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        if (entity == null)
+        {
+            return null;
+        }
+
+        return new FileReference
+        {
+            Id = entity.Id,
+            Name = entity.Name,
+            Tags = entity.Tags,
+            AltText = entity.AltText,
+            Description = entity.Description,
+            Creator = entity.Creator,
+            Title = entity.Title,
+            MetaData = string.IsNullOrEmpty(entity.MetaData)
+                ? null
+                : JsonSerializer.Deserialize<Dictionary<string, object>>(entity.MetaData),
+            Folder = await GetFolderReference(entity.Path),
+        };
+    }
+
+    public async Task<FolderReference?> MoveFolder(string? path, string folderName, string newPath, string newName)
+    {
+        path = NormalizePath(path);
+        newPath = NormalizePath(newPath);
+        
+        var folder = await _dbContext.Folders.FirstOrDefaultAsync(x => x.Path == path && x.Name == folderName);
+        if (folder == null)
+        {
+            return null;
+        }
+        folder.Path = newPath;
+        folder.Name = newName;
+        await _dbContext.SaveChangesAsync();
+        return await GetFolderReference($"{newPath}/{newName}");
     }
 }
