@@ -23,6 +23,7 @@ public partial class NewHeapPlatformAspNetCommonApplicationBuilderOptions
     public Action<CorsPolicyBuilder>? CorsPolicyBuilderAction { get; set; }
     public Action<IRouteBuilder>? MvcConfigureRoutesAction { get; set; }
     public Action<IEndpointRouteBuilder>? EndpointRouteConfigureAction { get; set; }
+    public Action? AddMiddlewaresAction { get; set; }
 }
 
 public class NewHeapPlatformAspNetCommonOptionsBuilder
@@ -65,6 +66,13 @@ public class NewHeapPlatformAspNetCommonOptionsBuilder
     {
         ThrowIfBuild();
         _options!.EndpointRouteConfigureAction = action;
+        return this;
+    }
+
+    public NewHeapPlatformAspNetCommonOptionsBuilder UseMiddlewares(Action action)
+    {
+        ThrowIfBuild();
+        _options!.AddMiddlewaresAction = action;
         return this;
     }
 
@@ -131,6 +139,8 @@ public class NewHeapPlatformAspNetCommonApplicationBuilder
         _applicationBuilder.UseRequestLocalization(requestLocalizationOptions.Value);
 
         _applicationBuilder.UseMiddleware<ResponseHeaderDisallowNoFollowMiddleware>();
+
+        _options.AddMiddlewaresAction?.Invoke();
 
         _applicationBuilder.UseMvc(options =>
         {
