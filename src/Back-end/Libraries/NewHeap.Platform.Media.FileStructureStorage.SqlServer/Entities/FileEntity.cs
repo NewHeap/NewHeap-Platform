@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NewHeap.Media.FileStructureStorage.SqlServer.Entities;
 
@@ -18,8 +19,16 @@ public class FileEntity
     [StringLength(500)]
     public string? Description { get; set; }
 
+    [StringLength(150)]
+    public string? Creator { get; set; }
+
     [StringLength(2000)]
     public required string Name { get; set; }
 
     public DateTimeOffset CreationDateTime { get; set; } = DateTimeOffset.UtcNow;
+    public List<string> Tags { get; set; } = [];
+
+    [Column(TypeName = "NVARCHAR(MAX)")]
+    // ReSharper disable once EntityFramework.ModelValidation.UnlimitedStringLength
+    public string? MetaData { get; set; }
 }

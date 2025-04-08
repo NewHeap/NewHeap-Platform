@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using NhMedia.Http;
 using NewHeap.Media.Modules;
+using NhMedia.Http.Models;
 
 // ReSharper disable once CheckNamespace
 namespace NewHeap.Media;
@@ -23,6 +24,10 @@ public static class WebApplicationExtensions
         group.MapPost("upload", Upload).DisableAntiforgery().WithDescription("Upload a file");
         group.MapPost("folder", CreateFolder).WithDescription("Create a folder");
         group.MapPost("file/localize", LocalizeFile).WithDescription("Add localization to a file");
+        group.MapPost("file/tags", UpdateTags).WithDescription("Update file tags");
+
+        group.MapPut("file/{id:guid}", UpdateFile).WithDescription("Update file (meta)data");
+        group.MapPut("folder", UpdateFolder).WithDescription("Update folder properties");
 
         group.MapDelete("folder", DeleteFolder).WithDescription("Delete a folder and all files and subfolders");
         group.MapDelete("file", DeleteFile).WithDescription("Delete a file");
@@ -38,14 +43,78 @@ public static class WebApplicationExtensions
 
     [ApiExplorerSettings(GroupName = "Media")]
     [Tags("Media")]
+    [EndpointName("Update folder information")]
+    private static async Task<Results<
+        Ok<FolderReference>,
+        NotFound,
+        BadRequest<Dictionary<string, string[]>>
+    >> UpdateFolder(
+        [FromBody] UpdateFolderRequest request,
+        [FromServices] IMediaLibraryService mediaLibrary
+    )
+    {
+        if (string.IsNullOrWhiteSpace(request.NewName) || string.IsNullOrWhiteSpace(request.FolderName))
+        {
+            return BadRequest("Name is required");
+        }
+
+        var result =
+            await mediaLibrary.UpdateFolder(request.Path, request.FolderName, request.NewPath, request.NewName);
+        if (result != null)
+        {
+            return TypedResults.Ok(result);
+        }
+
+        return TypedResults.NotFound();
+    }
+
+    [ApiExplorerSettings(GroupName = "Media")]
+    [Tags("Media")]
+    [EndpointName("Update file information")]
+    private static async Task<Results<Ok<FileReference>, NotFound>> UpdateFile([FromRoute] Guid id,
+        [FromBody] FileModel model,
+        [FromServices] IMediaLibraryService mediaLibrary)
+    {
+        var success = await mediaLibrary.UpdateFile(id, model);
+        if (success)
+        {
+            var reference = await mediaLibrary.GetFile(id);
+            return TypedResults.Ok(reference);
+        }
+
+        return TypedResults.NotFound();
+    }
+
+    [ApiExplorerSettings(GroupName = "Media")]
+    [Tags("Media")]
+    [EndpointName("Update file tags")]
+    private static async Task<Results<NoContent, NotFound, BadRequest<Dictionary<string, string[]>>>> UpdateTags(
+        [FromBody] UpdateTagsRequest request,
+        [FromServices] IMediaLibraryService mediaLibrary
+    )
+    {
+        if (string.IsNullOrWhiteSpace(request?.FileName))
+        {
+            return BadRequest("Field is required", nameof(request.FileName));
+        }
+
+        var success = await mediaLibrary.UpdateFileTags(request.Path, request.FileName, request.Tags);
+        return success ? TypedResults.NoContent() : TypedResults.NotFound();
+    }
+
+    [ApiExplorerSettings(GroupName = "Media")]
+    [Tags("Media")]
     [EndpointName("Search media library")]
     private static async Task<Results<Ok<IEnumerable<FileReference>>, UnauthorizedHttpResult>> Search(string? path,
-        string searchTerm, string? language,
+        string? searchTerm,
+        string? language,
+        string[]? tags,
         IMediaLibraryService mediaLibraryService)
     {
         try
         {
-            var result = await mediaLibraryService.Search(path, searchTerm, language);
+            searchTerm ??= "";
+            var result = await mediaLibraryService.Search(path, searchTerm, language, tags);
             return TypedResults.Ok(result);
         }
         catch (UnauthorizedAccessException)
@@ -174,10 +243,10 @@ public static class WebApplicationExtensions
             Ok<FileReference>,
             UnauthorizedHttpResult,
             BadRequest<Dictionary<string, string[]>>
-        >> Upload([FromQuery] string? path,
+        >> Upload(
             [FromForm] UploadRequest request,
             IFormFile file,
-            [FromServices]IMediaLibraryService mediaLibraryService)
+            [FromServices] IMediaLibraryService mediaLibraryService)
     {
         try
         {
@@ -186,14 +255,25 @@ public static class WebApplicationExtensions
                 return BadRequest("Field is required", nameof(request.FileName));
             }
 
-            var fileRef = await mediaLibraryService.GetFile(path, request.FileName);
+            var fileRef = await mediaLibraryService.GetFile(request.Path, request.FileName);
             if (fileRef == null)
             {
-                fileRef = await mediaLibraryService.CreateFile(path, request.FileName, file.OpenReadStream());
+                var model = new FileModel
+                {
+                    Path = request.Path,
+                    Name = request.FileName,
+                    Tags = request.Tags,
+                    AltText = request.AltText,
+                    Description = request.Description,
+                    Title = request.Title,
+                    Creator = request.Creator,
+                    MetaData = request.MetaData
+                };
+                fileRef = await mediaLibraryService.CreateFile(model, file.OpenReadStream());
             }
             else
             {
-                await mediaLibraryService.UpdateFile(path, request.FileName, file.OpenReadStream());
+                await mediaLibraryService.UpdateFile(request.Path, request.FileName, file.OpenReadStream());
             }
 
             return TypedResults.Ok(fileRef);

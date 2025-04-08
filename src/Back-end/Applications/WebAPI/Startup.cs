@@ -166,6 +166,12 @@ public class Startup
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IServiceProvider services)
     {
+        app.UseCors(c =>
+        {
+            c.AllowAnyOrigin();
+            c.AllowAnyMethod();
+            c.AllowAnyHeader();
+        });
         app.UseNewHeapPlatformAspNetCommon(env, services,
                 NewHeapPlatformAspNetCommonApplicationBuilderOptions.Builder
                     .UseEndpoints(e =>

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NewHeap.Media.FileStructureStorage.SqlServer;
 
@@ -11,9 +12,11 @@ using NewHeap.Media.FileStructureStorage.SqlServer;
 namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 {
     [DbContext(typeof(FileStructureDbContext))]
-    partial class FileStructureDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250408080912_AddedTags")]
+    partial class AddedTags
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -36,16 +39,9 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
                     b.Property<DateTimeOffset>("CreationDateTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("Creator")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
                     b.Property<string>("Description")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("MetaData")
-                        .HasColumnType("NVARCHAR(MAX)");
 
                     b.Property<string>("Name")
                         .IsRequired()

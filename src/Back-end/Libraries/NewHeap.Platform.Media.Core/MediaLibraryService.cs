@@ -6,16 +6,24 @@ namespace NewHeap.Media;
 public interface IMediaLibraryService
 {
     Task RenameFile(string path, string filename, string newPath, string newFilename);
-    Task<FileReference> CreateFile(string? path, string filename, Stream file);
+    Task<FileReference> CreateFile(FileModel model, Stream file);
     Task<FolderReference> CreateFolder(string? path, string folderName);
+    Task<FolderReference?> UpdateFolder(string? path, string folderName, string? newPath, string newName);
     Task<FileReference?> GetFile(string? path, string filename, string? language = null);
+    Task<FileReference?> GetFile(Guid id);
     Task<Stream?> DownloadFile(string? path, string fileName);
     Task<FolderContents> GetFolder(string? path, string? language = null);
     Task<bool> UpdateFile(string? path, string fileName, Stream file);
+    Task<bool> UpdateFile(Guid id, FileModel model);
     Task<bool> DeleteFolder(string? path, string folderName);
     Task<bool> DeleteFile(string? path, string fileName);
-    Task<IEnumerable<FileReference>> Search(string? path, string searchTerm, string? language = null);
+
+    Task<IEnumerable<FileReference>> Search(string? path, string searchTerm, string? language = null,
+        string[]? tags = null);
+
     Task<bool> LocalizeField(Guid fileReferenceId, string propertyName, string language, string value);
+
+    Task<bool> UpdateFileTags(string? path, string fileName, IEnumerable<string> tags);
 }
 
 public class MediaLibraryService : IMediaLibraryService
@@ -40,6 +48,12 @@ public class MediaLibraryService : IMediaLibraryService
         return _fileStructureStorage.Localize(fileReferenceId, language, propertyName, value);
     }
 
+    public Task<bool> UpdateFileTags(string? path, string fileName, IEnumerable<string> tags)
+    {
+        path ??= "";
+        return _fileStructureStorage.UpdateTags(path, fileName, tags);
+    }
+
 
     public async Task RenameFile(string path, string filename, string newPath, string newFilename)
     {
@@ -51,15 +65,25 @@ public class MediaLibraryService : IMediaLibraryService
             return;
         }
 
-        await _fileStructureStorage.DeleteFile(path, filename);
-        await _fileStructureStorage.CreateFile(newPath, newFilename, fileRef.Id);
+        await _fileStructureStorage.UpdateFile(fileRef.Id, new FileModel()
+        {
+            Tags = fileRef.Tags.ToArray(),
+            Name = newFilename,
+            Path = newPath,
+            MetaData = fileRef.MetaData,
+            Description = fileRef.Description,
+            AltText = fileRef.AltText,
+            Title = fileRef.Title,
+            Creator = fileRef.Creator,
+        });
     }
 
-    public async Task<FileReference> CreateFile(string? path, string filename, Stream file)
+    public async Task<FileReference> CreateFile(FileModel model, Stream file)
     {
-        await EnsureAuthorized(path, filename, null, ActionType.Create);
+        await EnsureAuthorized(model.Path, model.Name, null, ActionType.Create);
         var fileId = await _fileStorage.SaveFile(file);
-        var fileRef = await _fileStructureStorage.CreateFile(path, filename, fileId);
+
+        var fileRef = await _fileStructureStorage.CreateFile(model, fileId);
         return fileRef;
     }
 
@@ -70,11 +94,22 @@ public class MediaLibraryService : IMediaLibraryService
         return folderRef;
     }
 
+    public async Task<FolderReference?> UpdateFolder(string? path, string folderName, string newPath, string newName)
+    {
+        return await _fileStructureStorage.MoveFolder(path, folderName, newPath, newName);
+    }
+
     public async Task<FileReference?> GetFile(string? path, string filename, string? language = null)
     {
         await EnsureAuthorized(path, filename, null, ActionType.Read);
         var fileRef = await _fileStructureStorage.GetFile(path, filename, language);
         return fileRef;
+    }
+
+    public async Task<FileReference?> GetFile(Guid id)
+    {
+        var reference = await _fileStructureStorage.GetById(id);
+        return reference;
     }
 
     public async Task<Stream?> DownloadFile(string? path, string fileName)
@@ -108,22 +143,37 @@ public class MediaLibraryService : IMediaLibraryService
         return await _fileStorage.UpdateFile(file, fileRef.Id);
     }
 
+    public async Task<bool> UpdateFile(Guid id, FileModel model)
+    {
+        var reference = await _fileStructureStorage.GetById(id);
+
+        if (reference == null)
+        {
+            return false;
+        }
+
+        await EnsureAuthorized(reference.Folder.Path + "/" + reference.Folder.Name, reference.Name, null,
+            ActionType.Update);
+
+        return await _fileStructureStorage.UpdateFile(reference.Id, model) != null;
+    }
+
     public async Task<bool> DeleteFolder(string? path, string folderName)
     {
         await EnsureAuthorized(path, null, null, ActionType.Delete);
 
         var files = await _fileStructureStorage.GetFiles(path + "/" + folderName, null);
 
-        var deleted =  await _fileStructureStorage.DeleteFolder(path, folderName);
+        var deleted = await _fileStructureStorage.DeleteFolder(path, folderName);
         if (deleted)
         {
             var ids = files.Select(x => x.Id).ToList();
             foreach (var id in ids)
             {
                 await _fileStorage.Delete(id);
-            }    
+            }
         }
-        
+
         return deleted;
     }
 
@@ -141,10 +191,11 @@ public class MediaLibraryService : IMediaLibraryService
         return true;
     }
 
-    public async Task<IEnumerable<FileReference>> Search(string? path, string searchTerm, string? language = null)
+    public async Task<IEnumerable<FileReference>> Search(string? path, string searchTerm, string? language = null,
+        string[]? tags = null)
     {
         await EnsureAuthorized(path, null, language, ActionType.Read);
-        return await _fileStructureStorage.Search(searchTerm, path, language);
+        return await _fileStructureStorage.Search(searchTerm, path, language, tags);
     }
 
     private async Task EnsureAuthorized(
@@ -155,10 +206,7 @@ public class MediaLibraryService : IMediaLibraryService
     {
         var context = new AuthorizationContext
         {
-            Path = path,
-            FileName = filename,
-            Language = language,
-            Action = action
+            Path = path, FileName = filename, Language = language, Action = action
         };
         await _authorizationModule.IsAuthorized(context);
         if (!context.Authorized)
