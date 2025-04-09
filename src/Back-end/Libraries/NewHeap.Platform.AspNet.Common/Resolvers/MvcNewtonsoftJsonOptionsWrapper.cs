@@ -11,6 +11,7 @@ public partial class MvcNewtonsoftJsonOptionsWrapper : IConfigureOptions<MvcNewt
     {
         options.SerializerSettings.DateFormatString = Platform.Common.Constants.DateTimeOffset.StringFormat;
         options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+        options.SerializerSettings.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
         options.SerializerSettings.ContractResolver = new DefaultContractResolver
         {
             NamingStrategy = new CamelCaseNamingStrategy { ProcessDictionaryKeys = true }
