@@ -2,7 +2,7 @@
 using Microsoft.OpenApi.Models;
 using OneOf;
 
-namespace NewHeap.Platform.AspNet.Common.SchemaFilters;
+namespace NewHeap.Platform.AspNet.Common.OpenApiSchemaTransformers;
 public class OneOfSchemaTransformer : IOpenApiSchemaTransformer
 {
     public Task TransformAsync(
