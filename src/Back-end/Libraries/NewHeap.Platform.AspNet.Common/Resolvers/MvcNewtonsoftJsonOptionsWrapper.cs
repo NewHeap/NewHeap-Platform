@@ -16,5 +16,11 @@ public partial class MvcNewtonsoftJsonOptionsWrapper : IConfigureOptions<MvcNewt
         {
             NamingStrategy = new CamelCaseNamingStrategy { ProcessDictionaryKeys = true }
         };
+
+#if !DEBUG
+            options.SerializerSettings.Formatting = Newtonsoft.Json.Formatting.None;
+#else
+        options.SerializerSettings.Formatting = Newtonsoft.Json.Formatting.Indented;
+#endif
     }
 }
