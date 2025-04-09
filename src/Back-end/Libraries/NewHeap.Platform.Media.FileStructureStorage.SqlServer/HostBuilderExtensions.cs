@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Media.FileStructureStorage.SqlServer;
 using NewHeap.Media.Modules;
@@ -25,11 +26,20 @@ public static class HostBuilderExtensions
         
         services.AddDbContextPool<FileStructureDbContext>(opt =>
         {
-            opt.UseSqlServer(connectionString);
+            if (options.RunMigrations)
+            {
+                opt.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+            }
+            opt.UseSqlServer(connectionString, efOptions =>
+            {
+                var scheme = string.IsNullOrWhiteSpace(options.Scheme) ? "medialibrary" : options.Scheme;
+                efOptions.MigrationsHistoryTable("_migrations", scheme);
+            });
         });
 
         if (options.RunMigrations)
         {
+            
             services.AddHostedService<MigrateDatabaseHostedService>();
         }
 

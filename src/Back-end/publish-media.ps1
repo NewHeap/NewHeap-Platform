@@ -14,6 +14,10 @@ function PackAndPublish {
 
   $ProjectPaths | ForEach-Object {
     $packageName = (Get-Item $_).Name  
+    
+    Write-Host "dotnet restore "$_\$packageName.csproj" --no-cache"
+    dotnet restore "$_\$packageName.csproj" --no-cache
+    
     Write-Host "dotnet pack "$_\$packageName.csproj" -c Release /p:Version=$Version"
     dotnet pack "$_\$packageName.csproj" -c Release /p:Version=$Version    
     # Controleer of het packen is geslaagd
@@ -69,11 +73,11 @@ $xml.Project.ItemGroup.PackageReference | where {$_.Include.StartsWith("NewHeap.
 
 $xml.Save($mediaProjectFile)
 
-Write-Host "";
-Write-Host "Core packages published. Waiting 10 seconds before building and publishing bundle package so it's dependencies can be resolved."
-Write-Host "";
+#Write-Host "";
+#Write-Host "Core packages published. Waiting 10 seconds before building and publishing bundle package so it's dependencies can be resolved."
+#Write-Host "";
 
-Start-Sleep -Seconds 10
+#Start-Sleep -Seconds 10
 
 $projectPaths = @(".\Libraries\NewHeap.Platform.Media")
 

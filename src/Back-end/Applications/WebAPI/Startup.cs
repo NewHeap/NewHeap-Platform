@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NewHeap.Media;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Models.Options;
@@ -70,7 +71,6 @@ public class Startup
                     policy => policy.RequireActiveDivisionAccess(null,
                         new Claim(NhPlatformClaimTypes.DivisionPermission, "general.view")));
             })
-            
             .ConfgureCommonOptions(NewHeapCommonOptions
                 .Builder(Configuration)
                 .UseOtlpUseExporter(!string.IsNullOrWhiteSpace(Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
@@ -79,15 +79,16 @@ public class Startup
             .Build();
 
         services
-            // .AddNhMedia(opt =>
-            // {
-            //     opt.UseSqlServerFileStructureStorage(Configuration.GetConnectionString("DefaultConnection")!, db =>
-            //     {
-            //         db.Scheme = "medialibrary";
-            //         db.RunMigrations = true; // Defaults to true, here for demonstration purposes
-            //     });
-            //     opt.UseFileSystemMediaStorage(Configuration["Media:FileSystemRoot"]!);
-            // })
+            .AddNhMedia(opt =>
+            {
+                opt.UseSqlServerFileStructureStorage(Configuration.GetConnectionString("DefaultConnection")!, db =>
+                {
+                    db.Scheme = "medialibrary";
+                    db.RunMigrations = true; // Defaults to true, here for demonstration purposes
+                });
+                // opt.AddAuthentication<LoggedInUserMediaAuthorizationModule>();
+                opt.UseFileSystemMediaStorage(Configuration);
+            })
             .AddNewHeapPlatformAspNetCommon<
                 NhUser,
                 NhUserRole,
@@ -164,15 +165,28 @@ public class Startup
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IServiceProvider services)
     {
+        app.UseCors(c =>
+        {
+            c.AllowAnyOrigin();
+            c.AllowAnyMethod();
+            c.AllowAnyHeader();
+        });
         app.UseNewHeapPlatformAspNetCommon(env, services,
                 NewHeapPlatformAspNetCommonApplicationBuilderOptions.Builder
                     .UseEndpoints(e =>
                     {
                         e.MapOpenApi();
                         e.MapScalarApiReference("/scalar");
+                        e.MapNhMediaEndpoints();
                     })
+                    .UseHsTs(true)
+                    .UseHttpsRedirection(true)
                     .UseHsTs(!env.IsDevelopment())
                     .UseHttpsRedirection(!env.IsDevelopment())
+                    .UseMiddlewares(() =>
+                    {
+                        // Optional, default is configured, only override if needed
+                    })
                     .Build()
             )
             .UseNhAuthentication<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, UserViewModel>(configure =>

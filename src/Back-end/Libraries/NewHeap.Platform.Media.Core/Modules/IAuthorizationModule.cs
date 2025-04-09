@@ -5,6 +5,10 @@ public interface IAuthorizationModule
     public Task IsAuthorized(AuthorizationContext context);
 }
 
+/// <summary>
+/// Default implementation of <see cref="IAuthorizationModule"/>.
+/// Always allows access.
+/// </summary>
 public class DefaultAuthorizationModule : IAuthorizationModule
 {
     public Task IsAuthorized(AuthorizationContext context)

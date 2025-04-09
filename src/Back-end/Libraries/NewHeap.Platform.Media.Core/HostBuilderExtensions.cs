@@ -25,7 +25,7 @@ public static class HostBuilderExtensions
 
         if (!context.Services.Any(x => x.ServiceType == typeof(IAuthorizationModule)))
         {
-            context.Services.AddTransient<IAuthorizationModule, DefaultAuthorizationModule>();
+            context.AddAuthentication<DefaultAuthorizationModule>();
         }
         
         services.AddTransient<IMediaLibraryService,MediaLibraryService>();
