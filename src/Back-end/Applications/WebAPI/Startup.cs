@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NewHeap.Media;
+using NewHeap.Media.EventHandlers;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Models.Options;
@@ -23,6 +24,7 @@ using Scalar.AspNetCore;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.View;
+using WebAPI.EventHandlers;
 
 
 namespace WebAPI;
@@ -46,6 +48,7 @@ public class Startup
     public void ConfigureServices(IServiceCollection services)
     {
         services.AddOpenApi("v1");
+        services.AddScoped<IHandleMediaLibraryEvent, MediaLibraryEventHandler>();
         var newHeapPlatformOptions = NewHeapAspNetCommonOptions.Builder(Configuration)
             .ConfigureAutoMapper(options => options.AddMaps(typeof(Startup)))
             .ConfigureAuthorization(options =>
