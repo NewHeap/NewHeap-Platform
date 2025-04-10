@@ -74,7 +74,6 @@ public class Startup
                     policy => policy.RequireActiveDivisionAccess(null,
                         new Claim(NhPlatformClaimTypes.DivisionPermission, "general.view")));
             })
-            
             .ConfgureCommonOptions(NewHeapCommonOptions
                 .Builder(Configuration)
                 .UseOtlpUseExporter(!string.IsNullOrWhiteSpace(Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
@@ -187,6 +186,10 @@ public class Startup
                     .UseHttpsRedirection(true)
                     .UseHsTs(!env.IsDevelopment())
                     .UseHttpsRedirection(!env.IsDevelopment())
+                    .UseMiddlewares(() =>
+                    {
+                        // Optional, default is configured, only override if needed
+                    })
                     .Build()
             )
             .UseNhAuthentication<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, UserViewModel>(configure =>

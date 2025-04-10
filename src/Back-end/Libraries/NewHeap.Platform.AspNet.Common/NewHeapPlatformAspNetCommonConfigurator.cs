@@ -30,6 +30,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
+using System.Text.Json.Serialization;
 
 namespace NewHeap.Platform.AspNet.Common;
 
@@ -179,7 +180,16 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
 
                 _options.ApiBehaviorOptionsAction?.Invoke(options);
             })
-            ;
+            .AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            })
+        ;
+
+        _serviceCollection.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
+        {
+            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        });
 
         _serviceCollection.AddScoped<ExceptionHandlerService>();
 
