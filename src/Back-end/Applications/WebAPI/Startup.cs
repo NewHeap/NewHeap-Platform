@@ -48,7 +48,6 @@ public class Startup
     public void ConfigureServices(IServiceCollection services)
     {
         services.AddOpenApi("v1");
-        services.AddScoped<IHandleMediaLibraryEvent, MediaLibraryEventHandler>();
         var newHeapPlatformOptions = NewHeapAspNetCommonOptions.Builder(Configuration)
             .ConfigureAutoMapper(options => options.AddMaps(typeof(Startup)))
             .ConfigureAuthorization(options =>
@@ -84,6 +83,7 @@ public class Startup
         services
             .AddNhMedia(opt =>
             {
+                opt.AddEventHandler<MediaLibraryEventHandler>();
                 opt.UseSqlServerFileStructureStorage(Configuration.GetConnectionString("DefaultConnection")!, db =>
                 {
                     db.Scheme = "medialibrary";
