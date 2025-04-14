@@ -18,6 +18,7 @@ public interface IAbstractBaseDbEntityService<TEntity, TMutateModel> : IBaseCRUD
 {
     IRepository<TEntity> GetRepository();
     IQueryable<TEntity> QueryableWithAllIncludes(IQueryable<TEntity> queryable = null);
+    IQueryable<TEntity> QueryableWithUpdateDeleteIncludes(IQueryable<TEntity> queryable = null);
 }
 
 public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel, TAbstractBaseDbEntityService> : BaseCRUDService<TEntity, TMutateModel, TAbstractBaseDbEntityService>, IAbstractBaseDbEntityService<TEntity, TMutateModel>
@@ -48,6 +49,15 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
     }
 
     public virtual IQueryable<TEntity> QueryableWithAllIncludes(IQueryable<TEntity> queryable = null)
+    {
+        queryable ??= _repository
+            .GetAll()
+        ;
+
+        return queryable;
+    }
+
+    public virtual IQueryable<TEntity> QueryableWithUpdateDeleteIncludes(IQueryable<TEntity> queryable = null)
     {
         queryable ??= _repository
             .GetAll()
@@ -170,8 +180,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
     {
         var result = new TaskResult<TEntity>();
 
-        var entity = await _repository
-            .GetAll()
+        var entity = await QueryableWithUpdateDeleteIncludes()
             .OrderBy(x => x.Id)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
@@ -247,8 +256,8 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
     {
         var result = new TaskResult<TEntity>();
 
-        var entity = await _repository
-            .FindOneByAsync(x => x.Id == id, cancellationToken);
+        var entity = await QueryableWithUpdateDeleteIncludes()
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         await DoValidateCreateUpdateDeleteAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel>(CRUDActionType.Delete)
         {
