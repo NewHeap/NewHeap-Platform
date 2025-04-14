@@ -122,6 +122,8 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
         var entity = _mapper.Map<TEntity>(mutateModel);
         await _repository.AddAsync(entity, cancellationToken);
         beforeSave?.Invoke(entity);
+        entity.CreationDateTime = DateTimeOffset.UtcNow;
+        entity.LastModifiedDateTime = DateTimeOffset.UtcNow;
 
         await _dbLogService.LogAsync(
             message: "Entity create successful.",
