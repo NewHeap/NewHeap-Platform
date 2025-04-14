@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Media.EventHandlers;
 using NewHeap.Media.Modules;
 
 namespace NewHeap.Media;
@@ -12,6 +13,12 @@ public class NhMediaContext
         Services = services;
     }
 
+    public NhMediaContext AddEventHandler<THandler>() where THandler : class, IHandleMediaLibraryEvent
+    {
+        Services.AddTransient<IHandleMediaLibraryEvent, THandler>();
+        return this;
+    }
+    
     public NhMediaContext AddStorage<TStorage>() 
         where TStorage : class, IMediaStorage
     {
