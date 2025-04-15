@@ -25,7 +25,7 @@ public abstract class BaseNhAuthenticationEndpoint : IAuthenticationEndpoint
 
     protected IResult BadRequest(TaskResult result)
     {
-        return TypedResults.BadRequest(result.GetResults().ToDictionary(x => x.Name, x => x.ErrorMessages.Select(error => error.ToString())));
+        return TypedResults.BadRequest(result.GetResultItems().ToDictionary(x => x.Name, x => x.ErrorMessages.Select(error => error.ToString())));
     }
 }
 
