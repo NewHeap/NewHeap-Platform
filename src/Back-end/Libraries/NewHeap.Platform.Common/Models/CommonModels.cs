@@ -35,7 +35,9 @@ public partial class TaskResult
 
     public bool Success { get; protected set; } = true;
 
-    public List<ResultItem> Results { get; } = [];
+    protected List<ResultItem> Results { get; } = [];
+
+    public List<ResultItem> GetResults() => Results;
 
     protected FormattableString CreateFormattableString(string format, object[] args = null)
     {
