@@ -27,6 +27,10 @@
         <EmbeddedResource Remove="Models\Binding\**" />
         <None Remove="ContentDynamic\**" />
         <None Remove="Models\Binding\**" />
+        <Compile Remove="media\**" />
+        <EmbeddedResource Remove="media\**" />
+        <Content Remove="media\**" />
+        <None Remove="media\**" />
     </ItemGroup>
 
     <ItemGroup>
