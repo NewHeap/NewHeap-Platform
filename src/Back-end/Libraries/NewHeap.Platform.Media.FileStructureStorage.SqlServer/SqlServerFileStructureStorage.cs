@@ -76,9 +76,10 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             if (sep != -1)
             {
                 folderPath = entity.Path[..sep];
-                folderName = entity.Path[(sep + 1)..];
+                folderName = entity.Path[(sep + 1)..].Trim('/');
             }
 
+            folderPath = NormalizePath(folderPath);
             var folderExists = await _dbContext.Folders.AnyAsync(x => x.Path == folderPath && x.Name == folderName);
             if (!folderExists)
             {
@@ -187,6 +188,10 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                     await _dbContext.Folders.FirstOrDefaultAsync(x => x.Path == currentPath && x.Name == part);
                 if (existing == null)
                 {
+                    if (!string.IsNullOrWhiteSpace(part) && string.IsNullOrWhiteSpace(currentPath))
+                    {
+                        currentPath = "/";
+                    }
                     existing = new FolderEntity { Name = part, Path = currentPath };
                     _dbContext.Folders.Add(existing);
                 }
