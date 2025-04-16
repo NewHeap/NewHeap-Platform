@@ -67,7 +67,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             MetaData = metaDataJson
         };
 
-        if (entity.Path != "/")
+        if (entity.Path != NhMediaValues.DirectorySeparator)
         {
             string? folderPath = null;
             var folderName = entity.Path;
@@ -76,7 +76,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             if (sep != -1)
             {
                 folderPath = entity.Path[..sep];
-                folderName = entity.Path[(sep + 1)..].Trim('/');
+                folderName = entity.Path[(sep + 1)..].Trim(NhMediaValues.DirectorySeparator[0]);
             }
 
             folderPath = NormalizePath(folderPath);
@@ -121,7 +121,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             return null;
         }
 
-        var sep = model.Path.LastIndexOf('/');
+        var sep = model.Path.LastIndexOf(NhMediaValues.DirectorySeparator, StringComparison.Ordinal);
         var folderPath = model.Path[..sep];
         var folderName = model.Path[sep..];
 
@@ -162,14 +162,14 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
     {
         if (string.IsNullOrWhiteSpace(path))
         {
-            return "/";
+            return NhMediaValues.DirectorySeparator;
         }
-        
-        path = path.Replace('\\', '/');
-        path = DuplicatedSlashesRegex().Replace(path, "/");
-        if (!path.StartsWith("/"))
+
+        path = path.Replace('\\', NhMediaValues.DirectorySeparator[0]);
+        path = DuplicatedSlashesRegex().Replace(path, NhMediaValues.DirectorySeparator);
+        if (!path.StartsWith(NhMediaValues.DirectorySeparator))
         {
-            path = "/" + path;
+            path = NhMediaValues.DirectorySeparator + path;
         }
 
         return path;
@@ -178,7 +178,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
     public async Task<FolderReference> CreateFolder(string? path, string folderName)
     {
         path = NormalizePath(path);
-        if (path != "/")
+        if (path != NhMediaValues.DirectorySeparator)
         {
             var parts = path.Split(NhMediaValues.DirectorySeparator);
             string? currentPath = null;
@@ -190,8 +190,9 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                 {
                     if (!string.IsNullOrWhiteSpace(part) && string.IsNullOrWhiteSpace(currentPath))
                     {
-                        currentPath = "/";
+                        currentPath = NhMediaValues.DirectorySeparator;
                     }
+
                     existing = new FolderEntity { Name = part, Path = currentPath };
                     _dbContext.Folders.Add(existing);
                 }
@@ -212,16 +213,17 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         _dbContext.Folders.Add(folder);
         await _dbContext.SaveChangesAsync();
 
-        return await GetFolderReference($"{path}/{folderName}");
+        return await GetFolderReference(MediaLibraryPath.Combine(path, folderName));
     }
 
     public async Task<bool> DeleteFolder(string? path, string folderName)
     {
         path = NormalizePath(path);
 
-        var fullPath = path != "/" ? path + NhMediaValues.DirectorySeparator + folderName : path + folderName;
+        var fullPath = MediaLibraryPath.Combine(path, folderName);
 
-        var fileIds = await _dbContext.Files.Where(x => x.Path!.StartsWith(fullPath)).Select(x => x.Id)
+        var fileIds = await _dbContext.Files.Where(x => x.Path!.StartsWith(fullPath))
+            .Select(x => x.Id)
             .ToListAsync();
         var count = fileIds.Count;
         count += await _dbContext.Localizations
@@ -238,29 +240,22 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         return content.Files;
     }
 
-    private Task<FolderReference> GetFolderReference(string? path)
+    public async Task<FolderReference> GetFolderReference(string? path)
     {
         path = NormalizePath(path);
-        var splitAt = path.LastIndexOf('/');
-        if (splitAt == -1)
-        {
-            return Task.FromResult(new FolderReference { Path = "/", Name = "", FullPath = "/" });
-        }
+        MediaLibraryPath.Split(path, out var folderPath, out var folderName);
+        var id = await _dbContext.Folders
+            .Where(x => x.Path == path && x.Name == folderName)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync();
 
-        var folderPath = path[0..splitAt];
-        var folderName = path[(splitAt + 1)..];
-
-        if (!folderPath.StartsWith('/'))
+        return new FolderReference
         {
-            folderPath = "/" + folderPath;
-        }
-        
-        if (!path.StartsWith('/'))
-        {
-            path = "/" + path;
-        }
-
-        return Task.FromResult(new FolderReference { Path = folderPath, Name = folderName, FullPath = path });
+            Id = id,
+            Path = folderPath,
+            Name = folderName,
+            FullPath = path
+        };
     }
 
     public async Task<FolderContents> GetFolder(string? path, string? language)
@@ -274,7 +269,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
 
         foreach (var folder in folders)
         {
-            if (string.IsNullOrEmpty(folder.Name) || folder.Name == "/")
+            if (string.IsNullOrEmpty(folder.Name) || folder.Name == NhMediaValues.DirectorySeparator)
             {
                 continue;
             }
@@ -503,12 +498,13 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
     {
         path = NormalizePath(path);
         newPath = NormalizePath(newPath);
-        
+
         var folder = await _dbContext.Folders.FirstOrDefaultAsync(x => x.Path == path && x.Name == folderName);
         if (folder == null)
         {
             return null;
         }
+
         folder.Path = newPath;
         folder.Name = newName;
         await _dbContext.SaveChangesAsync();

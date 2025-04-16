@@ -5,6 +5,21 @@ namespace NewHeap.Media.EventHandlers;
 public interface IHandleMediaLibraryEvent
 {
     ValueTask HandleEvent(MediaLibraryFileEvent @event);
+    
+    ValueTask HandleEvent(MediaLibraryFolderEvent @event);
+}
+
+public class MediaLibraryFolderEvent
+{
+    public FolderReference? OldFolder { get; internal set; }
+    public FolderReference? NewFolder { get; internal set; }
+    public Guid? Id { get; internal set; }
+
+    public MediaLibraryFolderEventType Type { get; internal set; }
+    
+    internal MediaLibraryFolderEvent()
+    {
+    }
 }
 
 public class MediaLibraryFileEvent
@@ -23,6 +38,19 @@ public class MediaLibraryFileEvent
 public enum MediaLibraryFileEventType
 {
     /// <summary>
+    /// File is about to be added
+    /// </summary>
+    Adding,
+    /// <summary>
+    /// File is about to be removed
+    /// </summary>
+    Removing,
+    /// <summary>
+    /// File is about to be updated
+    /// </summary>
+    Updating,
+    
+    /// <summary>
     /// File was created 
     /// </summary>
     Added,
@@ -39,4 +67,15 @@ public enum MediaLibraryFileEventType
     /// File binary data was updated. Metadata may also have changed.
     /// </summary>
     BinaryUpdated
+}
+
+public enum MediaLibraryFolderEventType
+{
+    Adding,
+    Removing,
+    Updating,
+    
+    Added,
+    Removed,
+    Updated,
 }

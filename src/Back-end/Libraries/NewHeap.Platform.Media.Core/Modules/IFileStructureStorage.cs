@@ -23,6 +23,8 @@ public interface IFileStructureStorage
     Task<bool> UpdateTags(string path, string fileName, IEnumerable<string> tags);
     Task<FileReference?> GetById(Guid id);
     Task<FolderReference?> MoveFolder(string? path, string folderName, string newPath, string newName);
+
+    Task<FolderReference> GetFolderReference(string? path);
 }
 
 public class FileModel
@@ -56,11 +58,49 @@ public class FileReference
     public IEnumerable<string> Tags { get; set; } = [];
 
     public required FolderReference Folder { get; set; }
+
+    public FileReference Copy(Action<FileReference>? setValues = null)
+    {
+        var v = new FileReference()
+        {
+            Folder = Folder,
+            Name = Name,
+            Tags = Tags,
+            Description = Description,
+            AltText = AltText,
+            Title = Title,
+            MetaData = MetaData,
+            Creator = Creator,
+            Id = Id,
+        };
+        setValues?.Invoke(v);
+        return v;
+    }
 }
 
 public class FolderReference
 {
+    public Guid? Id { get; set; }
     public string? Path { get; set; }
     public required string Name { get; set; }
     public required string FullPath { get; set; }
+
+    public FolderReference()
+    {
+        
+    }
+
+    public FolderReference? Copy(Action<FolderReference>? setValues = null)
+    {
+        var v = new FolderReference
+        {
+            Id = Id,
+            Path = Path,
+            Name = Name,
+            FullPath = FullPath,
+        };
+        setValues?.Invoke(v);
+        
+        return v;
+    }
 }

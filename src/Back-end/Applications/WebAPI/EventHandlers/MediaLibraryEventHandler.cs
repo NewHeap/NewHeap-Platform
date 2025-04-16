@@ -10,4 +10,9 @@ public class MediaLibraryEventHandler : IHandleMediaLibraryEvent
     {
         Console.WriteLine($"Processed event for {@event.OldFile?.Name ?? @event.NewFile?.Name} with type {@event.Type}");
     }
+
+    public async ValueTask HandleEvent(MediaLibraryFolderEvent @event)
+    {
+        Console.WriteLine($"Processed folder event for {@event.OldFolder?.Name ?? @event.NewFolder?.Name} with type {@event.Type}");
+    }
 }
