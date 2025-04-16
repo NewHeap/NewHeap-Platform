@@ -69,21 +69,14 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
 
         if (entity.Path != NhMediaValues.DirectorySeparator)
         {
-            string? folderPath = null;
-            var folderName = entity.Path;
+            var parts = entity.Path.Split(NhMediaValues.DirectorySeparator, StringSplitOptions.RemoveEmptyEntries);
 
-            var sep = entity.Path.LastIndexOf(NhMediaValues.DirectorySeparator, StringComparison.Ordinal);
-            if (sep != -1)
+            var p = NhMediaValues.DirectorySeparator;
+            foreach (var part in parts)
             {
-                folderPath = entity.Path[..sep];
-                folderName = entity.Path[(sep + 1)..].Trim(NhMediaValues.DirectorySeparator[0]);
-            }
-
-            folderPath = NormalizePath(folderPath);
-            var folderExists = await _dbContext.Folders.AnyAsync(x => x.Path == folderPath && x.Name == folderName);
-            if (!folderExists)
-            {
-                await CreateFolder(folderPath, folderName);
+                await CreateFolder(p, part);
+                
+                p += part.Trim(NhMediaValues.DirectorySeparator[0]) + NhMediaValues.DirectorySeparator;
             }
         }
 
@@ -172,12 +165,24 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             path = NhMediaValues.DirectorySeparator + path;
         }
 
+        if (path.EndsWith(NhMediaValues.DirectorySeparator))
+        {
+            path = path[..^1];
+        }
+
         return path;
     }
 
     public async Task<FolderReference> CreateFolder(string? path, string folderName)
     {
         path = NormalizePath(path);
+
+        var exists = await _dbContext.Folders.AnyAsync(x => x.Path == path && x.Name == folderName);
+        if (exists)
+        {
+            return await GetFolderReference(MediaLibraryPath.Combine(path, folderName));
+        }
+        
         if (path != NhMediaValues.DirectorySeparator)
         {
             var parts = path.Split(NhMediaValues.DirectorySeparator);
