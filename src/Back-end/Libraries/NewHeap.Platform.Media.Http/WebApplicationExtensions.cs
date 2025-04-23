@@ -13,25 +13,57 @@ namespace NewHeap.Media;
 
 public static class WebApplicationExtensions
 {
-    public static RouteGroupBuilder MapNhMediaEndpoints(this IEndpointRouteBuilder app, string prefix = "media")
+    public static RouteGroupBuilder MapNhMediaEndpoints(this IEndpointRouteBuilder app, string prefix = "media",
+        Action<MediaLibraryRouteBuilder>? configureOptions = null)
     {
         var group = app.MapGroup(prefix);
 
-        group.MapGet("list", List).WithDescription("List files and folders");
-        group.MapGet("download", Download).WithDescription("Download a file");
-        group.MapGet("search", Search).WithDescription("Search files");
+        var options = new MediaLibraryRouteBuilder();
+        configureOptions?.Invoke(options);
 
-        group.MapPost("upload", Upload).DisableAntiforgery().WithDescription("Upload a file");
-        group.MapPost("folder", CreateFolder).WithDescription("Create a folder");
-        group.MapPost("file/localize", LocalizeFile).WithDescription("Add localization to a file");
-        group.MapPost("file/tags", UpdateTags).WithDescription("Update file tags");
+        var list = group.MapGet("list", List).WithDescription("List files and folders");
+        options.AllRoutes?.Invoke(list);
+        options.List?.Invoke(list);
 
-        group.MapPut("file/{id:guid}", UpdateFile).WithDescription("Update file (meta)data");
-        group.MapPut("folder", UpdateFolder).WithDescription("Update folder properties");
+        var download = group.MapGet("download", Download).WithDescription("Download a file");
+        options.AllRoutes?.Invoke(download);
+        options.Download?.Invoke(download);
 
-        group.MapDelete("folder", DeleteFolder).WithDescription("Delete a folder and all files and subfolders");
-        group.MapDelete("file", DeleteFile).WithDescription("Delete a file");
+        var search = group.MapGet("search", Search).WithDescription("Search files");
+        options.AllRoutes?.Invoke(search);
+        options.Search?.Invoke(search);
 
+        var upload = group.MapPost("upload", Upload).DisableAntiforgery().WithDescription("Upload a file");
+        options.AllRoutes?.Invoke(upload);
+        options.UploadFile?.Invoke(upload);
+
+        var createFolder = group.MapPost("folder", CreateFolder).WithDescription("Create a folder");
+        options.AllRoutes?.Invoke(createFolder);
+        options.CreateFolder?.Invoke(createFolder);
+        
+        var localizeFile = group.MapPost("file/localize", LocalizeFile).WithDescription("Add localization to a file");
+        options.AllRoutes?.Invoke(localizeFile);
+        options.LocalizeFile?.Invoke(localizeFile);
+        
+        var setTags = group.MapPost("file/tags", UpdateTags).WithDescription("Update file tags");
+        options.AllRoutes?.Invoke(setTags);
+        options.UpdateTags?.Invoke(setTags);
+
+        var updateFile = group.MapPut("file/{id:guid}", UpdateFile).WithDescription("Update file (meta)data");
+        options.AllRoutes?.Invoke(updateFile);
+        options.UpdateFile?.Invoke(updateFile);
+        
+        var updateFolder = group.MapPut("folder", UpdateFolder).WithDescription("Update folder properties");
+        options.AllRoutes?.Invoke(updateFolder);
+        options.UpdateFolder?.Invoke(updateFolder);
+
+        var deleteFolder = group.MapDelete("folder", DeleteFolder).WithDescription("Delete a folder and all files and subfolders");
+        options.AllRoutes?.Invoke(deleteFolder);
+        options.DeleteFolder?.Invoke(deleteFolder);
+        
+        var deleteFile = group.MapDelete("file", DeleteFile).WithDescription("Delete a file");
+        options.AllRoutes?.Invoke(deleteFile);
+        options.DeleteFile?.Invoke(deleteFile);
 
         return group;
     }

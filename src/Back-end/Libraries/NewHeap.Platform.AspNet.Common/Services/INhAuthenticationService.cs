@@ -53,6 +53,15 @@ public interface INhAuthenticationService
     /// <returns></returns>
     /// <exception cref="ConfigurationException">Throws when JWT configuration is missing</exception>
     Task<JwtSecurityToken> CreateToken(Guid userId, TimeSpan? expiration = null, bool withDivisionClaims = false);
+    
+    /// <summary>
+    /// Create a token for the given user with specific claims
+    /// </summary>
+    /// <param name="userId"></param>
+    /// <param name="claims"></param>
+    /// <param name="expiration"></param>
+    /// <returns></returns>
+    Task<JwtSecurityToken> CreateToken(Guid userId, IEnumerable<Claim> claims, TimeSpan? expiration = null);
 
     JwtSecurityToken? DecodeToken(string token);
 }

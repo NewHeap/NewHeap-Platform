@@ -182,6 +182,19 @@ public class NhAuthenticationService<
     /// <exception cref="ConfigurationException">Throws when JWT configuration is missing</exception>
     public virtual async Task<JwtSecurityToken> CreateToken(Guid userId, TimeSpan? expiration = null, bool withDivisionClaims = false)
     {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+        {
+            throw new InvalidOperationException("Invalid user id");
+        }
+        
+        var claims = await _userManager.GetValidClaims(user!, withDivisionClaims);
+        return await CreateToken(userId, claims, expiration);
+    }
+
+    public async Task<JwtSecurityToken> CreateToken(Guid userId, IEnumerable<Claim> c, TimeSpan? expiration = null)
+    {
+        
         if (
             string.IsNullOrWhiteSpace(GetTokenKey())
             || string.IsNullOrWhiteSpace(GetIssuer())
@@ -189,14 +202,17 @@ public class NhAuthenticationService<
         {
             throw new ConfigurationException("Missing JWT configuration");
         }
-
+        var claims = c.ToList();
         var tokenKey = GetTokenKey();
         var issuer = GetIssuer();
 
         expiration ??= TimeSpan.FromDays(1);
 
-        var user = await _userManager.FindByIdAsync(userId.ToString());
-        var claims = await _userManager.GetValidClaims(user!, withDivisionClaims);
+        if (!claims.Any(x => x.Type != ClaimTypes.NameIdentifier))
+        {
+            claims.Add(new Claim(ClaimTypes.NameIdentifier, userId.ToString()));
+        }
+        
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
