@@ -24,7 +24,6 @@ import { NhFormHelper } from "../../util/nh-form.util";
 import { NhRouterService } from "../../services/nh-router.service";
 import { NhTaskResultFormValidationService } from "../../services/nh-task-result-form.validator";
 import { TaskResult } from "../../models/misc.models";
-import {HttpErrorResponse} from "@angular/common/http";
 
 
 export enum MutationType {
@@ -37,13 +36,13 @@ export enum MutationType {
     template: ``,
     standalone: false
 })
-export abstract class NhMutateBaseComponent<TFormData>
+export abstract class NhMutateBaseComponent<TFormData, TResult>
   implements
     OnInit,
     OnDestroy,
-    INhModalComponent<NhMutateBaseComponent<TFormData>>
+    INhModalComponent<NhMutateBaseComponent<TFormData, TResult>>
 {
-  protected modalComponentRef: NhModalComponentRef<NhMutateBaseComponent<TFormData>>|undefined;
+  protected modalComponentRef: NhModalComponentRef<NhMutateBaseComponent<TFormData, TResult>>|undefined;
   protected authService: NhAuthService = inject(NhAuthService);
   protected modalService: NhModalService = inject(NhModalService);
   protected translateService: TranslateService = inject(TranslateService);
@@ -58,7 +57,7 @@ export abstract class NhMutateBaseComponent<TFormData>
   private _mutationType: MutationType = MutationType.Create;
   private _formData: TFormData|undefined;
 
-  setModalComponentRef(ref: NhModalComponentRef<NhMutateBaseComponent<TFormData>>): void {
+  setModalComponentRef(ref: NhModalComponentRef<NhMutateBaseComponent<TFormData, TResult>>): void {
     this.modalComponentRef = ref;
   }
 
@@ -99,15 +98,15 @@ export abstract class NhMutateBaseComponent<TFormData>
   }
 
   @ViewChild(NgForm) form: any|undefined;
-  @Output() created = new EventEmitter<TFormData>();
-  @Output() updated = new EventEmitter<TFormData>();
+  @Output() created = new EventEmitter<TResult>();
+  @Output() updated = new EventEmitter<TResult>();
 
   protected constructor() {
   }
 
   abstract onNewFormData(mutationType: MutationType): Promise<TFormData>;
-  abstract onSubmitCreate(event: any): Promise<TaskResult<TFormData>>;
-  abstract onSubmitUpdate(event: any): Promise<TaskResult<TFormData>>;
+  abstract onSubmitCreate(event: any): Promise<TaskResult<TResult>>;
+  abstract onSubmitUpdate(event: any): Promise<TaskResult<TResult>>;
 
   ngOnInit(): void {
   }
