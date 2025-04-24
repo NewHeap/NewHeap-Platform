@@ -5,9 +5,10 @@ namespace NewHeap.Media;
 
 public static class HostBuilderExtensions
 {
-    public static IServiceCollection AddNhMedia(this IServiceCollection services,Action<NhMediaContext>? configure)
+    public static IServiceCollection AddNhMedia(this IServiceCollection services,Action<NhMediaServiceConfigurationContext>? configure)
     {
-        var context = new NhMediaContext(services);
+        var context = new NhMediaServiceConfigurationContext(services);
+        services.AddSingleton(new NhMediaContext());
         if (configure != null)
         {
             configure(context);

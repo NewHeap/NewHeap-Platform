@@ -1,6 +1,8 @@
 using Hangfire;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,8 +24,11 @@ using WebAPI.Jobs;
 using WebAPI.DAL.Entities;
 using Scalar.AspNetCore;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Extensions;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.View;
+using NhMedia;
+using System.Threading.Tasks;
 using WebAPI.EventHandlers;
 
 
@@ -50,8 +55,14 @@ public class Startup
         services.AddOpenApi("v1");
         var newHeapPlatformOptions = NewHeapAspNetCommonOptions.Builder(Configuration)
             .ConfigureAutoMapper(options => options.AddMaps(typeof(Startup)))
+            .ConfigureJwtBearerValidationOptions(opt =>
+            {
+                opt.ConfigureNhJwtBearerValidationOptions(Configuration);
+            })
             .ConfigureAuthorization(options =>
             {
+                options.AddPolicy("nh-media", p => p.Requirements.Add(new ShouldBeNhMediaEndpointRequirement()));
+                
                 // Optional, default is configured, only override if needed
                 options.AddPolicy("app.developer.general",
                     policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.developer.general"));
@@ -158,7 +169,7 @@ public class Startup
                 }, consoleOptions =>
                 {
                     //Optional, default is configured, only override if needed
-                })           
+                })
             ;
 
         services.AddScopedNhDbRepository<Address>(); 
@@ -180,7 +191,12 @@ public class Startup
                     {
                         e.MapOpenApi();
                         e.MapScalarApiReference("/scalar");
-                        e.MapNhMediaEndpoints();
+                        e.MapNhMediaEndpoints( options =>
+                        {
+                            options.ConfigureDeleteFile(f => f.RequireAuthorization(p => p.RequireClaim("foo")));
+                            
+                            options.ConfigureAllRoutes(builder => builder.RequireAuthorization());
+                        });
                     })
                     .UseHsTs(true)
                     .UseHttpsRedirection(true)
@@ -210,5 +226,29 @@ public class Startup
             })
             ;
         BackgroundJob.Enqueue<DatabaseJobs>(x => x.Seed());
+    }
+}
+
+public class ShouldBeNhMediaEndpointRequirement : IAuthorizationRequirement
+{
+    
+}
+
+public class ShouldBeNhMediaEndpointRequirementHandler : AuthorizationHandler<ShouldBeNhMediaEndpointRequirement>
+{
+    private readonly IHttpContextAccessor _accessor;
+
+    public ShouldBeNhMediaEndpointRequirementHandler(IHttpContextAccessor accessor)
+    {
+        _accessor = accessor;
+    }
+    
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ShouldBeNhMediaEndpointRequirement requirement)
+    {
+        var httpContext = _accessor.HttpContext;
+        if (httpContext?.IsNhMediaEndpoint() == true)
+        {
+            context.Succeed(requirement);
+        }
     }
 }

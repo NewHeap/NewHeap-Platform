@@ -1,42 +1,15 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using NewHeap.Media.EventHandlers;
-using NewHeap.Media.Modules;
-
-namespace NewHeap.Media;
+﻿namespace NewHeap.Media;
 
 public class NhMediaContext
 {
-    public IServiceCollection Services { get; }
+    public Dictionary<string, object> Values { get; } = new();
 
-    internal NhMediaContext(IServiceCollection services)
+    public T Get<T>(string key)
     {
-        Services = services;
-    }
-
-    public NhMediaContext AddEventHandler<THandler>() where THandler : class, IHandleMediaLibraryEvent
-    {
-        Services.AddTransient<IHandleMediaLibraryEvent, THandler>();
-        return this;
-    }
-    
-    public NhMediaContext AddStorage<TStorage>() 
-        where TStorage : class, IMediaStorage
-    {
-        Services.AddTransient<IMediaStorage, TStorage>();
-        return this;
-    }
-    
-    public NhMediaContext AddFileStructureStorage<TStorage>() 
-        where TStorage : class, IFileStructureStorage
-    {
-        Services.AddTransient<IFileStructureStorage, TStorage>();
-        return this;
-    }
-    
-    public NhMediaContext AddAuthentication<TAuth>() 
-        where TAuth : class, IAuthorizationModule
-    {
-        Services.AddTransient<IAuthorizationModule, TAuth>();
-        return this;
+        if (!Values.TryGetValue(key, out var value))
+        {
+            return default;
+        }
+        return (T)value;
     }
 }

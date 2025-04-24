@@ -7,11 +7,11 @@ namespace NewHeap.Media;
 public static class NhMediaContextExtensions
 {
     public static void UseSqlServerFileStructureStorage(
-        this NhMediaContext context,
+        this NhMediaServiceConfigurationContext serviceConfigurationContext,
         string connectionString,
         Action<FileStructureDbContextOptions>? configureDbSet = null
     )
     {
-        context.Services.AddMediaSqlServerStorage(connectionString, configureDbSet);
+        serviceConfigurationContext.Services.AddMediaSqlServerStorage(connectionString, configureDbSet);
     }
 }
