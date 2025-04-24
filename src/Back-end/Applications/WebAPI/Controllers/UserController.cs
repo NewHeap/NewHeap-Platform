@@ -11,7 +11,7 @@ using NewHeap.Platform.AspNet.Common.Services;
 namespace WebAPI.Controllers;
 
 [Route("[controller]")]
-public class UserController : NhBaseUserController<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, UserViewModel>
+public class UserController : NhBaseUserController<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, NhUserViewModel>
 {
     protected const string READ_POLICY = "app.user.view";
     protected const string MANAGE_POLICY = "app.user.manage";

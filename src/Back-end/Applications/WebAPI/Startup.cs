@@ -192,7 +192,7 @@ public class Startup
                     })
                     .Build()
             )
-            .UseNhAuthentication<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, UserViewModel>(configure =>
+            .UseNhAuthentication<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, NhUserViewModel>(configure =>
             {
                 configure.AddUserNamePasswordEndpoint();
             })

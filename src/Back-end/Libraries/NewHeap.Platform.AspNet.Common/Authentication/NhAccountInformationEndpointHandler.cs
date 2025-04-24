@@ -87,7 +87,7 @@ public class NhAccountInformationEndpointHandler<
             return TypedResults.Unauthorized();
         }
 
-        var response = new AccountResponse { User = mapper.Map<UserViewModel>(user) };
+        var response = new AccountResponse { User = mapper.Map<NhUserViewModel>(user) };
 
         var claims = await userManager.GetValidClaims(user, _configuration.DivisionsEnabled);
         response.Claims = claims.Select(mapper.Map<ClaimViewModel>);
@@ -153,7 +153,7 @@ public record AccountResponse
 {
     public List<DivisionViewModel> Divisions { get; set; } = new();
     public IEnumerable<ClaimViewModel> Claims { get; set; }
-    public UserViewModel User { get; set; }
+    public NhUserViewModel User { get; set; }
     public Guid? ActiveDivisionId { get; set; }
     public DivisionViewModel? ActiveDivision { get; set; }
     public List<string> Roles { get; set; } = new();

@@ -35,7 +35,7 @@ public abstract class NhBaseUserController<
     where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
     where TDivisionRoleClaim : NhDivisionRoleClaim
-    where TUserViewModel : UserViewModel
+    where TUserViewModel : NhUserViewModel
 {
     protected const string READ_POLICY = "app.user.view";
     protected const string MANAGE_POLICY = "app.user.manage";

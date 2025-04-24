@@ -302,7 +302,7 @@ public class AccountController : PublicNhBaseController
 
         ProfileAccountViewModel model = new()
         {
-            User = _mapper.Map<UserViewModel>(user),
+            User = _mapper.Map<NhUserViewModel>(user),
             Divisions = _mapper.Map<List<DivisionViewModel>>(divisions),
             Claims = _mapper.Map<List<ClaimViewModel>>(claims.Where(x => allowedClaimTypes.Contains(x.Type)))
         };
