@@ -13,57 +13,68 @@ namespace NewHeap.Media;
 
 public static class WebApplicationExtensions
 {
+
+    public static RouteGroupBuilder MapNhMediaEndpoints(this IEndpointRouteBuilder app, Action<MediaLibraryRouteBuilder>? configureOptions = null)
+    {
+        return MapNhMediaEndpoints(app,"media", configureOptions);
+    }
+    
     public static RouteGroupBuilder MapNhMediaEndpoints(this IEndpointRouteBuilder app, string prefix = "media",
         Action<MediaLibraryRouteBuilder>? configureOptions = null)
     {
+        if (app.ServiceProvider.GetService(typeof(NhMediaContext)) is NhMediaContext context)
+        {
+            context.Values[NhMediaHttpConstants.API_PREFIX_CONTEXT_KEY] = prefix;
+        }
         var group = app.MapGroup(prefix);
+        group.AddEndpointFilter<MediaContextEndpointFilter>();
 
         var options = new MediaLibraryRouteBuilder();
         configureOptions?.Invoke(options);
 
         var list = group.MapGet("list", List).WithDescription("List files and folders");
-        options.AllRoutes?.Invoke(list);
-        options.List?.Invoke(list);
+        list = options.AllRoutesAction?.Invoke(list) ?? list;
+        options.ListAction?.Invoke(list);
 
         var download = group.MapGet("download", Download).WithDescription("Download a file");
-        options.AllRoutes?.Invoke(download);
-        options.Download?.Invoke(download);
+        options.AllRoutesAction?.Invoke(download);
+        options.DownloadAction?.Invoke(download);
 
         var search = group.MapGet("search", Search).WithDescription("Search files");
-        options.AllRoutes?.Invoke(search);
-        options.Search?.Invoke(search);
+        options.AllRoutesAction?.Invoke(search);
+        options.SearchAction?.Invoke(search);
 
         var upload = group.MapPost("upload", Upload).DisableAntiforgery().WithDescription("Upload a file");
-        options.AllRoutes?.Invoke(upload);
-        options.UploadFile?.Invoke(upload);
+        options.AllRoutesAction?.Invoke(upload);
+        options.UploadFileAction?.Invoke(upload);
 
         var createFolder = group.MapPost("folder", CreateFolder).WithDescription("Create a folder");
-        options.AllRoutes?.Invoke(createFolder);
-        options.CreateFolder?.Invoke(createFolder);
+        options.AllRoutesAction?.Invoke(createFolder);
+        options.CreateFolderAction?.Invoke(createFolder);
         
         var localizeFile = group.MapPost("file/localize", LocalizeFile).WithDescription("Add localization to a file");
-        options.AllRoutes?.Invoke(localizeFile);
-        options.LocalizeFile?.Invoke(localizeFile);
+        options.AllRoutesAction?.Invoke(localizeFile);
+        options.LocalizeFileAction?.Invoke(localizeFile);
         
         var setTags = group.MapPost("file/tags", UpdateTags).WithDescription("Update file tags");
-        options.AllRoutes?.Invoke(setTags);
-        options.UpdateTags?.Invoke(setTags);
+        options.AllRoutesAction?.Invoke(setTags);
+        options.UpdateTagsAction?.Invoke(setTags);
 
         var updateFile = group.MapPut("file/{id:guid}", UpdateFile).WithDescription("Update file (meta)data");
-        options.AllRoutes?.Invoke(updateFile);
-        options.UpdateFile?.Invoke(updateFile);
+        options.AllRoutesAction?.Invoke(updateFile);
+        options.UpdateFileAction?.Invoke(updateFile);
         
         var updateFolder = group.MapPut("folder", UpdateFolder).WithDescription("Update folder properties");
-        options.AllRoutes?.Invoke(updateFolder);
-        options.UpdateFolder?.Invoke(updateFolder);
+        options.AllRoutesAction?.Invoke(updateFolder);
+        options.UpdateFolderAction?.Invoke(updateFolder);
 
         var deleteFolder = group.MapDelete("folder", DeleteFolder).WithDescription("Delete a folder and all files and subfolders");
-        options.AllRoutes?.Invoke(deleteFolder);
-        options.DeleteFolder?.Invoke(deleteFolder);
+        options.AllRoutesAction?.Invoke(deleteFolder);
+        options.DeleteFolderAction?.Invoke(deleteFolder);
         
         var deleteFile = group.MapDelete("file", DeleteFile).WithDescription("Delete a file");
-        options.AllRoutes?.Invoke(deleteFile);
-        options.DeleteFile?.Invoke(deleteFile);
+        options.AllRoutesAction?.Invoke(deleteFile);
+        options.DeleteFileAction?.Invoke(deleteFile);
 
         return group;
     }

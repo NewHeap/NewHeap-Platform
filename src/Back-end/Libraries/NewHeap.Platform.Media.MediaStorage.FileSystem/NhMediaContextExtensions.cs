@@ -6,14 +6,14 @@ namespace NewHeap.Media;
 
 public static class NhMediaContextExtensions
 {
-    public static void UseFileSystemMediaStorage(this NhMediaContext context, string storagePath,
+    public static void UseFileSystemMediaStorage(this NhMediaServiceConfigurationContext serviceConfigurationContext, string storagePath,
         bool createDirectoryIfNotExists = false)
     {
-        context.Services.AddMediaFileSystemStorage(storagePath, createDirectoryIfNotExists);
+        serviceConfigurationContext.Services.AddMediaFileSystemStorage(storagePath, createDirectoryIfNotExists);
     }
 
-    public static void UseFileSystemMediaStorage(this NhMediaContext context, IConfiguration configuration)
+    public static void UseFileSystemMediaStorage(this NhMediaServiceConfigurationContext serviceConfigurationContext, IConfiguration configuration)
     {
-        context.Services.AddMediaFileSystemStorage(configuration);
+        serviceConfigurationContext.Services.AddMediaFileSystemStorage(configuration);
     }
 }
