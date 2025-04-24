@@ -9,7 +9,7 @@ import {AddressService} from "../../services/address.service";
   templateUrl: 'component.html',
   standalone: false
 })
-export class MutateAddressComponent extends NhMutateBaseComponent<Address> {
+export class MutateAddressComponent extends NhMutateBaseComponent<Address, Address> {
   @Input() id: string|undefined;
 
   constructor(

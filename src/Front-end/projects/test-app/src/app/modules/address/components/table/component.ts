@@ -8,7 +8,7 @@ import {
   MutationType,
   NhCollectionBaseComponent,
   NhModalConfirmComponent,
-  NhModalOptions
+  NhModalOptions, OrderByRequestOptions
 } from "nh-common";
 import {Address, AddressCollectionHttpRequestOptions} from "../../models/address.models";
 import { AddressService } from "../../services/address.service";
@@ -41,6 +41,32 @@ export class TableAddressComponent extends NhCollectionBaseComponent<Address> im
   override async beforeLoad() {
 
   }
+
+  /*
+  override async sort(event: any) {
+    const sort = event.sorts[0];
+
+    if(sort?.prop === 'mijnSortProp') {
+      this.requestOptions.orderBy = [];
+
+      const getOrderBy = (key: string) => {
+        const orderBy = new OrderByRequestOptions();
+        orderBy.key = key;
+        orderBy.direction = sort.dir.toUpperCase();
+        return orderBy;
+      };
+
+      this.requestOptions.orderBy = [
+        getOrderBy('mijn.eerst.prop'),
+        getOrderBy('mijn.tweede.prop')
+      ];
+
+      await this.load();
+      return;
+    }
+
+    await super.sort(event);
+  } */
 
   async onLoad(requestOptions: AddressCollectionHttpRequestOptions) {
     return <Observable<CollectionHttpResponse<Address>>>this.addressService.getCollection(requestOptions);
