@@ -14,12 +14,15 @@ public class NhAuthenticationConfigurationBuilder<
     TDivisionRole,
     TDivisionUserRole,
     TDivisionRoleClaim
-    >
+>
     where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
     where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
-    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
-    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
-    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision,
+        TUser>
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision,
+        TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole,
+        TDivision, TUser>
     where TDivisionRoleClaim : NhDivisionRoleClaim
 {
     private readonly List<IAuthenticationEndpoint> _endpoints = [];
@@ -33,12 +36,12 @@ public class NhAuthenticationConfigurationBuilder<
     /// <param name="handler"></param>
     /// <returns></returns>
     public NhAuthenticationConfigurationBuilder<
-    TUser,
-    TDivision,
-    TDivisionUser,
-    TDivisionRole,
-    TDivisionUserRole,
-    TDivisionRoleClaim
+        TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim
     > AddAuthenticationEndpoint(string pattern, HttpMethod method,
         Delegate handler)
     {
@@ -53,12 +56,12 @@ public class NhAuthenticationConfigurationBuilder<
     /// <param name="enableRefreshToken"></param>
     /// <returns></returns>
     public NhAuthenticationConfigurationBuilder<
-    TUser,
-    TDivision,
-    TDivisionUser,
-    TDivisionRole,
-    TDivisionUserRole,
-    TDivisionRoleClaim
+        TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim
     > AddUserNamePasswordEndpoint(bool enableRefreshToken = true)
     {
         UseAuthenticationEndpoint<NhUserNamePasswordAuthenticationHandler>();
@@ -68,7 +71,27 @@ public class NhAuthenticationConfigurationBuilder<
         }
 
         UseAuthenticationEndpoint<NhLogoutAuthenticationHandler>();
-        UseAuthenticationEndpoint<NhAccountInformationEndpointHandler<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>>();
+        UseAuthenticationEndpoint<NhAccountInformationEndpointHandler<TUser, TDivision, TDivisionUser, TDivisionRole,
+            TDivisionUserRole, TDivisionRoleClaim>>();
+        return this;
+    }
+
+    /// <summary>
+    /// Remove an endpoint
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    public NhAuthenticationConfigurationBuilder<
+        TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim
+        > RemoveEndpoint<T>() where T : IAuthenticationEndpoint
+    {
+        _diEndpoints.Where(x => x == typeof(T)).ToList().ForEach(x => _diEndpoints.Remove(x));
+        _endpoints.Where(x => x.GetType() == typeof(T)).ToList().ForEach(x => _endpoints.Remove(x));
         return this;
     }
 
@@ -77,12 +100,12 @@ public class NhAuthenticationConfigurationBuilder<
     /// </summary>
     /// <returns></returns>
     public NhAuthenticationConfigurationBuilder<
-    TUser,
-    TDivision,
-    TDivisionUser,
-    TDivisionRole,
-    TDivisionUserRole,
-    TDivisionRoleClaim
+        TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim
     > AddRefreshTokenEndpoint()
     {
         UseAuthenticationEndpoint<NhRefreshTokenAuthenticationHandler>();
@@ -95,12 +118,12 @@ public class NhAuthenticationConfigurationBuilder<
     /// <typeparam name="TEndpoint"></typeparam>
     /// <returns></returns>
     public NhAuthenticationConfigurationBuilder<
-    TUser,
-    TDivision,
-    TDivisionUser,
-    TDivisionRole,
-    TDivisionUserRole,
-    TDivisionRoleClaim
+        TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim
     > UseAuthenticationEndpoint<TEndpoint>()
         where TEndpoint : IAuthenticationEndpoint
     {
@@ -114,12 +137,12 @@ public class NhAuthenticationConfigurationBuilder<
     /// <param name="endpoint"></param>
     /// <returns></returns>
     public NhAuthenticationConfigurationBuilder<
-    TUser,
-    TDivision,
-    TDivisionUser,
-    TDivisionRole,
-    TDivisionUserRole,
-    TDivisionRoleClaim
+        TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim
     > UseAuthenticationEndpoint(IAuthenticationEndpoint endpoint)
     {
         _endpoints.Add(endpoint);
@@ -137,7 +160,6 @@ public class NhAuthenticationConfigurationBuilder<
     {
         app.UseEndpoints(endpoints =>
         {
-            
             foreach (var type in _diEndpoints)
             {
                 var endpoint = (IAuthenticationEndpoint)services.GetRequiredService(type);

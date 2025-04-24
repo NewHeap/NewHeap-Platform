@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using NewHeap.Media;
 using NewHeap.Media.EventHandlers;
 using NewHeap.Platform.AspNet.Common;
+using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Services;
@@ -215,6 +216,8 @@ public class Startup
             .UseNhAuthentication<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, NhUserViewModel>(configure =>
             {
                 configure.AddUserNamePasswordEndpoint();
+                // Remove account information endpoint if not needed
+                configure.RemoveEndpoint<NhAccountInformationEndpointHandler<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim>>();
             })
             .UseStaticFiles(options =>
             {
