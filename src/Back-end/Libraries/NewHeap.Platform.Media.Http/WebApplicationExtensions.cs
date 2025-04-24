@@ -13,14 +13,43 @@ namespace NewHeap.Media;
 
 public static class WebApplicationExtensions
 {
+    
+    /// <summary>
+    /// Configure Media endpoints on /media using JWT bearer auth
+    /// </summary>
+    /// <param name="app"></param>
+    /// <returns></returns>
+    public static RouteGroupBuilder MapNhMediaEndpoints(this IEndpointRouteBuilder app)
+    {
+        return MapNhMediaEndpoints(app,"media", opt =>
+        {
+            opt.ConfigureAllRoutes(builder => builder.RequireAuthorization(p =>
+            {
+                p.AddAuthenticationSchemes("Bearer");
+                p.RequireAuthenticatedUser();
+            }));
+        });
+    }
 
-    public static RouteGroupBuilder MapNhMediaEndpoints(this IEndpointRouteBuilder app, Action<MediaLibraryRouteBuilder>? configureOptions = null)
+    /// <summary>
+    /// Configure media endpoints on /media
+    /// </summary>
+    /// <param name="app"></param>
+    /// <param name="configureOptions"></param>
+    /// <returns></returns>
+    public static RouteGroupBuilder MapNhMediaEndpoints(this IEndpointRouteBuilder app, Action<MediaLibraryRouteBuilder>? configureOptions)
     {
         return MapNhMediaEndpoints(app,"media", configureOptions);
     }
     
-    public static RouteGroupBuilder MapNhMediaEndpoints(this IEndpointRouteBuilder app, string prefix = "media",
-        Action<MediaLibraryRouteBuilder>? configureOptions = null)
+    /// <summary>
+    /// Configure media endpoints
+    /// </summary>
+    /// <param name="app"></param>
+    /// <param name="prefix">Prefix for media library endpoints</param>
+    /// <param name="configureOptions">Configure endpoint options</param>
+    /// <returns></returns>
+    public static RouteGroupBuilder MapNhMediaEndpoints(this IEndpointRouteBuilder app, string prefix, Action<MediaLibraryRouteBuilder>? configureOptions)
     {
         if (app.ServiceProvider.GetService(typeof(NhMediaContext)) is NhMediaContext context)
         {

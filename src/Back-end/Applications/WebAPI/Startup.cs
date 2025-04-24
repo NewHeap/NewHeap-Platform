@@ -1,4 +1,6 @@
 using Hangfire;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -193,9 +195,11 @@ public class Startup
                         e.MapScalarApiReference("/scalar");
                         e.MapNhMediaEndpoints( options =>
                         {
-                            options.ConfigureDeleteFile(f => f.RequireAuthorization(p => p.RequireClaim("foo")));
-                            
-                            options.ConfigureAllRoutes(builder => builder.RequireAuthorization());
+                            options.ConfigureAllRoutes(builder => builder.RequireAuthorization(p =>
+                            {
+                                p.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme);
+                                p.RequireAuthenticatedUser();
+                            }));
                         });
                     })
                     .UseHsTs(true)
