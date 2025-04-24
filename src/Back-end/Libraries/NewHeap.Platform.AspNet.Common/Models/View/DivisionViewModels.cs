@@ -56,7 +56,7 @@ public class DivisionUserViewModel
     [Searchable]
     [Filterable]
     [Orderable]
-    public UserViewModel User { get; set; } = null!;
+    public NhUserViewModel User { get; set; } = null!;
 
     [Searchable]
     [Filterable]

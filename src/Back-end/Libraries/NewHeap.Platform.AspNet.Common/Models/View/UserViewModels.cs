@@ -15,7 +15,7 @@ public partial class UserCollectionRequestModel
     public bool ExcludeNonDivisionAccess { get; set; }
 }
 
-public class UserViewModel
+public class NhUserViewModel
 {
     [Searchable]
     [Orderable]

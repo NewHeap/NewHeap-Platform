@@ -17,7 +17,7 @@ public class AutomapperProfileConfiguration : AutoMapper.Profile
         : base(profileName)
     {
         CreateMap<Claim, ClaimViewModel>();
-        CreateMap<NhUser, UserViewModel>();
+        CreateMap<NhUser, NhUserViewModel>();
         CreateMap<NhDivision, DivisionViewModel>();
         CreateMap<NhDivisionUser, DivisionUserViewModel>();
         CreateMap<NhDivisionRole, DivisionRoleViewModel>();
