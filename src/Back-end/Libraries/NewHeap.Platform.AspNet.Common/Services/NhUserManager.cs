@@ -531,7 +531,7 @@ public abstract partial class NhUserManager<
     }
 
 
-    public virtual async Task<TaskResult> ChangePassword(
+    public virtual async Task<TaskResult> ChangePasswordAsync(
         Guid userId,
         NhChangePasswordUserMutateModel mutateModel,
         Guid? committedByUserId = null,
@@ -606,7 +606,7 @@ public abstract partial class NhUserManager<
         return result;
     }
 
-    public virtual async Task<TaskResult> ChangePasswordWithoutCurrentPassword(
+    public virtual async Task<TaskResult> ChangePasswordWithoutCurrentPasswordAsync(
         Guid userId,
         NhWithoutCurrentPasswordChangePasswordUserMutateModel mutateModel,
         Guid? committedByUserId = null,
@@ -682,7 +682,7 @@ public abstract partial class NhUserManager<
         return result;
     }
 
-    public virtual async Task<TaskResult> ResetPassword(
+    public virtual async Task<TaskResult> ResetPasswordAsync(
         Guid userId,
         NhResetPasswordUserMutateModel mutateModel,
         Guid? committedByUserId = null,
