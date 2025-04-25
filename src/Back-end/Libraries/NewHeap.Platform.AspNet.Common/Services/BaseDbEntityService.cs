@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Localization;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Models;
+using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 
@@ -42,7 +43,60 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
     }
 
     protected virtual Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
-        => base.DoValidateCreateAsync(model, cancellationToken); // Just call the create one.
+        => DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+
+    protected virtual async Task DoValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        void sourceModelCheck()
+        {
+            if (model.SourceModel == null)
+            {
+                model.TaskResult.AddError(string.Empty, _localizer["Action type requires a source model."]);
+            }
+        }
+
+        async Task createUpdateCheck()
+        {
+            _validationService.ValidateMutateModelModelState(model);
+        }
+
+        if (model.ActionType == CRUDActionType.Create)
+        {
+            await createUpdateCheck();
+        }
+        else if (model.ActionType == CRUDActionType.Update)
+        {
+            sourceModelCheck();
+
+            if (model.TaskResult.Success)
+            {
+                await createUpdateCheck();
+            }
+        }
+        else if (model.ActionType == CRUDActionType.Delete)
+        {
+            sourceModelCheck();
+        }
+        else
+        {
+
+        }
+    }
+
+    protected sealed override Task DoValidateCreateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    }
+
+    protected sealed override Task DoValidateUpdateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    }
+
+    protected sealed override Task DoValidateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    }
 }
 
 public abstract partial class BaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TBaseDbEntityService> : AbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TBaseDbEntityService>, IBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel> 

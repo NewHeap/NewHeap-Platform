@@ -82,6 +82,21 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
 
         }
     }
+
+    protected sealed override Task DoValidateCreateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    }
+
+    protected sealed override Task DoValidateUpdateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    }
+
+    protected sealed override Task DoValidateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    }
 }
 
 public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TAbstractBaseDbEntityService> : BaseCRUDService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TAbstractBaseDbEntityService>, IAbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel>
