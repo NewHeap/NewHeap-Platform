@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.View;
@@ -33,19 +34,23 @@ public class NhAccountInformationEndpointHandler<
     where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
     where TDivisionRoleClaim : NhDivisionRoleClaim
 {
+    private readonly IServiceProvider _serviceProvider;
     private readonly AuthenticationConfiguration _configuration;
 
     /// <summary>
     /// 
     /// </summary>
+    /// <param name="serviceProvider"></param>
     /// <param name="configuration"></param>
     /// <param name="httpContextAccessor"></param>
     /// <param name="pattern"></param>
     public NhAccountInformationEndpointHandler(
+        IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor
     ) : base(httpContextAccessor, "account")
     {
+        _serviceProvider = serviceProvider;
         _configuration = configuration;
         Handler = ProcessRequest;
         Method = HttpMethod.Get;
@@ -66,6 +71,11 @@ public class NhAccountInformationEndpointHandler<
         [FromServices] IMapper mapper
     )
     {
+        if (!string.IsNullOrEmpty(_configuration.AuthenticationServiceKey))
+        {
+            authenticationService = _serviceProvider.GetRequiredKeyedService<INhAuthenticationService>(_configuration.AuthenticationServiceKey);
+        }
+        
         var token = HttpContext!.Request.Headers.Authorization.ToString().Split(' ', 2)[1];
         var jwt = authenticationService.DecodeToken(token);
 

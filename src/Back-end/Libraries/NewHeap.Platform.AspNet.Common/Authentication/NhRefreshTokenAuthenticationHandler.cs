@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
@@ -16,6 +17,7 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 /// </summary>
 public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint
 {
+    private readonly IServiceProvider _serviceProvider;
     private readonly AuthenticationConfiguration _configuration;
     internal string? TokenCookieName { get; set; } = "nh_access_token";
     internal string? RefreshTokenCookieName { get; set; } = "nh_access_token";
@@ -24,13 +26,16 @@ public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint
     /// <summary>
     /// 
     /// </summary>
+    /// <param name="serviceProvider"></param>
     /// <param name="configuration"></param>
     /// <param name="httpContextAccessor"></param>
     public NhRefreshTokenAuthenticationHandler(
+        IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor
         ) : base(httpContextAccessor, "authentication/refresh")
     {
+        _serviceProvider = serviceProvider;
         _configuration = configuration;
         
         if(!string.IsNullOrWhiteSpace(configuration.RefreshTokenEndpoint))
@@ -56,6 +61,11 @@ public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint
     [Produces<Results<Ok<UserToken>,BadRequest>>]
     private async Task<IResult> Authenticate([FromBody] RefreshTokenRequest? request, [FromServices] INhAuthenticationService authenticationService)
     {
+        if (!string.IsNullOrEmpty(_configuration.AuthenticationServiceKey))
+        {
+            authenticationService = _serviceProvider.GetRequiredKeyedService<INhAuthenticationService>(_configuration.AuthenticationServiceKey);
+        }
+        
         if(_configuration.RefreshTokenEnabled == false)
         {
             return TypedResults.NotFound();

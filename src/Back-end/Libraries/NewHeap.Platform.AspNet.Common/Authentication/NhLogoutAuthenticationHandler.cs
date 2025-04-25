@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.Services;
 using HttpMethod = NewHeap.Platform.AspNet.Common.Builders.HttpMethod;
@@ -10,6 +11,7 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 public class NhLogoutAuthenticationHandler : IAuthenticationEndpoint
 {
     private readonly AuthenticationConfiguration _configuration;
+    private readonly IServiceProvider _serviceProvider;
     public string Pattern { get; internal set; } = "authentication/logout";
     public HttpMethod Method { get; } = HttpMethod.Post;
     public Delegate Handler => Logout;
@@ -17,9 +19,10 @@ public class NhLogoutAuthenticationHandler : IAuthenticationEndpoint
     internal string? TokenCookieName { get; set; } = "nh_access_token";
     internal string? RefreshTokenCookieName { get; set; } = "nh_access_token";
 
-    public NhLogoutAuthenticationHandler(AuthenticationConfiguration configuration)
+    public NhLogoutAuthenticationHandler(AuthenticationConfiguration configuration, IServiceProvider serviceProvider)
     {
         _configuration = configuration;
+        _serviceProvider = serviceProvider;
         if (!string.IsNullOrWhiteSpace(configuration.LogoutEndpoint))
         {
             Pattern = configuration.LogoutEndpoint;
@@ -40,6 +43,10 @@ public class NhLogoutAuthenticationHandler : IAuthenticationEndpoint
     [Produces<NoContentResult>]
     private async Task<IResult> Logout([FromServices] IHttpContextAccessor httpContextAccessor, [FromServices] INhAuthenticationService authenticationService)
     {
+        if (!string.IsNullOrEmpty(_configuration.AuthenticationServiceKey))
+        {
+            authenticationService = _serviceProvider.GetRequiredKeyedService<INhAuthenticationService>(_configuration.AuthenticationServiceKey);
+        }
         var domain = new Uri(authenticationService.GetIssuer()).Host;
         var httpContext = httpContextAccessor.HttpContext!;
         if (!string.IsNullOrWhiteSpace(TokenCookieName))

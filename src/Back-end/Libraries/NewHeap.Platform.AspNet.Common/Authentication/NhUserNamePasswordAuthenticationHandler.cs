@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Models;
@@ -13,6 +14,7 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 /// </summary>
 public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpoint
 {
+    private readonly IServiceProvider _serviceProvider;
     private readonly AuthenticationConfiguration _configuration;
 
     /// <summary>
@@ -35,13 +37,16 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
     /// <summary>
     /// 
     /// </summary>
+    /// <param name="serviceProvider"></param>
     /// <param name="configuration"></param>
     /// <param name="httpContextAccessor"></param>
     public NhUserNamePasswordAuthenticationHandler(
+        IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor)
     :base(httpContextAccessor, "authentication/login")
     {
+        _serviceProvider = serviceProvider;
         _configuration = configuration;
         Handler = Authenticate;
         
@@ -66,6 +71,11 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
     [Produces<Results<Ok<UserToken>,BadRequest>>]
     private async Task<IResult> Authenticate([FromBody] AuthenticateRequest? request,[FromServices] INhAuthenticationService authenticationService)
     {
+        if (!string.IsNullOrEmpty(_configuration.AuthenticationServiceKey))
+        {
+            authenticationService = _serviceProvider.GetRequiredKeyedService<INhAuthenticationService>(_configuration.AuthenticationServiceKey);
+        }
+        
         var modelValid = ValidateModel(request);
         if (!modelValid.Success)
         {

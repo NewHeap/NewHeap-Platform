@@ -12,6 +12,8 @@ public class AuthenticationConfiguration
     public string? AccountInformationEndpoint { get; init; }
     public string? LogoutEndpoint { get; init; }
 
+    public string? AuthenticationServiceKey { get; set; }
+    
     internal AuthenticationConfiguration()
     {
         
