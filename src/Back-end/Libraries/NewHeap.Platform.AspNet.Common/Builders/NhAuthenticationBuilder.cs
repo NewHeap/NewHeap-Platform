@@ -76,6 +76,7 @@ public class NhAuthenticationBuilder<
 
         public string? AccountInformationEndpoint { get; set; }
         public bool EnableDivisions { get; set; } = false;
+        public string? AuthenticationServiceKey { get; set; }
     }
     
     internal void Build(IServiceCollection services)
@@ -93,7 +94,8 @@ public class NhAuthenticationBuilder<
             RefreshCookieName = UserNamePasswordOptionsValue.RefreshTokenCookieName,
             RefreshTokenEndpoint = UserNamePasswordOptionsValue.RefreshTokenEndpoint,
             AuthenticationEndpoint = UserNamePasswordOptionsValue.Endpoint,
-            AccountInformationEndpoint = UserNamePasswordOptionsValue.AccountInformationEndpoint
+            AccountInformationEndpoint = UserNamePasswordOptionsValue.AccountInformationEndpoint,
+            AuthenticationServiceKey = UserNamePasswordOptionsValue.AuthenticationServiceKey
         };
         services.AddSingleton(authConfig);
         
