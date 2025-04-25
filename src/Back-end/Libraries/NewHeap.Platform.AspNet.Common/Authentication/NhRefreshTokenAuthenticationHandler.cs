@@ -1,14 +1,9 @@
-﻿using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
-using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.Models;
-using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Models;
-using HttpMethod = NewHeap.Platform.AspNet.Common.Builders.HttpMethod;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication;
 
@@ -33,7 +28,7 @@ public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint
         IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor
-        ) : base(httpContextAccessor, "authentication/refresh")
+        ) : base(httpContextAccessor, "authentication/refresh", serviceProvider, configuration)
     {
         _serviceProvider = serviceProvider;
         _configuration = configuration;
@@ -59,12 +54,9 @@ public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint
     [Tags("Authentication")]
     [EndpointName("Refresh token")]
     [Produces<Results<Ok<UserToken>,BadRequest>>]
-    private async Task<IResult> Authenticate([FromBody] RefreshTokenRequest? request, [FromServices] INhAuthenticationService authenticationService)
+    private async Task<IResult> Authenticate([FromBody] RefreshTokenRequest? request)
     {
-        if (!string.IsNullOrEmpty(_configuration.AuthenticationServiceKey))
-        {
-            authenticationService = _serviceProvider.GetRequiredKeyedService<INhAuthenticationService>(_configuration.AuthenticationServiceKey);
-        }
+        var authenticationService = GetAuthService();
         
         if(_configuration.RefreshTokenEnabled == false)
         {

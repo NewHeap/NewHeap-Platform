@@ -112,13 +112,13 @@ public class NhAuthenticationBuilder<
 
     private void AddRefreshTokenHandler(IServiceCollection services)
     {
-        services.AddTransient<NhRefreshTokenAuthenticationHandler>();
+        services.AddSingleton<NhRefreshTokenAuthenticationHandler>();
     }
     
     private void AddUserNameLoginHandler(IServiceCollection services)
     {
-        services.AddTransient<NhUserNamePasswordAuthenticationHandler>();
-        services.AddTransient<NhAccountInformationEndpointHandler<
+        services.AddSingleton<NhUserNamePasswordAuthenticationHandler>();
+        services.AddSingleton<NhAccountInformationEndpointHandler<
             TUser,
             TDivision,
             TDivisionUser,
@@ -126,6 +126,6 @@ public class NhAuthenticationBuilder<
             TDivisionUserRole,
             TDivisionRoleClaim
         >>();
-        services.AddTransient<NhLogoutAuthenticationHandler>();
+        services.AddSingleton<NhLogoutAuthenticationHandler>();
     }
 }
