@@ -84,7 +84,7 @@ public abstract partial class NhDivisionService<
         return _divisionRoleClaimRepository;
     }
 
-    public override async Task ValidateCreateUpdateDeleteAsync(
+    protected override async Task ValidateCreateUpdateDeleteAsync(
         CreateUpdateDeleteValidateModel<TDivision, TDivision, TDivisionMutateModel> model, CancellationToken cancellationToken)
     {
         void sourceModelCheck()

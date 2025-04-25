@@ -63,7 +63,7 @@ public abstract partial class NhDivisionUserService<
         _localizer = localizer;
     }
 
-    public override async Task ValidateCreateUpdateDeleteAsync(
+    protected override async Task ValidateCreateUpdateDeleteAsync(
         CreateUpdateDeleteValidateModel<TDivisionUser, TDivisionUser, TDivisionUserMutateModel> model, CancellationToken cancellationToken = default)
     {
         void sourceModelCheck()
