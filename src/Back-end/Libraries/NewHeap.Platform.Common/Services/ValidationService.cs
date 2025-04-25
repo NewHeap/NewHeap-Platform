@@ -27,6 +27,12 @@ public partial class ValidationService
         }
     }
 
+    public virtual TaskResult<T> ValidateMutateModelModelState<T>(T mutateModel)
+        where T : class
+    { 
+        return ValidateMutateModelModelState<T, T>(mutateModel);
+    }
+
     public virtual TaskResult<TTaskResult> ValidateMutateModelModelState<TTaskResult, TMutateObj>(
         TMutateObj mutateModel)
         where TTaskResult : class

@@ -6,9 +6,11 @@ using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
+using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Models.Options;
+using NewHeap.Platform.Common.Services;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq.Expressions;
 using System.Security.Claims;
@@ -129,11 +131,13 @@ public partial class NhUserManager : NhUserManager<
         ILogger<UserManager<NhUser>> logger, 
         IOptions<MicrosoftAuthSettings> microsoftAuthSettings, 
         IRepository<NhUser> userRepository, 
-        RoleManager<NhUserRole> roleManager
+        RoleManager<NhUserRole> roleManager,
+        ValidationService validationService,
+        INhDbLogService nhDbLogService
         ) : base(
             environment, 
             store, optionsAccessor, passwordHasher, userValidators, passwordValidators, 
-            keyNormalizer, errors, services, logger, microsoftAuthSettings, userRepository, roleManager)
+            keyNormalizer, errors, services, logger, microsoftAuthSettings, userRepository, roleManager, validationService, nhDbLogService)
     {
     }
 }
@@ -165,6 +169,8 @@ public abstract partial class NhUserManager<
     private readonly MicrosoftAuthSettings _microsoftAuthSettings;
     protected readonly RoleManager<TUserRole> _roleManager;
     protected readonly IRepository<TUser> _userRepository;
+    protected readonly ValidationService _validationService;
+    protected readonly INhDbLogService _dbLogService;
 
     public NhUserManager(
         IWebHostEnvironment environment,
@@ -179,7 +185,9 @@ public abstract partial class NhUserManager<
         ILogger<UserManager<TUser>> logger,
         IOptions<MicrosoftAuthSettings> microsoftAuthSettings,
         IRepository<TUser> userRepository,
-        RoleManager<TUserRole> roleManager
+        RoleManager<TUserRole> roleManager,
+        ValidationService validationService,
+        INhDbLogService nhDbLogService
     ) : base(store, optionsAccessor, passwordHasher, userValidators, passwordValidators, keyNormalizer, errors,
         services, logger)
     {
@@ -187,6 +195,8 @@ public abstract partial class NhUserManager<
         _environment = environment;
         _userRepository = userRepository;
         _roleManager = roleManager;
+        _validationService = validationService;
+        _dbLogService = nhDbLogService;
     }
 
     public virtual IRepository<TUser> GetRepository()
@@ -518,5 +528,232 @@ public abstract partial class NhUserManager<
         }
 
         return Task.FromResult(true);
+    }
+
+
+    public virtual async Task<TaskResult> ChangePassword(
+        Guid userId,
+        NhChangePasswordUserMutateModel mutateModel,
+        Guid? committedByUserId = null,
+        CancellationToken cancellationToken = default)
+    { 
+        var result = new TaskResult();
+
+        _validationService.ValidateMutateModelModelState(mutateModel).ApplyToTaskResult(result);
+
+        if (mutateModel.Password != mutateModel.ConfirmPassword)
+        {
+            result.AddError(nameof(mutateModel.ConfirmPassword), "The password and confirmation password do not match.");
+        }
+
+        if (!result.Success)
+        {
+            return result;
+        }
+
+        var user = await FindByIdAsync(userId.ToString());
+
+        if (user == null)
+        {
+            result.AddError(string.Empty, "User not found.");
+        }
+
+        if (!result.Success)
+        {
+            return result;
+        }
+
+        foreach (var pwValidator in PasswordValidators)
+        {
+            var pwResult = await pwValidator.ValidateAsync(this, user!, mutateModel.Password);
+            if (!pwResult.Succeeded)
+            {
+                foreach (var error in pwResult.Errors)
+                {
+                    result.AddError(string.Empty, error.Description);
+                }
+
+                return result;
+            }
+        }
+
+        var passwordResult = await ChangePasswordAsync(user!, mutateModel.CurrentPassword!, mutateModel.Password!);
+        if (!passwordResult.Succeeded)
+        {
+            foreach (var error in passwordResult.Errors)
+            {
+                result.AddError(string.Empty, error.Description);
+            }
+
+            return result;
+        }
+
+        await _dbLogService.LogAsync(
+            message: "Password change successful.",
+            messageArguments: new string[] {
+                        user.Id.ToString()
+            },
+            objectId: user.Id.ToString(),
+            objectType: (typeof(TUser)).Name,
+            objectTypeFull: (typeof(TUser)).FullName,
+            userId: committedByUserId,
+            action: LogAction.Update,
+            type: LogType.Information,
+            source: LogSource.Internal,
+            tag: GetType().Name
+        );
+
+        return result;
+    }
+
+    public virtual async Task<TaskResult> ChangePasswordWithoutCurrentPassword(
+        Guid userId,
+        NhWithoutCurrentPasswordChangePasswordUserMutateModel mutateModel,
+        Guid? committedByUserId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new TaskResult();
+
+        _validationService.ValidateMutateModelModelState(mutateModel).ApplyToTaskResult(result);
+
+        if (mutateModel.Password != mutateModel.ConfirmPassword)
+        {
+            result.AddError(nameof(mutateModel.ConfirmPassword), "The password and confirmation password do not match.");
+        }
+
+        if (!result.Success)
+        {
+            return result;
+        }
+
+        var user = await FindByIdAsync(userId.ToString());
+
+        if (user == null)
+        {
+            result.AddError(string.Empty, "User not found.");
+        }
+
+        if (!result.Success)
+        {
+            return result;
+        }
+
+        foreach (var pwValidator in PasswordValidators)
+        {
+            var pwResult = await pwValidator.ValidateAsync(this, user!, mutateModel.Password);
+            if (!pwResult.Succeeded)
+            {
+                foreach (var error in pwResult.Errors)
+                {
+                    result.AddError(string.Empty, error.Description);
+                }
+
+                return result;
+            }
+        }
+
+        var pwResetToken = await GeneratePasswordResetTokenAsync(user!);
+        var pwResetResult = await ResetPasswordAsync(user!, pwResetToken, mutateModel.Password!);
+        if (!pwResetResult.Succeeded)
+        {
+            foreach (var error in pwResetResult.Errors)
+            {
+                result.AddError(string.Empty, error.Description);
+            }
+
+            return result;
+        }
+
+        await _dbLogService.LogAsync(
+            message: "Password change successful.",
+            messageArguments: new string[] {
+                user.Id.ToString()
+            },
+            objectId: user.Id.ToString(),
+            objectType: (typeof(TUser)).Name,
+            objectTypeFull: (typeof(TUser)).FullName,
+            userId: committedByUserId,
+            action: LogAction.Update,
+            type: LogType.Information,
+            source: LogSource.Internal,
+            tag: GetType().Name
+        );
+
+        return result;
+    }
+
+    public virtual async Task<TaskResult> ResetPassword(
+        Guid userId,
+        NhResetPasswordUserMutateModel mutateModel,
+        Guid? committedByUserId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new TaskResult();
+
+        _validationService.ValidateMutateModelModelState(mutateModel).ApplyToTaskResult(result);
+
+        if (mutateModel.Password != mutateModel.ConfirmPassword)
+        {
+            result.AddError(nameof(mutateModel.ConfirmPassword), "The password and confirmation password do not match.");
+        }
+
+        if (!result.Success)
+        {
+            return result;
+        }
+
+        var user = await FindByIdAsync(userId.ToString());
+
+        if (user == null)
+        {
+            result.AddError(string.Empty, "User not found.");
+        }
+
+        if (!result.Success)
+        {
+            return result;
+        }
+
+        foreach (var pwValidator in PasswordValidators)
+        {
+            var pwResult = await pwValidator.ValidateAsync(this, user!, mutateModel.Password);
+            if (!pwResult.Succeeded)
+            {
+                foreach (var error in pwResult.Errors)
+                {
+                    result.AddError(string.Empty, error.Description);
+                }
+
+                return result;
+            }
+        }
+
+        var pwResetResult = await ResetPasswordAsync(user!, (mutateModel.Token ?? ""), mutateModel.Password!);
+        if (!pwResetResult.Succeeded)
+        {
+            foreach (var error in pwResetResult.Errors)
+            {
+                result.AddError(string.Empty, error.Description);
+            }
+
+            return result;
+        }
+
+        await _dbLogService.LogAsync(
+            message: "Password reset successful.",
+            messageArguments: new string[] {
+                user.Id.ToString()
+            },
+            objectId: user.Id.ToString(),
+            objectType: (typeof(TUser)).Name,
+            objectTypeFull: (typeof(TUser)).FullName,
+            userId: committedByUserId,
+            action: LogAction.Update,
+            type: LogType.Information,
+            source: LogSource.Internal,
+            tag: GetType().Name
+        );
+
+        return result;
     }
 }
