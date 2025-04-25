@@ -31,11 +31,11 @@ public class NhAuthenticationService<
     where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
     where TDivisionRoleClaim : NhDivisionRoleClaim
 {
-    private readonly SignInManager<TUser> _signInManager;
-    private readonly INhUserManager<TUser> _userManager;
-    private readonly ILogger<AuthenticationService> _logger;
-    private readonly IConfiguration _configuration;
-    private readonly TokenValidationParameters _tokenValidationParameters;
+    protected readonly SignInManager<TUser> _signInManager;
+    protected readonly INhUserManager<TUser> _userManager;
+    protected readonly ILogger<AuthenticationService> _logger;
+    protected readonly IConfiguration _configuration;
+    protected readonly TokenValidationParameters _tokenValidationParameters;
 
     public NhAuthenticationService(
         SignInManager<TUser> signInManager,
