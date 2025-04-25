@@ -8,21 +8,16 @@ using HttpMethod = NewHeap.Platform.AspNet.Common.Builders.HttpMethod;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication;
 
-public class NhLogoutAuthenticationHandler : IAuthenticationEndpoint
+public class NhLogoutAuthenticationHandler : BaseNhAuthenticationEndpoint
 {
-    private readonly AuthenticationConfiguration _configuration;
-    private readonly IServiceProvider _serviceProvider;
-    public string Pattern { get; internal set; } = "authentication/logout";
-    public HttpMethod Method { get; } = HttpMethod.Post;
-    public Delegate Handler => Logout;
-    
     internal string? TokenCookieName { get; set; } = "nh_access_token";
     internal string? RefreshTokenCookieName { get; set; } = "nh_access_token";
 
-    public NhLogoutAuthenticationHandler(AuthenticationConfiguration configuration, IServiceProvider serviceProvider)
+    public NhLogoutAuthenticationHandler( IServiceProvider serviceProvider,
+        AuthenticationConfiguration configuration,
+        IHttpContextAccessor httpContextAccessor
+    ) : base(httpContextAccessor, "authentication/logout", serviceProvider, configuration)
     {
-        _configuration = configuration;
-        _serviceProvider = serviceProvider;
         if (!string.IsNullOrWhiteSpace(configuration.LogoutEndpoint))
         {
             Pattern = configuration.LogoutEndpoint;
@@ -35,18 +30,19 @@ public class NhLogoutAuthenticationHandler : IAuthenticationEndpoint
         {
             RefreshTokenCookieName = configuration.RefreshCookieName;
         }
+        
+        Method = HttpMethod.Post;
+        Handler = Logout;
     }
     
     [ApiExplorerSettings(GroupName = "Authentication")]
     [Tags("Authentication")]
     [EndpointName("Logout")]
     [Produces<NoContentResult>]
-    private async Task<IResult> Logout([FromServices] IHttpContextAccessor httpContextAccessor, [FromServices] INhAuthenticationService authenticationService)
+    private async Task<IResult> Logout([FromServices] IHttpContextAccessor httpContextAccessor)
     {
-        if (!string.IsNullOrEmpty(_configuration.AuthenticationServiceKey))
-        {
-            authenticationService = _serviceProvider.GetRequiredKeyedService<INhAuthenticationService>(_configuration.AuthenticationServiceKey);
-        }
+        var authenticationService = GetAuthService();
+        
         var domain = new Uri(authenticationService.GetIssuer()).Host;
         var httpContext = httpContextAccessor.HttpContext!;
         if (!string.IsNullOrWhiteSpace(TokenCookieName))

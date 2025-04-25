@@ -43,12 +43,11 @@ public class NhAccountInformationEndpointHandler<
     /// <param name="serviceProvider"></param>
     /// <param name="configuration"></param>
     /// <param name="httpContextAccessor"></param>
-    /// <param name="pattern"></param>
     public NhAccountInformationEndpointHandler(
         IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor
-    ) : base(httpContextAccessor, "account")
+    ) : base(httpContextAccessor, "account", serviceProvider,configuration)
     {
         _serviceProvider = serviceProvider;
         _configuration = configuration;
@@ -65,16 +64,12 @@ public class NhAccountInformationEndpointHandler<
     [EndpointName("Account information")]
     [Produces<Ok<AccountResponse>>]
     private async Task<IResult> ProcessRequest(
-        [FromServices] INhAuthenticationService authenticationService,
         [FromServices] INhUserManager<TUser> userManager,
         [FromServices] IRepository<TDivision> divisionRepository,
         [FromServices] IMapper mapper
     )
     {
-        if (!string.IsNullOrEmpty(_configuration.AuthenticationServiceKey))
-        {
-            authenticationService = _serviceProvider.GetRequiredKeyedService<INhAuthenticationService>(_configuration.AuthenticationServiceKey);
-        }
+        var authenticationService = GetAuthService();
         
         var token = HttpContext!.Request.Headers.Authorization.ToString().Split(' ', 2)[1];
         var jwt = authenticationService.DecodeToken(token);

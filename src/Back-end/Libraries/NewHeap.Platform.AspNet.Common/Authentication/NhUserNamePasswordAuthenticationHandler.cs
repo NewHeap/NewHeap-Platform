@@ -44,7 +44,7 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
         IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor)
-    :base(httpContextAccessor, "authentication/login")
+    :base(httpContextAccessor, "authentication/login", serviceProvider, configuration)
     {
         _serviceProvider = serviceProvider;
         _configuration = configuration;
@@ -69,12 +69,9 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
     [Tags("Authentication")]
     [EndpointName("Login")]
     [Produces<Results<Ok<UserToken>,BadRequest>>]
-    private async Task<IResult> Authenticate([FromBody] AuthenticateRequest? request,[FromServices] INhAuthenticationService authenticationService)
+    private async Task<IResult> Authenticate([FromBody] AuthenticateRequest? request)
     {
-        if (!string.IsNullOrEmpty(_configuration.AuthenticationServiceKey))
-        {
-            authenticationService = _serviceProvider.GetRequiredKeyedService<INhAuthenticationService>(_configuration.AuthenticationServiceKey);
-        }
+        var authenticationService = GetAuthService();
         
         var modelValid = ValidateModel(request);
         if (!modelValid.Success)
