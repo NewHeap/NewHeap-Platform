@@ -7,36 +7,34 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Services;
 
-public interface IBaseCRUDService<T, TMutateModel>
+public interface IBaseCRUDService<T, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel>
+    where T : class
+    where TCreateMutateModel : class
+    where TUpdateMutateModel : class
+    where TDeleteMutateModel : class
+{
+}
+
+public interface IBaseCRUDService<T, TMutateModel> : IBaseCRUDService<T, TMutateModel, TMutateModel, TMutateModel>
     where T : class
     where TMutateModel : class
 {
 }
 
-public abstract partial class BaseCRUDService<T, TMutateModel, TBaseCRUDService> : IBaseCRUDService<T, TMutateModel> 
+public abstract partial class BaseCRUDService<T, TMutateModel, TBaseCRUDService> : BaseCRUDService<T, TMutateModel, TMutateModel, TMutateModel, TBaseCRUDService>, IBaseCRUDService<T, TMutateModel>
     where T : class
     where TMutateModel : class
     where TBaseCRUDService : BaseCRUDService<T, TMutateModel, TBaseCRUDService>
 {
-    protected readonly IStringLocalizer<TBaseCRUDService> _localizer;
-    protected readonly IMapper _mapper;
-    protected readonly LogHelperService _logHelper;
-    protected readonly ValidationService _validationService;
-
-    public BaseCRUDService(
-        LogHelperService logHelperService,
-        IMapper mapper,
-        IStringLocalizer<TBaseCRUDService> localizer,
-        ValidationService validationService
-        )
+    protected BaseCRUDService(
+        LogHelperService logHelperService, 
+        IMapper mapper, 
+        IStringLocalizer<TBaseCRUDService> localizer, 
+        ValidationService validationService) 
+        : base(logHelperService, mapper, localizer, validationService)
     {
-        _mapper = mapper;
-        _localizer = localizer;
-        _logHelper = logHelperService;
-        _validationService = validationService;
     }
 
-    #region TEntity
     protected virtual async Task DoValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<T, T, TMutateModel> model, CancellationToken cancellationToken = default)
     {
         void sourceModelCheck()
@@ -54,9 +52,7 @@ public abstract partial class BaseCRUDService<T, TMutateModel, TBaseCRUDService>
 
         if (model.ActionType == CRUDActionType.Create)
         {
-
             await createUpdateCheck();
-
         }
         else if (model.ActionType == CRUDActionType.Update)
         {
@@ -77,6 +73,48 @@ public abstract partial class BaseCRUDService<T, TMutateModel, TBaseCRUDService>
         }
     }
 
+    protected sealed override Task DoValidateCreateAsync(CreateUpdateDeleteValidateModel<T, T, TMutateModel> model, CancellationToken cancellationToken = default)
+    { 
+        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    }
+
+    protected sealed override Task DoValidateUpdateAsync(CreateUpdateDeleteValidateModel<T, T, TMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    }
+
+    protected sealed override Task DoValidateDeleteAsync(CreateUpdateDeleteValidateModel<T, T, TMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    }
+}
+
+public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TBaseCRUDService> : IBaseCRUDService<T, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel>
+    where T : class
+    where TCreateMutateModel : class
+    where TUpdateMutateModel : class
+    where TDeleteMutateModel : class
+    where TBaseCRUDService : BaseCRUDService<T, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TBaseCRUDService>
+{
+    protected readonly IStringLocalizer<TBaseCRUDService> _localizer;
+    protected readonly IMapper _mapper;
+    protected readonly LogHelperService _logHelper;
+    protected readonly ValidationService _validationService;
+
+    public BaseCRUDService(
+        LogHelperService logHelperService,
+        IMapper mapper,
+        IStringLocalizer<TBaseCRUDService> localizer,
+        ValidationService validationService
+        )
+    {
+        _mapper = mapper;
+        _localizer = localizer;
+        _logHelper = logHelperService;
+        _validationService = validationService;
+    }
+
+    #region TEntity
     protected virtual Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(
         T original,
         T updated,
@@ -89,14 +127,22 @@ public abstract partial class BaseCRUDService<T, TMutateModel, TBaseCRUDService>
         }, []);
     }
 
+    protected virtual async Task DoValidateCreateAsync(CreateUpdateDeleteValidateModel<T, T, TCreateMutateModel> model, CancellationToken cancellationToken = default)
+    { }
+
+    protected virtual async Task DoValidateUpdateAsync(CreateUpdateDeleteValidateModel<T, T, TUpdateMutateModel> model, CancellationToken cancellationToken = default)
+    { }
+
+    protected virtual async Task DoValidateDeleteAsync(CreateUpdateDeleteValidateModel<T, T, TDeleteMutateModel> model, CancellationToken cancellationToken = default)
+    { }
+
     protected abstract Task<T?> DoGetAsync(Guid id, CancellationToken cancellationToken = default);
 
-
-    protected abstract Task<TaskResult<T?>> DoCreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<T>? beforeSave = null, CancellationToken cancellationToken = default);
+    protected abstract Task<TaskResult<T?>> DoCreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<T>? beforeSave = null, CancellationToken cancellationToken = default);
 
     protected abstract Task<TaskResult<T>> DoUpdateAsync(
         Guid id,
-        TMutateModel mutateModel,
+        TUpdateMutateModel mutateModel,
         Guid? committedByUserId = default,
         Action<T>? beforeSave = null,
         CancellationToken cancellationToken = default

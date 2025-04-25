@@ -12,19 +12,84 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public interface IAbstractBaseDbEntityService<TEntity, TMutateModel> : IBaseCRUDService<TEntity, TMutateModel>
+public interface IAbstractBaseDbEntityService<TEntity, TMutateModel> : IAbstractBaseDbEntityService<TEntity, TMutateModel, TMutateModel, TMutateModel>
     where TEntity : class, IdDbEntity
     where TMutateModel : class
+{
+
+}
+
+public interface IAbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel> : IBaseCRUDService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel>
+    where TEntity : class, IdDbEntity
+    where TCreateMutateModel : class
+    where TUpdateMutateModel : class
+    where TDeleteMutateModel : class
 {
     IRepository<TEntity> GetRepository();
     IQueryable<TEntity> QueryableWithAllIncludes(IQueryable<TEntity> queryable = null);
     IQueryable<TEntity> QueryableWithUpdateDeleteIncludes(IQueryable<TEntity> queryable = null);
 }
 
-public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel, TAbstractBaseDbEntityService> : BaseCRUDService<TEntity, TMutateModel, TAbstractBaseDbEntityService>, IAbstractBaseDbEntityService<TEntity, TMutateModel>
+public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel, TAbstractBaseDbEntityService> : AbstractBaseDbEntityService<TEntity, TMutateModel, TMutateModel, TMutateModel, TAbstractBaseDbEntityService>, IAbstractBaseDbEntityService<TEntity, TMutateModel>
     where TEntity : class, IdDbEntity
     where TMutateModel : class
     where TAbstractBaseDbEntityService : AbstractBaseDbEntityService<TEntity, TMutateModel, TAbstractBaseDbEntityService>
+{
+    protected AbstractBaseDbEntityService(
+        IRepository<TEntity> repository, 
+        INhDbLogService dbLogService, 
+        LogHelperService logHelperService, 
+        IMapper mapper, 
+        IStringLocalizer<TAbstractBaseDbEntityService> localizer, 
+        ValidationService validationService) : base(repository, dbLogService, logHelperService, mapper, localizer, validationService)
+    {
+    }
+
+    protected virtual async Task DoValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        void sourceModelCheck()
+        {
+            if (model.SourceModel == null)
+            {
+                model.TaskResult.AddError(string.Empty, _localizer["Action type requires a source model."]);
+            }
+        }
+
+        async Task createUpdateCheck()
+        {
+            _validationService.ValidateMutateModelModelState(model);
+        }
+
+        if (model.ActionType == CRUDActionType.Create)
+        {
+            await createUpdateCheck();
+        }
+        else if (model.ActionType == CRUDActionType.Update)
+        {
+            sourceModelCheck();
+
+            if (model.TaskResult.Success)
+            {
+                await createUpdateCheck();
+            }
+        }
+        else if (model.ActionType == CRUDActionType.Delete)
+        {
+            sourceModelCheck();
+        }
+        else
+        {
+
+        }
+    }
+}
+
+public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TAbstractBaseDbEntityService> : BaseCRUDService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TAbstractBaseDbEntityService>, IAbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel>
+    where TEntity : class, IdDbEntity
+    where TCreateMutateModel : class
+    where TUpdateMutateModel : class
+    where TDeleteMutateModel : class
+    where TAbstractBaseDbEntityService : AbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TAbstractBaseDbEntityService>
 {
     protected readonly IRepository<TEntity> _repository;
     protected readonly INhDbLogService _dbLogService;
@@ -73,51 +138,11 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
             .FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
     }
 
-    protected override async Task DoValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
-    {
-        void sourceModelCheck()
-        {
-            if (model.SourceModel == null)
-            {
-                model.TaskResult.AddError(string.Empty, _localizer["Action type requires a source model."]);
-            }
-        }
-
-        async Task createUpdateCheck()
-        {
-            _validationService.ValidateMutateModelModelState(model);
-        }
-
-        if (model.ActionType == CRUDActionType.Create)
-        {
-
-            await createUpdateCheck();
-
-        }
-        else if (model.ActionType == CRUDActionType.Update)
-        {
-            sourceModelCheck();
-
-            if (model.TaskResult.Success)
-            {
-                await createUpdateCheck();
-            }
-        }
-        else if (model.ActionType == CRUDActionType.Delete)
-        {
-            sourceModelCheck();
-        }
-        else
-        {
-
-        }
-    }
-
-    protected override async Task<TaskResult<TEntity?>> DoCreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default)
+    protected override async Task<TaskResult<TEntity?>> DoCreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default)
     {
         var result = new TaskResult<TEntity?>();
 
-        await DoValidateCreateUpdateDeleteAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel>(CRUDActionType.Create)
+        await DoValidateCreateAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TCreateMutateModel>(CRUDActionType.Create)
         {
             TaskResult = result,
             SourceModel = null,
@@ -172,7 +197,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
 
     protected override async Task<TaskResult<TEntity>> DoUpdateAsync(
         Guid id,
-        TMutateModel mutateModel,
+        TUpdateMutateModel mutateModel,
         Guid? committedByUserId = default,
         Action<TEntity>? beforeSave = null, 
         CancellationToken cancellationToken = default
@@ -184,7 +209,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
             .OrderBy(x => x.Id)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-        await DoValidateCreateUpdateDeleteAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel>(CRUDActionType.Update)
+        await DoValidateUpdateAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TUpdateMutateModel>(CRUDActionType.Update)
         {
             TaskResult = result,
             SourceModel = entity,
@@ -259,7 +284,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
         var entity = await QueryableWithUpdateDeleteIncludes()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-        await DoValidateCreateUpdateDeleteAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel>(CRUDActionType.Delete)
+        await DoValidateDeleteAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TDeleteMutateModel>(CRUDActionType.Delete)
         {
             TaskResult = result,
             SourceModel = entity,

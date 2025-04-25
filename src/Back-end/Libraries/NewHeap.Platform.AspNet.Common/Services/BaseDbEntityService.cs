@@ -7,21 +7,50 @@ using NewHeap.Platform.Common.Services;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public interface IBaseDbEntityService<TEntity, TMutateModel> : IAbstractBaseDbEntityService<TEntity, TMutateModel>
+public interface IBaseDbEntityService<TEntity, TMutateModel> : IBaseDbEntityService<TEntity, TMutateModel, TMutateModel, TMutateModel>
     where TEntity : class, IdDbEntity
     where TMutateModel : class
-{
-    Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default);
-    Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = null, CancellationToken cancellationToken = default);
-    Task<TEntity?> GetAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<TaskResult<TEntity>> UpdateAsync(Guid id, TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default);
-    Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default);
+{ 
+
 }
 
-public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDbEntityService> : AbstractBaseDbEntityService<TEntity, TMutateModel, TBaseDbEntityService>, IBaseDbEntityService<TEntity, TMutateModel> 
+public interface IBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel> : IAbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel>
+    where TEntity : class, IdDbEntity
+    where TCreateMutateModel : class
+    where TUpdateMutateModel : class
+    where TDeleteMutateModel : class
+{
+    Task<TaskResult<TEntity?>> CreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default);
+    Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = null, CancellationToken cancellationToken = default);
+    Task<TEntity?> GetAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<TaskResult<TEntity>> UpdateAsync(Guid id, TUpdateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default);
+}
+
+public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDbEntityService> : BaseDbEntityService<TEntity, TMutateModel, TMutateModel, TMutateModel, TBaseDbEntityService>, IBaseDbEntityService<TEntity, TMutateModel>
     where TEntity : class, IdDbEntity
     where TMutateModel : class
     where TBaseDbEntityService : BaseDbEntityService<TEntity, TMutateModel, TBaseDbEntityService>
+{
+    protected BaseDbEntityService(
+        IRepository<TEntity> repository, 
+        INhDbLogService dbLogService, 
+        LogHelperService logHelperService, 
+        IMapper mapper, 
+        IStringLocalizer<TBaseDbEntityService> localizer, 
+        ValidationService validationService) : base(repository, dbLogService, logHelperService, mapper, localizer, validationService)
+    {
+    }
+
+    public virtual Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
+        => base.DoValidateCreateAsync(model, cancellationToken); // Just call the create one.
+}
+
+public abstract partial class BaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TBaseDbEntityService> : AbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TBaseDbEntityService>, IBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel> 
+    where TEntity : class, IdDbEntity
+    where TCreateMutateModel : class
+    where TUpdateMutateModel : class
+    where TDeleteMutateModel : class
+    where TBaseDbEntityService : BaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TBaseDbEntityService>
 {
     protected BaseDbEntityService(
         IRepository<TEntity> repository,
@@ -39,15 +68,21 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
     public virtual Task<TEntity?> GetAsync(Guid id, CancellationToken cancellationToken = default) 
         => base.DoGetAsync(id, cancellationToken);
 
-    public virtual Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
-        => base.DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    protected virtual Task ValidateCreateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TCreateMutateModel> model, CancellationToken cancellationToken = default)
+        => base.DoValidateCreateAsync(model, cancellationToken);
 
-    public virtual Task<TaskResult<TEntity?>> CreateAsync(TMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default)
+    protected virtual Task ValidateUpdateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TUpdateMutateModel> model, CancellationToken cancellationToken = default)
+        => base.DoValidateUpdateAsync(model, cancellationToken);
+
+    protected virtual Task ValidateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TDeleteMutateModel> model, CancellationToken cancellationToken = default)
+        => base.DoValidateDeleteAsync(model, cancellationToken);
+
+    public virtual Task<TaskResult<TEntity?>> CreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default)
         => base.DoCreateAsync(mutateModel, committedByUserId, beforeSave, cancellationToken);
 
     public virtual Task<TaskResult<TEntity>> UpdateAsync(
         Guid id,
-        TMutateModel mutateModel,
+        TUpdateMutateModel mutateModel,
         Guid? committedByUserId = default,
         Action<TEntity>? beforeSave = null,
         CancellationToken cancellationToken = default

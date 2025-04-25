@@ -13,12 +13,35 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
-public abstract partial class CompositeDbEntityProtectedNhBaseController<TDbEntity, TMutateModel, TServiceResultModel, TViewModel, TBaseDbEntityService, TCollectionRequestModel> : ProtectedNhBaseController
+public abstract partial class CompositeDbEntityProtectedNhBaseController<TDbEntity, TMutateModel, TServiceResultModel, TViewModel, TBaseDbEntityService, TCollectionRequestModel>
+    : CompositeDbEntityProtectedNhBaseController<TDbEntity, TMutateModel, TMutateModel, TMutateModel, TServiceResultModel, TViewModel, TBaseDbEntityService, TCollectionRequestModel>
     where TDbEntity : class, IdDbEntity
     where TMutateModel : class
     where TServiceResultModel : class
     where TViewModel : class
     where TBaseDbEntityService : ICompositeBaseDbEntityService<TDbEntity, TMutateModel, TServiceResultModel>
+    where TCollectionRequestModel : CollectionRequestModel, new()
+{
+    protected CompositeDbEntityProtectedNhBaseController(
+        IMapper mapper, 
+        ILogger logger, 
+        IConfiguration config, 
+        IStringLocalizer localizer, 
+        IHttpCollectionProcessingService httpCollectionProcessingService, 
+        TBaseDbEntityService dbEntityService) 
+        : base(mapper, logger, config, localizer, httpCollectionProcessingService, dbEntityService)
+    {
+    }
+}
+
+public abstract partial class CompositeDbEntityProtectedNhBaseController<TDbEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TServiceResultModel, TViewModel, TBaseDbEntityService, TCollectionRequestModel> : ProtectedNhBaseController
+    where TDbEntity : class, IdDbEntity
+    where TCreateMutateModel : class
+    where TUpdateMutateModel : class
+    where TDeleteMutateModel : class
+    where TServiceResultModel : class
+    where TViewModel : class
+    where TBaseDbEntityService : ICompositeBaseDbEntityService<TDbEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TServiceResultModel>
     where TCollectionRequestModel : CollectionRequestModel, new()
 {
     protected readonly TBaseDbEntityService _compositeDbEntityService;
@@ -108,13 +131,13 @@ public abstract partial class CompositeDbEntityProtectedNhBaseController<TDbEnti
     }
 
     [NonAction]
-    protected virtual Task<IActionResult> DoCreate([FromBody] TMutateModel mutateModel, CancellationToken cancellationToken = default)
+    protected virtual Task<IActionResult> DoCreate([FromBody] TCreateMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
         return DoCreate<TViewModel>(mutateModel, cancellationToken);
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoCreate<TCustomViewModel>([FromBody] TMutateModel mutateModel, CancellationToken cancellationToken = default)
+    protected virtual async Task<IActionResult> DoCreate<TCustomViewModel>([FromBody] TCreateMutateModel mutateModel, CancellationToken cancellationToken = default)
         where TCustomViewModel : class
     {
         if (!ModelState.IsValid)
@@ -137,7 +160,7 @@ public abstract partial class CompositeDbEntityProtectedNhBaseController<TDbEnti
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoUpdate([FromRoute] Guid id, [FromBody] TMutateModel mutateModel, CancellationToken cancellationToken = default)
+    protected virtual async Task<IActionResult> DoUpdate([FromRoute] Guid id, [FromBody] TUpdateMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {

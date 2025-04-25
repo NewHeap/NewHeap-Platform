@@ -13,11 +13,25 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
-public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMutateModel, TViewModel, TBaseDbEntityService, TCollectionRequestModel> : ProtectedNhBaseController
+public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMutateModel, TViewModel, TBaseDbEntityService, TCollectionRequestModel> : DbEntityProtectedNhBaseController<TDbEntity, TMutateModel, TMutateModel, TMutateModel, TViewModel, TBaseDbEntityService, TCollectionRequestModel>
     where TDbEntity : class, IdDbEntity
     where TMutateModel : class
     where TViewModel : class
     where TBaseDbEntityService : IBaseDbEntityService<TDbEntity, TMutateModel>
+    where TCollectionRequestModel : CollectionRequestModel, new()
+{
+    protected DbEntityProtectedNhBaseController(IMapper mapper, ILogger logger, IConfiguration config, IStringLocalizer localizer, IHttpCollectionProcessingService httpCollectionProcessingService, TBaseDbEntityService dbEntityService) : base(mapper, logger, config, localizer, httpCollectionProcessingService, dbEntityService)
+    {
+    }
+}
+
+public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TViewModel, TBaseDbEntityService, TCollectionRequestModel> : ProtectedNhBaseController
+    where TDbEntity : class, IdDbEntity
+    where TCreateMutateModel : class
+    where TUpdateMutateModel : class
+    where TDeleteMutateModel : class
+    where TViewModel : class
+    where TBaseDbEntityService : IBaseDbEntityService<TDbEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel>
     where TCollectionRequestModel : CollectionRequestModel, new()
 {
     protected readonly TBaseDbEntityService _dbEntityService;
@@ -107,7 +121,7 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMuta
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoCreate([FromBody] TMutateModel mutateModel, CancellationToken cancellationToken = default)
+    protected virtual async Task<IActionResult> DoCreate([FromBody] TCreateMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
@@ -129,7 +143,7 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TMuta
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoUpdate([FromRoute] Guid id, [FromBody] TMutateModel mutateModel, CancellationToken cancellationToken = default)
+    protected virtual async Task<IActionResult> DoUpdate([FromRoute] Guid id, [FromBody] TUpdateMutateModel mutateModel, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
