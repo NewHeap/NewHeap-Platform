@@ -44,5 +44,5 @@ public partial class NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisi
     public ICollection<TDivisionUser> DivisionUsers { get; set; } = new List<TDivisionUser>();
     
     [StringLength(100)]
-    public string RefreshToken { get; set; }
+    public string? RefreshToken { get; set; }
 }
