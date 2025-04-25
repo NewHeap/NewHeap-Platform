@@ -41,7 +41,7 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
     {
     }
 
-    public virtual Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
+    protected virtual Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
         => base.DoValidateCreateAsync(model, cancellationToken); // Just call the create one.
 }
 
