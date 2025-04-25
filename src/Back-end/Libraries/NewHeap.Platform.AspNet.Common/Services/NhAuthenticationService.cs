@@ -70,6 +70,11 @@ public class NhAuthenticationService<
             return TaskResult<UserToken>.Failed("Invalid refresh token");
         }
 
+        return await RefreshToken(user);
+    }
+
+    protected virtual async Task<TaskResult<UserToken>> RefreshToken(TUser user)
+    {
         user.RefreshToken = GenerateRefreshToken();
         await _userManager.UpdateAsync(user);
 
@@ -125,6 +130,11 @@ public class NhAuthenticationService<
             return TaskResult<UserToken>.Failed("Unknown user");
         }
 
+        return await Authenticate(user, request, requiredClaims);
+    }
+
+    protected virtual async Task<TaskResult<UserToken>> Authenticate(TUser user, AuthenticateRequest request, IEnumerable<Claim>? requiredClaims = null)
+    {
         var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, true);
 
         if (result.IsLockedOut || result.IsNotAllowed)
@@ -192,9 +202,8 @@ public class NhAuthenticationService<
         return await CreateToken(userId, claims, expiration);
     }
 
-    public async Task<JwtSecurityToken> CreateToken(Guid userId, IEnumerable<Claim> c, TimeSpan? expiration = null)
+    public virtual async Task<JwtSecurityToken> CreateToken(Guid userId, IEnumerable<Claim> c, TimeSpan? expiration = null)
     {
-        
         if (
             string.IsNullOrWhiteSpace(GetTokenKey())
             || string.IsNullOrWhiteSpace(GetIssuer())
