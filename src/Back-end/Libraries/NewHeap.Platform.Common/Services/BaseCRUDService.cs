@@ -84,8 +84,8 @@ public abstract partial class BaseCRUDService<T, TMutateModel, TBaseCRUDService>
     }
 
     protected sealed override Task DoValidateDeleteAsync(CreateUpdateDeleteValidateModel<T, T, TMutateModel> model, CancellationToken cancellationToken = default)
-    {
-        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    { 
+         return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
     }
 }
 

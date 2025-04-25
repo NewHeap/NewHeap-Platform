@@ -122,15 +122,6 @@ public abstract partial class BaseDbEntityService<TEntity, TCreateMutateModel, T
     public virtual Task<TEntity?> GetAsync(Guid id, CancellationToken cancellationToken = default) 
         => base.DoGetAsync(id, cancellationToken);
 
-    protected virtual Task ValidateCreateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TCreateMutateModel> model, CancellationToken cancellationToken = default)
-        => base.DoValidateCreateAsync(model, cancellationToken);
-
-    protected virtual Task ValidateUpdateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TUpdateMutateModel> model, CancellationToken cancellationToken = default)
-        => base.DoValidateUpdateAsync(model, cancellationToken);
-
-    protected virtual Task ValidateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TDeleteMutateModel> model, CancellationToken cancellationToken = default)
-        => base.DoValidateDeleteAsync(model, cancellationToken);
-
     public virtual Task<TaskResult<TEntity?>> CreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default)
         => base.DoCreateAsync(mutateModel, committedByUserId, beforeSave, cancellationToken);
 
