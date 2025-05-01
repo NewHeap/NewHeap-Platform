@@ -252,6 +252,30 @@ public partial class LogHelperService
     }
 
     #endregion
+
+    public static class ValueResolvers
+    {
+        public static Func<object, Task<string>> EnumerableValueResolver<TEnumerable, T>(Func<T, string> keySelector)
+            where TEnumerable : IEnumerable<T>, new()
+        {
+            Func<object, Task<string>> listStringFunc = (x) =>
+            {
+                var mutateValue = new TEnumerable();
+                if (x != null)
+                {
+                    mutateValue = (TEnumerable)x;
+                }
+
+                var stringList = mutateValue.Select(keySelector).ToList();
+
+                stringList = [.. stringList.OrderBy(x => x)];
+
+                return System.Threading.Tasks.Task.FromResult(string.Join(", ", stringList));
+            };
+
+            return listStringFunc;
+        }
+    }
 }
 
 public partial struct ChangedValue
