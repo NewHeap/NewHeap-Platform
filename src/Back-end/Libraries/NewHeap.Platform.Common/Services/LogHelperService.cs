@@ -258,6 +258,16 @@ public partial class LogHelperService
         public static Func<object, Task<string>> EnumerableValueResolver<TEnumerable, T>(Func<T, string> keySelector)
             where TEnumerable : IEnumerable<T>, new()
         {
+            //var changedProperties2 = await _logHelper.ChangedProperties(originalData, updatedData, new Dictionary<Expression<Func<MyEntity, object>>, Func<object, Task<string>>>
+            //    { 
+            //        // Method resolvers
+            //        { x => x.MyStringList, LogHelper.ValueResolvers.EnumerableValueResolver<List<string>, string>(k => k) },
+            //        { x => x.MyObjectList, LogHelper.ValueResolvers.EnumerableValueResolver<List<MyObject>, MyObject>(k => $"{k.Name} - {k.Discipline}") },
+            //    },
+            //    x => x.MyStringList,
+            //    x => x.MyObjectList
+            //);
+
             Func<object, Task<string>> listStringFunc = (x) =>
             {
                 var mutateValue = new TEnumerable();
