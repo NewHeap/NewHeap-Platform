@@ -57,11 +57,21 @@ public partial class LogHelperService
     /// <param name="valueResolver"></param>
     /// <param name="selectors">Properties to check</param>
     /// <returns></returns>
-    public async Task<IEnumerable<ChangedValue>> ChangedProperties<T>(
+    public Task<IEnumerable<ChangedValue>> ChangedProperties<T>(
         T original,
         T updated,
         Dictionary<Expression<Func<T?, object>>, Func<object?, Task<string>>> valueResolver,
         params Expression<Func<T?, object>>[] selectors)
+    {
+        return ChangedProperties(original, updated, null, valueResolver, selectors);
+    }
+
+    public async Task<IEnumerable<ChangedValue>> ChangedProperties<T>(
+       T original,
+       T updated,
+       Dictionary<Expression<Func<T?, object>>, Func<object?, Task<string>>>? compareValueResolver,
+       Dictionary<Expression<Func<T?, object>>, Func<object?, Task<string>>>? valueResolver,
+       params Expression<Func<T?, object>>[] selectors)
     {
         var changedValues = new List<ChangedValue>();
 
@@ -79,14 +89,14 @@ public partial class LogHelperService
                 var val1 = memberOriginal != null ? property.GetValue(memberOriginal) : null;
                 var val2 = memberUpdated != null ? property.GetValue(GetMemberObject(memberExpression, updated)) : null;
 
-                var resolve = valueResolver?.FirstOrDefault(x =>
-                            ExpressionEqualityComparer.Instance.Equals(expression, x.Key));
+                var compareResolve = compareValueResolver?.FirstOrDefault(x =>
+                        ExpressionEqualityComparer.Instance.Equals(expression, x.Key));
 
-                if (resolve.HasValue && resolve.Value.Value != null)
+                if (compareResolve.HasValue && compareResolve.Value.Value != null)
                 {
                     try
                     {
-                        var func = resolve.Value.Value;
+                        var func = compareResolve.Value.Value;
                         val1 = await func(val1);
                         val2 = await func(val2);
                     }
@@ -111,10 +121,28 @@ public partial class LogHelperService
 
                     var originalValue = val1?.ToString();
                     var updatedValue = val2?.ToString();
+                    var resolve = valueResolver?.FirstOrDefault(x =>
+                        ExpressionEqualityComparer.Instance.Equals(expression, x.Key));
+
+                    if (resolve.HasValue && resolve.Value.Value != null)
+                    {
+                        try
+                        {
+                            var func = resolve.Value.Value;
+                            originalValue = await func(val1);
+                            updatedValue = await func(val2);
+                        }
+                        catch
+                        {
+                            // Nothing
+                        }
+                    }
 
                     changedValues.Add(new ChangedValue
                     {
-                        Key = keyName, OriginalValue = originalValue, UpdateValue = updatedValue
+                        Key = keyName,
+                        OriginalValue = originalValue,
+                        UpdateValue = updatedValue
                     });
                 }
             }
