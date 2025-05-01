@@ -79,6 +79,23 @@ public partial class LogHelperService
                 var val1 = memberOriginal != null ? property.GetValue(memberOriginal) : null;
                 var val2 = memberUpdated != null ? property.GetValue(GetMemberObject(memberExpression, updated)) : null;
 
+                var resolve = valueResolver?.FirstOrDefault(x =>
+                            ExpressionEqualityComparer.Instance.Equals(expression, x.Key));
+
+                if (resolve.HasValue && resolve.Value.Value != null)
+                {
+                    try
+                    {
+                        var func = resolve.Value.Value;
+                        val1 = await func(val1);
+                        val2 = await func(val2);
+                    }
+                    catch
+                    {
+                        // Nothing
+                    }
+                }
+
                 if ((val1 != null && !val1.Equals(val2)) || (val1 == null && val2 != null))
                 {
                     var keyName = property
@@ -94,22 +111,6 @@ public partial class LogHelperService
 
                     var originalValue = val1?.ToString();
                     var updatedValue = val2?.ToString();
-                    var resolve = valueResolver?.FirstOrDefault(x =>
-                        ExpressionEqualityComparer.Instance.Equals(expression, x.Key));
-
-                    if (resolve.HasValue && resolve.Value.Value != null)
-                    {
-                        try
-                        {
-                            var func = resolve.Value.Value;
-                            originalValue = await func(val1);
-                            updatedValue = await func(val2);
-                        }
-                        catch
-                        {
-                            // Nothing
-                        }
-                    }
 
                     changedValues.Add(new ChangedValue
                     {
