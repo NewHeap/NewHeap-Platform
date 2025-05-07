@@ -78,8 +78,8 @@ public abstract class NhBaseUserController<
 
         if (requestModel?.Roles?.Any() == true)
         {
-            //TODO:
-            //query = query.Where(x => _userManager.GetRepository().Context.UserRoles.Any(c => c.UserId == x.Id.ToString() && _userManager.GetRepository().Context.Roles.Where(v => requestModel.Roles.Contains(v.Name)).Select(c => c.Id).Contains(c.RoleId)));
+            var dbContext = (IdentityDbContext<TUser, NhUserRole, Guid>)_userManager.GetRepository().Context;
+            query = query.Where(x => dbContext.UserRoles.Any(c => c.UserId == x.Id && dbContext.Roles.Where(v => requestModel.Roles.Contains(v.Name)).Select(c => c.Id).Contains(c.RoleId)));
         }
 
         if (requestModel?.DivisionIds?.Any() == true)
