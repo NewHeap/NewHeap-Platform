@@ -8,7 +8,7 @@ public partial class DivisionCollectionRequestModel : CollectionRequestModel
     
 }
 
-public partial class DivisionViewModel
+public partial class NhDivisionViewModel
 {
     [Searchable]
     [Filterable]
@@ -43,7 +43,10 @@ public class DivisionUserCollectionRequestModel : CollectionRequestModel
     
 }
 
-public class DivisionUserViewModel
+public class DivisionUserViewModel<TUserViewModel, TDivisionViewModel, TDivisionRoleViewModel>
+    where TUserViewModel : NhUserViewModel<TDivisionViewModel>
+    where TDivisionViewModel : NhDivisionViewModel
+    where TDivisionRoleViewModel : NhDivisionRoleViewModel
 {
     [Searchable]
     [Filterable]
@@ -56,7 +59,7 @@ public class DivisionUserViewModel
     [Searchable]
     [Filterable]
     [Orderable]
-    public NhUserViewModel User { get; set; } = null!;
+    public TUserViewModel User { get; set; } = null!;
 
     [Searchable]
     [Filterable]
@@ -65,7 +68,7 @@ public class DivisionUserViewModel
     [Searchable]
     [Filterable]
     [Orderable]
-    public DivisionViewModel Division { get; set; } = null!;
+    public TDivisionViewModel Division { get; set; } = null!;
 
     [Filterable]
     [Orderable]
@@ -75,10 +78,10 @@ public class DivisionUserViewModel
     [Orderable]
     public DateTimeOffset? LockOutEndDateTime { get; set; }
 
-    public ICollection<DivisionRoleViewModel> Roles { get; set; } = new List<DivisionRoleViewModel>();
+    public ICollection<TDivisionRoleViewModel> Roles { get; set; } = new List<TDivisionRoleViewModel>();
 }
 
-public class DivisionRoleViewModel
+public class NhDivisionRoleViewModel
 {
     [Searchable]
     [Filterable]

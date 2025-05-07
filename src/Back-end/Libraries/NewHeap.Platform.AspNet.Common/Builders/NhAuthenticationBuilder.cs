@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
 
 namespace NewHeap.Platform.AspNet.Common.Builders;
@@ -12,7 +13,10 @@ public class NhAuthenticationBuilder<
     TDivisionUser,
     TDivisionRole,
     TDivisionUserRole,
-    TDivisionRoleClaim
+    TDivisionRoleClaim,
+    TUserViewModel,
+    TDivisionViewModel,
+    TClaimViewModel
     >
     where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
     where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
@@ -20,6 +24,9 @@ public class NhAuthenticationBuilder<
     where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
     where TDivisionRoleClaim : NhDivisionRoleClaim
+    where TUserViewModel : NhUserViewModel<TDivisionViewModel>
+    where TDivisionViewModel : NhDivisionViewModel
+    where TClaimViewModel : NhClaimViewModel
 {
     private Type AuthenticationServiceType { get; set; } = typeof(NhAuthenticationService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>);
     
@@ -36,7 +43,10 @@ public class NhAuthenticationBuilder<
     TDivisionUser,
     TDivisionRole,
     TDivisionUserRole,
-    TDivisionRoleClaim
+    TDivisionRoleClaim,
+    TUserViewModel,
+    TDivisionViewModel,
+    TClaimViewModel
     > WithAuthenticationService<T>() where T : INhAuthenticationService
     {
         AuthenticationServiceType = typeof(T);
@@ -49,7 +59,10 @@ public class NhAuthenticationBuilder<
     TDivisionUser,
     TDivisionRole,
     TDivisionUserRole,
-    TDivisionRoleClaim
+    TDivisionRoleClaim,
+    TUserViewModel,
+    TDivisionViewModel,
+    TClaimViewModel
     > AddUserNamePasswordAuthentication(Action<UserNamePasswordOptions>? configure = null)
     {
         var options = new UserNamePasswordOptions();
@@ -124,7 +137,10 @@ public class NhAuthenticationBuilder<
             TDivisionUser,
             TDivisionRole,
             TDivisionUserRole,
-            TDivisionRoleClaim
+            TDivisionRoleClaim,
+            TUserViewModel,
+            TDivisionViewModel,
+            TClaimViewModel
         >>();
         services.AddSingleton<NhLogoutAuthenticationHandler>();
     }

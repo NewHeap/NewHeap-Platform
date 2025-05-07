@@ -126,7 +126,7 @@ public class Startup
                 NhDivisionUserService,
                 DivisionUserMutateModel
             >(newHeapPlatformOptions)
-            .AddAuthentication(options =>
+            .AddAuthentication<NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>(options =>
             {
                 //options.WithAuthenticationService<MockAuthenticationService>();
                 options.AddUserNamePasswordAuthentication(authOptions =>
@@ -214,11 +214,11 @@ public class Startup
                     })
                     .Build()
             )
-            .UseNhAuthentication<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, NhUserViewModel>(configure =>
+            .UseNhAuthentication<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>(configure =>
             {
                 configure.AddUserNamePasswordEndpoint();
                 // Remove account information endpoint if not needed
-                configure.RemoveEndpoint<NhAccountInformationEndpointHandler<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim>>();
+                configure.RemoveEndpoint<NhAccountInformationEndpointHandler<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>>();
             })
             .UseStaticFiles(options =>
             {

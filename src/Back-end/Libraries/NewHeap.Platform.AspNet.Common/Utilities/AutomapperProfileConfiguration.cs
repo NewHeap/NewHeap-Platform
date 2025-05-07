@@ -16,11 +16,11 @@ public class AutomapperProfileConfiguration : AutoMapper.Profile
     protected AutomapperProfileConfiguration(string profileName)
         : base(profileName)
     {
-        CreateMap<Claim, ClaimViewModel>();
-        CreateMap<NhUser, NhUserViewModel>();
-        CreateMap<NhDivision, DivisionViewModel>();
-        CreateMap<NhDivisionUser, DivisionUserViewModel>();
-        CreateMap<NhDivisionRole, DivisionRoleViewModel>();
+        CreateMap<Claim, NhClaimViewModel>();
+        CreateMap<NhUser, NhUserViewModel<NhDivisionViewModel>>();
+        CreateMap<NhDivision, NhDivisionViewModel>();
+        CreateMap<NhDivisionUser, DivisionUserViewModel<NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhDivisionRoleViewModel>>();
+        CreateMap<NhDivisionRole, NhDivisionRoleViewModel>();
 
         CreateMap<DivisionMutateModel, NhDivision>().MapOnlyIfChanged();
         CreateMap<NhDivision, DivisionMutateModel>().MapOnlyIfChanged();

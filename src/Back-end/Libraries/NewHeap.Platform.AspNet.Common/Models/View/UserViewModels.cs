@@ -15,7 +15,8 @@ public partial class UserCollectionRequestModel
     public bool ExcludeNonDivisionAccess { get; set; }
 }
 
-public class NhUserViewModel
+public class NhUserViewModel<TDivisionViewModel>
+    where TDivisionViewModel : NhDivisionViewModel
 {
     [Searchable]
     [Orderable]
@@ -58,7 +59,7 @@ public class NhUserViewModel
     [Searchable]
     [Orderable]
     [Filterable]
-    public DivisionViewModel? ActiveDivision { get; set; }
+    public TDivisionViewModel? ActiveDivision { get; set; }
 
     public ICollection<string>? Roles { get; set; }
 }

@@ -27,7 +27,8 @@ public abstract class NhBaseUserController<
     TDivisionRole,
     TDivisionUserRole,
     TDivisionRoleClaim,
-    TUserViewModel
+    TUserViewModel,
+    TDivisionViewModel
     > : ProtectedNhBaseController
     where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
     where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
@@ -35,7 +36,8 @@ public abstract class NhBaseUserController<
     where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
     where TDivisionRoleClaim : NhDivisionRoleClaim
-    where TUserViewModel : NhUserViewModel
+    where TUserViewModel : NhUserViewModel<TDivisionViewModel>
+    where TDivisionViewModel : NhDivisionViewModel
 {
     protected const string READ_POLICY = "app.user.view";
     protected const string MANAGE_POLICY = "app.user.manage";
@@ -44,8 +46,8 @@ public abstract class NhBaseUserController<
     public NhBaseUserController(
         IConfiguration config,
         IMapper mapper,
-        ILogger<NhBaseUserController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel>> logger,
-        IStringLocalizer<NhBaseUserController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel>> localizer,
+        ILogger<NhBaseUserController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel, TDivisionViewModel>> logger,
+        IStringLocalizer<NhBaseUserController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel, TDivisionViewModel>> localizer,
         INhUserManager<TUser> userManager,
         IHttpCollectionProcessingService collectionRequestProcessingService
     )

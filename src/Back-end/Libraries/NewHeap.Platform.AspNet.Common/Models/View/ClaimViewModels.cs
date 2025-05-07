@@ -1,6 +1,6 @@
 ﻿namespace NewHeap.Platform.AspNet.Common.Models.View;
 
-public partial class ClaimViewModel
+public partial class NhClaimViewModel
 {
     public string? Type { get; set; }
     public string? Value { get; set; }

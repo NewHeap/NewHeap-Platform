@@ -22,6 +22,9 @@ public abstract class NhBaseDivisionUserController<
     TDivisionUserRole,
     TDivisionRoleClaim,
     TDivisionUserMutateModel,
+    TUserViewModel,
+    TDivisionViewModel,
+    TDivisionRoleViewModel,
     TDivisionUserViewModel
     > : DbEntityProtectedNhBaseController<TDivisionUser, TDivisionUserMutateModel, TDivisionUserViewModel, NhDivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>, DivisionUserCollectionRequestModel>
     where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
@@ -31,7 +34,10 @@ public abstract class NhBaseDivisionUserController<
     where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>, new()
     where TDivisionRoleClaim : NhDivisionRoleClaim
     where TDivisionUserMutateModel : DivisionUserMutateModel
-    where TDivisionUserViewModel : DivisionUserViewModel
+    where TUserViewModel : NhUserViewModel<TDivisionViewModel>
+    where TDivisionViewModel : NhDivisionViewModel
+    where TDivisionRoleViewModel : NhDivisionRoleViewModel
+    where TDivisionUserViewModel : DivisionUserViewModel<TUserViewModel, TDivisionViewModel, TDivisionRoleViewModel>
 {
     protected const string READ_POLICY = "app.division.view";
     protected const string MANAGE_POLICY = "app.division.manage";
@@ -39,8 +45,28 @@ public abstract class NhBaseDivisionUserController<
     public NhBaseDivisionUserController(
         IConfiguration config,
         IMapper mapper,
-        ILogger<NhBaseDivisionUserController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel, TDivisionUserViewModel>> logger,
-        IStringLocalizer<NhBaseDivisionUserController<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel, DivisionUserViewModel>> localizer,
+        ILogger<NhBaseDivisionUserController<TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TDivisionUserMutateModel,
+        TUserViewModel,
+        TDivisionViewModel,
+        TDivisionRoleViewModel,
+        TDivisionUserViewModel>> logger,
+        IStringLocalizer<NhBaseDivisionUserController<TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TDivisionUserMutateModel,
+        TUserViewModel,
+        TDivisionViewModel,
+        TDivisionRoleViewModel,
+        TDivisionUserViewModel>> localizer,
         INhUserManager userService,
         NhDivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel> divisionUserService,
         IHttpCollectionProcessingService collectionRequestProcessingService

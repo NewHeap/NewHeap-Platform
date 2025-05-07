@@ -10,6 +10,7 @@ using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Middlewares;
 using NewHeap.Platform.AspNet.Common.Models.Options;
+using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
 
 namespace NewHeap.Platform.AspNet.Common;
@@ -232,16 +233,21 @@ public class NewHeapPlatformAspNetCommonApplicationBuilder
         TDivisionRole,
         TDivisionUserRole,
         TDivisionRoleClaim,
-        TUserViewModel
-        >(Action<NhAuthenticationConfigurationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>>? configure = null)
+        TUserViewModel,
+        TDivisionViewModel,
+        TClaimViewModel
+        >(Action<NhAuthenticationConfigurationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel, TDivisionViewModel, TClaimViewModel>>? configure = null)
         where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
         where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
         where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
         where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
         where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
         where TDivisionRoleClaim : NhDivisionRoleClaim
+        where TUserViewModel : NhUserViewModel<TDivisionViewModel>
+        where TDivisionViewModel : NhDivisionViewModel
+        where TClaimViewModel : NhClaimViewModel
     {
-        var builder = new NhAuthenticationConfigurationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>();
+        var builder = new NhAuthenticationConfigurationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel, TDivisionViewModel, TClaimViewModel>();
         configure?.Invoke(builder);
         builder.Build(_applicationBuilder, _services);
         return this;

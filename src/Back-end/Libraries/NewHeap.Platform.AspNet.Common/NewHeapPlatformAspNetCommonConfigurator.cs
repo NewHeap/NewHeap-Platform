@@ -21,6 +21,7 @@ using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Identity.Describers;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.Options;
+using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Resolvers;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Policy.AuthorizationHandlers;
@@ -375,9 +376,12 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
                 TDivisionUserService,
                 TDivisionUserMutateModel
             > 
-        AddAuthentication(Action<NhAuthenticationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>>? configure = null)
+        AddAuthentication<TUserViewModel, TDivisionViewModel, TClaimViewModel>(Action<NhAuthenticationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel, TDivisionViewModel, TClaimViewModel>>? configure = null)
+        where TUserViewModel : NhUserViewModel<TDivisionViewModel>
+        where TDivisionViewModel : NhDivisionViewModel
+        where TClaimViewModel : NhClaimViewModel
     {
-        var builder = new NhAuthenticationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>();
+        var builder = new NhAuthenticationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel, TDivisionViewModel, TClaimViewModel>();
         configure?.Invoke(builder);
         
         builder.Build(_serviceCollection);

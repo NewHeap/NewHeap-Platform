@@ -25,7 +25,10 @@ public class NhAccountInformationEndpointHandler<
     TDivisionUser,
     TDivisionRole,
     TDivisionUserRole,
-    TDivisionRoleClaim
+    TDivisionRoleClaim,
+    TUserViewModel,
+    TDivisionViewModel,
+    TClaimViewModel
     > : BaseNhAuthenticationEndpoint
     where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
     where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
@@ -33,6 +36,9 @@ public class NhAccountInformationEndpointHandler<
     where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
     where TDivisionRoleClaim : NhDivisionRoleClaim
+    where TUserViewModel : NhUserViewModel<TDivisionViewModel>
+    where TDivisionViewModel : NhDivisionViewModel
+    where TClaimViewModel : NhClaimViewModel
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly AuthenticationConfiguration _configuration;
@@ -62,13 +68,15 @@ public class NhAccountInformationEndpointHandler<
     [ApiExplorerSettings(GroupName = "Authentication")]
     [Tags("Account")]
     [EndpointName("Account information")]
-    [Produces<Ok<AccountResponse>>]
+    //[Produces<Ok<AccountResponse>]
     private async Task<IResult> ProcessRequest(
         [FromServices] INhUserManager<TUser> userManager,
         [FromServices] IRepository<TDivision> divisionRepository,
         [FromServices] IMapper mapper
     )
     {
+        var test = new AccountResponse<TUserViewModel, TDivisionViewModel, TClaimViewModel>(); 
+
         var authenticationService = GetAuthService();
         
         var token = HttpContext!.Request.Headers.Authorization.ToString().Split(' ', 2)[1];
@@ -92,10 +100,10 @@ public class NhAccountInformationEndpointHandler<
             return TypedResults.Unauthorized();
         }
 
-        var response = new AccountResponse { User = mapper.Map<NhUserViewModel>(user) };
+        var response = new AccountResponse<TUserViewModel, TDivisionViewModel, TClaimViewModel> { User = mapper.Map<TUserViewModel>(user) };
 
         var claims = await userManager.GetValidClaims(user, _configuration.DivisionsEnabled);
-        response.Claims = claims.Select(mapper.Map<ClaimViewModel>);
+        response.Claims = claims.Select(mapper.Map<TClaimViewModel>);
 
         if (_configuration.DivisionsEnabled)
         {
@@ -114,7 +122,7 @@ public class NhAccountInformationEndpointHandler<
         INhUserManager<TUser> userManager,
         IRepository<TDivision> divisionRepository,
         IMapper mapper,
-        AccountResponse accountResponse,
+        AccountResponse<TUserViewModel, TDivisionViewModel, TClaimViewModel> accountResponse,
         List<Claim> claims
     )
     {
@@ -129,9 +137,9 @@ public class NhAccountInformationEndpointHandler<
         divisionsQuery = divisionsQuery.OrderBy(x => x.Name);
 
         var divisions = await divisionsQuery.ToListAsync();
-        accountResponse.Divisions = mapper.Map<List<DivisionViewModel>>(divisions);
+        accountResponse.Divisions = mapper.Map<List<TDivisionViewModel>>(divisions);
 
-        var removeDivisions = new List<DivisionViewModel>();
+        var removeDivisions = new List<TDivisionViewModel>();
         foreach (var division in accountResponse.Divisions)
         {
             if (!await userManager.DivisionAccessAsync(division.Id, claims,
@@ -154,12 +162,15 @@ public class NhAccountInformationEndpointHandler<
 /// <summary>
 /// Account information
 /// </summary>
-public record AccountResponse
+public record AccountResponse<TUserViewModel, TDivisionViewModel, TClaimViewModel>
+    where TUserViewModel : NhUserViewModel<TDivisionViewModel>
+    where TDivisionViewModel : NhDivisionViewModel
+    where TClaimViewModel : NhClaimViewModel
 {
-    public List<DivisionViewModel> Divisions { get; set; } = new();
-    public IEnumerable<ClaimViewModel> Claims { get; set; }
-    public NhUserViewModel User { get; set; }
+    public List<TDivisionViewModel> Divisions { get; set; } = new();
+    public IEnumerable<TClaimViewModel> Claims { get; set; }
+    public TUserViewModel User { get; set; }
     public Guid? ActiveDivisionId { get; set; }
-    public DivisionViewModel? ActiveDivision { get; set; }
+    public TDivisionViewModel? ActiveDivision { get; set; }
     public List<string> Roles { get; set; } = new();
 };

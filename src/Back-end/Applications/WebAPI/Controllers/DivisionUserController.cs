@@ -12,7 +12,11 @@ using NewHeap.Platform.AspNet.Common.Services;
 namespace WebAPI.Controllers;
 
 [Route("[controller]")]
-public class DivisionUserController : NhBaseDivisionUserController<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, DivisionUserMutateModel, DivisionUserViewModel>
+public class DivisionUserController : NhBaseDivisionUserController<
+    NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, DivisionUserMutateModel,
+    NhUserViewModel<NhDivisionViewModel>,
+    NhDivisionViewModel, NhDivisionRoleViewModel,
+    DivisionUserViewModel<NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhDivisionRoleViewModel>>
 {
     protected const string READ_POLICY = "app.division.view";
     protected const string MANAGE_POLICY = "app.division.manage";

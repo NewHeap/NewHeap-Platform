@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Models.View;
 
 namespace NewHeap.Platform.AspNet.Common.Builders;
 
@@ -13,7 +14,10 @@ public class NhAuthenticationConfigurationBuilder<
     TDivisionUser,
     TDivisionRole,
     TDivisionUserRole,
-    TDivisionRoleClaim
+    TDivisionRoleClaim,
+    TUserViewModel,
+    TDivisionViewModel,
+    TClaimViewModel
 >
     where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
     where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
@@ -24,6 +28,9 @@ public class NhAuthenticationConfigurationBuilder<
     where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole,
         TDivision, TUser>
     where TDivisionRoleClaim : NhDivisionRoleClaim
+    where TUserViewModel : NhUserViewModel<TDivisionViewModel>
+    where TDivisionViewModel : NhDivisionViewModel
+    where TClaimViewModel : NhClaimViewModel
 {
     private readonly List<IAuthenticationEndpoint> _endpoints = [];
     private readonly List<Type> _diEndpoints = [];
@@ -41,7 +48,10 @@ public class NhAuthenticationConfigurationBuilder<
         TDivisionUser,
         TDivisionRole,
         TDivisionUserRole,
-        TDivisionRoleClaim
+        TDivisionRoleClaim,
+        TUserViewModel,
+        TDivisionViewModel,
+        TClaimViewModel
     > AddAuthenticationEndpoint(string pattern, HttpMethod method,
         Delegate handler)
     {
@@ -61,7 +71,10 @@ public class NhAuthenticationConfigurationBuilder<
         TDivisionUser,
         TDivisionRole,
         TDivisionUserRole,
-        TDivisionRoleClaim
+        TDivisionRoleClaim,
+        TUserViewModel,
+        TDivisionViewModel,
+        TClaimViewModel
     > AddUserNamePasswordEndpoint(bool enableRefreshToken = true)
     {
         UseAuthenticationEndpoint<NhUserNamePasswordAuthenticationHandler>();
@@ -72,7 +85,7 @@ public class NhAuthenticationConfigurationBuilder<
 
         UseAuthenticationEndpoint<NhLogoutAuthenticationHandler>();
         UseAuthenticationEndpoint<NhAccountInformationEndpointHandler<TUser, TDivision, TDivisionUser, TDivisionRole,
-            TDivisionUserRole, TDivisionRoleClaim>>();
+            TDivisionUserRole, TDivisionRoleClaim, TUserViewModel, TDivisionViewModel, TClaimViewModel>>();
         return this;
     }
 
@@ -87,7 +100,10 @@ public class NhAuthenticationConfigurationBuilder<
         TDivisionUser,
         TDivisionRole,
         TDivisionUserRole,
-        TDivisionRoleClaim
+        TDivisionRoleClaim,
+        TUserViewModel,
+        TDivisionViewModel,
+        TClaimViewModel
         > RemoveEndpoint<T>() where T : IAuthenticationEndpoint
     {
         _diEndpoints.Where(x => x == typeof(T)).ToList().ForEach(x => _diEndpoints.Remove(x));
@@ -105,7 +121,10 @@ public class NhAuthenticationConfigurationBuilder<
         TDivisionUser,
         TDivisionRole,
         TDivisionUserRole,
-        TDivisionRoleClaim
+        TDivisionRoleClaim,
+        TUserViewModel,
+        TDivisionViewModel,
+        TClaimViewModel
     > AddRefreshTokenEndpoint()
     {
         UseAuthenticationEndpoint<NhRefreshTokenAuthenticationHandler>();
@@ -123,7 +142,10 @@ public class NhAuthenticationConfigurationBuilder<
         TDivisionUser,
         TDivisionRole,
         TDivisionUserRole,
-        TDivisionRoleClaim
+        TDivisionRoleClaim,
+        TUserViewModel,
+        TDivisionViewModel,
+        TClaimViewModel
     > UseAuthenticationEndpoint<TEndpoint>()
         where TEndpoint : IAuthenticationEndpoint
     {
@@ -142,7 +164,10 @@ public class NhAuthenticationConfigurationBuilder<
         TDivisionUser,
         TDivisionRole,
         TDivisionUserRole,
-        TDivisionRoleClaim
+        TDivisionRoleClaim,
+        TUserViewModel,
+        TDivisionViewModel,
+        TClaimViewModel
     > UseAuthenticationEndpoint(IAuthenticationEndpoint endpoint)
     {
         _endpoints.Add(endpoint);

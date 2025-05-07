@@ -36,8 +36,8 @@ public abstract class NhBaseDivisionController<
     where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
     where TDivisionRoleClaim : NhDivisionRoleClaim
     where TDivisionMutateModel : DivisionMutateModel
-    where TDivisionViewModel : DivisionViewModel
-    where TDivisionRoleViewModel : DivisionRoleViewModel
+    where TDivisionViewModel : NhDivisionViewModel
+    where TDivisionRoleViewModel : NhDivisionRoleViewModel
 {
     protected const string READ_POLICY = "app.division.view";
     protected const string MANAGE_POLICY = "app.division.manage";
@@ -108,7 +108,7 @@ public abstract class NhBaseDivisionController<
         var query = _dbEntityService.GetRoleRepository().GetAll();
 
         var result =
-            await GetCollectionResultModel<TDivisionRole, DivisionRoleViewModel>(query, cancellationToken: cancellationToken,
+            await GetCollectionResultModel<TDivisionRole, NhDivisionRoleViewModel>(query, cancellationToken: cancellationToken,
                 (x => x.Name, ListSortDirection.Ascending));
 
         return Ok(result);
