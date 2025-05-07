@@ -124,7 +124,7 @@ public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMuta
         return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<T, object>>, Func<object, Task<string>>>
         {
             // Method resolvers
-        }, []);
+        }, [], []);
     }
 
     protected virtual async Task DoValidateCreateAsync(CreateUpdateDeleteValidateModel<T, T, TCreateMutateModel> model, CancellationToken cancellationToken = default)

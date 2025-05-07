@@ -207,7 +207,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<TEntity, object>>, Func<object, Task<string>>>
         {
             // Method resolvers
-        }, []);
+        }, [], []);
     }
 
     protected override async Task<TaskResult<TEntity>> DoUpdateAsync(
