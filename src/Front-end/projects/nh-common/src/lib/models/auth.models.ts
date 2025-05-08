@@ -1,47 +1,90 @@
-export class User {
-  id: string|undefined;
-  email: string|undefined;
+export interface INhUser {
+  id: string | undefined;
+  email: string | undefined;
+  creationDateTime: any;
+  emailConfirmed: boolean;
+  lockoutEnd: any;
+  lockoutStart: any;
+  activeDivisionId: string | undefined;
+  activeDivision: INhDivision | undefined;
+  roles: Array<string>;
+}
+
+export class NhUser implements INhUser {
+  id: string | undefined;
+  email: string | undefined;
   creationDateTime: any;
   emailConfirmed: boolean = false;
   lockoutEnd: any;
   lockoutStart: any;
-  activeDivisionId: string|undefined;
-  activeDivision: Division|undefined;
+  activeDivisionId: string | undefined;
+  activeDivision: INhDivision | undefined;
+  division: INhDivision | undefined;
   roles: Array<string> = [];
 
-  public constructor(init?: Partial<User>) {
+  public constructor(init?: Partial<NhUser>) {
     Object.assign(this, init);
   }
 }
 
-export class Authorization {
+export interface INhAuthorization {
+  realm: string;
+  provider: string;
+  token: string;
+  validTo: string | undefined;
+  refreshToken: string | undefined;
+  refreshTokenExpires: string | undefined;
+  user?: INhUser;
+  claims: Claim[];
+  divisions: INhDivision[];
+  activeDivision?: INhDivision;
+}
+
+export class NhAuthorization implements INhAuthorization {
   realm: string = '';
   provider: string = '';
   token: string = '';
   validTo: string | undefined;
   refreshToken: string | undefined;
   refreshTokenExpires: string | undefined; // Not implemented yet
-  user: User = new User(); //
+  user?: INhUser;
   claims: Claim[] = [];
-  divisions: Division[] = [];
-  activeDivision?: Division;
+  divisions: INhDivision[] = [];
+  activeDivision?: INhDivision;
 
-  public constructor(init?: Partial<Authorization>) {
+  public constructor(init?: Partial<NhAuthorization>) {
     Object.assign(this, init);
   }
 }
 
-export class AccountInformationResponse {
-  user: User = new User();
+export interface INhAccountInformationResponse {
+  user?: INhUser;
+  claims: Claim[];
+  divisions: INhDivision[];
+  activeDivision?: INhDivision;
+}
+
+export class NhAccountInformationResponse implements INhAccountInformationResponse {
+  user?: INhUser;
   claims: Claim[] = [];
-  divisions: Division[] = [];
-  activeDivision?: Division;
-  public constructor(init?: Partial<AccountInformationResponse>) {
+  divisions: INhDivision[] = [];
+  activeDivision?: INhDivision;
+  public constructor(init?: Partial<NhAccountInformationResponse>) {
     Object.assign(this, init);
   }
 }
 
-export class Division {
+export interface INhDivision {
+  id: string;
+  creationDateTime: any;
+  lastModifiedDateTime: any;
+  name: string;
+  description: string;
+  userSelectAllowed: boolean;
+  timeZoneId: string;
+}
+
+export class NhDivision implements INhDivision {
   id: string = '';
   creationDateTime: any;
   lastModifiedDateTime: any;
@@ -50,32 +93,49 @@ export class Division {
   userSelectAllowed: boolean = false;
   timeZoneId: string = '';
 
-  public constructor(init?: Partial<Division>) {
+  public constructor(init?: Partial<NhDivision>) {
     Object.assign(this, init);
   }
 }
 
-export class DivisionRole {
+export interface INhDivisionRole {
+  id?: string;
+  name?: string;
+}
+
+export class NhDivisionRole implements INhDivisionRole {
   id?: string;
   name?: string;
 
-  public constructor(init?: Partial<DivisionRole>) {
+  public constructor(init?: Partial<NhDivisionRole>) {
     Object.assign(this, init);
   }
 }
 
-export class DivisionUser {
+export interface INhDivisionUser {
   id?: string;
   lockOutStartDateTime?: string;
   lockOutEndDateTime?: string;
   userId?: string;
-  user?: User;
+  user?: INhUser;
+  divisionId?: string;
+  division?: NhDivision;
+  roles: Array<NhDivisionRole>;
+  roleIds: Array<string>;
+}
+
+export class NhDivisionUser implements INhDivisionUser {
+  id?: string;
+  lockOutStartDateTime?: string;
+  lockOutEndDateTime?: string;
+  userId?: string;
+  user?: INhUser;
   divisionId?: string
-  division?: Division;
-  roles: Array<DivisionRole> = [];
+  division?: INhDivision;
+  roles: Array<INhDivisionRole> = [];
   roleIds: Array<string> = [];
 
-  public constructor(init?: Partial<DivisionUser>) {
+  public constructor(init?: Partial<NhDivisionUser>) {
     Object.assign(this, init);
   }
 }
@@ -117,11 +177,18 @@ export class ClaimAuthenticateSessionAccountMutateModel {
   }
 }
 
-export class ClaimAuthenticateSessionAccountViewModel {
+export interface IClaimAuthenticateSessionAccountViewModel {
+  completed: boolean;
+  success: boolean;
+  errorMessages: string[];
+  token?: INhAuthorization;
+}
+
+export class ClaimAuthenticateSessionAccountViewModel implements IClaimAuthenticateSessionAccountViewModel {
   completed: boolean = false;
   success: boolean = false;
   errorMessages: string[] = [];
-  token: Authorization = new Authorization();
+  token?: INhAuthorization;
 
   public constructor(init?: Partial<ClaimAuthenticateSessionAccountViewModel>) {
     Object.assign(this, init);
@@ -165,14 +232,6 @@ export class AuthenticateModel {
   password: string | undefined;
 
   public constructor(init?: Partial<AuthenticateModel>) {
-    Object.assign(this, init);
-  }
-}
-
-export class AuthForgotPasswordModel {
-  username!: string;
-
-  public constructor(init?: Partial<AuthForgotPasswordModel>) {
     Object.assign(this, init);
   }
 }

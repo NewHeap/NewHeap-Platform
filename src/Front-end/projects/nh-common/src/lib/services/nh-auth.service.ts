@@ -1,14 +1,13 @@
-import {Inject, Injectable, NgZone, OnDestroy, Optional, PLATFORM_ID, REQUEST_CONTEXT} from '@angular/core';
+import {inject, Inject, Injectable, NgZone, OnDestroy, Optional, PLATFORM_ID, REQUEST_CONTEXT} from '@angular/core';
 import {BehaviorSubject, lastValueFrom} from 'rxjs';
 import {
-  AccountInformationResponse,
+  NhAccountInformationResponse,
   AuthenticateModel,
   AuthenticationSessionCreateResponse,
-  Authorization,
-  AuthSessionExpirationInformation, CheckAuthenticateSessionModel,
-  Claim, ClaimAuthenticateSessionAccountMutateModel, ClaimAuthenticateSessionAccountViewModel,
+  AuthSessionExpirationInformation,
+  Claim,
   ClaimTypes,
-  Division, RefreshTokenLoginAccountMutateModel
+  NhDivision, RefreshTokenLoginAccountMutateModel, INhAuthorization, NhAuthorization
 } from "../models/auth.models";
 import {DateTime} from "luxon";
 import {TaskResult} from "../models/misc.models";
@@ -18,27 +17,25 @@ import {NhCommonModuleConfig} from "../models/config.models";
 import {NhApiUtil} from "../util/nh-api-util";
 import {isPlatformServer} from "@angular/common";
 
-@Injectable({
-  providedIn: 'root'
-})
-export class NhAuthService implements OnDestroy {
-  private authorization: Authorization|undefined = undefined;
-  private authSession: AuthenticationSessionCreateResponse|undefined = undefined;
-  public readonly authSubject = new BehaviorSubject<Authorization|undefined>(this.getAuthorization());
-  private onReady: ((value: (PromiseLike<unknown> | unknown)) => void) | undefined;
+@Injectable()
+export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization> implements OnDestroy {
+  protected authorization: TAuthorization|undefined = undefined;
+  protected authSession: AuthenticationSessionCreateResponse|undefined = undefined;
+  public readonly authSubject = new BehaviorSubject<TAuthorization|undefined>(this.getAuthorization());
+  protected onReady: ((value: (PromiseLike<unknown> | unknown)) => void) | undefined;
   public readonly authReady: Promise<unknown>;
 
-  private _sessionExpirationInformation = new BehaviorSubject<AuthSessionExpirationInformation>(this.getSessionExpirationInformation());
+  protected _sessionExpirationInformation = new BehaviorSubject<AuthSessionExpirationInformation>(this.getSessionExpirationInformation());
   public sessionExpirationInformationChanged = this._sessionExpirationInformation.asObservable();
-  private intervalHandle: any;
+  protected intervalHandle: any;
 
-  constructor(
-    private zone: NgZone,
-    private moduleConfig: NhCommonModuleConfig,
-    private httpClient: HttpClient,
-    @Inject(PLATFORM_ID) private platformId: Object,
-    @Optional() @Inject(REQUEST_CONTEXT) private requestContext: any,
-  ) {
+  protected zone: NgZone = inject(NgZone);
+  protected moduleConfig: NhCommonModuleConfig = inject(NhCommonModuleConfig);
+  protected httpClient: HttpClient = inject(HttpClient);
+  protected platformId: Object = inject(PLATFORM_ID);
+  protected requestContext: any = inject(REQUEST_CONTEXT, {optional: true});
+
+  constructor() {
     this.authReady = new Promise(resolve => {
       this.onReady = resolve;
     });
@@ -124,7 +121,7 @@ export class NhAuthService implements OnDestroy {
     }
   }
 
-  public setAuthorization(auth: Authorization, noEvent = false): void {
+  public setAuthorization(auth: TAuthorization, noEvent = false): void {
     localStorage.setItem('at', btoa(JSON.stringify(auth)));
     this.authorization = auth;
     if(!noEvent) {
@@ -133,8 +130,11 @@ export class NhAuthService implements OnDestroy {
     this.dispatchSessionExpirationInformationChanged();
   }
 
-  public getAuthorization(fromCache: boolean = true): Authorization|undefined {
-    let auth: Authorization = new Authorization();
+  protected abstract initEmptyAuthorization(): TAuthorization;
+
+  public getAuthorization(fromCache: boolean = true): TAuthorization|undefined {
+    let auth: TAuthorization = this.initEmptyAuthorization();
+
     try {
       auth = JSON.parse(atob(localStorage.getItem('at') ?? ''));
     } catch (ex) {
@@ -154,8 +154,8 @@ export class NhAuthService implements OnDestroy {
     return authenticated;
   }
 
-  public getActiveDivision(): Division|null {
-    let division: Division|null = null;
+  public getActiveDivision(): NhDivision|null {
+    let division: NhDivision|null = null;
 
     const auth = this.getAuthorization();
 
@@ -199,7 +199,7 @@ export class NhAuthService implements OnDestroy {
 
   public isClaimGranted(claim: Claim) {
     const auth = this.getAuthorization();
-    return (null != auth && auth.claims != null && null != auth.claims.find(x => x.type === claim.type && x.value === claim.value));
+    return (null != auth && auth.claims != null && null != auth.claims.find((x: Claim) => x.type === claim.type && x.value === claim.value));
   }
 
   public isOneClaimGranted(claims: Array<Claim>) {
@@ -284,73 +284,8 @@ export class NhAuthService implements OnDestroy {
     return this.isOneDivisionRoleGranted(this.getActiveDivisionId(), roles);
   }
 
-  async checkAuthSession(): Promise<TaskResult<CheckAuthenticateSessionModel>> {
-    const result = new TaskResult<CheckAuthenticateSessionModel>({
-      data: new CheckAuthenticateSessionModel()
-    });
-    const authSession = this.getAuthSession();
-
-    if(authSession && result.data) {
-      result.data.didTry = true;
-      try {
-        const authSessionExpired = !((Date.parse(authSession?.expirationDateTime ?? '') - Date.parse(new Date().toISOString())) > 0);
-        if(authSessionExpired) {
-          this.clearAuthSession();
-          result.data?.errorMessages.push('The authentication session has expired.');
-          return result;
-        }
-
-        const claimResult = await this.claimAuthenticationSession(new ClaimAuthenticateSessionAccountMutateModel({
-          sessionToken: authSession.sessionToken
-        }));
-
-        result.data.completed = claimResult.data?.completed ?? false;
-        result.data.success = claimResult.isSuccess && (claimResult.data?.success ?? false);
-
-        if(!claimResult.isSuccess) {
-          result.data.errorMessages = result.data?.errorMessages.concat(claimResult.getAllErrorMessages());
-        }
-      } catch (ex) {
-        result.data.success = false;
-        result.data?.errorMessages.push('An unknown error occurred.');
-        this.clearAuthSession();
-      }
-    }
-
-    return result;
-  }
-
-  public clearAuthSession(): void {
-    try {
-      localStorage.removeItem('as');
-    } catch (ex) {}
-
-    this.authSession = undefined;
-  }
-
-  public setAuthSession(authSession: AuthenticationSessionCreateResponse): void {
-    localStorage.setItem('as', Base64.encode((JSON.stringify(authSession))));
-    this.authSession = authSession;
-  }
-
-  public getAuthSession(fromCache: boolean = true): AuthenticationSessionCreateResponse|undefined {
-    if(fromCache && this.authSession) {
-      return this.authSession;
-    }
-
-    try {
-      const authSessionString = localStorage.getItem('as') || '';
-      this.authSession = undefined;
-      if((authSessionString?.length ?? 0 ) > 0) {
-        this.authSession = JSON.parse(Base64.decode(authSessionString));
-      }
-    } catch (ex) {}
-
-    return this.authSession;
-  }
-
-  async authenticate(model: AuthenticateModel, loginAsUser: boolean = false): Promise<TaskResult<Authorization>> {
-    const result = new TaskResult<Authorization>();
+  async authenticate(model: AuthenticateModel, loginAsUser: boolean = false): Promise<TaskResult<TAuthorization>> {
+    const result = new TaskResult<TAuthorization>();
     let httpParams = new HttpParams();
     if (httpParams.get('language') === null) {
       httpParams = httpParams.set('language', this.moduleConfig.language);
@@ -358,7 +293,7 @@ export class NhAuthService implements OnDestroy {
 
     model.realm = this.moduleConfig.authenticationRealm;
 
-    const request$ = this.httpClient.post<Authorization>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.login, model, {
+    const request$ = this.httpClient.post<TAuthorization>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.login, model, {
       params: httpParams,
       withCredentials: true
     });
@@ -383,8 +318,8 @@ export class NhAuthService implements OnDestroy {
     return result;
   }
 
-  public async reloadAuthorizationProfile(): Promise<TaskResult<Authorization>> {
-    const result = new TaskResult<Authorization>();
+  public async reloadAuthorizationProfile(): Promise<TaskResult<TAuthorization>> {
+    const result = new TaskResult<TAuthorization>();
 
     const auth = this.getAuthorization();
     if(!auth) {
@@ -399,7 +334,7 @@ export class NhAuthService implements OnDestroy {
     let httpHeaders = new HttpHeaders();
     httpHeaders = httpHeaders.set('Authorization', `Bearer ${auth.token}`);
 
-    const request$ = this.httpClient.get<AccountInformationResponse>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.accountInformation, {
+    const request$ = this.httpClient.get<NhAccountInformationResponse>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.accountInformation, {
       params: httpParams,
       headers: httpHeaders,
       withCredentials: true
@@ -453,15 +388,15 @@ export class NhAuthService implements OnDestroy {
     return result;
   }
 
-  async authenticateRefreshToken(model: RefreshTokenLoginAccountMutateModel): Promise<TaskResult<Authorization>> {
-    const result = new TaskResult<Authorization>();
+  async authenticateRefreshToken(model: RefreshTokenLoginAccountMutateModel): Promise<TaskResult<TAuthorization>> {
+    const result = new TaskResult<TAuthorization>();
 
     let httpParams = new HttpParams();
     if (httpParams.get('language') === null) {
       httpParams = httpParams.set('language', this.moduleConfig.language);
     }
 
-    const request$ = this.httpClient.post<Authorization>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.refresh, model, {
+    const request$ = this.httpClient.post<TAuthorization>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.refresh, model, {
       params: httpParams,
       withCredentials: true
     });
@@ -478,66 +413,17 @@ export class NhAuthService implements OnDestroy {
 
     return result;
   }
+}
 
-  async createAuthenticationSession(): Promise<TaskResult<AuthenticationSessionCreateResponse>> {
-    const result = new TaskResult<AuthenticationSessionCreateResponse>();
-    let httpParams = new HttpParams();
-    if (httpParams.get('language') === null) {
-      httpParams = httpParams.set('language', this.moduleConfig.language);
-    }
-
-    if(true) {
-      //throw new Error('Not implemented');
-    }
-
-    const request$ = this.httpClient.post<AuthenticationSessionCreateResponse>(this.moduleConfig.authApiBaseUrl + '/auth/CreateSession', {}, {
-      params: httpParams,
-      withCredentials: true
-    });
-
-    try {
-      result.data = await lastValueFrom(request$);
-      this.setAuthSession(result.data);
-    } catch (ex) {
-      const errResult = NhApiUtil.taskResultFromResponse(ex);
-      errResult.copyTo(result);
-    }
-
-    return result;
+@Injectable({
+  providedIn: 'root'
+})
+export class NhAuthService extends BaseNhAuthService<NhAuthorization> {
+  protected initEmptyAuthorization(): NhAuthorization {
+    return new NhAuthorization();
   }
 
-  async claimAuthenticationSession(model: ClaimAuthenticateSessionAccountMutateModel): Promise<TaskResult<ClaimAuthenticateSessionAccountViewModel>> {
-    const result = new TaskResult<ClaimAuthenticateSessionAccountViewModel>();
-    let httpParams = new HttpParams();
-    if (httpParams.get('language') === null) {
-      httpParams = httpParams.set('language', this.moduleConfig.language);
-    }
-
-    const request$ = this.httpClient.post<ClaimAuthenticateSessionAccountViewModel>(this.moduleConfig.authApiBaseUrl + '/auth/ClaimSession', model, {
-      params: httpParams,
-      withCredentials: true
-    });
-
-    try {
-      result.data = await lastValueFrom(request$);
-
-      if(result.data?.completed) {
-        const claimResult = result.data;
-        if(claimResult.success && claimResult.token) {
-          this.setAuthorization(claimResult.token);
-        }
-
-        this.clearAuthSession();
-      }
-    } catch (ex) {
-      const errResult = NhApiUtil.taskResultFromResponse(ex);
-      errResult.copyTo(result);
-    }
-
-    if((result.data?.errorMessages?.length ?? 0) > 0) {
-      result.addError('', result.data?.errorMessages ?? '');
-    }
-
-    return result;
+  constructor() {
+    super();
   }
 }

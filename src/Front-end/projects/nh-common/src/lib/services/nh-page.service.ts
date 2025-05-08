@@ -11,7 +11,7 @@ import {Subject, Subscription} from "rxjs";
 import {NhConfigCommonService} from "./nh-config.service";
 import {ActivatedRouteSnapshot, NavigationExtras} from "@angular/router";
 import {NhJsonLdData, NhJsonLdService} from "./nh-json-ld.service";
-import { Authorization } from "../models/auth.models";
+import { NhAuthorization } from "../models/auth.models";
 import {NhCommonConfig, NhCommonConfigChanged, NhCommonModuleConfig} from "../models/config.models";
 import {NhAppService} from "./nh-app.service";
 import {NhAuthService} from "./nh-auth.service";
@@ -49,7 +49,7 @@ const Nh_PAGE_SETTINGS_TRANSFER_STATE_KEY = 'Nh_PAGE_SETTINGS_TRANSFER_STATE_KEY
 export class NhPageService implements OnDestroy {
   private $appRefIsStable: Subscription|undefined;
   private $auth: Subscription;
-  private authorization: Authorization | undefined;
+  private authorization: NhAuthorization | undefined;
   private $config: Subscription;
   private config: NhCommonConfig = this.configService.getConfig();
   public activePageSettings: NhPageSettings = new NhPageSettings();
@@ -134,7 +134,7 @@ export class NhPageService implements OnDestroy {
     this.$appRefIsStable?.unsubscribe();
   }
 
-  private async authChanged(authorization: Authorization | undefined) {
+  private async authChanged(authorization: NhAuthorization | undefined) {
     this.authorization = authorization;
     await this.flushMeta(this.activePageSettings);
   }

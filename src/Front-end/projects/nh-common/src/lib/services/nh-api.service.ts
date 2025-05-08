@@ -10,7 +10,7 @@ import {
 import { NhApiUtil } from '../util/nh-api-util';
 import { NhAuthService } from './nh-auth.service';
 import {NhCommonModuleConfig} from "../models/config.models";
-import {Authorization} from "../models/auth.models";
+import {NhAuthorization} from "../models/auth.models";
 import {TaskResult} from "../models/misc.models";
 
 @Injectable({
@@ -18,7 +18,7 @@ import {TaskResult} from "../models/misc.models";
 })
 export class NhApiService implements OnDestroy {
   authSubscription: Subscription;
-  authorization: Authorization|undefined;
+  authorization: NhAuthorization|undefined;
   baseUrl: string|undefined;
 
   public static ActiveDivisionHeaderKey = 'X-NH-ActiveDivisionId';
@@ -48,7 +48,7 @@ export class NhApiService implements OnDestroy {
     });
   }
 
-  private async authChanged(authorization: Authorization|undefined) {
+  private async authChanged(authorization: NhAuthorization|undefined) {
     this.authorization = authorization;
   }
 

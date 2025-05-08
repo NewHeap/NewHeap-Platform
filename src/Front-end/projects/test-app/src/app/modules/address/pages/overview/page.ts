@@ -1,5 +1,4 @@
 import {Component} from '@angular/core';
-import {faBuilding, faCalendar} from "@fortawesome/free-solid-svg-icons";
 import {ClaimTypes, NhPageBaseComponent} from "nh-common";
 
 @Component({
@@ -9,8 +8,6 @@ import {ClaimTypes, NhPageBaseComponent} from "nh-common";
   standalone: false
 })
 export class OverviewAddressPage extends NhPageBaseComponent {
-  protected readonly faBuilding = faBuilding;
-  protected readonly faCalendar = faCalendar;
   claimTypes = ClaimTypes;
   constructor() {
     super();

@@ -7,7 +7,7 @@ import {
   ViewContainerRef
 } from '@angular/core';
 import {
-  Authorization, NhAuthService,
+  NhAuthorization, NhAuthService,
   NhHeadService,
   NhJsonLdService,
   NhModalService, NhServerService,
@@ -31,7 +31,7 @@ export class AppComponent implements OnInit, OnDestroy {
   preConnectUrlItems: PreConnectUrlItem[] = [];
   preLoadUrlItems: PreLoadUrlItem[] = [];
   showCookie = false;
-  protected authorization: Authorization | undefined;
+  protected authorization: NhAuthorization | undefined;
   private $auth: Subscription;
 
   constructor(
@@ -62,7 +62,7 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
-  private async authChanged(authorization: Authorization | undefined) {
+  private async authChanged(authorization: NhAuthorization | undefined) {
     this.authorization = authorization;
   }
 

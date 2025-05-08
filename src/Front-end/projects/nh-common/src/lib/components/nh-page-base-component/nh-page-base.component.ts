@@ -16,7 +16,7 @@ import { NhAuthService } from "../../services/nh-auth.service";
 import {NhModalService} from "../../services/nh-modal.service";
 import {NhRouterService} from "../../services/nh-router.service";
 import {NhCommonConfig, NhCommonConfigChanged} from "../../models/config.models";
-import {Authorization} from "../../models/auth.models";
+import {NhAuthorization} from "../../models/auth.models";
 
 
 @Component({
@@ -55,7 +55,7 @@ export abstract class NhPageBaseComponent
   private $routeChanged: Subscription|undefined;
   protected config: NhCommonConfig = this.configService.getConfig();
   private $config: Subscription|undefined;
-  protected authorization: Authorization | undefined;
+  protected authorization: NhAuthorization | undefined;
   private $auth: Subscription;
   private $activeRouteParams: Subscription|undefined;
   protected activeRouteParams: Params = {};
@@ -113,7 +113,7 @@ export abstract class NhPageBaseComponent
     this.config = configChanged.config;
   }
 
-  private async authChanged(authorization: Authorization | undefined) {
+  private async authChanged(authorization: NhAuthorization | undefined) {
     this.authorization = authorization;
   }
 

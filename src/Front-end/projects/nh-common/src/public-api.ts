@@ -6,8 +6,6 @@ export * from './lib/models/config.models';
 export * from './lib/models/misc.models';
 export * from './lib/models/http.models';
 export * from './lib/models/auth.models';
-export * from './lib/models/user.models';
-export * from './lib/models/division.models';
 
 export * from './lib/util/nh-common-util';
 export * from './lib/util/nh-string-util';
@@ -41,9 +39,6 @@ export * from './lib/services/nh-json-ld.service';
 export * from './lib/services/nh-internet-connection.service';
 export * from './lib/services/nh-server.service';
 export * from './lib/services/nh-server-side-form-validator.service';
-export * from './lib/services/nh-division.service';
-export * from './lib/services/nh-division-user.service';
-export * from './lib/services/nh-user.service';
 export * from './lib/services/nh-base-api.service';
 
 export * from './lib/guards/nh-auth.guards';

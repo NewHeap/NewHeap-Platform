@@ -36,8 +36,6 @@ import {NhInternetConnectionService} from "./services/nh-internet-connection.ser
 import {NhConfigCommonService} from "./services/nh-config.service";
 import {Observable} from "rxjs";
 import {NhActiveDivisionInterceptor} from "./interceptors/nh-active-division.interceptor";
-import {NhDivisionUserService} from "./services/nh-division-user.service";
-import {NhDivisionService} from "./services/nh-division.service";
 import {NhFormDropDownComponent} from "./components/nh-form-dropdown/form-dropdown.component";
 import {NgxBootstrapMultiselectModule} from "ngx-bootstrap-multiselect";
 import {FormsModule} from "@angular/forms";
@@ -168,8 +166,6 @@ import {NhErrorComponent} from "./components/nh-error/component";
     NhTaskResultFormValidationService,
     NhCookieService,
     NhInternetConnectionService,
-    NhDivisionUserService,
-    NhDivisionService,
     NhServerSideFormValidationService
   ]
 })
