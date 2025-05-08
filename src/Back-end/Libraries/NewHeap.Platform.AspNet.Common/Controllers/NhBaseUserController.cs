@@ -62,6 +62,7 @@ public abstract class NhBaseUserController<
         
         var query = _userManager
             .GetRepository()
+            .GetAll()
             as IQueryable<TUser>
         ;
 
