@@ -120,10 +120,10 @@ public abstract partial class BaseDbEntityService<TEntity, TCreateMutateModel, T
     #region TEntity
 
     public virtual Task<TEntity?> GetAsync(Guid id, CancellationToken cancellationToken = default) 
-        => base.DoGetAsync(id, cancellationToken);
+        => DoGetAsync(id, cancellationToken);
 
     public virtual Task<TaskResult<TEntity?>> CreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default)
-        => base.DoCreateAsync(mutateModel, committedByUserId, beforeSave, cancellationToken);
+        => DoCreateAsync(mutateModel, committedByUserId, beforeSave, cancellationToken);
 
     public virtual Task<TaskResult<TEntity>> UpdateAsync(
         Guid id,
@@ -132,10 +132,10 @@ public abstract partial class BaseDbEntityService<TEntity, TCreateMutateModel, T
         Action<TEntity>? beforeSave = null,
         CancellationToken cancellationToken = default
         )
-        => base.DoUpdateAsync(id, mutateModel, committedByUserId, beforeSave, cancellationToken);
+        => DoUpdateAsync(id, mutateModel, committedByUserId, beforeSave, cancellationToken);
 
     public virtual Task<TaskResult<TEntity>> DeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default)
-        => base.DoDeleteAsync(id, committedByUserId, cancellationToken);
+        => DoDeleteAsync(id, committedByUserId, cancellationToken);
 
     #endregion
 }
