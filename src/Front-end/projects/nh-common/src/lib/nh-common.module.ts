@@ -1,4 +1,4 @@
-import {inject, ModuleWithProviders, NgModule, Optional, provideAppInitializer, SkipSelf} from "@angular/core";
+import {inject, ModuleWithProviders, NgModule, Optional, provideAppInitializer, SkipSelf, Type} from "@angular/core";
 import {CommonModule} from "@angular/common";
 import {
   HTTP_INTERCEPTORS,
@@ -43,6 +43,8 @@ import {NhServerSideFormValidationService} from "./services/nh-server-side-form-
 import {NhFormErrorMessageComponent} from "./components/nh-form-error-message/form-error-message.component";
 import {NhApiAuthInterceptor} from "./interceptors/nh-api.auth.interceptor";
 import {NhErrorComponent} from "./components/nh-error/component";
+import {BaseNhAuthService, NhAuthService} from "./services/nh-auth.service";
+import {INhAuthorization} from "./models/auth.models";
 
 
 @NgModule({
@@ -176,11 +178,12 @@ export class NhCommonModule {
     }
   }
 
-  static forRoot(config: NhCommonModuleConfig): ModuleWithProviders<NhCommonModule> {
+  static forRoot<TAuthorization extends INhAuthorization, TAuthService extends BaseNhAuthService<TAuthorization>>(config: NhCommonModuleConfig, authService: Type<TAuthService>): ModuleWithProviders<NhCommonModule> {
     return {
       ngModule: NhCommonModule,
       providers: [
-        {provide: NhCommonModuleConfig, useValue: config}
+        {provide: NhCommonModuleConfig, useValue: config},
+        {provide: NhAuthService, useExisting: authService},
       ]
     };
   }

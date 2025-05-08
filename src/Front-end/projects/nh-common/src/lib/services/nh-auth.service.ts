@@ -415,9 +415,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
   }
 }
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable()
 export class NhAuthService extends BaseNhAuthService<NhAuthorization> {
   protected initEmptyAuthorization(): NhAuthorization {
     return new NhAuthorization();

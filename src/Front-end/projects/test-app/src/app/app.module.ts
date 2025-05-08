@@ -28,6 +28,8 @@ import {
 import {routes as getRootRoutes} from "./app-routing.module";
 import {ToastrModule} from "ngx-toastr";
 import {BrowserAnimationsModule} from "@angular/platform-browser/animations";
+import {Authorization} from "./core/models/auth.models";
+import {AuthService} from "./core/services/auth.service";
 
 registerLocaleData(localeNL, 'nl');
 registerLocaleData(localeEN, 'en');
@@ -53,7 +55,7 @@ registerLocaleData(localeEN, 'en');
       },
       defaultLanguage: environment.defaultLanguage
     }),
-    NhCommonModule.forRoot(new NhCommonModuleConfig({
+    NhCommonModule.forRoot<Authorization, AuthService>(new NhCommonModuleConfig({
       baseUrl: environment.baseUrl,
       apiBaseUrl: environment.apiBaseUrl,
       authApiBaseUrl: environment.apiBaseUrl,
@@ -64,7 +66,7 @@ registerLocaleData(localeEN, 'en');
       defaultCulture: environment.defaultCulture,
       environment: environment.name,
       cookieDomain: environment.cookieDomain
-    })),
+    }), AuthService),
     ToastrModule.forRoot({
       positionClass:'toast-bottom-right'
     })
