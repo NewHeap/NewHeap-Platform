@@ -57,7 +57,7 @@ public abstract class NhBaseUserController<
     }
 
     [NonAction]
-    public Task<IQueryable<TUser>> GetQueryableAsync(CancellationToken cancellationToken)
+    public virtual Task<IQueryable<TUser>> GetQueryableAsync(CancellationToken cancellationToken)
     {
         
         var query = _userManager
@@ -72,7 +72,7 @@ public abstract class NhBaseUserController<
 
     [HttpGet]
     [Authorize(Policy = "app.user.view")]
-    public async Task<IActionResult> Get([FromQuery] UserCollectionRequestModel requestModel, CancellationToken cancellationToken = default)
+    public virtual async Task<IActionResult> Get([FromQuery] UserCollectionRequestModel requestModel, CancellationToken cancellationToken = default)
     {
         var currentUser = await _userManager.FindByIdAsync(UserId!.Value.ToString());
 
@@ -100,7 +100,7 @@ public abstract class NhBaseUserController<
 
     [HttpGet("{id}")]
     [Authorize(Policy = "app.user.view")]
-    public async Task<IActionResult> Get([FromRoute] Guid id, CancellationToken cancellationToken = default)
+    public virtual async Task<IActionResult> Get([FromRoute] Guid id, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
