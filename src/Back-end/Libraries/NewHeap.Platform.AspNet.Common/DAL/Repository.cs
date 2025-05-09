@@ -233,20 +233,22 @@ public partial class Repository<T> : IRepository<T>
     /// <returns></returns>
     public async Task<INhDbTransactionScope> StartOrGetTransactionScopeAsync(CancellationToken cancellationToken = default)
     {
-        var context = new NhDbTransactionScope();
         IDbContextTransaction? tx = Context?.Database?.CurrentTransaction;
         if (tx == null)
         {
-            context.Transaction = await StartTransactionAsync(cancellationToken);
-            context.IsMyTransaction = true;
+            var transaction = await StartTransactionAsync(cancellationToken);
+            return new NhDbTransactionScope(
+                transaction: transaction!,
+                isMyTransaction: true
+            );
         }
         else
         {
-            context.Transaction = new Transaction(tx);
-            context.IsMyTransaction = false;
+            return new NhDbTransactionScope(
+                transaction: new Transaction(tx),
+                isMyTransaction: false
+            );
         }
-
-        return context;
     }
 
     public virtual int SaveChanges()
@@ -265,10 +267,9 @@ public partial class Repository<T> : IRepository<T>
     }
 }
 
-public interface INhDbTransactionScope
+public interface INhDbTransactionScope : IDisposable
 {
-    bool IsMyTransaction { get; set; }
-    ITransaction Transaction { get; set; }
+    bool IsMyTransaction { get; init; }
 
     /// <summary>
     /// Only rolls back if we own the transaction.
@@ -287,15 +288,21 @@ public interface INhDbTransactionScope
 
 public class NhDbTransactionScope : INhDbTransactionScope
 {
-    public bool IsMyTransaction { get; set; } = false;
+    public bool IsMyTransaction { get; init; } = false;
 
-    public ITransaction Transaction { get; set; } = null!;
+    private ITransaction _transaction { get; init; } = null!;
+
+    public NhDbTransactionScope(ITransaction transaction, bool isMyTransaction)
+    {
+        _transaction = transaction;
+        IsMyTransaction = isMyTransaction;
+    }
 
     public async Task RollbackAsync(CancellationToken cancellationToken = default)
     { 
         if(IsMyTransaction)
         {
-            await Transaction.RollbackAsync(cancellationToken);
+            await _transaction.RollbackAsync(cancellationToken);
         }
     }
 
@@ -303,7 +310,15 @@ public class NhDbTransactionScope : INhDbTransactionScope
     {
         if (IsMyTransaction)
         {
-            await Transaction.CommitAsync(cancellationToken);
+            await _transaction.CommitAsync(cancellationToken);
+        }
+    }
+
+    public void Dispose()
+    {
+        if (IsMyTransaction)
+        {
+            _transaction.Dispose();
         }
     }
 }
