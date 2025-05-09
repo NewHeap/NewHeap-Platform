@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Transactions;
 
 namespace NewHeap.Platform.AspNet.Common.DAL;
 
@@ -224,6 +226,29 @@ public partial class Repository<T> : IRepository<T>
         return new Transaction(trans);
     }
 
+    /// <summary>
+    /// Create a transaction scope with support for inner transactions, will only commit if we own the transaction. (First creator)
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<INhDbTransactionScope> StartOrGetTransactionScopeAsync(CancellationToken cancellationToken = default)
+    {
+        var context = new NhDbTransactionScope();
+        IDbContextTransaction? tx = Context?.Database?.CurrentTransaction;
+        if (tx == null)
+        {
+            context.Transaction = await StartTransactionAsync(cancellationToken);
+            context.IsMyTransaction = true;
+        }
+        else
+        {
+            context.Transaction = new Transaction(tx);
+            context.IsMyTransaction = false;
+        }
+
+        return context;
+    }
+
     public virtual int SaveChanges()
     {
         return Context.SaveChanges();
@@ -237,5 +262,48 @@ public partial class Repository<T> : IRepository<T>
     public virtual Task AddRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)
     {
         return DbSet.AddRangeAsync(entities, cancellationToken);
+    }
+}
+
+public interface INhDbTransactionScope
+{
+    bool IsMyTransaction { get; set; }
+    ITransaction Transaction { get; set; }
+
+    /// <summary>
+    /// Only rolls back if we own the transaction.
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    Task RollbackAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Only commits if we own the transaction. 
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    Task CommitAsync(CancellationToken cancellationToken = default);
+}
+
+public class NhDbTransactionScope : INhDbTransactionScope
+{
+    public bool IsMyTransaction { get; set; } = false;
+
+    public ITransaction Transaction { get; set; } = null!;
+
+    public async Task RollbackAsync(CancellationToken cancellationToken = default)
+    { 
+        if(IsMyTransaction)
+        {
+            await Transaction.RollbackAsync(cancellationToken);
+        }
+    }
+
+    public async Task CommitAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsMyTransaction)
+        {
+            await Transaction.CommitAsync(cancellationToken);
+        }
     }
 }

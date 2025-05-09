@@ -51,6 +51,13 @@ public interface IRepository<T> where T : class
     int SaveChanges();
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task<ITransaction> StartTransactionAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Create a transaction scope with support for inner transactions, will only commit if we own the transaction. (First creator)
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    Task<INhDbTransactionScope> StartOrGetTransactionScopeAsync(CancellationToken cancellationToken = default);
     void Update(T entity);
     void Update<TEntity>(TEntity entity) where TEntity : class;
     void UpdateRange(IEnumerable<T> entities);
