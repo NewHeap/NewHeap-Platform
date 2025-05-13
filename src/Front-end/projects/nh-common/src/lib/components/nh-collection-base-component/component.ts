@@ -2,19 +2,18 @@ import {
   Component, inject,
   OnDestroy,
   OnInit,
-  input, PLATFORM_ID
+  input, PLATFORM_ID, Type
 } from "@angular/core";
 import {Observable, Subscription} from "rxjs";
 import {ActivatedRoute, Router} from "@angular/router";
 import {TranslateService} from "@ngx-translate/core";
 import {ToastrService} from "ngx-toastr";
 import { ColumnMode } from "@swimlane/ngx-datatable";
-import { NhAuthService } from "../../services/nh-auth.service";
+import {BaseNhAuthService, NhAuthService} from "../../services/nh-auth.service";
 import { NhModalService } from "../../services/nh-modal.service";
 import {CollectionHttpRequestOptions, CollectionHttpResponse, OrderByRequestOptions} from "../../models/http.models";
-import { ClaimTypes } from "../../models/auth.models";
+import {ClaimTypes, INhAuthorization, NhAuthorization} from "../../models/auth.models";
 import {NhRouterService} from "../../services/nh-router.service";
-import {platformServer} from "@angular/platform-server";
 import {DOCUMENT, isPlatformServer} from "@angular/common";
 
 @Component({
@@ -23,7 +22,7 @@ import {DOCUMENT, isPlatformServer} from "@angular/common";
     standalone: false
 })
 
-export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
+export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAuthorization extends INhAuthorization, TAuthService extends BaseNhAuthService<TAuthorization>>
   implements
     OnInit,
     OnDestroy
@@ -32,7 +31,7 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
   protected document: Document = inject(DOCUMENT)
   protected platformId: Object = inject(PLATFORM_ID);
   protected static readonly URL_QUERY_PARAM_KEY = 'q';
-  protected authService: NhAuthService = inject(NhAuthService);
+  protected authService: TAuthService;
   protected modalService: NhModalService = inject(NhModalService);
   protected translateService: TranslateService = inject(TranslateService);
   protected toastrService: ToastrService = inject(ToastrService);
@@ -58,7 +57,9 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
   }
 
   protected constructor(
+    authServiceType: Type<TAuthService>
   ) {
+    this.authService = inject(authServiceType);
   }
 
   abstract onLoad(requestOptions: CollectionHttpRequestOptions): Promise<Observable<CollectionHttpResponse<TCollectionResponseItem>>>;
@@ -227,5 +228,17 @@ export abstract class NhCollectionBaseComponent<TCollectionResponseItem>
   async firstPage() {
     this.requestOptions.page = 1;
     await this.load();
+  }
+}
+
+
+@Component({
+  selector: 'nh-shared-collection-type-base-component',
+  template: ``,
+  standalone: false
+})
+export abstract class NhCollectionBaseComponent<TCollectionResponseItem> extends NhCollectionTypeBaseComponent<TCollectionResponseItem, NhAuthorization, NhAuthService> {
+  constructor() {
+    super(NhAuthService);
   }
 }

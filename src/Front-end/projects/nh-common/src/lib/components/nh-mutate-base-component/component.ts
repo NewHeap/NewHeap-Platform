@@ -6,15 +6,15 @@ import {
   Input,
   OnDestroy,
   OnInit,
-  Output,
+  Output, Type,
   ViewChild
 } from "@angular/core";
 import {INhModalComponent, NhModalComponentRef, NhModalService} from "../../services/nh-modal.service";
-import { NhAuthService } from "../../services/nh-auth.service";
+import {BaseNhAuthService, NhAuthService} from "../../services/nh-auth.service";
 import {TranslateService} from "@ngx-translate/core";
 import { ToastrService } from "ngx-toastr";
 import {ActivatedRoute} from "@angular/router";
-import { ClaimTypes } from "../../models/auth.models";
+import {ClaimTypes, INhAuthorization, NhAuthorization} from "../../models/auth.models";
 import {
   AspMvcFormServerSideFormValidator,
   NhServerSideFormValidationService
@@ -32,18 +32,18 @@ export enum MutationType {
 }
 
 @Component({
-    selector: 'nh-mutate-base-component',
+    selector: 'nh-mutate-base-type-component',
     template: ``,
     standalone: false
 })
-export abstract class NhMutateBaseComponent<TFormData, TResult>
+export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorization extends INhAuthorization, TAuthService extends BaseNhAuthService<TAuthorization>>
   implements
     OnInit,
     OnDestroy,
-    INhModalComponent<NhMutateBaseComponent<TFormData, TResult>>
+    INhModalComponent<NhMutateBaseTypeComponent<TFormData, TResult, TAuthorization, TAuthService>>
 {
-  protected modalComponentRef: NhModalComponentRef<NhMutateBaseComponent<TFormData, TResult>>|undefined;
-  protected authService: NhAuthService = inject(NhAuthService);
+  protected modalComponentRef: NhModalComponentRef<NhMutateBaseTypeComponent<TFormData, TResult, TAuthorization, TAuthService>>|undefined;
+  protected authService: TAuthService;
   protected modalService: NhModalService = inject(NhModalService);
   protected translateService: TranslateService = inject(TranslateService);
   protected toastrService: ToastrService = inject(ToastrService);
@@ -57,7 +57,7 @@ export abstract class NhMutateBaseComponent<TFormData, TResult>
   private _mutationType: MutationType = MutationType.Create;
   private _formData: TFormData|undefined;
 
-  setModalComponentRef(ref: NhModalComponentRef<NhMutateBaseComponent<TFormData, TResult>>): void {
+  setModalComponentRef(ref: NhModalComponentRef<NhMutateBaseTypeComponent<TFormData, TResult, TAuthorization, TAuthService>>): void {
     this.modalComponentRef = ref;
   }
 
@@ -101,7 +101,10 @@ export abstract class NhMutateBaseComponent<TFormData, TResult>
   @Output() created = new EventEmitter<TResult>();
   @Output() updated = new EventEmitter<TResult>();
 
-  protected constructor() {
+  protected constructor(
+    authServiceType: Type<TAuthService>
+  ) {
+    this.authService = inject(authServiceType);
   }
 
   abstract onNewFormData(mutationType: MutationType): Promise<TFormData>;
@@ -195,5 +198,16 @@ export abstract class NhMutateBaseComponent<TFormData, TResult>
 
   closeDialog(event?: any) {
     this.modalComponentRef?.close();
+  }
+}
+
+@Component({
+  selector: 'nh-mutate-base-component',
+  template: ``,
+  standalone: false
+})
+export abstract class NhMutateBaseComponent<TFormData, TResult> extends NhMutateBaseTypeComponent<TFormData, TResult, NhAuthorization, NhAuthService> {
+  constructor() {
+    super(NhAuthService);
   }
 }

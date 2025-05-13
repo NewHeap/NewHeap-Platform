@@ -4,7 +4,7 @@ import {
   inject, makeStateKey,
   OnChanges,
   OnDestroy,
-  OnInit, PLATFORM_ID, TransferState
+  OnInit, PLATFORM_ID, TransferState, Type
 } from "@angular/core";
 import {ActivatedRoute, NavigationEnd, ParamMap, Params, Router} from "@angular/router";
 import {filter, Subscription} from "rxjs";
@@ -12,19 +12,19 @@ import {DOCUMENT} from "@angular/common";
 import {TranslateService} from "@ngx-translate/core";
 import {NhPageService, NhPageSettings, TypedNhPageSettings} from "../../services/nh-page.service";
 import {NhConfigCommonService} from "../../services/nh-config.service";
-import { NhAuthService } from "../../services/nh-auth.service";
+import {BaseNhAuthService, NhAuthService} from "../../services/nh-auth.service";
 import {NhModalService} from "../../services/nh-modal.service";
 import {NhRouterService} from "../../services/nh-router.service";
 import {NhCommonConfig, NhCommonConfigChanged} from "../../models/config.models";
-import {NhAuthorization} from "../../models/auth.models";
+import {INhAuthorization, NhAuthorization} from "../../models/auth.models";
 
 
 @Component({
-    selector: 'app-page-base-component',
+    selector: 'app-page-base-component-type',
     template: ``,
     standalone: false
 })
-export abstract class NhPageBaseComponent
+export abstract class NhPageTypeBaseComponent<TAuthorization extends INhAuthorization, TAuthService extends BaseNhAuthService<TAuthorization>>
   implements
     OnChanges,
     OnInit,
@@ -43,7 +43,7 @@ export abstract class NhPageBaseComponent
   };
 
   protected configService: NhConfigCommonService = inject(NhConfigCommonService);
-  protected authService: NhAuthService = inject(NhAuthService);
+  protected authService: TAuthService;
   protected translateService: TranslateService = inject(TranslateService);
   protected pageService: NhPageService = inject(NhPageService);
   protected modalService: NhModalService = inject(NhModalService);
@@ -73,7 +73,9 @@ export abstract class NhPageBaseComponent
     return this.pageSettings.pageData;
   }
 
-  constructor() {
+  constructor(authServiceType: Type<TAuthService>) {
+    this.authService = inject(authServiceType);
+
     this.pageService.setBreadcrumbOverrideText(undefined);
 
     this.$config = this.configService.configSubject.subscribe(async (configChanged) => {
@@ -241,11 +243,22 @@ export abstract class NhPageBaseComponent
 }
 
 @Component({
-    selector: 'app-page-base-component-typed',
+  selector: 'app-page-base-component',
+  template: ``,
+  standalone: false
+})
+export abstract class NhPageBaseComponent extends NhPageTypeBaseComponent<NhAuthorization, NhAuthService> {
+  constructor() {
+    super(NhAuthService);
+  }
+}
+
+@Component({
+    selector: 'app-page-base-component-type-typed',
     template: ``,
     standalone: false
 })
-export abstract class TypedAppPageBaseComponent<TPageData> extends NhPageBaseComponent {
+export abstract class TypedAppPageTypeBaseComponent<TPageData, TAuthorization extends INhAuthorization, TAuthService extends BaseNhAuthService<TAuthorization>> extends NhPageTypeBaseComponent<TAuthorization, TAuthService> {
   protected override get pageSettings(): TypedNhPageSettings<TPageData> {
     return this.pageService.activePageSettings as TypedNhPageSettings<TPageData>;
   };
@@ -260,7 +273,18 @@ export abstract class TypedAppPageBaseComponent<TPageData> extends NhPageBaseCom
     return this.pageSettings.pageData as TPageData;
   }
 
+  constructor(authServiceType: Type<TAuthService>) {
+    super(authServiceType);
+  }
+}
+
+@Component({
+  selector: 'app-page-base-component-typed',
+  template: ``,
+  standalone: false
+})
+export abstract class TypedAppPageBaseComponent<TPageData> extends TypedAppPageTypeBaseComponent<TPageData, NhAuthorization, NhAuthService> {
   constructor() {
-    super();
+    super(NhAuthService);
   }
 }
