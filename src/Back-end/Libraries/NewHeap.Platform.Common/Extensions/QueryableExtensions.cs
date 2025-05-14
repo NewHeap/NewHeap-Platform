@@ -18,12 +18,4 @@ public static partial class QueryableExtensions
             ? query.Include(navigationPropertyPath)
             : query;
     }
-
-    public static IQueryable<T> CollectionRequestModelSkipTake<T>(this IQueryable<T> q, BaseCollectionRequestModel requestModel)
-    {
-        return q
-            .Skip((requestModel.Page - 1) * requestModel.ItemsPerPage)
-            .Take(requestModel.ItemsPerPage);
-
-    }
 }
