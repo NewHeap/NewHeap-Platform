@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -33,31 +34,21 @@ public static class CollectionRequestModelExtensions
 
     public static IQueryable<T> PageSkipTake<T>(this IQueryable<T> q, int page, int itemsPerPage)
     {
-        return q.PageSkipTake(page, itemsPerPage);
+        return q.PageSkipTake(page, itemsPerPage).AsQueryable();
     }
 
     public static IQueryable<T> PageSkipTake<T>(this IQueryable<T> q, IBaseCollectionRequestModel requestModel)
     {
-        return q.PageSkipTake(requestModel);
+        return q.PageSkipTake(requestModel).AsQueryable();
     }
 
-    public static ICollection<T> PageSkipTake<T>(this ICollection<T> q, int page, int itemsPerPage)
+    public static List<T> PageSkipTake<T>(this List<T> q, int page, int itemsPerPage)
     {
-        return q.PageSkipTake(page, itemsPerPage);
+        return q.PageSkipTake(page, itemsPerPage).ToList();
     }
 
-    public static ICollection<T> PageSkipTake<T>(this ICollection<T> q, IBaseCollectionRequestModel requestModel)
+    public static List<T> PageSkipTake<T>(this List<T> q, IBaseCollectionRequestModel requestModel)
     {
-        return q.PageSkipTake(requestModel);
-    }
-
-    public static IList<T> PageSkipTake<T>(this IList<T> q, int page, int itemsPerPage)
-    {
-        return q.PageSkipTake(page, itemsPerPage);
-    }
-
-    public static IList<T> PageSkipTake<T>(this IList<T> q, IBaseCollectionRequestModel requestModel)
-    {
-        return q.PageSkipTake(requestModel);
+        return q.PageSkipTake(requestModel).ToList();
     }
 }
