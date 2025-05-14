@@ -10,6 +10,7 @@ using System.ComponentModel;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Linq.Dynamic.Core;
+using NewHeap.Platform.Common.Extensions;
 
 namespace NewHeap.Platform.Common.Services;
 internal record SearchClosure(string Value);
@@ -779,8 +780,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
             : queryable.LongCount();
 
         queryable = queryable
-            .Skip((requestModel.Page - 1) * requestModel.ItemsPerPage)
-            .Take(requestModel.ItemsPerPage)
+            .PageSkipTake(requestModel)
         ;
 
         return (queryable, totalCount, filterResult, orderByResult);
