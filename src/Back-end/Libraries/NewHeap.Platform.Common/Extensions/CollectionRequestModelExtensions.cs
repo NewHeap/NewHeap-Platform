@@ -26,29 +26,4 @@ public static class CollectionRequestModelExtensions
             .Skip((page - 1) * itemsPerPage)
             .Take(itemsPerPage);
     }
-
-    public static IEnumerable<T> PageSkipTake<T>(this IEnumerable<T> q, IBaseCollectionRequestModel requestModel)
-    {
-        return q.PageSkipTake(requestModel.Page, requestModel.ItemsPerPage);
-    }
-
-    public static IQueryable<T> PageSkipTake<T>(this IQueryable<T> q, int page, int itemsPerPage)
-    {
-        return q.PageSkipTake(page, itemsPerPage).AsQueryable();
-    }
-
-    public static IQueryable<T> PageSkipTake<T>(this IQueryable<T> q, IBaseCollectionRequestModel requestModel)
-    {
-        return q.PageSkipTake(requestModel).AsQueryable();
-    }
-
-    public static List<T> PageSkipTake<T>(this List<T> q, int page, int itemsPerPage)
-    {
-        return q.PageSkipTake(page, itemsPerPage).ToList();
-    }
-
-    public static List<T> PageSkipTake<T>(this List<T> q, IBaseCollectionRequestModel requestModel)
-    {
-        return q.PageSkipTake(requestModel).ToList();
-    }
 }
