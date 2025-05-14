@@ -199,6 +199,20 @@ public abstract partial class NhUserManager<
         _dbLogService = nhDbLogService;
     }
 
+    protected virtual T IdentityErrorToTaskResult<T>(IdentityResult identityResult, T result)
+        where T : TaskResult
+    {
+        if (!identityResult.Succeeded)
+        {
+            foreach (var error in identityResult.Errors)
+            {
+                result.AddError(error.Code, error.Description);
+            }
+        }
+
+        return result;
+    }
+
     public virtual IRepository<TUser> GetRepository()
     {
         return _userRepository;
