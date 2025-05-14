@@ -781,6 +781,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
 
         queryable = queryable
             .PageSkipTake(requestModel)
+            .AsQueryable()
         ;
 
         return (queryable, totalCount, filterResult, orderByResult);
