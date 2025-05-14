@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using NewHeap.Platform.Common.Models;
 using System.Linq.Expressions;
 
 namespace NewHeap.Platform.Common;
@@ -16,5 +17,13 @@ public static partial class QueryableExtensions
         return condition
             ? query.Include(navigationPropertyPath)
             : query;
+    }
+
+    public static IQueryable<T> CollectionRequestModelSkipTake<T>(this IQueryable<T> q, BaseCollectionRequestModel requestModel)
+    {
+        return q
+            .Skip((requestModel.Page - 1) * requestModel.ItemsPerPage)
+            .Take(requestModel.ItemsPerPage);
+
     }
 }
