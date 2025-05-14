@@ -4,6 +4,7 @@ using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
+using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Builders;
 
@@ -90,8 +91,9 @@ public class NhAuthenticationBuilder<
         public string? AccountInformationEndpoint { get; set; }
         public bool EnableDivisions { get; set; } = false;
         public string? AuthenticationServiceKey { get; set; }
+        public List<Claim> AuthenticateRequiredClaims { get; set; } = new List<Claim>();
     }
-    
+
     internal void Build(IServiceCollection services)
     {
         services.AddAuthentication(opt =>
@@ -108,7 +110,8 @@ public class NhAuthenticationBuilder<
             RefreshTokenEndpoint = UserNamePasswordOptionsValue.RefreshTokenEndpoint,
             AuthenticationEndpoint = UserNamePasswordOptionsValue.Endpoint,
             AccountInformationEndpoint = UserNamePasswordOptionsValue.AccountInformationEndpoint,
-            AuthenticationServiceKey = UserNamePasswordOptionsValue.AuthenticationServiceKey
+            AuthenticationServiceKey = UserNamePasswordOptionsValue.AuthenticationServiceKey,
+            AuthenticateRequiredClaims = UserNamePasswordOptionsValue.AuthenticateRequiredClaims,
         };
         services.AddSingleton(authConfig);
         

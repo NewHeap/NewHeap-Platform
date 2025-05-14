@@ -20,7 +20,7 @@ import {INhAuthorization, NhAuthorization} from "../../models/auth.models";
 
 
 @Component({
-    selector: 'app-page-base-component-type',
+    selector: 'nh-page-base-component-type',
     template: ``,
     standalone: false
 })
@@ -243,7 +243,7 @@ export abstract class NhPageTypeBaseComponent<TAuthorization extends INhAuthoriz
 }
 
 @Component({
-  selector: 'app-page-base-component',
+  selector: 'nh-page-base-component',
   template: ``,
   standalone: false
 })
@@ -254,11 +254,11 @@ export abstract class NhPageBaseComponent extends NhPageTypeBaseComponent<NhAuth
 }
 
 @Component({
-    selector: 'app-page-base-component-type-typed',
+    selector: 'nh-page-base-component-type-typed',
     template: ``,
     standalone: false
 })
-export abstract class TypedAppPageTypeBaseComponent<TPageData, TAuthorization extends INhAuthorization, TAuthService extends BaseNhAuthService<TAuthorization>> extends NhPageTypeBaseComponent<TAuthorization, TAuthService> {
+export abstract class NhTypedPageTypeBaseComponent<TPageData, TAuthorization extends INhAuthorization, TAuthService extends BaseNhAuthService<TAuthorization>> extends NhPageTypeBaseComponent<TAuthorization, TAuthService> {
   protected override get pageSettings(): TypedNhPageSettings<TPageData> {
     return this.pageService.activePageSettings as TypedNhPageSettings<TPageData>;
   };
@@ -279,11 +279,11 @@ export abstract class TypedAppPageTypeBaseComponent<TPageData, TAuthorization ex
 }
 
 @Component({
-  selector: 'app-page-base-component-typed',
+  selector: 'nh-page-base-component-typed',
   template: ``,
   standalone: false
 })
-export abstract class TypedAppPageBaseComponent<TPageData> extends TypedAppPageTypeBaseComponent<TPageData, NhAuthorization, NhAuthService> {
+export abstract class NhTypedPageBaseComponent<TPageData> extends NhTypedPageTypeBaseComponent<TPageData, NhAuthorization, NhAuthService> {
   constructor() {
     super(NhAuthService);
   }

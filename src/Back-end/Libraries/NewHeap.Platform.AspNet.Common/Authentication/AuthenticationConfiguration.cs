@@ -1,4 +1,6 @@
-﻿namespace NewHeap.Platform.AspNet.Common.Authentication;
+﻿using System.Security.Claims;
+
+namespace NewHeap.Platform.AspNet.Common.Authentication;
 
 public class AuthenticationConfiguration
 {
@@ -13,7 +15,9 @@ public class AuthenticationConfiguration
     public string? LogoutEndpoint { get; init; }
 
     public string? AuthenticationServiceKey { get; set; }
-    
+
+    public List<Claim> AuthenticateRequiredClaims { get; set; } = new List<Claim>();
+
     internal AuthenticationConfiguration()
     {
         

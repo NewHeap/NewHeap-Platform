@@ -79,7 +79,7 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
             return BadRequest(modelValid);
         }
 
-        var result = await authenticationService.Authenticate(request!);
+        var result = await authenticationService.Authenticate(request!, _configuration.AuthenticateRequiredClaims);
         if (!result.Success)
         {
             return BadRequest(result);
