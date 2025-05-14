@@ -26,4 +26,9 @@ public static class CollectionRequestModelExtensions
             .Skip((page - 1) * itemsPerPage)
             .Take(itemsPerPage);
     }
+
+    public static IEnumerable<T> PageSkipTake<T>(this IEnumerable<T> q, IBaseCollectionRequestModel requestModel)
+    {
+        return q.PageSkipTake(requestModel.Page, requestModel.ItemsPerPage);
+    }
 }
