@@ -108,7 +108,7 @@ public abstract class NhBaseDivisionController<
         var query = _dbEntityService.GetRoleRepository().GetAll();
 
         var result =
-            await GetCollectionResultModel<TDivisionRole, NhDivisionRoleViewModel>(query, cancellationToken: cancellationToken,
+            await GetCollectionResultModel<TDivisionRole, TDivisionRoleViewModel>(query, cancellationToken: cancellationToken,
                 (x => x.Name, ListSortDirection.Ascending));
 
         return Ok(result);

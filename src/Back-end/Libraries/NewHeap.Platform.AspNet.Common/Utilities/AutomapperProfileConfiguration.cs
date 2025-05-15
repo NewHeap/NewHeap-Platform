@@ -19,7 +19,9 @@ public class AutomapperProfileConfiguration : AutoMapper.Profile
         CreateMap<Claim, NhClaimViewModel>();
         CreateMap<NhUser, NhUserViewModel<NhDivisionViewModel>>();
         CreateMap<NhDivision, NhDivisionViewModel>();
-        CreateMap<NhDivisionUser, DivisionUserViewModel<NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhDivisionRoleViewModel>>();
+        CreateMap<NhDivisionUser, DivisionUserViewModel<NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhDivisionRoleViewModel>>()
+            .ForMember(x => x.Roles, opts => opts.MapFrom(x => x.DivisionUserRoles.Select(c => new NhDivisionRoleViewModel { Id = c.DivisionRole.Id, Name = c.DivisionRole.Name }).ToList()))
+        ;
         CreateMap<NhDivisionRole, NhDivisionRoleViewModel>();
 
         CreateMap<NhDivisionMutateModel, NhDivision>().MapOnlyIfChanged();
