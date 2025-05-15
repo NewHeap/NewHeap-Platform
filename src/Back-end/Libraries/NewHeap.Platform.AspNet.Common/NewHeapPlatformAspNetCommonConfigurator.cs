@@ -93,9 +93,9 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
     >
     where TUserManager : class, INhUserManager<TUser>
     where TDivisionService : NhDivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>
-    where TDivisionMutateModel : DivisionMutateModel
+    where TDivisionMutateModel : NhDivisionMutateModel
     where TDivisionUserService : NhDivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>
-    where TDivisionUserMutateModel : DivisionUserMutateModel
+    where TDivisionUserMutateModel : NhDivisionUserMutateModel
 {
     private bool IdentityEntityFrameworkConfigured = false;
     private readonly NewHeapPlatformCommonConfigurator _commonConfigurator;

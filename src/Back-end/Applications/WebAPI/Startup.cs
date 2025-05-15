@@ -122,9 +122,9 @@ public class Startup
                 AppDbContext,
                 NhUserManager,
                 NhDivisionService,
-                DivisionMutateModel,
+                NhDivisionMutateModel,
                 NhDivisionUserService,
-                DivisionUserMutateModel
+                NhDivisionUserMutateModel
             >(newHeapPlatformOptions)
             .AddAuthentication<NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>(options =>
             {

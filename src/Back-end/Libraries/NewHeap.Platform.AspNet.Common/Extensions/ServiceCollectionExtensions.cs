@@ -94,9 +94,9 @@ public static partial class ServiceCollectionExtensions
         >
         where TUserManager : class, INhUserManager<TUser>
         where TDivisionService : NhDivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>
-        where TDivisionMutateModel : DivisionMutateModel
+        where TDivisionMutateModel : NhDivisionMutateModel
         where TDivisionUserService : NhDivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>
-        where TDivisionUserMutateModel : DivisionUserMutateModel
+        where TDivisionUserMutateModel : NhDivisionUserMutateModel
     {
         if (services == null)
         {

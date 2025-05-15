@@ -35,7 +35,7 @@ public abstract class NhBaseDivisionController<
     where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
     where TDivisionRoleClaim : NhDivisionRoleClaim
-    where TDivisionMutateModel : DivisionMutateModel
+    where TDivisionMutateModel : NhDivisionMutateModel
     where TDivisionViewModel : NhDivisionViewModel
     where TDivisionRoleViewModel : NhDivisionRoleViewModel
 {

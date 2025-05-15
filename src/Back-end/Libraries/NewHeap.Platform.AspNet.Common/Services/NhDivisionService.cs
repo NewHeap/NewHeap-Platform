@@ -13,7 +13,7 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class NhDivisionService : NhDivisionService<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, DivisionMutateModel>
+public partial class NhDivisionService : NhDivisionService<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, NhDivisionMutateModel>
 {
     public NhDivisionService(
         IRepository<NhDivision> divisionRepository,
@@ -46,7 +46,7 @@ public abstract partial class NhDivisionService<
     where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
     where TDivisionRoleClaim : NhDivisionRoleClaim
-    where TDivisionMutateModel : DivisionMutateModel
+    where TDivisionMutateModel : NhDivisionMutateModel
 {
     protected readonly IRepository<TDivision> _divisionRepository;
     protected readonly IRepository<TDivisionRoleClaim> _divisionRoleClaimRepository;

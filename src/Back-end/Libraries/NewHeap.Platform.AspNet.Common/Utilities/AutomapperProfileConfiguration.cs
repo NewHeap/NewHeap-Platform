@@ -22,10 +22,10 @@ public class AutomapperProfileConfiguration : AutoMapper.Profile
         CreateMap<NhDivisionUser, DivisionUserViewModel<NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhDivisionRoleViewModel>>();
         CreateMap<NhDivisionRole, NhDivisionRoleViewModel>();
 
-        CreateMap<DivisionMutateModel, NhDivision>().MapOnlyIfChanged();
-        CreateMap<NhDivision, DivisionMutateModel>().MapOnlyIfChanged();
+        CreateMap<NhDivisionMutateModel, NhDivision>().MapOnlyIfChanged();
+        CreateMap<NhDivision, NhDivisionMutateModel>().MapOnlyIfChanged();
 
-        CreateMap<DivisionUserMutateModel, NhDivisionUser>().MapOnlyIfChanged();
-        CreateMap<NhDivisionUser, DivisionUserMutateModel>().MapOnlyIfChanged();
+        CreateMap<NhDivisionUserMutateModel, NhDivisionUser>().MapOnlyIfChanged();
+        CreateMap<NhDivisionUser, NhDivisionUserMutateModel>().MapOnlyIfChanged();
     }
 }

@@ -13,7 +13,7 @@ namespace WebAPI.Controllers;
 
 [Route("[controller]")]
 public class DivisionUserController : NhBaseDivisionUserController<
-    NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, DivisionUserMutateModel,
+    NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, NhDivisionUserMutateModel,
     NhUserViewModel<NhDivisionViewModel>,
     NhDivisionViewModel, NhDivisionRoleViewModel,
     DivisionUserViewModel<NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhDivisionRoleViewModel>>

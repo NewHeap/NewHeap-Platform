@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace NewHeap.Platform.AspNet.Common.Models.Mutate;
 
-public partial class DivisionMutateModel
+public partial class NhDivisionMutateModel
 {
     [NhRequired]
     [StringLength(100)]
@@ -19,7 +19,7 @@ public partial class DivisionMutateModel
     public string? TimeZoneId { get; set; }
 }
 
-public class DivisionUserMutateModel
+public class NhDivisionUserMutateModel
 {
     [NhRequired]
     [Display(Name = "Division")]

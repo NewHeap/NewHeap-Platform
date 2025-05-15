@@ -12,7 +12,7 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public partial class NhDivisionUserService : NhDivisionUserService<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, DivisionUserMutateModel>
+public partial class NhDivisionUserService : NhDivisionUserService<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, NhDivisionUserMutateModel>
 {
     public NhDivisionUserService(
         IRepository<NhDivisionUser> divisionUserRepository,
@@ -42,7 +42,7 @@ public abstract partial class NhDivisionUserService<
     where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>, new()
     where TDivisionRoleClaim : NhDivisionRoleClaim
-    where TDivisionUserMutateModel : DivisionUserMutateModel
+    where TDivisionUserMutateModel : NhDivisionUserMutateModel
 {
     protected readonly IRepository<TDivisionUserRole> _divisionUserRoleRepository;
     protected readonly IStringLocalizer _localizer;
