@@ -19,6 +19,11 @@ public static partial class HttpContextExtensions
         return activeDivisionIdFound ? activeDivisionId : null;
     }
 
+    public static Guid? GetActiveDivisionId(this HttpContext httpContext)
+    {
+        return httpContext?.Request?.GetActiveDivisionId();
+    }
+
     public static Guid? GetUserId(this HttpContext httpContext)
     {
         if (httpContext.User?.Identity?.IsAuthenticated == true)
