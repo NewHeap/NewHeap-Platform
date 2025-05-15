@@ -104,6 +104,18 @@ public abstract partial class NhDivisionUserService<
         }
     }
 
+    public override IQueryable<TDivisionUser> QueryableWithAllIncludes(IQueryable<TDivisionUser> queryable = null)
+    {
+        queryable = base.QueryableWithAllIncludes(queryable);
+        queryable = queryable
+            .Include(x => x.User)
+            .Include(x => x.Division)
+            .Include(x => x.DivisionUserRoles)
+            .ThenInclude(x => x.DivisionRole);
+
+        return queryable;
+    }
+
     public override async Task<TaskResult<TDivisionUser>> CreateAsync(TDivisionUserMutateModel mutateModel,
         Guid? committedByUserId = default, Action<TDivisionUser>? beforeSave = null, CancellationToken cancellationToken = default)
     {
@@ -150,6 +162,7 @@ public abstract partial class NhDivisionUserService<
 
         await _repository.SaveChangesAsync();
 
+        divisionUser = await GetAsync(divisionUser.Id);
         result.Data = divisionUser;
 
         return result;
@@ -246,6 +259,7 @@ public abstract partial class NhDivisionUserService<
             .Where(x => x.DivisionUserId == divisionUser.Id && !mutateModel.RoleIds.Contains(x.DivisionRoleId))
             .ExecuteDeleteAsync();
 
+        divisionUser = await GetAsync(divisionUser.Id);
         result.Data = divisionUser;
 
         return result;
