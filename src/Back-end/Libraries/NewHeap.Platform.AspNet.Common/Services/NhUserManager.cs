@@ -19,28 +19,28 @@ namespace NewHeap.Platform.AspNet.Common.Services;
 
 public interface INhUserManager
 {
-    Task<bool> DivisionAccessAsync(Guid? divisionId, IEnumerable<Claim> userClaims, IEnumerable<Claim>? requireClaims = null, IEnumerable<string>? requireRoles = null);
+    Task<bool> DivisionAccessAsync(Guid? divisionId, IEnumerable<Claim> userClaims, IEnumerable<Claim>? requireClaims = null, IEnumerable<string>? requireRoles = null, CancellationToken cancellationToken = default);
     string GenerateRandomPassword(PasswordOptions? passwordOptions = null);
     string GenerateRegistrationToken();
     bool IsOauthAccount(string email);
 
-    Task<List<Claim>> GetValidClaimsByUserId(Guid userId, bool withDivision = false);
+    Task<List<Claim>> GetValidClaimsByUserIdAsync(Guid userId, bool withDivision = false, CancellationToken cancellationToken = default);
 }
 
 public interface INhUserManager<TUser> : INhUserManager
     where TUser : class
 {
-    Task<TaskResult<TUser>> ChangeActiviveDivisionAsync(Guid id, ChangeActiveDivisionAccountModel mutateModel);
-    Task<TUser?> FindByIdWithIncludesAsync(Guid userId);
+    Task<TaskResult<TUser>> ChangeActiviveDivisionAsync(Guid id, ChangeActiveDivisionAccountModel mutateModel, CancellationToken cancellationToken = default);
+    Task<TUser?> FindByIdWithIncludesAsync(Guid userId, CancellationToken cancellationToken = default);
 
-    Task<TUser?> FindOneByAsync(Expression<Func<TUser, bool>> predicate);
+    Task<TUser?> FindOneByAsync(Expression<Func<TUser, bool>> predicate, CancellationToken cancellationToken = default);
 
     IRepository<TUser> GetRepository();
-    Task<List<Claim>> GetValidClaims(TUser user, bool withDivision = false);
-    Task<bool> IsBlocked(TUser user);
+    Task<List<Claim>> GetValidClaims(TUser user, bool withDivision = false, CancellationToken cancellationToken = default);
+    Task<bool> IsBlockedAsync(TUser user);
     bool IsOauthAccount(TUser user);
     IQueryable<TUser> QueryableWithAllIncludes(IQueryable<TUser>? queryable = null);
-    Task UpdateUserLockout(TUser user, DateTimeOffset? start = null, DateTimeOffset? end = null);
+    Task UpdateUserLockout(TUser user, DateTimeOffset? start = null, DateTimeOffset? end = null, CancellationToken cancellationToken = default);
 
     #region Generated for Identity framework base class
     Task<IdentityResult> CreateAsync(TUser user);
@@ -226,17 +226,17 @@ public abstract partial class NhUserManager<
         return queryable;
     }
 
-    public virtual async Task<TUser?> FindOneByAsync(Expression<Func<TUser, bool>> predicate)
+    public virtual async Task<TUser?> FindOneByAsync(Expression<Func<TUser, bool>> predicate, CancellationToken cancellationToken = default)
     {
-        return await QueryableWithAllIncludes().FirstOrDefaultAsync(predicate);
+        return await QueryableWithAllIncludes().FirstOrDefaultAsync(predicate, cancellationToken);
     }
 
-    public Task<List<Claim>> GetValidClaims(TUser user, bool withDivision = false) 
+    public Task<List<Claim>> GetValidClaims(TUser user, bool withDivision = false, CancellationToken cancellationToken = default) 
     { 
-        return GetValidClaimsByUserId(user.Id, withDivision);
+        return GetValidClaimsByUserIdAsync(user.Id, withDivision, cancellationToken);
     }
 
-    public virtual async Task<List<Claim>> GetValidClaimsByUserId(Guid userId, bool withDivision = false)
+    public virtual async Task<List<Claim>> GetValidClaimsByUserIdAsync(Guid userId, bool withDivision = false, CancellationToken cancellationToken = default)
     {
         var user = await FindByIdAsync(userId.ToString());
 
@@ -355,7 +355,7 @@ public abstract partial class NhUserManager<
     /// </summary>
     /// <param name="user"></param>
     /// <returns></returns>
-    public virtual async Task<bool> IsBlocked(TUser user)
+    public virtual async Task<bool> IsBlockedAsync(TUser user)
     {
         if (await IsLockedOutAsync(user))
         {
@@ -439,7 +439,7 @@ public abstract partial class NhUserManager<
         return new string(chars.ToArray());
     }
 
-    public virtual async Task UpdateUserLockout(TUser user, DateTimeOffset? start = null, DateTimeOffset? end = null)
+    public virtual async Task UpdateUserLockout(TUser user, DateTimeOffset? start = null, DateTimeOffset? end = null, CancellationToken cancellationToken = default)
     {
         if (user == null)
         {
@@ -447,29 +447,29 @@ public abstract partial class NhUserManager<
         }
 
         await SetLockoutEndDateAsync(user, end);
-        var userEntity = await _userRepository.FindOneByAsync(x => x.Id == user.Id);
+        var userEntity = await _userRepository.FindOneByAsync(x => x.Id == user.Id, cancellationToken);
         userEntity!.LockoutStart = start;
-        await _userRepository.SaveChangesAsync();
+        await _userRepository.SaveChangesAsync(cancellationToken);
     }
 
-    public Task<TUser?> FindByIdWithIncludesAsync(Guid userId)
+    public Task<TUser?> FindByIdWithIncludesAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         return _userRepository
                 .GetAll()
                 .Where(x => x.Id == userId)
                 .Include(x => x.ActiveDivision)
-                .FirstOrDefaultAsync()
+                .FirstOrDefaultAsync(cancellationToken)
             ;
     }
 
     public virtual async Task<TaskResult<TUser>> ChangeActiviveDivisionAsync(Guid id,
-        ChangeActiveDivisionAccountModel mutateModel)
+        ChangeActiveDivisionAccountModel mutateModel, CancellationToken cancellationToken = default)
     {
         TaskResult<TUser> result = new();
 
         var user = await _userRepository.GetAll()
             .Where(x => x.Id == id)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (user == null)
         {
@@ -484,7 +484,7 @@ public abstract partial class NhUserManager<
                     x.Value == Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll))
             {
                 if (!await _userRepository.GetDbSet<TDivisionUser>()
-                        .AnyAsync(x => x.UserId == id && x.DivisionId == mutateModel.DivisionId))
+                        .AnyAsync(x => x.UserId == id && x.DivisionId == mutateModel.DivisionId, cancellationToken))
                 {
                     result.AddError(string.Empty, "User division mapping not found.");
                 }
@@ -497,13 +497,13 @@ public abstract partial class NhUserManager<
         }
 
         user!.ActiveDivisionId = mutateModel.DivisionId;
-        await _userRepository.SaveChangesAsync();
+        await _userRepository.SaveChangesAsync(cancellationToken);
 
         return result;
     }
 
     public virtual Task<bool> DivisionAccessAsync(Guid? divisionId, IEnumerable<Claim> userClaims,
-        IEnumerable<Claim>? requireClaims = null, IEnumerable<string>? requireRoles = null)
+        IEnumerable<Claim>? requireClaims = null, IEnumerable<string>? requireRoles = null, CancellationToken cancellationToken = default)
     {
         if (!divisionId.HasValue || (requireRoles?.Any() == false && requireRoles?.Any() == false))
         {
