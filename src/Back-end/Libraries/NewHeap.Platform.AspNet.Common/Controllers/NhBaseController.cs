@@ -49,21 +49,7 @@ public abstract partial class NhBaseController : ControllerBase
         _httpCollectionProcessingService = httpCollectionProcessingService;
     }
 
-    protected Guid? UserId
-    {
-        get
-        {
-            if (User?.Identity?.IsAuthenticated == true)
-            {
-                if (Guid.TryParse(User?.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
-                {
-                    return userId;
-                }
-            }
-
-            return null;
-        }
-    }
+    protected Guid? UserId => HttpContext.GetUserId();
 
     protected Guid? ActiveDivisionId => HttpContext.Request.GetActiveDivisionId();
 
