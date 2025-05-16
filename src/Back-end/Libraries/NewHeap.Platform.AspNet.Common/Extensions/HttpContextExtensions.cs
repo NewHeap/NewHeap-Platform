@@ -44,7 +44,7 @@ public static partial class HttpContextExtensions
         IEnumerable<string>? requireRoles = null,
         CancellationToken cancellationToken = default)
     {
-        if (httpContext.User.HasClaim(NhPlatformClaimTypes.Permission, "app.division.access-all"))
+        if (httpContext.User.HasClaim(NhPlatformClaimTypes.Permission, Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll))
         {
             return true;
         }

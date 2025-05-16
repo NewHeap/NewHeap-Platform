@@ -127,7 +127,7 @@ public class NhAccountInformationEndpointHandler<
     )
     {
         var divisionsQuery = divisionRepository!.GetAll();
-        if (!claims.Any(x => x.Type == NhPlatformClaimTypes.Permission && x.Value == "app.division.access-all"))
+        if (!claims.Any(x => x.Type == NhPlatformClaimTypes.Permission && x.Value == Platform.Common.Constants.DivisionPermissionClaimValues.AccessAll))
         {
             divisionsQuery = divisionsQuery
                 .Where(x => x.UserSelectAllowed)

@@ -33,6 +33,7 @@ using NewHeap.Platform.AspNet.Common.Models.View;
 using NhMedia;
 using System.Threading.Tasks;
 using WebAPI.EventHandlers;
+using static NewHeap.Platform.Common.Constants;
 
 
 namespace WebAPI;
@@ -74,7 +75,7 @@ public class Startup
                 options.AddPolicy("app.division.manage",
                     policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.manage"));
 
-                options.AddPolicy("app.division.access-all", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.access-all"));
+                options.AddPolicy("app.division.access-all", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, DivisionPermissionClaimValues.AccessAll));
 
                 options.AddPolicy("app.address.view", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.address.view"));
                 options.AddPolicy("app.address.manage", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.address.manage"));

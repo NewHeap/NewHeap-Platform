@@ -92,7 +92,7 @@ public abstract class NhBaseUserController<
 
         if (requestModel?.ExcludeNonDivisionAccess == true)
         {
-            query = query.Where(x => x.DivisionUsers.Any(c => c.DivisionUserRoles.Any(v => v.DivisionRole.Name == "User")));
+            query = query.Where(x => x.DivisionUsers.Any(c => c.DivisionUserRoles.Any()));
         }
 
         return await Ok<TUser, TUserViewModel>(query, cancellationToken: cancellationToken,

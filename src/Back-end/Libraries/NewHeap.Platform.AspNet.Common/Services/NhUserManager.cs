@@ -502,49 +502,6 @@ public abstract partial class NhUserManager<
         return result;
     }
 
-    public virtual Task<bool> DivisionAccessAsync(Guid? divisionId, IEnumerable<Claim> userClaims,
-        IEnumerable<Claim>? requireClaims = null, IEnumerable<string>? requireRoles = null, CancellationToken cancellationToken = default)
-    {
-        if (!divisionId.HasValue || (requireRoles?.Any() == false && requireRoles?.Any() == false))
-        {
-            return Task.FromResult(false);
-        }
-
-        if (!userClaims.Any(x =>
-                x.Type == NhPlatformClaimTypes.Permission &&
-                x.Value == Platform.Common.Constants.PermissionClaimValues.AuthenticatedAccess))
-        {
-            return Task.FromResult(false);
-        }
-
-        if (requireRoles?.Any() == true)
-        {
-            foreach (var requiredRoles in requireRoles)
-            {
-                if (!userClaims.Any(x =>
-                        x.Type == NhPlatformClaimTypes.DivisionRole && x.Value == $"{divisionId}_{requiredRoles}"))
-                {
-                    return Task.FromResult(false);
-                }
-            }
-        }
-
-        if (requireClaims?.Any() == true)
-        {
-            foreach (var requiredClaim in requireClaims)
-            {
-                if (!userClaims.Any(x =>
-                        x.Type == requiredClaim.Type && x.Value == $"{divisionId}_{requiredClaim.Value}"))
-                {
-                    return Task.FromResult(false);
-                }
-            }
-        }
-
-        return Task.FromResult(true);
-    }
-
-
     public virtual async Task<TaskResult> ChangePasswordAsync(
         Guid userId,
         NhChangePasswordUserMutateModel mutateModel,
@@ -770,4 +727,55 @@ public abstract partial class NhUserManager<
 
         return result;
     }
+
+
+    #region Division
+    public virtual Task<bool> DivisionAccessAsync(
+        Guid? divisionId, 
+        IEnumerable<Claim> userClaims,
+        IEnumerable<Claim>? requireClaims = null, 
+        IEnumerable<string>? requireRoles = null, 
+        CancellationToken cancellationToken = default
+        )
+    {
+        if (!divisionId.HasValue || (requireClaims?.Any() == false && requireRoles?.Any() == false))
+        {
+            return Task.FromResult(false);
+        }
+
+        if (!userClaims.Any(x =>
+                x.Type == NhPlatformClaimTypes.Permission &&
+                x.Value == Platform.Common.Constants.PermissionClaimValues.AuthenticatedAccess))
+        {
+            return Task.FromResult(false);
+        }
+
+        if (requireRoles?.Any() == true)
+        {
+            foreach (var requiredRoles in requireRoles)
+            {
+                if (!userClaims.Any(x =>
+                        x.Type == NhPlatformClaimTypes.DivisionRole && x.Value == $"{divisionId}_{requiredRoles}"))
+                {
+                    return Task.FromResult(false);
+                }
+            }
+        }
+
+        if (requireClaims?.Any() == true)
+        {
+            foreach (var requiredClaim in requireClaims)
+            {
+                if (!userClaims.Any(x =>
+                        x.Type == requiredClaim.Type && x.Value == $"{divisionId}_{requiredClaim.Value}"))
+                {
+                    return Task.FromResult(false);
+                }
+            }
+        }
+
+        return Task.FromResult(true);
+    }
+
+    #endregion
 }

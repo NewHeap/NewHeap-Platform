@@ -171,6 +171,27 @@ export class NhApiService implements OnDestroy {
       httpParams = httpParams.set('search', requestOptions.search ?? '');
     }
 
+    const customPropertyNames = Object.getOwnPropertyNames(requestOptions).filter(x => x);
+    for (const propertyName of customPropertyNames) {
+      if (!httpParams.get(propertyName)) {
+        const propertyValue = (<any>requestOptions)[propertyName];
+        if (Array.isArray(propertyValue)) {
+          for (let i = 0; i < propertyValue.length; i++) {
+            const arrayValue = propertyValue[i];
+            if(arrayValue === undefined) {
+              continue;
+            }
+            httpParams = httpParams.set(propertyName + '[' + i + ']', arrayValue);
+          }
+        } else {
+          if(propertyValue === undefined) {
+            continue;
+          }
+          httpParams = httpParams.set(propertyName, propertyValue);
+        }
+      }
+    }
+
     return this.httpClient.get<CollectionHttpResponse<T>>(url, {
       headers: headers,
       observe: 'body',

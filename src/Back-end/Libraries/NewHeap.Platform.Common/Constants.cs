@@ -22,7 +22,6 @@ public static partial class Constants
 
     public static class DivisionPermissionClaimValues
     {
-        public const string AccessAll = "nh.general.access-all";
-        public const string GeneralView = "nh.general.view";
+        public const string AccessAll = "nh.division.access-all";
     }
 }
