@@ -198,7 +198,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         return result;
     }
 
-    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(
+    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperties(
         TEntity original,
         TEntity updated, 
         CancellationToken cancellationToken = default
@@ -243,7 +243,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         beforeSave?.Invoke(entity);
 
         var updatedData = LogHelperService.Copy(entity);
-        var changedProperties = await OnUpdateGetChangedProperies(originalData, updatedData, cancellationToken);
+        var changedProperties = await OnUpdateGetChangedProperties(originalData, updatedData, cancellationToken);
 
         if (changedProperties.Any())
         {

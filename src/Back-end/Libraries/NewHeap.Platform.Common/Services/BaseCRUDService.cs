@@ -115,7 +115,7 @@ public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMuta
     }
 
     #region TEntity
-    protected virtual Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(
+    protected virtual Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperties(
         T original,
         T updated,
         CancellationToken cancellationToken = default
