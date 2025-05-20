@@ -282,7 +282,7 @@ public class NhAuthenticationService<
     protected virtual async Task<TaskResult<UserToken>> Impersonate(TUser currentUser, TUser user)
     {
         var claims = await _userManager.GetValidClaims(user!, _authConfiguration.DivisionsEnabled);
-        claims.Add(new Claim(NhPlatformClaimTypes.ImpersontateOriginUserId, currentUser.Id.ToString()));
+        claims.Add(new Claim(NhPlatformClaimTypes.ImpersonateOriginUserId, currentUser.Id.ToString()));
         var token = await CreateToken(
             user.Id, 
             c: claims, 

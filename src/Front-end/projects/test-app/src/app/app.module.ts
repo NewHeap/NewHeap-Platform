@@ -12,7 +12,6 @@ import {RouterModule} from "@angular/router";
 import {LayoutModule} from "./layout/layout.module";
 import {APP_BASE_HREF, registerLocaleData} from "@angular/common";
 import localeNL from '@angular/common/locales/nl';
-import localeDE from '@angular/common/locales/nl';
 import localeEN from '@angular/common/locales/en';
 import {TranslateLoader, TranslateModule, TranslateService} from "@ngx-translate/core";
 import {HttpClient, provideHttpClient, withFetch, withInterceptorsFromDi} from "@angular/common/http";
@@ -23,7 +22,7 @@ import {
   NH_ROUTER_LANGUAGE_CHANGE_METHOD,
   NH_ROUTER_ROOT_ROUTES,
   NhCommonModule,
-  NhRouterSetupService, NhConfigCommonService
+  NhRouterSetupService, NhConfigCommonService, AuthenticationNhCommonModuleConfig
 } from "nh-common";
 import {routes as getRootRoutes} from "./app-routing.module";
 import {ToastrModule} from "ngx-toastr";
@@ -65,7 +64,10 @@ registerLocaleData(localeEN, 'en');
       culture: environment.defaultCulture,
       defaultCulture: environment.defaultCulture,
       environment: environment.name,
-      cookieDomain: environment.cookieDomain
+      cookieDomain: environment.cookieDomain,
+      authentication: new AuthenticationNhCommonModuleConfig({
+        addAuthTokensToRequests: true,
+      })
     }), AuthService),
     ToastrModule.forRoot({
       positionClass:'toast-bottom-right'

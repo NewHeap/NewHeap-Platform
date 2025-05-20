@@ -91,6 +91,7 @@ public class DatabaseJobs
                 List<Claim> identityRoleClaims = new()
                 {
                     new Claim(NhPlatformClaimTypes.Permission, "app.general.minimum-administrator"),
+                    new Claim(NhPlatformClaimTypes.Permission, NewHeap.Platform.Common.Constants.PermissionClaimValues.AuthImpersonateAllowed),
                     new Claim(NhPlatformClaimTypes.Permission, "app.division.view"),
                     new Claim(NhPlatformClaimTypes.Permission, "app.division.manage"),
                     new Claim(NhPlatformClaimTypes.Permission, "app.address.view"),
@@ -152,6 +153,26 @@ public class DatabaseJobs
             //Add roles
             await userManager.AddToRoleAsync(await userManager.FindByNameAsync("info@newheap.com"),
                 "SuperAdministrator");
+        }
+
+        var user2 = await userManager.FindByNameAsync("info+2@newheap.com");
+        if (user2 == null)
+        {
+            var email = "info+2@newheap.com";
+            NhUser userToInsert = new()
+            {
+                Email = email,
+                UserName = email,
+                EmailConfirmed = true,
+                RefreshToken = "",
+                Id = Guid.Parse("17e35556-54f2-4975-a563-417eb5fbfa7f")
+            };
+
+            var result = await userManager.CreateAsync(userToInsert, "NewHeap123!");
+
+            //Add roles
+            await userManager.AddToRoleAsync(await userManager.FindByNameAsync("info+2@newheap.com"),
+                "User");
         }
 
         var backgroundWorkerUserEmail = configuration["AppSettings:SystemUser"];

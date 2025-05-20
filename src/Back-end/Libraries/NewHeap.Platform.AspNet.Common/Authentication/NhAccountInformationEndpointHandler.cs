@@ -1,4 +1,6 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -69,6 +71,7 @@ public class NhAccountInformationEndpointHandler<
     [Tags("Account")]
     [EndpointName("Account information")]
     //[Produces<Ok<AccountResponse>]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     private async Task<IResult> ProcessRequest(
         [FromServices] INhUserManager<TUser> userManager,
         [FromServices] IRepository<TDivision> divisionRepository,

@@ -6,9 +6,4 @@ public static partial class Constants
     {
         public const string ActiveDivisionId = "X-NH-ActiveDivisionId";
     }
-
-    public static class NhPlatformPermissionValues
-    {
-        public const string AuthImpersonateAllowed = "nh.platform.auth.impersonate.allowed";
-    }
 }

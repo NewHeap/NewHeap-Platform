@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
@@ -6,6 +8,7 @@ using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using static NewHeap.Platform.AspNet.Common.Constants;
+using static NewHeap.Platform.Common.Constants;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication;
 
@@ -56,6 +59,7 @@ public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
     [Tags("Authentication")]
     [EndpointName("Impersonate user")]
     [Produces<Results<Ok<UserToken>, BadRequest>>]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     private async Task<IResult> Impersonate([FromBody] ImpersonateRequest? request)
     {
         var authenticationService = GetAuthService();
@@ -76,7 +80,7 @@ public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
             return BadRequest(TaskResult.Failed("Invalid request"));
         }
 
-        if (HttpContext?.User.HasClaim(NhPlatformClaimTypes.Permission, NhPlatformPermissionValues.AuthImpersonateAllowed) != true)
+        if (HttpContext?.User.HasClaim(NhPlatformClaimTypes.Permission, PermissionClaimValues.AuthImpersonateAllowed) != true)
         {
             return BadRequest(TaskResult.Failed("Invalid request"));
         }
@@ -111,7 +115,7 @@ public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.Lax,
-                Expires = DateTimeOffset.Now.AddDays(2),
+                Expires = System.DateTimeOffset.Now.AddDays(2),
                 Domain = domain,
                 IsEssential = true,
             });

@@ -7,7 +7,12 @@ import {
   AuthSessionExpirationInformation,
   Claim,
   ClaimTypes,
-  NhDivision, RefreshTokenLoginAccountMutateModel, INhAuthorization, NhAuthorization
+  NhDivision,
+  RefreshTokenLoginAccountMutateModel,
+  INhAuthorization,
+  NhAuthorization,
+  ImpersonateAuthenticateModel,
+  RevertImpersonateAuthenticateModel
 } from "../models/auth.models";
 import {DateTime} from "luxon";
 import {TaskResult} from "../models/misc.models";
@@ -405,6 +410,60 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
       result.data = await lastValueFrom(request$);
       if(result.isSuccess) {
         this.setAuthorization(result.data);
+      }
+    } catch (ex) {
+      const errResult = NhApiUtil.taskResultFromResponse(ex);
+      errResult.copyTo(result);
+    }
+
+    return result;
+  }
+
+  async impersonate(model: ImpersonateAuthenticateModel): Promise<TaskResult<TAuthorization>> {
+    const result = new TaskResult<TAuthorization>();
+
+    let httpParams = new HttpParams();
+    if (httpParams.get('language') === null) {
+      httpParams = httpParams.set('language', this.moduleConfig.language);
+    }
+
+    const request$ = this.httpClient.post<TAuthorization>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.impersonate, model, {
+      params: httpParams,
+      withCredentials: true
+    });
+
+    try {
+      result.data = await lastValueFrom(request$);
+      if(result.isSuccess) {
+        this.setAuthorization(result.data);
+        await this.reloadAuthorizationProfile();
+      }
+    } catch (ex) {
+      const errResult = NhApiUtil.taskResultFromResponse(ex);
+      errResult.copyTo(result);
+    }
+
+    return result;
+  }
+
+  async impersonateRevert(model: RevertImpersonateAuthenticateModel): Promise<TaskResult<TAuthorization>> {
+    const result = new TaskResult<TAuthorization>();
+
+    let httpParams = new HttpParams();
+    if (httpParams.get('language') === null) {
+      httpParams = httpParams.set('language', this.moduleConfig.language);
+    }
+
+    const request$ = this.httpClient.post<TAuthorization>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.revertImpersonate, model, {
+      params: httpParams,
+      withCredentials: true
+    });
+
+    try {
+      result.data = await lastValueFrom(request$);
+      if(result.isSuccess) {
+        this.setAuthorization(result.data);
+        await this.reloadAuthorizationProfile();
       }
     } catch (ex) {
       const errResult = NhApiUtil.taskResultFromResponse(ex);

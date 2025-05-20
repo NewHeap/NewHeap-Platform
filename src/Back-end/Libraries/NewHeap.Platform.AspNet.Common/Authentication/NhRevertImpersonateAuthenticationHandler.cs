@@ -1,7 +1,10 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Identity.Claims;
@@ -20,8 +23,6 @@ public class NhRevertImpersonateAuthenticationHandler : BaseNhAuthenticationEndp
     internal string? TokenCookieName { get; set; } = "nh_access_token";
     internal string? RefreshTokenCookieName { get; set; } = "nh_access_token";
 
-    protected readonly INhUserManager _userManager;
-
 
     /// <summary>
     /// 
@@ -32,13 +33,11 @@ public class NhRevertImpersonateAuthenticationHandler : BaseNhAuthenticationEndp
     public NhRevertImpersonateAuthenticationHandler(
         IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration,
-        IHttpContextAccessor httpContextAccessor,
-        INhUserManager userManager
+        IHttpContextAccessor httpContextAccessor
         ) : base(httpContextAccessor, "authentication/ImpersonateRevert", serviceProvider, configuration)
     {
         _serviceProvider = serviceProvider;
         _configuration = configuration;
-        _userManager = userManager;
 
         if (!string.IsNullOrWhiteSpace(configuration.RefreshTokenEndpoint))
         {
@@ -61,6 +60,7 @@ public class NhRevertImpersonateAuthenticationHandler : BaseNhAuthenticationEndp
     [Tags("Authentication")]
     [EndpointName("Impersonate user revert")]
     [Produces<Results<Ok<UserToken>, BadRequest>>]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     private async Task<IResult> ImpersonateRevert([FromBody] ImpersonateRevertRequest? request)
     {
         var authenticationService = GetAuthService();
@@ -76,7 +76,7 @@ public class NhRevertImpersonateAuthenticationHandler : BaseNhAuthenticationEndp
             return BadRequest(TaskResult.Failed("Invalid request"));
         }
 
-        var originalUserIdString = HttpContext?.User.Claims.FirstOrDefault(x => x.Type == NhPlatformClaimTypes.ImpersontateOriginUserId)?.Value;
+        var originalUserIdString = HttpContext?.User.Claims.FirstOrDefault(x => x.Type == NhPlatformClaimTypes.ImpersonateOriginUserId)?.Value;
 
         if(string.IsNullOrEmpty(originalUserIdString))
         {
@@ -84,9 +84,11 @@ public class NhRevertImpersonateAuthenticationHandler : BaseNhAuthenticationEndp
         }
 
         var originalUserId = Guid.Parse(originalUserIdString);
-        var originalUserClaims = await _userManager.GetValidClaimsByUserIdAsync(originalUserId);
+        var userManager = HttpContext!.RequestServices.GetRequiredService<INhUserManager>();
 
-        if (!originalUserClaims.Any(x => x.Type == NhPlatformClaimTypes.Permission && x.Value == NhPlatformPermissionValues.AuthImpersonateAllowed))
+        var originalUserClaims = await userManager.GetValidClaimsByUserIdAsync(originalUserId);
+
+        if (!originalUserClaims.Any(x => x.Type == NhPlatformClaimTypes.Permission && x.Value == Platform.Common.Constants.PermissionClaimValues.AuthImpersonateAllowed))
         {
             return BadRequest(TaskResult.Failed("Invalid request"));
         }

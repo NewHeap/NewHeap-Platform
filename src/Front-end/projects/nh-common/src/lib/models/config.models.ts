@@ -4,6 +4,8 @@ export class EndpointsAuthenticationNhCommonModuleConfig {
   login: string = '/authentication/login';
   logout: string = '/authentication/logout';
   refresh: string = '/authentication/refresh';
+  impersonate: string = '/authentication/impersonate';
+  revertImpersonate: string = '/authentication/ImpersonateRevert';
   accountInformation: string ='/account';
 
   public constructor(init?: Partial<EndpointsAuthenticationNhCommonModuleConfig>) {
