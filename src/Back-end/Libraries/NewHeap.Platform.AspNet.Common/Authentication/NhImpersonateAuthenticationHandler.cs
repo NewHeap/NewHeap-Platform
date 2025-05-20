@@ -69,7 +69,7 @@ public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
             return TypedResults.NotFound();
         }
         
-        if (!request?.UserId.HasValue == true)
+        if (request?.UserId.HasValue != true)
         {
             return BadRequest(TaskResult.Failed("Invalid request"));
         }
@@ -84,6 +84,19 @@ public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
         {
             return BadRequest(TaskResult.Failed("Invalid request"));
         }
+
+        if(currentUserId.Value == request.UserId.Value)
+        {
+            return BadRequest(TaskResult.Failed("You can not impersonate yourself."));
+        }
+
+        var alreadyImpersonatingUserIdString = HttpContext?.User.Claims.FirstOrDefault(x => x.Type == NhPlatformClaimTypes.ImpersonateOriginUserId)?.Value;
+
+        if (string.IsNullOrEmpty(alreadyImpersonatingUserIdString))
+        {
+            return BadRequest(TaskResult.Failed("Already impersonating user."));
+        }
+
 
         var result = await authenticationService.Impersonate(currentUserId.Value, request!);
 
