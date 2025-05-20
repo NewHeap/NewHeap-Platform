@@ -106,6 +106,13 @@ public class NhAccountInformationEndpointHandler<
         var response = new AccountResponse<TUserViewModel, TDivisionViewModel, TClaimViewModel> { User = mapper.Map<TUserViewModel>(user) };
 
         var claims = await userManager.GetValidClaims(user, _configuration.DivisionsEnabled);
+        var impersonateOriginUserIdClaim = HttpContext?.User.Claims.FirstOrDefault(x => x.Type == NhPlatformClaimTypes.ImpersonateOriginUserId);
+
+        if (impersonateOriginUserIdClaim != null)
+        {
+            claims.Add(impersonateOriginUserIdClaim);
+        }
+
         response.Claims = claims.Select(mapper.Map<TClaimViewModel>);
 
         if (_configuration.DivisionsEnabled)
