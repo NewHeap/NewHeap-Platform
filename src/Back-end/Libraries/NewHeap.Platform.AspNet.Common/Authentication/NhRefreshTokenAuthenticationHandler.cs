@@ -91,7 +91,7 @@ public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint
             });
         }
 
-        if (!string.IsNullOrWhiteSpace(RefreshTokenCookieName))
+        if (!string.IsNullOrWhiteSpace(RefreshTokenCookieName) && !string.IsNullOrWhiteSpace(token.RefreshToken))
         {
             HttpContext!.Response.Cookies.Append(RefreshTokenCookieName!, token.RefreshToken!, new CookieOptions
             {

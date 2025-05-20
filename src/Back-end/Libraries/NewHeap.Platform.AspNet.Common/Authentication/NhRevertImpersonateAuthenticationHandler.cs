@@ -116,7 +116,7 @@ public class NhRevertImpersonateAuthenticationHandler : BaseNhAuthenticationEndp
             });
         }
 
-        if (!string.IsNullOrWhiteSpace(RefreshTokenCookieName))
+        if (!string.IsNullOrWhiteSpace(RefreshTokenCookieName) && !string.IsNullOrWhiteSpace(token.RefreshToken))
         {
             HttpContext!.Response.Cookies.Append(RefreshTokenCookieName!, token.RefreshToken!, new CookieOptions
             {

@@ -14,8 +14,8 @@ $Version = "$Major.$Minor.$Patch-ci-$timestamp"
 Write-Host "Building package with version: $Version"
 
 # Voer `dotnet pack` uit met de juiste versie
-dotnet pack .\Libraries\NewHeap.Platform.Common -c Release /p:Version=$Version
-dotnet pack .\Libraries\NewHeap.Platform.AspNet.Common -c Release /p:Version=$Version
+dotnet pack .\Libraries\NewHeap.Platform.Common -c Release /p:Version=$Version --include-symbols
+dotnet pack .\Libraries\NewHeap.Platform.AspNet.Common -c Release /p:Version=$Version --include-symbols
 
 # Controleer of het packen is geslaagd
 if ($LASTEXITCODE -ne 0) {
@@ -26,8 +26,10 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Package built successfully: Version $Version"
 
 dotnet nuget push --source "https://pkgs.dev.azure.com/NewHeap/NewHeap-Platform/_packaging/NewHeap-Platform/nuget/v3/index.json" --api-key az ./Libraries/NewHeap.Platform.Common/bin/Release/NewHeap.Platform.Common.$Version.nupkg
+dotnet nuget push --source "https://pkgs.dev.azure.com/NewHeap/NewHeap-Platform/_packaging/NewHeap-Platform/nuget/v3/index.json" --api-key az ./Libraries/NewHeap.Platform.Common/bin/Release/NewHeap.Platform.Common.$Version.snupkg
 
 dotnet nuget push --source "https://pkgs.dev.azure.com/NewHeap/NewHeap-Platform/_packaging/NewHeap-Platform/nuget/v3/index.json" --api-key az ./Libraries/NewHeap.Platform.AspNet.Common/bin/Release/NewHeap.Platform.AspNet.Common.$Version.nupkg
+dotnet nuget push --source "https://pkgs.dev.azure.com/NewHeap/NewHeap-Platform/_packaging/NewHeap-Platform/nuget/v3/index.json" --api-key az ./Libraries/NewHeap.Platform.AspNet.Common/bin/Release/NewHeap.Platform.AspNet.Common.$Version.snupkg
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Publishing failed!"
