@@ -85,6 +85,7 @@ public class NhAuthenticationConfigurationBuilder<
 
         UseAuthenticationEndpoint<NhLogoutAuthenticationHandler>();
         UseAuthenticationEndpoint<NhImpersonateAuthenticationHandler>();
+        UseAuthenticationEndpoint<NhRevertImpersonateAuthenticationHandler>();
         UseAuthenticationEndpoint<NhAccountInformationEndpointHandler<TUser, TDivision, TDivisionUser, TDivisionRole,
             TDivisionUserRole, TDivisionRoleClaim, TUserViewModel, TDivisionViewModel, TClaimViewModel>>();
         return this;

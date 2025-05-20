@@ -296,4 +296,38 @@ public class NhAuthenticationService<
             token.Issuer
         );
     }
+
+    public virtual async Task<TaskResult<UserToken>> ImpersonateRevert(Guid impersonatedUserId, Guid originUserId)
+    {
+        var impersonatedUser = await _userManager.FindByIdAsync(impersonatedUserId.ToString());
+        if (impersonatedUser == null)
+        {
+            return TaskResult<UserToken>.Failed("Invalid request");
+        }
+
+        var originUser = await _userManager.FindByIdAsync(originUserId.ToString());
+        if (originUser == null)
+        {
+            return TaskResult<UserToken>.Failed("Invalid request");
+        }
+
+        return await Impersonate(impersonatedUser, originUser);
+    }
+
+    protected virtual async Task<TaskResult<UserToken>> ImpersonateRevert(TUser impersonatedUser, TUser originUser)
+    {
+        var claims = await _userManager.GetValidClaims(originUser!, _authConfiguration.DivisionsEnabled);
+        var token = await CreateToken(
+            originUser.Id,
+            c: claims,
+            expiration: null
+        );
+
+        return new UserToken(
+            new JwtSecurityTokenHandler().WriteToken(token),
+            token.ValidTo,
+            originUser.RefreshToken,
+            token.Issuer
+        );
+    }
 }

@@ -125,6 +125,11 @@ public class NhAuthenticationBuilder<
             {
                 AddRefreshTokenHandler(services);
             }
+
+            if (UserNamePasswordOptionsValue.EnableImpersonate)
+            { 
+                AddImpersonateHandler(services);
+            }
         }
     }
 
@@ -136,6 +141,7 @@ public class NhAuthenticationBuilder<
     private void AddImpersonateHandler(IServiceCollection services)
     {
         services.AddSingleton<NhImpersonateAuthenticationHandler>();
+        services.AddSingleton<NhRevertImpersonateAuthenticationHandler>();
     }
 
     private void AddUserNameLoginHandler(IServiceCollection services)

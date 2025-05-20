@@ -66,4 +66,6 @@ public interface INhAuthenticationService
     JwtSecurityToken? DecodeToken(string token);
 
     Task<TaskResult<UserToken>> Impersonate(Guid currentUserId, ImpersonateRequest request);
+
+    Task<TaskResult<UserToken>> ImpersonateRevert(Guid impersonatedUserId, Guid originUserId);
 }
