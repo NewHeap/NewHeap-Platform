@@ -75,7 +75,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             foreach (var part in parts)
             {
                 await CreateFolder(p, part);
-                
+
                 p += part.Trim(NhMediaValues.DirectorySeparator[0]) + NhMediaValues.DirectorySeparator;
             }
         }
@@ -158,6 +158,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             return NhMediaValues.DirectorySeparator;
         }
 
+
         path = path.Replace('\\', NhMediaValues.DirectorySeparator[0]);
         path = DuplicatedSlashesRegex().Replace(path, NhMediaValues.DirectorySeparator);
         if (!path.StartsWith(NhMediaValues.DirectorySeparator))
@@ -182,13 +183,14 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         {
             return await GetFolderReference(MediaLibraryPath.Combine(path, folderName));
         }
-        
+
         if (path != NhMediaValues.DirectorySeparator)
         {
             var parts = path.Split(NhMediaValues.DirectorySeparator);
             string? currentPath = null;
             foreach (var part in parts)
             {
+                currentPath = NormalizePath(currentPath);
                 var existing =
                     await _dbContext.Folders.FirstOrDefaultAsync(x => x.Path == currentPath && x.Name == part);
                 if (existing == null)
@@ -198,18 +200,20 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                         currentPath = NhMediaValues.DirectorySeparator;
                     }
 
-                    existing = new FolderEntity { Name = part, Path = currentPath };
-                    _dbContext.Folders.Add(existing);
+                    
+
+                    existing = new FolderEntity
+                    {
+                        Name = part,
+                        Path = currentPath == NhMediaValues.DirectorySeparator ? "" : currentPath
+                    };
+                    if (!string.IsNullOrWhiteSpace(existing.Name))
+                    {
+                        _dbContext.Folders.Add(existing);
+                    }
                 }
 
-                if (currentPath == null)
-                {
-                    currentPath = part;
-                }
-                else
-                {
-                    currentPath += NhMediaValues.DirectorySeparator + part;
-                }
+                currentPath = MediaLibraryPath.Combine(currentPath, part);
             }
         }
 
@@ -254,13 +258,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             .Select(x => (Guid?)x.Id)
             .FirstOrDefaultAsync();
 
-        return new FolderReference
-        {
-            Id = id,
-            Path = folderPath,
-            Name = folderName,
-            FullPath = path
-        };
+        return new FolderReference { Id = id, Path = folderPath, Name = folderName, FullPath = path };
     }
 
     public async Task<FolderContents> GetFolder(string? path, string? language)
