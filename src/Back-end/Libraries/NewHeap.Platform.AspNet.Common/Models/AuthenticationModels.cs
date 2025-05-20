@@ -17,3 +17,5 @@ public class UserToken(string Token, DateTime ValidTo, string RefreshToken, stri
 public record RefreshTokenRequest(string UserName, string RefreshToken);
 
 public record AuthenticateRequest([Required] string UserName, [Required] string Password);
+
+public record ImpersonateRequest(Guid? UserId);

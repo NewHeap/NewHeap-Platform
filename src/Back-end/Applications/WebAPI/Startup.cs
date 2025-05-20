@@ -136,6 +136,7 @@ public class Startup
                     authOptions.AccessTokenCookieName = "nh_auth_cookie";
                     authOptions.RefreshTokenCookieName = "nh_refresh_cookie";
                     authOptions.EnableDivisions = true;
+                    authOptions.EnableImpersonate = true;
                     authOptions.AuthenticationServiceKey = "";
                 });
             })
