@@ -90,6 +90,7 @@ public class NhAuthenticationBuilder<
 
         public string? AccountInformationEndpoint { get; set; }
         public bool EnableDivisions { get; set; } = false;
+        public bool EnableImpersonate { get; set; } = false;
         public string? AuthenticationServiceKey { get; set; }
         public List<Claim> AuthenticateRequiredClaims { get; set; } = new List<Claim>();
     }
@@ -105,6 +106,7 @@ public class NhAuthenticationBuilder<
         {
             RefreshTokenEnabled = UserNamePasswordOptionsValue.EnableRefreshToken,
             DivisionsEnabled = UserNamePasswordOptionsValue.EnableDivisions,
+            ImpersonateEnabled = UserNamePasswordOptionsValue.EnableImpersonate,
             CookieName = UserNamePasswordOptionsValue.AccessTokenCookieName,
             RefreshCookieName = UserNamePasswordOptionsValue.RefreshTokenCookieName,
             RefreshTokenEndpoint = UserNamePasswordOptionsValue.RefreshTokenEndpoint,
@@ -123,6 +125,11 @@ public class NhAuthenticationBuilder<
             {
                 AddRefreshTokenHandler(services);
             }
+
+            if (UserNamePasswordOptionsValue.EnableImpersonate)
+            { 
+                AddImpersonateHandler(services);
+            }
         }
     }
 
@@ -130,7 +137,13 @@ public class NhAuthenticationBuilder<
     {
         services.AddSingleton<NhRefreshTokenAuthenticationHandler>();
     }
-    
+
+    private void AddImpersonateHandler(IServiceCollection services)
+    {
+        services.AddSingleton<NhImpersonateAuthenticationHandler>();
+        services.AddSingleton<NhRevertImpersonateAuthenticationHandler>();
+    }
+
     private void AddUserNameLoginHandler(IServiceCollection services)
     {
         services.AddSingleton<NhUserNamePasswordAuthenticationHandler>();

@@ -18,11 +18,11 @@ public static partial class Constants
     public static class PermissionClaimValues
     {
         public const string AuthenticatedAccess = "nh.platform.access";
+        public const string AuthImpersonateAllowed = "nh.platform.auth.impersonate.allowed";
     }
 
     public static class DivisionPermissionClaimValues
     {
-        public const string AccessAll = "nh.general.access-all";
-        public const string GeneralView = "nh.general.view";
+        public const string AccessAll = "nh.division.access-all";
     }
 }

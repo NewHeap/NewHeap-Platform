@@ -64,4 +64,8 @@ public interface INhAuthenticationService
     Task<JwtSecurityToken> CreateToken(Guid userId, IEnumerable<Claim> claims, TimeSpan? expiration = null);
 
     JwtSecurityToken? DecodeToken(string token);
+
+    Task<TaskResult<UserToken>> Impersonate(Guid currentUserId, ImpersonateRequest request);
+
+    Task<TaskResult<UserToken>> ImpersonateRevert(Guid impersonatedUserId, Guid originUserId);
 }

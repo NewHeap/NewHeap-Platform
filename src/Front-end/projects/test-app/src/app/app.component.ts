@@ -18,6 +18,7 @@ import {environment} from "../environments/environment";
 import {Subscription} from "rxjs";
 import {CookieService} from "ngx-cookie-service";
 import {isPlatformBrowser} from "@angular/common";
+import {AuthService} from "./core/services/auth.service";
 
 @Component({
     selector: 'app-root',
@@ -41,7 +42,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private jsonLdService: NhJsonLdService,
     private headService: NhHeadService,
     private cookieService: CookieService,
-    private authService: NhAuthService,
+    private authService: AuthService,
     @Inject(PLATFORM_ID) private platformId: Object,
   )
   {

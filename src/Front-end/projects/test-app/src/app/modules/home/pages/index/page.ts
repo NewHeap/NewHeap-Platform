@@ -1,6 +1,13 @@
 import {Component} from "@angular/core";
 import {ActivatedRoute} from "@angular/router";
-import {CollectionHttpRequestOptions, FilterRequestOptions, NhApiService, NhPageBaseComponent} from "nh-common";
+import {
+  CollectionHttpRequestOptions,
+  FilterRequestOptions,
+  ImpersonateAuthenticateModel,
+  NhApiService,
+  NhPageBaseComponent, RevertImpersonateAuthenticateModel
+} from "nh-common";
+import {ToastrService} from "ngx-toastr";
 
 @Component({
     selector: 'app-home-page-index',
@@ -13,7 +20,8 @@ export class IndexHomePage extends NhPageBaseComponent {
 
   constructor(
     private route: ActivatedRoute,
-    private apiService: NhApiService
+    private apiService: NhApiService,
+    private toastrService: ToastrService
   ) {
     super();
   }
@@ -44,6 +52,7 @@ export class IndexHomePage extends NhPageBaseComponent {
   }
 
   async load() {
+    this.authService.reloadAuthorizationProfile().then();
   }
 
   search($event: any){
@@ -52,5 +61,28 @@ export class IndexHomePage extends NhPageBaseComponent {
 
   async logout() {
     this.authService.logout().then();
+  }
+
+  async impersonate() {
+    const impersonateResult = await this.authService.impersonate(new ImpersonateAuthenticateModel({
+      userId: '17e35556-54f2-4975-a563-417eb5fbfa7f'
+    }));
+
+    if (!impersonateResult.isSuccess) {
+      this.toastrService.error('Impersonate failed', 'Error');
+    } else {
+      window.location.reload();
+    }
+  }
+
+  async revertImpersonate() {
+    const impersonateResult = await this.authService.impersonateRevert(new RevertImpersonateAuthenticateModel({
+    }));
+
+    if (!impersonateResult.isSuccess) {
+      this.toastrService.error('Revery impersonate failed', 'Error');
+    } else {
+      window.location.reload();
+    }
   }
 }

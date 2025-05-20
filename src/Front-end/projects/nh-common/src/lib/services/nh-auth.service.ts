@@ -1,18 +1,22 @@
-import {inject, Inject, Injectable, NgZone, OnDestroy, Optional, PLATFORM_ID, REQUEST_CONTEXT} from '@angular/core';
+import {inject, Injectable, NgZone, OnDestroy, PLATFORM_ID, REQUEST_CONTEXT} from '@angular/core';
 import {BehaviorSubject, lastValueFrom} from 'rxjs';
 import {
-  NhAccountInformationResponse,
   AuthenticateModel,
   AuthenticationSessionCreateResponse,
   AuthSessionExpirationInformation,
   Claim,
   ClaimTypes,
-  NhDivision, RefreshTokenLoginAccountMutateModel, INhAuthorization, NhAuthorization
+  ImpersonateAuthenticateModel,
+  INhAuthorization,
+  NhAccountInformationResponse,
+  NhAuthorization,
+  NhDivision,
+  RefreshTokenLoginAccountMutateModel,
+  RevertImpersonateAuthenticateModel
 } from "../models/auth.models";
 import {DateTime} from "luxon";
 import {TaskResult} from "../models/misc.models";
 import {HttpClient, HttpHeaders, HttpParams} from '@angular/common/http';
-import {Base64} from "js-base64";
 import {NhCommonModuleConfig} from "../models/config.models";
 import {NhApiUtil} from "../util/nh-api-util";
 import {isPlatformServer} from "@angular/common";
@@ -152,6 +156,10 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     }
 
     return authenticated;
+  }
+
+  public isImpersonating(): boolean {
+    return this.isAuthenticated() && !!this.getAuthorization()?.claims?.find(x => x.type === ClaimTypes.ImpersonateOriginUserId);
   }
 
   public getActiveDivision(): NhDivision|null {
@@ -405,6 +413,60 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
       result.data = await lastValueFrom(request$);
       if(result.isSuccess) {
         this.setAuthorization(result.data);
+      }
+    } catch (ex) {
+      const errResult = NhApiUtil.taskResultFromResponse(ex);
+      errResult.copyTo(result);
+    }
+
+    return result;
+  }
+
+  async impersonate(model: ImpersonateAuthenticateModel): Promise<TaskResult<TAuthorization>> {
+    const result = new TaskResult<TAuthorization>();
+
+    let httpParams = new HttpParams();
+    if (httpParams.get('language') === null) {
+      httpParams = httpParams.set('language', this.moduleConfig.language);
+    }
+
+    const request$ = this.httpClient.post<TAuthorization>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.impersonate, model, {
+      params: httpParams,
+      withCredentials: true
+    });
+
+    try {
+      result.data = await lastValueFrom(request$);
+      if(result.isSuccess) {
+        this.setAuthorization(result.data);
+        await this.reloadAuthorizationProfile();
+      }
+    } catch (ex) {
+      const errResult = NhApiUtil.taskResultFromResponse(ex);
+      errResult.copyTo(result);
+    }
+
+    return result;
+  }
+
+  async impersonateRevert(model: RevertImpersonateAuthenticateModel): Promise<TaskResult<TAuthorization>> {
+    const result = new TaskResult<TAuthorization>();
+
+    let httpParams = new HttpParams();
+    if (httpParams.get('language') === null) {
+      httpParams = httpParams.set('language', this.moduleConfig.language);
+    }
+
+    const request$ = this.httpClient.post<TAuthorization>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.revertImpersonate, model, {
+      params: httpParams,
+      withCredentials: true
+    });
+
+    try {
+      result.data = await lastValueFrom(request$);
+      if(result.isSuccess) {
+        this.setAuthorization(result.data);
+        await this.reloadAuthorizationProfile();
       }
     } catch (ex) {
       const errResult = NhApiUtil.taskResultFromResponse(ex);

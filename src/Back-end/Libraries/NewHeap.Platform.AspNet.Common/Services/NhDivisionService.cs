@@ -136,7 +136,7 @@ public abstract partial class NhDivisionService<
         }
     }
 
-    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(TDivision original, TDivision updated, CancellationToken cancellationToken = default)
+    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperties(TDivision original, TDivision updated, CancellationToken cancellationToken = default)
     {
         return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<TDivision, object>>, Func<object, Task<string>>>
         {

@@ -5,6 +5,11 @@ Homepage
 <br />
 Heeft add permissie?
 {{ ['app.address.manage'] | isOnePermissionGranted }}
+<br />
+<br />
+{{ authorization?.user | json }}
+<br />
+<br />
 
 <input class="form-control" type="text" placeholder="{{ 'general.search' | translate }}..."
        [(ngModel)]="searchValue" [nhDebounce]="500" (onDebounce)="search($event)"/>
@@ -18,3 +23,9 @@ Heeft add permissie?
 <br />
 <br />
 <a class="btn btn-primary" [nhRouterLink]="{ id: 'auth/login' }">Login</a>
+<br />
+<br />
+<button class="btn btn-primary" (click)="impersonate()">Impersonate</button>
+<br />
+<br />
+<button class="btn btn-primary" (click)="revertImpersonate()">Revert impersonate</button>

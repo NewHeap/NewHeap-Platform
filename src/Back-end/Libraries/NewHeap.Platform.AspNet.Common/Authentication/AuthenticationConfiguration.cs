@@ -6,6 +6,7 @@ public class AuthenticationConfiguration
 {
     public bool RefreshTokenEnabled { get; init; } = true;
     public bool DivisionsEnabled { get; init; } = false;
+    public bool ImpersonateEnabled { get; init; } = false;
 
     public string? CookieName { get; init; }
     public string? RefreshCookieName { get; init; }

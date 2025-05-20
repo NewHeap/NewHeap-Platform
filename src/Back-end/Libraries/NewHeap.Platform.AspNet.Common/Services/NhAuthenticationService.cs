@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Exceptions;
 using NewHeap.Platform.AspNet.Common.Models;
+using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -36,13 +38,15 @@ public class NhAuthenticationService<
     protected readonly ILogger<AuthenticationService> _logger;
     protected readonly IConfiguration _configuration;
     protected readonly TokenValidationParameters _tokenValidationParameters;
+    protected readonly AuthenticationConfiguration _authConfiguration;
 
     public NhAuthenticationService(
         SignInManager<TUser> signInManager,
         INhUserManager<TUser> userManager,
         ILogger<AuthenticationService> logger,
         IConfiguration configuration,
-        TokenValidationParameters tokenValidationParameters
+        TokenValidationParameters tokenValidationParameters,
+        AuthenticationConfiguration authConfiguration
     )
     {
         _signInManager = signInManager;
@@ -50,6 +54,7 @@ public class NhAuthenticationService<
         _logger = logger;
         _configuration = configuration;
         _tokenValidationParameters = tokenValidationParameters;
+        _authConfiguration = authConfiguration;
     }
 
     /// <summary>
@@ -78,7 +83,10 @@ public class NhAuthenticationService<
         user.RefreshToken = GenerateRefreshToken();
         await _userManager.UpdateAsync(user);
 
-        var token = await CreateToken(user.Id);
+        var token = await CreateToken(
+            user.Id,
+            withDivisionClaims: _authConfiguration.DivisionsEnabled
+        );
 
         return new UserToken(new JwtSecurityTokenHandler().WriteToken(token), token.ValidTo, user.RefreshToken,
             token.Issuer);
@@ -154,7 +162,10 @@ public class NhAuthenticationService<
         await _userManager.UpdateAsync(user);
 
         _logger.LogInformation("User {user} logged in", user.UserName);
-        var token = await CreateToken(user.Id);
+        var token = await CreateToken(
+            user.Id,
+            withDivisionClaims: _authConfiguration.DivisionsEnabled
+        );
 
         if (requiredClaims != null)
         {
@@ -244,5 +255,79 @@ public class NhAuthenticationService<
         var handler = new JwtSecurityTokenHandler();
         var claims = handler.ValidateToken(token, _tokenValidationParameters, out var t);
         return t as JwtSecurityToken;
+    }
+
+    public virtual async Task<TaskResult<UserToken>> Impersonate(Guid currentUserId, ImpersonateRequest request)
+    {
+        var currentUser = await _userManager.FindByIdAsync(currentUserId.ToString());
+        if (currentUser == null)
+        {
+            return TaskResult<UserToken>.Failed("Invalid request");
+        }
+
+        if (!request.UserId.HasValue)
+        {
+            return TaskResult<UserToken>.Failed("Invalid request");
+        }
+
+        var impersonateUser = await _userManager.FindByIdAsync(request.UserId!.Value.ToString());
+        if (impersonateUser == null)
+        {
+            return TaskResult<UserToken>.Failed("Invalid request");
+        }
+
+        return await Impersonate(currentUser, impersonateUser);
+    }
+
+    protected virtual async Task<TaskResult<UserToken>> Impersonate(TUser currentUser, TUser user)
+    {
+        var claims = await _userManager.GetValidClaims(user!, _authConfiguration.DivisionsEnabled);
+        claims.Add(new Claim(NhPlatformClaimTypes.ImpersonateOriginUserId, currentUser.Id.ToString()));
+        var token = await CreateToken(
+            user.Id, 
+            c: claims, 
+            expiration: null
+        );
+
+        return new UserToken(
+            new JwtSecurityTokenHandler().WriteToken(token), 
+            token.ValidTo, 
+            user.RefreshToken,
+            token.Issuer
+        );
+    }
+
+    public virtual async Task<TaskResult<UserToken>> ImpersonateRevert(Guid impersonatedUserId, Guid originUserId)
+    {
+        var impersonatedUser = await _userManager.FindByIdAsync(impersonatedUserId.ToString());
+        if (impersonatedUser == null)
+        {
+            return TaskResult<UserToken>.Failed("Invalid request");
+        }
+
+        var originUser = await _userManager.FindByIdAsync(originUserId.ToString());
+        if (originUser == null)
+        {
+            return TaskResult<UserToken>.Failed("Invalid request");
+        }
+
+        return await Impersonate(impersonatedUser, originUser);
+    }
+
+    protected virtual async Task<TaskResult<UserToken>> ImpersonateRevert(TUser impersonatedUser, TUser originUser)
+    {
+        var claims = await _userManager.GetValidClaims(originUser!, _authConfiguration.DivisionsEnabled);
+        var token = await CreateToken(
+            originUser.Id,
+            c: claims,
+            expiration: null
+        );
+
+        return new UserToken(
+            new JwtSecurityTokenHandler().WriteToken(token),
+            token.ValidTo,
+            originUser.RefreshToken,
+            token.Issuer
+        );
     }
 }

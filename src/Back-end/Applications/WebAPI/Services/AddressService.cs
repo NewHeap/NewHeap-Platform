@@ -29,7 +29,7 @@ namespace WebAPI.Services
         {
         }
 
-        protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperies(Address original, Address updated, CancellationToken cancellationToken = default)
+        protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperties(Address original, Address updated, CancellationToken cancellationToken = default)
         {
             return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<Address, object>>, Func<object, Task<string>>>
             {

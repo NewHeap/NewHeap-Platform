@@ -224,6 +224,7 @@ export enum ClaimTypes {
   Permission = 'nh.platform.permission',
   DivisionRole = 'nh.platform.division.role',
   DivisionPermission = 'nh.platform.division.permission',
+  ImpersonateOriginUserId = 'nh.platform.auth.impersonate.origin-user-id'
 }
 
 export class AuthenticateModel {
@@ -235,3 +236,18 @@ export class AuthenticateModel {
     Object.assign(this, init);
   }
 }
+
+export class ImpersonateAuthenticateModel {
+  userId: string = '';
+
+  public constructor(init?: Partial<ImpersonateAuthenticateModel>) {
+    Object.assign(this, init);
+  }
+}
+
+export class RevertImpersonateAuthenticateModel {
+  public constructor(init?: Partial<RevertImpersonateAuthenticateModel>) {
+    Object.assign(this, init);
+  }
+}
+

@@ -42,19 +42,17 @@ public partial class ActiveDivisionAccessHandler<
         }
 
         var httpContext = _httpContextAccessor.HttpContext;
-        var userManager = (httpContext!.RequestServices.GetService(typeof(INhUserManager<TUser>)) as INhUserManager<TUser>)!;
         var activeDivisionId = httpContext?.Request.GetActiveDivisionId();
-
         var userIdString = context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-
         var parseSucces = Guid.TryParse(userIdString, out var userId);
 
         if (parseSucces)
         {
-            var user = await userManager.FindByIdAsync(userId.ToString());
-            List<Claim>? userClaims = await userManager.GetValidClaims(user!, true);
-            if (await userManager.DivisionAccessAsync(activeDivisionId, userClaims,
-                    requirement.RequiredClaims, requirement.RequiredRoles))
+            if (await httpContext!.HasDivisionAccessAsync(
+                activeDivisionId,
+                requirement.RequiredClaims,
+                requirement.RequiredRoles
+            ))
             {
                 context.Succeed(requirement);
             }

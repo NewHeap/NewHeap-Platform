@@ -33,6 +33,7 @@ using NewHeap.Platform.AspNet.Common.Models.View;
 using NhMedia;
 using System.Threading.Tasks;
 using WebAPI.EventHandlers;
+using static NewHeap.Platform.Common.Constants;
 
 
 namespace WebAPI;
@@ -74,7 +75,7 @@ public class Startup
                 options.AddPolicy("app.division.manage",
                     policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.manage"));
 
-                options.AddPolicy("app.division.access-all", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.division.access-all"));
+                options.AddPolicy("app.division.access-all", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, DivisionPermissionClaimValues.AccessAll));
 
                 options.AddPolicy("app.address.view", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.address.view"));
                 options.AddPolicy("app.address.manage", policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.address.manage"));
@@ -135,7 +136,9 @@ public class Startup
                     authOptions.AccessTokenCookieName = "nh_auth_cookie";
                     authOptions.RefreshTokenCookieName = "nh_refresh_cookie";
                     authOptions.EnableDivisions = true;
+                    authOptions.EnableImpersonate = true;
                     authOptions.AuthenticationServiceKey = "";
+                    authOptions.Enabled = true;
                 });
             })
             .ConfigureCommon(commonConfig =>
@@ -183,12 +186,12 @@ public class Startup
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IServiceProvider services)
     {
-        app.UseCors(c =>
-        {
-            c.AllowAnyOrigin();
-            c.AllowAnyMethod();
-            c.AllowAnyHeader();
-        });
+        //app.UseCors(c =>
+        //{
+        //    c.AllowAnyOrigin();
+        //    c.AllowAnyMethod();
+        //    c.AllowAnyHeader();
+        //});
         app.UseNewHeapPlatformAspNetCommon(env, services,
                 NewHeapPlatformAspNetCommonApplicationBuilderOptions.Builder
                     .UseEndpoints(e =>
@@ -218,7 +221,7 @@ public class Startup
             {
                 configure.AddUserNamePasswordEndpoint();
                 // Remove account information endpoint if not needed
-                configure.RemoveEndpoint<NhAccountInformationEndpointHandler<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>>();
+                //configure.RemoveEndpoint<NhAccountInformationEndpointHandler<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>>();
             })
             .UseStaticFiles(options =>
             {
