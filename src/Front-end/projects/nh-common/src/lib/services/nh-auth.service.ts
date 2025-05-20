@@ -1,23 +1,22 @@
-import {inject, Inject, Injectable, NgZone, OnDestroy, Optional, PLATFORM_ID, REQUEST_CONTEXT} from '@angular/core';
+import {inject, Injectable, NgZone, OnDestroy, PLATFORM_ID, REQUEST_CONTEXT} from '@angular/core';
 import {BehaviorSubject, lastValueFrom} from 'rxjs';
 import {
-  NhAccountInformationResponse,
   AuthenticateModel,
   AuthenticationSessionCreateResponse,
   AuthSessionExpirationInformation,
   Claim,
   ClaimTypes,
+  ImpersonateAuthenticateModel,
+  INhAuthorization,
+  NhAccountInformationResponse,
+  NhAuthorization,
   NhDivision,
   RefreshTokenLoginAccountMutateModel,
-  INhAuthorization,
-  NhAuthorization,
-  ImpersonateAuthenticateModel,
   RevertImpersonateAuthenticateModel
 } from "../models/auth.models";
 import {DateTime} from "luxon";
 import {TaskResult} from "../models/misc.models";
 import {HttpClient, HttpHeaders, HttpParams} from '@angular/common/http';
-import {Base64} from "js-base64";
 import {NhCommonModuleConfig} from "../models/config.models";
 import {NhApiUtil} from "../util/nh-api-util";
 import {isPlatformServer} from "@angular/common";
@@ -157,6 +156,10 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     }
 
     return authenticated;
+  }
+
+  public isImpersonating(): boolean {
+    return this.isAuthenticated() && !!this.getAuthorization()?.claims?.find(x => x.type === ClaimTypes.ImpersonateOriginUserId);
   }
 
   public getActiveDivision(): NhDivision|null {

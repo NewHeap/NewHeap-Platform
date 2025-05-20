@@ -1,6 +1,6 @@
 {
   "name": "@newheap/platform-common",
-  "version": "0.0.56",
+  "version": "0.0.57",
   "peerDependencies": {
   },
   "dependencies": {
