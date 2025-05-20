@@ -92,11 +92,10 @@ public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
 
         var alreadyImpersonatingUserIdString = HttpContext?.User.Claims.FirstOrDefault(x => x.Type == NhPlatformClaimTypes.ImpersonateOriginUserId)?.Value;
 
-        if (string.IsNullOrEmpty(alreadyImpersonatingUserIdString))
+        if (!string.IsNullOrEmpty(alreadyImpersonatingUserIdString))
         {
             return BadRequest(TaskResult.Failed("Already impersonating user."));
         }
-
 
         var result = await authenticationService.Impersonate(currentUserId.Value, request!);
 
