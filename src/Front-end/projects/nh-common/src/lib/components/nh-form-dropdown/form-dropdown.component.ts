@@ -3,7 +3,7 @@ import {
   Component,
   EventEmitter,
   Input,
-  OnInit,
+  OnInit, output,
   Output,
   ViewChild,
   ViewEncapsulation
@@ -102,6 +102,8 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
   @Input() disabled : boolean = false;
   @Output() onLazyLoadError = new EventEmitter();
   private _settings: NhFormDropDownSettings = new NhFormDropDownSettings();
+  public readonly closed = output<void>();
+  public readonly opened = output<void>();
 
   get settings() {
     return this._settings;

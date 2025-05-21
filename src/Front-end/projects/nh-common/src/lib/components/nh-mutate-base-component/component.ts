@@ -177,6 +177,7 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
         this.form.reset();
         await this.newFormData(this.mutationType);
       } catch (err: any) {
+        console.error(err);
         if (err.error instanceof Error) {
           this.form.controls[''].setErrors({remote: [this.translateService.instant('An unknown error occurred.')]});
         } else {

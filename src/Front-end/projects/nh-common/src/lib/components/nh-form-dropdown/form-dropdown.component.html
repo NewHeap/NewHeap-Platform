@@ -9,6 +9,8 @@
     [texts]="settings.multiSelectTexts"
     [settings]="settings.multiSelectSettings"
     [ngModel]="value"
+    (dropdownClosed)="closed.emit()"
+    (dropdownOpened)="opened.emit()"
     (ngModelChange)="onModelChange($event)"
     (lazyLoad)="lazyLoadData($event)"
   ></ngx-bootstrap-multiselect>
@@ -19,6 +21,8 @@
     *ngIf="!settings.lazyLoad"
     [options]="options"
     [disabled]="disabled"
+    (dropdownClosed)="closed.emit()"
+    (dropdownOpened)="opened.emit()"
     [texts]="settings.multiSelectTexts"
     [settings]="settings.multiSelectSettings"
     [ngModel]="value"
