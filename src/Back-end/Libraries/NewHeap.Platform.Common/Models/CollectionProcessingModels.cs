@@ -10,8 +10,8 @@ public partial interface IBaseCollectionRequestModel
 
 public abstract partial class BaseCollectionRequestModel : IBaseCollectionRequestModel
 {
-    public int Page { get; set; }
-    public int ItemsPerPage { get; set; }
+    public int Page { get; set; } = 1;
+    public int ItemsPerPage { get; set; } = 20;
 }
 
 public partial interface ISearchableBaseCollectionRequestModel : IBaseCollectionRequestModel
