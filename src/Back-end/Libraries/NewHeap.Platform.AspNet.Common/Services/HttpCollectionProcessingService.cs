@@ -19,6 +19,10 @@ public interface IHttpCollectionProcessingService : ICollectionProcessingService
     Task<IQueryable<TEntity>> GetCollectionResultQueryAsync<TEntity, TViewModel>(IQueryable<TEntity> queryable, CancellationToken cancellationToken = default, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
+
+    Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(IQueryable<TEntity> queryable, CancellationToken cancellationToken = default, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TEntity : class
+        where TViewModel : class;
 }
 
 public partial class HttpCollectionProcessingService : CollectionProcessingService, IHttpCollectionProcessingService
@@ -106,6 +110,26 @@ public partial class HttpCollectionProcessingService : CollectionProcessingServi
         var requestModel = GetCollectionRequestModel();
 
         return await GetCollectionResultModelAsync<TEntity, TViewModel>(requestModel, queryable, null, cancellationToken: cancellationToken, defaultOrderBy);
+    }
+
+    public virtual async Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
+        IQueryable<TEntity> queryable,
+        CancellationToken cancellationToken = default,
+        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TEntity : class
+        where TViewModel : class
+    {
+        var requestModel = GetCollectionRequestModel();
+
+        var resultModel = await GetCollectionResultModelAsync<TEntity, TViewModel>(queryable, cancellationToken: cancellationToken, defaultOrderBy);
+
+        return new SimpleCollectionResultModel<TViewModel>
+        {
+            Items = resultModel.Items,
+            TotalCount = resultModel.TotalCount,
+            Page = resultModel.Page,
+            ItemsPerPage = resultModel.ItemsPerPage
+        };
     }
 
     public virtual async Task<IQueryable<TEntity>> GetCollectionResultQueryAsync<TEntity, TViewModel>(
