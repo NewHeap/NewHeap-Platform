@@ -19,6 +19,11 @@ public interface ICollectionProcessingService
     Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, CancellationToken cancellationToken = default, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
+
+    Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, CancellationToken cancellationToken = default, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TEntity : class
+        where TViewModel : class;
+
     Task<(IQueryable<TEntity> queryable, long totalCount, List<FilterCollectionRequestModel> filterResult, List<OrderByCollectionRequestModel> orderByResult)> ProcessQueryable<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, CancellationToken cancellationToken = default, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
@@ -847,6 +852,34 @@ public partial class CollectionProcessingService : ICollectionProcessingService
             ResultCount = items.Count,
             Search = requestModel.Search,
             Items = items
+        };
+    }
+
+
+    public virtual async Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
+        ICollectionRequestModel requestModel,
+        IQueryable<TEntity> queryable,
+        Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+        CancellationToken cancellationToken = default,
+        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TEntity : class
+        where TViewModel : class
+    {
+        var resultModel = await GetCollectionResultModelAsync<TEntity, TViewModel>(
+            requestModel,
+            queryable,
+            resultQueryableFunc,
+            cancellationToken,
+            defaultOrderBy
+        );
+
+        return new SimpleCollectionResultModel<TViewModel>
+        {
+            Page = requestModel.Page,
+            ItemsPerPage = requestModel.ItemsPerPage,
+            TotalCount = resultModel.TotalCount,
+            ResultCount = resultModel.ResultCount,
+            Items = resultModel.Items
         };
     }
 
