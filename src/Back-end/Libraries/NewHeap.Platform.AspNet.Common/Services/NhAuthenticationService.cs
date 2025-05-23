@@ -252,9 +252,17 @@ public class NhAuthenticationService<
     /// <returns></returns>
     public virtual JwtSecurityToken? DecodeToken(string token)
     {
-        var handler = new JwtSecurityTokenHandler();
-        var claims = handler.ValidateToken(token, _tokenValidationParameters, out var t);
+        var claimsPrincipal = ValidateToken(token, out var t);
         return t as JwtSecurityToken;
+    }
+
+    public virtual ClaimsPrincipal? ValidateToken(string token, out SecurityToken validatedToken)
+    {
+        var handler = new JwtSecurityTokenHandler();
+        var claimsPrincipal = handler.ValidateToken(token, _tokenValidationParameters, out var t);
+        validatedToken = t;
+
+        return claimsPrincipal;
     }
 
     public virtual async Task<TaskResult<UserToken>> Impersonate(Guid currentUserId, ImpersonateRequest request)
