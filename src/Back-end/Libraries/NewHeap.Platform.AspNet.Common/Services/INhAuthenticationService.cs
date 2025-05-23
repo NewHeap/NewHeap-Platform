@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Tokens;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Exceptions;
 using NewHeap.Platform.AspNet.Common.Models;
@@ -68,4 +69,6 @@ public interface INhAuthenticationService
     Task<TaskResult<UserToken>> Impersonate(Guid currentUserId, ImpersonateRequest request);
 
     Task<TaskResult<UserToken>> ImpersonateRevert(Guid impersonatedUserId, Guid originUserId);
+
+    ClaimsPrincipal? ValidateToken(string token, out SecurityToken validatedToken);
 }
