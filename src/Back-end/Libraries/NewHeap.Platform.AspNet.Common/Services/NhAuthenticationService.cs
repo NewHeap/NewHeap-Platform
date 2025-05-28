@@ -208,8 +208,8 @@ public class NhAuthenticationService<
         {
             throw new InvalidOperationException("Invalid user id");
         }
-        
-        var claims = await _userManager.GetValidClaims(user!, withDivisionClaims);
+
+        var claims = await GetClaimsAsync(user!.Id);
         return await CreateToken(userId, claims, expiration);
     }
 
@@ -287,9 +287,15 @@ public class NhAuthenticationService<
         return await Impersonate(currentUser, impersonateUser);
     }
 
+    protected virtual async Task<List<Claim>> GetClaimsAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var claims = await _userManager.GetValidClaimsByUserIdAsync(userId, _authConfiguration.DivisionsEnabled, cancellationToken);
+        return claims;
+    }
+
     protected virtual async Task<TaskResult<UserToken>> Impersonate(TUser currentUser, TUser user)
     {
-        var claims = await _userManager.GetValidClaims(user!, _authConfiguration.DivisionsEnabled);
+        var claims = await GetClaimsAsync(user!.Id);
         claims.Add(new Claim(NhPlatformClaimTypes.ImpersonateOriginUserId, currentUser.Id.ToString()));
         var token = await CreateToken(
             user.Id, 
@@ -324,7 +330,7 @@ public class NhAuthenticationService<
 
     protected virtual async Task<TaskResult<UserToken>> ImpersonateRevert(TUser impersonatedUser, TUser originUser)
     {
-        var claims = await _userManager.GetValidClaims(originUser!, _authConfiguration.DivisionsEnabled);
+        var claims = await GetClaimsAsync(originUser!.Id);
         var token = await CreateToken(
             originUser.Id,
             c: claims,
