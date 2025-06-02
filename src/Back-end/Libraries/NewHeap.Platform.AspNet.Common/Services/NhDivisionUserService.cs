@@ -104,7 +104,7 @@ public abstract partial class NhDivisionUserService<
         }
     }
 
-    public override IQueryable<TDivisionUser> QueryableWithAllIncludes(IQueryable<TDivisionUser> queryable = null)
+    public override IQueryable<TDivisionUser> QueryableWithAllIncludes(IQueryable<TDivisionUser>? queryable = null)
     {
         queryable = base.QueryableWithAllIncludes(queryable);
         queryable = queryable

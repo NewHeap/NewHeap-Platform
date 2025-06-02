@@ -26,8 +26,8 @@ public interface IAbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpda
     where TDeleteMutateModel : class
 {
     IRepository<TEntity> GetRepository();
-    IQueryable<TEntity> QueryableWithAllIncludes(IQueryable<TEntity> queryable = null);
-    IQueryable<TEntity> QueryableWithUpdateDeleteIncludes(IQueryable<TEntity> queryable = null);
+    IQueryable<TEntity> QueryableWithAllIncludes(IQueryable<TEntity>? queryable = null);
+    IQueryable<TEntity> QueryableWithUpdateDeleteIncludes(IQueryable<TEntity>? queryable = null);
 }
 
 public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel, TAbstractBaseDbEntityService> : AbstractBaseDbEntityService<TEntity, TMutateModel, TMutateModel, TMutateModel, TAbstractBaseDbEntityService>, IAbstractBaseDbEntityService<TEntity, TMutateModel>
@@ -128,7 +128,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         return _repository;
     }
 
-    public virtual IQueryable<TEntity> QueryableWithAllIncludes(IQueryable<TEntity> queryable = null)
+    public virtual IQueryable<TEntity> QueryableWithAllIncludes(IQueryable<TEntity>? queryable = null)
     {
         queryable ??= _repository
             .GetAll()
@@ -137,7 +137,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         return queryable;
     }
 
-    public virtual IQueryable<TEntity> QueryableWithUpdateDeleteIncludes(IQueryable<TEntity> queryable = null)
+    public virtual IQueryable<TEntity> QueryableWithUpdateDeleteIncludes(IQueryable<TEntity>? queryable = null)
     {
         queryable ??= _repository
             .GetAll()
