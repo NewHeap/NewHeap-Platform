@@ -177,6 +177,11 @@ export class NhConfigCommonService implements OnDestroy {
       return;
     }
 
+    let isSupportedLanguageCode = this.commonModuleConfig.supportedLanguages.some(x => x === newLanguageCode);
+    if(!isSupportedLanguageCode) {
+      newLanguageCode = this.commonModuleConfig.defaultLanguage;
+    }
+
     this.config.languageCode = newLanguageCode;
     this.setConfig(this.config);
     await lastValueFrom(this.translateService.use(newLanguageCode));
