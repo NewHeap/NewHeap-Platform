@@ -120,9 +120,15 @@ export class NhConfigCommonService implements OnDestroy {
       languageCode = this.commonModuleConfig.defaultLanguage;
     }
 
-    const isSupportedLanguageCode = this.commonModuleConfig.supportedLanguages.some(x => x === languageCode);
+    let isSupportedLanguageCode = this.commonModuleConfig.supportedLanguages.some(x => x === languageCode);
     if(!isSupportedLanguageCode) {
       resolver();
+    }
+
+    // Check again, navigator or accept lang etc may be non-supported.
+    isSupportedLanguageCode = this.commonModuleConfig.supportedLanguages.some(x => x === languageCode);
+    if(!isSupportedLanguageCode) {
+      languageCode = this.commonModuleConfig.defaultLanguage;
     }
 
     return languageCode;
