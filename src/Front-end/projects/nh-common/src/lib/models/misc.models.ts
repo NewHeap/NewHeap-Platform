@@ -1,5 +1,9 @@
 import {KeyValue} from "@angular/common";
 
+export type SuccessResult<T> = TaskResult<T> & { isSuccess: true, data: T };
+export type ErrorResult<T> = TaskResult<T> & { isSuccess: false, data: T | undefined };
+export type TypedResult<T> = SuccessResult<T> | ErrorResult<T>;
+
 export class TaskResultItem {
   name: string = '';
   errorMessages: string[] = [];
@@ -50,7 +54,7 @@ export class TaskResult<T> {
       let item = this.items.find(x => x.name === error.name);
 
       if (!item) {
-        item = new TaskResultItem({ name: error.name });
+        item = new TaskResultItem({name: error.name});
         this.items.push(item);
       }
 
@@ -74,6 +78,10 @@ export class TaskResult<T> {
 
   getAllErrorMessages(): string[] {
     return this.items.flatMap(x => x.errorMessages);
+  }
+
+  asTypedResult(): TypedResult<T> {
+    return <TypedResult<T>>this;
   }
 
 }
@@ -112,6 +120,6 @@ export class PreLoadUrlItem {
 export type NhRouterLink = {
   id: string;
   arguments?: any;
-  language?: string|null|undefined; // Undefined will use the current language
+  language?: string | null | undefined; // Undefined will use the current language
   scrollToTop?: boolean;
 };
