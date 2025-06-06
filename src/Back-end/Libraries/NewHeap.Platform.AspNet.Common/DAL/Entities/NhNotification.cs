@@ -18,24 +18,6 @@ public enum NhNotificationPriority
     Critical = 40
 }
 
-public enum NhNotificationStatus
-{
-    // Job persisted and registered in the storage
-    Queued = 0,
-
-    //Job dispatched to background job framework
-    Scheduled = 10,
-
-    //Framework is executing the job
-    Processing = 20,
-
-    //Result is here, it failed
-    Failed = 30,
-
-    //Result is here, success
-    Succeeded = 40
-}
-
 public partial class NhNotification : IdDbEntity
 {
     [Key]
@@ -50,8 +32,7 @@ public partial class NhNotification : IdDbEntity
     public NhNotificationPriority Priority { get; set; } = NhNotificationPriority.Normal;
 
     [StringLength(256)]
-    public string Title { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 
-    [StringLength(5)]
-    public string LanguageCulture { get; set; } = string.Empty;
+    public List<NhNotificationDelivery> Deliveries { get; set; } = new List<NhNotificationDelivery>();
 }

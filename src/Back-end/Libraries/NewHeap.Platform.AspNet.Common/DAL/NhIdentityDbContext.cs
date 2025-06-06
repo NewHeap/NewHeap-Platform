@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using Newtonsoft.Json;
+using System.Linq;
 
 namespace NewHeap.Platform.AspNet.Common.DAL;
 
@@ -78,6 +80,8 @@ public abstract partial class NhIdentityDbContext<
     public DbSet<TDivisionUser> DivisionUsers { get; set; }
     public DbSet<TDivisionUserRole> DivisionUserRoles { get; set; }
     public DbSet<TDivisionRoleClaim> DivisionRoleClaims { get; set; }
+    public DbSet<NhNotification> Notifications { get; set; }
+    public DbSet<NhNotificationDelivery> NhNotificationDeliveries { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -211,6 +215,39 @@ public abstract partial class NhIdentityDbContext<
                 .HasForeignKey(x => x.DivisionRoleId)
                 .OnDelete(DeleteBehavior.Cascade)
             ;
+        });
+
+        #endregion
+
+        #region Notification
+
+        builder.Entity<NhNotification>(entity =>
+        {
+            entity
+                .HasOne(typeof(TUser))
+                .WithMany()
+                .HasForeignKey(nameof(NhNotification.CreatedByUserId))
+                .HasPrincipalKey("Id")
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false)
+            ;
+        });
+
+        builder.Entity<NhNotificationDelivery>(entity =>
+        {
+            entity
+                .HasOne(x => x.Notification)
+                .WithMany(x => x.Deliveries)
+                .HasForeignKey(x => x.NotificationId)
+                .IsRequired(true)
+                .OnDelete(DeleteBehavior.Cascade)
+            ;
+
+            entity
+                .Property(e => e.Data)
+                .HasConversion(
+                    v => v == null ? null : JsonConvert.SerializeObject(v, ConvertJsonSerializerSettings),
+                    v => string.IsNullOrWhiteSpace(v) ? null : JsonConvert.DeserializeObject(v, ConvertJsonSerializerSettings));
         });
 
         #endregion
