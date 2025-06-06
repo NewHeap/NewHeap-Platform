@@ -384,7 +384,6 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                 x.Name.Contains(searchTerm)
                 || x.Tags.Any(y => y.Contains(searchTerm))
             );
-            q = q.Where(x => x.Tags.Any(y => y.Contains(searchTerm)));
         }
 
         if (tags?.Length > 0)
