@@ -1,4 +1,4 @@
-﻿using NewHeap.Platform.AspNet.Common.Attributes;
+﻿using NewHeap.Platform.Common.Attributes;
 using System;
 using System.ComponentModel.DataAnnotations;
 

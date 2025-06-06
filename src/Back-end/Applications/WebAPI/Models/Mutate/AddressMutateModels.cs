@@ -1,4 +1,4 @@
-﻿using NewHeap.Platform.AspNet.Common.Attributes;
+﻿using NewHeap.Platform.Common.Attributes;
 using System.ComponentModel.DataAnnotations;
 
 namespace WebAPI.Models.Mutate
