@@ -14,15 +14,18 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services.Notification;
 
-public interface INhAbstractNotificationDispatcher<TDeliveryData>
-    where TDeliveryData : class, new()
+public interface INhNotificationDispatcher
 {
     string DispatcherId { get; }
+}
 
+public interface INhNotificationDispatcher<TDeliveryData> : INhNotificationDispatcher
+    where TDeliveryData : class, new()
+{
     Task<TaskResult> DispatchAsync(TDeliveryData deliveryData, CancellationToken cancellationToken = default);
 }
 
-public abstract partial class NhAbstractNotificationDispatcher<TDeliveryData> : INhAbstractNotificationDispatcher<TDeliveryData>
+public abstract partial class NhAbstractNotificationDispatcher<TDeliveryData> : INhNotificationDispatcher<TDeliveryData>
     where TDeliveryData : class, new()
 {
     public abstract string DispatcherId { get; }
