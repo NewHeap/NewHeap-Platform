@@ -19,10 +19,12 @@ public partial class NhNotificationDelivery : IdDbEntity
     public Guid NotificationId { get; set; }
     public NhNotification? Notification { get; set; }
     public NotificationDeliveryStatus Status { get; set; } = NotificationDeliveryStatus.Unknown;
+
     [StringLength(50)]
     public string DispatcherId { get; set; } = string.Empty;
+
     [Column(TypeName = "nvarchar(MAX)")]
-    public object Data { get; set; } = null!;
+    public object? Data { get; set; } = null;
 }
 
 public enum NotificationDeliveryStatus

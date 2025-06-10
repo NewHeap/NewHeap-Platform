@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
@@ -13,6 +14,72 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services.Notification;
 
+public static class NhNotificationBuilderExtensions
+{ 
+    public static NhNotificationBuilder WithEmail(this NhNotificationBuilder builder, NhEmailDeliveryData delivery)
+    {
+        var emailDelivery = new NhNotificationDelivery
+        {
+            DispatcherId = "email",
+
+            Data = delivery
+        };
+        return builder.AddDelivery(emailDelivery);
+    }
+}
+
+public partial class NhNotificationBuilder
+{
+    protected readonly NhNotification Notification;
+
+    protected NhNotificationBuilder(string name)
+    { 
+        Notification = new NhNotification
+        {
+            Priority = NhNotificationPriority.Normal,
+            Name = name
+        };
+    }
+
+    public static NhNotificationBuilder Create(string name)
+    {
+        return new NhNotificationBuilder(name);
+    }
+
+    public NhNotificationBuilder WithName(string name)
+    {
+        Notification.Name = name;
+        return this;
+    }
+
+    public NhNotificationBuilder WithPriority(NhNotificationPriority priority)
+    {
+        Notification.Priority = priority;
+        return this;
+    }
+
+    public NhNotificationBuilder WithCreatedByUserId(Guid? userId)
+    {
+        Notification.CreatedByUserId = userId;
+        return this;
+    }
+
+    public NhNotificationBuilder AddDelivery(NhNotificationDelivery delivery)
+    {
+        if (delivery == null)
+        {
+            throw new ArgumentNullException(nameof(delivery), "Delivery cannot be null.");
+        }
+
+        Notification.Deliveries.Add(delivery);
+        return this;
+    }
+
+    public NhNotification Build()
+    {
+        return Notification;
+    }
+}
 
 public partial class NhNotificationService 
 {
@@ -20,6 +87,7 @@ public partial class NhNotificationService
     protected readonly IStringLocalizer<NhDivisionService> _localizer;
     protected readonly INhDbLogService _dbLogService;
     protected readonly IMapper _mapper;
+    protected readonly ILogger _logger;
     protected readonly LogHelperService _logHelper;
     protected readonly ValidationService _validationService;
 
@@ -29,7 +97,8 @@ public partial class NhNotificationService
         INhDbLogService dbLogService,
         LogHelperService logHelperService,
         ValidationService validationService,
-        IMapper mapper
+        IMapper mapper,
+        ILogger logger
         )
     {
         _repository = repository;
@@ -38,16 +107,12 @@ public partial class NhNotificationService
         _dbLogService = dbLogService;
         _logHelper = logHelperService;
         _validationService = validationService;
+        _logger = logger;
     }
 
-    protected TaskResult Validate()
+    protected TaskResult Validate(NhNotification notification)
     { 
-        
-    }
-
-    public async Task<TaskResult<NhNotification>> CreateAsync(NhNotification notification, CancellationToken cancellationToken = default)
-    {
-        var taskResult = new TaskResult<NhNotification>();
+        var taskResult = new TaskResult();
 
         if (notification == null)
         {
@@ -55,17 +120,34 @@ public partial class NhNotificationService
             return taskResult;
         }
 
+        return taskResult;
+    }
+
+    public async Task<TaskResult<NhNotification>> CreateAsync(NhNotification notification, CancellationToken cancellationToken = default)
+    {
+        var taskResult = new TaskResult<NhNotification>();
+
+        var validationResult = Validate(notification);
+        if (!validationResult.Success)
+        {
+            validationResult.ApplyToTaskResult(taskResult);
+            return taskResult;
+        }
+
+        notification.CreationDateTime = DateTimeOffset.UtcNow;
+        notification.LastModifiedDateTime = DateTimeOffset.UtcNow;
+
         using var transaction = await _repository.StartOrGetTransactionScopeAsync(cancellationToken);
 
         try
         {
-
-            await _repository.AddAsync(notification);
+            await _repository.AddAsync(notification, cancellationToken);
             await _repository.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
         catch(Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while creating the notification: {Message}", ex.Message);
             taskResult.AddError(string.Empty, _localizer["An error occurred while creating the notification."]);
             return taskResult;
         }

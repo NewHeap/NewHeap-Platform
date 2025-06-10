@@ -13,8 +13,16 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services.Notification;
 
-public abstract partial class NhAbstractNotificationDispatcherService
+public interface INhAbstractNotificationDispatcher<TDeliveryData>
+    where TDeliveryData : class, new()
 {
+    static string DispatcherId { get; private set; }
+}
+
+public abstract partial class NhAbstractNotificationDispatcher<TDeliveryData> : INhAbstractNotificationDispatcher<TDeliveryData>
+    where TDeliveryData : class, new()
+{
+
     protected readonly IRepository<NhNotification> _repository;
     protected readonly IStringLocalizer<NhDivisionService> _localizer;
     protected readonly INhDbLogService _dbLogService;
@@ -22,7 +30,7 @@ public abstract partial class NhAbstractNotificationDispatcherService
     protected readonly LogHelperService _logHelper;
     protected readonly ValidationService _validationService;
 
-    public NhAbstractNotificationDispatcherService(
+    public NhAbstractNotificationDispatcher(
         IRepository<NhNotification> repository,
         IStringLocalizer<NhDivisionService> localizer,
         INhDbLogService dbLogService,
@@ -37,4 +45,5 @@ public abstract partial class NhAbstractNotificationDispatcherService
         _logHelper = logHelperService;
         _validationService = validationService;
     }
+
 }
