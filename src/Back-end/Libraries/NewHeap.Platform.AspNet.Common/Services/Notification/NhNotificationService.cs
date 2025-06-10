@@ -20,10 +20,10 @@ public static class NhNotificationBuilderExtensions
     {
         var emailDelivery = new NhNotificationDelivery
         {
-            DispatcherId = "email",
-
-            Data = delivery
+            DispatcherId = NhEmailNotificationDispatcher.DispatcherIdValue,
+            Data = delivery,
         };
+
         return builder.AddDelivery(emailDelivery);
     }
 }

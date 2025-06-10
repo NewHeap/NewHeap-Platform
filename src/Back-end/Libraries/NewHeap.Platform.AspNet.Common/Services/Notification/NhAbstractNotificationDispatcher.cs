@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
@@ -16,17 +17,20 @@ namespace NewHeap.Platform.AspNet.Common.Services.Notification;
 public interface INhAbstractNotificationDispatcher<TDeliveryData>
     where TDeliveryData : class, new()
 {
-    static string DispatcherId { get; private set; }
+    string DispatcherId { get; }
+
+    Task<TaskResult> DispatchAsync(TDeliveryData deliveryData, CancellationToken cancellationToken = default);
 }
 
 public abstract partial class NhAbstractNotificationDispatcher<TDeliveryData> : INhAbstractNotificationDispatcher<TDeliveryData>
     where TDeliveryData : class, new()
 {
-
+    public abstract string DispatcherId { get; }
     protected readonly IRepository<NhNotification> _repository;
     protected readonly IStringLocalizer<NhDivisionService> _localizer;
     protected readonly INhDbLogService _dbLogService;
     protected readonly IMapper _mapper;
+    protected readonly ILogger _logger;
     protected readonly LogHelperService _logHelper;
     protected readonly ValidationService _validationService;
 
@@ -36,7 +40,9 @@ public abstract partial class NhAbstractNotificationDispatcher<TDeliveryData> : 
         INhDbLogService dbLogService,
         LogHelperService logHelperService,
         ValidationService validationService,
-        IMapper mapper)
+        IMapper mapper,
+        ILogger logger
+        )
     {
         _repository = repository;
         _localizer = localizer;
@@ -44,6 +50,17 @@ public abstract partial class NhAbstractNotificationDispatcher<TDeliveryData> : 
         _dbLogService = dbLogService;
         _logHelper = logHelperService;
         _validationService = validationService;
+        _logger = logger;
     }
 
+    public async Task<TaskResult> DispatchAsync(TDeliveryData deliveryData, CancellationToken cancellationToken = default)
+    { 
+        var taskResult = new TaskResult();
+
+        var doTaskResult = await DoDispatchAsync(deliveryData, cancellationToken);
+
+        return taskResult;
+    }
+
+    protected abstract Task<TaskResult> DoDispatchAsync(TDeliveryData deliveryData, CancellationToken cancellationToken = default);
 }
