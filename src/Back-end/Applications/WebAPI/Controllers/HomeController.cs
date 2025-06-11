@@ -14,6 +14,7 @@ using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.AspNet.Common.Services.Notification;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
@@ -56,5 +57,31 @@ public class HomeController : PublicNhBaseController
 
 
         return Ok("Hi");
+    }
+
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task<IActionResult> TestNotification([FromServices] INhNotificationService nhNotificationService)
+    {
+
+        var notification = NhNotificationBuilder.Create("Test notification")
+            .WithPriority(NhNotificationPriority.Normal)
+            .WithEmailDelivery(
+                delivery: new NhEmailDeliveryData()
+                {
+
+                },
+                priority: NhNotificationPriority.Normal // Overide the priority if needed
+            )
+            .Build();
+
+        var result = await nhNotificationService.CreateAsync(notification);
+        if (!result.Success)
+        { 
+            result.ApplyToModelState(ModelState);
+            return BadRequest(ModelState);
+        }
+
+        return Ok($"Created: {result.Data!.Id}");
     }
 }

@@ -23,7 +23,7 @@ public static class NhNotificationBuilderExtensions
     /// <param name="delivery"></param>
     /// <param name="priority">Only set if a different priority is required, notification entity will be used if null.</param>
     /// <returns></returns>
-    public static NhNotificationBuilder WithEmail(this NhNotificationBuilder builder, NhEmailDeliveryData delivery, NhNotificationPriority? priority = null)
+    public static NhNotificationBuilder WithEmailDelivery(this NhNotificationBuilder builder, NhEmailDeliveryData delivery, NhNotificationPriority? priority = null)
     {
         var emailDelivery = new NhNotificationDelivery
         {
