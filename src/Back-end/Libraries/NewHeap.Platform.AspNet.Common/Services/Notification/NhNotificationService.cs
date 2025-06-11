@@ -111,7 +111,7 @@ public partial class NhNotificationService : INhNotificationService
         LogHelperService logHelperService,
         ValidationService validationService,
         IMapper mapper,
-        ILogger logger
+        ILogger<NhNotificationService> logger
         )
     {
         _repository = repository;
@@ -176,6 +176,8 @@ public partial class NhNotificationService : INhNotificationService
             taskResult.AddError(string.Empty, _localizer["An error occurred while creating the notification."]);
             return taskResult;
         }
+
+        taskResult.Data = notification;
 
         return taskResult;
     }

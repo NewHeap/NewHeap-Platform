@@ -51,7 +51,7 @@ public abstract partial class NhAbstractNotificationDispatcher<TDeliveryData> : 
         LogHelperService logHelperService,
         ValidationService validationService,
         IMapper mapper,
-        ILogger logger
+        ILogger<NhAbstractNotificationDispatcher<TDeliveryData>> logger
         )
     {
         _repository = repository;

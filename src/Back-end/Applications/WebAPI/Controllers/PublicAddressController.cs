@@ -21,7 +21,7 @@ using WebAPI.Services;
 
 namespace WebAPI.Controllers;
 
-[Route("")]
+[Route("[controller]")]
 public class PublicAddressController : PublicNhBaseController
 {
     protected readonly AddressService _addressService;

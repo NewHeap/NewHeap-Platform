@@ -43,7 +43,7 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
         LogHelperService logHelperService, 
         ValidationService validationService, 
         IMapper mapper,
-        ILogger logger,
+        ILogger<NhEmailNotificationDispatcher> logger,
         NhMailService mailService
         ) 
         : base(repository, localizer, dbLogService, logHelperService, validationService, mapper, logger)

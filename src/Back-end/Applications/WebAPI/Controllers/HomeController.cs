@@ -59,7 +59,7 @@ public class HomeController : PublicNhBaseController
         return Ok("Hi");
     }
 
-    [HttpGet]
+    [HttpGet("notification")]
     [AllowAnonymous]
     public async Task<IActionResult> TestNotification([FromServices] INhNotificationService nhNotificationService)
     {
@@ -69,7 +69,12 @@ public class HomeController : PublicNhBaseController
             .WithEmailDelivery(
                 delivery: new NhEmailDeliveryData()
                 {
-
+                    FromDisplayName = "NewHeap",
+                    FromEmail = "no-reply@newheap.com",
+                    To = new List<string> { "lars+test@newheap.com" },
+                    Subject = "Test notification",
+                    Body = "This is a test notification sent from the NewHeap platform.",
+                    IsBodyHtml = true
                 },
                 priority: NhNotificationPriority.Normal // Overide the priority if needed
             )
