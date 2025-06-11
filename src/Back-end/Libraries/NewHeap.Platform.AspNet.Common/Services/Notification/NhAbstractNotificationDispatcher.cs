@@ -17,12 +17,19 @@ namespace NewHeap.Platform.AspNet.Common.Services.Notification;
 public interface INhNotificationDispatcher
 {
     string DispatcherId { get; }
+
+    Task<TaskResult> DispatchAsync(object? deliveryData, CancellationToken cancellationToken = default);
 }
 
-public interface INhNotificationDispatcher<TDeliveryData> : INhNotificationDispatcher
+public interface INhNotificationDispatcher<in TDeliveryData> : INhNotificationDispatcher
     where TDeliveryData : class, new()
 {
-    Task<TaskResult> DispatchAsync(TDeliveryData deliveryData, CancellationToken cancellationToken = default);
+    async Task<TaskResult> INhNotificationDispatcher.DispatchAsync(object? deliveryData, CancellationToken cancellationToken)
+    {
+        return await DispatchAsync((TDeliveryData?)deliveryData, cancellationToken);
+    }
+
+    Task<TaskResult> DispatchAsync(TDeliveryData? deliveryData, CancellationToken cancellationToken = default);
 }
 
 public abstract partial class NhAbstractNotificationDispatcher<TDeliveryData> : INhNotificationDispatcher<TDeliveryData>
@@ -56,14 +63,16 @@ public abstract partial class NhAbstractNotificationDispatcher<TDeliveryData> : 
         _logger = logger;
     }
 
-    public async Task<TaskResult> DispatchAsync(TDeliveryData deliveryData, CancellationToken cancellationToken = default)
+    public async Task<TaskResult> DispatchAsync(TDeliveryData? deliveryData, CancellationToken cancellationToken = default)
     { 
         var taskResult = new TaskResult();
 
+        // Might want to do some before and after actions here later.
         var doTaskResult = await DoDispatchAsync(deliveryData, cancellationToken);
+        doTaskResult.ApplyToTaskResult(taskResult);
 
         return taskResult;
     }
 
-    protected abstract Task<TaskResult> DoDispatchAsync(TDeliveryData deliveryData, CancellationToken cancellationToken = default);
+    protected abstract Task<TaskResult> DoDispatchAsync(TDeliveryData? deliveryData, CancellationToken cancellationToken = default);
 }

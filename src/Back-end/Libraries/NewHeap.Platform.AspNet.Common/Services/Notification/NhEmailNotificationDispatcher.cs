@@ -51,30 +51,37 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
         _mailService = mailService ?? throw new ArgumentNullException(nameof(mailService), "Mail service cannot be null.");
     }
 
-    protected TaskResult Validate(NhEmailDeliveryData deliveryData)
+    protected TaskResult Validate(NhEmailDeliveryData? deliveryData)
     {
         var taskResult = new TaskResult();
-        if (string.IsNullOrWhiteSpace(deliveryData.Subject))
+
+        if (deliveryData == null)
+        {
+            taskResult.AddError(string.Empty, _localizer["Delivery data cannot be null."]);
+            return taskResult;
+        }
+
+        if (string.IsNullOrWhiteSpace(deliveryData?.Subject))
         {
             taskResult.AddError(nameof(deliveryData.Subject), _localizer["Email subject cannot be empty."]);
         }
 
-        if (string.IsNullOrWhiteSpace(deliveryData.Body))
+        if (string.IsNullOrWhiteSpace(deliveryData?.Body))
         {
             taskResult.AddError(nameof(deliveryData.Body), _localizer["Email body cannot be empty."]);
         }
 
-        if (!deliveryData.To.Any())
+        if (deliveryData?.To?.Any() != true)
         {
             taskResult.AddError(nameof(deliveryData.To), _localizer["At least one recipient is required."]);
         }
 
-        if (string.IsNullOrWhiteSpace(deliveryData.FromEmail) || !MailAddress.TryCreate(deliveryData.FromEmail, out _))
+        if (string.IsNullOrWhiteSpace(deliveryData?.FromEmail) || !MailAddress.TryCreate(deliveryData.FromEmail, out _))
         {
             taskResult.AddError(nameof(deliveryData.FromEmail), _localizer["Invalid 'From' email address."]);
         }
 
-        if (string.IsNullOrWhiteSpace(deliveryData.FromDisplayName))
+        if (string.IsNullOrWhiteSpace(deliveryData?.FromDisplayName))
         {
             taskResult.AddError(nameof(deliveryData.FromDisplayName), _localizer["'From' display name cannot be empty."]);
         }
@@ -82,7 +89,7 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
         return taskResult;
     }
 
-    protected async override Task<TaskResult> DoDispatchAsync(NhEmailDeliveryData deliveryData, CancellationToken cancellationToken = default)
+    protected async override Task<TaskResult> DoDispatchAsync(NhEmailDeliveryData? deliveryData, CancellationToken cancellationToken = default)
     { 
         var taskResult = new TaskResult();
 
@@ -98,7 +105,7 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
         {
             var mailMessage = new MailMessage();
 
-            mailMessage.From = new MailAddress(deliveryData.FromEmail, deliveryData.FromDisplayName);
+            mailMessage.From = new MailAddress(deliveryData!.FromEmail, deliveryData.FromDisplayName);
             mailMessage.Subject = deliveryData.Subject;
             mailMessage.Body = deliveryData.Body;
             mailMessage.IsBodyHtml = deliveryData.IsBodyHtml;

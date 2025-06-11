@@ -24,6 +24,7 @@ using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Resolvers;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.AspNet.Common.Services.Notification;
 using NewHeap.Platform.AspNet.Policy.AuthorizationHandlers;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Translations;
@@ -690,6 +691,36 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             backgroundJobServerOptions?.Invoke(options);
         });
 
+        return this;
+    }
+
+    public NewHeapPlatformAspNetCommonConfigurator<
+        TUser,
+        TUserRole,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TLog,
+        TLogMessageArgument,
+        TLogFile,
+        TLogMessageTranslated,
+        TDbLogService,
+        TDbContext,
+        TUserManager,
+        TDivisionService,
+        TDivisionMutateModel,
+        TDivisionUserService,
+        TDivisionUserMutateModel
+    > WithNotifications(Action<NhNotificationSettings> settingsAction)
+    {
+        _serviceCollection.Configure(settingsAction);
+        _serviceCollection.AddScoped<INhNotificationService, NhNotificationService>();
+        _serviceCollection.AddHostedService<NhNotificationProcessingService>();
+
+        //Default dispatchers
+        _serviceCollection.AddScoped<INhNotificationDispatcher, NhEmailNotificationDispatcher>();
         return this;
     }
 }

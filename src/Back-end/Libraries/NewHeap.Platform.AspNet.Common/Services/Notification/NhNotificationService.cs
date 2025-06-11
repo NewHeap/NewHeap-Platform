@@ -15,13 +15,21 @@ using System.Security.Claims;
 namespace NewHeap.Platform.AspNet.Common.Services.Notification;
 
 public static class NhNotificationBuilderExtensions
-{ 
-    public static NhNotificationBuilder WithEmail(this NhNotificationBuilder builder, NhEmailDeliveryData delivery)
+{
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="builder"></param>
+    /// <param name="delivery"></param>
+    /// <param name="priority">Only set if a different priority is required, notification entity will be used if null.</param>
+    /// <returns></returns>
+    public static NhNotificationBuilder WithEmail(this NhNotificationBuilder builder, NhEmailDeliveryData delivery, NhNotificationPriority? priority = null)
     {
         var emailDelivery = new NhNotificationDelivery
         {
             DispatcherId = NhEmailNotificationDispatcher.DispatcherIdValue,
             Data = delivery,
+            Priority = priority
         };
 
         return builder.AddDelivery(emailDelivery);
@@ -81,7 +89,12 @@ public partial class NhNotificationBuilder
     }
 }
 
-public partial class NhNotificationService 
+public interface INhNotificationService
+{
+    Task<TaskResult<NhNotification>> CreateAsync(NhNotification notification, CancellationToken cancellationToken = default);
+}
+
+public partial class NhNotificationService : INhNotificationService
 {
     protected readonly IRepository<NhNotification> _repository;
     protected readonly IStringLocalizer<NhDivisionService> _localizer;
@@ -111,7 +124,7 @@ public partial class NhNotificationService
     }
 
     protected TaskResult Validate(NhNotification notification)
-    { 
+    {
         var taskResult = new TaskResult();
 
         if (notification == null)
@@ -137,6 +150,18 @@ public partial class NhNotificationService
         notification.CreationDateTime = DateTimeOffset.UtcNow;
         notification.LastModifiedDateTime = DateTimeOffset.UtcNow;
 
+        if (notification.Deliveries?.Any() == true)
+        {
+            foreach (var delivery in notification.Deliveries)
+            {
+                delivery.CreationDateTime = DateTimeOffset.UtcNow;
+                delivery.LastModifiedDateTime = DateTimeOffset.UtcNow;
+                delivery.Status = NotificationDeliveryStatus.Queued;
+                delivery.ScheduledAt = DateTimeOffset.UtcNow;
+                delivery.SentAt = null;
+            }
+        }
+
         using var transaction = await _repository.StartOrGetTransactionScopeAsync(cancellationToken);
 
         try
@@ -145,7 +170,7 @@ public partial class NhNotificationService
             await _repository.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             _logger.LogError(ex, "An error occurred while creating the notification: {Message}", ex.Message);
             taskResult.AddError(string.Empty, _localizer["An error occurred while creating the notification."]);
