@@ -14,99 +14,19 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services.Notification;
 
-public static class NhNotificationBuilderExtensions
+public class NhUserNotificationService
 {
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="builder"></param>
-    /// <param name="delivery"></param>
-    /// <param name="priority">Only set if a different priority is required, notification entity will be used if null.</param>
-    /// <returns></returns>
-    public static NhNotificationBuilder WithEmailDelivery(this NhNotificationBuilder builder, NhEmailDeliveryData delivery, NhNotificationPriority? priority = null)
-    {
-        var emailDelivery = new NhNotificationDelivery
-        {
-            DispatcherId = NhEmailNotificationDispatcher.DispatcherIdValue,
-            Data = delivery,
-            Priority = priority
-        };
-
-        return builder.AddDelivery(emailDelivery);
-    }
-}
-
-public partial class NhNotificationBuilder
-{
-    protected readonly NhNotification Notification;
-
-    protected NhNotificationBuilder(string name)
-    { 
-        Notification = new NhNotification
-        {
-            Priority = NhNotificationPriority.Normal,
-            Name = name
-        };
-    }
-
-    public static NhNotificationBuilder Create(string name)
-    {
-        return new NhNotificationBuilder(name);
-    }
-
-    public NhNotificationBuilder WithName(string name)
-    {
-        Notification.Name = name;
-        return this;
-    }
-
-    public NhNotificationBuilder WithPriority(NhNotificationPriority priority)
-    {
-        Notification.Priority = priority;
-        return this;
-    }
-
-    public NhNotificationBuilder WithCreatedByUserId(Guid? userId)
-    {
-        Notification.CreatedByUserId = userId;
-        return this;
-    }
-
-    public NhNotificationBuilder AddDelivery(NhNotificationDelivery delivery)
-    {
-        if (delivery == null)
-        {
-            throw new ArgumentNullException(nameof(delivery), "Delivery cannot be null.");
-        }
-
-        Notification.Deliveries.Add(delivery);
-        return this;
-    }
-
-    public NhNotification Build()
-    {
-        return Notification;
-    }
-}
-
-public interface INhNotificationService
-{
-    Task<TaskResult<NhNotification>> CreateAsync(NhNotification notification, CancellationToken cancellationToken = default);
-}
-
-public partial class NhNotificationService : INhNotificationService
-{
-    protected readonly IRepository<NhNotification> _repository;
-    protected readonly IStringLocalizer<NhNotificationService> _localizer;
+    protected readonly IRepository<NhUserNotification> _repository;
+    protected readonly IStringLocalizer<NhUserNotificationService> _localizer;
     protected readonly INhDbLogService _dbLogService;
     protected readonly IMapper _mapper;
     protected readonly ILogger _logger;
     protected readonly LogHelperService _logHelper;
     protected readonly ValidationService _validationService;
 
-    public NhNotificationService(
-        IRepository<NhNotification> repository,
-        IStringLocalizer<NhNotificationService> localizer,
+    public NhUserNotificationService(
+        IRepository<NhUserNotification> repository,
+        IStringLocalizer<NhUserNotificationService> localizer,
         INhDbLogService dbLogService,
         LogHelperService logHelperService,
         ValidationService validationService,

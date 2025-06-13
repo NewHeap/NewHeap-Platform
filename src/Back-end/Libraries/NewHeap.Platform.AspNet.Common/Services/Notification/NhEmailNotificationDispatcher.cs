@@ -38,7 +38,7 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
 
     public NhEmailNotificationDispatcher(
         IRepository<NhNotification> repository, 
-        IStringLocalizer<NhDivisionService> localizer, 
+        IStringLocalizer<NhEmailNotificationDispatcher> localizer, 
         INhDbLogService dbLogService, 
         LogHelperService logHelperService, 
         ValidationService validationService, 

@@ -438,6 +438,8 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         serviceCollection.AddScopedNhDbRepository<TLogFile>();
         serviceCollection.AddScopedNhDbRepository<NhNotification>();
         serviceCollection.AddScopedNhDbRepository<NhNotificationDelivery>();
+        serviceCollection.AddScopedNhDbRepository<NhUserNotification>();
+        serviceCollection.AddScopedNhDbRepository<NhUserNotificationMessage>();
         #endregion
 
         serviceCollection.AddScoped<TUserManager, TUserManager>();

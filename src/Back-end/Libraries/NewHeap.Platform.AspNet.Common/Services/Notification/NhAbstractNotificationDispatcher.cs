@@ -48,7 +48,7 @@ public abstract partial class NhAbstractNotificationDispatcher<TDeliveryData> : 
 {
     public abstract string DispatcherId { get; }
     protected readonly IRepository<NhNotification> _repository;
-    protected readonly IStringLocalizer<NhDivisionService> _localizer;
+    protected readonly IStringLocalizer<NhAbstractNotificationDispatcher<TDeliveryData>> _localizer;
     protected readonly INhDbLogService _dbLogService;
     protected readonly IMapper _mapper;
     protected readonly ILogger _logger;
@@ -57,7 +57,7 @@ public abstract partial class NhAbstractNotificationDispatcher<TDeliveryData> : 
 
     public NhAbstractNotificationDispatcher(
         IRepository<NhNotification> repository,
-        IStringLocalizer<NhDivisionService> localizer,
+        IStringLocalizer<NhAbstractNotificationDispatcher<TDeliveryData>> localizer,
         INhDbLogService dbLogService,
         LogHelperService logHelperService,
         ValidationService validationService,

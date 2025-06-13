@@ -82,6 +82,8 @@ public abstract partial class NhIdentityDbContext<
     public DbSet<TDivisionRoleClaim> DivisionRoleClaims { get; set; }
     public DbSet<NhNotification> Notifications { get; set; }
     public DbSet<NhNotificationDelivery> NhNotificationDeliveries { get; set; }
+    public DbSet<NhUserNotification> UserNotifications { get; set; }
+    public DbSet<NhUserNotificationMessage> UserNotificationMessages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -248,6 +250,39 @@ public abstract partial class NhIdentityDbContext<
                 .HasConversion(
                     v => v == null ? null : JsonConvert.SerializeObject(v, ConvertJsonSerializerSettings),
                     v => string.IsNullOrWhiteSpace(v) ? null : JsonConvert.DeserializeObject(v, ConvertJsonSerializerSettings));
+        });
+
+        #endregion
+
+        #region User Notification
+
+        builder.Entity<NhUserNotification>(entity =>
+        {
+            entity
+                .HasOne(typeof(TUser))
+                .WithMany()
+                .HasForeignKey(nameof(NhUserNotification.UserId))
+                .HasPrincipalKey("Id")
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired(true)
+            ;
+        });
+
+        builder.Entity<NhUserNotificationMessage>(entity =>
+        {
+            entity
+                .HasOne(x => x.UserNotification)
+                .WithMany(x => x.Messages)
+                .HasForeignKey(x => x.UserNotificationId)
+                .IsRequired(true)
+                .OnDelete(DeleteBehavior.Cascade)
+            ;
+
+            //entity
+            //    .Property(e => e.Data)
+            //    .HasConversion(
+            //        v => v == null ? null : JsonConvert.SerializeObject(v, ConvertJsonSerializerSettings),
+            //        v => string.IsNullOrWhiteSpace(v) ? null : JsonConvert.DeserializeObject(v, ConvertJsonSerializerSettings));
         });
 
         #endregion
