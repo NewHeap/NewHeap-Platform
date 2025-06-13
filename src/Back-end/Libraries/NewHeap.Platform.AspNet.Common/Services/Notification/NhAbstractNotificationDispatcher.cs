@@ -9,6 +9,8 @@ using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
+using Newtonsoft.Json.Linq;
+using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Security.Claims;
 
@@ -26,6 +28,15 @@ public interface INhNotificationDispatcher<in TDeliveryData> : INhNotificationDi
 {
     async Task<TaskResult> INhNotificationDispatcher.DispatchAsync(object? deliveryData, CancellationToken cancellationToken)
     {
+        if (deliveryData is not null)
+        {
+            if (deliveryData is not TDeliveryData && deliveryData is JObject)
+            {
+                var parsedData = ((JObject)deliveryData).ToObject<TDeliveryData>();
+                return await DispatchAsync(parsedData, cancellationToken);
+            }
+        }
+
         return await DispatchAsync((TDeliveryData?)deliveryData, cancellationToken);
     }
 

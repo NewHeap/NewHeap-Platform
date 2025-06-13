@@ -10,6 +10,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -52,6 +53,8 @@ internal class NhNotificationProcessingService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        SetupDispatchers();
+
         var processingTasks = _dispatchers
             .Select(kv => RunChannelConsumerAsync(kv.Key, kv.Value, _queues[kv.Key], stoppingToken))
             .ToArray();
@@ -83,8 +86,6 @@ internal class NhNotificationProcessingService : BackgroundService
 
     private async Task RunDatabasePollerAsync(CancellationToken stoppingToken)
     {
-        SetupDispatchers();
-
         _logger.LogInformation("Notification poller started");
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -202,7 +203,7 @@ internal class NhNotificationProcessingService : BackgroundService
 
             try
             {
-                var dispatchResult = await dispatcher.DispatchAsync(delivery, stoppingToken);
+                var dispatchResult = await dispatcher.DispatchAsync(delivery.Data, stoppingToken);
                 await handleResult(dispatchResult);
                
             }
@@ -268,11 +269,10 @@ internal class NhNotificationProcessingService : BackgroundService
                 oldDelivery.Id, oldDelivery.Status, oldDelivery.SentAt);
 
             oldDelivery.Data = null;
+            oldDelivery.IsCleaned = true;
         }
 
-        notificationRepository.RemoveRange(oldDeliveries);
         await notificationRepository.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Cleanup completed: {Count} items cleaned up", oldDeliveries.Count);
     }
-
 }
