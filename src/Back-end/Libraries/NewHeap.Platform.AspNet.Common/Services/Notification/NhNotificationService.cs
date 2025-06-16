@@ -34,6 +34,25 @@ public static class NhNotificationBuilderExtensions
 
         return builder.AddDelivery(emailDelivery);
     }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="builder"></param>
+    /// <param name="delivery"></param>
+    /// <param name="priority">Only set if a different priority is required, notification entity will be used if null.</param>
+    /// <returns></returns>
+    public static NhNotificationBuilder WithUserNotificationDelivery(this NhNotificationBuilder builder, NhUserNotificationDeliveryData delivery, NhNotificationPriority? priority = null)
+    {
+        var userNotificationDelivery = new NhNotificationDelivery
+        {
+            DispatcherId = NhUserNotificaitonNotificationDispatcher.DispatcherIdValue,
+            Data = delivery,
+            Priority = priority
+        };
+
+        return builder.AddDelivery(userNotificationDelivery);
+    }
 }
 
 public partial class NhNotificationBuilder

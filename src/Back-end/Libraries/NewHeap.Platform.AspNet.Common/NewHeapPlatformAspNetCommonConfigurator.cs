@@ -723,6 +723,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
 
         //Default dispatchers
         _serviceCollection.AddScoped<INhNotificationDispatcher, NhEmailNotificationDispatcher>();
+        _serviceCollection.AddScoped<INhNotificationDispatcher, NhUserNotificaitonNotificationDispatcher>();
 
         // User notifications
         _serviceCollection.AddScoped<INhUserNotificationService, NhUserNotificationService>();

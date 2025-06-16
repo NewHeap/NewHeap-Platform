@@ -12,6 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 using NewHeap.Platform.AspNet.Common.Controllers;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
@@ -59,11 +60,10 @@ public class HomeController : PublicNhBaseController
         return Ok("Hi");
     }
 
-    [HttpGet("notification")]
+    [HttpGet("notification/email")]
     [AllowAnonymous]
-    public async Task<IActionResult> TestNotification([FromServices] INhNotificationService nhNotificationService)
+    public async Task<IActionResult> TestEmailNotification([FromServices] INhNotificationService nhNotificationService)
     {
-
         var notification = NhNotificationBuilder.Create("Test notification")
             .WithPriority(NhNotificationPriority.Normal)
             .WithEmailDelivery(
@@ -83,6 +83,36 @@ public class HomeController : PublicNhBaseController
         var result = await nhNotificationService.CreateAsync(notification);
         if (!result.Success)
         { 
+            result.ApplyToModelState(ModelState);
+            return BadRequest(ModelState);
+        }
+
+        return Ok($"Created: {result.Data!.Id}");
+    }
+
+    [HttpGet("notification/user")]
+    [AllowAnonymous]
+    public async Task<IActionResult> TestUserNotification([FromServices] INhNotificationService nhNotificationService)
+    {
+        var notification = NhNotificationBuilder.Create("Test notification")
+            .WithPriority(NhNotificationPriority.Normal)
+            .WithUserNotificationDelivery(
+                delivery: new NhUserNotificationDeliveryData()
+                {
+                    Notification = new NhUserNotificationMutateModel()
+                    {
+                        Title = "Test notification",
+                        Message = "This is a test notification sent from the NewHeap platform.",
+                        UserId = UserId!.Value // Ensure you have a valid UserId here, or set it to null if not applicable
+                    }
+                },
+                priority: NhNotificationPriority.Normal // Overide the priority if needed
+            )
+            .Build();
+
+        var result = await nhNotificationService.CreateAsync(notification);
+        if (!result.Success)
+        {
             result.ApplyToModelState(ModelState);
             return BadRequest(ModelState);
         }
