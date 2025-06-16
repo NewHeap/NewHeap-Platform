@@ -13,6 +13,18 @@ public class NhMediaServiceConfigurationContext
         Services = services;
     }
 
+    public NhMediaServiceConfigurationContext AddThumbnailService<TService>() where TService : class, IThumbnailService
+    {
+        Services.AddTransient<IThumbnailService, TService>();
+
+        if (typeof(TService).IsAssignableTo(typeof(IHandleMediaLibraryEvent)))
+        {
+            Services.AddTransient(typeof(IHandleMediaLibraryEvent), typeof(TService));
+        }
+        
+        return this;
+    }
+    
     public NhMediaServiceConfigurationContext AddEventHandler<THandler>() where THandler : class, IHandleMediaLibraryEvent
     {
         Services.AddTransient<IHandleMediaLibraryEvent, THandler>();

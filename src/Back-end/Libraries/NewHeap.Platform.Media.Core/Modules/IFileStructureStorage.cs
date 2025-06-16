@@ -54,6 +54,9 @@ public class FileReference
     public string? Description { get; set; }
     public string? AltText { get; set; }
     public string? Creator { get; set; }
+
+    public string? Thumbnail { get; set; }
+    
     public Dictionary<string, object>? MetaData { get; set; }
     public IEnumerable<string> Tags { get; set; } = [];
 

@@ -38,6 +38,7 @@ public static class MediaLibraryPath
         {
             path = NhMediaValues.DirectorySeparator;
             name = input;
+            return;
         }
         
         path = input[..sep];

@@ -115,6 +115,10 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         }
 
         var sep = model.Path.LastIndexOf(NhMediaValues.DirectorySeparator, StringComparison.Ordinal);
+        if (sep < 0)
+        {
+            sep = 0;
+        }
         var folderPath = model.Path[..sep];
         var folderName = model.Path[sep..];
 
@@ -166,6 +170,11 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             path = NhMediaValues.DirectorySeparator + path;
         }
 
+        if (path.Length == 1 && path == NhMediaValues.DirectorySeparator)
+        {
+            return path;
+        }
+        
         if (path.EndsWith(NhMediaValues.DirectorySeparator))
         {
             path = path[..^1];

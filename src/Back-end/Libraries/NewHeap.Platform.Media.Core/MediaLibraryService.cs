@@ -31,18 +31,21 @@ public interface IMediaLibraryService
 public class MediaLibraryService : IMediaLibraryService
 {
     private readonly IEnumerable<IHandleMediaLibraryEvent> _eventHandlers;
+    private readonly IThumbnailService _thumbnailService;
     private readonly IFileStructureStorage _fileStructureStorage;
     private readonly IMediaStorage _fileStorage;
     private readonly IAuthorizationModule _authorizationModule;
 
     public MediaLibraryService(
         [Optional] IEnumerable<IHandleMediaLibraryEvent> eventHandlers,
+        IThumbnailService thumbnailService,
         IFileStructureStorage fileStructureStorage,
         IMediaStorage fileStorage,
         IAuthorizationModule authorizationModule
     )
     {
         _eventHandlers = eventHandlers;
+        _thumbnailService = thumbnailService;
         _fileStructureStorage = fileStructureStorage;
         _fileStorage = fileStorage;
         _authorizationModule = authorizationModule;
@@ -163,12 +166,20 @@ public class MediaLibraryService : IMediaLibraryService
     {
         await EnsureAuthorized(path, filename, null, ActionType.Read);
         var fileRef = await _fileStructureStorage.GetFile(path, filename, language);
+        if (fileRef != null)
+        {
+            fileRef.Thumbnail = await _thumbnailService.GetThumbnail(fileRef.Id);
+        }
         return fileRef;
     }
 
     public async Task<FileReference?> GetFile(Guid id)
     {
         var reference = await _fileStructureStorage.GetById(id);
+        if (reference != null)
+        {
+            reference.Thumbnail = await _thumbnailService.GetThumbnail(reference.Id);
+        }
         return reference;
     }
 
@@ -188,6 +199,10 @@ public class MediaLibraryService : IMediaLibraryService
     {
         await EnsureAuthorized(path, null, language, ActionType.Read);
         var folder = await _fileStructureStorage.GetFolder(path, language);
+        foreach (var file in folder.Files)
+        {
+            file.Thumbnail = await _thumbnailService.GetThumbnail(file.Id);
+        }
         return folder;
     }
 
@@ -294,7 +309,14 @@ public class MediaLibraryService : IMediaLibraryService
         string[]? tags = null)
     {
         await EnsureAuthorized(path, null, language, ActionType.Read);
-        return await _fileStructureStorage.Search(searchTerm, path, language, tags);
+        var results = (await _fileStructureStorage.Search(searchTerm, path, language, tags)).ToList();
+
+        foreach (var file in results)
+        {
+            file.Thumbnail = await _thumbnailService.GetThumbnail(file.Id);
+        }
+        
+        return results;
     }
 
     private async Task TriggerEvents(FileReference? before, FileReference? after, MediaLibraryFileEventType type)
