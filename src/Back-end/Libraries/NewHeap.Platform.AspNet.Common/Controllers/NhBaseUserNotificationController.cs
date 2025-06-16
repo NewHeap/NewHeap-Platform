@@ -1,32 +1,24 @@
 ﻿using AutoMapper;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
-using NewHeap.Platform.AspNet.Common.Controllers;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
-using System;
-using System.ComponentModel;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
-public abstract class NhBaseUserNotificationController : DbEntityProtectedNhBaseController<NhUserNotification, NhUserNotificationMutateModel, NhUserNotificationViewModel, NhUserNotificationService, NhUserNotificationCollectionRequestModel>
+public abstract class NhBaseUserNotificationController : DbEntityProtectedNhBaseController<NhUserNotification, NhUserNotificationMutateModel, NhUserNotificationViewModel, INhUserNotificationService, NhUserNotificationCollectionRequestModel>
 {
     public NhBaseUserNotificationController(
         IConfiguration config,
         IMapper mapper,
         ILogger<NhBaseUserNotificationController> logger,
         IStringLocalizer<NhBaseUserNotificationController> localizer,
-        NhUserNotificationService userNotificationService,
+        INhUserNotificationService userNotificationService,
         IHttpCollectionProcessingService collectionRequestProcessingService
     )
         : base(mapper, logger, config, localizer, collectionRequestProcessingService, userNotificationService)
