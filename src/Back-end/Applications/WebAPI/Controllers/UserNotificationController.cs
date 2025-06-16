@@ -4,9 +4,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.Controllers;
-using NewHeap.Platform.AspNet.Common.DAL.Entities;
-using NewHeap.Platform.AspNet.Common.Models.Mutate;
-using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
 
