@@ -264,7 +264,7 @@ public abstract partial class NhIdentityDbContext<
                 .HasForeignKey(nameof(NhUserNotification.UserId))
                 .HasPrincipalKey("Id")
                 .OnDelete(DeleteBehavior.Cascade)
-                .IsRequired(true)
+                .IsRequired(true) // TODO:
             ;
         });
 
