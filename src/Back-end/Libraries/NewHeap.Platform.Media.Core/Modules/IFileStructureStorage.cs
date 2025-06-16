@@ -1,4 +1,6 @@
-﻿namespace NewHeap.Media.Modules;
+﻿using NewHeap.Media.Models;
+
+namespace NewHeap.Media.Modules;
 
 public interface IFileStructureStorage
 {
@@ -17,7 +19,7 @@ public interface IFileStructureStorage
 
     Task<bool> DeleteFile(string? path, string filename);
 
-    Task<IEnumerable<FileReference>> Search(string searchTerm, string? path, string? language, string[]? tags);
+    Task<IEnumerable<FileReference>> Search(string searchTerm, string? path, SearchOptions options);
     Task<bool> Localize(Guid entityId, string language, string propertyName, string value);
 
     Task<bool> UpdateTags(string path, string fileName, IEnumerable<string> tags);

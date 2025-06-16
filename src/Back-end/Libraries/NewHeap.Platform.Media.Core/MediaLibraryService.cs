@@ -1,6 +1,6 @@
 ﻿using NewHeap.Media.EventHandlers;
+using NewHeap.Media.Models;
 using NewHeap.Media.Modules;
-using System.Linq.Expressions;
 using System.Runtime.InteropServices;
 
 namespace NewHeap.Media;
@@ -20,8 +20,7 @@ public interface IMediaLibraryService
     Task<bool> DeleteFolder(string? path, string folderName);
     Task<bool> DeleteFile(string? path, string fileName);
 
-    Task<IEnumerable<FileReference>> Search(string? path, string searchTerm, string? language = null,
-        string[]? tags = null);
+    Task<IEnumerable<FileReference>> Search(string? path, string searchTerm, SearchOptions options);
 
     Task<bool> LocalizeField(Guid fileReferenceId, string propertyName, string language, string value);
 
@@ -305,18 +304,36 @@ public class MediaLibraryService : IMediaLibraryService
         return true;
     }
 
-    public async Task<IEnumerable<FileReference>> Search(string? path, string searchTerm, string? language = null,
-        string[]? tags = null)
+    public async Task<IEnumerable<FileReference>> Search(string? path, string searchTerm, SearchOptions options)
     {
-        await EnsureAuthorized(path, null, language, ActionType.Read);
-        var results = (await _fileStructureStorage.Search(searchTerm, path, language, tags)).ToList();
+        await EnsureAuthorized(path, null, options.Language, ActionType.Read);
 
+        NormalizeOptions(options);
+        
+        var results = (await _fileStructureStorage.Search(searchTerm, path, options)).ToList();
         foreach (var file in results)
         {
             file.Thumbnail = await _thumbnailService.GetThumbnail(file.Id);
         }
         
         return results;
+    }
+
+    private void NormalizeOptions(SearchOptions options)
+    {
+        if (options.IncludedExtensions != null)
+        {
+            options.IncludedExtensions = options.IncludedExtensions.Select(x => x.Trim().ToLower())
+                .Select(x => x.StartsWith('.') ? x : $".{x}")
+                .ToArray();
+        }
+
+        if (options.ExcludedExtensions != null)
+        {
+            options.ExcludedExtensions = options.ExcludedExtensions.Select(x => x.Trim().ToLower())
+                .Select(x => x.StartsWith('.') ? x : $".{x}")
+                .ToArray();
+        }
     }
 
     private async Task TriggerEvents(FileReference? before, FileReference? after, MediaLibraryFileEventType type)

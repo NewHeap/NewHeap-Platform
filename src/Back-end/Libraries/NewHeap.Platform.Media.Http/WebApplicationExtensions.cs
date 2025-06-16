@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using NewHeap.Media.Models;
 using NhMedia.Http;
 using NewHeap.Media.Modules;
 using NhMedia.Http.Models;
@@ -181,12 +182,23 @@ public static class WebApplicationExtensions
         string? searchTerm,
         string? language,
         string[]? tags,
+        string[]? includeExtensions,
+        string[]? excludeExtensions,
         IMediaLibraryService mediaLibraryService)
     {
         try
         {
             searchTerm ??= "";
-            var result = await mediaLibraryService.Search(path, searchTerm, language, tags);
+
+            var options = new SearchOptions
+            {
+                Language = language,
+                ExcludedExtensions = excludeExtensions,
+                IncludedExtensions = includeExtensions,
+                Tags = tags
+            };
+            
+            var result = await mediaLibraryService.Search(path, searchTerm, options);
             return TypedResults.Ok(result);
         }
         catch (UnauthorizedAccessException)
