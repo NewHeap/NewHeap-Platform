@@ -28,10 +28,10 @@ public class NhNotificationSettings
 internal class NhNotificationProcessingService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IDictionary<string, Channel<NhNotificationDelivery>> _queues
-        = new Dictionary<string, Channel<NhNotificationDelivery>>();
-    private readonly IDictionary<string, INhNotificationDispatcher> _dispatchers
-        = new Dictionary<string, INhNotificationDispatcher>();
+    private readonly IDictionary<string, Channel<Guid>> _queues
+        = new Dictionary<string, Channel<Guid>>();
+    private readonly IDictionary<string, Type> _dispatchers
+        = new Dictionary<string, Type>();
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, byte>> _inFlight
         = new ConcurrentDictionary<string, ConcurrentDictionary<Guid, byte>>();
     private readonly ILogger<NhNotificationProcessingService> _logger;
@@ -78,8 +78,8 @@ internal class NhNotificationProcessingService : BackgroundService
 
         foreach (var disp in dispatchers)
         {
-            _dispatchers[disp.DispatcherId] = disp;
-            _queues[disp.DispatcherId] = Channel.CreateUnbounded<NhNotificationDelivery>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+            _dispatchers[disp.DispatcherId] = disp.GetType();
+            _queues[disp.DispatcherId] = Channel.CreateUnbounded<Guid>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
             _inFlight[disp.DispatcherId] = new ConcurrentDictionary<Guid, byte>();
         }
     }
@@ -142,7 +142,7 @@ internal class NhNotificationProcessingService : BackgroundService
                     {
                         try
                         {
-                            await queue.Writer.WriteAsync(delivery, stoppingToken);
+                            await queue.Writer.WriteAsync(delivery.Id, stoppingToken);
                         }
                         catch(Exception ex)
                         {
@@ -163,19 +163,33 @@ internal class NhNotificationProcessingService : BackgroundService
 
     private async Task RunChannelConsumerAsync(
         string dispatcherId,
-        INhNotificationDispatcher dispatcher,
-        Channel<NhNotificationDelivery> queue,
+        Type typeOfDispatcher,
+        Channel<Guid> queue,
         CancellationToken stoppingToken)
     {
         _logger.LogInformation("Notificaiton consumer for channel {Channel} started", dispatcherId);
 
-        await foreach (var delivery in queue.Reader.ReadAllAsync(stoppingToken))
+        await foreach (var deliveryId in queue.Reader.ReadAllAsync(stoppingToken))
         {
+            using var scope = _scopeFactory.CreateScope();
+            var notificationRepository = scope.ServiceProvider.GetRequiredService<IRepository<NhNotificationDelivery>>();
+            var dispatcher = scope
+                .ServiceProvider
+                .GetServices<INhNotificationDispatcher>()
+                .Where(x => x.GetType() == typeOfDispatcher)
+                .First();
+
+            var delivery = await notificationRepository
+                .GetAll()
+                .FirstOrDefaultAsync(d => d.Id == deliveryId, stoppingToken);
+
+            if (delivery == null)
+            {
+                return;
+            }
+
             async Task handleResult(TaskResult taskResult)
             {
-                using var scope = _scopeFactory.CreateScope();
-                var notificationRepository = scope.ServiceProvider.GetRequiredService<IRepository<NhNotificationDelivery>>();
-
                 delivery.AttemptCount++;
                 delivery.LastSendAttemptAt = DateTimeOffset.UtcNow;
 
@@ -211,13 +225,13 @@ internal class NhNotificationProcessingService : BackgroundService
             {
                 _logger.LogError(ex, "Dispatch error in channel {Channel}", dispatcherId);
                 var errorResult = new TaskResult();
-                errorResult.AddError("DispatchError", $"Failed to dispatch notification delivery {delivery.Id} in channel {dispatcherId}: {ex.Message}");
+                errorResult.AddError("DispatchError", $"Failed to dispatch notification delivery {deliveryId} in channel {dispatcherId}: {ex.Message}");
 
                 await handleResult(errorResult);
             }
             finally
             {
-                _inFlight[dispatcherId].TryRemove(delivery.Id, out _);
+                _inFlight[dispatcherId].TryRemove(deliveryId, out _);
             }
         }
 

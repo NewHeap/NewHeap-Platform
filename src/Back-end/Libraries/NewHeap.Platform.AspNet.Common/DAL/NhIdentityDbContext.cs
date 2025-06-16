@@ -81,7 +81,7 @@ public abstract partial class NhIdentityDbContext<
     public DbSet<TDivisionUserRole> DivisionUserRoles { get; set; }
     public DbSet<TDivisionRoleClaim> DivisionRoleClaims { get; set; }
     public DbSet<NhNotification> Notifications { get; set; }
-    public DbSet<NhNotificationDelivery> NhNotificationDeliveries { get; set; }
+    public DbSet<NhNotificationDelivery> NotificationDeliveries { get; set; }
     public DbSet<NhUserNotification> UserNotifications { get; set; }
     public DbSet<NhUserNotificationMessage> UserNotificationMessages { get; set; }
 
