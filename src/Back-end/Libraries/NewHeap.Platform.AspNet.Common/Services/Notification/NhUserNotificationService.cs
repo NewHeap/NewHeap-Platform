@@ -10,19 +10,20 @@ using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 using System.Linq.Expressions;
-using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Services.Notification;
 
-public class NhUserNotificationService
+public interface INhUserNotificationService : IBaseDbEntityService<NhUserNotification, NhUserNotificationMutateModel>
 {
-    protected readonly IRepository<NhUserNotification> _repository;
-    protected readonly IStringLocalizer<NhUserNotificationService> _localizer;
-    protected readonly INhDbLogService _dbLogService;
-    protected readonly IMapper _mapper;
+    Task<TaskResult> AddMessageAsync(Guid id, NhAddMessageUserNotificationMutateModel mutateModel, CancellationToken cancellationToken = default);
+    Task<NhOverviewUserNotificationViewModel> GetOverviewByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<TaskResult> MarkAllIsLastReadByUserIdAsync(Guid userId, bool isLastRead, CancellationToken cancellationToken = default);
+    Task<TaskResult> MarkIsLastReadAsync(Guid id, bool isLastRead, CancellationToken cancellationToken = default);
+}
+
+public class NhUserNotificationService : BaseDbEntityService<NhUserNotification, NhUserNotificationMutateModel, NhUserNotificationService>, INhUserNotificationService
+{
     protected readonly ILogger _logger;
-    protected readonly LogHelperService _logHelper;
-    protected readonly ValidationService _validationService;
 
     public NhUserNotificationService(
         IRepository<NhUserNotification> repository,
@@ -33,61 +34,129 @@ public class NhUserNotificationService
         IMapper mapper,
         ILogger<NhNotificationService> logger
         )
+        : base(repository, dbLogService, logHelperService, mapper, localizer, validationService)
     {
-        _repository = repository;
-        _localizer = localizer;
-        _mapper = mapper;
-        _dbLogService = dbLogService;
-        _logHelper = logHelperService;
-        _validationService = validationService;
         _logger = logger;
     }
 
-    protected TaskResult Validate(NhNotification notification)
+    protected override async Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperties(NhUserNotification original,
+        NhUserNotification changed,
+        CancellationToken cancellationToken = default)
     {
-        var taskResult = new TaskResult();
-
-        if (notification == null)
-        {
-            taskResult.AddError("Notification cannot be null.");
-            return taskResult;
-        }
-
-        return taskResult;
+        return await _logHelper.ChangedProperties(original, changed,
+            new Dictionary<Expression<Func<NhUserNotification?, object>>, Func<object?, Task<string>>>
+            {
+                // Method resolvers
+            },
+            x => x!.Id
+        );
     }
 
-    public async Task<TaskResult<NhNotification>> CreateAsync(NhNotification notification, CancellationToken cancellationToken = default)
+    public override IQueryable<NhUserNotification> QueryableWithAllIncludes(IQueryable<NhUserNotification>? queryable = null)
     {
-        var taskResult = new TaskResult<NhNotification>();
+        return base.QueryableWithAllIncludes(queryable);
+    }
 
-        var validationResult = Validate(notification);
-        if (!validationResult.Success)
+    public override IQueryable<NhUserNotification> QueryableWithUpdateDeleteIncludes(IQueryable<NhUserNotification>? queryable = null)
+    {
+        return base.QueryableWithUpdateDeleteIncludes(queryable);
+    }
+
+    public override Task<NhUserNotification?> GetAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return DoGetAsync(id, cancellationToken);
+    }
+
+    protected override async Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<NhUserNotification, NhUserNotification, NhUserNotificationMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        if (!model.TaskResult.Success)
         {
-            validationResult.ApplyToTaskResult(taskResult);
+            return;
+        }
+
+        if (model.ActionType == CRUDActionType.Create)
+        {
+            await CreateUpdateCheck();
+        }
+        else if (model.ActionType == CRUDActionType.Update)
+        {
+            if (model.TaskResult.Success)
+            {
+                await CreateUpdateCheck();
+            }
+        }
+        else if (model.ActionType == CRUDActionType.Delete)
+        {
+        }
+
+        return;
+
+        async Task CreateUpdateCheck()
+        {
+            _validationService.ValidateMutateModelModelState(model);
+
+            if (!model.TaskResult.Success)
+            {
+                return;
+            }
+        }
+    }
+
+    public override async Task<TaskResult<NhUserNotification?>> CreateAsync(
+        NhUserNotificationMutateModel mutateModel,
+        Guid? committedByUserId = null, Action<NhUserNotification>? beforeSave = null,
+        CancellationToken cancellationToken = default)
+    {
+        var taskResult = new TaskResult<NhUserNotification?>();
+
+        await DoValidateCreateAsync(
+            new CreateUpdateDeleteValidateModel<NhUserNotification, NhUserNotification, NhUserNotificationMutateModel>(CRUDActionType.Create)
+            {
+                MutateModel = mutateModel,
+                TaskResult = taskResult!
+            }, cancellationToken);
+
+        if (!taskResult.Success)
+        {
             return taskResult;
         }
 
-        notification.CreationDateTime = DateTimeOffset.UtcNow;
-        notification.LastModifiedDateTime = DateTimeOffset.UtcNow;
-
-        if (notification.Deliveries?.Any() == true)
+        var myBeforeSave = (NhUserNotification x) =>
         {
-            foreach (var delivery in notification.Deliveries)
+            x.LastTitle = mutateModel.Title!;
+            x.LastMessage = mutateModel.Message ?? "";
+            x.UserId = mutateModel!.UserId!.Value;
+            x.CreationDateTime = DateTimeOffset.UtcNow;
+            x.LastModifiedDateTime = DateTimeOffset.UtcNow;
+            x.IsLastRead = false;
+
+            if (!string.IsNullOrWhiteSpace(mutateModel.Message))
             {
-                delivery.CreationDateTime = DateTimeOffset.UtcNow;
-                delivery.LastModifiedDateTime = DateTimeOffset.UtcNow;
-                delivery.Status = NotificationDeliveryStatus.Queued;
-                delivery.ScheduledAt = DateTimeOffset.UtcNow;
-                delivery.SentAt = null;
+                x.Messages.Add(new NhUserNotificationMessage()
+                {
+                    Title = mutateModel.Title!,
+                    Message = mutateModel.Message,
+                    UserNotification = x
+                });
             }
-        }
+
+            beforeSave?.Invoke(x);
+        };
 
         using var transaction = await _repository.StartOrGetTransactionScopeAsync(cancellationToken);
 
         try
         {
-            await _repository.AddAsync(notification, cancellationToken);
-            await _repository.SaveChangesAsync(cancellationToken);
+            var baseResult = await DoCreateAsync(mutateModel, committedByUserId, myBeforeSave,
+                cancellationToken: cancellationToken);
+
+            if (!baseResult.Success)
+            {
+                return baseResult.ApplyToTaskResult(taskResult);
+            }
+
+            taskResult.Data = baseResult.Data;
+
             await transaction.CommitAsync(cancellationToken);
         }
         catch (Exception ex)
@@ -97,8 +166,180 @@ public class NhUserNotificationService
             return taskResult;
         }
 
-        taskResult.Data = notification;
+        return taskResult;
+    }
+
+    public override async Task<TaskResult<NhUserNotification>> UpdateAsync(
+        Guid id,
+        NhUserNotificationMutateModel mutateModel,
+        Guid? committedByUserId = null, Action<NhUserNotification>? beforeSave = null,
+        CancellationToken cancellationToken = default)
+    {
+        var taskResult = new TaskResult<NhUserNotification>();
+
+        await DoValidateCreateAsync(
+            new CreateUpdateDeleteValidateModel<NhUserNotification, NhUserNotification, NhUserNotificationMutateModel>(CRUDActionType.Create)
+            {
+                MutateModel = mutateModel,
+                TaskResult = taskResult
+            }, cancellationToken);
+
+        if (!taskResult.Success)
+        {
+            return taskResult;
+        }
+
+        var myBeforeSave = (NhUserNotification x) =>
+        {
+            x.LastTitle = mutateModel.Title!;
+            x.LastMessage = mutateModel.Message ?? "";
+            x.LastModifiedDateTime = DateTimeOffset.UtcNow;
+            x.IsLastRead = false;
+
+            if (!string.IsNullOrWhiteSpace(mutateModel.Message))
+            {
+                x.Messages.Add(new NhUserNotificationMessage()
+                {
+                    Title = mutateModel.Title!,
+                    Message = mutateModel.Message,
+                    UserNotification = x
+                });
+            }
+
+            beforeSave?.Invoke(x);
+        };
+
+        using var transaction = await _repository.StartOrGetTransactionScopeAsync(cancellationToken);
+
+        try
+        {
+            var baseResult = await DoUpdateAsync(id, mutateModel, committedByUserId, myBeforeSave,
+                cancellationToken: cancellationToken);
+
+            if (!baseResult.Success)
+            {
+                return baseResult.ApplyToTaskResult(taskResult);
+            }
+
+            taskResult.Data = baseResult.Data;
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while updating the notification: {Message}", ex.Message);
+            taskResult.AddError(string.Empty, _localizer["An error occurred while creating the notification."]);
+            return taskResult;
+        }
 
         return taskResult;
+    }
+
+    public async Task<TaskResult> AddMessageAsync(Guid id, NhAddMessageUserNotificationMutateModel mutateModel, CancellationToken cancellationToken = default)
+    {
+        var taskResult = new TaskResult();
+
+        _validationService
+            .ValidateMutateModelModelState(mutateModel)
+            .ApplyToTaskResult(taskResult);
+
+        if (!taskResult.Success)
+        {
+            return taskResult;
+        }
+
+        var userNotification = await _repository
+            .GetAll()
+            .Where(x => x.Id == id)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (userNotification == null)
+        {
+            taskResult.AddError(nameof(id), "Notification not found");
+        }
+
+        var newMessage = new NhUserNotificationMessage()
+        {
+            Title = mutateModel.Title!,
+            Message = mutateModel.Message ?? "",
+            UserNotification = userNotification
+        };
+
+        userNotification!.Messages.Add(newMessage);
+
+        userNotification.LastTitle = newMessage.Title;
+        userNotification.LastMessage = newMessage.Message;
+        userNotification.LastModifiedDateTime = DateTimeOffset.UtcNow;
+        userNotification.IsLastRead = false;
+
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return taskResult;
+    }
+
+    public async Task<TaskResult> MarkIsLastReadAsync(Guid id, bool isLastRead, CancellationToken cancellationToken = default)
+    {
+        var result = new TaskResult();
+
+        var userNotification = await _repository
+            .GetAll()
+            .Where(x => x.Id == id)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (userNotification == null)
+        {
+            result.AddError(nameof(id), "Notification not found");
+        }
+
+        if (!result.Success)
+        {
+            return result;
+        }
+
+        userNotification!.IsLastRead = isLastRead;
+        userNotification.LastModifiedDateTime = DateTimeOffset.UtcNow;
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return result;
+    }
+
+    public async Task<TaskResult> MarkAllIsLastReadByUserIdAsync(Guid userId, bool isLastRead, CancellationToken cancellationToken = default)
+    {
+        var result = new TaskResult();
+
+        var userNotifications = await _repository
+            .GetAll()
+            .Where(x => x.UserId == userId && x.IsLastRead != isLastRead)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
+        foreach (var userNotification in userNotifications)
+        {
+            userNotification.IsLastRead = isLastRead;
+            userNotification.LastModifiedDateTime = DateTimeOffset.UtcNow;
+        }
+
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return result;
+    }
+
+    public async Task<NhOverviewUserNotificationViewModel> GetOverviewByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var overviewInfo = await _repository
+            .Context
+            .Database
+            .SqlQuery<NhOverviewUserNotificationViewModel>(@$"
+                SELECT COUNT(*) AS TotalCount, 
+                       SUM(CASE WHEN IsLastRead = 0 THEN 1 ELSE 0 END) AS UnreadCount, 
+                       MAX(LastModifiedDateTime) AS LastNotificationDate
+                FROM UserNotifications
+                WHERE UserId = {userId}
+            ")
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return overviewInfo ?? new NhOverviewUserNotificationViewModel();
     }
 }

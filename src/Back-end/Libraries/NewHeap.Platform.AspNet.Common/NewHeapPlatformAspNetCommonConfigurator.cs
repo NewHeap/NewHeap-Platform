@@ -135,7 +135,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection.AddSingleton<IHttpCollectionProcessingService, HttpCollectionProcessingService>();
         #endregion
     }
-    
+
     private void AddOpenTelementry()
     {
         _serviceCollection.AddOpenTelemetry()
@@ -723,6 +723,10 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
 
         //Default dispatchers
         _serviceCollection.AddScoped<INhNotificationDispatcher, NhEmailNotificationDispatcher>();
+
+        // User notifications
+        _serviceCollection.AddScoped<INhUserNotificationService, NhUserNotificationService>();
+
         return this;
     }
 }
