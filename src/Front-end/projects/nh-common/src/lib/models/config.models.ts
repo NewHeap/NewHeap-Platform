@@ -1,4 +1,3 @@
-import {BaseNhAuthService, NhAuthService} from "../services/nh-auth.service";
 
 export class EndpointsAuthenticationNhCommonModuleConfig {
   login: string = '/authentication/login';
