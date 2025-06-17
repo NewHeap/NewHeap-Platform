@@ -28,6 +28,11 @@ public static class HostBuilderExtensions
         {
             context.AddAuthentication<DefaultAuthorizationModule>();
         }
+
+        if (!context.Services.Any(x => x.ServiceType == typeof(IThumbnailService)))
+        {
+            context.Services.AddTransient<IThumbnailService, ThumbnailService>();
+        }
         
         services.AddTransient<IMediaLibraryService,MediaLibraryService>();
         return services;

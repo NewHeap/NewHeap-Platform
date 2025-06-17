@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using NewHeap.Media.FileStructureStorage.SqlServer.Entities;
+using NewHeap.Media.Models;
 using NewHeap.Media.Modules;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -115,6 +116,10 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         }
 
         var sep = model.Path.LastIndexOf(NhMediaValues.DirectorySeparator, StringComparison.Ordinal);
+        if (sep < 0)
+        {
+            sep = 0;
+        }
         var folderPath = model.Path[..sep];
         var folderName = model.Path[sep..];
 
@@ -166,6 +171,11 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             path = NhMediaValues.DirectorySeparator + path;
         }
 
+        if (path.Length == 1 && path == NhMediaValues.DirectorySeparator)
+        {
+            return path;
+        }
+        
         if (path.EndsWith(NhMediaValues.DirectorySeparator))
         {
             path = path[..^1];
@@ -368,8 +378,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         return count > 0;
     }
 
-    public async Task<IEnumerable<FileReference>> Search(string searchTerm, string? path, string? language,
-        string[]? tags = null)
+    public async Task<IEnumerable<FileReference>> Search(string searchTerm, string? path, SearchOptions options)
     {
         path = NormalizePath(path);
         var q = _dbContext.Files.AsNoTracking();
@@ -386,11 +395,22 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             );
         }
 
-        if (tags?.Length > 0)
+        if (options.Tags?.Length > 0)
         {
-            q = q.Where(x => tags.All(y => x.Tags.Contains(y)));
+            q = q.Where(x => options.Tags.All(y => x.Tags.Contains(y)));
         }
 
+
+        if (options.IncludedExtensions?.Length > 0)
+        {
+            q = q.Where(x => options.IncludedExtensions.Any(y => x.Name.EndsWith(y)));
+        }
+
+        if (options.ExcludedExtensions?.Length > 0)
+        {
+            q  = q.Where(x => !options.ExcludedExtensions.Any(y => x.Name.EndsWith(y)));
+        }
+        
         var files = await q.ToListAsync();
         var result = new List<FileReference>();
         foreach (var file in files)
@@ -410,7 +430,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                 Folder = await GetFolderReference(file.Path),
             };
             result.Add(reference);
-            await ApplyLocalizations(reference, language);
+            await ApplyLocalizations(reference, options.Language);
         }
 
         return result;
