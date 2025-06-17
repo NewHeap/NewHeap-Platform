@@ -16,6 +16,10 @@ public class NhUserNotificationMutateModel
     public string? Title { get; set; }
 
     public string? Message { get; set; }
+
+    public string? Url { get; set; }
+
+    public bool UrlInNewTab { get; set; }
 }
 
 public class NhAddMessageUserNotificationMutateModel

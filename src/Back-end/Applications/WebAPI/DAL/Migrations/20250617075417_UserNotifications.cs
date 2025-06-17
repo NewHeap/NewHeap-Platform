@@ -43,17 +43,11 @@ namespace WebAPI.DAL.Migrations
                     UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     LastTitle = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
                     LastMessage = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    IsLastRead = table.Column<bool>(type: "bit", nullable: false),
-                    NhUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
+                    IsLastRead = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_UserNotifications", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_UserNotifications_AspNetUsers_NhUserId",
-                        column: x => x.NhUserId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_UserNotifications_AspNetUsers_UserId",
                         column: x => x.UserId,
@@ -88,11 +82,6 @@ namespace WebAPI.DAL.Migrations
                 name: "IX_UserNotificationMessages_UserNotificationId",
                 table: "UserNotificationMessages",
                 column: "UserNotificationId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_UserNotifications_NhUserId",
-                table: "UserNotifications",
-                column: "NhUserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_UserNotifications_UserId",

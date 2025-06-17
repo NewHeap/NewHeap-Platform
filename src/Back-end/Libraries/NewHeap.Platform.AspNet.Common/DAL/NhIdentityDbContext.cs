@@ -258,14 +258,22 @@ public abstract partial class NhIdentityDbContext<
 
         builder.Entity<NhUserNotification>(entity =>
         {
+            entity.Property(nameof(NhUserNotification.UserId)).IsRequired();
             entity
-                .HasOne(typeof(TUser))
-                .WithMany()
+                .HasOne<TUser>()
+                .WithMany(x => x.Notifications)
                 .HasForeignKey(nameof(NhUserNotification.UserId))
                 .HasPrincipalKey("Id")
                 .OnDelete(DeleteBehavior.Cascade)
-                .IsRequired(true) // TODO:
+                .IsRequired(true)
             ;
+
+            entity
+            .Property(e => e.Data)
+            .HasConversion(
+                v => v == null ? "{}" : JsonConvert.SerializeObject(v, ConvertJsonSerializerSettings),
+                v => string.IsNullOrWhiteSpace(v) ? new NhUserNotficationData() : JsonConvert.DeserializeObject<NhUserNotficationData>(v, ConvertJsonSerializerSettings));
+
         });
 
         builder.Entity<NhUserNotificationMessage>(entity =>
@@ -277,12 +285,6 @@ public abstract partial class NhIdentityDbContext<
                 .IsRequired(true)
                 .OnDelete(DeleteBehavior.Cascade)
             ;
-
-            //entity
-            //    .Property(e => e.Data)
-            //    .HasConversion(
-            //        v => v == null ? null : JsonConvert.SerializeObject(v, ConvertJsonSerializerSettings),
-            //        v => string.IsNullOrWhiteSpace(v) ? null : JsonConvert.DeserializeObject(v, ConvertJsonSerializerSettings));
         });
 
         #endregion

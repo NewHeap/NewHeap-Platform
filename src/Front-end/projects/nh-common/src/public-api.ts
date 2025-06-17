@@ -6,6 +6,7 @@ export * from './lib/models/config.models';
 export * from './lib/models/misc.models';
 export * from './lib/models/http.models';
 export * from './lib/models/auth.models';
+export * from './lib/models/user-notification.models';
 
 export * from './lib/util/nh-common-util';
 export * from './lib/util/nh-string-util';
@@ -40,6 +41,7 @@ export * from './lib/services/nh-internet-connection.service';
 export * from './lib/services/nh-server.service';
 export * from './lib/services/nh-server-side-form-validator.service';
 export * from './lib/services/nh-base-api.service';
+export * from './lib/services/nh-user-notification.service';
 
 export * from './lib/guards/nh-auth.guards';
 
@@ -65,6 +67,7 @@ export * from './lib/components/nh-form-error-message/form-error-message.compone
 export * from './lib/components/nh-collection-base-component/component';
 export * from './lib/components/nh-mutate-base-component/component';
 export * from './lib/components/nh-error/component';
+export * from './lib/components/nh-user-notifications-component/abstract.component';
 
 export * from './lib/nh-common.module';
 export * from './lib/guards/nh-cancel-navigation.guard';

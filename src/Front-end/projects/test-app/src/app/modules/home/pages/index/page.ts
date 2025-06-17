@@ -5,9 +5,11 @@ import {
   FilterRequestOptions,
   ImpersonateAuthenticateModel,
   NhApiService,
-  NhPageBaseComponent, RevertImpersonateAuthenticateModel
+  NhPageBaseComponent, NhUserNotificationOverview, NhUserNotificationState, RevertImpersonateAuthenticateModel
 } from "nh-common";
 import {ToastrService} from "ngx-toastr";
+import {NhUserNotificationService} from "../../../../../../../nh-common/src/lib/services/nh-user-notification.service";
+import {Subscription} from "rxjs";
 
 @Component({
     selector: 'app-home-page-index',
@@ -17,13 +19,16 @@ import {ToastrService} from "ngx-toastr";
 })
 export class IndexHomePage extends NhPageBaseComponent {
   searchValue: string = '';
-
   constructor(
     private route: ActivatedRoute,
     private apiService: NhApiService,
     private toastrService: ToastrService
   ) {
     super();
+  }
+
+  override async appOnDestroy(): Promise<void> {
+    await super.appOnDestroy();
   }
 
   override async appOnInit() {

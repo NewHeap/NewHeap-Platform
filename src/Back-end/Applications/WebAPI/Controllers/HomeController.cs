@@ -104,6 +104,8 @@ public class HomeController : PublicNhBaseController
                         Title = "Test notification",
                         Message = "This is a test notification sent from the NewHeap platform.",
                         UserId = Guid.Parse("07E35556-54F2-4975-A563-417EB5FBFA7D")//UserId!.Value // Ensure you have a valid UserId here, or set it to null if not applicable
+                        ,Url = "https://newheap.com"
+                        ,UrlInNewTab = true
                     }
                 },
                 priority: NhNotificationPriority.Normal // Overide the priority if needed

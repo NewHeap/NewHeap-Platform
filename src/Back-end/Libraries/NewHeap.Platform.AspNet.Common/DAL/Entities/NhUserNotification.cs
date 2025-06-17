@@ -20,4 +20,14 @@ public partial class NhUserNotification : IdDbEntity
     public string LastTitle { get; set; } = string.Empty;
     public string LastMessage { get; set; } = string.Empty;
     public bool IsLastRead { get; set; }
+    public bool IsArchived { get; set; }
+
+    [Column(TypeName = "nvarchar(MAX)")]
+    public NhUserNotficationData Data { get; set; } = new NhUserNotficationData();
+}
+
+public partial class NhUserNotficationData
+{
+    public string? Url { get; set; } = null;
+    public bool UrlInNewTab { get; set; }
 }

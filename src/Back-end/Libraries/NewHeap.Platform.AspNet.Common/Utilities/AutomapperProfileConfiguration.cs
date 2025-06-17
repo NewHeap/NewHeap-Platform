@@ -30,6 +30,7 @@ public class AutomapperProfileConfiguration : AutoMapper.Profile
         CreateMap<NhDivisionUserMutateModel, NhDivisionUser>().MapOnlyIfChanged();
         CreateMap<NhDivisionUser, NhDivisionUserMutateModel>().MapOnlyIfChanged();
 
+        CreateMap<NhUserNotification, NhUserNotificationViewModel>();
         CreateMap<NhUserNotificationMutateModel, NhUserNotification>().MapOnlyIfChanged();
         CreateMap<NhUserNotification, NhUserNotificationMutateModel>().MapOnlyIfChanged();
     }

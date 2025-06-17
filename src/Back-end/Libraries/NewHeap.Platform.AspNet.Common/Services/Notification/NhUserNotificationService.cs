@@ -19,6 +19,8 @@ public interface INhUserNotificationService : IBaseDbEntityService<NhUserNotific
     Task<NhOverviewUserNotificationViewModel> GetOverviewByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<TaskResult> MarkAllIsLastReadByUserIdAsync(Guid userId, bool isLastRead, CancellationToken cancellationToken = default);
     Task<TaskResult> MarkIsLastReadAsync(Guid id, bool isLastRead, CancellationToken cancellationToken = default);
+    Task<TaskResult> ArchiveAsync(Guid id, bool isArchived, CancellationToken cancellationToken = default);
+    Task<TaskResult> ArchiveAllByUserIdAsync(Guid userId, bool isArchived, CancellationToken cancellationToken = default);
 }
 
 public class NhUserNotificationService : BaseDbEntityService<NhUserNotification, NhUserNotificationMutateModel, NhUserNotificationService>, INhUserNotificationService
@@ -129,6 +131,8 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
             x.CreationDateTime = DateTimeOffset.UtcNow;
             x.LastModifiedDateTime = DateTimeOffset.UtcNow;
             x.IsLastRead = false;
+            x.Data.Url = mutateModel.Url;
+            x.Data.UrlInNewTab = mutateModel.UrlInNewTab;
 
             if (!string.IsNullOrWhiteSpace(mutateModel.Message))
             {
@@ -341,5 +345,53 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
             .FirstOrDefaultAsync(cancellationToken);
 
         return overviewInfo ?? new NhOverviewUserNotificationViewModel();
+    }
+
+    public async Task<TaskResult> ArchiveAsync(Guid id, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var result = new TaskResult();
+
+        var userNotification = await _repository
+            .GetAll()
+            .Where(x => x.Id == id)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (userNotification == null)
+        {
+            result.AddError(nameof(id), "Notification not found");
+        }
+
+        if (!result.Success)
+        {
+            return result;
+        }
+
+        userNotification!.IsArchived = isArchived;
+        userNotification.LastModifiedDateTime = DateTimeOffset.UtcNow;
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return result;
+    }
+
+    public async Task<TaskResult> ArchiveAllByUserIdAsync(Guid userId, bool isArchived, CancellationToken cancellationToken = default)
+    {
+        var result = new TaskResult();
+
+        var userNotifications = await _repository
+            .GetAll()
+            .Where(x => x.UserId == userId && x.IsLastRead != isArchived)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
+        foreach (var userNotification in userNotifications)
+        {
+            userNotification.IsArchived = isArchived;
+            userNotification.LastModifiedDateTime = DateTimeOffset.UtcNow;
+        }
+
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return result;
     }
 }

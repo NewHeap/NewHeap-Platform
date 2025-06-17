@@ -25,6 +25,15 @@ export class AuthenticationNhCommonModuleConfig {
   }
 }
 
+export class UserNotificationNhCommonModuleConfig {
+  urlSuffix: string = '/UserNotification';
+  pollingInterval: number = 5000; // in milliseconds
+
+  public constructor(init?: Partial<UserNotificationNhCommonModuleConfig>) {
+    Object.assign(this, init);
+  }
+}
+
 export class NhCommonModuleConfig {
   appDisplayName: string = '';
   baseUrl: string = '';
@@ -38,7 +47,9 @@ export class NhCommonModuleConfig {
   authenticationRealm: string = '';
   environment: string = '';
   cookieDomain: string = '';
+  defaultItemsPerPage: number = 20;
   authentication: AuthenticationNhCommonModuleConfig = new AuthenticationNhCommonModuleConfig();
+  userNotification: UserNotificationNhCommonModuleConfig = new UserNotificationNhCommonModuleConfig();
 
   public constructor(init?: Partial<NhCommonModuleConfig>) {
     Object.assign(this, init);

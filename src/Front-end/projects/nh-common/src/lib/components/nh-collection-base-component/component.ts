@@ -15,6 +15,7 @@ import {CollectionHttpRequestOptions, CollectionHttpResponse, OrderByRequestOpti
 import {ClaimTypes, INhAuthorization, NhAuthorization} from "../../models/auth.models";
 import {NhRouterService} from "../../services/nh-router.service";
 import {DOCUMENT, isPlatformServer} from "@angular/common";
+import {NhAppService} from "../../services/nh-app.service";
 
 @Component({
     selector: 'nh-shared-collection-base-component',
@@ -27,6 +28,7 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
     OnInit,
     OnDestroy
 {
+  protected readonly appService = inject(NhAppService);
   protected readonly ColumnMode = ColumnMode;
   protected document: Document = inject(DOCUMENT)
   protected platformId: Object = inject(PLATFORM_ID);
@@ -96,7 +98,7 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
       let localStorageCollectionRequestModelSuccess = false;
 
       if (this.localStorageUpdates()) {
-        const localStorageCollectionRequestModelString = localStorage.getItem(this.localStorageKey);
+        const localStorageCollectionRequestModelString = this.appService.localStorage?.getItem(this.localStorageKey);
 
         if (localStorageCollectionRequestModelString && localStorageCollectionRequestModelString.length > 0) {
           try {

@@ -12,8 +12,8 @@ using WebAPI.DAL;
 namespace WebAPI.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250616143630_UserNotifications")]
-    partial class UserNotifications
+    [Migration("20250617080705_UserNotificationData")]
+    partial class UserNotificationData
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -566,6 +566,10 @@ namespace WebAPI.DAL.Migrations
                     b.Property<DateTimeOffset>("CreationDateTime")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("Data")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(MAX)");
+
                     b.Property<bool>("IsLastRead")
                         .HasColumnType("bit");
 
@@ -581,15 +585,10 @@ namespace WebAPI.DAL.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
-                    b.Property<Guid?>("NhUserId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("NhUserId");
 
                     b.HasIndex("UserId");
 
@@ -900,10 +899,6 @@ namespace WebAPI.DAL.Migrations
                 {
                     b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUser", null)
                         .WithMany("Notifications")
-                        .HasForeignKey("NhUserId");
-
-                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUser", null)
-                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
