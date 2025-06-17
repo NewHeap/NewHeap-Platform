@@ -336,8 +336,8 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
             .Context
             .Database
             .SqlQuery<NhOverviewUserNotificationViewModel>(@$"
-                SELECT COUNT(*) AS TotalCount, 
-                       SUM(CASE WHEN IsLastRead = 0 THEN 1 ELSE 0 END) AS UnreadCount, 
+                SELECT ISNULL(COUNT(*), 0) AS TotalCount, 
+                       ISNULL(SUM(CASE WHEN IsLastRead = 0 THEN 1 ELSE 0 END), 0) AS UnreadCount, 
                        MAX(LastModifiedDateTime) AS LastNotificationDate
                 FROM UserNotifications
                 WHERE UserId = {userId}
