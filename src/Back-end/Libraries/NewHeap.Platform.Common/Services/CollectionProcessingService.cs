@@ -11,6 +11,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Linq.Dynamic.Core;
 using NewHeap.Platform.Common.Extensions;
+using NewHeap.Platform.Common.Exceptions;
 
 namespace NewHeap.Platform.Common.Services;
 internal record SearchClosure(string Value);
@@ -273,7 +274,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
             }
             else
             {
-                throw new Exception("Invalid filter found");
+                throw new InvalidFilterCollectionResultException("Invalid filter found");
             }
         }
 

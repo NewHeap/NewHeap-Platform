@@ -4,7 +4,7 @@ import { DatatableComponent } from "@swimlane/ngx-datatable";
 import {Observable} from "rxjs";
 import {MutateAddressComponent} from "../mutate/component";
 import {
-  CollectionHttpResponse,
+  CollectionHttpResponse, FilterRequestOptions,
   MutationType,
   NhCollectionBaseComponent,
   NhModalConfirmComponent,
@@ -69,6 +69,13 @@ export class TableAddressComponent extends NhCollectionBaseComponent<Address> im
   } */
 
   async onLoad(requestOptions: AddressCollectionHttpRequestOptions) {
+    requestOptions.filter = [
+      new FilterRequestOptions({
+        key: 'AddressCode',
+        operator: '==',
+        value: 'ABCBBB'
+      })
+    ];
     return <Observable<CollectionHttpResponse<Address>>>this.addressService.getCollection(requestOptions);
   }
 
