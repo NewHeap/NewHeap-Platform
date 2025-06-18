@@ -130,7 +130,8 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
         queryParams: queryParams,
         queryParamsHandling: 'merge',
         skipLocationChange: false,
-        replaceUrl: true
+        replaceUrl: true,
+        preserveFragment: true
       });
     }
 
