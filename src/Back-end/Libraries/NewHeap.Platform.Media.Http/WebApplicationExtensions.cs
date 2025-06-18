@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.ObjectPool;
 using NewHeap.Media.Models;
 using NhMedia.Http;
 using NewHeap.Media.Modules;
@@ -197,6 +198,9 @@ public static class WebApplicationExtensions
                 IncludedExtensions = includeExtensions,
                 Tags = tags
             };
+
+            options.IncludedExtensions = ProcessExtensions(options.IncludedExtensions); 
+            options.ExcludedExtensions = ProcessExtensions(options.ExcludedExtensions);
             
             var result = await mediaLibraryService.Search(path, searchTerm, options);
             return TypedResults.Ok(result);
@@ -205,6 +209,22 @@ public static class WebApplicationExtensions
         {
             return TypedResults.Unauthorized();
         }
+
+        string[]? ProcessExtensions(string[]? extensions)
+        {
+            if (extensions == null)
+            {
+                return extensions;
+            }
+            var result = new List<string>();
+            foreach (var extension in extensions)
+            {
+                var items = extension.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                result.AddRange(items);
+            }
+            return result.ToArray();
+        }
+        
     }
 
     [ApiExplorerSettings(GroupName = "Media")]
