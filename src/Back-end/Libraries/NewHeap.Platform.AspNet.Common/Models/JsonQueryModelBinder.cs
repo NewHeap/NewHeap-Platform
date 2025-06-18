@@ -62,12 +62,21 @@ public partial class JsonQueryModelBinder : IModelBinder
             }
 
             var requestModel = httpCollectionProcessingService.GetCollectionRequestModel();
-            if(requestModel is not null)
+            if (typeof(IBaseCollectionRequestModel).IsAssignableFrom(_providerContext.Metadata.ModelType))
             {
                 binderModel.ItemsPerPage = requestModel.ItemsPerPage;
                 binderModel.Page = requestModel.Page;
-                binderModel.OrderBy = requestModel.OrderBy ?? new List<OrderByCollectionRequestModel>();
+            } 
+            
+            if (typeof(ISearchableBaseCollectionRequestModel).IsAssignableFrom(_providerContext.Metadata.ModelType))
+            {
                 binderModel.Search = requestModel.Search;
+            }
+
+            if (typeof(ICollectionRequestModel).IsAssignableFrom(_providerContext.Metadata.ModelType))
+            {
+
+                binderModel.OrderBy = requestModel.OrderBy ?? new List<OrderByCollectionRequestModel>();
                 binderModel.Filter = requestModel.Filter ?? new List<FilterCollectionRequestModel>();
             }
         }
@@ -95,7 +104,7 @@ public partial class JsonQueryModelBinder : IModelBinder
                 return null;
 
             var typeToCheck = context.Metadata.ModelType;
-            if (!typeof(ICollectionRequestModel).IsAssignableFrom(typeToCheck))
+            if (!typeof(IBaseCollectionRequestModel).IsAssignableFrom(typeToCheck))
             {
                 return null;
             }
