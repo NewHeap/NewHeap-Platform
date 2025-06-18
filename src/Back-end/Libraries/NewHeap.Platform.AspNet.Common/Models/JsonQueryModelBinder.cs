@@ -75,7 +75,6 @@ public partial class JsonQueryModelBinder : IModelBinder
 
             if (typeof(ICollectionRequestModel).IsAssignableFrom(_providerContext.Metadata.ModelType))
             {
-
                 binderModel.OrderBy = requestModel.OrderBy ?? new List<OrderByCollectionRequestModel>();
                 binderModel.Filter = requestModel.Filter ?? new List<FilterCollectionRequestModel>();
             }
