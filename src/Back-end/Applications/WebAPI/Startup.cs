@@ -177,6 +177,12 @@ public class Startup
                 {
                     //Optional, default is configured, only override if needed
                 })
+            .WithNotifications(x => {
+                x.ProcessingMaxRetryAttempts = 3;
+                x.ProcessingRetentionPeriod = TimeSpan.FromDays(30);
+                x.ProcessingCleanupInterval = TimeSpan.FromHours(1);
+                x.ProcessingLockTimeout = TimeSpan.FromMinutes(1);
+            })
             ;
 
         services.AddScopedNhDbRepository<Address>(); 

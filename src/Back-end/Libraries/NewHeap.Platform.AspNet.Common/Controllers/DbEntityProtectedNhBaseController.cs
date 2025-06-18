@@ -92,7 +92,7 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TCrea
         requestModel ??= new TCollectionRequestModel();
         var query = overrideQuery?.AsNoTracking() ?? (await GetQueryableAsync(cancellationToken)).AsNoTracking();
 
-        var result = await GetCollectionResultModel<TDbEntity, TCustomViewModel>(query, cancellationToken: cancellationToken, GetDefaultCollectionResultOrderBy());
+        var result = await GetCollectionResultModel<TDbEntity, TCustomViewModel>(requestModel, query, null, cancellationToken: cancellationToken, GetDefaultCollectionResultOrderBy());
 
         return Ok(result);
     }

@@ -6,11 +6,11 @@ using System.Text;
 
 namespace NewHeap.Platform.Common.Services;
 
-public partial class MailService
+public partial class NhMailService
 {
     protected readonly MailServiceSettings _emailSettings;
 
-    public MailService(IOptions<MailServiceSettings> emailSettings)
+    public NhMailService(IOptions<MailServiceSettings> emailSettings)
     {
         _emailSettings = emailSettings.Value;
     }

@@ -12,8 +12,10 @@ using Microsoft.IdentityModel.Tokens;
 using NewHeap.Platform.AspNet.Common.Controllers;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.AspNet.Common.Services.Notification;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
@@ -56,5 +58,67 @@ public class HomeController : PublicNhBaseController
 
 
         return Ok("Hi");
+    }
+
+    [HttpGet("notification/email")]
+    [AllowAnonymous]
+    public async Task<IActionResult> TestEmailNotification([FromServices] INhNotificationService nhNotificationService)
+    {
+        var notification = NhNotificationBuilder.Create("Test notification")
+            .WithPriority(NhNotificationPriority.Normal)
+            .WithEmailDelivery(
+                delivery: new NhEmailDeliveryData()
+                {
+                    FromDisplayName = "NewHeap",
+                    FromEmail = "no-reply@newheap.com",
+                    To = new List<string> { "lars+test@newheap.com" },
+                    Subject = "Test notification",
+                    Body = "This is a test notification sent from the NewHeap platform.",
+                    IsBodyHtml = true
+                },
+                priority: NhNotificationPriority.Normal // Overide the priority if needed
+            )
+            .Build();
+
+        var result = await nhNotificationService.CreateAsync(notification);
+        if (!result.Success)
+        { 
+            result.ApplyToModelState(ModelState);
+            return BadRequest(ModelState);
+        }
+
+        return Ok($"Created: {result.Data!.Id}");
+    }
+
+    [HttpGet("notification/user")]
+    [AllowAnonymous]
+    public async Task<IActionResult> TestUserNotification([FromServices] INhNotificationService nhNotificationService)
+    {
+        var notification = NhNotificationBuilder.Create("Test notification")
+            .WithPriority(NhNotificationPriority.Normal)
+            .WithUserNotificationDelivery(
+                delivery: new NhUserNotificationDeliveryData()
+                {
+                    Notification = new NhUserNotificationMutateModel()
+                    {
+                        Title = "Test notification",
+                        Message = "This is a test notification sent from the NewHeap platform.",
+                        UserId = Guid.Parse("07E35556-54F2-4975-A563-417EB5FBFA7D")//UserId!.Value // Ensure you have a valid UserId here, or set it to null if not applicable
+                        ,Url = "https://newheap.com"
+                        ,UrlInNewTab = true
+                    }
+                },
+                priority: NhNotificationPriority.Normal // Overide the priority if needed
+            )
+            .Build();
+
+        var result = await nhNotificationService.CreateAsync(notification);
+        if (!result.Success)
+        {
+            result.ApplyToModelState(ModelState);
+            return BadRequest(ModelState);
+        }
+
+        return Ok($"Created: {result.Data!.Id}");
     }
 }

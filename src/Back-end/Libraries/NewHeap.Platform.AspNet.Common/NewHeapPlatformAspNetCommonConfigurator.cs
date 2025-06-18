@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -19,11 +20,13 @@ using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Identity.Describers;
+using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Resolvers;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.AspNet.Common.Services.Notification;
 using NewHeap.Platform.AspNet.Policy.AuthorizationHandlers;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Translations;
@@ -32,6 +35,7 @@ using OpenTelemetry.Trace;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json.Serialization;
+using static NewHeap.Platform.AspNet.Common.Models.JsonQueryModelBinder;
 
 namespace NewHeap.Platform.AspNet.Common;
 
@@ -134,7 +138,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection.AddSingleton<IHttpCollectionProcessingService, HttpCollectionProcessingService>();
         #endregion
     }
-    
+
     private void AddOpenTelementry()
     {
         _serviceCollection.AddOpenTelemetry()
@@ -195,7 +199,10 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection.AddScoped<ExceptionHandlerService>();
 
         _serviceCollection.AddMvcCore();
-        _serviceCollection.AddControllers();
+        _serviceCollection.AddControllers(options => {
+            var workerProvider = options.ModelBinderProviders.First(p => p.GetType() == typeof(ComplexObjectModelBinderProvider));
+            options.ModelBinderProviders.Insert(options.ModelBinderProviders.IndexOf(workerProvider), new JsonQueryModelBinderProvider());
+        });
 
         _serviceCollection.AddCors(options =>
         {
@@ -435,6 +442,10 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         serviceCollection.AddScopedNhDbRepository<TLogMessageArgument>();
         serviceCollection.AddScopedNhDbRepository<TLogMessageTranslated>();
         serviceCollection.AddScopedNhDbRepository<TLogFile>();
+        serviceCollection.AddScopedNhDbRepository<NhNotification>();
+        serviceCollection.AddScopedNhDbRepository<NhNotificationDelivery>();
+        serviceCollection.AddScopedNhDbRepository<NhUserNotification>();
+        serviceCollection.AddScopedNhDbRepository<NhUserNotificationMessage>();
         #endregion
 
         serviceCollection.AddScoped<TUserManager, TUserManager>();
@@ -687,6 +698,41 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         {
             backgroundJobServerOptions?.Invoke(options);
         });
+
+        return this;
+    }
+
+    public NewHeapPlatformAspNetCommonConfigurator<
+        TUser,
+        TUserRole,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TLog,
+        TLogMessageArgument,
+        TLogFile,
+        TLogMessageTranslated,
+        TDbLogService,
+        TDbContext,
+        TUserManager,
+        TDivisionService,
+        TDivisionMutateModel,
+        TDivisionUserService,
+        TDivisionUserMutateModel
+    > WithNotifications(Action<NhNotificationSettings> settingsAction)
+    {
+        _serviceCollection.Configure(settingsAction);
+        _serviceCollection.AddScoped<INhNotificationService, NhNotificationService>();
+        _serviceCollection.AddHostedService<NhNotificationProcessingService>();
+
+        //Default dispatchers
+        _serviceCollection.AddScoped<INhNotificationDispatcher, NhEmailNotificationDispatcher>();
+        _serviceCollection.AddScoped<INhNotificationDispatcher, NhUserNotificaitonNotificationDispatcher>();
+
+        // User notifications
+        _serviceCollection.AddScoped<INhUserNotificationService, NhUserNotificationService>();
 
         return this;
     }

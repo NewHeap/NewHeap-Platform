@@ -9,7 +9,7 @@ import {
   StateKey, TransferState
 } from "@angular/core";
 import {filter, Subscription} from "rxjs";
-import {isPlatformBrowser, isPlatformServer} from "@angular/common";
+import {DOCUMENT, isPlatformBrowser, isPlatformServer} from "@angular/common";
 import {NavigationEnd, Router} from "@angular/router";
 
 const APP_ORIGINATED_FROM_SERVER = 'APP_ORIGINATED_FROM_SERVER';
@@ -24,14 +24,17 @@ export class NhAppService implements OnDestroy {
   private firstHydrateComplete: boolean = false;
   private stateKeys: StateKey<any>[] = [];
   private browserFirstHydrateComplete$: Subscription|undefined;
+  public readonly localStorage?: Storage;
 
   constructor(
+    @Inject(DOCUMENT) private document: Document,
     @Inject(PLATFORM_ID) private platformId: Object,
     private appRef: ApplicationRef,
     private transferState: TransferState,
     private router: Router
   ) {
 
+    this.localStorage = this.document.defaultView?.localStorage as Storage;
     this.$appRefIsStable = this.appRef.isStable.subscribe((isStable) => {
       if (isStable) {
         this.appIsStable = true;

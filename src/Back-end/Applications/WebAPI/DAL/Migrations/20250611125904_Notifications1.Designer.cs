@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WebAPI.DAL;
 
@@ -11,9 +12,11 @@ using WebAPI.DAL;
 namespace WebAPI.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250611125904_Notifications1")]
+    partial class Notifications1
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -470,7 +473,7 @@ namespace WebAPI.DAL.Migrations
 
                     b.HasIndex("NotificationId");
 
-                    b.ToTable("NotificationDeliveries");
+                    b.ToTable("NhNotificationDeliveries");
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUser", b =>
@@ -552,78 +555,6 @@ namespace WebAPI.DAL.Migrations
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
-                });
-
-            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserNotification", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreationDateTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("Data")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(MAX)");
-
-                    b.Property<bool>("IsArchived")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsLastRead")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("LastMessage")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTimeOffset>("LastModifiedDateTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("LastTitle")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("UserNotifications");
-                });
-
-            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserNotificationMessage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreationDateTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<DateTimeOffset>("LastModifiedDateTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<Guid>("UserNotificationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserNotificationId");
-
-                    b.ToTable("UserNotificationMessages");
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserRole", b =>
@@ -895,26 +826,6 @@ namespace WebAPI.DAL.Migrations
                     b.Navigation("ActiveDivision");
                 });
 
-            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserNotification", b =>
-                {
-                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUser", null)
-                        .WithMany("Notifications")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserNotificationMessage", b =>
-                {
-                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserNotification", "UserNotification")
-                        .WithMany("Messages")
-                        .HasForeignKey("UserNotificationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("UserNotification");
-                });
-
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhDivision", b =>
                 {
                     b.Navigation("DivisionUsers");
@@ -949,13 +860,6 @@ namespace WebAPI.DAL.Migrations
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUser", b =>
                 {
                     b.Navigation("DivisionUsers");
-
-                    b.Navigation("Notifications");
-                });
-
-            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserNotification", b =>
-                {
-                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }

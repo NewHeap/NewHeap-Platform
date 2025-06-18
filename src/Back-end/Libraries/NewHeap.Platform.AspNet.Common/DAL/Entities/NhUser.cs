@@ -45,4 +45,6 @@ public partial class NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisi
     
     [StringLength(100)]
     public string? RefreshToken { get; set; }
+
+    public List<NhUserNotification> Notifications { get; set; } = new List<NhUserNotification>();
 }

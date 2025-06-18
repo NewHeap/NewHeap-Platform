@@ -63,7 +63,7 @@ public class NewHeapPlatformCommonConfigurator
     public NewHeapPlatformCommonConfigurator WithMail(Action<MailServiceSettings> mailServiceSettingsAction)
     {
         _serviceCollection.Configure(mailServiceSettingsAction);
-        _serviceCollection.AddScoped<MailService, MailService>();
+        _serviceCollection.AddScoped<NhMailService, NhMailService>();
 
         return this;
     }
