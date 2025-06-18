@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,7 @@ using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Identity.Describers;
+using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Models.View;
@@ -33,6 +35,7 @@ using OpenTelemetry.Trace;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json.Serialization;
+using static NewHeap.Platform.AspNet.Common.Models.JsonQueryModelBinder;
 
 namespace NewHeap.Platform.AspNet.Common;
 
@@ -196,7 +199,10 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection.AddScoped<ExceptionHandlerService>();
 
         _serviceCollection.AddMvcCore();
-        _serviceCollection.AddControllers();
+        _serviceCollection.AddControllers(options => {
+            var workerProvider = options.ModelBinderProviders.First(p => p.GetType() == typeof(ComplexObjectModelBinderProvider));
+            options.ModelBinderProviders.Insert(options.ModelBinderProviders.IndexOf(workerProvider), new JsonQueryModelBinderProvider());
+        });
 
         _serviceCollection.AddCors(options =>
         {
