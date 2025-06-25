@@ -246,7 +246,7 @@ internal class NhNotificationProcessingService : BackgroundService
             }
         }
 
-        _logger.LogInformation("Consumer for chanel {Channel} stopped", dispatcherId);
+        _logger.LogInformation("Consumer for channel {Channel} stopped", dispatcherId);
     }
 
     private async Task RunCleanupLoopAsync(CancellationToken stoppingToken)
