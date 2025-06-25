@@ -45,9 +45,11 @@ public abstract partial class BaseCRUDService<T, TMutateModel, TBaseCRUDService>
             }
         }
 
-        async Task createUpdateCheck()
+        Task createUpdateCheck()
         {
             _validationService.ValidateMutateModelModelState(model);
+
+            return Task.CompletedTask;
         }
 
         if (model.ActionType == CRUDActionType.Create)
@@ -116,23 +118,25 @@ public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMuta
 
     #region TEntity
     protected virtual Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperties(
-        T original,
-        T updated,
+        T? original,
+        T? updated,
         CancellationToken cancellationToken = default
     )
     {
-        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<T, object>>, Func<object, Task<string>>>
+        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<T?, object>>, Func<object?, Task<string>>>
         {
             // Method resolvers
         }, [], []);
     }
 
-    protected virtual async Task DoValidateCreateAsync(CreateUpdateDeleteValidateModel<T, T, TCreateMutateModel> model, CancellationToken cancellationToken = default)
+    protected virtual Task DoValidateCreateAsync(CreateUpdateDeleteValidateModel<T, T, TCreateMutateModel> model, CancellationToken cancellationToken = default)
     {
         _validationService.ValidateMutateModelModelState(model);
+
+        return Task.CompletedTask;
     }
 
-    protected virtual async Task DoValidateUpdateAsync(CreateUpdateDeleteValidateModel<T, T, TUpdateMutateModel> model, CancellationToken cancellationToken = default)
+    protected virtual Task DoValidateUpdateAsync(CreateUpdateDeleteValidateModel<T, T, TUpdateMutateModel> model, CancellationToken cancellationToken = default)
     {
         if (model.SourceModel == null)
         {
@@ -143,21 +147,25 @@ public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMuta
         {
             _validationService.ValidateMutateModelModelState(model);
         }
+
+        return Task.CompletedTask;
     }
 
-    protected virtual async Task DoValidateDeleteAsync(CreateUpdateDeleteValidateModel<T, T, TDeleteMutateModel> model, CancellationToken cancellationToken = default)
+    protected virtual Task DoValidateDeleteAsync(CreateUpdateDeleteValidateModel<T, T, TDeleteMutateModel> model, CancellationToken cancellationToken = default)
     {
         if (model.SourceModel == null)
         {
             model.TaskResult.AddError(string.Empty, _localizer["Action type requires a source model."]);
         }
+
+        return Task.CompletedTask;
     }
 
     protected abstract Task<T?> DoGetAsync(Guid id, CancellationToken cancellationToken = default);
 
     protected abstract Task<TaskResult<T?>> DoCreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<T>? beforeSave = null, CancellationToken cancellationToken = default);
 
-    protected abstract Task<TaskResult<T>> DoUpdateAsync(
+    protected abstract Task<TaskResult<T?>> DoUpdateAsync(
         Guid id,
         TUpdateMutateModel mutateModel,
         Guid? committedByUserId = default,
@@ -165,6 +173,6 @@ public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMuta
         CancellationToken cancellationToken = default
     );
 
-    protected abstract Task<TaskResult<T>> DoDeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default);
+    protected abstract Task<TaskResult<T?>> DoDeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default);
     #endregion
 }

@@ -16,6 +16,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{33C97E81-613D-46F6-8EA4-81F8D96BB7C9}"
 	ProjectSection(SolutionItems) = preProject
 		Directory.Packages.props = Directory.Packages.props
+		nuget.config = nuget.config
 		publish-common.ps1 = publish-common.ps1
 	EndProjectSection
 EndProject
@@ -96,5 +97,8 @@ Global
 		{026E006D-3564-42A8-8CD0-484C1F9262CA} = {5FC542AC-AA75-453A-8F5E-76CFF5D76D50}
 		{CBD6D479-8DBC-41BB-A87E-03F5C97EDB76} = {026E006D-3564-42A8-8CD0-484C1F9262CA}
 		{C81F7586-4617-4539-A43C-5FBB2EA7A964} = {5FC542AC-AA75-453A-8F5E-76CFF5D76D50}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2ECAB1E7-4BFF-456B-8F6F-7D0002756B1A}
 	EndGlobalSection
 EndGlobal

@@ -39,7 +39,7 @@ public partial class TaskResult
 
     public List<ResultItem> GetResultItems() => Results;
 
-    protected FormattableString CreateFormattableString(string format, object[] args = null)
+    protected FormattableString CreateFormattableString(string format, object[]? args = null)
     {
         return FormattableStringFactory.Create(format ?? "", args ?? []);
     }
@@ -215,7 +215,7 @@ public partial class TaskResult<T> : TaskResult
     public TaskResult<T> AddError(Expression<Func<T, object>> selector, params FormattableString[] errorMessages)
     {
         var name = (selector.Body as MemberExpression
-            ?? ((UnaryExpression)selector.Body).Operand as MemberExpression).Member.Name;
+            ?? ((UnaryExpression)selector.Body)!.Operand as MemberExpression)!.Member.Name;
 
         AddError(name, errorMessages);
         return this;
@@ -444,8 +444,8 @@ public partial class DisposableTaskResult<T> : TaskResult<T>, IDisposable where 
 
 public partial class CreateUpdateDeleteValidateModel<TTaskResult, TSourceObj, TMutateObj>
     where TTaskResult : class?
-    where TSourceObj : class
-    where TMutateObj : class
+    where TSourceObj : class?
+    where TMutateObj : class?
 {
     public CreateUpdateDeleteValidateModel(CRUDActionType actionType)
     {
@@ -453,7 +453,7 @@ public partial class CreateUpdateDeleteValidateModel<TTaskResult, TSourceObj, TM
     }
 
     public CRUDActionType ActionType { get; private set; }
-    public required TaskResult<TTaskResult> TaskResult { get; set; }
+    public required TaskResult<TTaskResult?> TaskResult { get; set; }
     public TSourceObj? SourceModel { get; set; }
     public TMutateObj? MutateModel { get; set; }
 

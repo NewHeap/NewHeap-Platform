@@ -55,9 +55,10 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
             }
         }
 
-        async Task createUpdateCheck()
+        Task createUpdateCheck()
         {
             _validationService.ValidateMutateModelModelState(model);
+            return Task.CompletedTask;
         }
 
         if (model.ActionType == CRUDActionType.Create)
@@ -199,18 +200,18 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
     }
 
     protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperties(
-        TEntity original,
-        TEntity updated, 
+        TEntity? original,
+        TEntity? updated, 
         CancellationToken cancellationToken = default
         )
     {
-        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<TEntity, object>>, Func<object, Task<string>>>
+        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<TEntity?, object>>, Func<object?, Task<string>>>
         {
             // Method resolvers
         }, [], []);
     }
 
-    protected override async Task<TaskResult<TEntity>> DoUpdateAsync(
+    protected override async Task<TaskResult<TEntity?>> DoUpdateAsync(
         Guid id,
         TUpdateMutateModel mutateModel,
         Guid? committedByUserId = default,
@@ -218,7 +219,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         CancellationToken cancellationToken = default
         )
     {
-        var result = new TaskResult<TEntity>();
+        var result = new TaskResult<TEntity?>();
 
         var entity = await QueryableWithUpdateDeleteIncludes()
             .OrderBy(x => x.Id)
@@ -292,9 +293,9 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         return result;
     }
 
-    protected override async Task<TaskResult<TEntity>> DoDeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default)
+    protected override async Task<TaskResult<TEntity?>> DoDeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default)
     {
-        var result = new TaskResult<TEntity>();
+        var result = new TaskResult<TEntity?>();
 
         var entity = await QueryableWithUpdateDeleteIncludes()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -312,12 +313,12 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         }
 
         result.Data = entity;
-        _repository.Remove(entity);
+        _repository.Remove(entity!);
 
         await _dbLogService.LogAsync(
             message: "Entity remove successful.",
             messageArguments: new string[] {
-                entity.Id.ToString()
+                entity!.Id.ToString()
             },
             objectId: entity.Id.ToString(),
             objectType: (typeof(TEntity)).Name,
