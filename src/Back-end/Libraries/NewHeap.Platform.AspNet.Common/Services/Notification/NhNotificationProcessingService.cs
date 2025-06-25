@@ -211,7 +211,7 @@ internal class NhNotificationProcessingService : BackgroundService
                 }
                 else
                 {
-                    if (delivery.AttemptCount > _settings.ProcessingMaxRetryAttempts)
+                    if (delivery.AttemptCount >= _settings.ProcessingMaxRetryAttempts)
                     {
                         delivery.Status = NotificationDeliveryStatus.Failed;
                         delivery.LastFailedMessage = "Max attempts reached with error: " + string.Join("; ", taskResult.AllErrorMessages) ?? "Unknown error";
