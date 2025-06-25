@@ -20,7 +20,7 @@ namespace WebAPI.Models.View
         [Searchable]
         public Guid Id { get; set; }
 
-        [Searchable, Orderable, Filterable]
+        //[Searchable, Orderable, Filterable]
         public string AddressCode { get; set; }
 
         [Searchable, Orderable, Filterable]

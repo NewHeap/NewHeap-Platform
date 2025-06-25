@@ -26,12 +26,13 @@ public abstract partial class ProtectedNhBaseController : NhBaseController
     }
 
     [NonAction]
-    protected async Task<IActionResult> GetCollectionResultAsync<TModel, TViewModel>(
+    private async Task<IActionResult> _GetCollectionResultAsync<TModel, TViewModel>(
         IQueryable<TModel> query,
+        List<(Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)> defaultOrderBy,
         Func<IQueryable<TModel>, CancellationToken, Task<IQueryable<TModel>>>? resultQueryableFunc = null,
         int? maxItemsPerPage = null,
-        CancellationToken cancellationToken = default,
-        params (Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        CancellationToken cancellationToken = default
+        )
         where TModel : class where TViewModel : class
     {
         maxItemsPerPage ??= _httpCollectionProcessingService.GetDefaultMaxItemsPerPage();
@@ -42,10 +43,45 @@ public abstract partial class ProtectedNhBaseController : NhBaseController
             query,
             resultQueryableFunc,
             cancellationToken: cancellationToken,
-            defaultOrderBy
+            defaultOrderBy.ToArray()
         );
 
         return Ok(collectionResponse);
+    }
+
+    [NonAction]
+    protected Task<IActionResult> GetCollectionResultAsync<TModel, TViewModel>(
+        IQueryable<TModel> query,
+        Func<IQueryable<TModel>, CancellationToken, Task<IQueryable<TModel>>>? resultQueryableFunc = null,
+        int? maxItemsPerPage = null,
+        CancellationToken cancellationToken = default,
+        params (Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TModel : class where TViewModel : class
+    {
+        return _GetCollectionResultAsync<TModel, TViewModel>(
+            query,
+            defaultOrderBy.ToList(),
+            resultQueryableFunc,
+            maxItemsPerPage,
+            cancellationToken
+        );
+    }
+
+    [NonAction]
+    protected Task<IActionResult> GetCollectionResultAsync<TModel, TViewModel>(
+        IQueryable<TModel> query,
+        Func<IQueryable<TModel>, CancellationToken, Task<IQueryable<TModel>>>? resultQueryableFunc = null,
+        int? maxItemsPerPage = null,
+        CancellationToken cancellationToken = default)
+        where TModel : class where TViewModel : class
+    {
+        return _GetCollectionResultAsync<TModel, TViewModel>(
+            query,
+            new List<(Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)>(),
+            resultQueryableFunc,
+            maxItemsPerPage,
+            cancellationToken
+        );
     }
 
     [NonAction]
@@ -63,6 +99,16 @@ public abstract partial class ProtectedNhBaseController : NhBaseController
         where TViewModel : class
     {
         return _httpCollectionProcessingService.GetCollectionResultQueryAsync<TEntity, TViewModel>(queryable, cancellationToken: cancellationToken, defaultOrderBy);
+    }
+
+    [NonAction]
+    protected virtual Task<IQueryable<TEntity>> GetCollectionResultQuery<TEntity, TViewModel>(
+        IQueryable<TEntity> queryable,
+        CancellationToken cancellationToken = default)
+        where TEntity : class
+        where TViewModel : class
+    {
+        return _httpCollectionProcessingService.GetCollectionResultQueryAsync<TEntity, TViewModel>(queryable, cancellationToken: cancellationToken);
     }
 
     [NonAction]
@@ -85,6 +131,23 @@ public abstract partial class ProtectedNhBaseController : NhBaseController
     }
 
     [NonAction]
+    protected virtual Task<CollectionResultModel<TViewModel>> GetCollectionResultModel<TEntity, TViewModel>(
+       ICollectionRequestModel requestModel,
+       IQueryable<TEntity> queryable,
+       Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+       CancellationToken cancellationToken = default)
+       where TEntity : class
+       where TViewModel : class
+    {
+        return _httpCollectionProcessingService.GetCollectionResultModelAsync<TEntity, TViewModel>(
+            requestModel,
+            queryable,
+            resultQueryableFunc,
+            cancellationToken: cancellationToken
+        );
+    }
+
+    [NonAction]
     protected virtual async Task<CollectionResultModel<TViewModel>> GetCollectionResultModel<TEntity, TViewModel>(
         IQueryable<TEntity> queryable,
         CancellationToken cancellationToken = default,
@@ -98,6 +161,18 @@ public abstract partial class ProtectedNhBaseController : NhBaseController
     }
 
     [NonAction]
+    protected virtual async Task<CollectionResultModel<TViewModel>> GetCollectionResultModel<TEntity, TViewModel>(
+       IQueryable<TEntity> queryable,
+       CancellationToken cancellationToken = default)
+       where TEntity : class
+       where TViewModel : class
+    {
+        var requestModel = GetCollectionRequestModel();
+
+        return await GetCollectionResultModel<TEntity, TViewModel>(requestModel, queryable, null, cancellationToken: cancellationToken);
+    }
+
+    [NonAction]
     protected virtual async Task<OkObjectResult> Ok<TEntity, TViewModel>(
         IQueryable<TEntity> queryable,
         CancellationToken cancellationToken = default,
@@ -108,13 +183,24 @@ public abstract partial class ProtectedNhBaseController : NhBaseController
         return Ok(await GetCollectionResultModel<TEntity, TViewModel>(queryable, cancellationToken, defaultOrderBy));
     }
 
-    protected async Task<IActionResult> Csv<TModel, TRowModel>(IQueryable<TModel> query,
+    [NonAction]
+    protected virtual async Task<OkObjectResult> Ok<TEntity, TViewModel>(
+        IQueryable<TEntity> queryable,
+        CancellationToken cancellationToken = default)
+        where TEntity : class
+        where TViewModel : class
+    {
+        return Ok(await GetCollectionResultModel<TEntity, TViewModel>(queryable, cancellationToken));
+    }
+
+    private async Task<IActionResult> _Csv<TModel, TRowModel>(IQueryable<TModel> query,
+        List<(Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)> defaultOrderBy,
+        char delimiter = ';',
         Func<IEnumerable<TModel>, IEnumerable<TRowModel>>? convert = null,
         Func<IQueryable<TModel>, CancellationToken, Task<IQueryable<TModel>>>? resultQueryableFunc = null,
-        char delimiter = ';',
         bool includeHeaders = false,
-        CancellationToken cancellationToken = default,
-        params (Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        CancellationToken cancellationToken = default
+        )
         where TModel : class
         where TRowModel : class
     {
@@ -124,9 +210,12 @@ public abstract partial class ProtectedNhBaseController : NhBaseController
         query = query.AsNoTracking();
 
         var collectionResponseModel =
-            await GetCollectionResultModel<TModel, TModel>(collectionRequestModel, query, resultQueryableFunc,
+            await GetCollectionResultModel<TModel, TModel>(
+                collectionRequestModel, 
+                query, 
+                resultQueryableFunc,
                 cancellationToken: cancellationToken,
-                defaultOrderBy);
+                defaultOrderBy.ToArray());
 
         IEnumerable<TRowModel>? rows = null;
 
@@ -168,4 +257,29 @@ public abstract partial class ProtectedNhBaseController : NhBaseController
         return File(fileStream, "text/csv");
     }
 
+    protected Task<IActionResult> Csv<TModel, TRowModel>(IQueryable<TModel> query,
+        Func<IEnumerable<TModel>, IEnumerable<TRowModel>>? convert = null,
+        Func<IQueryable<TModel>, CancellationToken, Task<IQueryable<TModel>>>? resultQueryableFunc = null,
+        char delimiter = ';',
+        bool includeHeaders = false,
+        CancellationToken cancellationToken = default,
+        params (Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TModel : class
+        where TRowModel : class
+    {
+        return _Csv(query, defaultOrderBy.ToList(), delimiter, convert, resultQueryableFunc, includeHeaders, cancellationToken);
+    }
+
+    protected Task<IActionResult> Csv<TModel, TRowModel>(IQueryable<TModel> query,
+        Func<IEnumerable<TModel>, IEnumerable<TRowModel>>? convert = null,
+        Func<IQueryable<TModel>, CancellationToken, Task<IQueryable<TModel>>>? resultQueryableFunc = null,
+        char delimiter = ';',
+        bool includeHeaders = false,
+        CancellationToken cancellationToken = default
+    )
+        where TModel : class
+        where TRowModel : class
+    {
+        return _Csv(query, new List<(Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)>(), delimiter, convert, resultQueryableFunc, includeHeaders, cancellationToken);
+    }
 }

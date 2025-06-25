@@ -7,6 +7,7 @@ using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.Common.Exceptions;
 using NewHeap.Platform.Common.Models;
 using System.ComponentModel;
 using System.Linq.Expressions;
@@ -102,9 +103,17 @@ public abstract partial class CompositeDbEntityProtectedNhBaseController<TDbEnti
         requestModel ??= new TCollectionRequestModel();
         var query = overrideQuery?.AsNoTracking() ?? (await GetQueryableAsync(cancellationToken)).AsNoTracking();
 
-        var result = await GetCollectionResultModel<TDbEntity, TCustomViewModel>(requestModel, query, null, cancellationToken: cancellationToken, GetDefaultCollectionResultOrderBy());
+        try
+        {
+            var result = await GetCollectionResultModel<TDbEntity, TCustomViewModel>(requestModel, query, null, cancellationToken: cancellationToken, GetDefaultCollectionResultOrderBy());
 
-        return Ok(result);
+            return Ok(result);
+        }
+        catch (InvalidFilterCollectionResultException ex)
+        {
+            ModelState.AddModelError(string.Empty, ex.Message);
+            return BadRequest(ModelState);
+        }
     }
 
     [NonAction]

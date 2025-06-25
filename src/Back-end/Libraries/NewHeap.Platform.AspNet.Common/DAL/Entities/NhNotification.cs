@@ -31,6 +31,9 @@ public partial class NhNotification : IdDbEntity
     [Column(TypeName = "smallint")]
     public NhNotificationPriority Priority { get; set; } = NhNotificationPriority.Normal;
 
+    [StringLength(50)]
+    public string ProcessorKey { get;set; } = "default";
+
     [StringLength(256)]
     public string Name { get; set; } = string.Empty;
 

@@ -19,6 +19,8 @@ namespace NewHeap.Platform.AspNet.Common.Services.Notification;
 
 public class NhNotificationSettings
 {
+    public string ProcessorKey { get; set; } = "default";
+    public bool ProcessingEnabled { get; set; } = true;
     public TimeSpan ProcessingLockTimeout { get;set; } = TimeSpan.FromMinutes(1);
     public int ProcessingMaxRetryAttempts { get; set; } = 3;
     public TimeSpan ProcessingCleanupInterval { get; set; } = TimeSpan.FromHours(1);
@@ -88,10 +90,17 @@ internal class NhNotificationProcessingService : BackgroundService
     private async Task RunDatabasePollerAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Notification poller started");
+        const int taskDelayTimeInSec = 5;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                if (!_settings.ProcessingEnabled)
+                { 
+                    await Task.Delay(TimeSpan.FromSeconds(taskDelayTimeInSec), stoppingToken);
+                    continue;
+                }
+
                 using var scope = _scopeFactory.CreateScope();
                 var notificationDeliveryRepository = scope.ServiceProvider.GetRequiredService<IRepository<NhNotificationDelivery>>();
 
@@ -104,6 +113,7 @@ internal class NhNotificationProcessingService : BackgroundService
 
                 var candidates = await notificationDeliveryRepository
                     .GetAll()
+                    .Where(x => x.Notification.ProcessorKey == _settings.ProcessorKey)
                     .Where(d => 
                         (
                             (d.Status == NotificationDeliveryStatus.Queued && d.ScheduledAt <= now)
@@ -158,7 +168,7 @@ internal class NhNotificationProcessingService : BackgroundService
                 _logger.LogError(ex, "Exception occured during polling of notifications");
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+            await Task.Delay(TimeSpan.FromSeconds(taskDelayTimeInSec), stoppingToken);
         }
     }
 
@@ -182,6 +192,7 @@ internal class NhNotificationProcessingService : BackgroundService
 
             var delivery = await notificationRepository
                 .GetAll()
+                .Where(x => x.Notification.ProcessorKey == _settings.ProcessorKey)
                 .FirstOrDefaultAsync(d => d.Id == deliveryId, stoppingToken);
 
             if (delivery == null)
@@ -201,7 +212,7 @@ internal class NhNotificationProcessingService : BackgroundService
                 }
                 else
                 {
-                    if (delivery.AttemptCount > _settings.ProcessingMaxRetryAttempts)
+                    if (delivery.AttemptCount >= _settings.ProcessingMaxRetryAttempts)
                     {
                         delivery.Status = NotificationDeliveryStatus.Failed;
                         delivery.LastFailedMessage = "Max attempts reached with error: " + string.Join("; ", taskResult.AllErrorMessages) ?? "Unknown error";
@@ -236,7 +247,7 @@ internal class NhNotificationProcessingService : BackgroundService
             }
         }
 
-        _logger.LogInformation("Consumer for chanel {Channel} stopped", dispatcherId);
+        _logger.LogInformation("Consumer for channel {Channel} stopped", dispatcherId);
     }
 
     private async Task RunCleanupLoopAsync(CancellationToken stoppingToken)
@@ -266,6 +277,7 @@ internal class NhNotificationProcessingService : BackgroundService
 
         var oldDeliveries = await notificationRepository
             .GetAll()
+            .Where(x => x.Notification.ProcessorKey == _settings.ProcessorKey)
             .Where(d => !d.IsCleaned && d.Status == NotificationDeliveryStatus.Succeeded && d.SentAt <= threshold)
             .ToListAsync(cancellationToken);
 

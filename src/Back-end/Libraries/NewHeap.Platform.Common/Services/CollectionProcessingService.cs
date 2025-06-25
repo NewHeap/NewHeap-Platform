@@ -11,26 +11,43 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Linq.Dynamic.Core;
 using NewHeap.Platform.Common.Extensions;
+using NewHeap.Platform.Common.Exceptions;
 
 namespace NewHeap.Platform.Common.Services;
 internal record SearchClosure(string Value);
 public interface ICollectionProcessingService
 {
+    Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, CancellationToken cancellationToken = default)
+        where TEntity : class
+        where TViewModel : class;
+
     Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, CancellationToken cancellationToken = default, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
 
+    Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, CancellationToken cancellationToken = default)
+        where TEntity : class
+        where TViewModel : class;
     Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, CancellationToken cancellationToken = default, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
 
+    Task<(IQueryable<TEntity> queryable, long totalCount, List<FilterCollectionRequestModel> filterResult, List<OrderByCollectionRequestModel> orderByResult)> ProcessQueryable<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, CancellationToken cancellationToken = default)
+        where TEntity : class
+        where TViewModel : class;
     Task<(IQueryable<TEntity> queryable, long totalCount, List<FilterCollectionRequestModel> filterResult, List<OrderByCollectionRequestModel> orderByResult)> ProcessQueryable<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, CancellationToken cancellationToken = default, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
+
     List<FilterCollectionRequestModel> ProcessFilter<TEntity, TViewModel>(ref IQueryable<TEntity> queryable, List<FilterCollectionRequestModel>? filterCollection)
         where TEntity : class
         where TViewModel : class;
+
     List<OrderByCollectionRequestModel> ProcessOrderBy<TEntity, TViewModel>(ref IQueryable<TEntity> queryable, List<OrderByCollectionRequestModel>? orderByCollection, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TEntity : class
+        where TViewModel : class;
+
+    List<OrderByCollectionRequestModel> ProcessOrderBy<TEntity, TViewModel>(ref IQueryable<TEntity> queryable, List<OrderByCollectionRequestModel>? orderByCollection)
         where TEntity : class
         where TViewModel : class;
     void ProcessSearch<TEntity, TViewModel>(ref IQueryable<TEntity> queryable, string? qSearch)
@@ -227,7 +244,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         return filterResult;
     }
 
-    private bool IsFilterValid(FilterCollectionRequestModel filter, IEnumerable<PropertyInfo> filterProperties, out string? error)
+    protected bool IsFilterValid(FilterCollectionRequestModel filter, IEnumerable<PropertyInfo> filterProperties, out string? error)
     {
         error = null;
         if (string.IsNullOrWhiteSpace(filter.Key) || string.IsNullOrWhiteSpace(filter.Operator))
@@ -262,7 +279,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         return true;
     }
 
-    private Expression<Func<T, bool>>? GetFilterLambda<T>(FilterCollectionRequestModel filter,
+    protected Expression<Func<T, bool>>? GetFilterLambda<T>(FilterCollectionRequestModel filter,
         IEnumerable<PropertyInfo> filterProperties, ParameterExpression? parameter = null, bool skipValidation = false)
     {
         if (!skipValidation && !IsFilterValid(filter, filterProperties, out var err))
@@ -273,7 +290,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
             }
             else
             {
-                throw new Exception("Invalid filter found");
+                throw new InvalidFilterCollectionResultException("Invalid filter found");
             }
         }
 
@@ -574,10 +591,10 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         return Expression.Lambda<Func<T, bool>>(body!, parameter);
     }
 
-    public List<OrderByCollectionRequestModel> ProcessOrderBy<TEntity, TViewModel>(
+    protected List<OrderByCollectionRequestModel> _ProcessOrderBy<TEntity, TViewModel>(
         ref IQueryable<TEntity> queryable,
         List<OrderByCollectionRequestModel>? orderByCollection,
-        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy
+        List<(Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)> defaultOrderBy
     )
         where TEntity : class
         where TViewModel : class
@@ -764,21 +781,42 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         return orderByResult;
     }
 
+    public List<OrderByCollectionRequestModel> ProcessOrderBy<TEntity, TViewModel>(
+        ref IQueryable<TEntity> queryable,
+        List<OrderByCollectionRequestModel>? orderByCollection,
+        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy
+    )
+        where TEntity : class
+        where TViewModel : class
+    {
+        return _ProcessOrderBy<TEntity, TViewModel>(ref queryable, orderByCollection, defaultOrderBy.ToList());
+    }
 
-    public virtual async
+    public List<OrderByCollectionRequestModel> ProcessOrderBy<TEntity, TViewModel>(
+        ref IQueryable<TEntity> queryable,
+        List<OrderByCollectionRequestModel>? orderByCollection
+    )
+        where TEntity : class
+        where TViewModel : class
+    {
+        return _ProcessOrderBy<TEntity, TViewModel>(ref queryable, orderByCollection, new List<(Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)>());
+    }
+
+
+    protected async
         Task<(IQueryable<TEntity> queryable, long totalCount, List<FilterCollectionRequestModel> filterResult,
-            List<OrderByCollectionRequestModel> orderByResult)> ProcessQueryable<TEntity, TViewModel>(
+            List<OrderByCollectionRequestModel> orderByResult)> _ProcessQueryable<TEntity, TViewModel>(
             ICollectionRequestModel requestModel,
             IQueryable<TEntity> queryable,
-            CancellationToken cancellationToken = default,
-            params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy
+            List<(Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)> defaultOrderBy,
+            CancellationToken cancellationToken = default
         )
         where TEntity : class
         where TViewModel : class
     {
         ProcessSearch<TEntity, TViewModel>(ref queryable, requestModel.Search?.Trim());
         var filterResult = ProcessFilter<TEntity, TViewModel>(ref queryable, requestModel.Filter);
-        var orderByResult = ProcessOrderBy<TEntity, TViewModel>(ref queryable, requestModel.OrderBy, defaultOrderBy);
+        var orderByResult = _ProcessOrderBy<TEntity, TViewModel>(ref queryable, requestModel.OrderBy, defaultOrderBy);
 
         var totalCount = queryable.GetType().GetInterfaces().Contains(typeof(IAsyncEnumerable<TEntity>))
             ? await queryable.LongCountAsync(cancellationToken)
@@ -792,12 +830,50 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         return (queryable, totalCount, filterResult, orderByResult);
     }
 
-    public virtual async Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(
+    public virtual
+        Task<(IQueryable<TEntity> queryable, long totalCount, List<FilterCollectionRequestModel> filterResult,
+            List<OrderByCollectionRequestModel> orderByResult)> ProcessQueryable<TEntity, TViewModel>(
+            ICollectionRequestModel requestModel,
+            IQueryable<TEntity> queryable,
+            CancellationToken cancellationToken = default,
+            params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy
+        )
+        where TEntity : class
+        where TViewModel : class
+    {
+        return _ProcessQueryable<TEntity, TViewModel>(
+            requestModel,
+            queryable,
+            [.. defaultOrderBy],
+            cancellationToken
+        );
+    }
+
+    public virtual
+    Task<(IQueryable<TEntity> queryable, long totalCount, List<FilterCollectionRequestModel> filterResult,
+        List<OrderByCollectionRequestModel> orderByResult)> ProcessQueryable<TEntity, TViewModel>(
         ICollectionRequestModel requestModel,
         IQueryable<TEntity> queryable,
+        CancellationToken cancellationToken = default
+    )
+        where TEntity : class
+        where TViewModel : class
+    {
+        return _ProcessQueryable<TEntity, TViewModel>(
+            requestModel,
+            queryable,
+            new List<(Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)>(),
+            cancellationToken
+        );
+    }
+
+    protected async Task<CollectionResultModel<TViewModel>> _GetCollectionResultModelAsync<TEntity, TViewModel>(
+        ICollectionRequestModel requestModel,
+        IQueryable<TEntity> queryable,
+        List<(Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)> defaultOrderBy,
         Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
-        CancellationToken cancellationToken = default,
-        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        CancellationToken cancellationToken = default
+        )
         where TEntity : class
         where TViewModel : class
     {
@@ -820,11 +896,11 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         }
 
         queryable = queryable.AsNoTracking();
-        var processedResult = await ProcessQueryable<TEntity, TViewModel>(
+        var processedResult = await _ProcessQueryable<TEntity, TViewModel>(
             requestModel,
             queryable,
-            cancellationToken: cancellationToken,
-            defaultOrderBy
+            defaultOrderBy,
+            cancellationToken: cancellationToken
         );
 
         queryable = processedResult.queryable;
@@ -855,8 +931,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         };
     }
 
-
-    public virtual async Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
+    public virtual Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(
         ICollectionRequestModel requestModel,
         IQueryable<TEntity> queryable,
         Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
@@ -865,12 +940,50 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         where TEntity : class
         where TViewModel : class
     {
-        var resultModel = await GetCollectionResultModelAsync<TEntity, TViewModel>(
+        return _GetCollectionResultModelAsync<TEntity, TViewModel>(
             requestModel,
             queryable,
+            [.. defaultOrderBy],
             resultQueryableFunc,
-            cancellationToken,
-            defaultOrderBy
+            cancellationToken
+        );
+    }
+
+
+    public virtual Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(
+        ICollectionRequestModel requestModel,
+        IQueryable<TEntity> queryable,
+        Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+        CancellationToken cancellationToken = default
+    )
+        where TEntity : class
+        where TViewModel : class
+    {
+        return _GetCollectionResultModelAsync<TEntity, TViewModel>(
+            requestModel,
+            queryable,
+            new List<(Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)>(),
+            resultQueryableFunc,
+            cancellationToken
+        );
+    }
+
+    protected async Task<SimpleCollectionResultModel<TViewModel>> _GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
+        ICollectionRequestModel requestModel,
+        IQueryable<TEntity> queryable,
+        List<(Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)> defaultOrderBy,
+        Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+        CancellationToken cancellationToken = default
+        )
+        where TEntity : class
+        where TViewModel : class
+    {
+        var resultModel = await _GetCollectionResultModelAsync<TEntity, TViewModel>(
+            requestModel,
+            queryable,
+            defaultOrderBy,
+            resultQueryableFunc,
+            cancellationToken
         );
 
         return new SimpleCollectionResultModel<TViewModel>
@@ -881,6 +994,42 @@ public partial class CollectionProcessingService : ICollectionProcessingService
             ResultCount = resultModel.ResultCount,
             Items = resultModel.Items
         };
+    }
+
+    public virtual Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
+        ICollectionRequestModel requestModel,
+        IQueryable<TEntity> queryable,
+        Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+        CancellationToken cancellationToken = default,
+        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TEntity : class
+        where TViewModel : class
+    {
+        return _GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
+            requestModel,
+            queryable,
+            [.. defaultOrderBy],
+            resultQueryableFunc,
+            cancellationToken
+        );
+    }
+
+    public virtual Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
+        ICollectionRequestModel requestModel,
+        IQueryable<TEntity> queryable,
+        Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+        CancellationToken cancellationToken = default
+    )
+        where TEntity : class
+        where TViewModel : class
+    {
+        return _GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
+            requestModel,
+            queryable,
+            new List<(Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)>(),
+            resultQueryableFunc,
+            cancellationToken
+        );
     }
 
     #region Helpers
