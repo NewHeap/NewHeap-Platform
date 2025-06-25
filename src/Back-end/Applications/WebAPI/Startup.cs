@@ -185,7 +185,9 @@ public class Startup
             })
             .ConfigureEmailNotificationSettings(x =>
             {
-                x.AllowDefaultFromAddress = false;
+                x.AllowDefaultFromAddress = true;
+                x.DefaultFromAddress = "info@newheap.com";
+                x.DefaultFromName = "NewHeap";
             })
             ;
 

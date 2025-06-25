@@ -34,6 +34,10 @@ public partial class NhEmailDeliveryData
 public class NhEmailNotificationSettings
 {
     public bool AllowDefaultFromAddress { get; set; }
+
+    public string? DefaultFromAddress { get; set; }
+
+    public string? DefaultFromName { get; set; }
 }
 
 public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispatcher<NhEmailDeliveryData>
@@ -95,6 +99,18 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
                 taskResult.AddError(nameof(deliveryData.FromEmail), _localizer["Invalid 'From' email address."]);
             }
         }
+        else if (
+            _settings.Value.AllowDefaultFromAddress
+            && string.IsNullOrWhiteSpace(deliveryData?.FromEmail)
+            &&
+            (
+                string.IsNullOrWhiteSpace(_settings.Value.DefaultFromAddress)
+                || !MailAddress.TryCreate(_settings.Value.DefaultFromAddress, out _)
+            )
+        )
+        {
+            taskResult.AddError(nameof(deliveryData.FromEmail), _localizer["Default 'From' email address is invalid."]);
+        }
 
         if (!_settings.Value.AllowDefaultFromAddress && string.IsNullOrWhiteSpace(deliveryData?.FromDisplayName))
         {
@@ -127,6 +143,14 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
             if (!string.IsNullOrWhiteSpace(deliveryData!.FromEmail))
             {
                 mailMessage.From = new MailAddress(deliveryData!.FromEmail, deliveryData.FromDisplayName);
+            }
+
+            if (mailMessage.From == null)
+            {
+                var displayName = string.IsNullOrWhiteSpace(_settings.Value.DefaultFromName)
+                    ? _settings.Value.DefaultFromAddress
+                    : _settings.Value.DefaultFromName;
+                mailMessage.From = new MailAddress(_settings.Value.DefaultFromAddress!, displayName);
             }
 
             mailMessage.Subject = deliveryData.Subject;
