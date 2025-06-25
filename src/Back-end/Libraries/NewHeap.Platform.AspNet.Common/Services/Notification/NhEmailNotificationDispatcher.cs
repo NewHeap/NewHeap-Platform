@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.Common.Models;
@@ -8,8 +9,9 @@ using NewHeap.Platform.Common.Services;
 using System.Net.Mail;
 
 namespace NewHeap.Platform.AspNet.Common.Services.Notification;
+
 public partial class NhEmailDeliveryData
-{ 
+{
     public partial class Attachment
     {
         public string FileName { get; set; } = string.Empty;
@@ -29,26 +31,35 @@ public partial class NhEmailDeliveryData
     public List<Attachment> Attachments { get; set; } = new List<Attachment>();
 }
 
+public class NhEmailNotificationSettings
+{
+    public bool AllowDefaultFromAddress { get; set; }
+}
+
 public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispatcher<NhEmailDeliveryData>
 {
     public const string DispatcherIdValue = "EmailDispatcher";
     public override string DispatcherId => DispatcherIdValue;
 
+    private readonly IOptions<NhEmailNotificationSettings> _settings;
     protected readonly NhMailService _mailService;
 
     public NhEmailNotificationDispatcher(
-        IRepository<NhNotification> repository, 
-        IStringLocalizer<NhEmailNotificationDispatcher> localizer, 
-        INhDbLogService dbLogService, 
-        LogHelperService logHelperService, 
-        ValidationService validationService, 
+        IOptions<NhEmailNotificationSettings> settings,
+        IRepository<NhNotification> repository,
+        IStringLocalizer<NhEmailNotificationDispatcher> localizer,
+        INhDbLogService dbLogService,
+        LogHelperService logHelperService,
+        ValidationService validationService,
         IMapper mapper,
         ILogger<NhEmailNotificationDispatcher> logger,
         NhMailService mailService
-        ) 
+    )
         : base(repository, localizer, dbLogService, logHelperService, validationService, mapper, logger)
     {
-        _mailService = mailService ?? throw new ArgumentNullException(nameof(mailService), "Mail service cannot be null.");
+        _settings = settings;
+        _mailService = mailService ??
+                       throw new ArgumentNullException(nameof(mailService), "Mail service cannot be null.");
     }
 
     protected TaskResult Validate(NhEmailDeliveryData? deliveryData)
@@ -76,21 +87,27 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
             taskResult.AddError(nameof(deliveryData.To), _localizer["At least one recipient is required."]);
         }
 
-        if (string.IsNullOrWhiteSpace(deliveryData?.FromEmail) || !MailAddress.TryCreate(deliveryData.FromEmail, out _))
+        if (!_settings.Value.AllowDefaultFromAddress || !string.IsNullOrWhiteSpace(deliveryData?.FromEmail))
         {
-            taskResult.AddError(nameof(deliveryData.FromEmail), _localizer["Invalid 'From' email address."]);
+            if (string.IsNullOrWhiteSpace(deliveryData?.FromEmail) ||
+                !MailAddress.TryCreate(deliveryData.FromEmail, out _))
+            {
+                taskResult.AddError(nameof(deliveryData.FromEmail), _localizer["Invalid 'From' email address."]);
+            }
         }
 
-        if (string.IsNullOrWhiteSpace(deliveryData?.FromDisplayName))
+        if (!_settings.Value.AllowDefaultFromAddress && string.IsNullOrWhiteSpace(deliveryData?.FromDisplayName))
         {
-            taskResult.AddError(nameof(deliveryData.FromDisplayName), _localizer["'From' display name cannot be empty."]);
+            taskResult.AddError(nameof(deliveryData.FromDisplayName),
+                _localizer["'From' display name cannot be empty."]);
         }
 
         return taskResult;
     }
 
-    protected async override Task<TaskResult> DoDispatchAsync(NhEmailDeliveryData? deliveryData, CancellationToken cancellationToken = default)
-    { 
+    protected async override Task<TaskResult> DoDispatchAsync(NhEmailDeliveryData? deliveryData,
+        CancellationToken cancellationToken = default)
+    {
         var taskResult = new TaskResult();
 
         var validateResult = Validate(deliveryData);
@@ -101,38 +118,45 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
             return taskResult;
         }
 
+        var disposables = new List<IDisposable>();
+
         try
         {
             var mailMessage = new MailMessage();
 
-            mailMessage.From = new MailAddress(deliveryData!.FromEmail, deliveryData.FromDisplayName);
+            if (!string.IsNullOrWhiteSpace(deliveryData!.FromEmail))
+            {
+                mailMessage.From = new MailAddress(deliveryData!.FromEmail, deliveryData.FromDisplayName);
+            }
+
             mailMessage.Subject = deliveryData.Subject;
             mailMessage.Body = deliveryData.Body;
             mailMessage.IsBodyHtml = deliveryData.IsBodyHtml;
 
-            foreach (var to in deliveryData.To) 
+            foreach (var to in deliveryData.To)
             {
-                mailMessage.To.Add(new MailAddress(to)); 
+                mailMessage.To.Add(new MailAddress(to));
             }
 
-            foreach (var cc in deliveryData.CC) 
-            { 
+            foreach (var cc in deliveryData.CC)
+            {
                 mailMessage.CC.Add(new MailAddress(cc));
             }
 
-            foreach (var bcc in deliveryData.BCC) 
-            { 
+            foreach (var bcc in deliveryData.BCC)
+            {
                 mailMessage.Bcc.Add(new MailAddress(bcc));
             }
 
             foreach (var attachment in deliveryData.Attachments)
             {
-                //if (attachment.Content != null && attachment.Content.Length > 0)
-                //{
-                // This was suggest by ai but we want to ensure that the memory stream is disposed properly, so we will not use it directly here.
-                //    var mailAttachment = new Attachment(new MemoryStream(attachment.Content), attachment.FileName, attachment.ContentType);
-                //    mailMessage.Attachments.Add(mailAttachment);
-                //}
+                if (attachment.Content != null && attachment.Content.Length > 0)
+                {
+                    var mailAttachment = new Attachment(new MemoryStream(attachment.Content), attachment.FileName,
+                        attachment.ContentType);
+                    disposables.Add(mailAttachment); // Collect to be disposed after sending
+                    mailMessage.Attachments.Add(mailAttachment);
+                }
             }
 
             await _mailService.SendAsync(mailMessage, cancellationToken: cancellationToken);
@@ -141,6 +165,20 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
         {
             taskResult.AddError("DispatchError", _localizer["Failed to dispatch email notification."]);
             _logger.LogError(ex, "Failed to dispatch email notification.");
+        }
+        finally
+        {
+            foreach (var disposable in disposables)
+            {
+                try
+                {
+                    disposable.Dispose();
+                }
+                catch
+                {
+                    // F in chat
+                }
+            }
         }
 
         return taskResult;

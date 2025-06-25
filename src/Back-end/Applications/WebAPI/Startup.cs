@@ -183,6 +183,10 @@ public class Startup
                 x.ProcessingCleanupInterval = TimeSpan.FromHours(1);
                 x.ProcessingLockTimeout = TimeSpan.FromMinutes(1);
             })
+            .ConfigureEmailNotificationSettings(x =>
+            {
+                x.AllowDefaultFromAddress = false;
+            })
             ;
 
         services.AddScopedNhDbRepository<Address>(); 

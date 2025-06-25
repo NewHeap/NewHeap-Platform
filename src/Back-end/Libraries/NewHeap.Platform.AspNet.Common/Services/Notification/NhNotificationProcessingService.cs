@@ -23,6 +23,7 @@ public class NhNotificationSettings
     public int ProcessingMaxRetryAttempts { get; set; } = 3;
     public TimeSpan ProcessingCleanupInterval { get; set; } = TimeSpan.FromHours(1);
     public TimeSpan ProcessingRetentionPeriod { get; set; } = TimeSpan.FromDays(30);
+
 }
 
 internal class NhNotificationProcessingService : BackgroundService

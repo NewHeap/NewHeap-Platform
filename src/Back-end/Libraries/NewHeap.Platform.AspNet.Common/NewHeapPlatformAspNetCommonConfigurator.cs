@@ -40,33 +40,37 @@ using static NewHeap.Platform.AspNet.Common.Models.JsonQueryModelBinder;
 namespace NewHeap.Platform.AspNet.Common;
 
 public partial class NewHeapPlatformAspNetCommonConfigurator<
-        TUser,
-        TUserRole,
-        TDivision,
-        TDivisionUser,
-        TDivisionRole,
-        TDivisionUserRole,
-        TDivisionRoleClaim,
-        TLog,
-        TLogMessageArgument,
-        TLogFile,
-        TLogMessageTranslated,
-        TDbLogService,
-        TDbContext,
-        TUserManager,
-        TDivisionService,
-        TDivisionMutateModel,
-        TDivisionUserService,
-        TDivisionUserMutateModel
-    >
-    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>, new()
+    TUser,
+    TUserRole,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim,
+    TLog,
+    TLogMessageArgument,
+    TLogFile,
+    TLogMessageTranslated,
+    TDbLogService,
+    TDbContext,
+    TUserManager,
+    TDivisionService,
+    TDivisionMutateModel,
+    TDivisionUserService,
+    TDivisionUserMutateModel
+> : INewHeapPlatformAspNetCommonConfigurator<TUser, TUserRole, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TLog, TLogMessageArgument, TLogFile, TLogMessageTranslated, TDbLogService, TDbContext, TUserManager, TDivisionService, TDivisionMutateModel, TDivisionUserService, TDivisionUserMutateModel>, INewHeapNotificationConfigurator<TUser, TUserRole, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TLog, TLogMessageArgument, TLogFile, TLogMessageTranslated, TDbLogService, TDbContext, TUserManager, TDivisionService, TDivisionMutateModel, TDivisionUserService, TDivisionUserMutateModel> where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>, new()
     where TUserRole : NhUserRole, new()
-    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>, new()
-    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>, new()
-    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>, new()
-    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>, new()
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>,
+    new()
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision,
+        TUser>, new()
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision,
+        TUser>, new()
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole,
+        TDivision, TUser>, new()
     where TDivisionRoleClaim : NhDivisionRoleClaim, new()
-    where TLog : NhLog<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>, new()
+    where TLog : NhLog<TUser, TLogMessageArgument, TLogMessageTranslated, TLogFile, TDivision, TDivisionUser,
+        TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>, new()
     where TLogMessageArgument : NhLogMessageArgument, new()
     where TLogFile : NhLogFile, new()
     where TLogMessageTranslated : NhLogMessageTranslated, new()
@@ -96,9 +100,11 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         TLogMessageTranslated
     >
     where TUserManager : class, INhUserManager<TUser>
-    where TDivisionService : NhDivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>
+    where TDivisionService : NhDivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole,
+        TDivisionRoleClaim, TDivisionMutateModel>
     where TDivisionMutateModel : NhDivisionMutateModel
-    where TDivisionUserService : NhDivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>
+    where TDivisionUserService : NhDivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole
+        , TDivisionRoleClaim, TDivisionUserMutateModel>
     where TDivisionUserMutateModel : NhDivisionUserMutateModel
 {
     private bool IdentityEntityFrameworkConfigured = false;
@@ -134,8 +140,10 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection.AddHealthChecks();
 
         #region Services
+
         _serviceCollection.AddScoped<RazorViewService>();
         _serviceCollection.AddSingleton<IHttpCollectionProcessingService, HttpCollectionProcessingService>();
+
         #endregion
     }
 
@@ -189,7 +197,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             {
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             })
-        ;
+            ;
 
         _serviceCollection.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
         {
@@ -199,9 +207,12 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection.AddScoped<ExceptionHandlerService>();
 
         _serviceCollection.AddMvcCore();
-        _serviceCollection.AddControllers(options => {
-            var workerProvider = options.ModelBinderProviders.First(p => p.GetType() == typeof(ComplexObjectModelBinderProvider));
-            options.ModelBinderProviders.Insert(options.ModelBinderProviders.IndexOf(workerProvider), new JsonQueryModelBinderProvider());
+        _serviceCollection.AddControllers(options =>
+        {
+            var workerProvider =
+                options.ModelBinderProviders.First(p => p.GetType() == typeof(ComplexObjectModelBinderProvider));
+            options.ModelBinderProviders.Insert(options.ModelBinderProviders.IndexOf(workerProvider),
+                new JsonQueryModelBinderProvider());
         });
 
         _serviceCollection.AddCors(options =>
@@ -295,12 +306,12 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         {
             ValidateLifetime = true, ClockSkew = TimeSpan.Zero
         };
-        
+
         _options.JwtBearerOptionsTokenValidationParametersAction.Invoke(tokenValidationParams);
-        
+
         _serviceCollection.AddSingleton(tokenValidationParams);
-        
-        
+
+
         _serviceCollection.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -338,7 +349,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
                     return Task.CompletedTask;
                 }
             };
-            
         });
 
         #endregion
@@ -363,60 +373,64 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         });
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<
-                TUser,
-                TUserRole,
-                TDivision,
-                TDivisionUser,
-                TDivisionRole,
-                TDivisionUserRole,
-                TDivisionRoleClaim,
-                TLog,
-                TLogMessageArgument,
-                TLogFile,
-                TLogMessageTranslated,
-                TDbLogService,
-                TDbContext,
-                TUserManager,
-                TDivisionService,
-                TDivisionMutateModel,
-                TDivisionUserService,
-                TDivisionUserMutateModel
-            > 
-        AddAuthentication<TUserViewModel, TDivisionViewModel, TClaimViewModel>(Action<NhAuthenticationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel, TDivisionViewModel, TClaimViewModel>>? configure = null)
+    public INewHeapPlatformAspNetCommonConfigurator<
+            TUser,
+            TUserRole,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim,
+            TLog,
+            TLogMessageArgument,
+            TLogFile,
+            TLogMessageTranslated,
+            TDbLogService,
+            TDbContext,
+            TUserManager,
+            TDivisionService,
+            TDivisionMutateModel,
+            TDivisionUserService,
+            TDivisionUserMutateModel
+        >
+        AddAuthentication<TUserViewModel, TDivisionViewModel, TClaimViewModel>(
+            Action<NhAuthenticationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole,
+                TDivisionRoleClaim, TUserViewModel, TDivisionViewModel, TClaimViewModel>>? configure = null)
         where TUserViewModel : NhUserViewModel<TDivisionViewModel>
         where TDivisionViewModel : NhDivisionViewModel
         where TClaimViewModel : NhClaimViewModel
     {
-        var builder = new NhAuthenticationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel, TDivisionViewModel, TClaimViewModel>();
+        var builder =
+            new NhAuthenticationBuilder<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole,
+                TDivisionRoleClaim, TUserViewModel, TDivisionViewModel, TClaimViewModel>();
         configure?.Invoke(builder);
-        
+
         builder.Build(_serviceCollection);
         return this;
     }
-    
-    public NewHeapPlatformAspNetCommonConfigurator<
-                TUser,
-                TUserRole,
-                TDivision,
-                TDivisionUser,
-                TDivisionRole,
-                TDivisionUserRole,
-                TDivisionRoleClaim,
-                TLog,
-                TLogMessageArgument,
-                TLogFile,
-                TLogMessageTranslated,
-                TDbLogService,
-                TDbContext,
-                TUserManager,
-                TDivisionService,
-                TDivisionMutateModel,
-                TDivisionUserService,
-                TDivisionUserMutateModel
-            >
+
+    public INewHeapPlatformAspNetCommonConfigurator<
+            TUser,
+            TUserRole,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim,
+            TLog,
+            TLogMessageArgument,
+            TLogFile,
+            TLogMessageTranslated,
+            TDbLogService,
+            TDbContext,
+            TUserManager,
+            TDivisionService,
+            TDivisionMutateModel,
+            TDivisionUserService,
+            TDivisionUserMutateModel
+        >
         ConfigureCommon(
-        Action<NewHeapPlatformCommonConfigurator> action)
+            Action<NewHeapPlatformCommonConfigurator> action)
     {
         if (action == null)
         {
@@ -431,6 +445,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
     public static void ConfigureWithIdentityEntityFramework(IServiceCollection serviceCollection)
     {
         #region Repositories
+
         serviceCollection.AddScopedNhDbRepository<TUser>();
         serviceCollection.AddScopedNhDbRepository<TUserRole>();
         serviceCollection.AddScopedNhDbRepository<TDivision>();
@@ -446,6 +461,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         serviceCollection.AddScopedNhDbRepository<NhNotificationDelivery>();
         serviceCollection.AddScopedNhDbRepository<NhUserNotification>();
         serviceCollection.AddScopedNhDbRepository<NhUserNotificationMessage>();
+
         #endregion
 
         serviceCollection.AddScoped<TUserManager, TUserManager>();
@@ -465,7 +481,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         serviceCollection.AddScoped<TDivisionUserService>();
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<
+    public INewHeapPlatformAspNetCommonConfigurator<
             TUser,
             TUserRole,
             TDivision,
@@ -487,7 +503,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         >
         WithIdentityEntityFramework(Action<DbContextOptionsBuilder> dbOptionsAction)
     {
-        if(IdentityEntityFrameworkConfigured)
+        if (IdentityEntityFrameworkConfigured)
         {
             throw new InvalidOperationException("EntityFramework has already been configured.");
         }
@@ -541,28 +557,28 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<
-                TUser,
-                TUserRole,
-                TDivision,
-                TDivisionUser,
-                TDivisionRole,
-                TDivisionUserRole,
-                TDivisionRoleClaim,
-                TLog,
-                TLogMessageArgument,
-                TLogFile,
-                TLogMessageTranslated,
-                TDbLogService,
-                TDbContext,
-                TUserManager,
-                TDivisionService,
-                TDivisionMutateModel,
-                TDivisionUserService,
-                TDivisionUserMutateModel
-            >
+    public INewHeapPlatformAspNetCommonConfigurator<
+            TUser,
+            TUserRole,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim,
+            TLog,
+            TLogMessageArgument,
+            TLogFile,
+            TLogMessageTranslated,
+            TDbLogService,
+            TDbContext,
+            TUserManager,
+            TDivisionService,
+            TDivisionMutateModel,
+            TDivisionUserService,
+            TDivisionUserMutateModel
+        >
         WithIdentity(
-        Action<IdentityOptions>? identityOptionsAction = null)
+            Action<IdentityOptions>? identityOptionsAction = null)
     {
         _serviceCollection.AddIdentity<TUser, TUserRole>()
             .AddEntityFrameworkStores<TDbContext>()
@@ -586,33 +602,35 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         };
 
         _serviceCollection.Configure(defaultIdentityOptionsAction);
-        _serviceCollection.AddSingleton<IAuthorizationHandler, ActiveDivisionAccessHandler<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>>();
+        _serviceCollection
+            .AddSingleton<IAuthorizationHandler, ActiveDivisionAccessHandler<TUser, TDivision, TDivisionUser,
+                TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>>();
 
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<
-                TUser,
-                TUserRole,
-                TDivision,
-                TDivisionUser,
-                TDivisionRole,
-                TDivisionUserRole,
-                TDivisionRoleClaim,
-                TLog,
-                TLogMessageArgument,
-                TLogFile,
-                TLogMessageTranslated,
-                TDbLogService,
-                TDbContext,
-                TUserManager,
-                TDivisionService,
-                TDivisionMutateModel,
-                TDivisionUserService,
-                TDivisionUserMutateModel
-            >
+    public INewHeapPlatformAspNetCommonConfigurator<
+            TUser,
+            TUserRole,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim,
+            TLog,
+            TLogMessageArgument,
+            TLogFile,
+            TLogMessageTranslated,
+            TDbLogService,
+            TDbContext,
+            TUserManager,
+            TDivisionService,
+            TDivisionMutateModel,
+            TDivisionUserService,
+            TDivisionUserMutateModel
+        >
         WithDbLogService(
-        Action<DbLogServiceSettings> settingsAction)
+            Action<DbLogServiceSettings> settingsAction)
     {
         _serviceCollection.Configure(settingsAction);
 
@@ -626,26 +644,26 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<
-                TUser,
-                TUserRole,
-                TDivision,
-                TDivisionUser,
-                TDivisionRole,
-                TDivisionUserRole,
-                TDivisionRoleClaim,
-                TLog,
-                TLogMessageArgument,
-                TLogFile,
-                TLogMessageTranslated,
-                TDbLogService,
-                TDbContext,
-                TUserManager,
-                TDivisionService,
-                TDivisionMutateModel,
-                TDivisionUserService,
-                TDivisionUserMutateModel
-            >
+    public INewHeapPlatformAspNetCommonConfigurator<
+            TUser,
+            TUserRole,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim,
+            TLog,
+            TLogMessageArgument,
+            TLogFile,
+            TLogMessageTranslated,
+            TDbLogService,
+            TDbContext,
+            TUserManager,
+            TDivisionService,
+            TDivisionMutateModel,
+            TDivisionUserService,
+            TDivisionUserMutateModel
+        >
         WithSignalR(Action<HubOptions>? hubOptionsAction = null)
     {
         _serviceCollection.AddSignalR(options =>
@@ -656,32 +674,32 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<
-                TUser,
-                TUserRole,
-                TDivision,
-                TDivisionUser,
-                TDivisionRole,
-                TDivisionUserRole,
-                TDivisionRoleClaim,
-                TLog,
-                TLogMessageArgument,
-                TLogFile,
-                TLogMessageTranslated,
-                TDbLogService,
-                TDbContext,
-                TUserManager,
-                TDivisionService,
-                TDivisionMutateModel,
-                TDivisionUserService,
-                TDivisionUserMutateModel
-            >
+    public INewHeapPlatformAspNetCommonConfigurator<
+            TUser,
+            TUserRole,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim,
+            TLog,
+            TLogMessageArgument,
+            TLogFile,
+            TLogMessageTranslated,
+            TDbLogService,
+            TDbContext,
+            TUserManager,
+            TDivisionService,
+            TDivisionMutateModel,
+            TDivisionUserService,
+            TDivisionUserMutateModel
+        >
         WithHangfire(
-        string nameOrConnectionString,
-        Action<IGlobalConfiguration>? hangfireOptionsAction = null,
-        Action<ConsoleOptions>? consoleOptionsAction = null,
-        Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null
-    )
+            string nameOrConnectionString,
+            Action<IGlobalConfiguration>? hangfireOptionsAction = null,
+            Action<ConsoleOptions>? consoleOptionsAction = null,
+            Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null
+        )
     {
         _serviceCollection.AddHangfire(options =>
         {
@@ -702,7 +720,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         return this;
     }
 
-    public NewHeapPlatformAspNetCommonConfigurator<
+    public INewHeapNotificationConfigurator<
         TUser,
         TUserRole,
         TDivision,
@@ -730,10 +748,21 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         //Default dispatchers
         _serviceCollection.AddScoped<INhNotificationDispatcher, NhEmailNotificationDispatcher>();
         _serviceCollection.AddScoped<INhNotificationDispatcher, NhUserNotificaitonNotificationDispatcher>();
+        _serviceCollection.Configure<NhEmailNotificationSettings>(x => { });
 
         // User notifications
         _serviceCollection.AddScoped<INhUserNotificationService, NhUserNotificationService>();
 
+        return this;
+    }
+
+    public INewHeapNotificationConfigurator<
+            TUser, TUserRole, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole,
+            TDivisionRoleClaim, TLog, TLogMessageArgument, TLogFile, TLogMessageTranslated, TDbLogService, TDbContext,
+            TUserManager, TDivisionService, TDivisionMutateModel, TDivisionUserService, TDivisionUserMutateModel>
+        ConfigureEmailNotificationSettings(Action<NhEmailNotificationSettings> configure)
+    {
+        _serviceCollection.Configure<NhEmailNotificationSettings>(configure);
         return this;
     }
 }
