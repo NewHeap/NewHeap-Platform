@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
@@ -122,6 +123,8 @@ public partial class NhNotificationService : INhNotificationService
     protected readonly ILogger _logger;
     protected readonly LogHelperService _logHelper;
     protected readonly ValidationService _validationService;
+    protected readonly NhNotificationSettings _settings;
+
 
     public NhNotificationService(
         IRepository<NhNotification> repository,
@@ -130,7 +133,8 @@ public partial class NhNotificationService : INhNotificationService
         LogHelperService logHelperService,
         ValidationService validationService,
         IMapper mapper,
-        ILogger<NhNotificationService> logger
+        ILogger<NhNotificationService> logger,
+        IOptions<NhNotificationSettings> settingsOptions
         )
     {
         _repository = repository;
@@ -140,6 +144,7 @@ public partial class NhNotificationService : INhNotificationService
         _logHelper = logHelperService;
         _validationService = validationService;
         _logger = logger;
+        _settings = settingsOptions.Value;
     }
 
     protected TaskResult Validate(NhNotification notification)
@@ -168,6 +173,7 @@ public partial class NhNotificationService : INhNotificationService
 
         notification.CreationDateTime = DateTimeOffset.UtcNow;
         notification.LastModifiedDateTime = DateTimeOffset.UtcNow;
+        notification.ProcessorKey = _settings.ProcessorKey;
 
         if (notification.Deliveries?.Any() == true)
         {
