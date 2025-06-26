@@ -212,6 +212,8 @@ internal class NhNotificationProcessingService : BackgroundService
                 }
                 else
                 {
+                    _logger.LogError($"Dispatch error in channel {dispatcherId}: [{string.Join("; ", taskResult.AllErrorMessages)}]");
+
                     if (delivery.AttemptCount >= _settings.ProcessingMaxRetryAttempts)
                     {
                         delivery.Status = NotificationDeliveryStatus.Failed;
@@ -231,7 +233,6 @@ internal class NhNotificationProcessingService : BackgroundService
             {
                 var dispatchResult = await dispatcher.DispatchAsync(delivery.Data, stoppingToken);
                 await handleResult(dispatchResult);
-               
             }
             catch (Exception ex)
             {
