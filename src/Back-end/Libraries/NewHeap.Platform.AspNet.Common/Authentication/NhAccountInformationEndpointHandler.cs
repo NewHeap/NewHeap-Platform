@@ -72,7 +72,7 @@ public class NhAccountInformationEndpointHandler<
     [EndpointName("Account information")]
     //[Produces<Ok<AccountResponse>]
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-    private async Task<IResult> ProcessRequest(
+    protected async Task<IResult> ProcessRequest(
         [FromServices] INhUserManager<TUser> userManager,
         [FromServices] IRepository<TDivision> divisionRepository,
         [FromServices] IMapper mapper
