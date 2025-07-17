@@ -14,6 +14,7 @@ public interface IMediaLibraryService
     Task<FileReference?> GetFile(string? path, string filename, string? language = null);
     Task<FileReference?> GetFile(Guid id);
     Task<Stream?> DownloadFile(string? path, string fileName);
+    Task<Stream?> DownloadFile(Guid id);
     Task<FolderContents> GetFolder(string? path, string? language = null);
     Task<bool> UpdateFile(string? path, string fileName, Stream file);
     Task<bool> UpdateFile(Guid id, FileModel model);
@@ -186,6 +187,17 @@ public class MediaLibraryService : IMediaLibraryService
     {
         await EnsureAuthorized(path, fileName, null, ActionType.Read);
         var fileRef = await _fileStructureStorage.GetFile(path, fileName, null);
+        if (fileRef == null)
+        {
+            return null;
+        }
+
+        return await _fileStorage.GetFile(fileRef.Id);
+    }
+
+    public async Task<Stream?> DownloadFile(Guid id)
+    {
+        var fileRef = await _fileStructureStorage.GetById(id);
         if (fileRef == null)
         {
             return null;
