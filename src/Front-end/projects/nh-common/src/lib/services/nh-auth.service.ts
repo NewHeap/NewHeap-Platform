@@ -351,10 +351,13 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     try {
       const informationResponse = await lastValueFrom(request$);
 
-      auth.claims = informationResponse.claims;
-      auth.user = informationResponse.user;
-      auth.divisions = informationResponse.divisions;
-      auth.activeDivision = informationResponse.activeDivision;
+      // Loop the informationResponse as object to set the properties on the auth object
+      for (const key in informationResponse) {
+        if (Object.prototype.hasOwnProperty.call(informationResponse, key)) {
+          // @ts-ignore
+          auth[key] = informationResponse[key];
+        }
+      }
 
       this.setAuthorization(auth);
 
