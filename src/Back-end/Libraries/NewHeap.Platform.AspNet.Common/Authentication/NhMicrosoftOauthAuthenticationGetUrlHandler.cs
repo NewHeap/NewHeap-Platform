@@ -90,31 +90,29 @@ where TUser : IdentityUser<Guid>
     [Tags("Authentication")]
     [EndpointName("Get Microsoft OAuth authorize")]
     [Produces<Results<Ok<UserToken>,BadRequest>>]
-    private async Task<IResult> ExecuteAsync([FromBody] MicrosoftAuthUrlMutateModel? request)
+    private async Task<IResult> ExecuteAsync([FromBody] MicrosoftAuthorizationRequest? request)
     {
-        var code = HttpContext!.Request.Query["code"];
-        var state = HttpContext.Request.Query["state"];
-        if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(state))
+        if (request == null)
+        {
+            return TypedResults.BadRequest();
+        }
+        
+        
+        if (string.IsNullOrEmpty(request.Code) || string.IsNullOrEmpty(request.State))
         {
             return BadRequest(TaskResult.Failed("Invalid request"));
         }
         
-        
         using var scope = _serviceProvider.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<INhUserManager<TUser>>();
-        
-        if (!userManager.IsOauthAccount(request.UserName!))
-        {
-            return TypedResults.Unauthorized();
-        }
         var microsoftAuthService = scope.ServiceProvider.GetRequiredService<MicrosoftAuthService>();
         
-
-        var token = await microsoftAuthService.GetToken(code!, state);
+        var token = await microsoftAuthService.GetToken(request.Code!, request.State);
         if (token == null)
         {
             return TypedResults.Unauthorized();
         }
+        
         var profile = await microsoftAuthService.GetProfile(token.AccessToken);
         var user = await userManager.FindByEmailAsync(profile!.Mail!);
         if (user == null)
@@ -122,7 +120,10 @@ where TUser : IdentityUser<Guid>
             return TypedResults.Unauthorized();
         }
         
-        
+        if (!userManager.IsOauthAccount(user.UserName!))
+        {
+            return TypedResults.Unauthorized();
+        }
 
         if (await userManager.IsBlockedAsync(user))
         {
@@ -140,6 +141,11 @@ where TUser : IdentityUser<Guid>
     }
 }
 
+public class MicrosoftAuthorizationRequest
+{
+    public string Code { get; set; } = null!;
+    public string State { get; set; } = null!;
+}
 
 public class MicrosoftAuthUrlMutateModel
 {

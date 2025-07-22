@@ -1,7 +1,7 @@
 import {inject, Injectable, NgZone, OnDestroy, PLATFORM_ID, REQUEST_CONTEXT} from '@angular/core';
 import {BehaviorSubject, lastValueFrom} from 'rxjs';
 import {
-  AuthenticateModel,
+  AuthenticateModel, AuthenticationFlow,
   AuthenticationSessionCreateResponse,
   AuthSessionExpirationInformation,
   Claim,
@@ -20,12 +20,13 @@ import {HttpClient, HttpHeaders, HttpParams} from '@angular/common/http';
 import {NhCommonModuleConfig} from "../models/config.models";
 import {NhApiUtil} from "../util/nh-api-util";
 import {isPlatformServer} from "@angular/common";
+import {Token} from "@angular/compiler";
 
 @Injectable()
 export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization> implements OnDestroy {
-  protected authorization: TAuthorization|undefined = undefined;
-  protected authSession: AuthenticationSessionCreateResponse|undefined = undefined;
-  public readonly authSubject = new BehaviorSubject<TAuthorization|undefined>(this.getAuthorization());
+  protected authorization: TAuthorization | undefined = undefined;
+  protected authSession: AuthenticationSessionCreateResponse | undefined = undefined;
+  public readonly authSubject = new BehaviorSubject<TAuthorization | undefined>(this.getAuthorization());
   protected onReady: ((value: (PromiseLike<unknown> | unknown)) => void) | undefined;
   public readonly authReady: Promise<unknown>;
 
@@ -44,7 +45,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
       this.onReady = resolve;
     });
 
-    if(!isPlatformServer(this.platformId)) {
+    if (!isPlatformServer(this.platformId)) {
       this.intervalHandle = setInterval(() => {
         this.zone.run(() => {
           this.dispatchSessionExpirationInformationChanged();
@@ -59,7 +60,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
   }
 
   ngOnDestroy() {
-    if(this.intervalHandle) {
+    if (this.intervalHandle) {
       clearInterval(this.intervalHandle);
     }
   }
@@ -68,7 +69,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     let types = new Array<string>();
     types.push(ClaimTypes.Permission);
 
-    for(const type of this.moduleConfig?.authentication?.additionalClaimPermissionTypes ?? []) {
+    for (const type of this.moduleConfig?.authentication?.additionalClaimPermissionTypes ?? []) {
       types.push(type);
     }
 
@@ -79,7 +80,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     let types = new Array<string>();
     types.push(ClaimTypes.DivisionPermission);
 
-    for(const type of this.moduleConfig?.authentication?.additionalDivisionClaimPermissionTypes ?? []) {
+    for (const type of this.moduleConfig?.authentication?.additionalDivisionClaimPermissionTypes ?? []) {
       types.push(type);
     }
 
@@ -91,14 +92,14 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
       isAuthenticated: this.isAuthenticated()
     });
 
-    if(result.isAuthenticated) {
+    if (result.isAuthenticated) {
       const auth = this.getAuthorization()!;
       const nowDate = DateTime.utc();
       const authDate = DateTime.fromISO(auth.validTo ?? '').toUTC();
       const duration = authDate.diff(nowDate);
 
       result.expiresWithin15MinutesOrExpired = duration.minutes <= 15;
-      if(duration.seconds >= 0) {
+      if (duration.seconds >= 0) {
         result.displayMinutesSecondsUntilExpiration = `${(duration.minutes < 10 && duration.minutes >= 0) ? '0' : ''}${duration.minutes}:${(duration.seconds < 10 && duration.seconds >= 0) ? '0' : ''}${duration.seconds}`;
       } else {
         result.displayMinutesSecondsUntilExpiration = `00:00`;
@@ -115,10 +116,11 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     if (this.isAuthenticated()) {
       try {
         localStorage.removeItem('at');
-      }finally {}
+      } finally {
+      }
 
       this.authorization = undefined;
-      if(doDispatchEvent) {
+      if (doDispatchEvent) {
         this.authSubject.next(this.authorization);
       }
       this.dispatchSessionExpirationInformationChanged();
@@ -128,7 +130,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
   public setAuthorization(auth: TAuthorization, noEvent = false): void {
     localStorage.setItem('at', btoa(JSON.stringify(auth)));
     this.authorization = auth;
-    if(!noEvent) {
+    if (!noEvent) {
       this.authSubject.next(this.authorization);
     }
     this.dispatchSessionExpirationInformationChanged();
@@ -136,7 +138,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
 
   protected abstract initEmptyAuthorization(): TAuthorization;
 
-  public getAuthorization(fromCache: boolean = true): TAuthorization|undefined {
+  public getAuthorization(fromCache: boolean = true): TAuthorization | undefined {
     let auth: TAuthorization = this.initEmptyAuthorization();
 
     try {
@@ -162,23 +164,23 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     return this.isAuthenticated() && !!this.getAuthorization()?.claims?.find(x => x.type === ClaimTypes.ImpersonateOriginUserId);
   }
 
-  public getActiveDivision(): NhDivision|null {
-    let division: NhDivision|null = null;
+  public getActiveDivision(): NhDivision | null {
+    let division: NhDivision | null = null;
 
     const auth = this.getAuthorization();
 
-    if(auth && auth.user && auth.activeDivision) {
+    if (auth && auth.user && auth.activeDivision) {
       division = auth.activeDivision;
     }
 
     return division;
   }
 
-  public getActiveDivisionId(): string|undefined {
-    let divisionId: string|undefined = undefined;
+  public getActiveDivisionId(): string | undefined {
+    let divisionId: string | undefined = undefined;
     const auth = this.getAuthorization();
 
-    if((auth?.user?.activeDivisionId?.length ?? 0) > 0) {
+    if ((auth?.user?.activeDivisionId?.length ?? 0) > 0) {
       divisionId = auth!.user!.activeDivisionId;
     }
 
@@ -230,7 +232,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     }
 
     for (const permission of permissions) {
-      for(const claimType of this.getAllPermissionClaimTypes()) {
+      for (const claimType of this.getAllPermissionClaimTypes()) {
         if (this.isClaimGranted(<Claim>{type: claimType, value: permission})) {
           return true;
         }
@@ -254,13 +256,13 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     return false;
   }
 
-  public isOneDivisionPermissionGranted(divisionId: string|undefined, permissions: Array<string>) {
+  public isOneDivisionPermissionGranted(divisionId: string | undefined, permissions: Array<string>) {
     if (!permissions || permissions.length < 1) {
       return true;
     }
 
     for (const permission of permissions) {
-      for(const claimType of this.getAllDivisionPermissionClaimTypes()) {
+      for (const claimType of this.getAllDivisionPermissionClaimTypes()) {
         if (this.isClaimGranted(<Claim>{type: claimType, value: (divisionId ?? '') + '_' + permission})) {
           return true;
         }
@@ -270,7 +272,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     return false;
   }
 
-  public isOneDivisionRoleGranted(divisionId: string|undefined, roles: Array<string>) {
+  public isOneDivisionRoleGranted(divisionId: string | undefined, roles: Array<string>) {
     if (!roles || roles.length < 1) {
       return true;
     }
@@ -290,6 +292,31 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
 
   public isOneActiveDivisionRoleGranted(roles: Array<string>) {
     return this.isOneDivisionRoleGranted(this.getActiveDivisionId(), roles);
+  }
+
+  public getAuthenticationFlow(username: string): Promise<TaskResult<AuthenticationFlow>> {
+    const model = {username: username};
+    return this.httpClient.post<AuthenticationFlow>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.authorizationFlow, model, {
+      withCredentials: true
+    }).taskResultLastValueFrom();
+  }
+
+  public getMicrosoftRedirectUrl(callbackUrl: string, username: string): Promise<TaskResult<string>> {
+    return this.httpClient.post<string>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.msRedirectUrl, {
+      callbackUrl: callbackUrl,
+      userName: username
+    }, {
+      withCredentials: true
+    }).taskResultLastValueFrom();
+  }
+
+  public authorizeMicrosoft(code: string, state: string): Promise<TaskResult<TAuthorization>> {
+    return this.httpClient.post<TAuthorization>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.msAuthenticate, {
+      code: code,
+      state: state,
+    }, {
+      withCredentials: true
+    }).taskResultLastValueFrom();
   }
 
   async authenticate(model: AuthenticateModel, loginAsUser: boolean = false): Promise<TaskResult<TAuthorization>> {
@@ -315,7 +342,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
 
       this.setAuthorization(result.data);
     } catch (ex) {
-      if(this.isAuthenticated()) {
+      if (this.isAuthenticated()) {
         this.clearAuthorization();
       }
 
@@ -330,7 +357,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     const result = new TaskResult<TAuthorization>();
 
     const auth = this.getAuthorization();
-    if(!auth) {
+    if (!auth) {
       return result.withError('', 'Not authenticated.');
     }
 
@@ -363,7 +390,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
 
       result.data = this.getAuthorization();
     } catch (ex) {
-      if(this.isAuthenticated()) {
+      if (this.isAuthenticated()) {
         this.clearAuthorization();
       }
 
@@ -414,7 +441,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
 
     try {
       result.data = await lastValueFrom(request$);
-      if(result.isSuccess) {
+      if (result.isSuccess) {
         this.setAuthorization(result.data);
       }
     } catch (ex) {
@@ -440,7 +467,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
 
     try {
       result.data = await lastValueFrom(request$);
-      if(result.isSuccess) {
+      if (result.isSuccess) {
         this.setAuthorization(result.data);
         await this.reloadAuthorizationProfile();
       }
@@ -467,7 +494,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
 
     try {
       result.data = await lastValueFrom(request$);
-      if(result.isSuccess) {
+      if (result.isSuccess) {
         this.setAuthorization(result.data);
         await this.reloadAuthorizationProfile();
       }

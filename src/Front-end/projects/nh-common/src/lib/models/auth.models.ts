@@ -251,3 +251,5 @@ export class RevertImpersonateAuthenticateModel {
   }
 }
 
+export type AuthenticationFlow = 'password' | 'microsoft-oauth' | string;
+

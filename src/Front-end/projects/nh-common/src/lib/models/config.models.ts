@@ -1,5 +1,8 @@
 
 export class EndpointsAuthenticationNhCommonModuleConfig {
+  msAuthenticate: string = '/authentication/oath/microsoft/authorize';
+  msRedirectUrl: string = '/authentication/oath/microsoft';
+  authorizationFlow: string = '/authentication/method';
   login: string = '/authentication/login';
   logout: string = '/authentication/logout';
   refresh: string = '/authentication/refresh';
