@@ -131,6 +131,10 @@ export class NhApiService implements OnDestroy {
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
 
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
+
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
     //httpParams = this.setObjectParams(httpParams, requestOptions);
@@ -153,6 +157,10 @@ export class NhApiService implements OnDestroy {
     requestOptions = requestOptions || new CollectionHttpRequestOptions();
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
+
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
 
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
@@ -207,6 +215,10 @@ export class NhApiService implements OnDestroy {
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
 
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
+
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
     httpParams = httpParams.set('page', requestOptions.page);
@@ -228,6 +240,10 @@ export class NhApiService implements OnDestroy {
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
 
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
+
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
     //httpParams = this.setObjectParams(httpParams, requestOptions);
@@ -248,6 +264,10 @@ export class NhApiService implements OnDestroy {
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
 
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
+
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
     //httpParams = this.setObjectParams(httpParams, requestOptions);
@@ -267,6 +287,10 @@ export class NhApiService implements OnDestroy {
     requestOptions.withCredentials = true;
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
+
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
 
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
@@ -292,6 +316,10 @@ export class NhApiService implements OnDestroy {
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
 
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
+
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
     //httpParams = this.setObjectParams(httpParams, requestOptions);
@@ -313,6 +341,10 @@ export class NhApiService implements OnDestroy {
     requestOptions.withCredentials = true;
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
+
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
 
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
@@ -338,6 +370,10 @@ export class NhApiService implements OnDestroy {
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
 
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
+
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
     //httpParams = this.setObjectParams(httpParams, requestOptions);
@@ -361,6 +397,10 @@ export class NhApiService implements OnDestroy {
     requestOptions.withCredentials = true;
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
+
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
 
     headers = this.prepareHeaders(headers);
     httpParams = this.setCultureHttpParam(httpParams);
