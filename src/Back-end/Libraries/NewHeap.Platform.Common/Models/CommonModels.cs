@@ -3,6 +3,7 @@ using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Linq;
 using Microsoft.Extensions.Localization;
+using System.Diagnostics.CodeAnalysis;
 
 namespace NewHeap.Platform.Common.Models;
 
@@ -33,7 +34,7 @@ public partial class TaskResult
         public List<FormattableString> ErrorMessages { get; } = [];
     }
 
-    public bool Success { get; protected set; } = true;
+    public virtual bool Success { get; protected set; } = true;
 
     protected List<ResultItem> Results { get; } = [];
 
@@ -204,6 +205,9 @@ public partial class TaskResult
 
 public partial class TaskResult<T> : TaskResult
 {
+    [MemberNotNullWhen(true,nameof(Data))]
+    public override bool Success { get; protected set; } = true;
+
     public T? Data { get; set; }
 
     public TaskResult<T> AddError(Expression<Func<T, object>> selector, params string[] errorMessages)
