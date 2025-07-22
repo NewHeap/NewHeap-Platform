@@ -8,8 +8,8 @@ public class AuthenticationConfiguration
     public bool DivisionsEnabled { get; init; } = false;
     public bool ImpersonateEnabled { get; init; } = false;
 
-    public string? CookieName { get; init; }
-    public string? RefreshCookieName { get; init; }
+    public string? CookieName { get; init; } = "nh_access_token";
+    public string? RefreshCookieName { get; init; } = "nh_refresh_token";
     public string? RefreshTokenEndpoint { get; init; }
     public string? AuthenticationEndpoint { get; init; }
     public string? AccountInformationEndpoint { get; init; }

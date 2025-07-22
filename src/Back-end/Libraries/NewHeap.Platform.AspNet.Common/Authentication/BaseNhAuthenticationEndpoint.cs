@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.Builders;
+using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Models;
 using HttpMethod = NewHeap.Platform.AspNet.Common.Builders.HttpMethod;
@@ -35,6 +36,38 @@ public abstract class BaseNhAuthenticationEndpoint : IAuthenticationEndpoint, ID
         Handler = () => { };
     }
 
+    protected void WriteTokenToCookie(UserToken token)
+    {
+        var domain = new Uri(token.Issuer).Host;
+
+        HttpContext!.Response.Cookies.Append(Configuration.CookieName!, token.Token, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Expires = token.ValidTo,
+            Domain = domain,
+            IsEssential = true,
+        });
+
+        if (Configuration.RefreshTokenEnabled)
+        {
+            HttpContext.Response.Cookies.Append(Configuration.RefreshCookieName!, token.RefreshToken!, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTimeOffset.Now.AddDays(2),
+                Domain = domain,
+                IsEssential = true,
+            });
+        }
+        else
+        {
+            token.RefreshToken = null;
+        }
+    }
+    
     protected virtual INhAuthenticationService GetAuthService()
     {
         if (!string.IsNullOrEmpty(Configuration.AuthenticationServiceKey))

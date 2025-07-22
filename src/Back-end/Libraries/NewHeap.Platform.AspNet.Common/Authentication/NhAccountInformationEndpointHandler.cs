@@ -78,8 +78,6 @@ public class NhAccountInformationEndpointHandler<
         [FromServices] IMapper mapper
     )
     {
-        var test = new AccountResponse<TUserViewModel, TDivisionViewModel, TClaimViewModel>(); 
-
         var authenticationService = GetAuthService();
         
         var token = HttpContext!.Request.Headers.Authorization.ToString().Split(' ', 2)[1];
@@ -119,7 +117,8 @@ public class NhAccountInformationEndpointHandler<
         {
             await GetUserDivisions(userManager, divisionRepository, mapper, response, claims);
         }
-
+        
+        response.ValidTo = jwt.ValidTo;
         response.ActiveDivision = response.User.ActiveDivision;
         response.ActiveDivisionId = response.User.ActiveDivisionId;
         response.Roles = await userManager.GetRolesAsync(user)
@@ -183,4 +182,6 @@ public record AccountResponse<TUserViewModel, TDivisionViewModel, TClaimViewMode
     public Guid? ActiveDivisionId { get; set; }
     public TDivisionViewModel? ActiveDivision { get; set; }
     public List<string> Roles { get; set; } = new();
+
+    public DateTime ValidTo { get; set; }
 };

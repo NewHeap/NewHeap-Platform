@@ -106,6 +106,7 @@ where TUser : IdentityUser<Guid>
         var token = await microsoftAuthService.GetToken(request.Code!, request.State);
         if (token == null)
         {
+            return BadRequest(TaskResult.Failed("Failed to validate token"));
             return TypedResults.Unauthorized();
         }
         
@@ -113,11 +114,13 @@ where TUser : IdentityUser<Guid>
         var user = await userManager.FindByEmailAsync(profile!.Mail!);
         if (user == null)
         {
+            return BadRequest(TaskResult.Failed("Unknown user"));
             return TypedResults.Unauthorized();
         }
         
         if (!userManager.IsOauthAccount(user.UserName!))
         {
+            return BadRequest(TaskResult.Failed("Invalid login method"));
             return TypedResults.Unauthorized();
         }
 
@@ -127,13 +130,17 @@ where TUser : IdentityUser<Guid>
         }
 
         var authService = GetAuthService();
-        var tokenResult = await authService.LoginWithoutValidations(user.Id);
+        var tokenResult = await authService.LoginWithoutValidations(user.Id, true);
         if (!tokenResult.Success)
         {
             return BadRequest(tokenResult);
         }
         
-        return Ok(tokenResult.Data!);
+        WriteTokenToCookie(tokenResult.Data!);
+
+        var redirect = state.Split(';')[0];
+
+        return TypedResults.Redirect(redirect, preserveMethod:true);
     }
 }
 
