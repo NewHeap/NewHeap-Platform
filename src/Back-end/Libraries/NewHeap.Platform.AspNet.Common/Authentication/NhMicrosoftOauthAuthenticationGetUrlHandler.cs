@@ -82,7 +82,7 @@ where TUser : IdentityUser<Guid>
     ) : base(httpContextAccessor, "authentication/oath/microsoft/authorize", serviceProvider, configuration)
     {
         _serviceProvider = serviceProvider;
-        Method = HttpMethod.Post;
+        Method = HttpMethod.Get;
         Handler = ExecuteAsync;
     }
 
@@ -90,13 +90,9 @@ where TUser : IdentityUser<Guid>
     [Tags("Authentication")]
     [EndpointName("Get Microsoft OAuth authorize")]
     [Produces<Results<Ok<UserToken>,BadRequest>>]
-    private async Task<IResult> ExecuteAsync([FromBody] MicrosoftAuthorizationRequest? request)
+    private async Task<IResult> ExecuteAsync([FromQuery] string code, [FromQuery] string state)
     {
-        if (request == null)
-        {
-            return TypedResults.BadRequest();
-        }
-        
+        var request = new MicrosoftAuthorizationRequest { Code = code, State = state };
         
         if (string.IsNullOrEmpty(request.Code) || string.IsNullOrEmpty(request.State))
         {
