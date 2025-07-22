@@ -67,12 +67,4 @@ public class NewHeapPlatformCommonConfigurator
 
         return this;
     }
-
-    public NewHeapPlatformCommonConfigurator WithMicrosoftAuth(Action<MicrosoftAuthSettings> microsoftAuthSettings)
-    {
-        _serviceCollection.Configure(microsoftAuthSettings);
-        _serviceCollection.AddScoped<MicrosoftAuthService, MicrosoftAuthService>();
-
-        return this;
-    }
 }

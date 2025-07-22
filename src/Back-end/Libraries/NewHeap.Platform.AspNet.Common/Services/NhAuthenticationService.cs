@@ -311,6 +311,37 @@ public class NhAuthenticationService<
         );
     }
 
+    public virtual async Task<TaskResult<UserToken>> LoginWithoutValidations(Guid userId, bool iAmSureThatIKnowWhatImDoing = false)
+    {
+        if (!iAmSureThatIKnowWhatImDoing)
+        {
+            return TaskResult<UserToken>.Failed("No");
+        }
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+        {
+            return TaskResult<UserToken>.Failed("Unknown user");
+        }
+
+        user.RefreshToken = GenerateRefreshToken();
+        await _userManager.UpdateAsync(user);
+        
+        var claims = await GetClaimsAsync(userId);
+        var token = await CreateToken(
+            userId,
+            c: claims,
+            expiration: null
+        );
+        
+
+        return new UserToken(
+            new JwtSecurityTokenHandler().WriteToken(token),
+            token.ValidTo,
+            user.RefreshToken!,
+            token.Issuer
+        );
+    }
+    
     public virtual async Task<TaskResult<UserToken>> ImpersonateRevert(Guid impersonatedUserId, Guid originUserId)
     {
         var impersonatedUser = await _userManager.FindByIdAsync(impersonatedUserId.ToString());

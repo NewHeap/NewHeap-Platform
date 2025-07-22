@@ -129,7 +129,12 @@ public class Startup
             >(newHeapPlatformOptions)
             .AddAuthentication<NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>(options =>
             {
-                //options.WithAuthenticationService<MockAuthenticationService>();
+                options.AddMicrosoftOAuth(opt =>
+                {
+                    Configuration.GetSection($"{NewHeapCommonOptions.DefaultSettingsPrefix}:MicrosoftAuthSettings")
+                        .Bind(opt.Settings);
+                });
+                
                 options.AddUserNamePasswordAuthentication(authOptions =>
                 {
                     authOptions.EnableRefreshToken = true;
@@ -145,8 +150,6 @@ public class Startup
             {
                 commonConfig
                     .WithMail(x => Configuration.GetSection($"{NewHeapCommonOptions.DefaultSettingsPrefix}:MailServiceSettings").Bind(x))
-                    .WithMicrosoftAuth(x =>
-                        Configuration.GetSection($"{NewHeapCommonOptions.DefaultSettingsPrefix}:MicrosoftAuthSettings").Bind(x))
                     ;
             })
             .WithIdentityEntityFramework(x =>
@@ -232,6 +235,7 @@ public class Startup
             .UseNhAuthentication<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>(configure =>
             {
                 configure.AddUserNamePasswordEndpoint();
+                configure.AddMicrosoftOauthEndpoints();
                 // Remove account information endpoint if not needed
                 //configure.RemoveEndpoint<NhAccountInformationEndpointHandler<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim, NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>>();
             })

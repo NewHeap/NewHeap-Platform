@@ -49,6 +49,11 @@ public abstract class BaseNhAuthenticationEndpoint : IAuthenticationEndpoint, ID
         return TypedResults.BadRequest(result.GetResultItems().ToDictionary(x => x.Name, x => x.ErrorMessages.Select(error => error.ToString())));
     }
 
+    protected IResult Ok<T>(T result)
+    {
+        return TypedResults.Ok(result);
+    }
+
     public void Dispose()
     {
         _scope.Dispose();

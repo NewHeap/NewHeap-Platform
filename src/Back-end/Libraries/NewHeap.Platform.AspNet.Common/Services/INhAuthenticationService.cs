@@ -71,4 +71,5 @@ public interface INhAuthenticationService
     Task<TaskResult<UserToken>> ImpersonateRevert(Guid impersonatedUserId, Guid originUserId);
 
     ClaimsPrincipal? ValidateToken(string token, out SecurityToken validatedToken);
+    Task<TaskResult<UserToken>> LoginWithoutValidations(Guid userId, bool iAmSureThatIKnowWhatImDoing = false);
 }

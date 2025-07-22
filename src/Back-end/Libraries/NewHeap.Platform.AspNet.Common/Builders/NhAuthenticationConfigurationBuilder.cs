@@ -91,6 +91,24 @@ public class NhAuthenticationConfigurationBuilder<
         return this;
     }
 
+    public NhAuthenticationConfigurationBuilder<
+        TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TUserViewModel,
+        TDivisionViewModel,
+        TClaimViewModel
+    > AddMicrosoftOauthEndpoints()
+    {
+        UseAuthenticationEndpoint<NhLoginMethodHandler>();
+        UseAuthenticationEndpoint<NhMicrosoftOauthAuthenticationGetUrlHandler>();
+        UseAuthenticationEndpoint<NhMicrosoftOauthAuthenticationAuthorizeHandler<TUser>>();
+        return this;
+    }
+    
     /// <summary>
     /// Remove an endpoint
     /// </summary>

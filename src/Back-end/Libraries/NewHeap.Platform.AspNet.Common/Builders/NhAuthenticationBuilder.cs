@@ -4,6 +4,8 @@ using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.Common.Models.Options;
+using NewHeap.Platform.Common.Services;
 using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Builders;
@@ -32,6 +34,7 @@ public class NhAuthenticationBuilder<
     private Type AuthenticationServiceType { get; set; } = typeof(NhAuthenticationService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim>);
     
     private UserNamePasswordOptions UserNamePasswordOptionsValue { get; set; } = new();
+    private MicrosoftOAuthOptions  MicrosoftOAuthOptionsValue { get; set; } = new();
     
     
     internal NhAuthenticationBuilder()
@@ -51,6 +54,23 @@ public class NhAuthenticationBuilder<
     > WithAuthenticationService<T>() where T : INhAuthenticationService
     {
         AuthenticationServiceType = typeof(T);
+        return this;
+    }
+
+    public NhAuthenticationBuilder<
+        TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TUserViewModel,
+        TDivisionViewModel,
+        TClaimViewModel
+    > AddMicrosoftOAuth(Action<MicrosoftOAuthOptions>? configure = null)
+    {
+        MicrosoftOAuthOptionsValue.Enabled = true;
+        configure?.Invoke(MicrosoftOAuthOptionsValue);
         return this;
     }
 
@@ -95,6 +115,17 @@ public class NhAuthenticationBuilder<
         public List<Claim> AuthenticateRequiredClaims { get; set; } = new List<Claim>();
     }
 
+    public class MicrosoftOAuthOptions
+    {
+        internal MicrosoftOAuthOptions()
+        {
+        }
+
+        internal bool Enabled { get; set; }
+
+        public MicrosoftAuthSettings Settings { get; set; } = new();
+    }
+    
     internal void Build(IServiceCollection services)
     {
         services.AddAuthentication(opt =>
@@ -118,8 +149,52 @@ public class NhAuthenticationBuilder<
         services.AddSingleton(authConfig);
         
         services.AddScoped(typeof(INhAuthenticationService), AuthenticationServiceType);
+        services.AddScoped<AuthenticationMethodPickerService>();
+        
+       services.AddSingleton<NhLoginMethodHandler>();
+        
+
+        if (MicrosoftOAuthOptionsValue.Enabled)
+        {
+            services.AddSingleton<NhMicrosoftOauthAuthenticationGetUrlHandler>();
+            services.AddSingleton<NhMicrosoftOauthAuthenticationAuthorizeHandler<TUser>>();
+            services.AddScoped<MicrosoftAuthService, MicrosoftAuthService>();
+            services.Configure<MicrosoftAuthSettings>(opt =>
+            {
+                opt.AuthDomains = MicrosoftOAuthOptionsValue.Settings.AuthDomains;
+                opt.CallbackUrl = MicrosoftOAuthOptionsValue.Settings.CallbackUrl;
+                opt.ClientId = MicrosoftOAuthOptionsValue.Settings.ClientId;
+                opt.ClientSecret = MicrosoftOAuthOptionsValue.Settings.ClientSecret;
+                opt.ProfileEndpoint = MicrosoftOAuthOptionsValue.Settings.ProfileEndpoint;
+                opt.TenantId = MicrosoftOAuthOptionsValue.Settings.TenantId;
+            });
+            
+            services.Configure<AuthenticationMethodPickerOptions>(opt =>
+            {
+                opt.AddCheck((string username, ref string? name, IServiceProvider sp) =>
+                {
+                    if (sp.GetRequiredService<INhUserManager>().IsOauthAccount(username))
+                    {
+                        name = "microsoft-oauth";
+                        return true;
+                    }
+
+                    return false;
+                });
+            });
+        }
+        
         if (UserNamePasswordOptionsValue.Enabled)
         {
+            services.Configure<AuthenticationMethodPickerOptions>(opt =>
+            {
+                opt.AddCheck((string _, ref string? name, IServiceProvider _) =>
+                {
+                    name = "password";
+                    return true;
+                });
+            });
+            
             AddUserNameLoginHandler(services);
             if (UserNamePasswordOptionsValue.EnableRefreshToken)
             {
@@ -160,4 +235,5 @@ public class NhAuthenticationBuilder<
         >>();
         services.AddSingleton<NhLogoutAuthenticationHandler>();
     }
+    
 }

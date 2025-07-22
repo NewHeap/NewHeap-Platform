@@ -341,7 +341,7 @@ public static partial class NhLoggerExtensions
     //------------------------------------------GENERIC LOG------------------------------------------//
 
     /// <summary>
-    /// Formats and writes a log message at the specified level, inclusief TaskResult<T>.
+    /// Formats and writes a log message at the specified level, inclusief TaskResult&lt;T&gt;.
     /// </summary>
     public static void Log<T>(this ILogger logger, LogLevel logLevel, TaskResult<T>? taskResult, string? message, params object?[] args)
     {
@@ -349,8 +349,8 @@ public static partial class NhLoggerExtensions
     }
 
     /// <summary>
-    /// Formats and writes a log message at the specified level and eventId, inclusief TaskResult<T>,
-    /// waarbij bij null of Success=true geen exception wordt gelogd, anders een TaskResultException<T> wordt gebruikt.
+    /// Formats and writes a log message at the specified level and eventId, inclusief TaskResult&lt;T&gt;,
+    /// waarbij bij null of Success=true geen exception wordt gelogd, anders een TaskResultException&lt;T&gt; wordt gebruikt.
     /// </summary>
     public static void Log<T>(this ILogger logger, LogLevel logLevel, EventId eventId, TaskResult<T>? taskResult, string? message, params object?[] args)
     {
