@@ -20,6 +20,9 @@ export class NhApiAuthInterceptor implements HttpInterceptor {
 
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     let headers = req.headers;
+    if(this.moduleConfig.authType !== 'header') {
+      return next.handle(req.clone({headers}));
+    }
     if(this.moduleConfig?.authentication?.addAuthTokensToRequests === true && req.url.startsWith(this.moduleConfig.apiBaseUrl) || req.url.startsWith(this.moduleConfig.authApiBaseUrl)) {
       const authorization = this.authService.getAuthorization();
       if((authorization?.token?.length ?? 0) > 0) {

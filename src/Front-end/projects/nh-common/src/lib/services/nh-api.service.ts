@@ -127,7 +127,6 @@ export class NhApiService implements OnDestroy {
 
   public get<T>(url: string, requestOptions?: HttpRequestOptions): Observable<T> {
     requestOptions = requestOptions || new HttpRequestOptions();
-    requestOptions.withCredentials = true;
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
 

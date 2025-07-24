@@ -43,6 +43,7 @@ export class NhCommonModuleConfig {
   authApiBaseUrl: string = '';
   defaultLanguage: string = '';
   supportedLanguages: string[] = [];
+  authType: 'cookie'|'header' = 'header';
   language: string = '';
   defaultCulture: string = '';
   culture: string = '';

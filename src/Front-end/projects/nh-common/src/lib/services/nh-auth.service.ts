@@ -151,7 +151,10 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
 
   public isAuthenticated(): boolean {
     const auth = this.getAuthorization();
-    let authenticated = ((auth?.token?.length ?? 0) > 0);
+    let authenticated = true;
+    if (this.moduleConfig.authType === 'cookie') {
+      authenticated = ((auth?.token?.length ?? 0) > 0);
+    }
 
     if (authenticated && auth) {
       authenticated = (DateTime.fromISO(auth.validTo ?? '') >= DateTime.utc());
@@ -367,7 +370,9 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     }
 
     let httpHeaders = new HttpHeaders();
-    httpHeaders = httpHeaders.set('Authorization', `Bearer ${auth.token}`);
+    if (this.moduleConfig.authType === 'header') {
+      httpHeaders = httpHeaders.set('Authorization', `Bearer ${auth.token}`);
+    }
 
     const request$ = this.httpClient.get<NhAccountInformationResponse>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.accountInformation, {
       params: httpParams,
@@ -384,6 +389,9 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
           // @ts-ignore
           auth[key] = informationResponse[key];
         }
+      }
+      if(this.moduleConfig.authType !== 'header') {
+        auth.token = '';
       }
 
       this.setAuthorization(auth);
