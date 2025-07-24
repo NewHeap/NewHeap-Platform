@@ -152,9 +152,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
   public isAuthenticated(): boolean {
     const auth = this.getAuthorization();
     let authenticated = true;
-    if (this.moduleConfig.authType === 'cookie') {
-      authenticated = ((auth?.token?.length ?? 0) > 0);
-    }
+    authenticated = ((auth?.claims?.length ?? 0) > 0);
 
     if (authenticated && auth) {
       authenticated = (DateTime.fromISO(auth.validTo ?? '') >= DateTime.utc());

@@ -180,6 +180,9 @@ export class NhApiService implements OnDestroy {
 
     const customPropertyNames = Object.getOwnPropertyNames(requestOptions).filter(x => x);
     for (const propertyName of customPropertyNames) {
+      if(NhApiService.skipObjectParamParseKeys.indexOf(propertyName) > -1) {
+        continue;
+      }
       if (!httpParams.get(propertyName)) {
         const propertyValue = (<any>requestOptions)[propertyName];
         if (Array.isArray(propertyValue)) {
