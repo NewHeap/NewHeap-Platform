@@ -23,11 +23,6 @@ export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModa
   readonly confirmed = output();
 
   modalComponentRef: NhModalComponentRef<NhModalConfirmComponent>|undefined;
-
-  constructor(
-    private modalService: NhModalService
-  ) {}
-
   setModalComponentRef(ref: NhModalComponentRef<NhModalConfirmComponent>): void {
     this.modalComponentRef = ref;
   }

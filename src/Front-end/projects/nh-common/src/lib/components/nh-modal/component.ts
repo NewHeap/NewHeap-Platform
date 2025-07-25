@@ -10,7 +10,7 @@ import {
   OnInit,
   Type,
   output,
-  viewChild
+  viewChild, inject
 } from '@angular/core';
 import {NhModalComponentRef} from "../../services/nh-modal.service";
 import {NhModalContentDirective} from "../../directives/nh-modal.directives";
@@ -36,18 +36,13 @@ export class NhModalComponent<C> implements OnInit, OnDestroy, AfterViewInit {
   readonly closed = output<NhModalComponentClosed>();
   public componentRef: ComponentRef<C> | undefined;
   private modalComponentRef: NhModalComponentRef<C> | undefined;
+  private document: Document = inject(DOCUMENT);
   title: string = '';
   modalClasses: string = '';
   modalHeaderClasses: string = '';
   modalBodyClasses: string = '';
   isLoading: boolean = false;
   closeable: boolean = true;
-
-  constructor(
-    @Inject(DOCUMENT) private document: Document,
-    private zone: NgZone
-  ) {
-  }
 
   ngOnInit() {
     this.document.body.classList.add('nh-modal-open');
