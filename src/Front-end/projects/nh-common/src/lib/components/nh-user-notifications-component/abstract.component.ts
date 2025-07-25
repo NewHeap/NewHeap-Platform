@@ -124,7 +124,8 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
     const taskResult = new TaskResult();
     try {
       await this.userNotificationService.markAsRead(notification.id).lastValueFrom();
-
+      this.userNotificationService.loadState().then();
+      notification.isLastRead = true;
     }catch (ex) {
       taskResult.addError('', 'Something went wrong while marking the notification as read.');
       return taskResult;
@@ -137,6 +138,7 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
     const taskResult = new TaskResult();
     try {
       await this.userNotificationService.markAllAsRead().lastValueFrom();
+      this.reload().then();
     } catch (ex) {
       taskResult.addError('', 'Something went wrong while marking all notifications as read.');
       return taskResult;
@@ -149,7 +151,7 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
     const taskResult = new TaskResult();
     try {
       await this.userNotificationService.archive(notification.id).lastValueFrom();
-
+      this.collectionResponse.items = this.collectionResponse.items.filter(item => item.id !== notification.id);
     }catch (ex) {
       taskResult.addError('', 'Something went wrong while marking the notification as archived.');
       return taskResult;
@@ -164,6 +166,8 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
     const taskResult = new TaskResult();
     try {
       await this.userNotificationService.archiveAll().lastValueFrom();
+      this.collectionResponse.items = [];
+      this.reload().then();
     } catch (ex) {
       taskResult.addError('', 'Something went wrong while marking all notifications archived.');
       return taskResult;
