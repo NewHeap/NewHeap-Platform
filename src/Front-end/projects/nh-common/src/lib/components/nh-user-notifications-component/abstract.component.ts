@@ -109,6 +109,8 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
     }
 
     const results = await Promise.all(loadPromises);
+    this.userNotificationService.loadState().then();
+
     this.collectionResponse.items = [];
 
     for(const result of results) {
