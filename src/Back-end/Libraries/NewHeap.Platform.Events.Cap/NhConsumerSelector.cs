@@ -106,7 +106,10 @@ public class NhConsumerSelector : IConsumerServiceSelector
                 Group = topic
             },
             Parameters =
-                [new ParameterDescriptor() { IsFromCap = false, ParameterType = methodParams, Name = "event" }],
+                [
+                    new ParameterDescriptor() { IsFromCap = false, ParameterType = methodParams, Name = "event" },
+                    new ParameterDescriptor() { IsFromCap = true, ParameterType = typeof(CancellationToken), Name = "cancellationToken" },
+                ],
             TopicNamePrefix = _capOptions.TopicNamePrefix,
             ClassAttribute = null,
             ServiceTypeInfo = serviceType.GetTypeInfo(),

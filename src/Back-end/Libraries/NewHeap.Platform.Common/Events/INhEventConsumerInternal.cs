@@ -9,7 +9,7 @@ public interface INhEventConsumerInternal
 
 public interface INhCustomTopicEventConsumer : INhEventConsumerInternal
 {
-    Task HandleAsync(JsonElement @event);
+    Task HandleAsync(JsonElement @event, CancellationToken cancellationToken);
     
     static abstract string Topic { get; }
 }
@@ -18,7 +18,7 @@ public interface INhCustomTopicEventConsumer : INhEventConsumerInternal
 public interface INhEventConsumer<in TEvent> : INhEventConsumerInternal
 where TEvent : INhEvent
 {
-    public Task HandleAsync(TEvent @event);
+    public Task HandleAsync(TEvent @event, CancellationToken cancellationToken);
 }
 
 public class NoEvent : INhEvent

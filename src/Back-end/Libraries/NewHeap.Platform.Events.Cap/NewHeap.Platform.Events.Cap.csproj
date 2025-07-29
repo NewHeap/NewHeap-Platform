@@ -4,6 +4,18 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <Title>NewHeap Platform Events CAP</Title>
+        <Copyright>NewHeap B.V.</Copyright>
+        <PackageProjectUrl>https://dev.azure.com/NewHeap/NewHeap-Platform</PackageProjectUrl>        
+        <RepositoryUrl>https://dev.azure.com/NewHeap/_git/NewHeap-Platform</RepositoryUrl>
+        <GenerateDocumentationFile>True</GenerateDocumentationFile>
+        <!-- If all members are not documented, you can disable the compiler warnings -->
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
+        <IncludeSymbols>True</IncludeSymbols>
+        <EmbedAllSources>True</EmbedAllSources>
+        <DebugType>Embedded</DebugType>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <PackageIcon>NH_logo.png</PackageIcon>
     </PropertyGroup>
 
     <ItemGroup>
@@ -13,6 +25,14 @@
     <ItemGroup>
       <ProjectReference Include="..\NewHeap.Platform.AspNet.Common\NewHeap.Platform.AspNet.Common.csproj" />
       <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="..\..\Assets\NH_logo.png">
+        <Pack>True</Pack>
+        <PackagePath>\</PackagePath>
+        <Link>NH_logo.png</Link>
+      </None>
     </ItemGroup>
 
 </Project>
