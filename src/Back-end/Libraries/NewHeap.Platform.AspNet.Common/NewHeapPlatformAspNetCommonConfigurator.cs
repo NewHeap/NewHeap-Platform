@@ -501,6 +501,33 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             TDivisionUserService,
             TDivisionUserMutateModel
         >
+        WithEvents(Action<NhEventConfigurationBuilder> configure)
+    {
+        var builder = new NhEventConfigurationBuilder(_serviceCollection);
+        configure.Invoke(builder);
+        return this;
+    }
+
+    public INewHeapPlatformAspNetCommonConfigurator<
+            TUser,
+            TUserRole,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim,
+            TLog,
+            TLogMessageArgument,
+            TLogFile,
+            TLogMessageTranslated,
+            TDbLogService,
+            TDbContext,
+            TUserManager,
+            TDivisionService,
+            TDivisionMutateModel,
+            TDivisionUserService,
+            TDivisionUserMutateModel
+        >
         WithIdentityEntityFramework(Action<DbContextOptionsBuilder> dbOptionsAction)
     {
         if (IdentityEntityFrameworkConfigured)

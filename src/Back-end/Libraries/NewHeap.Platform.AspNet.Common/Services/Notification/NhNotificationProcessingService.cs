@@ -56,18 +56,27 @@ internal class NhNotificationProcessingService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        SetupDispatchers();
+        try
+        {
+            SetupDispatchers();
 
-        var processingTasks = _dispatchers
-            .Select(kv => RunChannelConsumerAsync(kv.Key, kv.Value, _queues[kv.Key], stoppingToken))
-            .ToArray();
+            var processingTasks = _dispatchers
+                .Select(kv => RunChannelConsumerAsync(kv.Key, kv.Value, _queues[kv.Key], stoppingToken))
+                .ToArray();
 
-        // Start cleanup-task parallel
-        var cleanupTask = RunCleanupLoopAsync(stoppingToken);
+            // Start cleanup-task parallel
+            var cleanupTask = RunCleanupLoopAsync(stoppingToken);
 
-        var producerTask = RunDatabasePollerAsync(stoppingToken);
+            var producerTask = RunDatabasePollerAsync(stoppingToken);
 
-        await Task.WhenAll(processingTasks.Concat(new[] { producerTask }));
+            await Task.WhenAll(processingTasks.Concat(new[] { producerTask }));
+        }
+        catch(Exception ex)
+        {
+            _logger.LogError(ex, "Error in NhNotificationProcessingService");
+            ;
+        }
+        
     }
 
     private void SetupDispatchers()

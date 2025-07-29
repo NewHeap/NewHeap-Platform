@@ -46,6 +46,8 @@
         <PackageReference Include="AutoMapper" />
         <PackageReference Include="AutoMapper.Collection" />
         <PackageReference Include="Azure.Identity" />
+        <PackageReference Include="DotNetCore.CAP.RabbitMQ" />
+        <PackageReference Include="DotNetCore.CAP.SqlServer" />
         <PackageReference Include="EPPlus" />
         <PackageReference Include="Hangfire" />
         <PackageReference Include="Hangfire.Console" />
@@ -84,6 +86,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Events.Cap\NewHeap.Platform.Events.Cap.csproj" />
         <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.FileStructureStorage.SqlServer\NewHeap.Platform.Media.FileStructureStorage.SqlServer.csproj" />
         <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.Http\NewHeap.Platform.Media.Http.csproj" />
         <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.MediaStorage.FileSystem\NewHeap.Platform.Media.MediaStorage.FileSystem.csproj" />

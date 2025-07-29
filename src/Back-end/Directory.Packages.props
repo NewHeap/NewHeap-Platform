@@ -5,6 +5,9 @@
   <ItemGroup>
     <PackageVersion Include="AutoMapper" Version="14.0.0" />
     <PackageVersion Include="AutoMapper.Collection" Version="11.0.0" />
+    <PackageVersion Include="DotNetCore.CAP" Version="8.3.5" />
+    <PackageVersion Include="DotNetCore.CAP.RabbitMQ" Version="8.3.5" />
+    <PackageVersion Include="DotNetCore.CAP.SqlServer" Version="8.3.5" />
     <PackageVersion Include="Hangfire" Version="1.8.18" />
     <PackageVersion Include="Hangfire.Console" Version="1.4.3" />
     <PackageVersion Include="KeyedSemaphores" Version="5.0.0" />
