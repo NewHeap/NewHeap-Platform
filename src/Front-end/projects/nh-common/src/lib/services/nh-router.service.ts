@@ -169,16 +169,23 @@ export class NhRouterService {
     return await this.router.navigate([url], navigationExtras);
   }
 
-  createUrlTree(nhRouterLink: NhRouterLink): UrlTree {
-    return this.router.parseUrl(this.createUrlForNavigationItem(nhRouterLink));
+  createUrlTree(nhRouterLink: NhRouterLink, navigationExtras?: UrlCreationOptions): UrlTree {
+    const plainUrlTree = this.router.parseUrl(this.createUrlForNavigationItem(nhRouterLink));
+    const url = this.router.serializeUrl(plainUrlTree);
+
+    return this.router.createUrlTree([url], navigationExtras);
   }
 
-  parseUrl(nhRouterLink: NhRouterLink): UrlTree {
-    return this.router.parseUrl(this.createUrlForNavigationItem(nhRouterLink));
+  parseUrl(nhRouterLink: NhRouterLink, navigationExtras?: UrlCreationOptions): UrlTree {
+    const plainUrlTree = this.router.parseUrl(this.createUrlForNavigationItem(nhRouterLink));
+    const url = this.router.serializeUrl(plainUrlTree);
+
+    return this.router.createUrlTree([url], navigationExtras);
   }
 
-  serializeUrl(nhRouterLink: NhRouterLink): string {
-    return this.router.serializeUrl(this.parseUrl(nhRouterLink));
+  serializeUrl(nhRouterLink: NhRouterLink, navigationExtras?: UrlCreationOptions): string {
+    const url = this.router.serializeUrl(this.parseUrl(nhRouterLink));
+    return this.router.serializeUrl(this.router.createUrlTree([url], navigationExtras));
   }
 
   async getRoutePathForLanguage(activatedRouteSnapshot: ActivatedRouteSnapshot|null, language: string): Promise<string> {

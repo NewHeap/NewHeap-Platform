@@ -32,6 +32,14 @@ export class IndexHomePage extends NhPageBaseComponent {
   }
 
   override async appOnInit() {
+    const urlTest = this.nhRouterService.serializeUrl({
+      id: 'home'
+    }, {
+      queryParams: {
+        test: 'test'
+      }
+    });
+    console.log(urlTest);
 
   }
   override async appOnInitAndLoadWithSkipBrowserInitial() {
