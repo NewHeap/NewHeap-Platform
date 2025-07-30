@@ -39,12 +39,9 @@ export enum MutationType {
 export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorization extends INhAuthorization, TAuthService extends BaseNhAuthService<TAuthorization>>
   implements
     OnInit,
-    OnDestroy,
-    INhModalComponent<NhMutateBaseTypeComponent<TFormData, TResult, TAuthorization, TAuthService>>
+    OnDestroy
 {
-  protected modalComponentRef: NhModalComponentRef<NhMutateBaseTypeComponent<TFormData, TResult, TAuthorization, TAuthService>>|undefined;
   protected authService: TAuthService;
-  protected modalService: NhModalService = inject(NhModalService);
   protected translateService: TranslateService = inject(TranslateService);
   protected toastrService: ToastrService = inject(ToastrService);
   protected activatedRoute: ActivatedRoute = inject(ActivatedRoute);
@@ -56,10 +53,6 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
   private _isSubmitting: boolean = false;
   private _mutationType: MutationType = MutationType.Create;
   private _formData: TFormData|undefined;
-
-  setModalComponentRef(ref: NhModalComponentRef<NhMutateBaseTypeComponent<TFormData, TResult, TAuthorization, TAuthService>>): void {
-    this.modalComponentRef = ref;
-  }
 
   public get isLoading(): boolean {
     return this._isLoading;
@@ -187,18 +180,6 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
     } finally {
       this.isSubmitting = false;
     }
-  }
-
-  @HostListener('document:keyup', ['$event'])
-  onKeyUp(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
-      event.stopImmediatePropagation();
-      this.closeDialog({});
-    }
-  }
-
-  closeDialog(event?: any) {
-    this.modalComponentRef?.close();
   }
 }
 
