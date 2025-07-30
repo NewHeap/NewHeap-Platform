@@ -1,5 +1,5 @@
 import {Component, Input} from "@angular/core";
-import {MutationType, NhMutateBaseComponent, TaskResult} from "nh-common";
+import {MutationType, NhModalMutateBaseComponent, TaskResult} from "nh-common";
 import { Address } from "../../models/address.models";
 import {AddressService} from "../../services/address.service";
 
@@ -9,7 +9,7 @@ import {AddressService} from "../../services/address.service";
   templateUrl: 'component.html',
   standalone: false
 })
-export class MutateAddressComponent extends NhMutateBaseComponent<Address, Address> {
+export class MutateAddressComponent extends NhModalMutateBaseComponent<Address, Address> {
   @Input() id: string|undefined;
 
   constructor(
