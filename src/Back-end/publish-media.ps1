@@ -19,7 +19,7 @@ function PackAndPublish {
     dotnet restore "$_\$packageName.csproj" --no-cache
     
     Write-Host "dotnet pack "$_\$packageName.csproj" -c Release /p:Version=$Version"
-    dotnet pack "$_\$packageName.csproj" -c Release /p:Version=$Version    
+    dotnet pack "$_\$packageName.csproj" -c Release /p:Version=$Version --include-symbols
     # Controleer of het packen is geslaagd
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Packing failed!"
@@ -33,6 +33,7 @@ function PackAndPublish {
     Write-Host "dotnet nuget push --source ""https://pkgs.dev.azure.com/NewHeap/NewHeap-Platform/_packaging/NewHeap-Platform/nuget/v3/index.json"" --interactive --api-key az ""$_/bin/Release/$packageName.$Version.nupkg"""
 
     dotnet nuget push --source "https://pkgs.dev.azure.com/NewHeap/NewHeap-Platform/_packaging/NewHeap-Platform/nuget/v3/index.json" --api-key az "$_/bin/Release/$packageName.$Version.nupkg"
+    dotnet nuget push --source "https://pkgs.dev.azure.com/NewHeap/NewHeap-Platform/_packaging/NewHeap-Platform/nuget/v3/index.json" --api-key az "$_/bin/Release/$packageName.$Version.snupkg"
     # Controleer of het packen is geslaagd
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Publishing failed!"
@@ -57,8 +58,7 @@ $projectPaths = @(
   ".\Libraries\NewHeap.Platform.Media.Core"
   ".\Libraries\NewHeap.Platform.Media.FileStructureStorage.SqlServer"
   ,".\Libraries\NewHeap.Platform.Media.Http"
-  ,".\Libraries\NewHeap.Platform.Media.MediaStorage.FileSystem"
-  #,".\Libraries\NewHeap.Platform.Media"
+  ,".\Libraries\NewHeap.Platform.Media.MediaStorage.FileSystem"  
 );
 
 

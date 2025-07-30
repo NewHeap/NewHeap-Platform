@@ -234,6 +234,28 @@ public interface INewHeapPlatformAspNetCommonConfigurator
         TDivisionUserService,
         TDivisionUserMutateModel
     > WithNotifications(Action<NhNotificationSettings> settingsAction);
+
+    INewHeapPlatformAspNetCommonConfigurator<
+            TUser,
+            TUserRole,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim,
+            TLog,
+            TLogMessageArgument,
+            TLogFile,
+            TLogMessageTranslated,
+            TDbLogService,
+            TDbContext,
+            TUserManager,
+            TDivisionService,
+            TDivisionMutateModel,
+            TDivisionUserService,
+            TDivisionUserMutateModel
+        >
+        WithEvents(Action<NhEventConfigurationBuilder> configure);
 }
 
 public interface INewHeapNotificationConfigurator<

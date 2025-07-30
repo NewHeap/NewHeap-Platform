@@ -12,6 +12,7 @@ using NewHeap.Platform.AspNet.Common.Middlewares;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.AspNet.Common.Utilities;
 
 namespace NewHeap.Platform.AspNet.Common;
 
@@ -115,6 +116,11 @@ public class NewHeapPlatformAspNetCommonApplicationBuilder
         _aspNetCommonSettings = services.GetRequiredService<IOptions<NewHeapAspNetCommonSettings>>().Value;
 
         ConfigureDefault();
+        var startupClasses = services.GetServices<IStartupConfiguration>();
+        foreach (var configuration in startupClasses)
+        {
+            configuration.Configure(_applicationBuilder, services);
+        }
     }
 
     private void ConfigureDefault()
