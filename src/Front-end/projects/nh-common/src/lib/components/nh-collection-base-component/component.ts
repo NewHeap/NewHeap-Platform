@@ -16,6 +16,7 @@ import {ClaimTypes, INhAuthorization, NhAuthorization} from "../../models/auth.m
 import {NhRouterService} from "../../services/nh-router.service";
 import {DOCUMENT, isPlatformServer} from "@angular/common";
 import {NhAppService} from "../../services/nh-app.service";
+import {NhApiUtil} from "../../util/nh-api-util";
 
 @Component({
     selector: 'nh-shared-collection-base-component',
@@ -89,9 +90,7 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
     // Setup filters from url.
     if (this.queryParamUpdates() && this.activatedRoute.snapshot.queryParamMap.get(NhCollectionBaseComponent.URL_QUERY_PARAM_KEY)) {
       try {
-        this.requestOptions = new CollectionHttpRequestOptions(
-          <CollectionHttpRequestOptions>JSON.parse(this.activatedRoute.snapshot.queryParamMap.get(NhCollectionBaseComponent.URL_QUERY_PARAM_KEY) ?? '')
-        );
+        this.requestOptions = NhApiUtil.ParseCollectionRequestOptions(this.activatedRoute.snapshot.queryParamMap.get(NhCollectionBaseComponent.URL_QUERY_PARAM_KEY));
       } catch (ex) {
       }
     } else {
@@ -102,9 +101,7 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
 
         if (localStorageCollectionRequestModelString && localStorageCollectionRequestModelString.length > 0) {
           try {
-            this.requestOptions = new CollectionHttpRequestOptions(
-              <CollectionHttpRequestOptions>JSON.parse(localStorageCollectionRequestModelString)
-            );
+            this.requestOptions = NhApiUtil.ParseCollectionRequestOptions(localStorageCollectionRequestModelString);
             localStorageCollectionRequestModelSuccess = true;
           } catch (ex) {
           }
@@ -161,7 +158,7 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
 
       // Pass a copy instead of the source to allow modifications without it modifying the URL;
       // If u need them both modified, modify via this.requestOptions. in the load.
-      const requestOptions =JSON.parse(JSON.stringify(this.requestOptions));
+      const requestOptions = NhApiUtil.ParseCollectionRequestOptions(JSON.stringify(this.requestOptions));
       const loadObservable = await this.onLoad(requestOptions);
 
       this.activeRequestSubscription = loadObservable.subscribe({
