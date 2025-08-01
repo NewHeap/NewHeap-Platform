@@ -14,7 +14,7 @@ export class NhApiUtil {
   public static ParseCollectionRequestOptions(value?: string | null): CollectionHttpRequestOptions {
     const options = <CollectionHttpRequestOptions>JSON.parse(value ?? '');
     options.filter = options.filter.map(x => NhApiUtil.processFilter(x));
-    return options;
+    return new CollectionHttpRequestOptions(options);
   }
 
   private static processFilter(filter: FilterRequestOptions) {
