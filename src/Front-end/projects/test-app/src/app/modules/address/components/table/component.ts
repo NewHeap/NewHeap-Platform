@@ -31,7 +31,14 @@ export class TableAddressComponent extends NhCollectionBaseComponent<Address> im
   }
 
   getInitialRequestOptions() {
-    return new AddressCollectionHttpRequestOptions();
+    return new AddressCollectionHttpRequestOptions({
+      orderBy: [
+        new OrderByRequestOptions({
+          key: 'lastModifiedDateTime',
+          direction: 'DESC'
+        })
+      ]
+    });
   }
 
   override getLocalStoragePartialKey(): string | null {
@@ -69,13 +76,6 @@ export class TableAddressComponent extends NhCollectionBaseComponent<Address> im
   } */
 
   async onLoad(requestOptions: AddressCollectionHttpRequestOptions) {
-    requestOptions.filter = [
-      new FilterRequestOptions({
-        key: 'AddressCode',
-        operator: '==',
-        value: 'ABCBBB'
-      })
-    ];
     return <Observable<CollectionHttpResponse<Address>>>this.addressService.getCollection(requestOptions);
   }
 

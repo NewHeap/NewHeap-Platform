@@ -11,6 +11,9 @@
   </div>
   <div class="col-md-8 text-end">
     <div class="buttons-right">
+      <button class="btn btn-pill btn-primary" (click)="resetRequestOptionsAndLoad()">
+        Reset
+      </button>
       <button class="btn btn-pill btn-primary" (click)="load()">
         Refresh
       </button>
@@ -20,7 +23,7 @@
     </div>
   </div>
 </div>
-
+{{ tableInfo | json }}
 <ngx-datatable
   ngSkipHydration
   #myTable
@@ -42,6 +45,12 @@
   (sort)='sort($event)'>
 
   <ngx-datatable-column name="{{ 'general.place' | translate }}" prop="place">
+    <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
+      {{ value }}
+    </ng-template>
+  </ngx-datatable-column>
+
+  <ngx-datatable-column name="{{ 'general.lastmodified' | translate }}" prop="lastModifiedDateTime">
     <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
       {{ value }}
     </ng-template>

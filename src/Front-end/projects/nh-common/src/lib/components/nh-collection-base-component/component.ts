@@ -118,8 +118,25 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
     }
   }
 
+  private syncRequestOptionsToTableInfo() {
+    if (this.requestOptions.page && this.requestOptions.itemsPerPage) {
+      this.tableInfo.offset = (this.requestOptions.page - 1) * this.requestOptions.itemsPerPage;
+      this.tableInfo.limit = this.requestOptions.itemsPerPage;
+    } else {
+      this.tableInfo.offset = 0;
+      this.tableInfo.limit = 10; // Default value
+    }
+
+    this.tableInfo.sorts = this.requestOptions.orderBy?.map(orderBy => ({
+      prop: orderBy.key,
+      dir: orderBy.direction.toLowerCase()
+    })) || [];
+  }
+
   updateRequestOptions() {
     const q = JSON.stringify(this.requestOptions);
+
+    this.syncRequestOptionsToTableInfo();
 
     const queryParams: any = {};
     queryParams[NhCollectionBaseComponent.URL_QUERY_PARAM_KEY] = q;
