@@ -51,6 +51,10 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
   protected collectionResponse: CollectionHttpResponse<TCollectionResponseItem> = new CollectionHttpResponse<TCollectionResponseItem>();
 
   private get localStorageKey(): string {
+    if(this.localStorageUpdates() && (this.getLocalStoragePartialKey() ?? '').length < 1) {
+      throw new Error('getLocalStoragePartialKey() must return a non-empty string when localStorageUpdates is true, implement getLocalStoragePartialKey() via override getLocalStoragePartialKey().');
+    }
+
     return `app-filters-${this.getLocalStoragePartialKey() ?? ''}`;
   }
 
