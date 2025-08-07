@@ -21,7 +21,7 @@ namespace WebAPI.Models.View
         public Guid Id { get; set; }
 
         //[Searchable, Orderable, Filterable]
-        public string AddressCode { get; set; }
+        //public string AddressCode { get; set; }
 
         [Searchable, Orderable, Filterable]
         public DateTimeOffset CreationDateTime { get; set; }
