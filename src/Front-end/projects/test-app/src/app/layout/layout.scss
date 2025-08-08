@@ -1,1 +1,9 @@
 @use "./layout-variables";
+
+.sort-active.sort-asc {
+  background-color: #0A66C2;
+}
+
+.sort-active.sort-desc {
+  background-color: #7f1888;
+}
