@@ -2,7 +2,7 @@
 
 public interface IAuthorizationModule
 {
-    public Task IsAuthorized(AuthorizationContext context);
+    public Task IsAuthorizedAsync(AuthorizationContext context);
 }
 
 /// <summary>
@@ -11,7 +11,7 @@ public interface IAuthorizationModule
 /// </summary>
 public class DefaultAuthorizationModule : IAuthorizationModule
 {
-    public Task IsAuthorized(AuthorizationContext context)
+    public Task IsAuthorizedAsync(AuthorizationContext context)
     {
         context.Authorized = true;
         return Task.CompletedTask;

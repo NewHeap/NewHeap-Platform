@@ -133,7 +133,7 @@ public static class WebApplicationExtensions
         }
 
         var result =
-            await mediaLibrary.UpdateFolder(request.Path, request.FolderName, request.NewPath, request.NewName);
+            await mediaLibrary.UpdateFolderAsync(request.Path, request.FolderName, request.NewPath, request.NewName);
         if (result != null)
         {
             return TypedResults.Ok(result);
@@ -149,10 +149,10 @@ public static class WebApplicationExtensions
         [FromBody] FileModel model,
         [FromServices] IMediaLibraryService mediaLibrary)
     {
-        var success = await mediaLibrary.UpdateFile(id, model);
+        var success = await mediaLibrary.UpdateFileAsync(id, model);
         if (success)
         {
-            var reference = await mediaLibrary.GetFile(id);
+            var reference = await mediaLibrary.GetFileAsync(id);
             return TypedResults.Ok(reference);
         }
 
@@ -172,7 +172,7 @@ public static class WebApplicationExtensions
             return BadRequest("Field is required", nameof(request.FileName));
         }
 
-        var success = await mediaLibrary.UpdateFileTags(request.Path, request.FileName, request.Tags);
+        var success = await mediaLibrary.UpdateFileTagsAsync(request.Path, request.FileName, request.Tags);
         return success ? TypedResults.NoContent() : TypedResults.NotFound();
     }
 
@@ -202,7 +202,7 @@ public static class WebApplicationExtensions
             options.IncludedExtensions = ProcessExtensions(options.IncludedExtensions); 
             options.ExcludedExtensions = ProcessExtensions(options.ExcludedExtensions);
             
-            var result = await mediaLibraryService.Search(path, searchTerm, options);
+            var result = await mediaLibraryService.SearchAsync(path, searchTerm, options);
             return TypedResults.Ok(result);
         }
         catch (UnauthorizedAccessException)
@@ -244,7 +244,7 @@ public static class WebApplicationExtensions
                 return TypedResults.NotFound();
             }
 
-            var deleted = await mediaLibraryService.DeleteFile(path, fileName);
+            var deleted = await mediaLibraryService.DeleteFileAsync(path, fileName);
             return deleted ? TypedResults.NoContent() : TypedResults.NotFound();
         }
         catch (UnauthorizedAccessException)
@@ -270,7 +270,7 @@ public static class WebApplicationExtensions
                 return TypedResults.NotFound();
             }
 
-            var deleted = await mediaLibraryService.DeleteFolder(path, folderName);
+            var deleted = await mediaLibraryService.DeleteFolderAsync(path, folderName);
             return deleted ? TypedResults.NoContent() : TypedResults.NotFound();
         }
         catch (UnauthorizedAccessException)
@@ -296,7 +296,7 @@ public static class WebApplicationExtensions
                 return BadRequest("Field is required", nameof(folderName));
             }
 
-            var folderRef = await mediaLibraryService.CreateFolder(path, folderName);
+            var folderRef = await mediaLibraryService.CreateFolderAsync(path, folderName);
             return TypedResults.Ok(folderRef);
         }
         catch (UnauthorizedAccessException)
@@ -325,7 +325,7 @@ public static class WebApplicationExtensions
                 return TypedResults.NotFound();
             }
 
-            var stream = await mediaLibraryService.DownloadFile(path, fileName);
+            var stream = await mediaLibraryService.DownloadFileAsync(path, fileName);
             if (stream == null)
             {
                 return TypedResults.NotFound();
@@ -359,7 +359,7 @@ public static class WebApplicationExtensions
                 return BadRequest("Field is required", nameof(request.FileName));
             }
 
-            var fileRef = await mediaLibraryService.GetFile(request.Path, request.FileName);
+            var fileRef = await mediaLibraryService.GetFileAsync(request.Path, request.FileName);
             if (fileRef == null)
             {
                 var model = new FileModel
@@ -373,11 +373,11 @@ public static class WebApplicationExtensions
                     Creator = request.Creator,
                     MetaData = request.MetaData
                 };
-                fileRef = await mediaLibraryService.CreateFile(model, file.OpenReadStream());
+                fileRef = await mediaLibraryService.CreateFileAsync(model, file.OpenReadStream());
             }
             else
             {
-                await mediaLibraryService.UpdateFile(request.Path, request.FileName, file.OpenReadStream());
+                await mediaLibraryService.UpdateFileAsync(request.Path, request.FileName, file.OpenReadStream());
             }
 
             return TypedResults.Ok(fileRef);
@@ -406,13 +406,13 @@ public static class WebApplicationExtensions
                 return TypedResults.NotFound();
             }
 
-            var reference = await mediaLibraryService.GetFile(path, fileName, null);
+            var reference = await mediaLibraryService.GetFileAsync(path, fileName, null);
             if (reference == null)
             {
                 return TypedResults.NotFound();
             }
 
-            await mediaLibraryService.LocalizeField(reference.Id, propertyName, language, value);
+            await mediaLibraryService.LocalizeFieldAsync(reference.Id, propertyName, language, value);
             return TypedResults.NoContent();
         }
         catch (UnauthorizedAccessException)

@@ -14,7 +14,7 @@ public class LoggedInUserMediaAuthorizationModule : IAuthorizationModule
         _httpContextAccessor = httpContextAccessor;
     }
 
-    public Task IsAuthorized(AuthorizationContext context)
+    public Task IsAuthorizedAsync(AuthorizationContext context)
     {
         context.Authorized = (_httpContextAccessor.HttpContext?.User.Claims.Count() ?? 0) > 0;
         return Task.CompletedTask;

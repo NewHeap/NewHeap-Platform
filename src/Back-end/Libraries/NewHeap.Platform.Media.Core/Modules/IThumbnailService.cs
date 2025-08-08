@@ -4,12 +4,12 @@ namespace NewHeap.Media.Modules;
 
 public interface IThumbnailService
 {
-    Task<string?> GetThumbnail(Guid id);
+    Task<string?> GetThumbnailAsync(Guid id);
 }
 
 public class ThumbnailService : IThumbnailService
 {
-    public Task<string?> GetThumbnail(Guid id)
+    public Task<string?> GetThumbnailAsync(Guid id)
     {
         return Task.FromResult<string?>(null);
     }
@@ -17,15 +17,15 @@ public class ThumbnailService : IThumbnailService
 
 public abstract class GeneratedThumbnailServiceBase : IThumbnailService, IHandleMediaLibraryEvent
 {
-    public abstract Task<string?> GetThumbnail(Guid id);
+    public abstract Task<string?> GetThumbnailAsync(Guid id);
 
-    public abstract Task UpdateThumbnail(FileReference file);
+    public abstract Task UpdateThumbnailAsync(FileReference file);
     
     public virtual async ValueTask HandleEvent(MediaLibraryFileEvent message)
     {
         if (message.Type == MediaLibraryFileEventType.BinaryUpdated || message.Type == MediaLibraryFileEventType.Added)
         {
-            await UpdateThumbnail(message.NewFile!);
+            await UpdateThumbnailAsync(message.NewFile!);
         }
     }
 
