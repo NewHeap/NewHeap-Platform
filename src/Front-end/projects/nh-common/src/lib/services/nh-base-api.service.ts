@@ -4,7 +4,7 @@ import {Observable} from "rxjs";
 import { NhAuthService } from "./nh-auth.service";
 import { NhApiService } from "./nh-api.service";
 import { NhCommonModuleConfig } from "../models/config.models";
-import {CollectionHttpRequestOptions, CollectionHttpResponse } from "../models/http.models";
+import {CollectionHttpRequestOptions, CollectionHttpResponse, HttpRequestOptions} from "../models/http.models";
 
 export abstract class NhBaseApiService {
   protected authService: NhAuthService = inject(NhAuthService);
@@ -21,19 +21,19 @@ export abstract class NhBaseApiService {
     return this.apiService.getCollection<T>(this.baseUrl, options);
   }
 
-  public get<T>(id: string): Observable<T> {
-    return this.apiService.get<T>(`${this.baseUrl}/${id}`);
+  public get<T>(id: string, requestOptions?: HttpRequestOptions): Observable<T> {
+    return this.apiService.get<T>(`${this.baseUrl}/${id}`, requestOptions);
   }
 
-  public create<T>(item: any): Observable<T> {
-    return this.apiService.post<T>(`${this.baseUrl}`, item);
+  public create<T>(item: any, requestOptions?: HttpRequestOptions): Observable<T> {
+    return this.apiService.post<T>(`${this.baseUrl}`, item, requestOptions);
   }
 
-  public update<T>(id: string, item: any): Observable<T> {
-    return this.apiService.put<T>(`${this.baseUrl}/${id}`, item);
+  public update<T>(id: string, item: any, requestOptions?: HttpRequestOptions): Observable<T> {
+    return this.apiService.put<T>(`${this.baseUrl}/${id}`, item, requestOptions);
   }
 
-  public delete(id: string): Observable<any> {
-    return this.apiService.delete<any>(`${this.baseUrl}/${id}`);
+  public delete(id: string, requestOptions?: HttpRequestOptions): Observable<any> {
+    return this.apiService.delete<any>(`${this.baseUrl}/${id}`, requestOptions);
   }
 }
