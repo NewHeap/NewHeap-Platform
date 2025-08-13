@@ -17,7 +17,7 @@ public class DefaultMediaStorage : IMediaStorage
         _logger = logger;
     }
     
-    public async Task<Guid> SaveFile(Stream file)
+    public async Task<Guid> SaveFileAsync(Stream file)
     {
         var fileId = Guid.NewGuid();
         _logger.LogDebug("Saving file {fileId}", fileId);
@@ -31,7 +31,7 @@ public class DefaultMediaStorage : IMediaStorage
         return fileId;
     }
 
-    public async Task<bool> UpdateFile(Stream fileStream, Guid id)
+    public async Task<bool> UpdateFileAsync(Stream fileStream, Guid id)
     {
         var dir = GetDir(id);
         var root = _settings.Value.StoragePath;
@@ -49,7 +49,7 @@ public class DefaultMediaStorage : IMediaStorage
         return true;
     }
 
-    public Task<bool> Delete(Guid id)
+    public Task<bool> DeleteAsync(Guid id)
     {
         var dir = GetDir(id);
         var root = _settings.Value.StoragePath;
@@ -65,7 +65,7 @@ public class DefaultMediaStorage : IMediaStorage
         return Task.FromResult(true);
     }
 
-    public Task<Stream?> GetFile(Guid fileRefId)
+    public Task<Stream?> GetFileAsync(Guid fileRefId)
     {
         var dir = GetDir(fileRefId);
         var root = _settings.Value.StoragePath;

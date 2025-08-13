@@ -4,29 +4,29 @@ namespace NewHeap.Media.Modules;
 
 public interface IFileStructureStorage
 {
-    Task<FileReference> CreateFile(FileModel model, Guid id);
+    Task<FileReference> CreateFileAsync(FileModel model, Guid id);
 
-    Task<FileReference?> UpdateFile(Guid id, FileModel model);
+    Task<FileReference?> UpdateFileAsync(Guid id, FileModel model);
 
-    Task<FolderReference> CreateFolder(string? path, string folderName);
+    Task<FolderReference> CreateFolderAsync(string? path, string folderName);
 
-    Task<bool> DeleteFolder(string? path, string folderName);
+    Task<bool> DeleteFolderAsync(string? path, string folderName);
 
-    Task<IEnumerable<FileReference>> GetFiles(string? path, string? language);
+    Task<IEnumerable<FileReference>> GetFilesAsync(string? path, string? language);
 
-    Task<FolderContents> GetFolder(string? path, string? language);
-    Task<FileReference?> GetFile(string? path, string fileName, string? language);
+    Task<FolderContents> GetFolderAsync(string? path, string? language);
+    Task<FileReference?> GetFileAsync(string? path, string fileName, string? language);
 
-    Task<bool> DeleteFile(string? path, string filename);
+    Task<bool> DeleteFileAsync(string? path, string filename);
 
-    Task<IEnumerable<FileReference>> Search(string searchTerm, string? path, SearchOptions options);
-    Task<bool> Localize(Guid entityId, string language, string propertyName, string value);
+    Task<IEnumerable<FileReference>> SearchAsync(string searchTerm, string? path, SearchOptions options);
+    Task<bool> LocalizeAsync(Guid entityId, string language, string propertyName, string value);
 
-    Task<bool> UpdateTags(string path, string fileName, IEnumerable<string> tags);
-    Task<FileReference?> GetById(Guid id);
-    Task<FolderReference?> MoveFolder(string? path, string folderName, string newPath, string newName);
+    Task<bool> UpdateTagsAsync(string path, string fileName, IEnumerable<string> tags);
+    Task<FileReference?> GetByIdAsync(Guid id);
+    Task<FolderReference?> MoveFolderAsync(string? path, string folderName, string newPath, string newName);
 
-    Task<FolderReference> GetFolderReference(string? path);
+    Task<FolderReference> GetFolderReferenceAsync(string? path);
 }
 
 public class FileModel
