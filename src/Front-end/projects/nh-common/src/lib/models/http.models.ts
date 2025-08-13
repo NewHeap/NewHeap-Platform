@@ -36,10 +36,18 @@ export class SimpleCollectionHttpRequestOptions extends HttpRequestOptions {
   }
 }
 
-export class CollectionHttpRequestOptions extends SimpleCollectionHttpRequestOptions {
+export class SearchableCollectionHttpRequestOptions extends SimpleCollectionHttpRequestOptions {
+  search: string | undefined;
+
+  public constructor(init?: Partial<SearchableCollectionHttpRequestOptions>) {
+    super(init);
+    Object.assign(this, init);
+  }
+}
+
+export class CollectionHttpRequestOptions extends SearchableCollectionHttpRequestOptions {
   orderBy: OrderByRequestOptions[] = [];
   filter: FilterRequestOptions[] = [];
-  search: string | undefined;
 
   public constructor(init?: Partial<CollectionHttpRequestOptions>) {
     super(init);
