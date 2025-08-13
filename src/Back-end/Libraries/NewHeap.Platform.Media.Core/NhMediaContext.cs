@@ -8,7 +8,7 @@ public class NhMediaContext
     {
         if (!Values.TryGetValue(key, out var value))
         {
-            return default;
+            return default!;
         }
         return (T)value;
     }

@@ -19,7 +19,7 @@ public interface IFileStructureStorage
 
     Task<bool> DeleteFileAsync(string? path, string filename);
 
-    Task<IEnumerable<FileReference>> SearchAsync(string searchTerm, string? path, SearchOptions options);
+    Task<SearchResults> SearchAsync(string searchTerm, string? path, SearchOptions options);
     Task<bool> LocalizeAsync(Guid entityId, string language, string propertyName, string value);
 
     Task<bool> UpdateTagsAsync(string path, string fileName, IEnumerable<string> tags);

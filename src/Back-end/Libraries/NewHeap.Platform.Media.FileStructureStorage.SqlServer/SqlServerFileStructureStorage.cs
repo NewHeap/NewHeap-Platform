@@ -378,8 +378,16 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         return count > 0;
     }
 
-    public async Task<IEnumerable<FileReference>> SearchAsync(string searchTerm, string? path, SearchOptions options)
+    public async Task<SearchResults> SearchAsync(string searchTerm, string? path, SearchOptions options)
     {
+        options.PageSize = Math.Max(options.PageSize, 10);
+        options.PageIndex = Math.Max(options.PageIndex, 0);
+        
+        var results = new SearchResults()
+        {
+            PageIndex = options.PageIndex,
+            ItemsPerPage = options.PageSize,
+        };
         path = NormalizePath(path);
         var q = _dbContext.Files.AsNoTracking();
         if (!string.IsNullOrEmpty(path))
@@ -410,7 +418,12 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         {
             q  = q.Where(x => !options.ExcludedExtensions.Any(y => x.Name.EndsWith(y)));
         }
+
+        var total = await q.LongCountAsync();
         
+        q = q.Skip(options.PageIndex * options.PageSize).Take(options.PageSize);
+
+        results.TotalCount = total;
         var files = await q.ToListAsync();
         var result = new List<FileReference>();
         foreach (var file in files)
@@ -432,8 +445,9 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             result.Add(reference);
             await ApplyLocalizations(reference, options.Language);
         }
-
-        return result;
+        
+        results.Results = result;
+        return results;
     }
 
     public async Task<bool> LocalizeAsync(Guid entityId, string language, string propertyName, string? value)

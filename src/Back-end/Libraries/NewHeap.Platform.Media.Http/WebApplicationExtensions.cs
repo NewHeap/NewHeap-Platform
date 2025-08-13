@@ -179,7 +179,7 @@ public static class WebApplicationExtensions
     [ApiExplorerSettings(GroupName = "Media")]
     [Tags("Media")]
     [EndpointName("Search media library")]
-    private static async Task<Results<Ok<IEnumerable<FileReference>>, UnauthorizedHttpResult>> Search(string? path,
+    private static async Task<Results<Ok<SearchResults>, UnauthorizedHttpResult>> Search(string? path,
         string? searchTerm,
         string? language,
         string[]? tags,

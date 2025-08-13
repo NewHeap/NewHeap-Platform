@@ -21,4 +21,7 @@ public class SearchOptions
     /// When set files with given extensions will not be returned
     /// </summary>
     public string[]? ExcludedExtensions { get; set; }
+
+    public int PageSize { get; set; } = 20;
+    public int PageIndex { get; set; } = 0;
 }

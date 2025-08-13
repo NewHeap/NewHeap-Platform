@@ -21,7 +21,7 @@ public interface IMediaLibraryService
     Task<bool> DeleteFolderAsync(string? path, string folderName);
     Task<bool> DeleteFileAsync(string? path, string fileName);
 
-    Task<IEnumerable<FileReference>> SearchAsync(string? path, string searchTerm, SearchOptions options);
+    Task<SearchResults> SearchAsync(string? path, string searchTerm, SearchOptions options);
 
     Task<bool> LocalizeFieldAsync(Guid fileReferenceId, string propertyName, string language, string value);
 
@@ -316,19 +316,20 @@ public class MediaLibraryService : IMediaLibraryService
         return true;
     }
 
-    public async Task<IEnumerable<FileReference>> SearchAsync(string? path, string searchTerm, SearchOptions options)
+    public async Task<SearchResults> SearchAsync(string? path, string searchTerm, SearchOptions options)
     {
         await EnsureAuthorized(path, null, options.Language, ActionType.Read);
 
         NormalizeOptions(options);
+
+        var searchResults = await _fileStructureStorage.SearchAsync(searchTerm, path, options);
         
-        var results = (await _fileStructureStorage.SearchAsync(searchTerm, path, options)).ToList();
-        foreach (var file in results)
+        foreach (var file in searchResults.Results)
         {
             file.Thumbnail = await _thumbnailService.GetThumbnailAsync(file.Id);
         }
         
-        return results;
+        return searchResults;
     }
 
     private void NormalizeOptions(SearchOptions options)
