@@ -66,6 +66,49 @@ public partial class SimpleCollectionResultModel<T>
     public long TotalCount { get; set; }
     public int ResultCount { get; set; }
     public List<T> Items { get; set; } = [];
+
+    public static SimpleCollectionResultModel<T> Create(
+        List<T> items,
+        IBaseCollectionRequestModel requestModel)
+    {
+        return new SimpleCollectionResultModel<T>
+        {
+            Items = items,
+            TotalCount = items.Count,
+            ResultCount = items.Count,
+            Page = requestModel.Page,
+            ItemsPerPage = requestModel.ItemsPerPage
+        };
+    }
+
+    public static SimpleCollectionResultModel<T> Create(
+        List<T> items,
+        ISearchableBaseCollectionRequestModel requestModel)
+    {
+        return new SimpleCollectionResultModel<T>
+        {
+            Items = items,
+            TotalCount = items.Count,
+            ResultCount = items.Count,
+            Page = requestModel.Page,
+            ItemsPerPage = requestModel.ItemsPerPage
+        };
+    }
+
+    public static SimpleCollectionResultModel<T> Create(
+        List<T> items,
+        int page = 1,
+        int itemsPerPage = 20)
+    {
+        return new SimpleCollectionResultModel<T>
+        {
+            Items = items,
+            TotalCount = items.Count,
+            ResultCount = items.Count,
+            Page = page,
+            ItemsPerPage = itemsPerPage
+        };
+    }
 }
 
 public partial class CollectionResultModel<T> : SimpleCollectionResultModel<T>
@@ -73,4 +116,79 @@ public partial class CollectionResultModel<T> : SimpleCollectionResultModel<T>
     public List<OrderByCollectionRequestModel> OrderBy { get; set; } = [];
     public List<FilterCollectionRequestModel> Filter { get; set; } = [new()];
     public string? Search { get; set; }
+
+    public static CollectionResultModel<T> Create(
+        List<T> items,
+        IBaseCollectionRequestModel requestModel,
+        List<FilterCollectionRequestModel>? filters = null,
+        List<OrderByCollectionRequestModel>? orderBys = null
+        )
+    {
+        return new CollectionResultModel<T>
+        {
+            Items = items,
+            TotalCount = items.Count,
+            ResultCount = items.Count,
+            Page = requestModel.Page,
+            ItemsPerPage = requestModel.ItemsPerPage,
+            Filter = filters ?? [],
+            OrderBy = orderBys ?? []
+        };
+    }
+
+    public static CollectionResultModel<T> Create(
+        List<T> items,
+        ISearchableBaseCollectionRequestModel requestModel,
+        List<FilterCollectionRequestModel>? filters = null,
+        List<OrderByCollectionRequestModel>? orderBys = null
+        )
+    {
+        return new CollectionResultModel<T>
+        {
+            Items = items,
+            TotalCount = items.Count,
+            ResultCount = items.Count,
+            Page = requestModel.Page,
+            ItemsPerPage = requestModel.ItemsPerPage,
+            Filter = filters ?? [],
+            OrderBy = orderBys ?? []
+        };
+    }
+
+    public static CollectionResultModel<T> Create(
+        List<T> items,
+        ICollectionRequestModel requestModel
+    )
+    {
+        return new CollectionResultModel<T>
+        {
+            Items = items,
+            TotalCount = items.Count,
+            ResultCount = items.Count,
+            Page = requestModel.Page,
+            ItemsPerPage = requestModel.ItemsPerPage,
+            Filter = requestModel.Filter,
+            OrderBy = requestModel.OrderBy
+        };
+    }
+
+    public static CollectionResultModel<T> Create(
+        List<T> items,
+        int page = 1,
+        int itemsPerPage = 20,
+        List<FilterCollectionRequestModel>? filters = null,
+        List<OrderByCollectionRequestModel>? orderBys = null
+        )
+    {
+        return new CollectionResultModel<T>
+        {
+            Items = items,
+            TotalCount = items.Count,
+            ResultCount = items.Count,
+            Page = page,
+            ItemsPerPage = itemsPerPage,
+            Filter = filters ?? [],
+            OrderBy = orderBys ?? [],
+        };
+    }
 }
