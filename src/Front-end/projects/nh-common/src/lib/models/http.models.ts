@@ -132,6 +132,7 @@ export class SimpleCollectionHttpResponse<T> {
   itemsPerPage = 10;
   resultCount: number = 0;
   totalCount: number = 0;
+  items: T[] = [];
 
   public constructor(init?: Partial<SimpleCollectionHttpResponse<T>>) {
     Object.assign(this, init);
@@ -142,7 +143,6 @@ export class CollectionHttpResponse<T> extends SimpleCollectionHttpResponse<T> {
   orderBy: OrderByRequestOptions[] = [];
   filter: FilterRequestOptions[] = [];
   search = '';
-  items: T[] = [];
 
   public constructor(init?: Partial<CollectionHttpResponse<T>>) {
     super(init);
