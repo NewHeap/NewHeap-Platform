@@ -132,7 +132,7 @@ import {INhAuthorization} from "./models/auth.models";
         // We use APP_INITIALIZER to load the configuration before the application starts. (Cuz DEPS calls for AppConfigService it is loaded soon in the lifecycle of the app.)
         //
         configService.initialize().then(() => {
-          observer.next();
+          observer.next({});
           observer.complete();
         }, (err) => {
           observer.error(err);

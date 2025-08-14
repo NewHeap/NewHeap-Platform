@@ -211,12 +211,12 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     return new Observable((observer) => {
 
       if (!this.settings.lazyLoad || !this.settings.selectedRequestOptions || !this.settings.selectedLazyLoadLambda || !this.value || this.value === null) {
-        observer.next();
+        observer.next([]);
         return;
       }
 
       if (!this.value || this.value.length < 1 || this.value === null) {
-        observer.next();
+        observer.next([]);
         return;
       }
 
