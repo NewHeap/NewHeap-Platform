@@ -1,6 +1,15 @@
 import {HttpHeaders, HttpParams} from "@angular/common/http";
 
-export class HttpRequestOptions {
+export interface IHttpRequestOptions {
+  headers?: HttpHeaders;
+  observe?: 'body';
+  params?: HttpParams;
+  reportProgress?: boolean;
+  responseType?: 'json' | 'blob';
+  withCredentials?: boolean;
+}
+
+export class HttpRequestOptions implements IHttpRequestOptions {
   headers?: HttpHeaders;
   observe?: 'body';
   params?: HttpParams;
@@ -13,7 +22,11 @@ export class HttpRequestOptions {
   }
 }
 
-export class HttpDownloadRequestOptions {
+export interface IHttpDownloadRequestOptions extends IHttpRequestOptions {
+  responseType?: 'blob';
+}
+
+export class HttpDownloadRequestOptions implements IHttpDownloadRequestOptions {
   headers?: HttpHeaders;
   observe?: 'body';
   params?: HttpParams;
@@ -21,12 +34,17 @@ export class HttpDownloadRequestOptions {
   responseType?: 'blob';
   withCredentials?: boolean;
 
-  public constructor(init?: Partial<HttpRequestOptions>) {
+  public constructor(init?: Partial<HttpDownloadRequestOptions>) {
     Object.assign(this, init);
   }
 }
 
-export class SimpleCollectionHttpRequestOptions extends HttpRequestOptions {
+export interface ISimpleCollectionHttpRequestOptions extends IHttpRequestOptions {
+  page?: number;
+  itemsPerPage?: number;
+}
+
+export class SimpleCollectionHttpRequestOptions extends HttpRequestOptions implements  ISimpleCollectionHttpRequestOptions {
   page: number = 1;
   itemsPerPage: number = 30;
 
@@ -36,7 +54,11 @@ export class SimpleCollectionHttpRequestOptions extends HttpRequestOptions {
   }
 }
 
-export class SearchableCollectionHttpRequestOptions extends SimpleCollectionHttpRequestOptions {
+export interface ISearchableCollectionHttpRequestOptions extends ISimpleCollectionHttpRequestOptions {
+  search?: string;
+}
+
+export class SearchableCollectionHttpRequestOptions extends SimpleCollectionHttpRequestOptions implements ISearchableCollectionHttpRequestOptions {
   search: string | undefined;
 
   public constructor(init?: Partial<SearchableCollectionHttpRequestOptions>) {
@@ -45,7 +67,12 @@ export class SearchableCollectionHttpRequestOptions extends SimpleCollectionHttp
   }
 }
 
-export class CollectionHttpRequestOptions extends SearchableCollectionHttpRequestOptions {
+export interface ICollectionHttpRequestOptions extends ISearchableCollectionHttpRequestOptions {
+  orderBy?: OrderByRequestOptions[];
+  filter?: FilterRequestOptions[];
+}
+
+export class CollectionHttpRequestOptions extends SearchableCollectionHttpRequestOptions implements ICollectionHttpRequestOptions {
   orderBy: OrderByRequestOptions[] = [];
   filter: FilterRequestOptions[] = [];
 
@@ -127,7 +154,15 @@ export class CollectionHttpRequestOptions extends SearchableCollectionHttpReques
   }
 }
 
-export class SimpleCollectionHttpResponse<T> {
+export interface ISimpleCollectionHttpResponse<T> {
+  page?: number;
+  itemsPerPage?: number;
+  resultCount?: number;
+  totalCount?: number;
+  items?: T[];
+}
+
+export class SimpleCollectionHttpResponse<T> implements ISimpleCollectionHttpResponse<T>{
   page = 1;
   itemsPerPage = 10;
   resultCount: number = 0;
@@ -139,7 +174,13 @@ export class SimpleCollectionHttpResponse<T> {
   }
 }
 
-export class CollectionHttpResponse<T> extends SimpleCollectionHttpResponse<T> {
+export interface ICollectionHttpResponse<T> extends ISimpleCollectionHttpResponse<T> {
+  orderBy?: OrderByRequestOptions[];
+  filter?: FilterRequestOptions[];
+  search?: string;
+}
+
+export class CollectionHttpResponse<T> extends SimpleCollectionHttpResponse<T> implements ICollectionHttpResponse<T> {
   orderBy: OrderByRequestOptions[] = [];
   filter: FilterRequestOptions[] = [];
   search = '';

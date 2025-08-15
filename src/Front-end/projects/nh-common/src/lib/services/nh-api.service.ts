@@ -153,7 +153,11 @@ export class NhApiService implements OnDestroy {
   }
 
   public getCollection<T>(url: string, requestOptions?: CollectionHttpRequestOptions): Observable<CollectionHttpResponse<T>> {
-    requestOptions = requestOptions || new CollectionHttpRequestOptions();
+    return this.getCollectionT<T, CollectionHttpRequestOptions, CollectionHttpResponse<T>>(url, requestOptions);
+  }
+
+  public getCollectionT<T, TRequestOptions extends CollectionHttpRequestOptions, TCollectionResult extends CollectionHttpResponse<T>>(url: string, requestOptions?: TRequestOptions): Observable<TCollectionResult> {
+    requestOptions = requestOptions || <TRequestOptions><unknown>(new CollectionHttpRequestOptions());
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
 
@@ -202,7 +206,7 @@ export class NhApiService implements OnDestroy {
       }
     }
 
-    return this.httpClient.get<CollectionHttpResponse<T>>(url, {
+    return this.httpClient.get<TCollectionResult>(url, {
       headers: headers,
       observe: 'body',
       params: httpParams,
@@ -213,7 +217,11 @@ export class NhApiService implements OnDestroy {
   }
 
   public getSimpleCollection<T>(url: string, requestOptions?: SimpleCollectionHttpRequestOptions): Observable<SimpleCollectionHttpResponse<T>> {
-    requestOptions = requestOptions || new CollectionHttpRequestOptions();
+    return this.getSimpleCollectionT<T, SimpleCollectionHttpRequestOptions, SimpleCollectionHttpResponse<T>>(url, requestOptions);
+  }
+
+  public getSimpleCollectionT<T, TRequestOptions extends SimpleCollectionHttpRequestOptions, TCollectionResult extends SimpleCollectionHttpResponse<T>>(url: string, requestOptions?: TRequestOptions): Observable<TCollectionResult> {
+    requestOptions = requestOptions || <TRequestOptions><unknown>(new CollectionHttpRequestOptions());
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
 
@@ -226,7 +234,7 @@ export class NhApiService implements OnDestroy {
     httpParams = httpParams.set('page', requestOptions.page);
     httpParams = httpParams.set('itemsPerPage', requestOptions.itemsPerPage);
 
-    return this.httpClient.get<SimpleCollectionHttpResponse<T>>(url, {
+    return this.httpClient.get<TCollectionResult>(url, {
       headers: headers,
       observe: 'body',
       params: httpParams,
