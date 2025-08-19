@@ -356,7 +356,7 @@ public class NhAuthenticationService<
             return TaskResult<UserToken>.Failed("Invalid request");
         }
 
-        return await Impersonate(impersonatedUser, originUser);
+        return await ImpersonateRevert(impersonatedUser, originUser);
     }
 
     protected virtual async Task<TaskResult<UserToken>> ImpersonateRevert(TUser impersonatedUser, TUser originUser)

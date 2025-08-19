@@ -101,33 +101,7 @@ public class NhRevertImpersonateAuthenticationHandler : BaseNhAuthenticationEndp
         }
 
         var token = result.Data;
-        var domain = new Uri(token.Issuer).Host;
-
-        if (!string.IsNullOrWhiteSpace(TokenCookieName))
-        {
-            HttpContext!.Response.Cookies.Append(TokenCookieName!, token.Token, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Lax,
-                Expires = token.ValidTo,
-                Domain = domain,
-                IsEssential = true,
-            });
-        }
-
-        if (!string.IsNullOrWhiteSpace(RefreshTokenCookieName) && !string.IsNullOrWhiteSpace(token.RefreshToken))
-        {
-            HttpContext!.Response.Cookies.Append(RefreshTokenCookieName!, token.RefreshToken!, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Lax,
-                Expires = DateTimeOffset.Now.AddDays(2),
-                Domain = domain,
-                IsEssential = true,
-            });
-        }
+        WriteTokenToCookie(token);
 
         return TypedResults.Ok(token);
     }
