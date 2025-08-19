@@ -39,6 +39,7 @@
     "@opentelemetry/instrumentation-http": "^0.57.2",
     "@opentelemetry/instrumentation-redis-4": "^0.46.1",
     "@opentelemetry/sdk-node": "^0.57.2",
+    "@sentry/angular": "^10.5.0",
     "@swimlane/ngx-datatable": "^21.0.0-alpha.0",
     "@types/luxon": "^3.4.2",
     "axios": "^1.7.9",

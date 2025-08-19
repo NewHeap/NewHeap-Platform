@@ -32,14 +32,18 @@ const setCspHeader = () => {
     ],
     scriptSrc: [
       "'self'",
-      "'nonce-{{{NH_CSP_NONCE_PLACEHOLDER}}}'"
+      "'nonce-{{{NH_CSP_NONCE_PLACEHOLDER}}}'",
+      'https://sentry.io',
+      'https://*.sentry.io',
     ],
     fontSrc: [
       "'self'"
     ],
     connectSrc: [
       "'self'",
-      "ws:"
+      "ws:",
+      'https://sentry.io',
+      'https://*.sentry.io'
     ],
     frameSrc: [
       "'self'",

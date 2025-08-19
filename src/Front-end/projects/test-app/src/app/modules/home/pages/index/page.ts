@@ -98,4 +98,8 @@ export class IndexHomePage extends NhPageBaseComponent {
       window.location.reload();
     }
   }
+
+  throwTestError(): void {
+    throw new Error("Sentry Test Error");
+  }
 }

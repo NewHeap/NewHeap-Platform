@@ -1,3 +1,6 @@
+import type {BrowserOptions} from "@sentry/browser/build/npm/types/client";
+import * as Sentry from "@sentry/angular";
+import {ErrorHandlerOptions} from "@sentry/angular";
 
 export class EndpointsAuthenticationNhCommonModuleConfig {
   msAuthenticate: string = '/authentication/oath/microsoft/authorize';
@@ -36,6 +39,26 @@ export class UserNotificationNhCommonModuleConfig {
   }
 }
 
+export class NhSentryErrorLoggingNhCommonModuleConfig {
+  errorLoggingEnabled: boolean = false;
+  tracingEnabled: boolean = false;
+  options: BrowserOptions = {};
+  errorHandlerOptions: ErrorHandlerOptions = {};
+
+  public constructor(init?: Partial<NhSentryErrorLoggingNhCommonModuleConfig>) {
+    Object.assign(this, init);
+  }
+}
+
+export class NhErrorLoggingNhCommonModuleConfig {
+  sentry: NhSentryErrorLoggingNhCommonModuleConfig = new NhSentryErrorLoggingNhCommonModuleConfig();
+
+  public constructor(init?: Partial<NhErrorLoggingNhCommonModuleConfig>) {
+    Object.assign(this, init);
+  }
+}
+
+
 export class NhCommonModuleConfig {
   appDisplayName: string = '';
   baseUrl: string = '';
@@ -53,6 +76,7 @@ export class NhCommonModuleConfig {
   defaultItemsPerPage: number = 20;
   authentication: AuthenticationNhCommonModuleConfig = new AuthenticationNhCommonModuleConfig();
   userNotification: UserNotificationNhCommonModuleConfig = new UserNotificationNhCommonModuleConfig();
+  errorLogging: NhErrorLoggingNhCommonModuleConfig = new NhErrorLoggingNhCommonModuleConfig();
 
   public constructor(init?: Partial<NhCommonModuleConfig>) {
     Object.assign(this, init);

@@ -44,7 +44,9 @@ export function app(): express.Express {
         scriptSrc: [
           "'self'",
           //`'nonce-${headerCspNonceValuePlaceholder}'`,
-          "'unsafe-inline'"
+          "'unsafe-inline'",
+          'https://sentry.io',
+          'https://*.sentry.io'
         ],
         fontSrc: [
           "'self'",
@@ -52,6 +54,8 @@ export function app(): express.Express {
         connectSrc: [
           "'self'",
           "ws:",
+          'https://sentry.io',
+          'https://*.sentry.io'
         ],
         frameSrc: [
           "'self'",

@@ -50,7 +50,7 @@ public abstract class BaseNhAuthenticationEndpoint : IAuthenticationEndpoint, ID
             IsEssential = true,
         });
 
-        if (Configuration.RefreshTokenEnabled)
+        if (Configuration.RefreshTokenEnabled && !string.IsNullOrWhiteSpace(token.RefreshToken))
         {
             HttpContext.Response.Cookies.Append(Configuration.RefreshCookieName!, token.RefreshToken!, new CookieOptions
             {

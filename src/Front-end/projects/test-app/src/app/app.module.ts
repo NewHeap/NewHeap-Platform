@@ -22,7 +22,8 @@ import {
   NH_ROUTER_LANGUAGE_CHANGE_METHOD,
   NH_ROUTER_ROOT_ROUTES,
   NhCommonModule,
-  NhRouterSetupService, NhConfigCommonService, AuthenticationNhCommonModuleConfig
+  NhRouterSetupService, NhConfigCommonService, AuthenticationNhCommonModuleConfig, NhErrorLoggingNhCommonModuleConfig,
+  NhSentryErrorLoggingNhCommonModuleConfig
 } from "nh-common";
 import {routes as getRootRoutes} from "./app-routing.module";
 import {ToastrModule} from "ngx-toastr";
@@ -67,6 +68,20 @@ registerLocaleData(localeEN, 'en');
       cookieDomain: environment.cookieDomain,
       authentication: new AuthenticationNhCommonModuleConfig({
         addAuthTokensToRequests: true,
+      }),
+      errorLogging: new NhErrorLoggingNhCommonModuleConfig({
+        sentry: new NhSentryErrorLoggingNhCommonModuleConfig({
+          errorLoggingEnabled: environment.errorLogging.sentry.errorLoggingEnabled,
+          tracingEnabled: environment.errorLogging.sentry.tracingEnabled,
+          options: {
+            dsn: environment.errorLogging.sentry.options.dsn,
+            tracesSampleRate: environment.errorLogging.sentry.options.tracesSampleRate,
+            tracePropagationTargets: environment.errorLogging.sentry.options.tracePropagationTargets
+          },
+          errorHandlerOptions: {
+            showDialog: environment.errorLogging.sentry.errorHandlerOptions.showDialog
+          }
+        })
       })
     }), AuthService),
     ToastrModule.forRoot({
