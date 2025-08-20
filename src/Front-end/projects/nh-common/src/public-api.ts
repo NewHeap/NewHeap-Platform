@@ -26,6 +26,7 @@ export * from './lib/accessors/abstract-value.accessor';
 export * from './lib/services/nh-error-handler.service';
 export * from './lib/services/nh-error-handler-sentry.service';
 export * from './lib/services/nh-sentry-trace.service';
+export * from './lib/services/nh-sentry.service';
 export * from './lib/services/nh-app.service';
 export * from './lib/services/nh-page.service';
 export * from './lib/services/nh-config.service';

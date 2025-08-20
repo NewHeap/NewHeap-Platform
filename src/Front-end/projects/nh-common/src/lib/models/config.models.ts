@@ -42,6 +42,7 @@ export class UserNotificationNhCommonModuleConfig {
 export class NhSentryErrorLoggingNhCommonModuleConfig {
   errorLoggingEnabled: boolean = false;
   tracingEnabled: boolean = false;
+  beforeSendAddAuthServiceInformation: boolean = true;
   options: BrowserOptions = {};
   errorHandlerOptions: ErrorHandlerOptions = {};
 

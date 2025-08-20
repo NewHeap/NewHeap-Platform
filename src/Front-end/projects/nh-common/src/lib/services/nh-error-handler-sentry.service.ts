@@ -1,28 +1,35 @@
 import {ErrorHandler, Injectable, OnDestroy} from "@angular/core";
 import {NhCommonModuleConfig} from "../models/config.models";
 import * as Sentry from "@sentry/angular";
+import {NhSentryInitializerService} from "./nh-sentry.service";
 
 @Injectable({
   providedIn: "root"
 })
 export class NhErrorHandlerSentryService implements ErrorHandler, OnDestroy {
-  sentryErrorHandler: Sentry.SentryErrorHandler | undefined;
-  didInitialize: boolean = false;
+  private _sentryErrorHandler: Sentry.SentryErrorHandler | undefined;
+  private _didInitialize: boolean = false;
+
+  get sentryErrorHandler() {
+    return this._sentryErrorHandler;
+  }
+
 
   constructor(
-    private readonly moduleConfig: NhCommonModuleConfig
+    private readonly moduleConfig: NhCommonModuleConfig,
+    private readonly sentryInitializerService: NhSentryInitializerService
   ){
-
+    this.initialize();
   }
 
   initialize() {
     if(!this.moduleConfig.errorLogging.sentry.errorLoggingEnabled) {
-      this.sentryErrorHandler?.ngOnDestroy();
-      this.sentryErrorHandler = undefined;
+      this._sentryErrorHandler?.ngOnDestroy();
+      this._sentryErrorHandler = undefined;
       return;
     }
 
-    if(this.didInitialize) {
+    if(this._didInitialize) {
       return;
     }
 
@@ -30,9 +37,9 @@ export class NhErrorHandlerSentryService implements ErrorHandler, OnDestroy {
       Sentry.init(this.moduleConfig.errorLogging.sentry.options);
     }
 
-    this.sentryErrorHandler = Sentry.createErrorHandler(this.moduleConfig.errorLogging.sentry.errorHandlerOptions);
+    this._sentryErrorHandler = Sentry.createErrorHandler(this.moduleConfig.errorLogging.sentry.errorHandlerOptions);
 
-    this.didInitialize = true;
+    this._didInitialize = true;
   }
 
   handleError(error: any): void {
@@ -42,11 +49,11 @@ export class NhErrorHandlerSentryService implements ErrorHandler, OnDestroy {
       return;
     }
 
-    this.sentryErrorHandler?.handleError(error);
+    this._sentryErrorHandler?.handleError(error);
   }
 
   ngOnDestroy(): void {
-    this.sentryErrorHandler?.ngOnDestroy();
-    this.sentryErrorHandler = undefined;
+    this._sentryErrorHandler?.ngOnDestroy();
+    this._sentryErrorHandler = undefined;
   }
 }

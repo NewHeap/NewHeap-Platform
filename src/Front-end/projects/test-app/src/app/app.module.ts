@@ -76,7 +76,8 @@ registerLocaleData(localeEN, 'en');
           options: {
             dsn: environment.errorLogging.sentry.options.dsn,
             tracesSampleRate: environment.errorLogging.sentry.options.tracesSampleRate,
-            tracePropagationTargets: environment.errorLogging.sentry.options.tracePropagationTargets
+            tracePropagationTargets: environment.errorLogging.sentry.options.tracePropagationTargets,
+            //integrations: []
           },
           errorHandlerOptions: {
             showDialog: environment.errorLogging.sentry.errorHandlerOptions.showDialog
