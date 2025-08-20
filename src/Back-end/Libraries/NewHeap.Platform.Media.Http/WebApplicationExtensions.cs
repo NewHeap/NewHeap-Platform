@@ -185,6 +185,8 @@ public static class WebApplicationExtensions
         string[]? tags,
         string[]? includeExtensions,
         string[]? excludeExtensions,
+        int? pageIndex,
+        int? pageSize,
         IMediaLibraryService mediaLibraryService)
     {
         try
@@ -196,7 +198,9 @@ public static class WebApplicationExtensions
                 Language = language,
                 ExcludedExtensions = excludeExtensions,
                 IncludedExtensions = includeExtensions,
-                Tags = tags
+                Tags = tags,
+                PageIndex = pageIndex ?? 0,
+                PageSize = pageSize ?? 20,
             };
 
             options.IncludedExtensions = ProcessExtensions(options.IncludedExtensions); 

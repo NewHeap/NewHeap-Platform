@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NewHeap.Media.FileStructureStorage.SqlServer;
 using NewHeap.Media.Modules;
 
@@ -30,6 +31,13 @@ public static class HostBuilderExtensions
             {
                 opt.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             }
+
+            opt.ConfigureWarnings(logConf => logConf.Log(
+                (RelationalEventId.CommandExecuting, LogLevel.Trace),
+                (RelationalEventId.CommandExecuted, LogLevel.Debug),
+                (CoreEventId.ContextInitialized, LogLevel.Trace)
+            ));
+            
             opt.UseSqlServer(connectionString, efOptions =>
             {
                 var scheme = string.IsNullOrWhiteSpace(options.Scheme) ? "medialibrary" : options.Scheme;
