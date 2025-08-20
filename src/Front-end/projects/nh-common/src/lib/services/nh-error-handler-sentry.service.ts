@@ -33,9 +33,7 @@ export class NhErrorHandlerSentryService implements ErrorHandler, OnDestroy {
       return;
     }
 
-    if(!Sentry.isInitialized()) {
-      Sentry.init(this.moduleConfig.errorLogging.sentry.options);
-    }
+    this.sentryInitializerService.initialize();
 
     this._sentryErrorHandler = Sentry.createErrorHandler(this.moduleConfig.errorLogging.sentry.errorHandlerOptions);
 

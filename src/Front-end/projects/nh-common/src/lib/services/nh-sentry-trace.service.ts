@@ -35,9 +35,7 @@ export class NhSentryTraceService implements OnDestroy {
       return;
     }
 
-    if(!Sentry.isInitialized()) {
-      Sentry.init(this.moduleConfig.errorLogging.sentry.options);
-    }
+    this.sentryInitializerService.initialize();
 
     this._sentryTraceService = new Sentry.TraceService(this.router);
     this._didInitialize = true;
