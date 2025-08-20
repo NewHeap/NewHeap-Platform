@@ -69,8 +69,6 @@ export class NhSentryInitializerService implements OnDestroy {
 
   constructor(
     private readonly moduleConfig: NhCommonModuleConfig,
-    private readonly sentryTraceService: NhSentryTraceService,
-    private readonly errorHandlerSentryService: NhErrorHandlerSentryService,
     private readonly authService: NhAuthService,
     @Optional() @Inject(NH_SENTRY_BEFORE_SEND_HOOKS)  private providedHooksBeforeSend: NhSentryBeforeSendHook[] = [],
     @Optional() @Inject(NH_SENTRY_BEFORE_SEND_LOG_HOOKS)  private providedHooksBeforeSendLog: NhSentryBeforeSendLogHook[] = [],
