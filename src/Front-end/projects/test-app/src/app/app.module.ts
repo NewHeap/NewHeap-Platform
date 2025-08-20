@@ -73,6 +73,7 @@ registerLocaleData(localeEN, 'en');
         sentry: new NhSentryErrorLoggingNhCommonModuleConfig({
           errorLoggingEnabled: environment.errorLogging.sentry.errorLoggingEnabled,
           tracingEnabled: environment.errorLogging.sentry.tracingEnabled,
+          beforeSendAddAuthServiceInformation: true,
           options: {
             dsn: environment.errorLogging.sentry.options.dsn,
             tracesSampleRate: environment.errorLogging.sentry.options.tracesSampleRate,
