@@ -2,8 +2,11 @@ import {Inject, Injectable, InjectionToken, OnDestroy, Optional} from "@angular/
 import {NhCommonModuleConfig, NhSentryErrorLoggingNhCommonModuleConfig} from "../models/config.models";
 import * as Sentry from "@sentry/angular";
 import * as SentryCore from "@sentry/core";
-import {NhAuthorization, NhAuthService, NhErrorHandlerSentryService, NhSentryTraceService} from "nh-common";
 import {Subscription} from "rxjs";
+import {NhAuthorization} from "../models/auth.models";
+import {NhSentryTraceService} from "./nh-sentry-trace.service";
+import {NhErrorHandlerSentryService} from "./nh-error-handler-sentry.service";
+import {NhAuthService} from "./nh-auth.service";
 
 export type NhSentryBeforeSendHook = (event: Sentry.ErrorEvent, hint: Sentry.EventHint) => Sentry.ErrorEvent | null | PromiseLike<Sentry.ErrorEvent | null>;
 export type NhSentryBeforeSendLogHook = (event: SentryCore.Log) => SentryCore.Log | null;
