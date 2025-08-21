@@ -299,6 +299,7 @@ public class Startup
 
 
         NhHangfireUtil.BackgroundJob.Enqueue<DatabaseJobs>(x => x.Seed());
+        //NhHangfireUtil.RecurringJob.AddOrUpdate<DatabaseJobs>("ZAAD", x => x.Seed(), "* * * *");
     }
 }
 
