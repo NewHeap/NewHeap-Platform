@@ -36,6 +36,7 @@ using System.Threading.Tasks;
 using WebAPI.Consumers;
 using WebAPI.EventHandlers;
 using static NewHeap.Platform.Common.Constants;
+using NewHeap.Platform.Common.Utilities;
 
 
 namespace WebAPI;
@@ -286,7 +287,10 @@ public class Startup
                 // Optional, default is configured, only override if needed
             })
             ;
-        BackgroundJob.Enqueue<DatabaseJobs>(x => x.Seed());
+
+
+
+        NhHangfireUtil.BackgroundJob.Enqueue<DatabaseJobs>(x => x.Seed());
     }
 }
 
