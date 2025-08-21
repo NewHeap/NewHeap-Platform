@@ -67,4 +67,18 @@ public class NewHeapPlatformCommonConfigurator
 
         return this;
     }
+
+    public NewHeapPlatformCommonConfigurator WithSentry(Action<SentryOptions> optionsAction)
+    {
+        Action<SentryOptions> defaultOptionsAction = options =>
+        {
+            // Add default options
+            optionsAction?.Invoke(options);
+            // Add hard overrides
+        };
+
+        SentrySdk.Init(defaultOptionsAction);
+
+        return this;
+    }
 }
