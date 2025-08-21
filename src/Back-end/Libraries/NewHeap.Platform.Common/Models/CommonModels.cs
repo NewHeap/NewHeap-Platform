@@ -199,7 +199,7 @@ public partial class TaskResult
         return taskResult1;
     }
 
-    public List<FormattableString> AllErrorMessages => Results.SelectMany(x => x.ErrorMessages).ToList();
+    public List<FormattableString> AllErrorMessages => Results.SelectMany(x => x.ErrorMessages.Select(s => string.IsNullOrWhiteSpace(x.Name) ? s : $"'{x.Name}': {s}")).ToList();
 
 }
 
