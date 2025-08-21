@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
+using Sentry.AspNetCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,9 +11,9 @@ namespace Microsoft.AspNetCore.Hosting;
 
 public static class NhSentryExtensions
 {
-    public static IWebHostBuilder UseNewHeapSentry(this IWebHostBuilder builder, Action<SentryOptions>? optionsAction = null)
+    public static IWebHostBuilder UseNewHeapSentry(this IWebHostBuilder builder, Action<SentryAspNetCoreOptions>? optionsAction = null)
     {
-        Action<SentryOptions> defaultOptionsAction = options =>
+        Action<SentryAspNetCoreOptions> defaultOptionsAction = options =>
         {
             // Add default options
             optionsAction?.Invoke(options);
@@ -24,7 +25,7 @@ public static class NhSentryExtensions
         return builder;
     }
 
-    public static IHostApplicationBuilder UseNewHeapSentry(this WebApplicationBuilder builder, Action<SentryOptions>? optionsAction = null)
+    public static IHostApplicationBuilder UseNewHeapSentry(this WebApplicationBuilder builder, Action<SentryAspNetCoreOptions>? optionsAction = null)
     {
         builder.WebHost.UseNewHeapSentry(optionsAction);
 
