@@ -18,6 +18,12 @@ public class AuthenticationMethodPickerService
     public async Task<TaskResult<string>> GetAuthMethod(string username)
     {
         var method = "";
+
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return TaskResult<string>.Failed("Username is required.");
+        }
+        
         foreach (var candidate in _options.Checks)
         {
             if (candidate(username, ref method, _serviceProvider))
