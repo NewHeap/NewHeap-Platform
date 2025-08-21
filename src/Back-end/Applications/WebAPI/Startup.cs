@@ -37,6 +37,7 @@ using WebAPI.Consumers;
 using WebAPI.EventHandlers;
 using static NewHeap.Platform.Common.Constants;
 using NewHeap.Platform.Common.Utilities;
+using NewHeap.Platform.Common;
 
 
 namespace WebAPI;
@@ -211,6 +212,13 @@ public class Startup
                 }, consoleOptions =>
                 {
                     //Optional, default is configured, only override if needed
+                }, backgroundJobServerOptions => {
+                    if ((Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "").Equals("development", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        var name = $"DEV-{Environment.MachineName}".ToLower().Trim().SafeMaxStringLength(50);
+                        backgroundJobServerOptions.ServerName = name;
+                        backgroundJobServerOptions.Queues = [NhHangfireUtil.GetQueueName()];
+                    }
                 })
             .WithNotifications(x =>
             {
