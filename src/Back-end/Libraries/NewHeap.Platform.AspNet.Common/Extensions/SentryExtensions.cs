@@ -16,6 +16,20 @@ public static class NhSentryExtensions
         Action<SentryAspNetCoreOptions> defaultOptionsAction = options =>
         {
             // Add default options
+            options.Environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+                ?? "Unknown";
+
+            options.SendDefaultPii = true;
+            options.MaxRequestBodySize = Sentry.Extensibility.RequestSize.Small;
+            options.MinimumBreadcrumbLevel = Microsoft.Extensions.Logging.LogLevel.Debug;
+            options.MinimumEventLevel = Microsoft.Extensions.Logging.LogLevel.Warning;
+            options.AttachStacktrace = true;
+            //options.Debug = true;
+            options.DiagnosticLevel = SentryLevel.Error;
+            options.TracesSampleRate = 1.0; // Adjust as needed for performance
+            //options.Release = ""; // TODO;
+            options.ServerName = Environment.MachineName;
+
             optionsAction?.Invoke(options);
             // Add hard overrides
         };
