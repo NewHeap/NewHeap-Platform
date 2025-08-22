@@ -54,7 +54,7 @@ public abstract class NhBaseUserNotificationController : DbEntityProtectedNhBase
     protected override (Expression<Func<NhUserNotification, object>> orderByKey, ListSortDirection sortDirection)[] GetDefaultCollectionResultOrderBy()
     {
         return [
-            (x => x.IsLastRead, ListSortDirection.Descending),
+            (x => x.IsLastRead, ListSortDirection.Ascending),
             (x => x.CreationDateTime, ListSortDirection.Descending)
         ];
     }
