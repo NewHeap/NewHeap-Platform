@@ -79,3 +79,7 @@ export * from './lib/guards/nh-cancel-navigation.guard';
 
 export * from './lib/prototype-extensions/array.extensions';
 export * from './lib/prototype-extensions/observable.extensions';
+
+//export * from './lib/miscellaneous/nh-node-fetch.http-backend';
+export * from './lib/miscellaneous/translate-loaders/translate-browser.loader';
+//export * from './lib/miscellaneous/translate-loaders/translate-server.loader';

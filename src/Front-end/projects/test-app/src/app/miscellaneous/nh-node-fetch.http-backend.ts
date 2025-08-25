@@ -6,7 +6,7 @@ import {
 } from "@angular/common/http";
 import fetch, { RequestInit, Response, HeadersInit, Headers } from 'node-fetch';
 import {inject, Injectable, NgZone, Provider} from "@angular/core";
-import {from, map, Observable, Observer, switchMap} from "rxjs";
+import {Observable, Observer} from "rxjs";
 
 const XSSI_PREFIX = /^\)\]\}',?\n/;
 
@@ -142,7 +142,7 @@ export class NhNodeFetchHttpBackend implements HttpBackend  {
 
 function noop(): void {}
 
-export function withNodeFetchHttpBackend(): Provider {
+export function nhWithNodeFetchHttpBackend(): Provider {
   return {
     provide: HttpBackend,
     useClass: NhNodeFetchHttpBackend,

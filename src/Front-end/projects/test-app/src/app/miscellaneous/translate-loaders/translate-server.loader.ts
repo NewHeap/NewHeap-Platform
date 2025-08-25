@@ -1,45 +1,27 @@
 import {join} from 'path';
 import {Observable} from 'rxjs';
 import {TranslateLoader} from '@ngx-translate/core';
-import {StateKey, makeStateKey, TransferState, Inject, PLATFORM_ID, inject} from '@angular/core';
+import {StateKey, makeStateKey, TransferState, inject} from '@angular/core';
 import * as fs from 'fs';
-import {environment} from "../../../environments/environment";
+import {NhCommonModuleConfig} from "nh-common";
 
-export class TranslateServerLoader implements TranslateLoader {
-  private platformId: Object;
+export class NhTranslateServerLoader implements TranslateLoader {
+  protected moduleConfig: NhCommonModuleConfig = inject(NhCommonModuleConfig);
 
   constructor(
     private transferState: TransferState,
-    private prefix: string = 'i18n',
     private suffix: string = '.json'
   ) {
-    this.platformId = inject(PLATFORM_ID);
-    this.platformId = inject(PLATFORM_ID);
   }
 
   public getTranslation(lang: string): Observable<any> {
     return new Observable((observer) => {
       let assets_folder = '';
 
-      if(environment.name === 'development') {
-        assets_folder = join(
-          process.cwd(),
-          'projects',
-          'webshop',
-          'src',
-          'assets',
-          this.prefix
-        );
-      } else {
-        assets_folder = join(
-          process.cwd(),
-          'dist',
-          'test-app', // Project name
-          'browser',
-          'assets',
-          this.prefix
-        );
-      }
+      assets_folder = join(
+        process.cwd(),
+        this.moduleConfig.translation.serverLoaderPath
+      );
 
       if(!fs.existsSync(`${assets_folder}/${lang}${this.suffix}`)) {
         observer.next({});
@@ -63,6 +45,6 @@ export class TranslateServerLoader implements TranslateLoader {
   }
 }
 
-export function translateServerLoaderFactory(transferState: TransferState) {
-  return new TranslateServerLoader(transferState);
+export function nhTranslateServerLoaderFactory(transferState: TransferState) {
+  return new NhTranslateServerLoader(transferState);
 }
