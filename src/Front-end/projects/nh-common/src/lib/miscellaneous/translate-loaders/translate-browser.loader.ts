@@ -22,6 +22,7 @@ export class NhTranslateBrowserLoader implements TranslateLoader {
     const key: StateKey<number> = makeStateKey<number>(
       'transfer-translate-' + lang
     );
+
     const data = this.transferState.get(key, null);
 
     // First we are looking for the translations in transfer-state,
@@ -32,8 +33,12 @@ export class NhTranslateBrowserLoader implements TranslateLoader {
         observer.complete();
       });
     } else {
+      const urlPart = this.moduleConfig.translation.browserLoaderPrefix.endsWith('/')
+        ? ''
+        : '/';
+
       return this.http.get<TranslationObject>(
-        `./assets/i18n/${lang}.json`,
+        `${this.moduleConfig.translation.browserLoaderPrefix}${urlPart}${lang}.json`,
         NhTranslateBrowserLoader.httpRequestOptions
       );
     }
