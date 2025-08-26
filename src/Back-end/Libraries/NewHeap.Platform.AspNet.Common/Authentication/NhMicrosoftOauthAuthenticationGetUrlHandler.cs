@@ -15,16 +15,11 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 
 public class NhMicrosoftOauthAuthenticationGetUrlHandler : BaseNhAuthenticationEndpoint
 {
-    private readonly IServiceProvider _serviceProvider;
-
     public NhMicrosoftOauthAuthenticationGetUrlHandler(
         IHttpContextAccessor httpContextAccessor,
-        IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration
-    ) : base(httpContextAccessor, "authentication/oath/microsoft", serviceProvider, configuration)
+    ) : base(httpContextAccessor, "authentication/oath/microsoft", configuration)
     {
-        _serviceProvider = serviceProvider;
-
         Method = HttpMethod.Post;
         Handler = ExecuteAsync;
     }
@@ -46,8 +41,7 @@ public class NhMicrosoftOauthAuthenticationGetUrlHandler : BaseNhAuthenticationE
             result.AddError(nameof(request.UserName),"Field is required");
         }
         
-        using var scope = _serviceProvider.CreateScope();
-        var userManager = scope.ServiceProvider.GetRequiredService<INhUserManager>();
+        var userManager = HttpContext!.RequestServices.GetRequiredService<INhUserManager>();
         
         if (!userManager.IsOauthAccount(request!.UserName!))
         {
@@ -61,7 +55,7 @@ public class NhMicrosoftOauthAuthenticationGetUrlHandler : BaseNhAuthenticationE
         var stateId = Guid.NewGuid();
         var state = request!.CallbackUrl + ";" + stateId;
 
-        var microsoftAuthService = scope.ServiceProvider.GetRequiredService<MicrosoftAuthService>();
+        var microsoftAuthService = HttpContext!.RequestServices.GetRequiredService<MicrosoftAuthService>();
         
         var url = microsoftAuthService.GetLoginUrl(state);
 
@@ -73,15 +67,11 @@ public class NhMicrosoftOauthAuthenticationGetUrlHandler : BaseNhAuthenticationE
 public class NhMicrosoftOauthAuthenticationAuthorizeHandler<TUser> : BaseNhAuthenticationEndpoint
 where TUser : IdentityUser<Guid>
 {
-    private readonly IServiceProvider _serviceProvider;
-
     public NhMicrosoftOauthAuthenticationAuthorizeHandler(
         IHttpContextAccessor httpContextAccessor,
-        IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration
-    ) : base(httpContextAccessor, "authentication/oath/microsoft/authorize", serviceProvider, configuration)
+    ) : base(httpContextAccessor, "authentication/oath/microsoft/authorize", configuration)
     {
-        _serviceProvider = serviceProvider;
         Method = HttpMethod.Get;
         Handler = ExecuteAsync;
     }
@@ -99,9 +89,8 @@ where TUser : IdentityUser<Guid>
             return BadRequest(TaskResult.Failed("Invalid request"));
         }
         
-        using var scope = _serviceProvider.CreateScope();
-        var userManager = scope.ServiceProvider.GetRequiredService<INhUserManager<TUser>>();
-        var microsoftAuthService = scope.ServiceProvider.GetRequiredService<MicrosoftAuthService>();
+        var userManager = HttpContext!.RequestServices.GetRequiredService<INhUserManager<TUser>>();
+        var microsoftAuthService = HttpContext!.RequestServices.GetRequiredService<MicrosoftAuthService>();
         
         var token = await microsoftAuthService.GetToken(request.Code!, request.State);
         if (token == null)

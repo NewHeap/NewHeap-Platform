@@ -467,6 +467,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         serviceCollection.AddScoped<TUserManager, TUserManager>();
 
         // Important, override the default UserManager with our custom one.
+        //Microsoft.AspNetCore.Identity.UserManager
         serviceCollection.AddScoped<UserManager<TUser>>(serviceProvider =>
         {
             return serviceProvider.GetRequiredService<TUserManager>();

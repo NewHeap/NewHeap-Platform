@@ -42,7 +42,6 @@ public class NhAccountInformationEndpointHandler<
     where TDivisionViewModel : NhDivisionViewModel
     where TClaimViewModel : NhClaimViewModel
 {
-    private readonly IServiceProvider _serviceProvider;
     private readonly AuthenticationConfiguration _configuration;
 
     /// <summary>
@@ -52,12 +51,10 @@ public class NhAccountInformationEndpointHandler<
     /// <param name="configuration"></param>
     /// <param name="httpContextAccessor"></param>
     public NhAccountInformationEndpointHandler(
-        IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor
-    ) : base(httpContextAccessor, "account", serviceProvider,configuration)
+    ) : base(httpContextAccessor, "account",configuration)
     {
-        _serviceProvider = serviceProvider;
         _configuration = configuration;
         Handler = ProcessRequest;
         Method = HttpMethod.Get;
