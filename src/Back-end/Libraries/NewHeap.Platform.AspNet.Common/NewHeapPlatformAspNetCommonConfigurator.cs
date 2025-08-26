@@ -99,7 +99,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         TLogFile,
         TLogMessageTranslated
     >
-    where TUserManager : class, INhUserManager<TUser>
+    where TUserManager : UserManager<TUser>, INhUserManager<TUser>
     where TDivisionService : NhDivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole,
         TDivisionRoleClaim, TDivisionMutateModel>
     where TDivisionMutateModel : NhDivisionMutateModel
@@ -465,6 +465,12 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         #endregion
 
         serviceCollection.AddScoped<TUserManager, TUserManager>();
+
+        // Important, override the default UserManager with our custom one.
+        serviceCollection.AddScoped<UserManager<TUser>>(serviceProvider =>
+        {
+            return serviceProvider.GetRequiredService<TUserManager>();
+        });
 
         // Do like this, allow sub projects to register their own 2.
         serviceCollection.AddScoped<INhUserManager>(serviceProvider =>
