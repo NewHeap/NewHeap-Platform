@@ -23,8 +23,9 @@ public interface INhUserManager
     string GenerateRandomPassword(PasswordOptions? passwordOptions = null);
     string GenerateRegistrationToken();
     bool IsOauthAccount(string email);
-
     Task<List<Claim>> GetValidClaimsByUserIdAsync(Guid userId, bool withDivision = false, CancellationToken cancellationToken = default);
+    Task<TaskResult> ChangePasswordAsync(Guid userId, NhChangePasswordUserMutateModel mutateModel, Guid? committedByUserId = null, CancellationToken cancellationToken = default);
+    Task<TaskResult> ChangePasswordWithoutCurrentPasswordAsync(Guid userId, NhWithoutCurrentPasswordChangePasswordUserMutateModel mutateModel, Guid? committedByUserId = null, CancellationToken cancellationToken = default);
 }
 
 public interface INhUserManager<TUser> : INhUserManager
@@ -41,6 +42,8 @@ public interface INhUserManager<TUser> : INhUserManager
     bool IsOauthAccount(TUser user);
     IQueryable<TUser> QueryableWithAllIncludes(IQueryable<TUser>? queryable = null);
     Task UpdateUserLockout(TUser user, DateTimeOffset? start = null, DateTimeOffset? end = null, CancellationToken cancellationToken = default);
+    Task<TaskResult> ResetPasswordAsync(Guid userId, NhResetPasswordUserMutateModel mutateModel, Guid? committedByUserId = null, CancellationToken cancellationToken = default);
+
 
     #region Generated for Identity framework base class
     Task<IdentityResult> CreateAsync(TUser user);
