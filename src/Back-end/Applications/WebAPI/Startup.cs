@@ -177,6 +177,7 @@ public class Startup
                                 r.HostName = "localhost";
                                 r.Password = "guest";
                                 r.UserName = "guest";
+                                r.VirtualHost = "nh-default";
                             });
                         })
                         .WithPublishing()
