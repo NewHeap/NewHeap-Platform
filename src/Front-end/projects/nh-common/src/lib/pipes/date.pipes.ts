@@ -13,8 +13,26 @@ export class NhDatePipe implements PipeTransform {
   constructor(private moduleConfig: NhCommonModuleConfig) {
   }
 
-  transform(value: any, pattern: string = 'mediumDate'): any {
+  transform(value: any, pattern?: string): any {
+    pattern ??= this.moduleConfig.defaultDateFormat;
     const datePipe: DatePipe = new DatePipe(this.moduleConfig.language);
+    return datePipe.transform(value, pattern);
+  }
+}
+
+@Pipe({
+  name: 'nhDateTime',
+  pure: false,
+  standalone: false
+})
+export class NhDateTimePipe implements PipeTransform {
+
+  constructor(private moduleConfig: NhCommonModuleConfig) {
+  }
+
+  transform(value: any, pattern?: string): any {
+    pattern ??= this.moduleConfig.defaultDateTimeFormat;
+    const datePipe: NhDatePipe = new NhDatePipe(this.moduleConfig);
     return datePipe.transform(value, pattern);
   }
 }

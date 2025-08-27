@@ -83,6 +83,8 @@ export class NhCommonModuleConfig {
   environment: string = '';
   cookieDomain: string = '';
   defaultItemsPerPage: number = 20;
+  defaultDateFormat: string = 'dd-MM-yyyy';
+  defaultDateTimeFormat: string = 'dd-MM-yyyy HH:mm:ss';
   authentication: AuthenticationNhCommonModuleConfig = new AuthenticationNhCommonModuleConfig();
   userNotification: UserNotificationNhCommonModuleConfig = new UserNotificationNhCommonModuleConfig();
   errorLogging: NhErrorLoggingNhCommonModuleConfig = new NhErrorLoggingNhCommonModuleConfig();
