@@ -400,7 +400,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
       const isHttpResponseError = ex instanceof HttpErrorResponse;
       if (isHttpResponseError) {
         const response = ex as HttpErrorResponse;
-        if (response.status >= 400 && response.status < 500) {
+        if (response.status >= 401 && response.status < 500) {
           this.clearAuthorization();
         }
       }
