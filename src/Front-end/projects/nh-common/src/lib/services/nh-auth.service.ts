@@ -16,7 +16,7 @@ import {
 } from "../models/auth.models";
 import {DateTime} from "luxon";
 import {TaskResult} from "../models/misc.models";
-import {HttpClient, HttpHeaders, HttpParams} from '@angular/common/http';
+import {HttpClient, HttpErrorResponse, HttpHeaders, HttpParams} from '@angular/common/http';
 import {NhCommonModuleConfig} from "../models/config.models";
 import {NhApiUtil} from "../util/nh-api-util";
 import {isPlatformServer} from "@angular/common";
@@ -396,8 +396,13 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
 
       result.data = this.getAuthorization();
     } catch (ex) {
-      if (this.isAuthenticated()) {
-        this.clearAuthorization();
+      // Check status code, if it's in the 400 range, clear the authorization
+      const isHttpResponseError = ex instanceof HttpErrorResponse;
+      if (isHttpResponseError) {
+        const response = ex as HttpErrorResponse;
+        if (response.status >= 400 && response.status < 500) {
+          this.clearAuthorization();
+        }
       }
 
       const errResult = NhApiUtil.taskResultFromResponse(ex);
