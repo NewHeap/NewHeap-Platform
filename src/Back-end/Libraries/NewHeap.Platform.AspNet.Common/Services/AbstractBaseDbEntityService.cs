@@ -12,28 +12,43 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
-public interface IAbstractBaseDbEntityService<TEntity, TMutateModel> : IAbstractBaseDbEntityService<TEntity, TMutateModel, TMutateModel, TMutateModel>
+public interface IAbstractBaseDbEntityServiceOperationOptions : IBaseCRUDServiceOperationOptions
+{
+    bool SaveChangesDisabled { get; set; }
+    bool DbLoggingDisabled { get; set; }
+}
+
+public class AbstractBaseDbEntityServiceOperationOptions : BaseCRUDServiceOperationOptions, IAbstractBaseDbEntityServiceOperationOptions
+{
+    public bool SaveChangesDisabled { get; set; } = false;
+    public bool DbLoggingDisabled { get; set; } = false;
+}
+
+public interface IAbstractBaseDbEntityService<TEntity, TMutateModel, TOperationOptions> : IAbstractBaseDbEntityService<TEntity, TMutateModel, TMutateModel, TMutateModel, TOperationOptions>
     where TEntity : class, IdDbEntity
     where TMutateModel : class
+    where TOperationOptions : class, IAbstractBaseDbEntityServiceOperationOptions
 {
 
 }
 
-public interface IAbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel> : IBaseCRUDService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel>
+public interface IAbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TOperationOptions> : IBaseCRUDService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TOperationOptions>
     where TEntity : class, IdDbEntity
     where TCreateMutateModel : class
     where TUpdateMutateModel : class
     where TDeleteMutateModel : class
+    where TOperationOptions : class, IAbstractBaseDbEntityServiceOperationOptions
 {
     IRepository<TEntity> GetRepository();
     IQueryable<TEntity> QueryableWithAllIncludes(IQueryable<TEntity>? queryable = null);
     IQueryable<TEntity> QueryableWithUpdateDeleteIncludes(IQueryable<TEntity>? queryable = null);
 }
 
-public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel, TAbstractBaseDbEntityService> : AbstractBaseDbEntityService<TEntity, TMutateModel, TMutateModel, TMutateModel, TAbstractBaseDbEntityService>, IAbstractBaseDbEntityService<TEntity, TMutateModel>
+public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel, TAbstractBaseDbEntityService, TOperationOptions> : AbstractBaseDbEntityService<TEntity, TMutateModel, TMutateModel, TMutateModel, TAbstractBaseDbEntityService, TOperationOptions>, IAbstractBaseDbEntityService<TEntity, TMutateModel, TOperationOptions>
     where TEntity : class, IdDbEntity
     where TMutateModel : class
-    where TAbstractBaseDbEntityService : AbstractBaseDbEntityService<TEntity, TMutateModel, TAbstractBaseDbEntityService>
+    where TAbstractBaseDbEntityService : AbstractBaseDbEntityService<TEntity, TMutateModel, TAbstractBaseDbEntityService, TOperationOptions>
+    where TOperationOptions : class, IAbstractBaseDbEntityServiceOperationOptions
 {
     protected AbstractBaseDbEntityService(
         IRepository<TEntity> repository, 
@@ -100,12 +115,13 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
     }
 }
 
-public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TAbstractBaseDbEntityService> : BaseCRUDService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TAbstractBaseDbEntityService>, IAbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel>
+public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TAbstractBaseDbEntityService, TOperationOptions> : BaseCRUDService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TAbstractBaseDbEntityService, TOperationOptions>, IAbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TOperationOptions>
     where TEntity : class, IdDbEntity
     where TCreateMutateModel : class
     where TUpdateMutateModel : class
     where TDeleteMutateModel : class
-    where TAbstractBaseDbEntityService : AbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TAbstractBaseDbEntityService>
+    where TAbstractBaseDbEntityService : AbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TAbstractBaseDbEntityService, TOperationOptions>
+    where TOperationOptions : class, IAbstractBaseDbEntityServiceOperationOptions
 {
     protected readonly IRepository<TEntity> _repository;
     protected readonly INhDbLogService _dbLogService;
@@ -148,13 +164,24 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
     }
 
     #region TEntity
+    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperties(
+        TEntity? original,
+        TEntity? updated,
+        CancellationToken cancellationToken = default
+        )
+    {
+        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<TEntity?, object>>, Func<object?, Task<string>>>
+        {
+            // Method resolvers
+        }, [], []);
+    }
     protected override async Task<TEntity?> DoGetAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await QueryableWithAllIncludes()
             .FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
     }
 
-    protected override async Task<TaskResult<TEntity?>> DoCreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default)
+    protected override async Task<TaskResult<TEntity?>> DoCreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default, TOperationOptions? options = null)
     {
         var result = new TaskResult<TEntity?>();
 
@@ -176,39 +203,33 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         entity.CreationDateTime = DateTimeOffset.UtcNow;
         entity.LastModifiedDateTime = DateTimeOffset.UtcNow;
 
-        await _dbLogService.LogAsync(
-            message: "Entity create successful.",
-            messageArguments: new string[] { },
-            objectId: entity.Id.ToString(),
-            objectType: (typeof(TEntity)).Name,
-            objectTypeFull: (typeof(TEntity)).FullName,
-            userId: committedByUserId,
-            action: LogAction.Create,
-            type: LogType.Information,
-            source: LogSource.Internal,
-            tag: GetType().Name,
-            doSaveChanges: false,
-            dbContext: _repository.Context,
-            cancellationToken: cancellationToken
-        );
+        if (options?.DbLoggingDisabled != true)
+        {
+            await _dbLogService.LogAsync(
+                message: "Entity create successful.",
+                messageArguments: new string[] { },
+                objectId: entity.Id.ToString(),
+                objectType: (typeof(TEntity)).Name,
+                objectTypeFull: (typeof(TEntity)).FullName,
+                userId: committedByUserId,
+                action: LogAction.Create,
+                type: LogType.Information,
+                source: LogSource.Internal,
+                tag: GetType().Name,
+                doSaveChanges: false,
+                dbContext: _repository.Context,
+                cancellationToken: cancellationToken
+            );
+        }
 
-        await _repository.SaveChangesAsync(cancellationToken);
+        if (options?.SaveChangesDisabled != true)
+        {
+            await _repository.SaveChangesAsync(cancellationToken);
+        }
 
         result.Data = entity;
 
         return result;
-    }
-
-    protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperties(
-        TEntity? original,
-        TEntity? updated, 
-        CancellationToken cancellationToken = default
-        )
-    {
-        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<TEntity?, object>>, Func<object?, Task<string>>>
-        {
-            // Method resolvers
-        }, [], []);
     }
 
     protected override async Task<TaskResult<TEntity?>> DoUpdateAsync(
@@ -216,7 +237,8 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         TUpdateMutateModel mutateModel,
         Guid? committedByUserId = default,
         Action<TEntity>? beforeSave = null, 
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        TOperationOptions? options = null
         )
     {
         var result = new TaskResult<TEntity?>();
@@ -243,21 +265,41 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         entity!.LastModifiedDateTime = DateTimeOffset.UtcNow;
         beforeSave?.Invoke(entity);
 
-        var updatedData = LogHelperService.Copy(entity);
-        var changedProperties = await OnUpdateGetChangedProperties(originalData, updatedData, cancellationToken);
-
-        if (changedProperties.Any())
+        if (options?.DbLoggingDisabled != true)
         {
-            var values = string.Join("\n", changedProperties.Select(x => $"{x.Key}: '{x.OriginalValue}' -> '{x.UpdateValue}'"));
-            await _dbLogService.LogAsync(
-                "Entity values updated",
-                messageArguments: new string[]
-                {
+            var updatedData = LogHelperService.Copy(entity);
+            var changedProperties = await OnUpdateGetChangedProperties(originalData, updatedData, cancellationToken);
+
+            if (changedProperties.Any())
+            {
+                var values = string.Join("\n", changedProperties.Select(x => $"{x.Key}: '{x.OriginalValue}' -> '{x.UpdateValue}'"));
+                await _dbLogService.LogAsync(
+                    "Entity values updated",
+                    messageArguments: new string[]
+                    {
                     values
+                    },
+                    objectId: entity.Id.ToString(),
+                    objectType: typeof(TEntity).Name,
+                    objectTypeFull: typeof(TEntity).FullName,
+                    userId: committedByUserId,
+                    action: LogAction.Update,
+                    type: LogType.Information,
+                    source: LogSource.Internal,
+                    tag: GetType().Name,
+                    doSaveChanges: false,
+                    dbContext: _repository.Context,
+                    cancellationToken: cancellationToken
+                );
+            }
+
+            await _dbLogService.LogAsync(
+                message: "Entity update successful.",
+                messageArguments: new string[] {
                 },
                 objectId: entity.Id.ToString(),
-                objectType: typeof(TEntity).Name,
-                objectTypeFull: typeof(TEntity).FullName,
+                objectType: (typeof(TEntity)).Name,
+                objectTypeFull: (typeof(TEntity)).FullName,
                 userId: committedByUserId,
                 action: LogAction.Update,
                 type: LogType.Information,
@@ -269,31 +311,17 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
             );
         }
 
-        await _dbLogService.LogAsync(
-            message: "Entity update successful.",
-            messageArguments: new string[] {
-            },
-            objectId: entity.Id.ToString(),
-            objectType: (typeof(TEntity)).Name,
-            objectTypeFull: (typeof(TEntity)).FullName,
-            userId: committedByUserId,
-            action: LogAction.Update,
-            type: LogType.Information,
-            source: LogSource.Internal,
-            tag: GetType().Name,
-            doSaveChanges: false,
-            dbContext: _repository.Context,
-            cancellationToken: cancellationToken
-        );
-
-        await _repository.SaveChangesAsync(cancellationToken);
+        if (options?.SaveChangesDisabled != true)
+        {
+            await _repository.SaveChangesAsync(cancellationToken);
+        }
 
         result.Data = entity;
 
         return result;
     }
 
-    protected override async Task<TaskResult<TEntity?>> DoDeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default)
+    protected override async Task<TaskResult<TEntity?>> DoDeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default, TOperationOptions? options = null)
     {
         var result = new TaskResult<TEntity?>();
 
@@ -315,25 +343,31 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         result.Data = entity;
         _repository.Remove(entity!);
 
-        await _dbLogService.LogAsync(
-            message: "Entity remove successful.",
-            messageArguments: new string[] {
-                entity!.Id.ToString()
-            },
-            objectId: entity.Id.ToString(),
-            objectType: (typeof(TEntity)).Name,
-            objectTypeFull: (typeof(TEntity)).FullName,
-            userId: committedByUserId,
-            action: LogAction.Delete,
-            type: LogType.Information,
-            source: LogSource.Internal,
-            tag: GetType().Name,
-            doSaveChanges: false,
-            dbContext: _repository.Context,
-            cancellationToken: cancellationToken
-        );
+        if (options?.DbLoggingDisabled != true)
+        {
+            await _dbLogService.LogAsync(
+                message: "Entity remove successful.",
+                messageArguments: new string[] {
+                    entity!.Id.ToString()
+                },
+                objectId: entity.Id.ToString(),
+                objectType: (typeof(TEntity)).Name,
+                objectTypeFull: (typeof(TEntity)).FullName,
+                userId: committedByUserId,
+                action: LogAction.Delete,
+                type: LogType.Information,
+                source: LogSource.Internal,
+                tag: GetType().Name,
+                doSaveChanges: false,
+                dbContext: _repository.Context,
+                cancellationToken: cancellationToken
+            );
+        }
 
-        await _repository.SaveChangesAsync(cancellationToken);
+        if (options?.SaveChangesDisabled != true)
+        {
+            await _repository.SaveChangesAsync(cancellationToken);
+        }
 
         return result;
     }

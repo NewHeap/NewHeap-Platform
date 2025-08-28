@@ -7,24 +7,34 @@ using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Services;
 
-public interface IBaseCRUDService<T, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel>
+public interface IBaseCRUDServiceOperationOptions
+{ }
+
+public class BaseCRUDServiceOperationOptions : IBaseCRUDServiceOperationOptions
+{ }
+
+
+public interface IBaseCRUDService<T, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TOperationOptions>
     where T : class
     where TCreateMutateModel : class
     where TUpdateMutateModel : class
     where TDeleteMutateModel : class
+    where TOperationOptions : class, IBaseCRUDServiceOperationOptions
 {
 }
 
-public interface IBaseCRUDService<T, TMutateModel> : IBaseCRUDService<T, TMutateModel, TMutateModel, TMutateModel>
+public interface IBaseCRUDService<T, TMutateModel, TOperationOptions> : IBaseCRUDService<T, TMutateModel, TMutateModel, TMutateModel, TOperationOptions>
     where T : class
     where TMutateModel : class
+    where TOperationOptions : class, IBaseCRUDServiceOperationOptions
 {
 }
 
-public abstract partial class BaseCRUDService<T, TMutateModel, TBaseCRUDService> : BaseCRUDService<T, TMutateModel, TMutateModel, TMutateModel, TBaseCRUDService>, IBaseCRUDService<T, TMutateModel>
+public abstract partial class BaseCRUDService<T, TMutateModel, TBaseCRUDService, TOperationOptions> : BaseCRUDService<T, TMutateModel, TMutateModel, TMutateModel, TBaseCRUDService, TOperationOptions>, IBaseCRUDService<T, TMutateModel, TOperationOptions>
     where T : class
     where TMutateModel : class
-    where TBaseCRUDService : BaseCRUDService<T, TMutateModel, TBaseCRUDService>
+    where TBaseCRUDService : BaseCRUDService<T, TMutateModel, TBaseCRUDService, TOperationOptions>
+    where TOperationOptions : class, IBaseCRUDServiceOperationOptions
 {
     protected BaseCRUDService(
         LogHelperService logHelperService, 
@@ -91,12 +101,13 @@ public abstract partial class BaseCRUDService<T, TMutateModel, TBaseCRUDService>
     }
 }
 
-public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TBaseCRUDService> : IBaseCRUDService<T, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel>
+public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TBaseCRUDService, TOperationOptions> : IBaseCRUDService<T, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TOperationOptions>
     where T : class
     where TCreateMutateModel : class
     where TUpdateMutateModel : class
     where TDeleteMutateModel : class
-    where TBaseCRUDService : BaseCRUDService<T, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TBaseCRUDService>
+    where TBaseCRUDService : BaseCRUDService<T, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TBaseCRUDService, TOperationOptions>
+    where TOperationOptions : class, IBaseCRUDServiceOperationOptions
 {
     protected readonly IStringLocalizer<TBaseCRUDService> _localizer;
     protected readonly IMapper _mapper;
@@ -163,16 +174,17 @@ public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMuta
 
     protected abstract Task<T?> DoGetAsync(Guid id, CancellationToken cancellationToken = default);
 
-    protected abstract Task<TaskResult<T?>> DoCreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<T>? beforeSave = null, CancellationToken cancellationToken = default);
+    protected abstract Task<TaskResult<T?>> DoCreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<T>? beforeSave = null, CancellationToken cancellationToken = default, TOperationOptions? options = null);
 
     protected abstract Task<TaskResult<T?>> DoUpdateAsync(
         Guid id,
         TUpdateMutateModel mutateModel,
         Guid? committedByUserId = default,
         Action<T>? beforeSave = null,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        TOperationOptions? options = null
     );
 
-    protected abstract Task<TaskResult<T?>> DoDeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default);
+    protected abstract Task<TaskResult<T?>> DoDeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default, TOperationOptions? options = null);
     #endregion
 }

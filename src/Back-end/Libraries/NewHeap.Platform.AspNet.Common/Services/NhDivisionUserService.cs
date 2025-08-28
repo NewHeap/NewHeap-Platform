@@ -116,8 +116,9 @@ public abstract partial class NhDivisionUserService<
         return queryable;
     }
 
-    public override async Task<TaskResult<TDivisionUser>> CreateAsync(TDivisionUserMutateModel mutateModel,
-        Guid? committedByUserId = default, Action<TDivisionUser>? beforeSave = null, CancellationToken cancellationToken = default)
+    public override async Task<TaskResult<TDivisionUser?>> CreateAsync(TDivisionUserMutateModel mutateModel,
+        Guid? committedByUserId = default, Action<TDivisionUser>? beforeSave = null, CancellationToken cancellationToken = default,
+        BaseDbEntityServiceOperationOptions? options = null)
     {
         TaskResult<TDivisionUser> result = new();
 
@@ -160,7 +161,10 @@ public abstract partial class NhDivisionUserService<
             dbContext: _repository.Context
         );
 
-        await _repository.SaveChangesAsync();
+        if (options?.SaveChangesDisabled != true)
+        { 
+            await _repository.SaveChangesAsync();
+        }
 
         divisionUser = await GetAsync(divisionUser.Id);
         result.Data = divisionUser;
@@ -168,12 +172,13 @@ public abstract partial class NhDivisionUserService<
         return result;
     }
 
-    public override async Task<TaskResult<TDivisionUser>> UpdateAsync(
+    public override async Task<TaskResult<TDivisionUser?>> UpdateAsync(
         Guid id, 
         TDivisionUserMutateModel mutateModel,
         Guid? committedByUserId = default,
         Action<TDivisionUser>? beforeSave = null, 
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        BaseDbEntityServiceOperationOptions? options = null
         )
     {
         TaskResult<TDivisionUser> result = new();
@@ -253,7 +258,11 @@ public abstract partial class NhDivisionUserService<
             dbContext: _repository.Context
         );
 
-        await _repository.SaveChangesAsync();
+        if (options?.SaveChangesDisabled != true)
+        {
+            await _repository.SaveChangesAsync();
+        }
+
         await _divisionUserRoleRepository
             .GetAll()
             .Where(x => x.DivisionUserId == divisionUser.Id && !mutateModel.RoleIds.Contains(x.DivisionRoleId))
