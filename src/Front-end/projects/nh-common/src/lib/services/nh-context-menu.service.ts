@@ -1,5 +1,5 @@
 import {Inject, Injectable, OnDestroy, PLATFORM_ID, Renderer2, RendererFactory2} from "@angular/core";
-import {NhAppService} from "nh-common";
+import {NhAppService} from "./nh-app.service";
 
 export class NhContextMenuItem {
   type: 'item'|'divider' = 'item';
