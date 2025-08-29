@@ -1,6 +1,6 @@
 {
   "name": "@newheap/platform-common",
-  "version": "0.0.93",
+  "version": "0.0.94",
   "peerDependencies": {
     "@sentry/angular": "^10.5.0"
   },
@@ -9,5 +9,8 @@
   "devDependencies": {
   },
   "sideEffects": true,
-  "license": "Proprietary"
+  "license": "Proprietary",
+  "files": [
+    "styles/"
+  ]
 }

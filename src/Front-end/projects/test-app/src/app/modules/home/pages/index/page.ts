@@ -4,7 +4,7 @@ import {
   CollectionHttpRequestOptions,
   FilterRequestOptions,
   ImpersonateAuthenticateModel,
-  NhApiService,
+  NhApiService, NhContextEventWithCoordinates, NhContextMenu, NhContextMenuItem, NhContextMenuService,
   NhPageBaseComponent, NhUserNotificationOverview, NhUserNotificationState, RevertImpersonateAuthenticateModel
 } from "nh-common";
 import {ToastrService} from "ngx-toastr";
@@ -24,7 +24,8 @@ export class IndexHomePage extends NhPageBaseComponent {
     private route: ActivatedRoute,
     private apiService: NhApiService,
     private toastrService: ToastrService,
-    private accountService: AccountService
+    private accountService: AccountService,
+    private contextMenuService: NhContextMenuService
   ) {
     super();
   }
@@ -117,5 +118,20 @@ export class IndexHomePage extends NhPageBaseComponent {
     } else {
       this.toastrService.success('Change password success', 'Success');
     }
+  }
+
+  async onContextMenu(event?: any) {
+    event?.preventDefault();
+
+    const contextMenu = NhContextMenu.fromEvent(event).withItems([
+      new NhContextMenuItem({
+        title: this.translateService.instant('Go to NewHeap'),
+        onClick: async (event: any) => {
+          window.open('https://newheap.com', "_blank");
+        }
+      })
+    ]);
+
+    this.contextMenuService.open(contextMenu);
   }
 }

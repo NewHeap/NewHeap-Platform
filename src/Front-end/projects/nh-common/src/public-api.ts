@@ -46,6 +46,7 @@ export * from './lib/services/nh-server.service';
 export * from './lib/services/nh-server-side-form-validator.service';
 export * from './lib/services/nh-base-api.service';
 export * from './lib/services/nh-user-notification.service';
+export * from './lib/services/nh-context-menu.service';
 
 export * from './lib/guards/nh-auth.guards';
 

@@ -36,4 +36,4 @@ Heeft add permissie?
 <!--</pre>-->
 
 <button (click)="throwTestError()">Test Sentry Error</button> <br /><br />
-<button (click)="testChangePassword()">Test change password</button>
+<button (click)="testChangePassword()" (contextmenu)="onContextMenu($event)">Test change password</button>
