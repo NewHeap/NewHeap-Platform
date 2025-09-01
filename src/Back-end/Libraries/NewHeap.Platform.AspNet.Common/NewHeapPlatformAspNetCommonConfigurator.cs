@@ -558,7 +558,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         >>();
 
         _serviceCollection
-            .AddEntityFrameworkSqlServer()
             .AddDbContext<TDbContext>(dbOptionsAction);
 
         _serviceCollection.AddScoped<INhIdentityDbContext>(serviceProvider =>
