@@ -30,6 +30,16 @@ public static class NhSentryExtensions
             //options.Release = ""; // TODO;
             options.ServerName = Environment.MachineName;
 
+            options.SetBeforeSend((@event) =>
+            {
+                if (@event.Exception is TaskCanceledException or OperationCanceledException)
+                {
+                    return null;
+                }
+
+                return @event;
+            });
+
             optionsAction?.Invoke(options);
             // Add hard overrides
         };
