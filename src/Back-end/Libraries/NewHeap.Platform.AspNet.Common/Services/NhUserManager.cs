@@ -7,6 +7,7 @@ using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
+using NewHeap.Platform.AspNet.Common.Utilities;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Models.Options;
@@ -205,15 +206,7 @@ public abstract partial class NhUserManager<
     protected virtual T IdentityErrorToTaskResult<T>(IdentityResult identityResult, T result)
         where T : TaskResult
     {
-        if (!identityResult.Succeeded)
-        {
-            foreach (var error in identityResult.Errors)
-            {
-                result.AddError(error.Code, error.Description);
-            }
-        }
-
-        return result;
+        return NhIdentityResultUtil.IdentityResultToTaskResult(identityResult, result);
     }
 
     public virtual IRepository<TUser> GetRepository()
