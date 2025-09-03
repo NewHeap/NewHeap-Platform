@@ -2,6 +2,7 @@
 import {INhModalComponent, NhModalComponentRef, NhModalService} from "../../services/nh-modal.service";
 import { SafeHtml } from '@angular/platform-browser';
 import {TaskResult} from "../../models/misc.models";
+import {NhApiUtil} from "../../util/nh-api-util";
 
 @Component({
     selector: 'nh-confirm-modal',
@@ -46,11 +47,24 @@ export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModa
 
   readonly value = input<any>();
 
-  confirm() {
-    this.onConfirm();
+  async confirm() {
+    this.errorResult = undefined;
+    await this.executeDelegate(this.onConfirm);
   }
 
-  cancel() {
-    this.onCancel();
+  async cancel() {
+    this.errorResult = undefined;
+    await this.executeDelegate(this.onCancel);
+  }
+
+  async executeDelegate(func: (() => void) | (() => Promise<void>)) {
+    try {
+      await func();
+    } catch (ex) {
+      this.errorResult = NhApiUtil.taskResultFromResponse(ex);
+      if(this.errorResult.isSuccess) {
+        this.errorResult.addError('', 'An unknown error occurred');
+      }
+    }
   }
 }

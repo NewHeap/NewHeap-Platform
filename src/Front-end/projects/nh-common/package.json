@@ -1,6 +1,6 @@
 {
   "name": "@newheap/platform-common",
-  "version": "0.0.96",
+  "version": "0.0.97",
   "peerDependencies": {
     "@sentry/angular": "^10.5.0"
   },
