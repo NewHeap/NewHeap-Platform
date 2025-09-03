@@ -60,6 +60,11 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
     {
     }
 
+    protected virtual Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
+    { 
+        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    }
+
     protected virtual async Task DoValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
         void sourceModelCheck()
@@ -101,17 +106,17 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TMutateModel,
 
     protected sealed override Task DoValidateCreateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
-        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+        return ValidateCreateUpdateDeleteAsync(model, cancellationToken);
     }
 
     protected sealed override Task DoValidateUpdateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
-        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+        return ValidateCreateUpdateDeleteAsync(model, cancellationToken);
     }
 
     protected sealed override Task DoValidateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
-        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+        return ValidateCreateUpdateDeleteAsync(model, cancellationToken);
     }
 }
 
@@ -185,7 +190,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
     {
         var result = new TaskResult<TEntity?>();
 
-        await DoValidateCreateAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TCreateMutateModel>(CRUDActionType.Create)
+        await ValidateCreateAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TCreateMutateModel>(CRUDActionType.Create)
         {
             TaskResult = result,
             SourceModel = null,
@@ -247,7 +252,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
             .OrderBy(x => x.Id)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-        await DoValidateUpdateAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TUpdateMutateModel>(CRUDActionType.Update)
+        await ValidateUpdateAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TUpdateMutateModel>(CRUDActionType.Update)
         {
             TaskResult = result,
             SourceModel = entity,
@@ -328,7 +333,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         var entity = await QueryableWithUpdateDeleteIncludes()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-        await DoValidateDeleteAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TDeleteMutateModel>(CRUDActionType.Delete)
+        await ValidateDeleteAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TDeleteMutateModel>(CRUDActionType.Delete)
         {
             TaskResult = result,
             SourceModel = entity,

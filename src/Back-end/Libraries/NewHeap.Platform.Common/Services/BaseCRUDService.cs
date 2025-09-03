@@ -140,11 +140,20 @@ public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMuta
         }, [], []);
     }
 
+    protected virtual Task ValidateCreateAsync(CreateUpdateDeleteValidateModel<T, T, TCreateMutateModel> model, CancellationToken cancellationToken = default)
+    { 
+        return DoValidateCreateAsync(model, cancellationToken);
+    }
+
     protected virtual Task DoValidateCreateAsync(CreateUpdateDeleteValidateModel<T, T, TCreateMutateModel> model, CancellationToken cancellationToken = default)
     {
         _validationService.ValidateMutateModelModelState(model);
 
         return Task.CompletedTask;
+    }
+    protected virtual Task ValidateUpdateAsync(CreateUpdateDeleteValidateModel<T, T, TUpdateMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        return DoValidateUpdateAsync(model, cancellationToken);
     }
 
     protected virtual Task DoValidateUpdateAsync(CreateUpdateDeleteValidateModel<T, T, TUpdateMutateModel> model, CancellationToken cancellationToken = default)
@@ -160,6 +169,10 @@ public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMuta
         }
 
         return Task.CompletedTask;
+    }
+    protected virtual Task ValidateDeleteAsync(CreateUpdateDeleteValidateModel<T, T, TDeleteMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        return DoValidateDeleteAsync(model, cancellationToken);
     }
 
     protected virtual Task DoValidateDeleteAsync(CreateUpdateDeleteValidateModel<T, T, TDeleteMutateModel> model, CancellationToken cancellationToken = default)

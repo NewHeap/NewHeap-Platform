@@ -93,17 +93,17 @@ public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDb
 
     protected sealed override Task DoValidateCreateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
-        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+        return ValidateCreateUpdateDeleteAsync(model, cancellationToken);
     }
 
     protected sealed override Task DoValidateUpdateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
-        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+        return ValidateCreateUpdateDeleteAsync(model, cancellationToken);
     }
 
     protected sealed override Task DoValidateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
-        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+        return ValidateCreateUpdateDeleteAsync(model, cancellationToken);
     }
 }
 
