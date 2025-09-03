@@ -626,6 +626,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             options.Password.RequireNonAlphanumeric = true;
             options.Password.RequireUppercase = true;
             options.User.RequireUniqueEmail = true;
+            options.User.AllowedUserNameCharacters = "";
             options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromHours(1);
             options.Lockout.MaxFailedAccessAttempts = 7;
             options.Lockout.AllowedForNewUsers = true;
