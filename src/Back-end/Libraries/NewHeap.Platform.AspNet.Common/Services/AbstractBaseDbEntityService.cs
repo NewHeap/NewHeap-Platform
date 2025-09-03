@@ -168,6 +168,12 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         return queryable;
     }
 
+    protected Expression<Func<TEntity, bool>> GetEntityExistsExpression(Guid? id)
+    {
+        Expression<Func<TEntity, bool>> expr = x => ((id.HasValue) ? x.Id != id.Value : true);
+        return expr;
+    }
+
     #region TEntity
     protected override Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperties(
         TEntity? original,
