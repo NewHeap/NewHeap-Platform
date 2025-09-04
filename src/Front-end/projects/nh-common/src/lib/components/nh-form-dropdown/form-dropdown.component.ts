@@ -12,7 +12,12 @@ import {TranslateService} from '@ngx-translate/core';
 import {Observable} from 'rxjs';
 import {HttpErrorResponse} from '@angular/common/http';
 import {debounceTime, distinctUntilChanged} from 'rxjs/operators';
-import {IMultiSelectOption, IMultiSelectSettings, IMultiSelectTexts} from 'ngx-bootstrap-multiselect';
+import {
+  IMultiSelectOption,
+  IMultiSelectSettings,
+  IMultiSelectTexts,
+  NgxDropdownMultiselectComponent
+} from 'ngx-bootstrap-multiselect';
 import {AbstractValueAccessor, MakeProvider} from "../../accessors/abstract-value.accessor";
 import {CollectionHttpRequestOptions, CollectionHttpResponse} from '../../models/http.models';
 
@@ -92,8 +97,8 @@ export class NhFormDropDownSettings {
   standalone: false
 })
 export class NhFormDropDownComponent extends AbstractValueAccessor implements OnInit {
-  @ViewChild('lazyLoadComponent') lazyLoadComponent: any;
-  @ViewChild('noLazyLoadComponent') noLazyLoadComponent: any;
+  @ViewChild('lazyLoadComponent') lazyLoadComponent?: NgxDropdownMultiselectComponent;
+  @ViewChild('noLazyLoadComponent') noLazyLoadComponent?: NgxDropdownMultiselectComponent;
   defaultTexts = new DefaultMultiSelectTexts();
   isLoading = false;
   hasMoreLazyLoadItems = true;
@@ -147,8 +152,8 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
   ngOnInit() {
   }
 
-  public getDropdownComponent(): any {
-    let component: any = null;
+  public getDropdownComponent(): NgxDropdownMultiselectComponent|undefined {
+    let component: any = undefined;
     if (this.lazyLoadComponent) {
       component = this.lazyLoadComponent;
     }
@@ -161,7 +166,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
 
   public toggleDropdown() {
     const component = this.getDropdownComponent();
-    component.toggleDropdown();
+    component!.toggleDropdown();
     const value = this.value;
     this.value = -1;
     this.cdr.detectChanges();
@@ -171,7 +176,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
 
   public closeDropdown() {
     const component = this.getDropdownComponent();
-    component.closeDropdown();
+    component!.closeDropdown();
     const value = this.value;
     this.value = -1;
     this.cdr.detectChanges();
@@ -183,10 +188,10 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     this.settings.requestOptions.page = 1;
     this.settings.requestOptions.search = '';
     if (this.lazyLoadComponent) {
-      this.lazyLoadComponent.clearSearch(null);
+      (<any>this.lazyLoadComponent).clearSearch(null);
     }
     if (this.noLazyLoadComponent) {
-      this.noLazyLoadComponent.clearSearch(null);
+      (<any>this.noLazyLoadComponent).clearSearch(null);
     }
     this.load();
   }
@@ -374,4 +379,5 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
 
     this.options = newSelectedOptions.concat(this.options);
   }
+
 }
