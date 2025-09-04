@@ -31,6 +31,12 @@ export class NhServerSideFormValidationService implements IServerSideFormValidat
         formControl = <UntypedFormControl>formGroup.controls[""];
       }
 
+      let shouldDisableAfterSet = false;
+      if(formControl.disabled) { // Disabled form controls cannot have errors set
+        formControl.enable();
+        shouldDisableAfterSet = true;
+      }
+
       if (!formControl.errors) {
         formControl.setErrors({remote: formError.getErrorMessages()});
       } else {
@@ -41,6 +47,10 @@ export class NhServerSideFormValidationService implements IServerSideFormValidat
         for (let formErrorMessage of formError.getErrorMessages()) {
           formControl.errors['remote'].push(formErrorMessage);
         }
+      }
+
+      if(shouldDisableAfterSet) {
+        //formControl.disable();
       }
     }
   }
