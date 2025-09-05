@@ -12,9 +12,9 @@ public interface IFileStructureStorage
 
     Task<bool> DeleteFolderAsync(string? path, string folderName);
 
-    Task<IEnumerable<FileReference>> GetFilesAsync(string? path, string? language);
+    Task<IEnumerable<FileReference>> GetFilesAsync(string? path, string? language, FileGetOptions? sortOptions);
 
-    Task<FolderContents> GetFolderAsync(string? path, string? language);
+    Task<FolderContents> GetFolderAsync(string? path, string? language, FileGetOptions? sortOptions);
     Task<FileReference?> GetFileAsync(string? path, string fileName, string? language);
 
     Task<bool> DeleteFileAsync(string? path, string filename);
@@ -50,6 +50,7 @@ public class FolderContents
 public class FileReference
 {
     public Guid Id { get; set; }
+    
     public required string Name { get; set; }
 
     public string? Title { get; set; }

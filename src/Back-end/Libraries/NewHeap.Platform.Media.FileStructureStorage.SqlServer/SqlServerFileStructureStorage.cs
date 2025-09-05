@@ -2,6 +2,8 @@
 using NewHeap.Media.FileStructureStorage.SqlServer.Entities;
 using NewHeap.Media.Models;
 using NewHeap.Media.Modules;
+using System.Linq.Expressions;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -121,6 +123,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         {
             sep = 0;
         }
+
         var folderPath = model.Path[..sep];
         var folderName = model.Path[sep..];
 
@@ -139,7 +142,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         entity.Tags = model.Tags?.ToList() ?? [];
         entity.AltText = model.AltText;
         entity.MetaData = JsonSerializer.Serialize(model.MetaData);
-        
+
         await _dbContext.SaveChangesAsync();
         return new FileReference
         {
@@ -177,7 +180,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         {
             return path;
         }
-        
+
         if (path.EndsWith(NhMediaValues.DirectorySeparator))
         {
             path = path[..^1];
@@ -212,12 +215,10 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                         currentPath = NhMediaValues.DirectorySeparator;
                     }
 
-                    
 
                     existing = new FolderEntity
                     {
-                        Name = part,
-                        Path = currentPath == NhMediaValues.DirectorySeparator ? "" : currentPath
+                        Name = part, Path = currentPath == NhMediaValues.DirectorySeparator ? "" : currentPath
                     };
                     if (!string.IsNullOrWhiteSpace(existing.Name))
                     {
@@ -255,9 +256,10 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         return count > 0;
     }
 
-    public async Task<IEnumerable<FileReference>> GetFilesAsync(string? path, string? language)
+    public async Task<IEnumerable<FileReference>> GetFilesAsync(string? path, string? language,
+        FileGetOptions? sortOptions)
     {
-        var content = await GetFolderAsync(path, language);
+        var content = await GetFolderAsync(path, language, sortOptions);
         return content.Files;
     }
 
@@ -273,7 +275,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         return new FolderReference { Id = id, Path = folderPath, Name = folderName, FullPath = path };
     }
 
-    public async Task<FolderContents> GetFolderAsync(string? path, string? language)
+    public async Task<FolderContents> GetFolderAsync(string? path, string? language, FileGetOptions? sortOptions)
     {
         path = NormalizePath(path);
         var result = new FolderContents();
@@ -282,6 +284,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             .Where(x => !string.IsNullOrEmpty(x.Name))
             .ToArrayAsync();
 
+        
         foreach (var folder in folders)
         {
             if (string.IsNullOrEmpty(folder.Name) || folder.Name == NhMediaValues.DirectorySeparator)
@@ -293,10 +296,13 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             result.Folders.Add(folderReference);
         }
 
-        var files = await _dbContext.Files.AsNoTracking()
+        var q = _dbContext.Files.AsNoTracking()
             .Where(x => x.Path == path)
-            .ToArrayAsync();
+            ;
 
+        q = ProcessOrderBy(sortOptions, q);
+        var files = await q.ToArrayAsync();
+        
         foreach (var file in files)
         {
             var fileReference = new FileReference
@@ -321,6 +327,44 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         return result;
     }
 
+    private IQueryable<T> ProcessOrderBy<T>(FileGetOptions? sortInfo, IQueryable<T> queryable)
+    {
+        if (sortInfo?.OrderBy == null)
+        {
+            return queryable;
+        }
+
+        var type = typeof(T);
+        var orderableProperties = type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Where(x => x.CustomAttributes.Any(y => y.AttributeType == typeof(OrderableAttribute)))
+                .ToList()
+            ;
+        
+        
+        foreach (var orderBy in sortInfo.OrderBy)
+        {
+            var prop = orderableProperties.FirstOrDefault(x =>
+                x.Name.Equals(orderBy.Field, StringComparison.InvariantCultureIgnoreCase));
+            if (prop != null)
+            {
+                var parameter = Expression.Parameter(typeof(T));
+                var propAccess = Expression.Property(parameter, prop);
+                var expression = Expression.Lambda<Func<T, object>>(propAccess, parameter);
+                
+                if (orderBy.Direction == Direction.Ascending)
+                {
+                    queryable = queryable.OrderBy(expression);
+                }
+                else
+                {
+                    queryable = queryable.OrderByDescending(expression);
+                }
+            }
+        }
+
+        return queryable;
+    }
+    
     public async Task<FileReference?> GetFileAsync(string? path, string fileName, string? language)
     {
         path = NormalizePath(path);
@@ -386,12 +430,8 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
     {
         options.PageSize = Math.Max(options.PageSize, 10);
         options.PageIndex = Math.Max(options.PageIndex, 0);
-        
-        var results = new SearchResults()
-        {
-            PageIndex = options.PageIndex,
-            ItemsPerPage = options.PageSize,
-        };
+
+        var results = new SearchResults() { PageIndex = options.PageIndex, ItemsPerPage = options.PageSize, };
         path = NormalizePath(path);
         var q = _dbContext.Files.AsNoTracking();
         if (!string.IsNullOrEmpty(path))
@@ -420,11 +460,11 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
 
         if (options.ExcludedExtensions?.Length > 0)
         {
-            q  = q.Where(x => !options.ExcludedExtensions.Any(y => x.Name.EndsWith(y)));
+            q = q.Where(x => !options.ExcludedExtensions.Any(y => x.Name.EndsWith(y)));
         }
 
         var total = await q.LongCountAsync();
-        
+
         q = q.Skip(options.PageIndex * options.PageSize).Take(options.PageSize);
 
         results.TotalCount = total;
@@ -450,7 +490,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             result.Add(reference);
             await ApplyLocalizations(reference, options.Language);
         }
-        
+
         results.Results = result;
         return results;
     }

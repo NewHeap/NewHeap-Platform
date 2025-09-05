@@ -15,7 +15,7 @@ public interface IMediaLibraryService
     Task<FileReference?> GetFileAsync(Guid id);
     Task<Stream?> DownloadFileAsync(string? path, string fileName);
     Task<Stream?> DownloadFileAsync(Guid id);
-    Task<FolderContents> GetFolder(string? path, string? language = null);
+    Task<FolderContents> GetFolder(string? path, string? language = null, FileGetOptions? sortOptions = null);
     Task<bool> UpdateFileAsync(string? path, string fileName, Stream file);
     Task<bool> UpdateFileAsync(Guid id, FileModel model);
     Task<bool> DeleteFolderAsync(string? path, string folderName);
@@ -206,10 +206,10 @@ public class MediaLibraryService : IMediaLibraryService
         return await _fileStorage.GetFileAsync(fileRef.Id);
     }
 
-    public async Task<FolderContents> GetFolder(string? path, string? language)
+    public async Task<FolderContents> GetFolder(string? path, string? language, FileGetOptions? sortOptions = null)
     {
         await EnsureAuthorized(path, null, language, ActionType.Read);
-        var folder = await _fileStructureStorage.GetFolderAsync(path, language);
+        var folder = await _fileStructureStorage.GetFolderAsync(path, language, sortOptions);
         foreach (var file in folder.Files)
         {
             file.Thumbnail = await _thumbnailService.GetThumbnailAsync(file.Id);
@@ -267,7 +267,7 @@ public class MediaLibraryService : IMediaLibraryService
         var folderPath = MediaLibraryPath.Combine(path, folderName);
         await EnsureAuthorized(folderPath, null, null, ActionType.Delete);
 
-        var files = (await _fileStructureStorage.GetFilesAsync(folderPath, null)).ToList();
+        var files = (await _fileStructureStorage.GetFilesAsync(folderPath, null, null)).ToList();
 
         var folder = await _fileStructureStorage.GetFolderReferenceAsync(folderPath);
 

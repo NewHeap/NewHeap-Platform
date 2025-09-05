@@ -9,6 +9,7 @@ using NewHeap.Media.Models;
 using NhMedia.Http;
 using NewHeap.Media.Modules;
 using NhMedia.Http.Models;
+using System.Text.Json;
 
 // ReSharper disable once CheckNamespace
 namespace NewHeap.Media;
@@ -429,12 +430,32 @@ public static class WebApplicationExtensions
     [ApiExplorerSettings(GroupName = "Media")]
     [Tags("Media")]
     [EndpointName("List folder contents")]
-    private static async Task<Results<Ok<FolderContents>, UnauthorizedHttpResult>> List(string? path, string? language,
-        IMediaLibraryService mediaLibraryService)
+    private static async Task<Results<Ok<FolderContents>, UnauthorizedHttpResult>> List(
+        string? path, 
+        string? language,
+        string? orderBy,
+        IMediaLibraryService mediaLibraryService
+        )
     {
         try
         {
-            var contents = await mediaLibraryService.GetFolder(path, language);
+            FileGetOptions? options = null;
+            if (!string.IsNullOrWhiteSpace(orderBy))
+            {
+                try
+                {
+                    var sorts = JsonSerializer.Deserialize<SortOption[]>(orderBy);
+                    options = new FileGetOptions
+                    {
+                        OrderBy = sorts?.ToList() ?? []
+                    };
+                }
+                catch
+                {
+                    // Ignore
+                }
+            }
+            var contents = await mediaLibraryService.GetFolder(path, language, options);
             return TypedResults.Ok(contents);
         }
         catch (UnauthorizedAccessException)

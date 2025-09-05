@@ -14,6 +14,7 @@ public class FileEntity
     public string? AltText { get; set; }
 
     [StringLength(100)]
+    [Orderable]
     public string? Title { get; set; }
 
     [StringLength(500)]
@@ -23,8 +24,10 @@ public class FileEntity
     public string? Creator { get; set; }
 
     [StringLength(2000)]
+    [Orderable]
     public required string Name { get; set; }
 
+    [Orderable]
     public DateTimeOffset CreationDateTime { get; set; } = DateTimeOffset.UtcNow;
     public List<string> Tags { get; set; } = [];
 
