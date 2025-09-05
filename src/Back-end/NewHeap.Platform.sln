@@ -17,7 +17,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	ProjectSection(SolutionItems) = preProject
 		Directory.Packages.props = Directory.Packages.props
 		nuget.config = nuget.config
+		publish-caching.ps1 = publish-caching.ps1
 		publish-common.ps1 = publish-common.ps1
+		publish-media.ps1 = publish-media.ps1
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewHeap.Platform.Media.Core", "Libraries\NewHeap.Platform.Media.Core\NewHeap.Platform.Media.Core.csproj", "{1B92754F-8A84-4796-A099-9D5FA8F15C06}"

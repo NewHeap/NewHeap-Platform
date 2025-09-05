@@ -14,22 +14,18 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 /// </summary>
 public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpoint
 {
-    private readonly IServiceProvider _serviceProvider;
     private readonly AuthenticationConfiguration _configuration;
 
     /// <summary>
     /// 
     /// </summary>
-    /// <param name="serviceProvider"></param>
     /// <param name="configuration"></param>
     /// <param name="httpContextAccessor"></param>
     public NhUserNamePasswordAuthenticationHandler(
-        IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor)
-    :base(httpContextAccessor, "authentication/login", serviceProvider, configuration)
+    :base(httpContextAccessor, "authentication/login", configuration)
     {
-        _serviceProvider = serviceProvider;
         _configuration = configuration;
         Handler = Authenticate;
         

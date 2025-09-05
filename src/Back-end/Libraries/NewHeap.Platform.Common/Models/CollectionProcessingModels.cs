@@ -98,7 +98,7 @@ public partial class SimpleCollectionResultModel<T>
     public static SimpleCollectionResultModel<T> Create(
         List<T> items,
         int page = 1,
-        int itemsPerPage = 20)
+        int? itemsPerPage = null)
     {
         return new SimpleCollectionResultModel<T>
         {
@@ -106,7 +106,7 @@ public partial class SimpleCollectionResultModel<T>
             TotalCount = items.Count,
             ResultCount = items.Count,
             Page = page,
-            ItemsPerPage = itemsPerPage
+            ItemsPerPage = itemsPerPage ?? items.Count
         };
     }
 }
@@ -175,7 +175,7 @@ public partial class CollectionResultModel<T> : SimpleCollectionResultModel<T>
     public static CollectionResultModel<T> Create(
         List<T> items,
         int page = 1,
-        int itemsPerPage = 20,
+        int? itemsPerPage = null,
         List<FilterCollectionRequestModel>? filters = null,
         List<OrderByCollectionRequestModel>? orderBys = null
         )
@@ -186,7 +186,7 @@ public partial class CollectionResultModel<T> : SimpleCollectionResultModel<T>
             TotalCount = items.Count,
             ResultCount = items.Count,
             Page = page,
-            ItemsPerPage = itemsPerPage,
+            ItemsPerPage = itemsPerPage ?? items.Count,
             Filter = filters ?? [],
             OrderBy = orderBys ?? [],
         };

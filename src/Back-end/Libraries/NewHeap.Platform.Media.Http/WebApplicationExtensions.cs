@@ -345,6 +345,7 @@ public static class WebApplicationExtensions
 
     [ApiExplorerSettings(GroupName = "Media")]
     [Tags("Media")]
+    [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue)]
     [EndpointName("Upload file")]
     private static async
         Task<Results<

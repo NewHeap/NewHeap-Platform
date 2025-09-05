@@ -14,8 +14,7 @@ import {APP_BASE_HREF, registerLocaleData} from "@angular/common";
 import localeNL from '@angular/common/locales/nl';
 import localeEN from '@angular/common/locales/en';
 import {TranslateLoader, TranslateModule, TranslateService} from "@ngx-translate/core";
-import {HttpClient, provideHttpClient, withFetch, withInterceptorsFromDi} from "@angular/common/http";
-import {translateBrowserLoaderFactory} from "./miscellaneous/translate-loaders/translate-browser.loader";
+import {HttpClient} from "@angular/common/http";
 import {environment} from "../environments/environment";
 import {
   NhCommonModuleConfig,
@@ -23,7 +22,7 @@ import {
   NH_ROUTER_ROOT_ROUTES,
   NhCommonModule,
   NhRouterSetupService, NhConfigCommonService, AuthenticationNhCommonModuleConfig, NhErrorLoggingNhCommonModuleConfig,
-  NhSentryErrorLoggingNhCommonModuleConfig
+  NhSentryErrorLoggingNhCommonModuleConfig, nhTranslateBrowserLoaderFactory
 } from "nh-common";
 import {routes as getRootRoutes} from "./app-routing.module";
 import {ToastrModule} from "ngx-toastr";
@@ -50,7 +49,7 @@ registerLocaleData(localeEN, 'en');
     TranslateModule.forRoot({
       loader: {
         provide: TranslateLoader,
-        useFactory: (translateBrowserLoaderFactory),
+        useFactory: (nhTranslateBrowserLoaderFactory),
         deps: [HttpClient, TransferState]
       },
       defaultLanguage: environment.defaultLanguage

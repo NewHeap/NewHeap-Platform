@@ -4,12 +4,13 @@ import {
   CollectionHttpRequestOptions,
   FilterRequestOptions,
   ImpersonateAuthenticateModel,
-  NhApiService,
+  NhApiService, NhContextEventWithCoordinates, NhContextMenu, NhContextMenuItem, NhContextMenuService,
   NhPageBaseComponent, NhUserNotificationOverview, NhUserNotificationState, RevertImpersonateAuthenticateModel
 } from "nh-common";
 import {ToastrService} from "ngx-toastr";
 import {NhUserNotificationService} from "../../../../../../../nh-common/src/lib/services/nh-user-notification.service";
 import {Subscription} from "rxjs";
+import {AccountService, ChangePasswordUserMutateModel} from "../../../../core/services/account.service";
 
 @Component({
     selector: 'app-home-page-index',
@@ -22,7 +23,9 @@ export class IndexHomePage extends NhPageBaseComponent {
   constructor(
     private route: ActivatedRoute,
     private apiService: NhApiService,
-    private toastrService: ToastrService
+    private toastrService: ToastrService,
+    private accountService: AccountService,
+    private contextMenuService: NhContextMenuService
   ) {
     super();
   }
@@ -101,5 +104,34 @@ export class IndexHomePage extends NhPageBaseComponent {
 
   throwTestError(): void {
     throw new Error("Sentry Test Error");
+  }
+
+  async testChangePassword() {
+    const changePwModel = await this.accountService.passwordChange(new ChangePasswordUserMutateModel({
+      currentPassword: 'NewHeap123!',
+      password: 'NewHeap123!',
+      confirmPassword: 'NewHeap123!'
+    })).taskResultLastValueFrom();
+
+    if(!changePwModel.isSuccess) {
+      this.toastrService.error('Change password failed', 'Error');
+    } else {
+      this.toastrService.success('Change password success', 'Success');
+    }
+  }
+
+  async onContextMenu(event?: any) {
+    event?.preventDefault();
+
+    const contextMenu = NhContextMenu.fromEvent(event).withItems([
+      new NhContextMenuItem({
+        title: this.translateService.instant('Go to NewHeap'),
+        onClick: async (event: any) => {
+          window.open('https://newheap.com', "_blank");
+        }
+      })
+    ]);
+
+    this.contextMenuService.open(contextMenu);
   }
 }

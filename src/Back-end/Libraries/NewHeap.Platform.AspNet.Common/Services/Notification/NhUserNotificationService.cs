@@ -107,7 +107,9 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
     public override async Task<TaskResult<NhUserNotification?>> CreateAsync(
         NhUserNotificationMutateModel mutateModel,
         Guid? committedByUserId = null, Action<NhUserNotification>? beforeSave = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        BaseDbEntityServiceOperationOptions? options = null
+        )
     {
         var taskResult = new TaskResult<NhUserNotification?>();
 
@@ -173,13 +175,14 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
         return taskResult;
     }
 
-    public override async Task<TaskResult<NhUserNotification>> UpdateAsync(
+    public override async Task<TaskResult<NhUserNotification?>> UpdateAsync(
         Guid id,
         NhUserNotificationMutateModel mutateModel,
         Guid? committedByUserId = null, Action<NhUserNotification>? beforeSave = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        BaseDbEntityServiceOperationOptions? options = null)
     {
-        var taskResult = new TaskResult<NhUserNotification>();
+        var taskResult = new TaskResult<NhUserNotification?>();
 
         await DoValidateCreateAsync(
             new CreateUpdateDeleteValidateModel<NhUserNotification, NhUserNotification, NhUserNotificationMutateModel>(CRUDActionType.Create)

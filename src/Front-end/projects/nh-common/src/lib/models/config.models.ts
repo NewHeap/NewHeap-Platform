@@ -59,6 +59,14 @@ export class NhErrorLoggingNhCommonModuleConfig {
   }
 }
 
+export class NhTranslationNhCommonModuleConfig {
+  browserLoaderPrefix: string = './assets/i18n/';
+  serverLoaderPath: string = 'assets/i18n/';
+  public constructor(init?: Partial<NhTranslationNhCommonModuleConfig>) {
+    Object.assign(this, init);
+  }
+}
+
 
 export class NhCommonModuleConfig {
   appDisplayName: string = '';
@@ -75,9 +83,12 @@ export class NhCommonModuleConfig {
   environment: string = '';
   cookieDomain: string = '';
   defaultItemsPerPage: number = 20;
+  defaultDateFormat: string = 'dd-MM-yyyy';
+  defaultDateTimeFormat: string = 'dd-MM-yyyy HH:mm:ss';
   authentication: AuthenticationNhCommonModuleConfig = new AuthenticationNhCommonModuleConfig();
   userNotification: UserNotificationNhCommonModuleConfig = new UserNotificationNhCommonModuleConfig();
   errorLogging: NhErrorLoggingNhCommonModuleConfig = new NhErrorLoggingNhCommonModuleConfig();
+  translation: NhTranslationNhCommonModuleConfig = new NhTranslationNhCommonModuleConfig();
 
   public constructor(init?: Partial<NhCommonModuleConfig>) {
     Object.assign(this, init);

@@ -8,22 +8,28 @@ using NewHeap.Platform.Common.Services;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
+public interface ICompositeBaseDbEntityServiceOperationOptions : IAbstractBaseDbEntityServiceOperationOptions
+{ }
+
+public class CompositeBaseDbEntityServiceOperationOptions : AbstractBaseDbEntityServiceOperationOptions, ICompositeBaseDbEntityServiceOperationOptions
+{ }
+
 public interface ICompositeBaseDbEntityService<TEntity, TMutateModel, TViewModel> : ICompositeBaseDbEntityService<TEntity, TMutateModel, TMutateModel, TMutateModel, TViewModel>
     where TEntity : class, IdDbEntity
     where TMutateModel : class
 {
 }
 
-public interface ICompositeBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TViewModel> : IAbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel>
+public interface ICompositeBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TViewModel> : IAbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, CompositeBaseDbEntityServiceOperationOptions>
     where TEntity : class, IdDbEntity
     where TCreateMutateModel : class
     where TUpdateMutateModel : class
     where TDeleteMutateModel : class
 {
-    Task<TaskResult<TViewModel?>> CreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default);
-    Task<TaskResult<TViewModel?>> DeleteAsync(Guid id, Guid? committedByUserId = null, CancellationToken cancellationToken = default);
+    Task<TaskResult<TViewModel?>> CreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default, CompositeBaseDbEntityServiceOperationOptions? options = null);
+    Task<TaskResult<TViewModel?>> DeleteAsync(Guid id, Guid? committedByUserId = null, CancellationToken cancellationToken = default, CompositeBaseDbEntityServiceOperationOptions? options = null);
     Task<TViewModel?> GetAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<TaskResult<TViewModel?>> UpdateAsync(Guid id, TUpdateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default);
+    Task<TaskResult<TViewModel?>> UpdateAsync(Guid id, TUpdateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default, CompositeBaseDbEntityServiceOperationOptions? options = null);
 }
 
 public abstract partial class CompositeBaseDbEntityService<TEntity, TMutateModel, TViewModel, TCompositeBaseDbEntityService> : CompositeBaseDbEntityService<TEntity, TMutateModel, TMutateModel, TMutateModel, TViewModel, TCompositeBaseDbEntityService>, ICompositeBaseDbEntityService<TEntity, TMutateModel, TViewModel>
@@ -92,7 +98,7 @@ public abstract partial class CompositeBaseDbEntityService<TEntity, TMutateModel
     }
 }
 
-public abstract partial class CompositeBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TViewModel, TCompositeBaseDbEntityService> : AbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TCompositeBaseDbEntityService>, ICompositeBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TViewModel> 
+public abstract partial class CompositeBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TViewModel, TCompositeBaseDbEntityService> : AbstractBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TCompositeBaseDbEntityService, ICompositeBaseDbEntityServiceOperationOptions>, ICompositeBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TViewModel> 
     where TEntity : class, IdDbEntity
     where TCreateMutateModel : class
     where TUpdateMutateModel : class
@@ -114,16 +120,17 @@ public abstract partial class CompositeBaseDbEntityService<TEntity, TCreateMutat
 
     public abstract Task<TViewModel?> GetAsync(Guid id, CancellationToken cancellationToken = default);
 
-    public abstract Task<TaskResult<TViewModel?>> CreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default);
+    public abstract Task<TaskResult<TViewModel?>> CreateAsync(TCreateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default, CompositeBaseDbEntityServiceOperationOptions? options = null);
 
     public abstract Task<TaskResult<TViewModel?>> UpdateAsync(
         Guid id,
         TUpdateMutateModel mutateModel,
         Guid? committedByUserId = default,
         Action<TEntity>? beforeSave = null,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        CompositeBaseDbEntityServiceOperationOptions? options = null
         );
 
-    public abstract Task<TaskResult<TViewModel?>> DeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default);
+    public abstract Task<TaskResult<TViewModel?>> DeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default, CompositeBaseDbEntityServiceOperationOptions? options = null);
     #endregion
 }

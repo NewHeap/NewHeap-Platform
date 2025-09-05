@@ -46,6 +46,7 @@ export * from './lib/services/nh-server.service';
 export * from './lib/services/nh-server-side-form-validator.service';
 export * from './lib/services/nh-base-api.service';
 export * from './lib/services/nh-user-notification.service';
+export * from './lib/services/nh-context-menu.service';
 
 export * from './lib/guards/nh-auth.guards';
 
@@ -79,3 +80,7 @@ export * from './lib/guards/nh-cancel-navigation.guard';
 
 export * from './lib/prototype-extensions/array.extensions';
 export * from './lib/prototype-extensions/observable.extensions';
+
+//export * from './lib/miscellaneous/nh-node-fetch.http-backend';
+export * from './lib/miscellaneous/translate-loaders/translate-browser.loader';
+//export * from './lib/miscellaneous/translate-loaders/translate-server.loader';

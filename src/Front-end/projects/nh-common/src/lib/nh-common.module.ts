@@ -22,7 +22,7 @@ import {
   IsOneClaimGrantedPipe, IsOneDivisionPermissionGrantedPipe, IsOneDivisionRoleGrantedPipe,
   IsOnePermissionGrantedPipe, IsOneRoleGrantedPipe
 } from "./pipes/auth.pipes";
-import {NhDatePipe, NhDateUtcPipe} from "./pipes/date.pipes";
+import {NhDatePipe, NhDateTimePipe, NhDateUtcPipe} from "./pipes/date.pipes";
 import {NhBooleanToStringPipe} from "./pipes/primitive-type.pipes";
 import {NhUrlEncodePipe} from "./pipes/encode.pipes";
 import {NhEncodeHttpParamsInterceptor} from "./interceptors/nh-encode-http-params.interceptor";
@@ -80,6 +80,7 @@ import {NhSentryTraceService} from "./services/nh-sentry-trace.service";
     NhErrorComponent,
     // Pipes
     NhDatePipe,
+    NhDateTimePipe,
     NhDateUtcPipe,
     NhBooleanToStringPipe,
     IsAuthenticatedPipe,
@@ -115,6 +116,7 @@ import {NhSentryTraceService} from "./services/nh-sentry-trace.service";
     NhErrorComponent,
     // Pipes
     NhDatePipe,
+    NhDateTimePipe,
     NhDateUtcPipe,
     NhBooleanToStringPipe,
     IsAuthenticatedPipe,

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common;
@@ -92,7 +93,7 @@ public static partial class ServiceCollectionExtensions
             TLogFile,
             TLogMessageTranslated
         >
-        where TUserManager : class, INhUserManager<TUser>
+        where TUserManager : UserManager<TUser>, INhUserManager<TUser>
         where TDivisionService : NhDivisionService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionMutateModel>
         where TDivisionMutateModel : NhDivisionMutateModel
         where TDivisionUserService : NhDivisionUserService<TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TDivisionUserMutateModel>

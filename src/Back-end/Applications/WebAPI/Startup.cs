@@ -36,6 +36,8 @@ using System.Threading.Tasks;
 using WebAPI.Consumers;
 using WebAPI.EventHandlers;
 using static NewHeap.Platform.Common.Constants;
+using NewHeap.Platform.Common.Utilities;
+using NewHeap.Platform.Common;
 
 
 namespace WebAPI;
@@ -175,6 +177,7 @@ public class Startup
                                 r.HostName = "localhost";
                                 r.Password = "guest";
                                 r.UserName = "guest";
+                                r.VirtualHost = "nh-default";
                             });
                         })
                         .WithPublishing()
@@ -210,6 +213,13 @@ public class Startup
                 }, consoleOptions =>
                 {
                     //Optional, default is configured, only override if needed
+                }, backgroundJobServerOptions => {
+                    if ((Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "").Equals("development", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        var name = $"DEV-{Environment.MachineName}".ToLower().Trim().SafeMaxStringLength(50);
+                        backgroundJobServerOptions.ServerName = name;
+                        backgroundJobServerOptions.Queues = [NhHangfireUtil.GetQueueName()];
+                    }
                 })
             .WithNotifications(x =>
             {
@@ -286,7 +296,11 @@ public class Startup
                 // Optional, default is configured, only override if needed
             })
             ;
-        BackgroundJob.Enqueue<DatabaseJobs>(x => x.Seed());
+
+
+
+        NhHangfireUtil.BackgroundJob.Enqueue<DatabaseJobs>(x => x.Seed());
+        //NhHangfireUtil.RecurringJob.AddOrUpdate<DatabaseJobs>("ZAAD", x => x.Seed(), "* * * *");
     }
 }
 

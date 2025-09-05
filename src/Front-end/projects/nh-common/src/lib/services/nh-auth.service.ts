@@ -16,11 +16,12 @@ import {
 } from "../models/auth.models";
 import {DateTime} from "luxon";
 import {TaskResult} from "../models/misc.models";
-import {HttpClient, HttpHeaders, HttpParams} from '@angular/common/http';
+import {HttpClient, HttpErrorResponse, HttpHeaders, HttpParams} from '@angular/common/http';
 import {NhCommonModuleConfig} from "../models/config.models";
 import {NhApiUtil} from "../util/nh-api-util";
 import {isPlatformServer} from "@angular/common";
 import {Token} from "@angular/compiler";
+import {Base64} from "js-base64";
 
 @Injectable()
 export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization> implements OnDestroy {
@@ -128,7 +129,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
   }
 
   public setAuthorization(auth: TAuthorization, noEvent = false): void {
-    localStorage.setItem('at', btoa(JSON.stringify(auth)));
+    localStorage.setItem('at', Base64.encode(JSON.stringify(auth)));
     this.authorization = auth;
     if (!noEvent) {
       this.authSubject.next(this.authorization);
@@ -142,7 +143,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     let auth: TAuthorization = this.initEmptyAuthorization();
 
     try {
-      auth = JSON.parse(atob(localStorage.getItem('at') ?? ''));
+      auth = JSON.parse(Base64.decode(localStorage.getItem('at') ?? ''));
     } catch (ex) {
     }
 
@@ -396,8 +397,13 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
 
       result.data = this.getAuthorization();
     } catch (ex) {
-      if (this.isAuthenticated()) {
-        this.clearAuthorization();
+      // Check status code, if it's in the 400 range, clear the authorization
+      const isHttpResponseError = ex instanceof HttpErrorResponse;
+      if (isHttpResponseError) {
+        const response = ex as HttpErrorResponse;
+        if (response.status >= 401 && response.status < 500) {
+          this.clearAuthorization();
+        }
       }
 
       const errResult = NhApiUtil.taskResultFromResponse(ex);

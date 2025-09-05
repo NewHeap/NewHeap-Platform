@@ -10,9 +10,8 @@ public class NhLoginMethodHandler : BaseNhAuthenticationEndpoint
 {
     public NhLoginMethodHandler(
         IHttpContextAccessor httpContextAccessor,
-        IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration
-    ) : base(httpContextAccessor, "authentication/method", serviceProvider, configuration)
+    ) : base(httpContextAccessor, "authentication/method", configuration)
     {
         Method = HttpMethod.Post;
         Handler = ExecuteAsync;

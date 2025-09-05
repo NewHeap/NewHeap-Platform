@@ -7,6 +7,7 @@ using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
+using NewHeap.Platform.AspNet.Common.Utilities;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Models.Options;
@@ -23,8 +24,9 @@ public interface INhUserManager
     string GenerateRandomPassword(PasswordOptions? passwordOptions = null);
     string GenerateRegistrationToken();
     bool IsOauthAccount(string email);
-
     Task<List<Claim>> GetValidClaimsByUserIdAsync(Guid userId, bool withDivision = false, CancellationToken cancellationToken = default);
+    Task<TaskResult> ChangePasswordAsync(Guid userId, NhChangePasswordUserMutateModel mutateModel, Guid? committedByUserId = null, CancellationToken cancellationToken = default);
+    Task<TaskResult> ChangePasswordWithoutCurrentPasswordAsync(Guid userId, NhWithoutCurrentPasswordChangePasswordUserMutateModel mutateModel, Guid? committedByUserId = null, CancellationToken cancellationToken = default);
 }
 
 public interface INhUserManager<TUser> : INhUserManager
@@ -41,6 +43,8 @@ public interface INhUserManager<TUser> : INhUserManager
     bool IsOauthAccount(TUser user);
     IQueryable<TUser> QueryableWithAllIncludes(IQueryable<TUser>? queryable = null);
     Task UpdateUserLockout(TUser user, DateTimeOffset? start = null, DateTimeOffset? end = null, CancellationToken cancellationToken = default);
+    Task<TaskResult> ResetPasswordAsync(Guid userId, NhResetPasswordUserMutateModel mutateModel, Guid? committedByUserId = null, CancellationToken cancellationToken = default);
+
 
     #region Generated for Identity framework base class
     Task<IdentityResult> CreateAsync(TUser user);
@@ -202,15 +206,7 @@ public abstract partial class NhUserManager<
     protected virtual T IdentityErrorToTaskResult<T>(IdentityResult identityResult, T result)
         where T : TaskResult
     {
-        if (!identityResult.Succeeded)
-        {
-            foreach (var error in identityResult.Errors)
-            {
-                result.AddError(error.Code, error.Description);
-            }
-        }
-
-        return result;
+        return NhIdentityResultUtil.IdentityResultToTaskResult(identityResult, result);
     }
 
     public virtual IRepository<TUser> GetRepository()

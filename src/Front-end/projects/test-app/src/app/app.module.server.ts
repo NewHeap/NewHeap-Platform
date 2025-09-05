@@ -4,9 +4,9 @@ import {provideServerRendering, ServerModule} from '@angular/platform-server';
 import { AppModule } from './app.module';
 import { AppComponent } from './app.component';
 import {TranslateLoader, TranslateModule} from "@ngx-translate/core";
-import {translateServerLoaderFactory} from "./miscellaneous/translate-loaders/translate-server.loader";
-import {withNodeFetchHttpBackend} from "./miscellaneous/nh-node-fetch.http-backend";
 import {provideServerRoutesConfig, RenderMode} from "@angular/ssr";
+import {nhWithNodeFetchHttpBackend} from "./miscellaneous/nh-node-fetch.http-backend";
+import {nhTranslateServerLoaderFactory} from "./miscellaneous/translate-loaders/translate-server.loader";
 
 
 
@@ -14,11 +14,11 @@ import {provideServerRoutesConfig, RenderMode} from "@angular/ssr";
 @NgModule({
   imports: [
     AppModule,
-    ServerModule,
+    //ServerModule,
     TranslateModule.forRoot({
       loader: {
         provide: TranslateLoader,
-        useFactory: translateServerLoaderFactory,
+        useFactory: nhTranslateServerLoaderFactory,
         deps: [TransferState]
       }
     }),
@@ -28,7 +28,7 @@ import {provideServerRoutesConfig, RenderMode} from "@angular/ssr";
     provideServerRendering(),
     //Angular 19 (RC 06-11-2024) SSR issue, need to provide some mock routes... (these 2)
     provideServerRoutesConfig([{ path: '', renderMode: RenderMode.Server }, { path: '**', renderMode: RenderMode.Server }]),
-    withNodeFetchHttpBackend(),
+    nhWithNodeFetchHttpBackend(),
     {
       provide: CSP_NONCE,
       useFactory: () => {

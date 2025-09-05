@@ -15,7 +15,6 @@ public abstract class BaseNhAuthenticationEndpoint : IAuthenticationEndpoint, ID
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
     protected readonly AuthenticationConfiguration Configuration;
-    private readonly IServiceScope _scope;
 
     public string Pattern { get; set; }
     public HttpMethod Method { get; protected set; } = HttpMethod.Post;
@@ -25,11 +24,9 @@ public abstract class BaseNhAuthenticationEndpoint : IAuthenticationEndpoint, ID
     protected BaseNhAuthenticationEndpoint(
         IHttpContextAccessor httpContextAccessor,
         string pattern,
-        IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration
         )
     {
-        _scope = serviceProvider.CreateScope();
         Pattern = pattern;
         _httpContextAccessor = httpContextAccessor;
         Configuration = configuration;
@@ -70,11 +67,13 @@ public abstract class BaseNhAuthenticationEndpoint : IAuthenticationEndpoint, ID
     
     protected virtual INhAuthenticationService GetAuthService()
     {
+        var services = HttpContext!.RequestServices;
         if (!string.IsNullOrEmpty(Configuration.AuthenticationServiceKey))
         {
-            return _scope.ServiceProvider.GetRequiredKeyedService<INhAuthenticationService>(Configuration.AuthenticationServiceKey);
+            return services.GetRequiredKeyedService<INhAuthenticationService>(Configuration.AuthenticationServiceKey);
         }
-        return _scope.ServiceProvider.GetRequiredService<INhAuthenticationService>();
+
+        return services.GetRequiredService<INhAuthenticationService>();
     }
     
     protected IResult BadRequest(TaskResult result)
@@ -89,7 +88,6 @@ public abstract class BaseNhAuthenticationEndpoint : IAuthenticationEndpoint, ID
 
     public void Dispose()
     {
-        _scope.Dispose();
     }
 }
 

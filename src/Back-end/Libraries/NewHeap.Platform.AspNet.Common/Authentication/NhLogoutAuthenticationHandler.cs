@@ -13,10 +13,10 @@ public class NhLogoutAuthenticationHandler : BaseNhAuthenticationEndpoint
     internal string? TokenCookieName { get; set; } = "nh_access_token";
     internal string? RefreshTokenCookieName { get; set; } = "nh_access_token";
 
-    public NhLogoutAuthenticationHandler( IServiceProvider serviceProvider,
+    public NhLogoutAuthenticationHandler(
         AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor
-    ) : base(httpContextAccessor, "authentication/logout", serviceProvider, configuration)
+    ) : base(httpContextAccessor, "authentication/logout", configuration)
     {
         if (!string.IsNullOrWhiteSpace(configuration.LogoutEndpoint))
         {

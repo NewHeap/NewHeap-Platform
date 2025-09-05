@@ -17,7 +17,6 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 /// </summary>
 public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
 {
-    private readonly IServiceProvider _serviceProvider;
     private readonly AuthenticationConfiguration _configuration;
     internal string? TokenCookieName { get; set; } = "nh_access_token";
     internal string? RefreshTokenCookieName { get; set; } = "nh_access_token";
@@ -30,12 +29,10 @@ public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
     /// <param name="configuration"></param>
     /// <param name="httpContextAccessor"></param>
     public NhImpersonateAuthenticationHandler(
-        IServiceProvider serviceProvider,
         AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor
-        ) : base(httpContextAccessor, "authentication/impersonate", serviceProvider, configuration)
+        ) : base(httpContextAccessor, "authentication/impersonate", configuration)
     {
-        _serviceProvider = serviceProvider;
         _configuration = configuration;
         
         if(!string.IsNullOrWhiteSpace(configuration.RefreshTokenEndpoint))
