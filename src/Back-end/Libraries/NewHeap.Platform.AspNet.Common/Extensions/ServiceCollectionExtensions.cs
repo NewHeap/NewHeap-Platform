@@ -141,6 +141,23 @@ public static partial class ServiceCollectionExtensions
         return new NewHeapPlatformAspNetCommonApplicationBuilder(app, env, serviceProvider, options);
     }
 
+    public static IServiceCollection AddScopedNhDbRepository(
+        this IServiceCollection serviceCollection,
+        Type entityType
+    )
+    {
+        var iRepType = typeof(IRepository<>).MakeGenericType(entityType);
+        var repType = typeof(Repository<>).MakeGenericType(entityType);
+
+        serviceCollection.AddScoped(iRepType, serviceProvider =>
+        {
+            var dbContext = (DbContext)serviceProvider.GetRequiredService<INhIdentityDbContext>();
+            return Activator.CreateInstance(repType, dbContext)!;
+        });
+        
+        return serviceCollection;
+    }
+    
     public static IServiceCollection AddScopedNhDbRepository<TEntity>(
         this IServiceCollection serviceCollection
     )
