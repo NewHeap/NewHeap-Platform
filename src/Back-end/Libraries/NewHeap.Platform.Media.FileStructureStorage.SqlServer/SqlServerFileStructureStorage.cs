@@ -96,7 +96,8 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             MetaData = string.IsNullOrEmpty(entity.MetaData)
                 ? null
                 : JsonSerializer.Deserialize<Dictionary<string, object>>(entity.MetaData),
-            Folder = await GetFolderReferenceAsync(entity.Path)
+            Folder = await GetFolderReferenceAsync(entity.Path),
+            CreationDateTime = entity.CreationDateTime,
         };
     }
 
@@ -138,7 +139,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         entity.Tags = model.Tags?.ToList() ?? [];
         entity.AltText = model.AltText;
         entity.MetaData = JsonSerializer.Serialize(model.MetaData);
-
+        
         await _dbContext.SaveChangesAsync();
         return new FileReference
         {
@@ -153,6 +154,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                 ? null
                 : JsonSerializer.Deserialize<Dictionary<string, object>>(entity.MetaData),
             Folder = await GetFolderReferenceAsync(entity.Path),
+            CreationDateTime = entity.CreationDateTime,
         };
     }
 
@@ -310,6 +312,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                     ? null
                     : JsonSerializer.Deserialize<Dictionary<string, object>>(file.MetaData),
                 Folder = await GetFolderReferenceAsync(path),
+                CreationDateTime = file.CreationDateTime,
             };
             result.Files.Add(fileReference);
             await ApplyLocalizations(fileReference, language);
@@ -342,6 +345,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                 ? null
                 : JsonSerializer.Deserialize<Dictionary<string, object>>(file.MetaData),
             Folder = await GetFolderReferenceAsync(path),
+            CreationDateTime = file.CreationDateTime,
         };
 
         await ApplyLocalizations(reference, language);
@@ -441,6 +445,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                     ? null
                     : JsonSerializer.Deserialize<Dictionary<string, object>>(file.MetaData),
                 Folder = await GetFolderReferenceAsync(file.Path),
+                CreationDateTime = file.CreationDateTime
             };
             result.Add(reference);
             await ApplyLocalizations(reference, options.Language);
@@ -527,6 +532,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                 ? null
                 : JsonSerializer.Deserialize<Dictionary<string, object>>(entity.MetaData),
             Folder = await GetFolderReferenceAsync(entity.Path),
+            CreationDateTime = entity.CreationDateTime
         };
     }
 

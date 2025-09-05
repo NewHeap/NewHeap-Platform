@@ -77,9 +77,17 @@ public class FileReference
             MetaData = MetaData,
             Creator = Creator,
             Id = Id,
+            CreationDateTime = CreationDateTime
         };
         setValues?.Invoke(v);
         return v;
+    }
+
+    public DateTimeOffset CreationDateTime { get; set; }
+
+    public FileReference()
+    {
+        
     }
 }
 
