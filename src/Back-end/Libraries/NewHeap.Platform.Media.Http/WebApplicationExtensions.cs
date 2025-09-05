@@ -16,7 +16,11 @@ namespace NewHeap.Media;
 
 public static class WebApplicationExtensions
 {
-    
+    private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions()
+    {
+        PropertyNameCaseInsensitive = true,
+        
+    };
     /// <summary>
     /// Configure Media endpoints on /media using JWT bearer auth
     /// </summary>
@@ -444,15 +448,16 @@ public static class WebApplicationExtensions
             {
                 try
                 {
-                    var sorts = JsonSerializer.Deserialize<SortOption[]>(orderBy);
+                    var sorts = JsonSerializer.Deserialize<SortOption[]>(orderBy, _jsonOptions);
                     options = new FileGetOptions
                     {
                         OrderBy = sorts?.ToList() ?? []
                     };
                 }
-                catch
+                catch(Exception e)
                 {
                     // Ignore
+                    ;
                 }
             }
             var contents = await mediaLibraryService.GetFolder(path, language, options);

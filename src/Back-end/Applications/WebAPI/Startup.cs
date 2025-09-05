@@ -257,11 +257,12 @@ public class Startup
                         e.MapScalarApiReference("/scalar");
                         e.MapNhMediaEndpoints(options =>
                         {
-                            options.ConfigureAllRoutes(builder => builder.RequireAuthorization(p =>
-                            {
-                                p.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme);
-                                p.RequireAuthenticatedUser();
-                            }));
+                            // options.ConfigureAllRoutes(builder => builder.RequireAuthorization(p =>
+                            // {
+                            //     
+                            //     // p.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme);
+                            //     // p.RequireAuthenticatedUser();
+                            // }));
                         });
                     })
                     .UseHsTs(true)

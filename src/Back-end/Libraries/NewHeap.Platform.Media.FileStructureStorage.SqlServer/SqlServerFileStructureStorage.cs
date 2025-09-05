@@ -344,12 +344,13 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         foreach (var orderBy in sortInfo.OrderBy)
         {
             var prop = orderableProperties.FirstOrDefault(x =>
-                x.Name.Equals(orderBy.Field, StringComparison.InvariantCultureIgnoreCase));
+                x.Name.Equals(orderBy.Key, StringComparison.InvariantCultureIgnoreCase));
             if (prop != null)
             {
                 var parameter = Expression.Parameter(typeof(T));
                 var propAccess = Expression.Property(parameter, prop);
-                var expression = Expression.Lambda<Func<T, object>>(propAccess, parameter);
+                var cast = Expression.Convert(propAccess, typeof(object));
+                var expression = Expression.Lambda<Func<T, object>>(cast, parameter);
                 
                 if (orderBy.Direction == Direction.Ascending)
                 {
