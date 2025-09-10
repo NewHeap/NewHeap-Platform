@@ -7,8 +7,8 @@ import {TranslateModule} from "@ngx-translate/core";
 import {NhCommonModule} from "nh-common";
 import {AppSharedModule} from "../../shared/app-shared.module";
 import {FormsModule} from "@angular/forms";
-import {NhErrorComponent} from "../../../../../nh-common/src/lib/components/nh-error/component";
 import {SitemapXmlHomePage} from "../sitemap-xml/page";
+import {AddressSharedModule} from "../address/shared.address.module";
 
 @NgModule({
   imports: [
@@ -19,7 +19,8 @@ import {SitemapXmlHomePage} from "../sitemap-xml/page";
     NhCommonModule,
     AppSharedModule,
     NgOptimizedImage,
-    FormsModule
+    FormsModule,
+    AddressSharedModule
   ],
   declarations: [
     IndexHomePage,

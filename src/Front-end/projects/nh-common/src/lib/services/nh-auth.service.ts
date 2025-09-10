@@ -20,8 +20,7 @@ import {HttpClient, HttpErrorResponse, HttpHeaders, HttpParams} from '@angular/c
 import {NhCommonModuleConfig} from "../models/config.models";
 import {NhApiUtil} from "../util/nh-api-util";
 import {isPlatformServer} from "@angular/common";
-import {Token} from "@angular/compiler";
-import {Base64} from "js-base64";
+//import {Base64} from "js-base64";
 
 @Injectable()
 export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization> implements OnDestroy {
@@ -129,7 +128,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
   }
 
   public setAuthorization(auth: TAuthorization, noEvent = false): void {
-    localStorage.setItem('at', Base64.encode(JSON.stringify(auth)));
+    localStorage.setItem('at', btoa(JSON.stringify(auth)));
     this.authorization = auth;
     if (!noEvent) {
       this.authSubject.next(this.authorization);
@@ -143,7 +142,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     let auth: TAuthorization = this.initEmptyAuthorization();
 
     try {
-      auth = JSON.parse(Base64.decode(localStorage.getItem('at') ?? ''));
+      auth = JSON.parse(atob(localStorage.getItem('at') ?? ''));
     } catch (ex) {
     }
 

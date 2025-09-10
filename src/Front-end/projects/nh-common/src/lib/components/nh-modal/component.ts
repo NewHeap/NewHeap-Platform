@@ -12,12 +12,24 @@ import {
   output,
   viewChild, inject
 } from '@angular/core';
-import {NhModalComponentRef} from "../../services/nh-modal.service";
+import {INhModalComponent, NhModalComponentRef} from "../../services/nh-modal.service";
 import {NhModalContentDirective} from "../../directives/nh-modal.directives";
 
 export class NhModalComponentClosed {
   public constructor(init?: Partial<NhModalComponentClosed>) {
     Object.assign(this, init);
+  }
+}
+
+export class NhModalComponentImpl<C> implements INhModalComponent<C> {
+  protected modalComponentRef: NhModalComponentRef<C>|undefined;
+
+  setModalComponentRef(ref: NhModalComponentRef<C>) {
+    this.modalComponentRef = ref;
+  }
+
+  close() {
+    this.modalComponentRef?.close();
   }
 }
 
@@ -51,8 +63,13 @@ export class NhModalComponent<C> implements OnInit, OnDestroy, AfterViewInit {
   ngAfterViewInit() {
     //Timeout makes sure everything is rendered because browsers needs a little time and if no timeout the animation wil stutter
     setTimeout(() => {
-      this.modal().nativeElement.style.transform = '';
-      this.modalBackdrop().nativeElement.style.opacity = 0.85;
+      if(this.modal()) {
+        this.modal().nativeElement.style.transform = '';
+      }
+
+      if(this.modalBackdrop()) {
+        this.modalBackdrop().nativeElement.style.opacity = 0.85;
+      }
     }, 50);
   }
 

@@ -3,14 +3,16 @@ import {ActivatedRoute} from "@angular/router";
 import {
   CollectionHttpRequestOptions,
   FilterRequestOptions,
-  ImpersonateAuthenticateModel,
-  NhApiService, NhContextEventWithCoordinates, NhContextMenu, NhContextMenuItem, NhContextMenuService,
+  ImpersonateAuthenticateModel, MutationType,
+  NhApiService, NhContextEventWithCoordinates, NhContextMenu, NhContextMenuItem, NhContextMenuService, NhModalOptions,
   NhPageBaseComponent, NhUserNotificationOverview, NhUserNotificationState, RevertImpersonateAuthenticateModel
 } from "nh-common";
 import {ToastrService} from "ngx-toastr";
 import {NhUserNotificationService} from "../../../../../../../nh-common/src/lib/services/nh-user-notification.service";
 import {Subscription} from "rxjs";
 import {AccountService, ChangePasswordUserMutateModel} from "../../../../core/services/account.service";
+import {Address} from "../../../address/models/address.models";
+import {MutateAddressComponent} from "../../../address/components/mutate/component";
 
 @Component({
     selector: 'app-home-page-index',
@@ -133,5 +135,29 @@ export class IndexHomePage extends NhPageBaseComponent {
     ]);
 
     this.contextMenuService.open(contextMenu);
+  }
+
+  async showMutateModal(address: Address | undefined) {
+    const mutationType = address ? MutationType.Update : MutationType.Create;
+
+    const modal = this.modalService.open(MutateAddressComponent, new NhModalOptions({}));
+    modal!.contentComponent!.id = address?.id;
+
+    const create$ = modal.contentComponent!.created.subscribe(address => {
+      create$?.unsubscribe();
+      this.load().then();
+      modal.close();
+    });
+    const update$ = modal.contentComponent!.updated.subscribe(address => {
+      update$?.unsubscribe();
+      this.load().then();
+      modal.close();
+    });
+
+    modal.contentComponent?.newFormData(mutationType);
+
+    setTimeout(() => {
+      modal.close();
+    }, 3000);
   }
 }
