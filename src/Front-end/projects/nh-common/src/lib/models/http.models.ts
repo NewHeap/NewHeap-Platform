@@ -5,7 +5,7 @@ export interface IHttpRequestOptions {
   observe?: 'body';
   params?: HttpParams;
   reportProgress?: boolean;
-  responseType?: 'json' | 'blob';
+  responseType?: 'json'|'blob'|'text';
   withCredentials?: boolean;
 }
 
@@ -14,7 +14,7 @@ export class HttpRequestOptions implements IHttpRequestOptions {
   observe?: 'body';
   params?: HttpParams;
   reportProgress?: boolean;
-  responseType?: 'json';
+  responseType?: 'json'|'blob'|'text' = 'json';
   withCredentials?: boolean;
 
   public constructor(init?: Partial<HttpRequestOptions>) {
