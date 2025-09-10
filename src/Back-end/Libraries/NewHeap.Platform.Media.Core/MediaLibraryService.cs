@@ -80,6 +80,9 @@ public class MediaLibraryService : IMediaLibraryService
     {
         await EnsureAuthorized(path, filename, null, ActionType.Update);
 
+        filename = filename.Replace(NhMediaValues.DirectorySeparator, string.Empty);
+        newFilename = newFilename.Replace(NhMediaValues.DirectorySeparator, string.Empty);
+        
         var fileRef = await _fileStructureStorage.GetFileAsync(path, filename, null);
         if (fileRef == null)
         {
@@ -111,6 +114,7 @@ public class MediaLibraryService : IMediaLibraryService
     public async Task<FileReference> CreateFileAsync(FileModel model, Stream file)
     {
         await EnsureAuthorized(model.Path, model.Name, null, ActionType.Create);
+        model.Name = model.Name!.Replace(NhMediaValues.DirectorySeparator, string.Empty);
 
         MediaLibraryPath.Split(model.Path ?? NhMediaValues.DirectorySeparator, out var folderPath, out var folderName);
         var newRef = new FileReference()
@@ -132,6 +136,8 @@ public class MediaLibraryService : IMediaLibraryService
     {
         await EnsureAuthorized(path, null, null, ActionType.Create);
 
+        folderName = folderName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
+        
         var newRef = new FolderReference()
         {
             Name = folderName,
@@ -148,6 +154,8 @@ public class MediaLibraryService : IMediaLibraryService
     {
         await EnsureAuthorized(MediaLibraryPath.Combine(path, folderName), null, null, ActionType.Update);
 
+        newName = newName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
+        
         var reference = await _fileStructureStorage.GetFolderReferenceAsync(MediaLibraryPath.Combine(path, folderName));
         var newRef = reference.Copy(x =>
         {
@@ -220,6 +228,9 @@ public class MediaLibraryService : IMediaLibraryService
     public async Task<bool> UpdateFileAsync(string? path, string fileName, Stream file)
     {
         await EnsureAuthorized(path, fileName, null, ActionType.Update);
+        
+        fileName = fileName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
+        
         var fileRef = await _fileStructureStorage.GetFileAsync(path, fileName, null);
         if (fileRef == null)
         {
@@ -245,6 +256,13 @@ public class MediaLibraryService : IMediaLibraryService
             null,
             ActionType.Update);
 
+        model.Name = model.Name?.Replace(NhMediaValues.DirectorySeparator, string.Empty);
+
+        if (string.IsNullOrWhiteSpace(model.Name))
+        {
+            return false;
+        }
+
         var folder = await _fileStructureStorage.GetFolderReferenceAsync(model.Path);
         var newRef = reference.Copy(x =>
         {
@@ -264,6 +282,7 @@ public class MediaLibraryService : IMediaLibraryService
 
     public async Task<bool> DeleteFolderAsync(string? path, string folderName)
     {
+        folderName = folderName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
         var folderPath = MediaLibraryPath.Combine(path, folderName);
         await EnsureAuthorized(folderPath, null, null, ActionType.Delete);
 
@@ -302,6 +321,7 @@ public class MediaLibraryService : IMediaLibraryService
 
     public async Task<bool> DeleteFileAsync(string? path, string fileName)
     {
+        fileName = fileName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
         await EnsureAuthorized(path, fileName, null, ActionType.Delete);
         var fileRef = await _fileStructureStorage.GetFileAsync(path, fileName, null);
         if (fileRef == null)

@@ -263,6 +263,17 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         return content.Files;
     }
 
+    public FolderReference GetFolderReference(FolderEntity folder)
+    {
+        return new FolderReference
+        {
+            Id = folder.Id,
+            Path = folder.Path,
+            Name = folder.Name,
+            FullPath = MediaLibraryPath.Combine(folder.Path, folder.Name)
+        };
+    }
+
     public async Task<FolderReference> GetFolderReferenceAsync(string? path)
     {
         path = NormalizePath(path);
@@ -292,7 +303,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                 continue;
             }
 
-            var folderReference = await GetFolderReferenceAsync($"{folder.Path}/{folder.Name}");
+            var folderReference = GetFolderReference(folder);
             result.Folders.Add(folderReference);
         }
 
