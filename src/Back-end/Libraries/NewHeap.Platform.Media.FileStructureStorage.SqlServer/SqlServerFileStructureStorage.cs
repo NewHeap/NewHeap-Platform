@@ -193,6 +193,8 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
     {
         path = NormalizePath(path);
 
+        folderName = folderName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
+        
         var exists = await _dbContext.Folders.AnyAsync(x => x.Path == path && x.Name == folderName);
         if (exists)
         {
