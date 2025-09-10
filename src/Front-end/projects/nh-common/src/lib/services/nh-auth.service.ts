@@ -20,7 +20,6 @@ import {HttpClient, HttpErrorResponse, HttpHeaders, HttpParams} from '@angular/c
 import {NhCommonModuleConfig} from "../models/config.models";
 import {NhApiUtil} from "../util/nh-api-util";
 import {isPlatformServer} from "@angular/common";
-import {Token} from "@angular/compiler";
 import {Base64} from "js-base64";
 
 @Injectable()
@@ -142,8 +141,13 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
   public getAuthorization(fromCache: boolean = true): TAuthorization | undefined {
     let auth: TAuthorization = this.initEmptyAuthorization();
 
+    if (fromCache && this.authorization) {
+      return this.authorization;
+    }
+
     try {
       auth = JSON.parse(Base64.decode(localStorage.getItem('at') ?? ''));
+      this.authorization = auth;
     } catch (ex) {
     }
 
