@@ -38,6 +38,7 @@ using WebAPI.EventHandlers;
 using static NewHeap.Platform.Common.Constants;
 using NewHeap.Platform.Common.Utilities;
 using NewHeap.Platform.Common;
+using NewHeap.Platform.Media.MediaStorage.S3Bucket;
 
 
 namespace WebAPI;
@@ -61,7 +62,7 @@ public class Startup
     public void ConfigureServices(IServiceCollection services)
     {
         services.AddOpenApi("v1");
-        services.AddHostedService<ExampleProducer>();
+        // services.AddHostedService<ExampleProducer>();
         var newHeapPlatformOptions = NewHeapAspNetCommonOptions.Builder(Configuration)
             .ConfigureAutoMapper(options => options.AddMaps(typeof(Startup)))
             .ConfigureJwtBearerValidationOptions(opt =>
@@ -116,7 +117,8 @@ public class Startup
                     db.RunMigrations = true; // Defaults to true, here for demonstration purposes
                 });
                 // opt.AddAuthentication<LoggedInUserMediaAuthorizationModule>();
-                opt.UseFileSystemMediaStorage(Configuration);
+                //opt.UseFileSystemMediaStorage(Configuration);
+                opt.UseS3BucketMediaStorage(Configuration);
             })
             .AddNewHeapPlatformAspNetCommon<
                 NhUser,
@@ -165,27 +167,27 @@ public class Startup
                             .Bind(x))
                     ;
             })
-            .WithEvents(events =>
-            {
-                events.AddCap(cap =>
-                {
-                    cap.WithOptions(capOptions =>
-                        {
-                            capOptions.UseEntityFramework<AppDbContext>();
-                            capOptions.UseRabbitMQ(r =>
-                            {
-                                r.HostName = "localhost";
-                                r.Password = "guest";
-                                r.UserName = "guest";
-                                r.VirtualHost = "nh-default";
-                            });
-                        })
-                        .WithPublishing()
-                        .AddSubscriber<ExampleConsumer, ExampleEvent>()
-                        .AddCustomTopicSubscriber<ExampleCustomTopicConsumer>()
-                        ;
-                });
-            })
+            // .WithEvents(events =>
+            // {
+            //     events.AddCap(cap =>
+            //     {
+            //         cap.WithOptions(capOptions =>
+            //             {
+            //                 capOptions.UseEntityFramework<AppDbContext>();
+            //                 capOptions.UseRabbitMQ(r =>
+            //                 {
+            //                     r.HostName = "localhost";
+            //                     r.Password = "guest";
+            //                     r.UserName = "guest";
+            //                     r.VirtualHost = "nh-default";
+            //                 });
+            //             })
+            //             .WithPublishing()
+            //             .AddSubscriber<ExampleConsumer, ExampleEvent>()
+            //             .AddCustomTopicSubscriber<ExampleCustomTopicConsumer>()
+            //             ;
+            //     });
+            // })
             .WithIdentityEntityFramework(x =>
             {
                 x.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"))
@@ -243,12 +245,12 @@ public class Startup
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IServiceProvider services)
     {
-        //app.UseCors(c =>
-        //{
-        //    c.AllowAnyOrigin();
-        //    c.AllowAnyMethod();
-        //    c.AllowAnyHeader();
-        //});
+        app.UseCors(c =>
+        {
+            c.AllowAnyOrigin();
+            c.AllowAnyMethod();
+            c.AllowAnyHeader();
+        });
         app.UseNewHeapPlatformAspNetCommon(env, services,
                 NewHeapPlatformAspNetCommonApplicationBuilderOptions.Builder
                     .UseEndpoints(e =>

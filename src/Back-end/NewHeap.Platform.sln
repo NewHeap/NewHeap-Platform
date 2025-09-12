@@ -44,6 +44,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Assets", "Assets", "{83E01F
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewHeap.Platform.Events.Cap", "Libraries\NewHeap.Platform.Events.Cap\NewHeap.Platform.Events.Cap.csproj", "{B63F4B9A-6516-4B31-8958-3C61AF95B344}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewHeap.Platform.Media.MediaStorage.S3Bucket", "Libraries\NewHeap.Platform.Media.MediaStorage.S3Bucket\NewHeap.Platform.Media.MediaStorage.S3Bucket.csproj", "{F613D021-75F5-4ED6-92C0-696769BCBF4D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -90,6 +92,10 @@ Global
 		{B63F4B9A-6516-4B31-8958-3C61AF95B344}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B63F4B9A-6516-4B31-8958-3C61AF95B344}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B63F4B9A-6516-4B31-8958-3C61AF95B344}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F613D021-75F5-4ED6-92C0-696769BCBF4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F613D021-75F5-4ED6-92C0-696769BCBF4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F613D021-75F5-4ED6-92C0-696769BCBF4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F613D021-75F5-4ED6-92C0-696769BCBF4D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -106,6 +112,7 @@ Global
 		{CBD6D479-8DBC-41BB-A87E-03F5C97EDB76} = {026E006D-3564-42A8-8CD0-484C1F9262CA}
 		{C81F7586-4617-4539-A43C-5FBB2EA7A964} = {5FC542AC-AA75-453A-8F5E-76CFF5D76D50}
 		{B63F4B9A-6516-4B31-8958-3C61AF95B344} = {5FC542AC-AA75-453A-8F5E-76CFF5D76D50}
+		{F613D021-75F5-4ED6-92C0-696769BCBF4D} = {026E006D-3564-42A8-8CD0-484C1F9262CA}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2ECAB1E7-4BFF-456B-8F6F-7D0002756B1A}

@@ -92,6 +92,7 @@
         <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.MediaStorage.FileSystem\NewHeap.Platform.Media.MediaStorage.FileSystem.csproj" />
         <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.Core\NewHeap.Platform.Media.Core.csproj" />
         <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AspNet.Common\NewHeap.Platform.AspNet.Common.csproj" />
+        <ProjectReference Include="..\..\Libraries\NewHeap.Platform.Media.MediaStorage.S3Bucket\NewHeap.Platform.Media.MediaStorage.S3Bucket.csproj" />
     </ItemGroup>
 
     <ProjectExtensions>
