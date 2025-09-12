@@ -5,7 +5,7 @@ export interface IHttpRequestOptions {
   observe?: 'body';
   params?: HttpParams;
   reportProgress?: boolean;
-  responseType?: 'json' | 'blob';
+  responseType?: 'json' | 'blob' | 'text';
   withCredentials?: boolean;
 }
 
@@ -18,6 +18,19 @@ export class HttpRequestOptions implements IHttpRequestOptions {
   withCredentials?: boolean;
 
   public constructor(init?: Partial<HttpRequestOptions>) {
+    Object.assign(this, init);
+  }
+}
+
+export class HttpRequestOptionsText implements IHttpRequestOptions {
+  headers?: HttpHeaders;
+  observe?: 'body';
+  params?: HttpParams;
+  reportProgress?: boolean;
+  responseType?: 'text';
+  withCredentials?: boolean;
+
+  public constructor(init?: Partial<HttpRequestOptionsText>) {
     Object.assign(this, init);
   }
 }
