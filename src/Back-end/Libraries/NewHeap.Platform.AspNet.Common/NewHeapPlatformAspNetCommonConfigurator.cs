@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -29,11 +30,13 @@ using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
 using NewHeap.Platform.AspNet.Policy.AuthorizationHandlers;
 using NewHeap.Platform.Common;
+using NewHeap.Platform.Common.Localization;
 using NewHeap.Platform.Common.Translations;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
+using System.Reflection;
 using System.Text.Json.Serialization;
 using static NewHeap.Platform.AspNet.Common.Models.JsonQueryModelBinder;
 
@@ -365,11 +368,26 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
 
     private void AddLocalization()
     {
-        _serviceCollection.AddLocalization(options =>
-        {
-            options.ResourcesPath = "Resources";
+        _serviceCollection.TryAddSingleton<IStringLocalizerFactory, NhResourceManagerStringLocalizerFactory>();
+        _serviceCollection.TryAddTransient(typeof(IStringLocalizer<>), typeof(StringLocalizer<>));
 
-            _options.LocalizationOptionsAction?.Invoke(options);
+        _serviceCollection.Configure<NhLocalizationOptions>(opts =>
+        {
+            opts.AssemblyNameLocalizationOptions.Add(new NhLocalizationOptions.Entry
+            {
+                AssemblyName = typeof(NewHeapPlatformCommonConfigurator).Assembly.GetName(),
+                Options = new LocalizationOptions { ResourcesPath = "Resources" },
+                Order = 100
+            });
+
+            opts.AssemblyNameLocalizationOptions.Add(new NhLocalizationOptions.Entry
+            {
+                AssemblyName = typeof(NewHeapPlatformAspNetCommonApplicationBuilder).Assembly.GetName(),
+                Options = new LocalizationOptions { ResourcesPath = "Resources" },
+                Order = 99
+            });
+
+            _options.LocalizationOptionsAction?.Invoke(opts);
         });
     }
 

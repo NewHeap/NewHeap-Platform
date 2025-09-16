@@ -28,6 +28,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using WebAPI.Models.Mutate;
 
@@ -121,4 +122,17 @@ public class HomeController : PublicNhBaseController
 
         return Ok($"Created: {result.Data!.Id}");
     }
+
+    [HttpPost("localization/test")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetLocalizationTest([FromBody] LocalizationTestModel requestModel, CancellationToken cancellationToken = default)
+    {
+        if(!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        return Ok();
+    }
+
 }

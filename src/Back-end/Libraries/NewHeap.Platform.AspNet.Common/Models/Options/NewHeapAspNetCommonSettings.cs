@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 using Microsoft.IdentityModel.Tokens;
+using NewHeap.Platform.Common.Localization;
 using NewHeap.Platform.Common.Models.Options;
 using System.Text;
 
@@ -36,7 +37,7 @@ public class NewHeapAspNetCommonOptions
     public required Action<TokenValidationParameters> JwtBearerOptionsTokenValidationParametersAction { get; set; }
     public Action<JwtBearerOptions>? JwtBearerOptionsAction { get; set; }
     public Action<AuthorizationOptions>? AuthorizationOptionsAction { get; set; }
-    public Action<LocalizationOptions>? LocalizationOptionsAction { get; set; }
+    public Action<NhLocalizationOptions>? LocalizationOptionsAction { get; set; }
     public Action<MvcOptions>? MvcOptionsAction { get; set; }
     public Action<MvcDataAnnotationsLocalizationOptions>? MvcDataAnnotationsLocalizationOptionsAction { get; set; }
     public Action<ApiBehaviorOptions>? ApiBehaviorOptionsAction { get; set; }
@@ -112,7 +113,7 @@ public class NewHeapAspNetCommonOptionsBuilder
         return this;
     }
 
-    public NewHeapAspNetCommonOptionsBuilder ConfigureLocalization(Action<LocalizationOptions> action)
+    public NewHeapAspNetCommonOptionsBuilder ConfigureLocalization(Action<NhLocalizationOptions> action)
     {
         ThrowIfBuild();
         _options!.LocalizationOptionsAction = action;
