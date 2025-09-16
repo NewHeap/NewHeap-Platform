@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,15 +17,13 @@ using System.Threading.Tasks;
 namespace NewHeap.Platform.AspNet.Common.Models;
 public partial class JsonQueryModelBinder : IModelBinder
 {
-    private readonly ModelBinderProviderContext _providerContext;
-    private readonly ComplexObjectModelBinderProvider _complexObjectModelBinderProvider;
+    private readonly IModelBinder _defaultModelBinder;
 
     public JsonQueryModelBinder(
-        ModelBinderProviderContext providerContext
+        IModelBinder defaultModelBinder
         )
     {
-        _providerContext = providerContext ?? throw new ArgumentNullException(nameof(providerContext));
-        _complexObjectModelBinderProvider = new ComplexObjectModelBinderProvider();
+        _defaultModelBinder = defaultModelBinder;
     }
 
     public async Task BindModelAsync(ModelBindingContext bindingContext)
@@ -35,14 +34,13 @@ public partial class JsonQueryModelBinder : IModelBinder
                 .HttpContext
                 .RequestServices;
             var httpCollectionProcessingService = services.GetRequiredService<IHttpCollectionProcessingService>();
-            var binder = _complexObjectModelBinderProvider.GetBinder(_providerContext);
 
-            if(binder == null)
+            if(_defaultModelBinder == null)
             {
                 throw new InvalidOperationException("Could not find a suitable binder for the model type.");
             }
 
-            await binder.BindModelAsync(bindingContext);
+            await _defaultModelBinder.BindModelAsync(bindingContext);
 
             if (!bindingContext.Result.IsModelSet)
             {
@@ -56,18 +54,18 @@ public partial class JsonQueryModelBinder : IModelBinder
             }
 
             var requestModel = httpCollectionProcessingService.GetCollectionRequestModel();
-            if (typeof(IBaseCollectionRequestModel).IsAssignableFrom(_providerContext.Metadata.ModelType))
+            if (typeof(IBaseCollectionRequestModel).IsAssignableFrom(bindingContext.ModelType))
             {
                 binderModel.ItemsPerPage = requestModel.ItemsPerPage;
                 binderModel.Page = requestModel.Page;
             } 
             
-            if (typeof(ISearchableBaseCollectionRequestModel).IsAssignableFrom(_providerContext.Metadata.ModelType))
+            if (typeof(ISearchableBaseCollectionRequestModel).IsAssignableFrom(bindingContext.ModelType))
             {
                 binderModel.Search = requestModel.Search;
             }
 
-            if (typeof(ICollectionRequestModel).IsAssignableFrom(_providerContext.Metadata.ModelType))
+            if (typeof(ICollectionRequestModel).IsAssignableFrom(bindingContext.ModelType))
             {
                 binderModel.OrderBy = requestModel.OrderBy ?? new List<OrderByCollectionRequestModel>();
                 binderModel.Filter = requestModel.Filter ?? new List<FilterCollectionRequestModel>();
@@ -80,6 +78,7 @@ public partial class JsonQueryModelBinder : IModelBinder
 
     public class JsonQueryModelBinderProvider : IModelBinderProvider
     {
+        private static readonly object BinderKey = new object();
 
         public JsonQueryModelBinderProvider()
         {
@@ -102,7 +101,25 @@ public partial class JsonQueryModelBinder : IModelBinder
                 return null;
             }
 
-            return new JsonQueryModelBinder(providerContext: context);
+            if( context.Metadata.AdditionalValues.ContainsKey("NhSkipBinding"))
+            {
+                return null;
+            }
+
+            var httpContextAccessor = context.Services.GetService<IHttpContextAccessor>();
+            var httpContext = httpContextAccessor?.HttpContext;
+            if (httpContext != null)
+            {
+                if (httpContext.Items.ContainsKey(BinderKey))
+                {
+                    return null;
+                }
+                httpContext.Items[BinderKey] = true;
+            }
+
+            var defaultBinder = context.CreateBinder(context.Metadata);
+
+            return new JsonQueryModelBinder(defaultBinder);
         }
     }
 }
