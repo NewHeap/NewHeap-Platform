@@ -101,11 +101,6 @@ public partial class JsonQueryModelBinder : IModelBinder
                 return null;
             }
 
-            if( context.Metadata.AdditionalValues.ContainsKey("NhSkipBinding"))
-            {
-                return null;
-            }
-
             var httpContextAccessor = context.Services.GetService<IHttpContextAccessor>();
             var httpContext = httpContextAccessor?.HttpContext;
             if (httpContext != null)
