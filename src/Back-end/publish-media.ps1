@@ -59,6 +59,7 @@ $projectPaths = @(
   ".\Libraries\NewHeap.Platform.Media.FileStructureStorage.SqlServer"
   ,".\Libraries\NewHeap.Platform.Media.Http"
   ,".\Libraries\NewHeap.Platform.Media.MediaStorage.FileSystem"  
+  ,".\Libraries\NewHeap.Platform.Media.MediaStorage.S3Bucket"  
 );
 
 
