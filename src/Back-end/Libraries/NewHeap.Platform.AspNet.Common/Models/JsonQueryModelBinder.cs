@@ -16,14 +16,15 @@ using System.Threading.Tasks;
 namespace NewHeap.Platform.AspNet.Common.Models;
 public partial class JsonQueryModelBinder : IModelBinder
 {
-    private static JsonSerializer? _jsonSerializer;
     private readonly ModelBinderProviderContext _providerContext;
+    private readonly ComplexObjectModelBinderProvider _complexObjectModelBinderProvider;
 
     public JsonQueryModelBinder(
         ModelBinderProviderContext providerContext
         )
     {
         _providerContext = providerContext ?? throw new ArgumentNullException(nameof(providerContext));
+        _complexObjectModelBinderProvider = new ComplexObjectModelBinderProvider();
     }
 
     public async Task BindModelAsync(ModelBindingContext bindingContext)
@@ -33,15 +34,8 @@ public partial class JsonQueryModelBinder : IModelBinder
             var services = bindingContext
                 .HttpContext
                 .RequestServices;
-
-            var mvcJsonOptions = services.GetRequiredService<IOptions<MvcNewtonsoftJsonOptions>>();
-            var mvcOptions = services.GetRequiredService<IOptions<MvcOptions>>();
             var httpCollectionProcessingService = services.GetRequiredService<IHttpCollectionProcessingService>();
-            var modelComplexBinderProvider = mvcOptions.Value.ModelBinderProviders.First(p => p.GetType() == typeof(ComplexObjectModelBinderProvider));
-
-            _jsonSerializer ??= JsonSerializer.Create(mvcJsonOptions.Value.SerializerSettings);
-
-            var binder = modelComplexBinderProvider.GetBinder(_providerContext);
+            var binder = _complexObjectModelBinderProvider.GetBinder(_providerContext);
 
             if(binder == null)
             {
@@ -91,7 +85,7 @@ public partial class JsonQueryModelBinder : IModelBinder
         {
         }
 
-        public IModelBinder GetBinder(ModelBinderProviderContext context)
+        public IModelBinder? GetBinder(ModelBinderProviderContext context)
         {
             if (context == null)
             {
