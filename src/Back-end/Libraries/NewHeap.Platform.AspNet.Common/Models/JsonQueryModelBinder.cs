@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,14 +17,13 @@ using System.Threading.Tasks;
 namespace NewHeap.Platform.AspNet.Common.Models;
 public partial class JsonQueryModelBinder : IModelBinder
 {
-    private static JsonSerializer? _jsonSerializer;
-    private readonly ModelBinderProviderContext _providerContext;
+    private readonly IModelBinder _defaultModelBinder;
 
     public JsonQueryModelBinder(
-        ModelBinderProviderContext providerContext
+        IModelBinder defaultModelBinder
         )
     {
-        _providerContext = providerContext ?? throw new ArgumentNullException(nameof(providerContext));
+        _defaultModelBinder = defaultModelBinder;
     }
 
     public async Task BindModelAsync(ModelBindingContext bindingContext)
@@ -33,22 +33,14 @@ public partial class JsonQueryModelBinder : IModelBinder
             var services = bindingContext
                 .HttpContext
                 .RequestServices;
-
-            var mvcJsonOptions = services.GetRequiredService<IOptions<MvcNewtonsoftJsonOptions>>();
-            var mvcOptions = services.GetRequiredService<IOptions<MvcOptions>>();
             var httpCollectionProcessingService = services.GetRequiredService<IHttpCollectionProcessingService>();
-            var modelComplexBinderProvider = mvcOptions.Value.ModelBinderProviders.First(p => p.GetType() == typeof(ComplexObjectModelBinderProvider));
 
-            _jsonSerializer ??= JsonSerializer.Create(mvcJsonOptions.Value.SerializerSettings);
-
-            var binder = modelComplexBinderProvider.GetBinder(_providerContext);
-
-            if(binder == null)
+            if(_defaultModelBinder == null)
             {
                 throw new InvalidOperationException("Could not find a suitable binder for the model type.");
             }
 
-            await binder.BindModelAsync(bindingContext);
+            await _defaultModelBinder.BindModelAsync(bindingContext);
 
             if (!bindingContext.Result.IsModelSet)
             {
@@ -62,18 +54,18 @@ public partial class JsonQueryModelBinder : IModelBinder
             }
 
             var requestModel = httpCollectionProcessingService.GetCollectionRequestModel();
-            if (typeof(IBaseCollectionRequestModel).IsAssignableFrom(_providerContext.Metadata.ModelType))
+            if (typeof(IBaseCollectionRequestModel).IsAssignableFrom(bindingContext.ModelType))
             {
                 binderModel.ItemsPerPage = requestModel.ItemsPerPage;
                 binderModel.Page = requestModel.Page;
             } 
             
-            if (typeof(ISearchableBaseCollectionRequestModel).IsAssignableFrom(_providerContext.Metadata.ModelType))
+            if (typeof(ISearchableBaseCollectionRequestModel).IsAssignableFrom(bindingContext.ModelType))
             {
                 binderModel.Search = requestModel.Search;
             }
 
-            if (typeof(ICollectionRequestModel).IsAssignableFrom(_providerContext.Metadata.ModelType))
+            if (typeof(ICollectionRequestModel).IsAssignableFrom(bindingContext.ModelType))
             {
                 binderModel.OrderBy = requestModel.OrderBy ?? new List<OrderByCollectionRequestModel>();
                 binderModel.Filter = requestModel.Filter ?? new List<FilterCollectionRequestModel>();
@@ -86,12 +78,13 @@ public partial class JsonQueryModelBinder : IModelBinder
 
     public class JsonQueryModelBinderProvider : IModelBinderProvider
     {
+        private static readonly object BinderKey = new object();
 
         public JsonQueryModelBinderProvider()
         {
         }
 
-        public IModelBinder GetBinder(ModelBinderProviderContext context)
+        public IModelBinder? GetBinder(ModelBinderProviderContext context)
         {
             if (context == null)
             {
@@ -108,7 +101,20 @@ public partial class JsonQueryModelBinder : IModelBinder
                 return null;
             }
 
-            return new JsonQueryModelBinder(providerContext: context);
+            var httpContextAccessor = context.Services.GetService<IHttpContextAccessor>();
+            var httpContext = httpContextAccessor?.HttpContext;
+            if (httpContext != null)
+            {
+                if (httpContext.Items.ContainsKey(BinderKey))
+                {
+                    return null;
+                }
+                httpContext.Items[BinderKey] = true;
+            }
+
+            var defaultBinder = context.CreateBinder(context.Metadata);
+
+            return new JsonQueryModelBinder(defaultBinder);
         }
     }
 }
