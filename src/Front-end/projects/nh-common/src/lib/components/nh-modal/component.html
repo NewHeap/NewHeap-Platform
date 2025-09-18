@@ -1,6 +1,6 @@
 <div #modalHolder (touchmove)="modalTouchMove($event)" (touchcancel)="modalTouchEnd($event)"
      (touchend)="modalTouchEnd($event)" (mousemove)="modalMouseMove($event)" (mouseup)="modalMouseUp($event)"
-     role="dialog" class="nh-modal-holder">
+     role="dialog" class="nh-modal-holder" [ngClass]="modalHolderClasses">
   <div #modalBackdrop class="nh-modal-backdrop"></div>
   <div #modal class="nh-modal" [ngClass]="modalClasses" style="transform: translateY(100vh);">
     <div class="nh-modal-header" [ngClass]="modalHeaderClasses">

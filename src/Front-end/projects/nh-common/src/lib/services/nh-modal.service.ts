@@ -40,6 +40,7 @@ export class NhModalComponentRef<C> {
 
 export class NhModalOptions {
   title: string = '';
+  modalHolderClasses: string = '';
   modalClasses: string = '';
   modalHeaderClasses: string = '';
   isLoading: boolean = false;
@@ -128,6 +129,7 @@ export class NhModalService {
     modalComponentRef.instance.setModalComponentRef(modalRef);
 
     modalRef.modalComponent.title = options.title ?? '';
+    modalRef.modalComponent.modalHolderClasses = options.modalHolderClasses ?? '';
     modalRef.modalComponent.modalClasses = options.modalClasses ?? '';
     modalRef.modalComponent.modalBodyClasses = options.modalBodyClasses ?? '';
     modalRef.modalComponent.modalHeaderClasses = options.modalHeaderClasses ?? '';

@@ -50,6 +50,7 @@ export class NhModalComponent<C> implements OnInit, OnDestroy, AfterViewInit {
   private modalComponentRef: NhModalComponentRef<C> | undefined;
   private document: Document = inject(DOCUMENT);
   title: string = '';
+  modalHolderClasses: string = '';
   modalClasses: string = '';
   modalHeaderClasses: string = '';
   modalBodyClasses: string = '';
