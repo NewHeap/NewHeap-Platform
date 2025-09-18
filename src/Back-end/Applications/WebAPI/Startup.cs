@@ -39,6 +39,9 @@ using static NewHeap.Platform.Common.Constants;
 using NewHeap.Platform.Common.Utilities;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Media.MediaStorage.S3Bucket;
+using NewHeap.Platform.Common.Localization;
+using System.Reflection;
+using Microsoft.Extensions.Localization;
 
 
 namespace WebAPI;
@@ -99,6 +102,15 @@ public class Startup
                 options.AddPolicy("app.active-division.general.view",
                     policy => policy.RequireActiveDivisionAccess(null,
                         new Claim(NhPlatformClaimTypes.DivisionPermission, "general.view")));
+            })
+            .ConfigureLocalization(options =>
+            {
+                options.AssemblyNameLocalizationOptions.Add(new NhLocalizationOptions.Entry
+                {
+                    AssemblyName = Assembly.GetExecutingAssembly().GetName(),
+                    Options = new LocalizationOptions { ResourcesPath = "Resources" },
+                    Order = 0
+                });
             })
             .ConfgureCommonOptions(NewHeapCommonOptions
                 .Builder(Configuration)
