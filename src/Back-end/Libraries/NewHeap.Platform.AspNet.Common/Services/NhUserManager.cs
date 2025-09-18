@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -175,6 +176,14 @@ public abstract partial class NhUserManager<
     protected readonly IRepository<TUser> _userRepository;
     protected readonly ValidationService _validationService;
     protected readonly INhDbLogService _dbLogService;
+
+    public IdentityDbContext<TUser, TUserRole, Guid> IdentityDbContext
+    {
+        get
+        {
+            return (IdentityDbContext<TUser, TUserRole, Guid>)GetRepository().Context;
+        }
+    }
 
     public NhUserManager(
         IWebHostEnvironment environment,
