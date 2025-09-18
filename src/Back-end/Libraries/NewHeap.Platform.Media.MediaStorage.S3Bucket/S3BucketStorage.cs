@@ -4,6 +4,7 @@ using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 using Microsoft.Extensions.Options;
 using NewHeap.Media.Modules;
+using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.Media.MediaStorage.S3Bucket;
 
@@ -24,7 +25,7 @@ public class S3BucketStorage : IMediaStorage
         return fileName;
     }
 
-    public async Task<bool> UpdateFileAsync(Stream fileStream, Guid id)
+    public async Task<TaskResult> UpdateFileAsync(Stream fileStream, Guid id)
     {
         var client = CreateClient();
         await client.PutObjectAsync(new PutObjectRequest()
@@ -34,17 +35,17 @@ public class S3BucketStorage : IMediaStorage
             InputStream = fileStream,
         });
 
-        return true;
+        return TaskResult.Succeeded();
     }
 
-    public async Task<bool> DeleteAsync(Guid id)
+    public async Task<TaskResult> DeleteAsync(Guid id)
     {
         var client = CreateClient();
         var response = await client.DeleteObjectAsync(new DeleteObjectRequest()
         {
             BucketName = _options.Value.BucketName, Key = id.ToString(),
         });
-        return string.IsNullOrWhiteSpace(response.VersionId);
+        return string.IsNullOrWhiteSpace(response.VersionId) ? TaskResult.Succeeded() : TaskResult.Failed("Could not delete file");
     }
 
     public async Task<Stream?> GetFileAsync(Guid fileRefId)

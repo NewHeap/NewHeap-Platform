@@ -4,6 +4,18 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <PackageId>NewHeap.Platform.Media.MediaStorage.S3Bucket</PackageId>
+        <Version>0.1.0</Version>
+        <Copyright>NewHeap B.V.</Copyright>
+        <Title>NewHeap Media S3 Storage</Title>
+        <PackageProjectUrl>https://dev.azure.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
+        <RepositoryUrl>https://dev.azure.com/NewHeap/_git/NewHeap-Platform</RepositoryUrl>
+        <Copyright>Copyright © NewHeap 2025</Copyright>
+        <IncludeSymbols>True</IncludeSymbols>
+        <EmbedAllSources>True</EmbedAllSources>
+        <DebugType>Embedded</DebugType>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <IsPackable>True</IsPackable>
     </PropertyGroup>
 
     <ItemGroup>

@@ -1,4 +1,5 @@
 ﻿using NewHeap.Media.Models;
+using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Media.Modules;
 
@@ -6,7 +7,7 @@ public interface IFileStructureStorage
 {
     Task<FileReference> CreateFileAsync(FileModel model, Guid id);
 
-    Task<FileReference?> UpdateFileAsync(Guid id, FileModel model);
+    Task<TaskResult<FileReference>> UpdateFileAsync(Guid id, FileModel model);
 
     Task<FolderReference> CreateFolderAsync(string? path, string folderName);
 
@@ -17,12 +18,12 @@ public interface IFileStructureStorage
     Task<FolderContents> GetFolderAsync(string? path, string? language, FileGetOptions? sortOptions);
     Task<FileReference?> GetFileAsync(string? path, string fileName, string? language);
 
-    Task<bool> DeleteFileAsync(string? path, string filename);
+    Task<TaskResult> DeleteFileAsync(string? path, string filename);
 
     Task<SearchResults> SearchAsync(string searchTerm, string? path, SearchOptions options);
-    Task<bool> LocalizeAsync(Guid entityId, string language, string propertyName, string value);
+    Task<TaskResult> LocalizeAsync(Guid entityId, string language, string propertyName, string value);
 
-    Task<bool> UpdateTagsAsync(string path, string fileName, IEnumerable<string> tags);
+    Task<TaskResult> UpdateTagsAsync(string path, string fileName, IEnumerable<string> tags);
     Task<FileReference?> GetByIdAsync(Guid id);
     Task<FolderReference?> MoveFolderAsync(string? path, string folderName, string newPath, string newName);
 

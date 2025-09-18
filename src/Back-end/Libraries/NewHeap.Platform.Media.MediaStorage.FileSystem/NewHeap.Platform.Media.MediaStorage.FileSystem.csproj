@@ -15,6 +15,7 @@
         <EmbedAllSources>True</EmbedAllSources>
         <DebugType>Embedded</DebugType>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <IsPackable>True</IsPackable>
     </PropertyGroup>
 
     <ItemGroup>

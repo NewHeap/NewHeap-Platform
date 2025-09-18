@@ -1,31 +1,35 @@
 ﻿using NewHeap.Media.EventHandlers;
 using NewHeap.Media.Models;
 using NewHeap.Media.Modules;
+using NewHeap.Platform.Common.Models;
 using System.Runtime.InteropServices;
 
 namespace NewHeap.Media;
 
 public interface IMediaLibraryService
 {
-    Task RenameFileAsync(string path, string filename, string newPath, string newFilename);
-    Task<FileReference> CreateFileAsync(FileModel model, Stream file);
-    Task<FolderReference> CreateFolderAsync(string? path, string folderName);
-    Task<FolderReference?> UpdateFolderAsync(string? path, string folderName, string? newPath, string newName);
-    Task<FileReference?> GetFileAsync(string? path, string filename, string? language = null);
-    Task<FileReference?> GetFileAsync(Guid id);
-    Task<Stream?> DownloadFileAsync(string? path, string fileName);
-    Task<Stream?> DownloadFileAsync(Guid id);
+    Task<TaskResult> RenameFileAsync(string path, string filename, string newPath, string newFilename);
+    Task<TaskResult<FileReference>> CreateFileAsync(FileModel model, Stream file);
+    Task<TaskResult<FolderReference>> CreateFolderAsync(string? path, string folderName);
+
+    Task<TaskResult<FolderReference>> UpdateFolderAsync(string? path, string folderName, string? newPath,
+        string newName);
+
+    Task<TaskResult<FileReference>> GetFileAsync(string? path, string filename, string? language = null);
+    Task<TaskResult<FileReference>> GetFileAsync(Guid id);
+    Task<TaskResult<Stream>> DownloadFileAsync(string? path, string fileName);
+    Task<TaskResult<Stream>> DownloadFileAsync(Guid id);
     Task<FolderContents> GetFolder(string? path, string? language = null, FileGetOptions? sortOptions = null);
-    Task<bool> UpdateFileAsync(string? path, string fileName, Stream file);
-    Task<bool> UpdateFileAsync(Guid id, FileModel model);
-    Task<bool> DeleteFolderAsync(string? path, string folderName);
-    Task<bool> DeleteFileAsync(string? path, string fileName);
+    Task<TaskResult> UpdateFileAsync(string? path, string fileName, Stream file);
+    Task<TaskResult> UpdateFileAsync(Guid id, FileModel model);
+    Task<TaskResult> DeleteFolderAsync(string? path, string folderName);
+    Task<TaskResult> DeleteFileAsync(string? path, string fileName);
 
     Task<SearchResults> SearchAsync(string? path, string searchTerm, SearchOptions options);
 
-    Task<bool> LocalizeFieldAsync(Guid fileReferenceId, string propertyName, string language, string value);
+    Task<TaskResult> LocalizeFieldAsync(Guid fileReferenceId, string propertyName, string language, string value);
 
-    Task<bool> UpdateFileTagsAsync(string? path, string fileName, IEnumerable<string> tags);
+    Task<TaskResult> UpdateFileTagsAsync(string? path, string fileName, IEnumerable<string> tags);
 }
 
 public class MediaLibraryService : IMediaLibraryService
@@ -51,18 +55,19 @@ public class MediaLibraryService : IMediaLibraryService
         _authorizationModule = authorizationModule;
     }
 
-    public Task<bool> LocalizeFieldAsync(Guid fileReferenceId, string propertyName, string language, string value)
+    public virtual Task<TaskResult> LocalizeFieldAsync(Guid fileReferenceId, string propertyName, string language,
+        string value)
     {
         return _fileStructureStorage.LocalizeAsync(fileReferenceId, language, propertyName, value);
     }
 
-    public async Task<bool> UpdateFileTagsAsync(string? path, string fileName, IEnumerable<string> tags)
+    public virtual async Task<TaskResult> UpdateFileTagsAsync(string? path, string fileName, IEnumerable<string> tags)
     {
         var current = await _fileStructureStorage.GetFileAsync(path, fileName, null);
 
         if (current == null)
         {
-            return false;
+            return TaskResult.Failed("File not found");
         }
 
         path ??= "";
@@ -76,17 +81,18 @@ public class MediaLibraryService : IMediaLibraryService
     }
 
 
-    public async Task RenameFileAsync(string path, string filename, string newPath, string newFilename)
+    public virtual async Task<TaskResult> RenameFileAsync(string path, string filename, string newPath,
+        string newFilename)
     {
         await EnsureAuthorized(path, filename, null, ActionType.Update);
 
         filename = filename.Replace(NhMediaValues.DirectorySeparator, string.Empty);
         newFilename = newFilename.Replace(NhMediaValues.DirectorySeparator, string.Empty);
-        
+
         var fileRef = await _fileStructureStorage.GetFileAsync(path, filename, null);
         if (fileRef == null)
         {
-            return;
+            return TaskResult.Failed("File not found");
         }
 
         var newRef = fileRef.Copy(x =>
@@ -97,7 +103,7 @@ public class MediaLibraryService : IMediaLibraryService
         });
         await TriggerEvents(fileRef, newRef, MediaLibraryFileEventType.Updating);
 
-        newRef = await _fileStructureStorage.UpdateFileAsync(fileRef.Id, new FileModel()
+        var result = await _fileStructureStorage.UpdateFileAsync(fileRef.Id, new FileModel()
         {
             Tags = fileRef.Tags.ToArray(),
             Name = newFilename,
@@ -108,36 +114,52 @@ public class MediaLibraryService : IMediaLibraryService
             Title = fileRef.Title,
             Creator = fileRef.Creator,
         });
-        await TriggerEvents(fileRef, newRef, MediaLibraryFileEventType.Updating);
-    }
-
-    public async Task<FileReference> CreateFileAsync(FileModel model, Stream file)
-    {
-        await EnsureAuthorized(model.Path, model.Name, null, ActionType.Create);
-        model.Name = model.Name!.Replace(NhMediaValues.DirectorySeparator, string.Empty);
-
-        MediaLibraryPath.Split(model.Path ?? NhMediaValues.DirectorySeparator, out var folderPath, out var folderName);
-        var newRef = new FileReference()
+        if (result.Success)
         {
-            Name = model.Name!,
-            Folder = new FolderReference() { Path = folderPath, Name = folderName, FullPath = model.Path ?? "/" },
-        };
+            await TriggerEvents(fileRef, newRef, MediaLibraryFileEventType.Updating);
+        }
 
-        await TriggerEvents(null, newRef, MediaLibraryFileEventType.Adding);
-
-        var fileId = await _fileStorage.SaveFileAsync(file);
-        var fileRef = await _fileStructureStorage.CreateFileAsync(model, fileId);
-
-        await TriggerEvents(null, fileRef, MediaLibraryFileEventType.Added);
-        return fileRef;
+        return result;
     }
 
-    public async Task<FolderReference> CreateFolderAsync(string? path, string folderName)
+    public virtual async Task<TaskResult<FileReference>> CreateFileAsync(FileModel model, Stream file)
+    {
+        try
+        {
+            await EnsureAuthorized(model.Path, model.Name, null, ActionType.Create);
+            model.Name = model.Name!.Replace(NhMediaValues.DirectorySeparator, string.Empty);
+
+            MediaLibraryPath.Split(model.Path ?? NhMediaValues.DirectorySeparator, out var folderPath,
+                out var folderName);
+            var newRef = new FileReference()
+            {
+                Name = model.Name!,
+                Folder = new FolderReference()
+                {
+                    Path = folderPath, Name = folderName, FullPath = model.Path ?? "/"
+                },
+            };
+
+            await TriggerEvents(null, newRef, MediaLibraryFileEventType.Adding);
+
+            var fileId = await _fileStorage.SaveFileAsync(file);
+            var fileRef = await _fileStructureStorage.CreateFileAsync(model, fileId);
+
+            await TriggerEvents(null, fileRef, MediaLibraryFileEventType.Added);
+            return fileRef;
+        }
+        catch (Exception e)
+        {
+            return TaskResult<FileReference>.Failed(e.ToString());
+        }
+    }
+
+    public virtual async Task<TaskResult<FolderReference>> CreateFolderAsync(string? path, string folderName)
     {
         await EnsureAuthorized(path, null, null, ActionType.Create);
 
         folderName = folderName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
-        
+
         var newRef = new FolderReference()
         {
             Name = folderName,
@@ -150,12 +172,13 @@ public class MediaLibraryService : IMediaLibraryService
         return folderRef;
     }
 
-    public async Task<FolderReference?> UpdateFolderAsync(string? path, string folderName, string? newPath, string newName)
+    public virtual async Task<TaskResult<FolderReference>> UpdateFolderAsync(string? path, string folderName, string? newPath,
+        string newName)
     {
         await EnsureAuthorized(MediaLibraryPath.Combine(path, folderName), null, null, ActionType.Update);
 
         newName = newName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
-        
+
         var reference = await _fileStructureStorage.GetFolderReferenceAsync(MediaLibraryPath.Combine(path, folderName));
         var newRef = reference.Copy(x =>
         {
@@ -164,57 +187,86 @@ public class MediaLibraryService : IMediaLibraryService
         });
 
         await TriggerEvents(reference, newRef, MediaLibraryFolderEventType.Updated);
-        newRef = await _fileStructureStorage.MoveFolderAsync(path, folderName, newPath ?? NhMediaValues.DirectorySeparator,
+        newRef = await _fileStructureStorage.MoveFolderAsync(path, folderName,
+            newPath ?? NhMediaValues.DirectorySeparator,
             newName);
         await TriggerEvents(null, newRef, MediaLibraryFolderEventType.Updated);
+
+        if (newRef == null)
+        {
+            return TaskResult<FolderReference>.Failed("Folder not found");
+        }
+
         return newRef;
     }
 
-    public async Task<FileReference?> GetFileAsync(string? path, string filename, string? language = null)
+    public virtual async Task<TaskResult<FileReference>> GetFileAsync(string? path, string filename, string? language = null)
     {
         await EnsureAuthorized(path, filename, null, ActionType.Read);
         var fileRef = await _fileStructureStorage.GetFileAsync(path, filename, language);
-        if (fileRef != null)
+
+        if (fileRef == null)
         {
-            fileRef.Thumbnail = await _thumbnailService.GetThumbnailAsync(fileRef.Id);
+            return TaskResult<FileReference>.Failed("File not found");
         }
+
+        fileRef.Thumbnail = await _thumbnailService.GetThumbnailAsync(fileRef.Id);
         return fileRef;
     }
 
-    public async Task<FileReference?> GetFileAsync(Guid id)
+    public virtual async Task<TaskResult<FileReference>> GetFileAsync(Guid id)
     {
         var reference = await _fileStructureStorage.GetByIdAsync(id);
         if (reference != null)
         {
             reference.Thumbnail = await _thumbnailService.GetThumbnailAsync(reference.Id);
         }
+
+        if (reference == null)
+        {
+            return TaskResult<FileReference>.Failed("File not found");
+        }
+
         return reference;
     }
 
-    public async Task<Stream?> DownloadFileAsync(string? path, string fileName)
+    public virtual async Task<TaskResult<Stream>> DownloadFileAsync(string? path, string fileName)
     {
         await EnsureAuthorized(path, fileName, null, ActionType.Read);
         var fileRef = await _fileStructureStorage.GetFileAsync(path, fileName, null);
         if (fileRef == null)
         {
-            return null;
+            return TaskResult<Stream>.Failed("File not found");
         }
 
-        return await _fileStorage.GetFileAsync(fileRef.Id);
+        var stream = await _fileStorage.GetFileAsync(fileRef.Id);
+        if (stream == null)
+        {
+            return TaskResult<Stream>.Failed("File not found");
+        }
+
+        return stream;
     }
 
-    public async Task<Stream?> DownloadFileAsync(Guid id)
+    public virtual async Task<TaskResult<Stream>> DownloadFileAsync(Guid id)
     {
         var fileRef = await _fileStructureStorage.GetByIdAsync(id);
         if (fileRef == null)
         {
-            return null;
+            return TaskResult<Stream>.Failed("File not found");
         }
 
-        return await _fileStorage.GetFileAsync(fileRef.Id);
+        var stream = await _fileStorage.GetFileAsync(fileRef.Id);
+
+        if (stream == null)
+        {
+            return TaskResult<Stream>.Failed("File not found");
+        }
+
+        return stream;
     }
 
-    public async Task<FolderContents> GetFolder(string? path, string? language, FileGetOptions? sortOptions = null)
+    public virtual async Task<FolderContents> GetFolder(string? path, string? language, FileGetOptions? sortOptions = null)
     {
         await EnsureAuthorized(path, null, language, ActionType.Read);
         var folder = await _fileStructureStorage.GetFolderAsync(path, language, sortOptions);
@@ -222,34 +274,39 @@ public class MediaLibraryService : IMediaLibraryService
         {
             file.Thumbnail = await _thumbnailService.GetThumbnailAsync(file.Id);
         }
+
         return folder;
     }
 
-    public async Task<bool> UpdateFileAsync(string? path, string fileName, Stream file)
+    public virtual async Task<TaskResult> UpdateFileAsync(string? path, string fileName, Stream file)
     {
         await EnsureAuthorized(path, fileName, null, ActionType.Update);
-        
+
         fileName = fileName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
-        
+
         var fileRef = await _fileStructureStorage.GetFileAsync(path, fileName, null);
         if (fileRef == null)
         {
-            return false;
+            return TaskResult.Failed("File not found");
         }
 
         await TriggerEvents(fileRef, fileRef, MediaLibraryFileEventType.Updating);
         var result = await _fileStorage.UpdateFileAsync(file, fileRef.Id);
-        await TriggerEvents(fileRef, fileRef, MediaLibraryFileEventType.BinaryUpdated);
+        if (result.Success)
+        {
+            await TriggerEvents(fileRef, fileRef, MediaLibraryFileEventType.BinaryUpdated);
+        }
+
         return result;
     }
 
-    public async Task<bool> UpdateFileAsync(Guid id, FileModel model)
+    public virtual async Task<TaskResult> UpdateFileAsync(Guid id, FileModel model)
     {
         var reference = await _fileStructureStorage.GetByIdAsync(id);
 
         if (reference == null)
         {
-            return false;
+            return TaskResult.Failed("File not found");
         }
 
         await EnsureAuthorized(MediaLibraryPath.Combine(reference.Folder.Path, reference.Folder.Name), reference.Name,
@@ -260,7 +317,7 @@ public class MediaLibraryService : IMediaLibraryService
 
         if (string.IsNullOrWhiteSpace(model.Name))
         {
-            return false;
+            return TaskResult.Failed("Name is required");
         }
 
         var folder = await _fileStructureStorage.GetFolderReferenceAsync(model.Path);
@@ -275,12 +332,17 @@ public class MediaLibraryService : IMediaLibraryService
         });
 
         await TriggerEvents(reference, newRef, MediaLibraryFileEventType.Updating);
-        var success = await _fileStructureStorage.UpdateFileAsync(reference.Id, model) != null;
-        await TriggerEvents(reference, await _fileStructureStorage.GetByIdAsync(id), MediaLibraryFileEventType.Updated);
-        return success;
+        var result = await _fileStructureStorage.UpdateFileAsync(reference.Id, model);
+        if (result.Success)
+        {
+            await TriggerEvents(reference, await _fileStructureStorage.GetByIdAsync(id),
+                MediaLibraryFileEventType.Updated);
+        }
+
+        return result;
     }
 
-    public async Task<bool> DeleteFolderAsync(string? path, string folderName)
+    public virtual async Task<TaskResult> DeleteFolderAsync(string? path, string folderName)
     {
         folderName = folderName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
         var folderPath = MediaLibraryPath.Combine(path, folderName);
@@ -295,11 +357,11 @@ public class MediaLibraryService : IMediaLibraryService
         var deleted = await _fileStructureStorage.DeleteFolderAsync(path, folderName);
         if (!deleted)
         {
-            return false;
+            return TaskResult.Failed("Failed to delete folder");
         }
 
         await TriggerEvents(folder, null, MediaLibraryFolderEventType.Removed);
-        
+
         foreach (var file in files)
         {
             await TriggerEvents(file, null, MediaLibraryFileEventType.Removing);
@@ -316,43 +378,43 @@ public class MediaLibraryService : IMediaLibraryService
             await TriggerEvents(file, null, MediaLibraryFileEventType.Removed);
         }
 
-        return true;
+        return TaskResult.Succeeded();
     }
 
-    public async Task<bool> DeleteFileAsync(string? path, string fileName)
+    public virtual async Task<TaskResult> DeleteFileAsync(string? path, string fileName)
     {
         fileName = fileName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
         await EnsureAuthorized(path, fileName, null, ActionType.Delete);
         var fileRef = await _fileStructureStorage.GetFileAsync(path, fileName, null);
         if (fileRef == null)
         {
-            return false;
+            return TaskResult.Failed("File not found");
         }
 
         await TriggerEvents(fileRef, null, MediaLibraryFileEventType.Removing);
         await _fileStorage.DeleteAsync(fileRef.Id);
         await _fileStructureStorage.DeleteFileAsync(path, fileName);
         await TriggerEvents(fileRef, null, MediaLibraryFileEventType.Removed);
-        return true;
+        return TaskResult.Succeeded();
     }
 
-    public async Task<SearchResults> SearchAsync(string? path, string searchTerm, SearchOptions options)
+    public virtual async Task<SearchResults> SearchAsync(string? path, string searchTerm, SearchOptions options)
     {
         await EnsureAuthorized(path, null, options.Language, ActionType.Read);
 
         NormalizeOptions(options);
 
         var searchResults = await _fileStructureStorage.SearchAsync(searchTerm, path, options);
-        
+
         foreach (var file in searchResults.Results)
         {
             file.Thumbnail = await _thumbnailService.GetThumbnailAsync(file.Id);
         }
-        
+
         return searchResults;
     }
 
-    private void NormalizeOptions(SearchOptions options)
+    protected void NormalizeOptions(SearchOptions options)
     {
         if (options.IncludedExtensions != null)
         {
@@ -369,7 +431,7 @@ public class MediaLibraryService : IMediaLibraryService
         }
     }
 
-    private async Task TriggerEvents(FileReference? before, FileReference? after, MediaLibraryFileEventType type)
+    protected async Task TriggerEvents(FileReference? before, FileReference? after, MediaLibraryFileEventType type)
     {
         var fileEvent = new MediaLibraryFileEvent()
         {
@@ -381,7 +443,7 @@ public class MediaLibraryService : IMediaLibraryService
         }
     }
 
-    private async Task TriggerEvents(FolderReference? before, FolderReference? after, MediaLibraryFolderEventType type)
+    protected async Task TriggerEvents(FolderReference? before, FolderReference? after, MediaLibraryFolderEventType type)
     {
         var folderEvent = new MediaLibraryFolderEvent()
         {
@@ -393,7 +455,7 @@ public class MediaLibraryService : IMediaLibraryService
         }
     }
 
-    private async Task EnsureAuthorized(
+    protected async Task EnsureAuthorized(
         string? path,
         string? filename,
         string? language,

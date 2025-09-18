@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NewHeap.Media.Modules;
+using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.Media.MediaStorage.FileSystem;
 
@@ -31,7 +32,7 @@ public class DefaultMediaStorage : IMediaStorage
         return fileId;
     }
 
-    public async Task<bool> UpdateFileAsync(Stream fileStream, Guid id)
+    public async Task<TaskResult> UpdateFileAsync(Stream fileStream, Guid id)
     {
         var dir = GetDir(id);
         var root = _settings.Value.StoragePath;
@@ -39,17 +40,17 @@ public class DefaultMediaStorage : IMediaStorage
         var filePath = Path.Combine(root, dir, id.ToString());
         if (!File.Exists(filePath))
         {
-            return false;
+            return TaskResult.Failed("File not found");
         }
 
         await using var file = File.Open(filePath, FileMode.Create);
         await fileStream.CopyToAsync(file);
         _logger.LogDebug("File updated {fileId} at {path}", id,filePath);
 
-        return true;
+        return TaskResult.Succeeded();
     }
 
-    public Task<bool> DeleteAsync(Guid id)
+    public Task<TaskResult> DeleteAsync(Guid id)
     {
         var dir = GetDir(id);
         var root = _settings.Value.StoragePath;
@@ -57,12 +58,12 @@ public class DefaultMediaStorage : IMediaStorage
         var filePath = Path.Combine(root, dir, id.ToString());
         if (!File.Exists(filePath))
         {
-            return Task.FromResult(false);
+            return Task.FromResult(TaskResult.Failed("File not found"));
         }
         
         File.Delete(filePath);
         _logger.LogDebug("File deleted {fileId} at {path}", id,filePath);
-        return Task.FromResult(true);
+        return Task.FromResult(TaskResult.Succeeded());
     }
 
     public Task<Stream?> GetFileAsync(Guid fileRefId)

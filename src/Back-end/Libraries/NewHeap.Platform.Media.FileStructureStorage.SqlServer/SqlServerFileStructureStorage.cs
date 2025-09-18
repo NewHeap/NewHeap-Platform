@@ -2,6 +2,7 @@
 using NewHeap.Media.FileStructureStorage.SqlServer.Entities;
 using NewHeap.Media.Models;
 using NewHeap.Media.Modules;
+using NewHeap.Platform.Common.Models;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.Json;
@@ -103,19 +104,19 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         };
     }
 
-    public async Task<FileReference?> UpdateFileAsync(Guid id, FileModel model)
+    public async Task<TaskResult<FileReference>> UpdateFileAsync(Guid id, FileModel model)
     {
         model.Path = NormalizePath(model.Path);
         var entity = await _dbContext.Files.FirstOrDefaultAsync(x => x.Id == id);
 
         if (entity == null)
         {
-            return null;
+            return TaskResult<FileReference>.Failed("File not found");
         }
 
         if (string.IsNullOrWhiteSpace(model.Name))
         {
-            return null;
+            return TaskResult<FileReference>.Failed("Name is required");
         }
 
         var sep = model.Path.LastIndexOf(NhMediaValues.DirectorySeparator, StringComparison.Ordinal);
@@ -429,7 +430,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         }
     }
 
-    public async Task<bool> DeleteFileAsync(string? path, string filename)
+    public async Task<TaskResult> DeleteFileAsync(string? path, string filename)
     {
         path = NormalizePath(path);
         var fileQuery = _dbContext.Files.Where(x => x.Path == path && x.Name == filename);
@@ -437,7 +438,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             .Where(x => fileQuery.Select(y => y.Id).Contains(x.EntityId) && x.TypeName == nameof(FileEntity))
             .ExecuteDeleteAsync();
         var count = await fileQuery.ExecuteDeleteAsync();
-        return count > 0;
+        return count > 0 ? TaskResult.Succeeded() : TaskResult.Failed("Localization not found");
     }
 
     public async Task<SearchResults> SearchAsync(string searchTerm, string? path, SearchOptions options)
@@ -509,7 +510,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         return results;
     }
 
-    public async Task<bool> LocalizeAsync(Guid entityId, string language, string propertyName, string? value)
+    public async Task<TaskResult> LocalizeAsync(Guid entityId, string language, string propertyName, string? value)
     {
         var entity = await _dbContext.Localizations.FirstOrDefaultAsync(x =>
             x.TypeName == nameof(FileEntity)
@@ -522,12 +523,12 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         {
             if (entity == null)
             {
-                return false; // Doesn't exist, nothing to delete
+                return TaskResult.Failed("Localization not found");
             }
 
             _dbContext.Localizations.Remove(entity);
             await _dbContext.SaveChangesAsync();
-            return true;
+            return TaskResult.Succeeded();
         }
 
         if (entity == null)
@@ -548,21 +549,21 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         }
 
         await _dbContext.SaveChangesAsync();
-        return true;
+        return TaskResult.Succeeded();
     }
 
-    public async Task<bool> UpdateTagsAsync(string path, string fileName, IEnumerable<string> tags)
+    public async Task<TaskResult> UpdateTagsAsync(string path, string fileName, IEnumerable<string> tags)
     {
         path = NormalizePath(path);
         var file = await _dbContext.Files.FirstOrDefaultAsync(x => x.Path == path && x.Name == fileName);
         if (file == null)
         {
-            return false;
+            return TaskResult.Failed("File not found");
         }
 
         file.Tags = tags.ToList();
         await _dbContext.SaveChangesAsync();
-        return true;
+        return TaskResult.Succeeded();
     }
 
     public async Task<FileReference?> GetByIdAsync(Guid id)
