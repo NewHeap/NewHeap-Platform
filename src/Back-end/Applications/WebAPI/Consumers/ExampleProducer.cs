@@ -10,12 +10,10 @@ namespace WebAPI.Consumers;
 public class ExampleProducer : BackgroundService
 {
     private readonly INhEventPublisher _publisher;
-    private readonly ICapPublisher _capPublisher;
 
-    public ExampleProducer(INhEventPublisher publisher, ICapPublisher capPublisher)
+    public ExampleProducer(INhEventPublisher publisher)
     {
         _publisher = publisher;
-        _capPublisher = capPublisher;
     }
     
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

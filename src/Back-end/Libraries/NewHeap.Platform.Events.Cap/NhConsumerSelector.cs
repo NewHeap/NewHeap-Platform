@@ -44,81 +44,77 @@ public class NhConsumerSelector : IConsumerServiceSelector
             {
                 continue;
             }
-
-            var descriptor = GetDescriptor(service);
-            if (descriptor == null)
+            
+            foreach (var descriptor in  GetDescriptors(service))
             {
-                continue;
+                descriptors.Add(descriptor);    
             }
-            descriptors.Add(descriptor);
         }
 
         return descriptors;
     }
 
-    private ConsumerExecutorDescriptor? GetDescriptor(ServiceDescriptor service)
+    private IEnumerable<ConsumerExecutorDescriptor> GetDescriptors(ServiceDescriptor service)
     {
         var serviceType = service.KeyedImplementationType;
         if (serviceType == null)
         {
-            return null;
+            yield break;
         }
 
         if (_descriptors.ContainsKey(serviceType.FullName!))
         {
-            return _descriptors[serviceType.FullName!];
-        }
-        
-        var intf = serviceType.GetInterfaces()
-            .FirstOrDefault(x => 
-                (x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INhEventConsumer<>))
-                || x == typeof(INhCustomTopicEventConsumer)
-                );
-        if (intf == null)
-        {
-            return null;
+            yield return _descriptors[serviceType.FullName!];
+            yield break;
         }
 
-        string topic;
-        Type methodParams;
+        foreach (var intf in serviceType.GetInterfaces()
+                     .Where(x => 
+                         (x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INhEventConsumer<>))
+                         || x == typeof(INhCustomTopicEventConsumer)
+                     ))
+        {
+            string topic;
+            Type methodParams;
         
-        if (intf == typeof(INhCustomTopicEventConsumer))
-        {
-            topic = serviceType.GetProperty(nameof(INhCustomTopicEventConsumer.Topic), BindingFlags.Public | BindingFlags.Static)!
-                .GetValue(null)!.ToString()!;
-            methodParams = typeof(JsonElement);
-        }
-        else
-        {
-            var field = intf.GenericTypeArguments[0]
-                .GetProperty(nameof(INhEvent.Topic), BindingFlags.Public | BindingFlags.Static);
-            topic = (string)field!.GetValue(null)!;
-            methodParams = intf.GenericTypeArguments[0];
-        }
-        
-        var method = serviceType.GetMethod(nameof(INhEventConsumer<NoEvent>.HandleAsync),
-            BindingFlags.Public | BindingFlags.Instance);
-
-        var descriptor = new ConsumerExecutorDescriptor()
-        {
-            Attribute = new CapSubscribeAttribute(topic)
+            if (intf == typeof(INhCustomTopicEventConsumer))
             {
-                Group = topic
-            },
-            Parameters =
+                topic = serviceType.GetProperty(nameof(INhCustomTopicEventConsumer.Topic), BindingFlags.Public | BindingFlags.Static)!
+                    .GetValue(null)!.ToString()!;
+                methodParams = typeof(JsonElement);
+            }
+            else
+            {
+                var field = intf.GenericTypeArguments[0]
+                    .GetProperty(nameof(INhEvent.Topic), BindingFlags.Public | BindingFlags.Static);
+                topic = (string)field!.GetValue(null)!;
+                methodParams = intf.GenericTypeArguments[0];
+            }
+        
+            var method = serviceType.GetMethod(nameof(INhEventConsumer<NoEvent>.HandleAsync),
+                BindingFlags.Public | BindingFlags.Instance,null,[methodParams, typeof(CancellationToken)],null);
+
+            var descriptor = new ConsumerExecutorDescriptor()
+            {
+                Attribute = new CapSubscribeAttribute(topic)
+                {
+                    Group = topic
+                },
+                Parameters =
                 [
                     new ParameterDescriptor() { IsFromCap = false, ParameterType = methodParams, Name = "event" },
                     new ParameterDescriptor() { IsFromCap = true, ParameterType = typeof(CancellationToken), Name = "cancellationToken" },
                 ],
-            TopicNamePrefix = _capOptions.TopicNamePrefix,
-            ClassAttribute = null,
-            ServiceTypeInfo = serviceType.GetTypeInfo(),
-            ImplTypeInfo = serviceType.GetTypeInfo(),
+                TopicNamePrefix = _capOptions.TopicNamePrefix,
+                ClassAttribute = null,
+                ServiceTypeInfo = serviceType.GetTypeInfo(),
+                ImplTypeInfo = serviceType.GetTypeInfo(),
             
-            MethodInfo = method!,
-        };
-        _descriptors.TryAdd(serviceType.FullName!, descriptor);
-        return descriptor;
+                MethodInfo = method!,
+            };
+            _descriptors.TryAdd(serviceType.FullName!, descriptor);
+            yield return descriptor;
+        }
     }
 
     public ConsumerExecutorDescriptor? SelectBestCandidate(string key,
@@ -144,7 +140,8 @@ public class NhConsumerSelector : IConsumerServiceSelector
         ArgumentNullException.ThrowIfNull(key);
 
         return executeDescriptor.FirstOrDefault(x =>
-            x.TopicName.Equals(key, StringComparison.InvariantCultureIgnoreCase));
+            x.TopicName.Equals(key, StringComparison.InvariantCultureIgnoreCase)
+            );
     }
 
     private ConsumerExecutorDescriptor? MatchWildcardUsingRegex(string key,

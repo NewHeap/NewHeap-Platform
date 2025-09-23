@@ -17,8 +17,8 @@ public interface IMediaLibraryService
 
     Task<TaskResult<FileReference>> GetFileAsync(string? path, string filename, string? language = null);
     Task<TaskResult<FileReference>> GetFileAsync(Guid id);
-    Task<TaskResult<Stream>> DownloadFileAsync(string? path, string fileName);
-    Task<TaskResult<Stream>> DownloadFileAsync(Guid id);
+    Task<DisposableTaskResult<Stream>> DownloadFileAsync(string? path, string fileName);
+    Task<DisposableTaskResult<Stream>> DownloadFileAsync(Guid id);
     Task<FolderContents> GetFolder(string? path, string? language = null, FileGetOptions? sortOptions = null);
     Task<TaskResult> UpdateFileAsync(string? path, string fileName, Stream file);
     Task<TaskResult> UpdateFileAsync(Guid id, FileModel model);
@@ -230,37 +230,37 @@ public class MediaLibraryService : IMediaLibraryService
         return reference;
     }
 
-    public virtual async Task<TaskResult<Stream>> DownloadFileAsync(string? path, string fileName)
+    public virtual async Task<DisposableTaskResult<Stream>> DownloadFileAsync(string? path, string fileName)
     {
         await EnsureAuthorized(path, fileName, null, ActionType.Read);
         var fileRef = await _fileStructureStorage.GetFileAsync(path, fileName, null);
         if (fileRef == null)
         {
-            return TaskResult<Stream>.Failed("File not found");
+            return DisposableTaskResult<Stream>.Failed("File not found");
         }
 
         var stream = await _fileStorage.GetFileAsync(fileRef.Id);
         if (stream == null)
         {
-            return TaskResult<Stream>.Failed("File not found");
+            return DisposableTaskResult<Stream>.Failed("File not found");
         }
 
         return stream;
     }
 
-    public virtual async Task<TaskResult<Stream>> DownloadFileAsync(Guid id)
+    public virtual async Task<DisposableTaskResult<Stream>> DownloadFileAsync(Guid id)
     {
         var fileRef = await _fileStructureStorage.GetByIdAsync(id);
         if (fileRef == null)
         {
-            return TaskResult<Stream>.Failed("File not found");
+            return DisposableTaskResult<Stream>.Failed("File not found");
         }
 
         var stream = await _fileStorage.GetFileAsync(fileRef.Id);
 
         if (stream == null)
         {
-            return TaskResult<Stream>.Failed("File not found");
+            return DisposableTaskResult<Stream>.Failed("File not found");
         }
 
         return stream;

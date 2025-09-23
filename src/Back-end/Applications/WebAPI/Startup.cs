@@ -42,6 +42,7 @@ using NewHeap.Platform.Media.MediaStorage.S3Bucket;
 using NewHeap.Platform.Common.Localization;
 using System.Reflection;
 using Microsoft.Extensions.Localization;
+using Savorboard.CAP.InMemoryMessageQueue;
 
 
 namespace WebAPI;
@@ -65,7 +66,7 @@ public class Startup
     public void ConfigureServices(IServiceCollection services)
     {
         services.AddOpenApi("v1");
-        // services.AddHostedService<ExampleProducer>();
+        services.AddHostedService<ExampleProducer>();
         var newHeapPlatformOptions = NewHeapAspNetCommonOptions.Builder(Configuration)
             .ConfigureAutoMapper(options => options.AddMaps(typeof(Startup)))
             .ConfigureJwtBearerValidationOptions(opt =>
@@ -179,27 +180,29 @@ public class Startup
                             .Bind(x))
                     ;
             })
-            // .WithEvents(events =>
-            // {
-            //     events.AddCap(cap =>
-            //     {
-            //         cap.WithOptions(capOptions =>
-            //             {
-            //                 capOptions.UseEntityFramework<AppDbContext>();
-            //                 capOptions.UseRabbitMQ(r =>
-            //                 {
-            //                     r.HostName = "localhost";
-            //                     r.Password = "guest";
-            //                     r.UserName = "guest";
-            //                     r.VirtualHost = "nh-default";
-            //                 });
-            //             })
-            //             .WithPublishing()
-            //             .AddSubscriber<ExampleConsumer, ExampleEvent>()
-            //             .AddCustomTopicSubscriber<ExampleCustomTopicConsumer>()
-            //             ;
-            //     });
-            // })
+            .WithEvents(events =>
+            {
+                events.AddCap(cap =>
+                {
+                    cap.WithOptions(capOptions =>
+                        {
+                            //capOptions.UseEntityFramework<AppDbContext>();
+                            capOptions.UseInMemoryStorage();
+                            capOptions.UseInMemoryMessageQueue();
+                            // capOptions.UseRabbitMQ(r =>
+                            // {
+                            //     r.HostName = "localhost";
+                            //     r.Password = "guest";
+                            //     r.UserName = "guest";
+                            //     r.VirtualHost = "nh-default";
+                            // });
+                        })
+                        .WithPublishing()
+                        .AddSubscriber<ExampleConsumer, ExampleEvent>()
+                        //.AddCustomTopicSubscriber<ExampleCustomTopicConsumer>()
+                        ;
+                });
+            })
             .WithIdentityEntityFramework(x =>
             {
                 x.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"))

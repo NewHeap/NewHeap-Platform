@@ -7,12 +7,17 @@ using System.Threading.Tasks;
 
 namespace WebAPI.Consumers;
 
-public class ExampleConsumer : INhEventConsumer<ExampleEvent>
+public class ExampleConsumer : INhEventConsumer<ExampleEvent>, INhEventConsumer<ExampleCustomEvent>
 {
     public async Task HandleAsync(ExampleEvent @event, CancellationToken cancellationToken)
     {
         Console.WriteLine(@event.Id);
         ;
+    }
+
+    public async Task HandleAsync(ExampleCustomEvent @event, CancellationToken cancellationToken)
+    {
+        Console.WriteLine(@event.Id);
     }
 }
 

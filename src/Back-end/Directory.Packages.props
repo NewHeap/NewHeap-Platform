@@ -10,6 +10,7 @@
     <PackageVersion Include="AWSSDK.SSO" Version="4.0.1.1" />
     <PackageVersion Include="AWSSDK.SSOOIDC" Version="4.0.1.1" />
     <PackageVersion Include="DotNetCore.CAP" Version="8.3.5" />
+    <PackageVersion Include="DotNetCore.CAP.InMemoryStorage" Version="8.3.5" />
     <PackageVersion Include="DotNetCore.CAP.RabbitMQ" Version="8.3.5" />
     <PackageVersion Include="DotNetCore.CAP.SqlServer" Version="8.3.5" />
     <PackageVersion Include="Hangfire" Version="1.8.18" />
@@ -31,6 +32,7 @@
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.2" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.11.2" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.11.1" />
+    <PackageVersion Include="Savorboard.CAP.InMemoryMessageQueue" Version="8.2.1" />
     <PackageVersion Include="Sentry" Version="5.14.1" />
     <PackageVersion Include="Sentry.AspNetCore" Version="5.14.1" />
     <PackageVersion Include="Sentry.Extensions.Logging" Version="5.14.1" />
