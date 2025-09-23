@@ -14,7 +14,7 @@ public class NhConsumerSelector : IConsumerServiceSelector
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly CapOptions _capOptions;
-    private static readonly ConcurrentDictionary<string, ConsumerExecutorDescriptor> _descriptors = []; 
+    private static readonly ConcurrentDictionary<string, List<ConsumerExecutorDescriptor>> _descriptors = []; 
 
     private readonly ConcurrentDictionary<string, List<RegexExecuteDescriptor<ConsumerExecutorDescriptor>>> _cacheList =
         [];
@@ -51,7 +51,7 @@ public class NhConsumerSelector : IConsumerServiceSelector
             }
         }
 
-        return descriptors;
+        return descriptors.DistinctBy(x => x.Attribute.Group + "_" + x.ImplTypeInfo.FullName).ToList();
     }
 
     private IEnumerable<ConsumerExecutorDescriptor> GetDescriptors(ServiceDescriptor service)
@@ -64,7 +64,10 @@ public class NhConsumerSelector : IConsumerServiceSelector
 
         if (_descriptors.ContainsKey(serviceType.FullName!))
         {
-            yield return _descriptors[serviceType.FullName!];
+            foreach (var item in _descriptors[serviceType.FullName!])
+            {
+                yield return item;    
+            }
             yield break;
         }
 
@@ -112,7 +115,12 @@ public class NhConsumerSelector : IConsumerServiceSelector
             
                 MethodInfo = method!,
             };
-            _descriptors.TryAdd(serviceType.FullName!, descriptor);
+            if (!_descriptors.TryGetValue(serviceType.FullName!, out var list))
+            {
+                list = [];
+                _descriptors.TryAdd(serviceType.FullName!, list);
+            }
+            _descriptors[serviceType.FullName!].Add(descriptor);
             yield return descriptor;
         }
     }
