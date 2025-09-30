@@ -140,6 +140,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
   activeLazyLoadDataRequestSubscription: any = null;
   activeLazyLoadSelectedDataRequestSubscription: any = null;
   options: IMultiSelectOption[] = [];
+  rawOptions: any[] = [];
   private debounceObserver: any;
 
   constructor(
@@ -198,6 +199,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
 
   public load() {
     this.options = [];
+    this.rawOptions = [];
     if (this.settings.lazyLoad) {
       this.lazyLoadData({length: 0, isInitial: true});
     } else {
@@ -207,6 +209,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
           this.options = options.map(x => {
             return {id: this.settings.keyGetLambda(x), name: this.settings.valueGetLambda(x)}
           });
+          this.rawOptions = options;
         });
       }
     }
@@ -290,6 +293,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
               this.settings.requestOptions.search = (!filter) ? '' : filter;
               this.settings.requestOptions.page = page;
               this.options = [];
+              this.rawOptions = [];
 
               if(this.settings.lazyLoadLambda) {
                 this.activeLazyLoadDataRequestSubscription = this.settings.lazyLoadLambda(this.settings.requestOptions).subscribe(
@@ -362,6 +366,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     }
 
     this.options = this.options.concat(options);
+    this.rawOptions = this.options.concat(response.items);
     this.selectedHandleLazyLoadResponse(selectedItems);
 
     if (response.resultCount < response.itemsPerPage) {
@@ -379,5 +384,4 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
 
     this.options = newSelectedOptions.concat(this.options);
   }
-
 }
