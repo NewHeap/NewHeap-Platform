@@ -353,6 +353,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
 
   private handleLazyLoadResponse(response: CollectionHttpResponse<any>, selectedItems: Array<IMultiSelectOption> = []) {
     const options: IMultiSelectOption[] = [];
+    const rawOptions: any[] = [];
     for (const item of response.items) {
       const option = {id: this.settings.keyGetLambda(item), name: this.settings.valueGetLambda(item)};
 
@@ -362,11 +363,12 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
 
       if (!this.options.find(x => x.id === option.id)) {
         options.push(option);
+        rawOptions.push(item);
       }
     }
 
     this.options = this.options.concat(options);
-    this.rawOptions = this.options.concat(response.items);
+    this.rawOptions = this.rawOptions.concat(rawOptions);
     this.selectedHandleLazyLoadResponse(selectedItems);
 
     if (response.resultCount < response.itemsPerPage) {
