@@ -41,7 +41,10 @@ public abstract partial class CompositeBaseDbEntityService<TEntity, TMutateModel
     {
     }
 
-    protected abstract Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default);
+    protected virtual Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
+    {
+        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+    }
 
     protected virtual async Task DoValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
