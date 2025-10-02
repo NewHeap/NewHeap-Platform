@@ -41,10 +41,7 @@ public abstract partial class CompositeBaseDbEntityService<TEntity, TMutateModel
     {
     }
 
-    protected virtual Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
-    {
-        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
-    }
+    protected abstract Task ValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default);
 
     protected virtual async Task DoValidateCreateUpdateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
@@ -87,17 +84,17 @@ public abstract partial class CompositeBaseDbEntityService<TEntity, TMutateModel
 
     protected sealed override Task DoValidateCreateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
-        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+        return ValidateCreateUpdateDeleteAsync(model, cancellationToken);
     }
 
     protected sealed override Task DoValidateUpdateAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
-        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+        return ValidateCreateUpdateDeleteAsync(model, cancellationToken);
     }
 
     protected sealed override Task DoValidateDeleteAsync(CreateUpdateDeleteValidateModel<TEntity, TEntity, TMutateModel> model, CancellationToken cancellationToken = default)
     {
-        return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
+        return ValidateCreateUpdateDeleteAsync(model, cancellationToken);
     }
 }
 

@@ -31,6 +31,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using WebAPI.Models.Mutate;
+using WebAPI.Services;
 
 namespace WebAPI.Controllers;
 
@@ -134,5 +135,30 @@ public class HomeController : PublicNhBaseController
 
         return Ok();
     }
+
+    [HttpGet("composite/test")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetCompositeTest([FromServices] CompositeAddressService compositeAddressService, CancellationToken cancellationToken = default)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var result = await compositeAddressService.CreateAsync(new AddressMutateModel()
+        {
+            Street = "123 Main St",
+            Country = "USA"
+        }, cancellationToken: cancellationToken);
+
+        if (!result.Success)
+        { 
+            result.ApplyToModelState(ModelState);
+            return BadRequest(ModelState);
+        }
+
+        return Ok();
+    }
+
 
 }

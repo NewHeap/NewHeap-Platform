@@ -255,6 +255,7 @@ public class Startup
 
         services.AddScopedNhDbRepository<Address>();
         services.AddScoped<AddressService>();
+        services.AddScoped<CompositeAddressService>();
     }
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
