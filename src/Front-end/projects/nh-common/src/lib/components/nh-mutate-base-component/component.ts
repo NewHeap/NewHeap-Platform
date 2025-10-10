@@ -91,8 +91,6 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
   }
 
   @ViewChild(NgForm) form: any|undefined;
-  @Input() createdEventEmitterEnabled: boolean = true;
-  @Input() updatedEventEmitterEnabled: boolean = true;
   @Output() created = new EventEmitter<TResult>();
   @Output() updated = new EventEmitter<TResult>();
 
@@ -138,10 +136,9 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
     }
   }
 
-  async submit(event: any): Promise<TaskResult<TResult>> {
-    const result = new TaskResult<TResult>();
+  async submit(event: any, withEmitEventEnabled: boolean = true) {
     if(this.isLoadingOrSubmitting) {
-      return result;
+      return;
     }
 
     this.isSubmitting = true;
@@ -152,28 +149,25 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
         NhFormHelper.clearErrors(this.form);
       }
 
-
       try {
         if (this.mutationType === MutationType.Create) {
           const createResult = await this.onSubmitCreate(event);
           if(!createResult.isSuccess) {
             this.taskResultFormValidator.validate(this.form, createResult.items);
-            createResult.copyTo(result);
-            return result;
+            return;
           }
 
-          if(this.createdEventEmitterEnabled) {
+          if(withEmitEventEnabled) {
             this.created.emit(createResult.data);
           }
         } else {
           const updateResult = await this.onSubmitUpdate(event);
           if(!updateResult.isSuccess) {
             this.taskResultFormValidator.validate(this.form, updateResult.items);
-            updateResult.copyTo(result);
-            return result;
+            return;
           }
 
-          if(this.updatedEventEmitterEnabled) {
+          if(withEmitEventEnabled) {
             this.updated.emit(updateResult.data);
           }
         }
@@ -187,13 +181,10 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
         } else {
           this.formValidator.validate(AspMvcFormServerSideFormValidator, this.form, err);
         }
-        result.addError('', this.translateService.instant('Exception error occurred'));
       }
     } finally {
       this.isSubmitting = false;
     }
-
-    return result;
   }
 }
 
