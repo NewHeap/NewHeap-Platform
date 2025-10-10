@@ -91,6 +91,8 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
   }
 
   @ViewChild(NgForm) form: any|undefined;
+  @Input() createdEventEmitterEnabled: boolean = true;
+  @Input() updatedEventEmitterEnabled: boolean = true;
   @Output() created = new EventEmitter<TResult>();
   @Output() updated = new EventEmitter<TResult>();
 
@@ -103,6 +105,8 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
   abstract onNewFormData(mutationType: MutationType): Promise<TFormData>;
   abstract onSubmitCreate(event: any): Promise<TaskResult<TResult>>;
   abstract onSubmitUpdate(event: any): Promise<TaskResult<TResult>>;
+
+
 
   ngOnInit(): void {
   }
@@ -134,9 +138,10 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
     }
   }
 
-  async submit(event: any) {
+  async submit(event: any): Promise<TaskResult<TResult>> {
+    const result = new TaskResult<TResult>();
     if(this.isLoadingOrSubmitting) {
-      return;
+      return result;
     }
 
     this.isSubmitting = true;
@@ -153,18 +158,24 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
           const createResult = await this.onSubmitCreate(event);
           if(!createResult.isSuccess) {
             this.taskResultFormValidator.validate(this.form, createResult.items);
-            return;
+            createResult.copyTo(result);
+            return result;
           }
 
-          this.created.emit(createResult.data);
+          if(this.createdEventEmitterEnabled) {
+            this.created.emit(createResult.data);
+          }
         } else {
           const updateResult = await this.onSubmitUpdate(event);
           if(!updateResult.isSuccess) {
             this.taskResultFormValidator.validate(this.form, updateResult.items);
-            return;
+            updateResult.copyTo(result);
+            return result;
           }
 
-          this.updated.emit(updateResult.data);
+          if(this.updatedEventEmitterEnabled) {
+            this.updated.emit(updateResult.data);
+          }
         }
 
         this.form.reset();
@@ -176,10 +187,13 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
         } else {
           this.formValidator.validate(AspMvcFormServerSideFormValidator, this.form, err);
         }
+        result.addError('', this.translateService.instant('Exception error occurred'));
       }
     } finally {
       this.isSubmitting = false;
     }
+
+    return result;
   }
 }
 

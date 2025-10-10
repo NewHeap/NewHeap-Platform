@@ -38,3 +38,15 @@ Heeft add permissie?
 <button (click)="throwTestError()">Test Sentry Error</button> <br /><br />
 <button (click)="testChangePassword()" (contextmenu)="onContextMenu($event)">Test change password</button><br /><br />
 <button (click)="showMutateModal(undefined)">Test modal</button>
+
+<ng-container *ngFor="let customerMapEntry of viewModel.entries">
+  <div>
+    {{ customerMapEntry.category }}
+    <br />
+    <ng-container *ngFor="let customer of customerMapEntry.customers">
+      {{ customer.name }}
+    </ng-container>
+  </div>
+</ng-container>
+
+

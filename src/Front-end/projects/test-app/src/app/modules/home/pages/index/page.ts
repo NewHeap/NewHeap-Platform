@@ -8,11 +8,15 @@ import {
   NhPageBaseComponent, NhUserNotificationOverview, NhUserNotificationState, RevertImpersonateAuthenticateModel
 } from "nh-common";
 import {ToastrService} from "ngx-toastr";
-import {NhUserNotificationService} from "../../../../../../../nh-common/src/lib/services/nh-user-notification.service";
-import {Subscription} from "rxjs";
 import {AccountService, ChangePasswordUserMutateModel} from "../../../../core/services/account.service";
 import {Address} from "../../../address/models/address.models";
 import {MutateAddressComponent} from "../../../address/components/mutate/component";
+import {
+  CustomerInfo,
+  CustomerMapEntry,
+  CustomerViewModel,
+  globalCustomerInfo
+} from "../../../../shared/customer-info.util";
 
 @Component({
     selector: 'app-home-page-index',
@@ -22,6 +26,8 @@ import {MutateAddressComponent} from "../../../address/components/mutate/compone
 })
 export class IndexHomePage extends NhPageBaseComponent {
   searchValue: string = '';
+
+  viewModel: CustomerInfo = globalCustomerInfo();
   constructor(
     private route: ActivatedRoute,
     private apiService: NhApiService,
