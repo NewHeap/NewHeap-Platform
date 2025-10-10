@@ -136,7 +136,7 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
     }
   }
 
-  async submit(event: any, withEmitEventEnabled: boolean = true) {
+  async submit(event: any, handleAll: boolean = true) {
     if(this.isLoadingOrSubmitting) {
       return;
     }
@@ -157,7 +157,7 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
             return;
           }
 
-          if(withEmitEventEnabled) {
+          if(handleAll) {
             this.created.emit(createResult.data);
           }
         } else {
@@ -167,13 +167,15 @@ export abstract class NhMutateBaseTypeComponent<TFormData, TResult, TAuthorizati
             return;
           }
 
-          if(withEmitEventEnabled) {
+          if(handleAll) {
             this.updated.emit(updateResult.data);
           }
         }
 
-        this.form.reset();
-        await this.newFormData(this.mutationType);
+        if(handleAll) {
+          this.form.reset();
+          await this.newFormData(this.mutationType);
+        }
       } catch (err: any) {
         console.error(err);
         if (err.error instanceof Error) {
