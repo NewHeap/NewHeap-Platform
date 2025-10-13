@@ -134,7 +134,7 @@ public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMuta
         CancellationToken cancellationToken = default
     )
     {
-        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<T?, object>>, Func<object?, Task<string?>>>
+        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<T?, object?>>, Func<object?, Task<string?>>>
         {
             // Method resolvers
         }, [], []);

@@ -60,8 +60,8 @@ public partial class LogHelperService
     public Task<IEnumerable<ChangedValue>> ChangedProperties<T>(
         T original,
         T updated,
-        Dictionary<Expression<Func<T?, object>>, Func<object?, Task<string?>>> valueResolver,
-        params Expression<Func<T?, object>>[] selectors)
+        Dictionary<Expression<Func<T?, object?>>, Func<object?, Task<string?>>> valueResolver,
+        params Expression<Func<T?, object?>>[] selectors)
     {
         return ChangedProperties(original, updated, null, valueResolver, selectors);
     }
@@ -69,9 +69,9 @@ public partial class LogHelperService
     public async Task<IEnumerable<ChangedValue>> ChangedProperties<T>(
        T original,
        T updated,
-       Dictionary<Expression<Func<T?, object>>, Func<object?, Task<string?>>>? compareValueResolver,
-       Dictionary<Expression<Func<T?, object>>, Func<object?, Task<string?>>>? valueResolver,
-       params Expression<Func<T?, object>>[] selectors)
+       Dictionary<Expression<Func<T?, object?>>, Func<object?, Task<string?>>>? compareValueResolver,
+       Dictionary<Expression<Func<T?, object?>>, Func<object?, Task<string?>>>? valueResolver,
+       params Expression<Func<T?, object?>>[] selectors)
     {
         var changedValues = new List<ChangedValue>();
 

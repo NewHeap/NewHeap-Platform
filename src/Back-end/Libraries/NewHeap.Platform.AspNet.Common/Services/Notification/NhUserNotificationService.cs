@@ -46,7 +46,7 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
         CancellationToken cancellationToken = default)
     {
         return await _logHelper.ChangedProperties(original, changed,
-            new Dictionary<Expression<Func<NhUserNotification?, object>>, Func<object?, Task<string?>>>
+            new Dictionary<Expression<Func<NhUserNotification?, object?>>, Func<object?, Task<string?>>>
             {
                 // Method resolvers
             },
