@@ -60,16 +60,14 @@ public class NhGreaterThanAttribute : ValidationAttribute
               IStringLocalizer<SharedDataAnnotationRecources>)!;
 
         var fieldDisplayNameTranslation = stringLocalizer[validationContext.DisplayName];
-        ErrorMessage = stringLocalizer["{0} should be greater than {1}.", fieldDisplayNameTranslation, Minimum]?.Value ?? $"{validationContext.DisplayName} should be greater than {Minimum}.";
+        ErrorMessage = stringLocalizer["{0} should be greater than {1}.", fieldDisplayNameTranslation, Minimum];
 
-        // Null handling
         if (value == null)
         {
             if (AllowNull)
                 return ValidationResult.Success;
 
-            var msg = FormatErrorMessage(ErrorMessage);
-            return new ValidationResult(msg);
+            return new ValidationResult(ErrorMessage);
         }
 
         try
@@ -78,13 +76,11 @@ public class NhGreaterThanAttribute : ValidationAttribute
             if (numericValue > Minimum)
                 return ValidationResult.Success;
 
-            string msg = FormatErrorMessage(ErrorMessage);
-            return new ValidationResult(msg);
+            return new ValidationResult(ErrorMessage);
         }
         catch (Exception)
         {
-            string msg = FormatErrorMessage($"The {validationContext.DisplayName} field is not a numeric type.");
-            return new ValidationResult(msg);
+            return new ValidationResult($"The {validationContext.DisplayName} field is not a numeric type.");
         }
     }
 }
@@ -110,19 +106,16 @@ public class NhLessThanAttribute : ValidationAttribute
             (validationContext.GetService(typeof(IStringLocalizer<SharedDataAnnotationRecources>)) as
                 IStringLocalizer<SharedDataAnnotationRecources>)!;
 
-        // Vertaal de veldnaam en de foutboodschap
         var fieldDisplayNameTranslation = stringLocalizer[validationContext.DisplayName];
-        ErrorMessage = stringLocalizer["{0} should be less than {1}.", fieldDisplayNameTranslation, Maximum]?.Value
-                       ?? $"{validationContext.DisplayName} should be less than {Maximum}.";
+        ErrorMessage = stringLocalizer["{0} should be less than {1}.", fieldDisplayNameTranslation, Maximum];
 
-        // Null handling
         if (value == null)
         {
             if (AllowNull)
                 return ValidationResult.Success;
 
             var msg = FormatErrorMessage(ErrorMessage);
-            return new ValidationResult(msg);
+            return new ValidationResult(ErrorMessage);
         }
 
         try
@@ -132,12 +125,11 @@ public class NhLessThanAttribute : ValidationAttribute
                 return ValidationResult.Success;
 
             string msg = FormatErrorMessage(ErrorMessage);
-            return new ValidationResult(msg);
+            return new ValidationResult(ErrorMessage);
         }
         catch (Exception)
         {
-            string msg = FormatErrorMessage($"The {validationContext.DisplayName} field is not a numeric type.");
-            return new ValidationResult(msg);
+            return new ValidationResult($"The {validationContext.DisplayName} field is not a numeric type.");
         }
     }
 }

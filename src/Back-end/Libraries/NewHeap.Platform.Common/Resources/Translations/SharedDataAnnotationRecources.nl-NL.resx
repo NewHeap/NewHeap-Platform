@@ -963,4 +963,11 @@
   <data name="AllSystemsEnabled" xml:space="preserve">
     <value>Alle systemen actief</value>
   </data>
+  <data name="{0} should be greater than {1}." xml:space="preserve">
+    <value>{0} moet groter zijn dan {1}.</value>
+  </data>
+  <data name="{0} should be less than {1}." xml:space="preserve">
+    <value>{0} moet kleiner zijn dan {1}.</value>
+    <comment>{0} should be less than {1}.</comment>
+  </data>
 </root>

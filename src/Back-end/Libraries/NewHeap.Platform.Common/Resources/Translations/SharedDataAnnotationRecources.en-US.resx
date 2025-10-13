@@ -948,4 +948,11 @@
   <data name="YearWeek" xml:space="preserve">
     <value>Year/week</value>
   </data>
+  <data name="{0} should be greater than {1}." xml:space="preserve">
+    <value>{0} should be greater than {1}.</value>
+  </data>
+  <data name="{0} should be less than {1}." xml:space="preserve">
+    <value>{0} should be less than {1}.</value>
+    <comment>{0} should be less than {1}.</comment>
+  </data>
 </root>
