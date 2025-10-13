@@ -181,7 +181,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         CancellationToken cancellationToken = default
         )
     {
-        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<TEntity?, object>>, Func<object?, Task<string>>>
+        return _logHelper.ChangedProperties(original, updated, new Dictionary<Expression<Func<TEntity?, object>>, Func<object?, Task<string?>>>
         {
             // Method resolvers
         }, [], []);

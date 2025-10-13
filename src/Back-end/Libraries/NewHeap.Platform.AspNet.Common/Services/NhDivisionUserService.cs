@@ -217,7 +217,7 @@ public abstract partial class NhDivisionUserService<
         var updatedData = LogHelperService.Copy(divisionUser);
 
         var changedProperties = await _logHelper.ChangedProperties(originalData,
-            updatedData, new Dictionary<Expression<Func<TDivisionUser?, object>>, Func<object?, Task<string>>>
+            updatedData, new Dictionary<Expression<Func<TDivisionUser?, object>>, Func<object?, Task<string?>>>
             {
                 // Method resolvers
             },
