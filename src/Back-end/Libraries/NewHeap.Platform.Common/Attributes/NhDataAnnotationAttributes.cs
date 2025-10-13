@@ -41,14 +41,14 @@ public partial class NhRequiredAttribute : RequiredAttribute
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Parameter, AllowMultiple = false)]
 public class NhGreaterThanAttribute : ValidationAttribute
 {
-    public decimal Minimum { get; }
+    public double Minimum { get; }
 
     /// <summary>
     /// If true, null values are considered valid. Default: false.
     /// </summary>
     public bool AllowNull { get; set; } = false;
 
-    public NhGreaterThanAttribute(decimal minimum)
+    public NhGreaterThanAttribute(double minimum)
     {
         Minimum = minimum;
     }
@@ -74,7 +74,7 @@ public class NhGreaterThanAttribute : ValidationAttribute
 
         try
         {
-            decimal numericValue = Convert.ToDecimal(value);
+            double numericValue = Convert.ToDouble(value);
             if (numericValue > Minimum)
                 return ValidationResult.Success;
 
@@ -92,14 +92,14 @@ public class NhGreaterThanAttribute : ValidationAttribute
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Parameter, AllowMultiple = false)]
 public class NhLessThanAttribute : ValidationAttribute
 {
-    public decimal Maximum { get; }
+    public double Maximum { get; }
 
     /// <summary>
     /// If true, null values are considered valid. Default: false.
     /// </summary>
     public bool AllowNull { get; set; } = false;
 
-    public NhLessThanAttribute(decimal maximum)
+    public NhLessThanAttribute(double maximum)
     {
         Maximum = maximum;
     }
@@ -127,7 +127,7 @@ public class NhLessThanAttribute : ValidationAttribute
 
         try
         {
-            decimal numericValue = Convert.ToDecimal(value);
+            double numericValue = Convert.ToDouble(value);
             if (numericValue < Maximum)
                 return ValidationResult.Success;
 
