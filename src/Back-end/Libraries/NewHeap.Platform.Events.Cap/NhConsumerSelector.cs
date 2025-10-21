@@ -93,7 +93,14 @@ public class NhConsumerSelector : IConsumerServiceSelector
                 topic = (string)field!.GetValue(null)!;
                 methodParams = intf.GenericTypeArguments[0];
             }
-        
+
+            var processingAttribute = serviceType.GetCustomAttribute<NhMessageProcessingAttribute>();
+            var processingType = MessageProcessingType.PerApplication;
+            if (processingAttribute != null)
+            {
+                processingType = processingAttribute.Type;
+            }
+            
             var method = serviceType.GetMethod(nameof(INhEventConsumer<NoEvent>.HandleAsync),
                 BindingFlags.Public | BindingFlags.Instance,null,[methodParams, typeof(CancellationToken)],null);
 
@@ -101,7 +108,8 @@ public class NhConsumerSelector : IConsumerServiceSelector
             {
                 Attribute = new CapSubscribeAttribute(topic)
                 {
-                    Group = $"{Assembly.GetEntryAssembly()?.FullName}.{topic}"
+                    Group = (processingType == MessageProcessingType.PerInstance ? $"{Guid.NewGuid()}.":"")
+                            + $"{Assembly.GetEntryAssembly()?.FullName}.{topic}"
                 },
                 Parameters =
                 [
@@ -178,4 +186,26 @@ public class NhConsumerSelector : IConsumerServiceSelector
 
         public T Descriptor { get; set; } = default!;
     }
+}
+
+file class NoEvent : INhEvent
+{
+    public static string Topic => throw new InvalidOperationException();
+}
+
+[AttributeUsage(AttributeTargets.Class)]
+public class NhMessageProcessingAttribute : Attribute
+{
+    internal MessageProcessingType Type;
+    
+    public NhMessageProcessingAttribute(MessageProcessingType processingType)
+    {
+        Type = processingType;
+    }
+} 
+
+public enum MessageProcessingType
+{
+    PerApplication,
+    PerInstance
 }
