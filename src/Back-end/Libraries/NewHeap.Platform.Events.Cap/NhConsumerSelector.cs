@@ -101,7 +101,7 @@ public class NhConsumerSelector : IConsumerServiceSelector
             {
                 Attribute = new CapSubscribeAttribute(topic)
                 {
-                    Group = topic
+                    Group = $"{Assembly.GetEntryAssembly()?.FullName}.{topic}"
                 },
                 Parameters =
                 [
