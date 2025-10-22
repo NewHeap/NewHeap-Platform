@@ -19,9 +19,17 @@ public class S3BucketStorage : IMediaStorage
     
     public async Task<Guid> SaveFileAsync(Stream file)
     {
-        var utility = new TransferUtility(CreateClient());
         var fileName = Guid.NewGuid();
-        await utility.UploadAsync(file, _options.Value.BucketName, fileName.ToString().ToLower());
+        
+        var client = CreateClient();
+        await client.PutObjectAsync(new PutObjectRequest()
+        {
+            BucketName = _options.Value.BucketName,
+            Key = fileName.ToString().ToLower(),
+            InputStream = file,
+            AutoCloseStream = false,
+        });
+        
         return fileName;
     }
 
@@ -35,6 +43,7 @@ public class S3BucketStorage : IMediaStorage
                 BucketName = _options.Value.BucketName,
                 Key = id.ToString().ToLower(),
                 InputStream = fileStream,
+                AutoCloseStream = false,
             });
 
             return TaskResult.Succeeded();

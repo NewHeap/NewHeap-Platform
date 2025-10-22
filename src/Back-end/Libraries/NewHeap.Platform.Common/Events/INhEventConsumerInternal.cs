@@ -21,7 +21,4 @@ where TEvent : INhEvent
     public Task HandleAsync(TEvent @event, CancellationToken cancellationToken);
 }
 
-public class NoEvent : INhEvent
-{
-    public static string Topic => throw new InvalidOperationException();
-}
+

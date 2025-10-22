@@ -384,6 +384,12 @@ public static class WebApplicationExtensions
                 return BadRequest("Field is required", nameof(request.FileName));
             }
 
+            using var ms = new MemoryStream();
+            using (var fs = file.OpenReadStream())
+            {
+                await fs.CopyToAsync(ms);
+            }
+            ms.Seek(0, SeekOrigin.Begin);
             var fileRef = await mediaLibraryService.GetFileAsync(request.Path, request.FileName);
             if (!fileRef.Success)
             {
@@ -398,11 +404,20 @@ public static class WebApplicationExtensions
                     Creator = request.Creator,
                     MetaData = request.MetaData
                 };
-                fileRef = await mediaLibraryService.CreateFileAsync(model, file.OpenReadStream());
+                fileRef = await mediaLibraryService.CreateFileAsync(model, ms);
             }
             else
             {
-                await mediaLibraryService.UpdateFileAsync(request.Path, request.FileName, file.OpenReadStream());
+                var update = await mediaLibraryService.UpdateFileAsync(request.Path, request.FileName, ms);
+                if (!update.Success)
+                {
+                    fileRef = TaskResult<FileReference>.Failed(update);
+                }
+            }
+
+            if (!fileRef.Success)
+            {
+                return BadRequest(fileRef);
             }
 
             return TypedResults.Ok(fileRef.Data);
