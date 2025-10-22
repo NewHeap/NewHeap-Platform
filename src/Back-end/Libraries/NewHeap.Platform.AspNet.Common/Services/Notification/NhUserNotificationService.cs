@@ -383,7 +383,7 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
 
         var userNotifications = await _repository
             .GetAll()
-            .Where(x => x.UserId == userId && x.IsLastRead != isArchived)
+            .Where(x => x.UserId == userId && x.IsArchived != isArchived)
             .AsSplitQuery()
             .ToListAsync(cancellationToken);
 
