@@ -4,6 +4,8 @@ namespace NewHeap.Media.Models;
 
 public class FileGetOptions
 {
+    public int? PageSize { get; set; }
+    public int Page { get; set; } = 0;
     public List<SortOption> OrderBy { get; set; } = [];
 }
 

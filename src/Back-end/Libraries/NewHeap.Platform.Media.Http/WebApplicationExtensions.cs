@@ -468,21 +468,24 @@ public static class WebApplicationExtensions
         string? path, 
         string? language,
         string? orderBy,
-        IMediaLibraryService mediaLibraryService
+        IMediaLibraryService mediaLibraryService,
+        [FromQuery] int page = 0,
+        [FromQuery] int pageSize = 30
         )
     {
         try
         {
-            FileGetOptions? options = null;
+            FileGetOptions? options = new FileGetOptions
+            {
+                Page = page,
+                PageSize = pageSize
+            };
             if (!string.IsNullOrWhiteSpace(orderBy))
             {
                 try
                 {
                     var sorts = JsonSerializer.Deserialize<SortOption[]>(orderBy, _jsonOptions);
-                    options = new FileGetOptions
-                    {
-                        OrderBy = sorts?.ToList() ?? []
-                    };
+                    options.OrderBy = sorts?.ToList() ?? [];
                 }
                 catch(Exception e)
                 {

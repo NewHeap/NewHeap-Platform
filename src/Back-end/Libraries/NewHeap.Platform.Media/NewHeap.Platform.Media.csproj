@@ -15,9 +15,9 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="NewHeap.Platform.Media.Core" Version="0.1.0-ci-20250930-1343" />
-    <PackageReference Include="NewHeap.Platform.Media.FileStructureStorage.SqlServer" Version="0.1.0-ci-20250930-1343" />
-    <PackageReference Include="NewHeap.Platform.Media.Http" Version="0.1.0-ci-20250930-1343" />
-    <PackageReference Include="NewHeap.Platform.Media.MediaStorage.FileSystem" Version="0.1.0-ci-20250930-1343" />
+    <PackageReference Include="NewHeap.Platform.Media.Core" Version="0.1.0-ci-20251028-1402" />
+    <PackageReference Include="NewHeap.Platform.Media.FileStructureStorage.SqlServer" Version="0.1.0-ci-20251028-1402" />
+    <PackageReference Include="NewHeap.Platform.Media.Http" Version="0.1.0-ci-20251028-1402" />
+    <PackageReference Include="NewHeap.Platform.Media.MediaStorage.FileSystem" Version="0.1.0-ci-20251028-1402" />
   </ItemGroup>
 </Project>

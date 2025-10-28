@@ -4,6 +4,7 @@ using NewHeap.Media.Models;
 using NewHeap.Media.Modules;
 using NewHeap.Platform.Common.Models;
 using System.Linq.Expressions;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -315,6 +316,13 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             ;
 
         q = ProcessOrderBy(sortOptions, q);
+
+        if (sortOptions?.PageSize != null)
+        {
+            q = q.Skip(sortOptions.Page * sortOptions.PageSize.Value)
+                .Take(sortOptions.PageSize ?? 0);
+        }
+        
         var files = await q.ToArrayAsync();
         
         foreach (var file in files)
