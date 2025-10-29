@@ -35,6 +35,14 @@ namespace WebAPI.Services
             return DoValidateCreateUpdateDeleteAsync(model, cancellationToken);
         }
 
+        public TaskResult TestLocalization()
+        {
+            var result = new TaskResult();
+
+            result.AddError("test", _localizer["Ëmm {0} testteenn {1}", "bla", "bla"]);
+            return result;
+        }
+
         public override Task<TaskResult<Address>> CreateAsync(AddressMutateModel mutateModel, Guid? committedByUserId = null, Action<Address> beforeSave = null, CancellationToken cancellationToken = default, CompositeBaseDbEntityServiceOperationOptions options = null)
         {
             return DoCreateAsync(

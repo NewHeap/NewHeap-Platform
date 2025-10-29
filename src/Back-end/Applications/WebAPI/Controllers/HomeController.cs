@@ -126,12 +126,19 @@ public class HomeController : PublicNhBaseController
 
     [HttpPost("localization/test")]
     [AllowAnonymous]
-    public async Task<IActionResult> GetLocalizationTest([FromBody] LocalizationTestModel requestModel, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> GetLocalizationTest([FromServices] CompositeAddressService compositeAddressService, [FromBody] LocalizationTestModel requestModel, CancellationToken cancellationToken = default)
     {
-        if(!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
+        var test = compositeAddressService.TestLocalization();
+
+        var subTest = _localizer["My name is {0} en {1}", "Schaap"];
+
+        var test2 = subTest.ToString();
+
+        return Ok(test.AllErrorMessages.Select(x => x.ToString()));
+        //if(!ModelState.IsValid)
+        //{
+        //    return BadRequest(ModelState);
+        //}
 
         return Ok();
     }

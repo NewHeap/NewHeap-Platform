@@ -17,9 +17,13 @@ public class NhCompositeStringLocalizer : IStringLocalizer
         {
             foreach (var loc in _localizers)
             {
-                var str = loc[name];
-                if (!str.ResourceNotFound)
-                    return str;
+                try
+                {
+                    var str = loc[name];
+                    if (!str.ResourceNotFound)
+                        return str;
+                }
+                catch { }
             }
             return new LocalizedString(name, name, true);
         }
@@ -31,9 +35,15 @@ public class NhCompositeStringLocalizer : IStringLocalizer
         {
             foreach (var loc in _localizers)
             {
-                var str = loc[name, arguments];
-                if (!str.ResourceNotFound)
-                    return str;
+                try
+                {
+                    var str = loc[name, arguments];
+                    if (!str.ResourceNotFound)
+                        return str;
+                }
+                catch { }
+
+ 
             }
             return new LocalizedString(name, name, true);
         }
