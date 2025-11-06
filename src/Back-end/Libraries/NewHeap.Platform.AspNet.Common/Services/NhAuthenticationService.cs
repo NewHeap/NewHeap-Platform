@@ -306,7 +306,7 @@ public class NhAuthenticationService<
         return new UserToken(
             new JwtSecurityTokenHandler().WriteToken(token), 
             token.ValidTo, 
-            user.RefreshToken,
+            user.RefreshToken!,
             token.Issuer
         );
     }
@@ -371,7 +371,7 @@ public class NhAuthenticationService<
         return new UserToken(
             new JwtSecurityTokenHandler().WriteToken(token),
             token.ValidTo,
-            originUser.RefreshToken,
+            originUser.RefreshToken!,
             token.Issuer
         );
     }

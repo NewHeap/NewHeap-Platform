@@ -7,7 +7,7 @@ public class LocalizationTestModel
 {
     [NhRequired]
     [Display(Name = "Name")]
-    public string? Name { get; set; }
+    public string Name { get; set; }
 
     [NhGreaterThan(0, ErrorMessage = "", AllowNull = false)]
     public int? Age { get; set; }

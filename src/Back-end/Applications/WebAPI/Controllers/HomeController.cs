@@ -130,17 +130,7 @@ public class HomeController : PublicNhBaseController
     {
         var test = compositeAddressService.TestLocalization();
 
-        var subTest = _localizer["My name is {0} en {1}", "Schaap"];
-
-        var test2 = subTest.ToString();
-
         return Ok(test.AllErrorMessages.Select(x => x.ToString()));
-        //if(!ModelState.IsValid)
-        //{
-        //    return BadRequest(ModelState);
-        //}
-
-        return Ok();
     }
 
     [HttpGet("composite/test")]

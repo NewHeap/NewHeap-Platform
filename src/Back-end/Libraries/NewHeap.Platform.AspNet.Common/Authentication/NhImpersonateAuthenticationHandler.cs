@@ -22,12 +22,7 @@ public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
     internal string? RefreshTokenCookieName { get; set; } = "nh_access_token";
 
 
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="serviceProvider"></param>
-    /// <param name="configuration"></param>
-    /// <param name="httpContextAccessor"></param>
+    
     public NhImpersonateAuthenticationHandler(
         AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor
@@ -61,6 +56,7 @@ public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
     {
         var authenticationService = GetAuthService();
         
+        
         if(_configuration.ImpersonateEnabled == false)
         {
             return TypedResults.NotFound();
@@ -82,7 +78,7 @@ public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
             return BadRequest(TaskResult.Failed("Invalid request"));
         }
 
-        if(currentUserId.Value == request.UserId.Value)
+        if(currentUserId.Value == request.UserId!.Value)
         {
             return BadRequest(TaskResult.Failed("You can not impersonate yourself."));
         }

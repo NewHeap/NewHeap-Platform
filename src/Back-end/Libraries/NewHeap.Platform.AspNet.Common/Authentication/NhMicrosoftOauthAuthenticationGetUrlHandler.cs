@@ -96,7 +96,6 @@ where TUser : IdentityUser<Guid>
         if (token == null)
         {
             return BadRequest(TaskResult.Failed("Failed to validate token"));
-            return TypedResults.Unauthorized();
         }
         
         var profile = await microsoftAuthService.GetProfile(token.AccessToken);
@@ -104,13 +103,11 @@ where TUser : IdentityUser<Guid>
         if (user == null)
         {
             return BadRequest(TaskResult.Failed("Unknown user"));
-            return TypedResults.Unauthorized();
         }
         
         if (!userManager.IsOauthAccount(user.UserName!))
         {
             return BadRequest(TaskResult.Failed("Invalid login method"));
-            return TypedResults.Unauthorized();
         }
 
         if (await userManager.IsBlockedAsync(user))
@@ -142,7 +139,7 @@ public class MicrosoftAuthorizationRequest
 public class MicrosoftAuthUrlMutateModel
 {
     [Required]
-    public string CallbackUrl { get; set; }
+    public string CallbackUrl { get; set; } = null!;
     [Required]
-    public string UserName { get; set; }
+    public string UserName { get; set; } = null!;
 }

@@ -22,7 +22,7 @@ public partial class NhLogFile
     public Guid LogId { get; set; }
 
     [StringLength(254)]
-    public string OriginalFileName { get; set; }
+    public string OriginalFileName { get; set; } = null!;
 
     /// <summary>
     ///     Relative path to a related file

@@ -272,7 +272,7 @@ public abstract partial class NhIdentityDbContext<
             .Property(e => e.Data)
             .HasConversion(
                 v => v == null ? "{}" : JsonConvert.SerializeObject(v, ConvertJsonSerializerSettings),
-                v => string.IsNullOrWhiteSpace(v) ? new NhUserNotficationData() : JsonConvert.DeserializeObject<NhUserNotficationData>(v, ConvertJsonSerializerSettings));
+                v => string.IsNullOrWhiteSpace(v) ? new NhUserNotficationData() : JsonConvert.DeserializeObject<NhUserNotficationData>(v, ConvertJsonSerializerSettings)!);
 
         });
 

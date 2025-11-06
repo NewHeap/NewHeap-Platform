@@ -44,12 +44,6 @@ public class NhAccountInformationEndpointHandler<
 {
     private readonly AuthenticationConfiguration _configuration;
 
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="serviceProvider"></param>
-    /// <param name="configuration"></param>
-    /// <param name="httpContextAccessor"></param>
     public NhAccountInformationEndpointHandler(
         AuthenticationConfiguration configuration,
         IHttpContextAccessor httpContextAccessor
@@ -174,8 +168,8 @@ public record AccountResponse<TUserViewModel, TDivisionViewModel, TClaimViewMode
     where TClaimViewModel : NhClaimViewModel
 {
     public List<TDivisionViewModel> Divisions { get; set; } = new();
-    public IEnumerable<TClaimViewModel> Claims { get; set; }
-    public TUserViewModel User { get; set; }
+    public IEnumerable<TClaimViewModel> Claims { get; set; } = null!;
+    public TUserViewModel User { get; set; } = null!;
     public Guid? ActiveDivisionId { get; set; }
     public TDivisionViewModel? ActiveDivision { get; set; }
     public List<string> Roles { get; set; } = new();

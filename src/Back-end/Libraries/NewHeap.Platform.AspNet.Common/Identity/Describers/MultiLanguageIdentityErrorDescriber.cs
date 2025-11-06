@@ -70,21 +70,21 @@ public partial class MultiLanguageIdentityErrorDescriber : IdentityErrorDescribe
         };
     }
 
-    public override IdentityError InvalidUserName(string userName)
+    public override IdentityError InvalidUserName(string? userName)
     {
         return new IdentityError
         {
             Code = nameof(InvalidUserName),
-            Description = _localizer["Username '{0}' is invalid, can only contain letters or digits.", userName]
+            Description = _localizer["Username '{0}' is invalid, can only contain letters or digits.", userName??""]
         };
     }
 
-    public override IdentityError InvalidEmail(string email)
+    public override IdentityError InvalidEmail(string? email)
     {
         return new IdentityError
         {
             Code = nameof(InvalidEmail),
-            Description = _localizer["Email '{0}' is invalid.", email]
+            Description = _localizer["Email '{0}' is invalid.", email??""]
         };
     }
 
@@ -106,12 +106,12 @@ public partial class MultiLanguageIdentityErrorDescriber : IdentityErrorDescribe
         };
     }
 
-    public override IdentityError InvalidRoleName(string role)
+    public override IdentityError InvalidRoleName(string? role)
     {
         return new IdentityError
         {
             Code = nameof(InvalidRoleName),
-            Description = _localizer["Rolename '{0}' is invalid.", role]
+            Description = _localizer["Rolename '{0}' is invalid.", role??""]
         };
     }
 

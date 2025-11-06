@@ -82,7 +82,7 @@ public abstract class NhBaseUserController<
         if (requestModel?.Roles?.Any() == true)
         {
             var dbContext = (IdentityDbContext<TUser, NhUserRole, Guid>)_userManager.GetRepository().Context;
-            query = query.Where(x => dbContext.UserRoles.Any(c => c.UserId == x.Id && dbContext.Roles.Where(v => requestModel.Roles.Contains(v.Name)).Select(c => c.Id).Contains(c.RoleId)));
+            query = query.Where(x => dbContext.UserRoles.Any(c => c.UserId == x.Id && dbContext.Roles.Where(v => requestModel.Roles.Contains(v.Name!)).Select(c => c.Id).Contains(c.RoleId)));
         }
 
         if (requestModel?.DivisionIds?.Any() == true)
@@ -96,7 +96,7 @@ public abstract class NhBaseUserController<
         }
 
         return await Ok<TUser, TUserViewModel>(query, cancellationToken: cancellationToken,
-            (x => x.Email, ListSortDirection.Ascending));
+            (x => x.Email!, ListSortDirection.Ascending));
     }
 
     [HttpGet("{id}")]

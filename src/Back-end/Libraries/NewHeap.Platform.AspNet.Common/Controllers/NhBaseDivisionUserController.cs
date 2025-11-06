@@ -78,7 +78,7 @@ public abstract class NhBaseDivisionUserController<
     protected override (Expression<Func<TDivisionUser, object>> orderByKey, ListSortDirection sortDirection)[] GetDefaultCollectionResultOrderBy()
     {
         return [
-            (x => x.User.Email, ListSortDirection.Ascending)
+            (x => x.User.Email!, ListSortDirection.Ascending)
         ];
     }
 

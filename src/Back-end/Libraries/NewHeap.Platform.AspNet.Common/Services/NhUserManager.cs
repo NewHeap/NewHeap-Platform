@@ -55,7 +55,7 @@ public interface INhUserManager<TUser> : INhUserManager
     Task<TUser?> FindByIdAsync(string userId);
     Task<TUser?> FindByNameAsync(string userName);
     Task<TUser?> FindByEmailAsync(string email);
-    Task<string?> GetUserIdAsync(TUser user);
+    Task<string> GetUserIdAsync(TUser user);
     Task<string?> GetUserNameAsync(TUser user);
     Task<IdentityResult> SetUserNameAsync(TUser user, string userName);
     Task<string?> GetEmailAsync(TUser user);
@@ -248,7 +248,7 @@ public abstract partial class NhUserManager<
         IdentityOptions _options = new();
         List<Claim> claims =
         [
-            new Claim(JwtRegisteredClaimNames.Sub, user.Email!),
+            new Claim(JwtRegisteredClaimNames.Sub, user!.Email!),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(ClaimTypes.Name, user.UserName!),
             new Claim(ClaimTypes.Email, user.Email!),
@@ -567,7 +567,7 @@ public abstract partial class NhUserManager<
         await _dbLogService.LogAsync(
             message: "Password change successful.",
             messageArguments: new string[] {
-                        user.Id.ToString()
+                        user!.Id.ToString()
             },
             objectId: user.Id.ToString(),
             objectType: (typeof(TUser)).Name,
@@ -643,7 +643,7 @@ public abstract partial class NhUserManager<
         await _dbLogService.LogAsync(
             message: "Password change successful.",
             messageArguments: new string[] {
-                user.Id.ToString()
+                user!.Id.ToString()
             },
             objectId: user.Id.ToString(),
             objectType: (typeof(TUser)).Name,
@@ -718,7 +718,7 @@ public abstract partial class NhUserManager<
         await _dbLogService.LogAsync(
             message: "Password reset successful.",
             messageArguments: new string[] {
-                user.Id.ToString()
+                user!.Id.ToString()
             },
             objectId: user.Id.ToString(),
             objectType: (typeof(TUser)).Name,

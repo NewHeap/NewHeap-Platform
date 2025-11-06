@@ -45,8 +45,8 @@ public abstract partial class NhDivisionUserService<
     where TDivisionUserMutateModel : NhDivisionUserMutateModel
 {
     protected readonly IRepository<TDivisionUserRole> _divisionUserRoleRepository;
-    protected readonly IStringLocalizer _localizer;
-    protected readonly IMapper _mapper;
+    //protected readonly IStringLocalizer _localizer;
+    //protected readonly IMapper _mapper;
 
     public NhDivisionUserService(
         IRepository<TDivisionUser> divisionUserRepository,
@@ -59,8 +59,6 @@ public abstract partial class NhDivisionUserService<
         : base(divisionUserRepository, dbLogService, logHelperService, mapper, localizer, validationService)
     {
         _divisionUserRoleRepository = divisionUserRoleRepository;
-        _mapper = mapper;
-        _localizer = localizer;
     }
 
     protected override async Task ValidateCreateUpdateDeleteAsync(
@@ -124,11 +122,11 @@ public abstract partial class NhDivisionUserService<
 
         await ValidateCreateUpdateDeleteAsync(
             new CreateUpdateDeleteValidateModel<TDivisionUser, TDivisionUser, TDivisionUserMutateModel>(CRUDActionType
-                .Create) { TaskResult = result, SourceModel = null, MutateModel = mutateModel });
+                .Create) { TaskResult = result!, SourceModel = null, MutateModel = mutateModel });
 
         if (!result.Success)
         {
-            return result;
+            return result!;
         }
 
         var divisionUser = _mapper.Map<TDivisionUser>(mutateModel);
@@ -169,7 +167,7 @@ public abstract partial class NhDivisionUserService<
         divisionUser = await GetAsync(divisionUser.Id);
         result.Data = divisionUser;
 
-        return result;
+        return result!;
     }
 
     public override async Task<TaskResult<TDivisionUser?>> UpdateAsync(
@@ -187,11 +185,11 @@ public abstract partial class NhDivisionUserService<
 
         await ValidateCreateUpdateDeleteAsync(
             new CreateUpdateDeleteValidateModel<TDivisionUser, TDivisionUser, TDivisionUserMutateModel>(CRUDActionType
-                .Update) { TaskResult = result, SourceModel = divisionUser, MutateModel = mutateModel });
+                .Update) { TaskResult = result!, SourceModel = divisionUser, MutateModel = mutateModel });
 
         if (!result.Success)
         {
-            return result;
+            return result!;
         }
 
         var originalData = LogHelperService.Copy(divisionUser);
@@ -271,6 +269,6 @@ public abstract partial class NhDivisionUserService<
         divisionUser = await GetAsync(divisionUser.Id);
         result.Data = divisionUser;
 
-        return result;
+        return result!;
     }
 }

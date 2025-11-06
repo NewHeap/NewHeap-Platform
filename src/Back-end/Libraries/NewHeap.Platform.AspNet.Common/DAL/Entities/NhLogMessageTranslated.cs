@@ -22,7 +22,7 @@ public partial class NhLogMessageTranslated
     ///     Ëxample: en-US
     /// </summary>
     [StringLength(5)]
-    public string Culture { get; set; }
+    public string Culture { get; set; } = null!;
 
-    public string Message { get; set; }
+    public string Message { get; set; } = null!;
 }

@@ -122,7 +122,7 @@ internal class NhNotificationProcessingService : BackgroundService
 
                 var candidates = await notificationDeliveryRepository
                     .GetAll()
-                    .Where(x => x.Notification.ProcessorKey == _settings.ProcessorKey)
+                    .Where(x => x.Notification!.ProcessorKey == _settings.ProcessorKey)
                     .Where(d => 
                         (
                             (d.Status == NotificationDeliveryStatus.Queued && d.ScheduledAt <= now)
@@ -201,7 +201,7 @@ internal class NhNotificationProcessingService : BackgroundService
 
             var delivery = await notificationRepository
                 .GetAll()
-                .Where(x => x.Notification.ProcessorKey == _settings.ProcessorKey)
+                .Where(x => x.Notification!.ProcessorKey == _settings.ProcessorKey)
                 .FirstOrDefaultAsync(d => d.Id == deliveryId, stoppingToken);
 
             if (delivery == null)
@@ -287,7 +287,7 @@ internal class NhNotificationProcessingService : BackgroundService
 
         var oldDeliveries = await notificationRepository
             .GetAll()
-            .Where(x => x.Notification.ProcessorKey == _settings.ProcessorKey)
+            .Where(x => x.Notification!.ProcessorKey == _settings.ProcessorKey)
             .Where(d => !d.IsCleaned && d.Status == NotificationDeliveryStatus.Succeeded && d.SentAt <= threshold)
             .ToListAsync(cancellationToken);
 

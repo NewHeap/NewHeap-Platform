@@ -56,9 +56,9 @@ public partial class NhMailService
             mailMessage.CC.Clear();
             mailMessage.Bcc.Clear();
 
-            validTo.GroupBy(x => x.Address).Select(x => x.FirstOrDefault()).ToList().ForEach(x => mailMessage.To.Add(x));
-            validCC.GroupBy(x => x.Address).Select(x => x.FirstOrDefault()).ToList().ForEach(x => mailMessage.CC.Add(x));
-            validBcc.GroupBy(x => x.Address).Select(x => x.FirstOrDefault()).ToList().ForEach(x => mailMessage.Bcc.Add(x));
+            validTo.GroupBy(x => x.Address).Select(x => x.FirstOrDefault()).ToList().ForEach(x => mailMessage.To.Add(x!));
+            validCC.GroupBy(x => x.Address).Select(x => x.FirstOrDefault()).ToList().ForEach(x => mailMessage.CC.Add(x!));
+            validBcc.GroupBy(x => x.Address).Select(x => x.FirstOrDefault()).ToList().ForEach(x => mailMessage.Bcc.Add(x!));
 
             if (!mailMessage.To.Any())
             {

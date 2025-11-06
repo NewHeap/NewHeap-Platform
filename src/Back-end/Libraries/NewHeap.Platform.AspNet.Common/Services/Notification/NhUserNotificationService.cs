@@ -41,8 +41,8 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
         _logger = logger;
     }
 
-    protected override async Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperties(NhUserNotification original,
-        NhUserNotification changed,
+    protected override async Task<IEnumerable<ChangedValue>> OnUpdateGetChangedProperties(NhUserNotification? original,
+        NhUserNotification? changed,
         CancellationToken cancellationToken = default)
     {
         return await _logHelper.ChangedProperties(original, changed,

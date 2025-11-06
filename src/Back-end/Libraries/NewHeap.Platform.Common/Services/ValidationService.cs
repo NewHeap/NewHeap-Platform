@@ -18,10 +18,16 @@ public partial class ValidationService
         where TSourceObj : class
         where TMutateObj : class
     {
+        if (model.MutateModel == null)
+        {
+            model.TaskResult.AddError("Model cannot be null.");
+            return;
+        }
+        
         TaskResult<TTaskResult>? myTaskResult =
             ValidateMutateModelModelState<TTaskResult, TMutateObj>(model.MutateModel);
 
-        if (!myTaskResult.Success && model.TaskResult != null)
+        if (!myTaskResult.Success)
         {
             myTaskResult.ApplyToTaskResult(model.TaskResult);
         }

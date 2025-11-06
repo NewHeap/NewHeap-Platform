@@ -10,7 +10,7 @@ public static class DbContextExtensions
     /// <summary>
     /// Configures the token validation parameters for JWT bearer authentication
     /// </summary>
-    /// <param name="cfg"></param>
+    /// <param name="context"></param>
     /// <param name="configuration"></param>
     public static void Temp(this DbContext context,
         IConfiguration configuration)
