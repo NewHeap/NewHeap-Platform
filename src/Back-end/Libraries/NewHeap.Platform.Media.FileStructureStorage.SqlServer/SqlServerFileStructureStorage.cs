@@ -6,6 +6,7 @@ using NewHeap.Platform.Common.Models;
 using System.Linq.Expressions;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -44,7 +45,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         _dbContext = dbContext;
     }
 
-    public async Task<FileReference> CreateFileAsync(FileModel model, Guid id)
+    public async Task<TaskResult<FileReference>> CreateFileAsync(FileModel model, Guid id)
     {
         model.Path = NormalizePath(model.Path);
 
@@ -57,6 +58,17 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         if (model.MetaData != null)
         {
             metaDataJson = JsonSerializer.Serialize(model.MetaData);
+        }
+
+        if (string.IsNullOrWhiteSpace(model.Name))
+        {
+            return TaskResult<FileReference>.Failed("Name is required");
+        }
+
+        var validation = ValidateLengths(model);
+        if (!validation.Success)
+        {
+            return TaskResult<FileReference>.Failed(validation);
         }
 
         var entity = new FileEntity
@@ -120,6 +132,12 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             return TaskResult<FileReference>.Failed("Name is required");
         }
 
+        var validation = ValidateLengths(model);
+        if (!validation.Success)
+        {
+            return TaskResult<FileReference>.Failed(validation);
+        }
+
         var sep = model.Path.LastIndexOf(NhMediaValues.DirectorySeparator, StringComparison.Ordinal);
         if (sep < 0)
         {
@@ -163,6 +181,35 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         };
     }
 
+    private TaskResult ValidateLengths(FileModel model)
+    {
+        var result = new TaskResult();
+        if (string.IsNullOrWhiteSpace(model.Name))
+        {
+            result.AddError("Name is required");
+        }
+        else
+        {
+            ValidateMaxLength(model.Name, 2000);
+        }
+        ValidateMaxLength(model.AltText, 100);
+        ValidateMaxLength(model.Description, 500);
+        ValidateMaxLength(model.Path, 10_000);
+        ValidateMaxLength(model.Creator, 150);
+        ValidateMaxLength(model.Title, 100);
+
+        void ValidateMaxLength(string? value, int maxLength, [CallerArgumentExpression("value")] string property = "")
+        {
+            if (value?.Length > maxLength)
+            {
+                property = property.Split('.').Last();
+                result.AddError(property, $"{property} cannot be more than {maxLength} characters");
+            }
+        }
+
+        return result;
+    }
+
     private string NormalizePath(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -196,7 +243,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         path = NormalizePath(path);
 
         folderName = folderName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
-        
+
         var exists = await _dbContext.Folders.AnyAsync(x => x.Path == path && x.Name == folderName);
         if (exists)
         {
@@ -299,7 +346,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             .Where(x => !string.IsNullOrEmpty(x.Name))
             .ToArrayAsync();
 
-        
+
         foreach (var folder in folders)
         {
             if (string.IsNullOrEmpty(folder.Name) || folder.Name == NhMediaValues.DirectorySeparator)
@@ -312,7 +359,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
         }
 
         var q = _dbContext.Files.AsNoTracking()
-            .Where(x => x.Path == path)
+                .Where(x => x.Path == path)
             ;
 
         q = ProcessOrderBy(sortOptions, q);
@@ -322,9 +369,9 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
             q = q.Skip(sortOptions.Page * sortOptions.PageSize.Value)
                 .Take(sortOptions.PageSize ?? 0);
         }
-        
+
         var files = await q.ToArrayAsync();
-        
+
         foreach (var file in files)
         {
             var fileReference = new FileReference
@@ -361,8 +408,8 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                 .Where(x => x.CustomAttributes.Any(y => y.AttributeType == typeof(OrderableAttribute)))
                 .ToList()
             ;
-        
-        
+
+
         foreach (var orderBy in sortInfo.OrderBy)
         {
             var prop = orderableProperties.FirstOrDefault(x =>
@@ -373,7 +420,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
                 var propAccess = Expression.Property(parameter, prop);
                 var cast = Expression.Convert(propAccess, typeof(object));
                 var expression = Expression.Lambda<Func<T, object>>(cast, parameter);
-                
+
                 if (orderBy.Direction == Direction.Ascending)
                 {
                     queryable = queryable.OrderBy(expression);
@@ -387,7 +434,7 @@ internal partial class SqlServerFileStructureStorage : IFileStructureStorage
 
         return queryable;
     }
-    
+
     public async Task<FileReference?> GetFileAsync(string? path, string fileName, string? language)
     {
         path = NormalizePath(path);

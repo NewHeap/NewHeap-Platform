@@ -5,7 +5,7 @@ namespace NewHeap.Media.Modules;
 
 public interface IFileStructureStorage
 {
-    Task<FileReference> CreateFileAsync(FileModel model, Guid id);
+    Task<TaskResult<FileReference>> CreateFileAsync(FileModel model, Guid id);
 
     Task<TaskResult<FileReference>> UpdateFileAsync(Guid id, FileModel model);
 

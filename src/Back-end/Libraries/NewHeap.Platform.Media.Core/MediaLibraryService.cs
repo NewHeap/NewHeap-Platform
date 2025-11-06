@@ -144,8 +144,13 @@ public class MediaLibraryService : IMediaLibraryService
 
             var fileId = await _fileStorage.SaveFileAsync(file);
             var fileRef = await _fileStructureStorage.CreateFileAsync(model, fileId);
+            if (!fileRef.Success)
+            {
+                await _fileStorage.DeleteAsync(fileId);
+                return fileRef;
+            }
 
-            await TriggerEvents(null, fileRef, MediaLibraryFileEventType.Added);
+            await TriggerEvents(null, fileRef.Data, MediaLibraryFileEventType.Added);
             return fileRef;
         }
         catch (Exception e)
