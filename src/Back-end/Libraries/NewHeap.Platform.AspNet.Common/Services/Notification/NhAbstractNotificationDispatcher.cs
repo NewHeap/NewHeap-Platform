@@ -24,7 +24,7 @@ public interface INhNotificationDispatcher
 }
 
 public interface INhNotificationDispatcher<in TDeliveryData> : INhNotificationDispatcher
-    where TDeliveryData : class, new()
+    where TDeliveryData : class
 {
     async Task<TaskResult> INhNotificationDispatcher.DispatchAsync(object? deliveryData, CancellationToken cancellationToken)
     {
@@ -44,7 +44,7 @@ public interface INhNotificationDispatcher<in TDeliveryData> : INhNotificationDi
 }
 
 public abstract partial class NhAbstractNotificationDispatcher<TDeliveryData> : INhNotificationDispatcher<TDeliveryData>
-    where TDeliveryData : class, new()
+    where TDeliveryData : class
 {
     public abstract string DispatcherId { get; }
     protected readonly IRepository<NhNotification> _repository;
