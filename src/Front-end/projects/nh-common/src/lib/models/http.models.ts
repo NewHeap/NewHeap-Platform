@@ -53,8 +53,8 @@ export class HttpDownloadRequestOptions implements IHttpDownloadRequestOptions {
 }
 
 export interface ISimpleCollectionHttpRequestOptions extends IHttpRequestOptions {
-  page?: number;
-  itemsPerPage?: number;
+  page: number;
+  itemsPerPage: number;
 }
 
 export class SimpleCollectionHttpRequestOptions extends HttpRequestOptions implements  ISimpleCollectionHttpRequestOptions {
@@ -81,8 +81,8 @@ export class SearchableCollectionHttpRequestOptions extends SimpleCollectionHttp
 }
 
 export interface ICollectionHttpRequestOptions extends ISearchableCollectionHttpRequestOptions {
-  orderBy?: OrderByRequestOptions[];
-  filter?: FilterRequestOptions[];
+  orderBy: OrderByRequestOptions[];
+  filter: FilterRequestOptions[];
 }
 
 export class CollectionHttpRequestOptions extends SearchableCollectionHttpRequestOptions implements ICollectionHttpRequestOptions {

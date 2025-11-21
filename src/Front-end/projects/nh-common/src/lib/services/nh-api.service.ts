@@ -5,7 +5,9 @@ import {
   CollectionHttpRequestOptions,
   CollectionHttpResponse,
   HttpDownloadRequestOptions,
-  HttpRequestOptions, SimpleCollectionHttpRequestOptions, SimpleCollectionHttpResponse
+  HttpRequestOptions,
+  ICollectionHttpRequestOptions, IHttpDownloadRequestOptions, IHttpRequestOptions,
+  ISimpleCollectionHttpRequestOptions, SimpleCollectionHttpRequestOptions, SimpleCollectionHttpResponse
 } from '../models/http.models';
 import { NhApiUtil } from '../util/nh-api-util';
 import { NhAuthService } from './nh-auth.service';
@@ -125,7 +127,7 @@ export class NhApiService implements OnDestroy {
     return taskResult;
   }
 
-  public get<T>(url: string, requestOptions?: HttpRequestOptions): Observable<T> {
+  public get<T>(url: string, requestOptions?: IHttpRequestOptions): Observable<T> {
     requestOptions = requestOptions || new HttpRequestOptions();
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
@@ -148,15 +150,38 @@ export class NhApiService implements OnDestroy {
     }).pipe(share());
   }
 
-  public getResult<T>(url: string,  requestOptions?: HttpRequestOptions): Promise<TaskResult<T>> {
+  public getText(url: string, requestOptions?: IHttpRequestOptions): Observable<string> {
+    requestOptions = requestOptions || new HttpRequestOptions();
+    let httpParams = requestOptions.params || new HttpParams();
+    let headers = requestOptions.headers || new HttpHeaders();
+
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
+
+    headers = this.prepareHeaders(headers);
+    httpParams = this.setCultureHttpParam(httpParams);
+    //httpParams = this.setObjectParams(httpParams, requestOptions);
+
+    return this.httpClient.get(url, {
+      headers: headers,
+      observe: 'body',
+      params: httpParams,
+      reportProgress: requestOptions.reportProgress,
+      responseType: 'text',
+      withCredentials: requestOptions.withCredentials
+    }).pipe(share());
+  }
+
+  public getResult<T>(url: string,  requestOptions?: IHttpRequestOptions): Promise<TaskResult<T>> {
     return this.task(this.get<T>(url, requestOptions));
   }
 
-  public getCollection<T>(url: string, requestOptions?: CollectionHttpRequestOptions): Observable<CollectionHttpResponse<T>> {
-    return this.getCollectionT<T, CollectionHttpRequestOptions, CollectionHttpResponse<T>>(url, requestOptions);
+  public getCollection<T>(url: string, requestOptions?: ICollectionHttpRequestOptions): Observable<CollectionHttpResponse<T>> {
+    return this.getCollectionT<T, ICollectionHttpRequestOptions, CollectionHttpResponse<T>>(url, requestOptions);
   }
 
-  public getCollectionT<T, TRequestOptions extends CollectionHttpRequestOptions, TCollectionResult extends CollectionHttpResponse<T>>(url: string, requestOptions?: TRequestOptions): Observable<TCollectionResult> {
+  public getCollectionT<T, TRequestOptions extends ICollectionHttpRequestOptions, TCollectionResult extends CollectionHttpResponse<T>>(url: string, requestOptions?: TRequestOptions): Observable<TCollectionResult> {
     requestOptions = requestOptions || <TRequestOptions><unknown>(new CollectionHttpRequestOptions());
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
@@ -216,11 +241,11 @@ export class NhApiService implements OnDestroy {
     }).pipe(share());
   }
 
-  public getSimpleCollection<T>(url: string, requestOptions?: SimpleCollectionHttpRequestOptions): Observable<SimpleCollectionHttpResponse<T>> {
-    return this.getSimpleCollectionT<T, SimpleCollectionHttpRequestOptions, SimpleCollectionHttpResponse<T>>(url, requestOptions);
+  public getSimpleCollection<T>(url: string, requestOptions?: ISimpleCollectionHttpRequestOptions): Observable<SimpleCollectionHttpResponse<T>> {
+    return this.getSimpleCollectionT<T, ISimpleCollectionHttpRequestOptions, SimpleCollectionHttpResponse<T>>(url, requestOptions);
   }
 
-  public getSimpleCollectionT<T, TRequestOptions extends SimpleCollectionHttpRequestOptions, TCollectionResult extends SimpleCollectionHttpResponse<T>>(url: string, requestOptions?: TRequestOptions): Observable<TCollectionResult> {
+  public getSimpleCollectionT<T, TRequestOptions extends ISimpleCollectionHttpRequestOptions, TCollectionResult extends SimpleCollectionHttpResponse<T>>(url: string, requestOptions?: TRequestOptions): Observable<TCollectionResult> {
     requestOptions = requestOptions || <TRequestOptions><unknown>(new CollectionHttpRequestOptions());
     let httpParams = requestOptions.params || new HttpParams();
     let headers = requestOptions.headers || new HttpHeaders();
@@ -244,7 +269,7 @@ export class NhApiService implements OnDestroy {
     }).pipe(share());
   }
 
-  public download(url: string, requestOptions?: HttpDownloadRequestOptions): Observable<Blob> {
+  public download(url: string, requestOptions?: IHttpDownloadRequestOptions): Observable<Blob> {
     requestOptions = requestOptions || new HttpDownloadRequestOptions();
     requestOptions.withCredentials = true;
     let httpParams = requestOptions.params || new HttpParams();
@@ -268,7 +293,7 @@ export class NhApiService implements OnDestroy {
     }).pipe(share());
   }
 
-  public downloadResponse(url: string, requestOptions?: HttpDownloadRequestOptions): Observable<HttpResponse<Blob>> {
+  public downloadResponse(url: string, requestOptions?: IHttpDownloadRequestOptions): Observable<HttpResponse<Blob>> {
     requestOptions = requestOptions || new HttpDownloadRequestOptions();
     requestOptions.withCredentials = true;
     let httpParams = requestOptions.params || new HttpParams();
@@ -292,7 +317,7 @@ export class NhApiService implements OnDestroy {
     }).pipe(share());
   }
 
-  public delete<T>(url: string, requestOptions?: HttpRequestOptions): Observable<T> {
+  public delete<T>(url: string, requestOptions?: IHttpRequestOptions): Observable<T> {
     requestOptions = requestOptions || new HttpRequestOptions();
     requestOptions.withCredentials = true;
     let httpParams = requestOptions.params || new HttpParams();
@@ -320,7 +345,7 @@ export class NhApiService implements OnDestroy {
     return this.task(this.delete<T>(url, requestOptions));
   }
 
-  public deleteWithBody<T>(url: string, body: any, requestOptions?: HttpRequestOptions): Observable<T> {
+  public deleteWithBody<T>(url: string, body: any, requestOptions?: IHttpRequestOptions): Observable<T> {
     requestOptions = requestOptions || new HttpRequestOptions();
     requestOptions.withCredentials = true;
     let httpParams = requestOptions.params || new HttpParams();
@@ -346,7 +371,7 @@ export class NhApiService implements OnDestroy {
   }
 
 
-  public post<T>(url: string, body: any, requestOptions?: HttpRequestOptions): Observable<T> {
+  public post<T>(url: string, body: any, requestOptions?: IHttpRequestOptions): Observable<T> {
     requestOptions = requestOptions || new HttpRequestOptions();
     requestOptions.withCredentials = true;
     let httpParams = requestOptions.params || new HttpParams();
@@ -370,11 +395,11 @@ export class NhApiService implements OnDestroy {
     }).pipe(share());
   }
 
-  public async postResult<T>(url: string, body: any, requestOptions?: HttpRequestOptions): Promise<TaskResult<T>> {
+  public async postResult<T>(url: string, body: any, requestOptions?: IHttpRequestOptions): Promise<TaskResult<T>> {
     return this.task(this.post<T>(url, body,requestOptions));
   }
 
-  public put<T>(url: string, body: any, requestOptions?: HttpRequestOptions): Observable<T> {
+  public put<T>(url: string, body: any, requestOptions?: IHttpRequestOptions): Observable<T> {
     requestOptions = requestOptions || new HttpRequestOptions();
     requestOptions.withCredentials = true;
     let httpParams = requestOptions.params || new HttpParams();
@@ -398,11 +423,11 @@ export class NhApiService implements OnDestroy {
     }).pipe(share());
   }
 
-  public async putResult<T>(url: string, body: any, requestOptions?: HttpRequestOptions): Promise<TaskResult<T>> {
+  public async putResult<T>(url: string, body: any, requestOptions?: IHttpRequestOptions): Promise<TaskResult<T>> {
     return this.task(this.put<T>(url, body,requestOptions));
   }
 
-  public postHttpEvent<T>(url: string, body: any, requestOptions?: HttpRequestOptions): Observable<HttpEvent<T>> {
+  public postHttpEvent<T>(url: string, body: any, requestOptions?: IHttpRequestOptions): Observable<HttpEvent<T>> {
     requestOptions = requestOptions || new HttpRequestOptions();
     requestOptions.withCredentials = true;
     let httpParams = requestOptions.params || new HttpParams();
