@@ -45,7 +45,7 @@ public class NhCompositeStringLocalizer : IStringLocalizer
 
  
             }
-            return new LocalizedString(name, name, true);
+            return new LocalizedString(name, string.Format(name, arguments), true);
         }
     }
 

@@ -33,7 +33,7 @@ public class ExampleProducer : BackgroundService
                 {
                     // Publisher hasn't finished initializing yet
                 }
-                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
             }
         }
         catch (Exception e)
