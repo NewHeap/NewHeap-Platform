@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Localization;
+using System.Text.RegularExpressions;
 
 namespace NewHeap.Platform.Common.Localization;
 
@@ -44,17 +45,7 @@ public class NhCompositeStringLocalizer : IStringLocalizer
                 catch { }
             }
 
-            string value;
-            try
-            {
-                value = arguments != null && arguments.Length > 0
-                    ? string.Format(name, arguments)
-                    : name;
-            }
-            catch (FormatException)
-            {
-                value = name;
-            }
+            var value = SafeFormat(name, arguments);
 
             return new LocalizedString(name, value, resourceNotFound: true);
         }
@@ -69,5 +60,39 @@ public class NhCompositeStringLocalizer : IStringLocalizer
                 all[s.Name] = s;
         }
         return all.Values;
+    }
+
+    private static string SafeFormat(string format, object[] arguments)
+    {
+        if (arguments == null || arguments.Length == 0)
+            return format;
+
+        try
+        {
+            return string.Format(format, arguments);
+        }
+        catch (FormatException)
+        {
+            var result = format;
+
+            var matches = Regex.Matches(format, "{([a-zA-Z0-9_]+)}");
+
+            if (matches.Count > 0)
+            {
+                int index = 0;
+                foreach (Match match in matches)
+                {
+                    if (index >= arguments.Length)
+                        break;
+
+                    result = result.Replace(match.Value, arguments[index]?.ToString());
+                    index++;
+                }
+
+                return result;
+            }
+
+            return format;
+        }
     }
 }

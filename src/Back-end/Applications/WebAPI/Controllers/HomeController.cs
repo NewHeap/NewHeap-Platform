@@ -130,9 +130,10 @@ public class HomeController : PublicNhBaseController
     {
         var test = compositeAddressService.TestLocalization();
 
-        var test2 = _localizer["abc {0}, {1}, {2}", "test"];
+        var test2 = _localizer["abc", "test", "test", "test", "test", "test"];
 
-        var test3 = test2.ToString();
+        var testing1 = _localizer["Failed '{0}': {1}", "matname", string.Join(", ", test.AllErrorMessages)];
+        var testing = _localizer["Failed '{MaterialName}': {Messages}", "matname", string.Join(", ", test.AllErrorMessages)];
 
         return Ok(test.AllErrorMessages.Select(x => x.ToString()));
     }
