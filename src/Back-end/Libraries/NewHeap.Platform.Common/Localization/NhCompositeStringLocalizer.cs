@@ -42,10 +42,21 @@ public class NhCompositeStringLocalizer : IStringLocalizer
                         return str;
                 }
                 catch { }
-
- 
             }
-            return new LocalizedString(name, string.Format(name, arguments), true);
+
+            string value;
+            try
+            {
+                value = arguments != null && arguments.Length > 0
+                    ? string.Format(name, arguments)
+                    : name;
+            }
+            catch (FormatException)
+            {
+                value = name;
+            }
+
+            return new LocalizedString(name, value, resourceNotFound: true);
         }
     }
 
