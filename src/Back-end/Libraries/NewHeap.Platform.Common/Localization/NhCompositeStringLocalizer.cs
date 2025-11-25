@@ -82,10 +82,11 @@ public class NhCompositeStringLocalizer : IStringLocalizer
                 int index = 0;
                 foreach (Match match in matches)
                 {
-                    if (index >= arguments.Length)
-                        break;
+                    var replaceValue = (index >= arguments.Length)
+                        ? null
+                        : arguments[index]?.ToString();
 
-                    result = result.Replace(match.Value, arguments[index]?.ToString());
+                    result = result.Replace(match.Value, replaceValue);
                     index++;
                 }
 

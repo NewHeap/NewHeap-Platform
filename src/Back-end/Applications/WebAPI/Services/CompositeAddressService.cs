@@ -40,6 +40,7 @@ namespace WebAPI.Services
             var result = new TaskResult();
 
             result.AddError("test", _localizer["Ëmm {0} testteenn {1}", "bla", "bla"]);
+            result.AddError("test2", _localizer["Ëmm {0} testteenn {1}", "bla"]);
             return result;
         }
 
