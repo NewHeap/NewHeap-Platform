@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Linq;
 using Microsoft.Extensions.Localization;
 using System.Diagnostics.CodeAnalysis;
+using NewHeap.Platform.Common.Utilities;
 
 namespace NewHeap.Platform.Common.Models;
 
@@ -42,7 +43,7 @@ public partial class TaskResult
 
     protected FormattableString CreateFormattableString(string format, object[]? args = null)
     {
-        return FormattableStringFactory.Create(format ?? "", args ?? []);
+        return SafeFormattableStringFactory.Create(format ?? "", args ?? []);
     }
 
     public virtual TaskResult AddError(string error)
