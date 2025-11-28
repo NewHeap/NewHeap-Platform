@@ -74,6 +74,8 @@ export * from './lib/components/nh-mutate-base-component/component';
 export * from './lib/components/nh-modal-mutate-base-component/component';
 export * from './lib/components/nh-error/component';
 export * from './lib/components/nh-user-notifications-component/abstract.component';
+export * from './lib/components/nh-search-input/search-input.component';
+export * from './lib/components/nh-page-size/page-size.component';
 
 export * from './lib/nh-common.module';
 export * from './lib/guards/nh-cancel-navigation.guard';
