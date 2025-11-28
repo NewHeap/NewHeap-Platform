@@ -1,0 +1,7 @@
+<div class="filter dropdown-with-icon" *ngIf="pageSizeDropDownSettings">
+  <nh-form-dropdown
+    *ngIf="value"
+    [name]="name"
+    [(ngModel)]="value"
+    [settings]="pageSizeDropDownSettings"></nh-form-dropdown>
+</div>

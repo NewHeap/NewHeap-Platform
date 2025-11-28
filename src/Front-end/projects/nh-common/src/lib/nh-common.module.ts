@@ -59,6 +59,8 @@ import {NH_ERROR_HANDLERS, NhErrorHandlerService} from "./services/nh-error-hand
 import {NhErrorHandlerSentryService} from "./services/nh-error-handler-sentry.service";
 import {Router} from "@angular/router";
 import {NhSentryTraceService} from "./services/nh-sentry-trace.service";
+import {NhPageSizeComponent} from "./components/nh-page-size/page-size.component";
+import {NhSearchInputComponent} from "./components/nh-search-input/search-input.component";
 
 
 @NgModule({
@@ -78,6 +80,8 @@ import {NhSentryTraceService} from "./services/nh-sentry-trace.service";
     NhFormDropDownComponent,
     NhFormErrorMessageComponent,
     NhErrorComponent,
+    NhPageSizeComponent,
+    NhSearchInputComponent,
     // Pipes
     NhDatePipe,
     NhDateTimePipe,
@@ -114,6 +118,8 @@ import {NhSentryTraceService} from "./services/nh-sentry-trace.service";
     NhFormDropDownComponent,
     NhFormErrorMessageComponent,
     NhErrorComponent,
+    NhPageSizeComponent,
+    NhSearchInputComponent,
     // Pipes
     NhDatePipe,
     NhDateTimePipe,
