@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WebAPI.DAL;
 
@@ -11,9 +12,11 @@ using WebAPI.DAL;
 namespace WebAPI.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251205135200_RefreshToken")]
+    partial class RefreshToken
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -644,6 +647,9 @@ namespace WebAPI.DAL.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid?>("NhUserAuthRefreshTokenId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -653,6 +659,8 @@ namespace WebAPI.DAL.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("NhUserAuthRefreshTokenId");
 
                     b.HasIndex("UserNotificationId");
 
@@ -948,6 +956,10 @@ namespace WebAPI.DAL.Migrations
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserNotificationMessage", b =>
                 {
+                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserAuthRefreshToken", null)
+                        .WithMany("Messages")
+                        .HasForeignKey("NhUserAuthRefreshTokenId");
+
                     b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserNotification", "UserNotification")
                         .WithMany("Messages")
                         .HasForeignKey("UserNotificationId")
@@ -995,6 +1007,11 @@ namespace WebAPI.DAL.Migrations
                     b.Navigation("DivisionUsers");
 
                     b.Navigation("Notifications");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserAuthRefreshToken", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserNotification", b =>

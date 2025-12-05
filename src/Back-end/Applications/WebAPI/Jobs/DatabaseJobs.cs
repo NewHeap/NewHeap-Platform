@@ -144,7 +144,6 @@ public class DatabaseJobs
                 Email = email,
                 UserName = email,
                 EmailConfirmed = true,
-                RefreshToken = "",
                 Id = Guid.Parse("07e35556-54f2-4975-a563-417eb5fbfa7d")
             };
 
@@ -164,7 +163,6 @@ public class DatabaseJobs
                 Email = email,
                 UserName = email,
                 EmailConfirmed = true,
-                RefreshToken = "",
                 Id = Guid.Parse("17e35556-54f2-4975-a563-417eb5fbfa7f")
             };
 

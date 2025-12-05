@@ -6,7 +6,7 @@ namespace NewHeap.Platform.AspNet.Common.Models;
  * Collection of authorization related models
  */
 
-public class UserToken(string Token, DateTime ValidTo, string RefreshToken, DateTime? RefreshValidTo, string Issuer)
+public class UserToken(string Token, DateTime ValidTo, string? RefreshToken, DateTime? RefreshValidTo, string Issuer)
 {
     public string Token { get; } = Token;
     public DateTime ValidTo { get; } = ValidTo;

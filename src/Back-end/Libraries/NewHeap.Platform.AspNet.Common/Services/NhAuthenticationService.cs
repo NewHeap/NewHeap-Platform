@@ -99,15 +99,15 @@ public class NhAuthenticationService<
                     return TaskResult<UserToken>.Failed("Could not create refresh token");
                 }
 
-                var tokenInfo = createResult.Data!;
+                var refreshTokenInfo = createResult.Data!;
 
-                return new UserToken(
-                    new JwtSecurityTokenHandler().WriteToken(token),
-                    token.ValidTo,
-                    refreshToken.Token,
-                    refreshToken.ExpiryDateTime.DateTime,
-                    token.Issuer
+                var token = await CreateToken(
+                    user.Id,
+                    withDivisionClaims: _authConfiguration.DivisionsEnabled,
+                    expiration: _authConfiguration.ExpirationTimespanToken
                 );
+
+                return CreateUserToken(token, refreshTokenInfo.RefreshToken, refreshTokenInfo.ExpirationDateTime.DateTime);
             }
         }
 
@@ -184,7 +184,8 @@ public class NhAuthenticationService<
     /// If null, no claims are required.
     /// </param>
     /// <returns></returns>
-    public virtual async Task<TaskResult<UserToken>> Authenticate(AuthenticateRequest request,
+    public virtual async Task<TaskResult<UserToken>> Authenticate(
+        AuthenticateRequest request,
         IEnumerable<Claim>? requiredClaims = null)
     {
         var user = await _userManager.FindByEmailAsync(request.UserName);
@@ -210,16 +211,15 @@ public class NhAuthenticationService<
             _logger.LogInformation("Failed login attempt for user {user}", user.UserName);
             return TaskResult<UserToken>.Failed("Invalid password");
         }
-
         
         var refreshTokenResult = await CreateRefreshTokenAsync(user);
 
-        if (!refreshTokenResult.Success || refreshTokenResult.Data == null)
+        if (!refreshTokenResult.Success)
         {
             return TaskResult<UserToken>.Failed("Could not create refresh token");
         }
 
-        var refreshToken = refreshTokenResult.Data!;
+        var refreshTokenInfo = refreshTokenResult.Data!;
 
         _logger.LogInformation("User {user} logged in", user.UserName);
         var token = await CreateToken(
@@ -239,11 +239,16 @@ public class NhAuthenticationService<
             }
         }
 
+        return CreateUserToken(token, refreshTokenInfo.RefreshToken, refreshTokenInfo.ExpirationDateTime.DateTime);
+    }
+
+    protected virtual TaskResult<UserToken> CreateUserToken(JwtSecurityToken token, string? refreshToken, DateTime? refreshTokenValidTo)
+    {
         return new UserToken(
-            new JwtSecurityTokenHandler().WriteToken(token), 
-            token.ValidTo,
-            refreshToken.Token,
-            refreshToken.RefreshValidTo,
+            Token: new JwtSecurityTokenHandler().WriteToken(token),
+            ValidTo: token.ValidTo,
+            RefreshToken: refreshToken,
+            RefreshValidTo: refreshTokenValidTo,
             token.Issuer
         );
     }
@@ -370,18 +375,17 @@ public class NhAuthenticationService<
         );
 
         var refreshTokenResult = await CreateRefreshTokenAsync(user);
-        if (!refreshTokenResult.Success || refreshTokenResult.Data == null)
+        if (!refreshTokenResult.Success)
         {
             return TaskResult<UserToken>.Failed("Could not create refresh token");
         }
 
         var refreshToken = refreshTokenResult.Data!;
 
-        return new UserToken(
-            new JwtSecurityTokenHandler().WriteToken(token), 
-            token.ValidTo,
-            refreshToken.RefreshToken!,
-            token.Issuer
+        return CreateUserToken(
+            token,
+            refreshToken.RefreshToken,
+            refreshToken.ExpirationDateTime.DateTime
         );
     }
 
@@ -391,28 +395,33 @@ public class NhAuthenticationService<
         {
             return TaskResult<UserToken>.Failed("No");
         }
+
         var user = await _userManager.FindByIdAsync(userId.ToString());
         if (user == null)
         {
             return TaskResult<UserToken>.Failed("Unknown user");
         }
 
-        user.RefreshToken = GenerateRefreshToken();
-        await _userManager.UpdateAsync(user);
-        
+        var refreshTokenResult = await CreateRefreshTokenAsync(user);
+        if (!refreshTokenResult.Success)
+        {
+            return TaskResult<UserToken>.Failed("Could not create refresh token");
+        }
+
+        var refreshToken = refreshTokenResult.Data!;
+
+
         var claims = await GetClaimsAsync(userId);
         var token = await CreateToken(
             userId,
             c: claims,
             expiration: null
         );
-        
 
-        return new UserToken(
-            new JwtSecurityTokenHandler().WriteToken(token),
-            token.ValidTo,
-            user.RefreshToken!,
-            token.Issuer
+        return CreateUserToken(
+            token,
+            refreshToken.RefreshToken,
+            refreshToken.ExpirationDateTime.DateTime
         );
     }
     
@@ -442,11 +451,18 @@ public class NhAuthenticationService<
             expiration: null
         );
 
-        return new UserToken(
-            new JwtSecurityTokenHandler().WriteToken(token),
-            token.ValidTo,
-            originUser.RefreshToken!,
-            token.Issuer
+        var refreshTokenResult = await CreateRefreshTokenAsync(originUser);
+        if (!refreshTokenResult.Success)
+        {
+            return TaskResult<UserToken>.Failed("Could not create refresh token");
+        }
+
+        var refreshToken = refreshTokenResult.Data!;
+
+        return CreateUserToken(
+            token,
+            refreshToken.RefreshToken,
+            refreshToken.ExpirationDateTime.DateTime
         );
     }
 }
