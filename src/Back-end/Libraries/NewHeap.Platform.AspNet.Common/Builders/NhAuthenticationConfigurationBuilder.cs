@@ -75,7 +75,7 @@ public class NhAuthenticationConfigurationBuilder<
         TUserViewModel,
         TDivisionViewModel,
         TClaimViewModel
-    > AddUserNamePasswordEndpoint(bool enableRefreshToken = true)
+    > AddUserNamePasswordEndpoint(bool enableRefreshToken = true, bool enableImpersonate = true)
     {
         UseAuthenticationEndpoint<NhUserNamePasswordAuthenticationHandler>();
         if (enableRefreshToken)
@@ -84,8 +84,12 @@ public class NhAuthenticationConfigurationBuilder<
         }
 
         UseAuthenticationEndpoint<NhLogoutAuthenticationHandler>();
-        UseAuthenticationEndpoint<NhImpersonateAuthenticationHandler>();
-        UseAuthenticationEndpoint<NhRevertImpersonateAuthenticationHandler>();
+        if (enableImpersonate)
+        {
+            UseAuthenticationEndpoint<NhImpersonateAuthenticationHandler>();
+            UseAuthenticationEndpoint<NhRevertImpersonateAuthenticationHandler>();
+        }
+        
         UseAuthenticationEndpoint<NhAccountInformationEndpointHandler<TUser, TDivision, TDivisionUser, TDivisionRole,
             TDivisionUserRole, TDivisionRoleClaim, TUserViewModel, TDivisionViewModel, TClaimViewModel>>();
         return this;
