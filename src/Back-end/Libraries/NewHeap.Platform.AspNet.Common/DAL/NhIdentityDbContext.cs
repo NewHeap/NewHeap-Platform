@@ -107,6 +107,25 @@ public abstract partial class NhIdentityDbContext<
 
         #endregion
 
+        #region Auth
+        builder.Entity<NhUserAuthRefreshToken>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+            entity.HasIndex(r => r.Token).IsUnique();
+
+            entity.Property(nameof(NhUserNotification.UserId)).IsRequired();
+            
+            entity
+                .HasOne<TUser>()
+                .WithMany(x => x.AuthRefreshTokens)
+                .HasForeignKey(nameof(NhUserNotification.UserId))
+                .HasPrincipalKey("Id")
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired(true)
+            ;
+        });
+        #endregion
+
         #region Log
 
         builder.Entity<TLog>()

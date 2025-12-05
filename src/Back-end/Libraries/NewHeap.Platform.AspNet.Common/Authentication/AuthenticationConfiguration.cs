@@ -19,6 +19,9 @@ public class AuthenticationConfiguration
 
     public List<Claim> AuthenticateRequiredClaims { get; set; } = new List<Claim>();
 
+    public TimeSpan ExpirationTimespanRefreshToken { get; set; } = TimeSpan.FromDays(30);
+    public TimeSpan ExpirationTimespanToken { get; set; } = TimeSpan.FromDays(1);
+
     internal AuthenticationConfiguration()
     {
         

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
@@ -58,38 +59,92 @@ public class NhAuthenticationService<
     }
 
     /// <summary>
-    /// Refresh authentication token
+    /// Refresh/Claim/Authenticate authentication token
     /// </summary>
     /// <param name="request">Refresh token to validate</param>
     /// <returns>A new token when refresh token is valid</returns>
-    public virtual async Task<TaskResult<UserToken>> RefreshToken(RefreshTokenRequest request)
+    public virtual async Task<TaskResult<UserToken>> AuthenticateRefreshTokenAsync(RefreshTokenRequest request)
     {
         var user = await _userManager.FindByEmailAsync(request.UserName);
+
         if (user == null)
         {
             return TaskResult<UserToken>.Failed("Invalid refresh token");
         }
 
-        if (user.RefreshToken != request.RefreshToken)
+        await _userManager.GetRepository()
+            .GetDbSet<NhUserAuthRefreshToken>()
+            .Where(x => x.UserId == user.Id && x.ExpiryDateTime < DateTimeOffset.UtcNow)
+            .ExecuteDeleteAsync();
+
+        // Get non expired refresh token from db
+        var nonExpiredTokens = await _userManager.GetRepository()
+            .GetDbSet<NhUserAuthRefreshToken>()
+            .Where(x => x.UserId == user.Id && x.ExpiryDateTime >= DateTimeOffset.UtcNow)
+            .ToListAsync();
+
+        foreach(var t in nonExpiredTokens)
         {
-            return TaskResult<UserToken>.Failed("Invalid refresh token");
+            if (t.Token.Equals(request.RefreshToken, StringComparison.Ordinal) && t.ExpiryDateTime >= DateTimeOffset.UtcNow)
+            {
+                await _userManager.GetRepository()
+                    .GetDbSet<NhUserAuthRefreshToken>()
+                    .Where(x => x.UserId == user.Id && x.Id == t.Id)
+                    .ExecuteDeleteAsync();
+
+                var createResult = await CreateRefreshTokenAsync(user);
+
+                if (!createResult.Success)
+                {
+                    return TaskResult<UserToken>.Failed("Could not create refresh token");
+                }
+
+                var tokenInfo = createResult.Data!;
+
+                return new UserToken(
+                    new JwtSecurityTokenHandler().WriteToken(token),
+                    token.ValidTo,
+                    refreshToken.Token,
+                    refreshToken.ExpiryDateTime.DateTime,
+                    token.Issuer
+                );
+            }
         }
 
-        return await RefreshToken(user);
+        return TaskResult<UserToken>.Failed("Invalid refresh token");
     }
 
-    protected virtual async Task<TaskResult<UserToken>> RefreshToken(TUser user)
+    protected virtual async Task<TaskResult<(string RefreshToken, DateTimeOffset ExpirationDateTime)>> CreateRefreshTokenAsync(TUser user)
     {
-        user.RefreshToken = GenerateRefreshToken();
-        await _userManager.UpdateAsync(user);
+        var repo = _userManager.GetRepository()
+            .GetDbSet<NhUserAuthRefreshToken>();
 
         var token = await CreateToken(
             user.Id,
-            withDivisionClaims: _authConfiguration.DivisionsEnabled
+            withDivisionClaims: _authConfiguration.DivisionsEnabled,
+            expiration: _authConfiguration.ExpirationTimespanRefreshToken
         );
 
-        return new UserToken(new JwtSecurityTokenHandler().WriteToken(token), token.ValidTo, user.RefreshToken,
-            token.Issuer);
+        DateTimeOffset expirationDateTimeOffset = token.ValidTo;
+
+        var refreshToken = new NhUserAuthRefreshToken()
+        {
+            UserId = user.Id,
+            Token = GenerateRefreshToken(),
+            ExpiryDateTime = expirationDateTimeOffset
+        };
+
+        await repo.AddAsync(refreshToken);
+        await _userManager.GetRepository().SaveChangesAsync();
+
+        // Cleanup old token via ExecuteDeleteAsync
+        await repo
+            .Where(x => x.UserId == user.Id && x.ExpiryDateTime < DateTimeOffset.UtcNow)
+            .ExecuteDeleteAsync();
+
+        return TaskResult<(string RefreshToken, DateTimeOffset ExpirationDateTime)>.Succeeded(
+            (refreshToken.Token, refreshToken.ExpiryDateTime)
+        );
     }
 
     /// <summary>
@@ -156,15 +211,21 @@ public class NhAuthenticationService<
             return TaskResult<UserToken>.Failed("Invalid password");
         }
 
-        var refreshToken = GenerateRefreshToken();
+        
+        var refreshTokenResult = await CreateRefreshTokenAsync(user);
 
-        user.RefreshToken = refreshToken;
-        await _userManager.UpdateAsync(user);
+        if (!refreshTokenResult.Success || refreshTokenResult.Data == null)
+        {
+            return TaskResult<UserToken>.Failed("Could not create refresh token");
+        }
+
+        var refreshToken = refreshTokenResult.Data!;
 
         _logger.LogInformation("User {user} logged in", user.UserName);
         var token = await CreateToken(
             user.Id,
-            withDivisionClaims: _authConfiguration.DivisionsEnabled
+            withDivisionClaims: _authConfiguration.DivisionsEnabled,
+            expiration: _authConfiguration.ExpirationTimespanToken
         );
 
         if (requiredClaims != null)
@@ -178,8 +239,13 @@ public class NhAuthenticationService<
             }
         }
 
-        return new UserToken(new JwtSecurityTokenHandler().WriteToken(token), token.ValidTo, refreshToken,
-            token.Issuer);
+        return new UserToken(
+            new JwtSecurityTokenHandler().WriteToken(token), 
+            token.ValidTo,
+            refreshToken.Token,
+            refreshToken.RefreshValidTo,
+            token.Issuer
+        );
     }
 
     /// <summary>
@@ -188,7 +254,7 @@ public class NhAuthenticationService<
     /// <returns></returns>
     protected string GenerateRefreshToken()
     {
-        var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(16);
+        var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(128);
         var refreshToken = Convert.ToBase64String(bytes);
         return refreshToken;
     }
@@ -303,10 +369,18 @@ public class NhAuthenticationService<
             expiration: null
         );
 
+        var refreshTokenResult = await CreateRefreshTokenAsync(user);
+        if (!refreshTokenResult.Success || refreshTokenResult.Data == null)
+        {
+            return TaskResult<UserToken>.Failed("Could not create refresh token");
+        }
+
+        var refreshToken = refreshTokenResult.Data!;
+
         return new UserToken(
             new JwtSecurityTokenHandler().WriteToken(token), 
-            token.ValidTo, 
-            user.RefreshToken!,
+            token.ValidTo,
+            refreshToken.RefreshToken!,
             token.Issuer
         );
     }

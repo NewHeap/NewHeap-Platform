@@ -17,6 +17,7 @@ import {NhRouterService} from "../../services/nh-router.service";
 import {DOCUMENT, isPlatformServer} from "@angular/common";
 import {NhAppService} from "../../services/nh-app.service";
 import {NhApiUtil} from "../../util/nh-api-util";
+import {NhAsyncLock} from "../../util/nh-mutex.util";
 
 @Component({
     selector: 'nh-shared-collection-base-component',
@@ -29,6 +30,7 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
     OnInit,
     OnDestroy
 {
+  private readonly loadLock = new NhAsyncLock();
   protected readonly appService = inject(NhAppService);
   protected readonly ColumnMode = ColumnMode;
   protected document: Document = inject(DOCUMENT)
@@ -172,7 +174,6 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
 
   load(): Promise<CollectionHttpResponse<TCollectionResponseItem>> {
     return new Promise<CollectionHttpResponse<TCollectionResponseItem>>(async (resolve, reject) => {
-      this.activeRequestSubscription?.unsubscribe();
       this.isLoading = true;
       await this.beforeLoad();
       this.updateRequestOptions();
@@ -180,19 +181,22 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
       // Pass a copy instead of the source to allow modifications without it modifying the URL;
       // If u need them both modified, modify via this.requestOptions. in the load.
       const requestOptions = NhApiUtil.ParseCollectionRequestOptions(JSON.stringify(this.requestOptions));
-      const loadObservable = await this.onLoad(requestOptions);
 
-      this.activeRequestSubscription = loadObservable.subscribe({
-        next: (response) => {
-          this.isLoading = false;
-          this.collectionResponse = response;
-          resolve(response);
-          this.afterLoad().then();
-        },
-        error: (error) => {
-          this.isLoading = false;
-          reject(error);
-        }
+      this.activeRequestSubscription?.unsubscribe();
+      await this.loadLock.runExclusive(async () => {
+        const loadObservable = await this.onLoad(requestOptions);
+        this.activeRequestSubscription = loadObservable.subscribe({
+          next: (response) => {
+            this.isLoading = false;
+            this.collectionResponse = response;
+            resolve(response);
+            this.afterLoad().then();
+          },
+          error: (error) => {
+            this.isLoading = false;
+            reject(error);
+          }
+        });
       });
     });
   }

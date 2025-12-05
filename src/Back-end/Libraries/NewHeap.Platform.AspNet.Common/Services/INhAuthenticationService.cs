@@ -19,7 +19,7 @@ public interface INhAuthenticationService
     /// </summary>
     /// <param name="request">Refresh token to validate</param>
     /// <returns>A new token when refresh token is valid</returns>
-    Task<TaskResult<UserToken>> RefreshToken(RefreshTokenRequest request);
+    Task<TaskResult<UserToken>> AuthenticateRefreshTokenAsync(RefreshTokenRequest request);
 
     /// <summary>
     /// 

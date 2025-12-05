@@ -42,9 +42,7 @@ public partial class NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisi
     public DateTimeOffset? LockoutStart { get; set; }
 
     public ICollection<TDivisionUser> DivisionUsers { get; set; } = new List<TDivisionUser>();
-    
-    [StringLength(100)]
-    public string? RefreshToken { get; set; }
 
     public List<NhUserNotification> Notifications { get; set; } = new List<NhUserNotification>();
+    public List<NhUserAuthRefreshToken> AuthRefreshTokens { get; set; } = new List<NhUserAuthRefreshToken>();
 }

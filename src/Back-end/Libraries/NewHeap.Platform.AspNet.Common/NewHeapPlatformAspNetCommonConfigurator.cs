@@ -479,6 +479,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         serviceCollection.AddScopedNhDbRepository<NhNotificationDelivery>();
         serviceCollection.AddScopedNhDbRepository<NhUserNotification>();
         serviceCollection.AddScopedNhDbRepository<NhUserNotificationMessage>();
+        serviceCollection.AddScopedNhDbRepository<NhUserAuthRefreshToken>();
 
         #endregion
 

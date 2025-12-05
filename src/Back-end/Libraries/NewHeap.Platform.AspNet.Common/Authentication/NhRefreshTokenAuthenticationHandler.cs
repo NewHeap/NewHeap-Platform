@@ -64,7 +64,7 @@ public class NhRefreshTokenAuthenticationHandler : BaseNhAuthenticationEndpoint
             return BadRequest(TaskResult.Failed("Invalid request"));
         }
 
-        var result = await authenticationService.RefreshToken(request);
+        var result = await authenticationService.AuthenticateRefreshTokenAsync(request);
 
         if (!result.Success)
         {
