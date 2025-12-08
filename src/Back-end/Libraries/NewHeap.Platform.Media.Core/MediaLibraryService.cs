@@ -2,36 +2,13 @@
 using NewHeap.Media.Models;
 using NewHeap.Media.Modules;
 using NewHeap.Platform.Common.Models;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace NewHeap.Media;
 
-public interface IMediaLibraryService
-{
-    Task<TaskResult> RenameFileAsync(string path, string filename, string newPath, string newFilename);
-    Task<TaskResult<FileReference>> CreateFileAsync(FileModel model, Stream file);
-    Task<TaskResult<FolderReference>> CreateFolderAsync(string? path, string folderName);
-
-    Task<TaskResult<FolderReference>> UpdateFolderAsync(string? path, string folderName, string? newPath,
-        string newName);
-
-    Task<TaskResult<FileReference>> GetFileAsync(string? path, string filename, string? language = null);
-    Task<TaskResult<FileReference>> GetFileAsync(Guid id);
-    Task<DisposableTaskResult<Stream>> DownloadFileAsync(string? path, string fileName);
-    Task<DisposableTaskResult<Stream>> DownloadFileAsync(Guid id);
-    Task<FolderContents> GetFolder(string? path, string? language = null, FileGetOptions? sortOptions = null);
-    Task<TaskResult> UpdateFileAsync(string? path, string fileName, Stream file);
-    Task<TaskResult> UpdateFileAsync(Guid id, FileModel model);
-    Task<TaskResult> DeleteFolderAsync(string? path, string folderName);
-    Task<TaskResult> DeleteFileAsync(string? path, string fileName);
-
-    Task<SearchResults> SearchAsync(string? path, string searchTerm, SearchOptions options);
-
-    Task<TaskResult> LocalizeFieldAsync(Guid fileReferenceId, string propertyName, string language, string value);
-
-    Task<TaskResult> UpdateFileTagsAsync(string? path, string fileName, IEnumerable<string> tags);
-}
-
+[SuppressMessage("ReSharper", "ClassWithVirtualMembersNeverInherited.Global")]
+[SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
 public class MediaLibraryService : IMediaLibraryService
 {
     private readonly IEnumerable<IHandleMediaLibraryEvent> _eventHandlers;
@@ -80,6 +57,81 @@ public class MediaLibraryService : IMediaLibraryService
         return result;
     }
 
+    
+    public virtual async Task<TaskResult<FileReference>> MoveFileAsync(Guid id, string newPath)
+    {
+        var fileRef = await _fileStructureStorage.GetByIdAsync(id);
+        await EnsureAuthorized(fileRef?.Folder.FullPath ?? "", fileRef?.Name ?? "", null, ActionType.Update);
+        
+        if (fileRef == null)
+        {
+            return TaskResult<FileReference>.Failed("File not found");
+        }
+        
+        MediaLibraryPath.Split(newPath, out var folderFullPath, out var fileName);
+        
+        MediaLibraryPath.Split(folderFullPath ?? "", out var folderPath, out var folderName);
+        
+        var newRef = fileRef.Copy(x =>
+        {
+            x.Name = fileName;
+            x.Folder = new FolderReference { Name = folderName, Path = folderPath, FullPath = folderFullPath ?? "/" };
+        });
+        await TriggerEvents(fileRef, newRef, MediaLibraryFileEventType.Updating);
+        var result = await _fileStructureStorage.UpdateFileAsync(fileRef.Id, new FileModel()
+        {
+            Tags = fileRef.Tags.ToArray(),
+            Name = fileRef.Name,
+            Path = folderFullPath,
+            MetaData = fileRef.MetaData,
+            Description = fileRef.Description,
+            AltText = fileRef.AltText,
+            Title = fileRef.Title,
+            Creator = fileRef.Creator,
+        });
+        if (result.Success)
+        {
+            await TriggerEvents(fileRef, newRef, MediaLibraryFileEventType.Updated);
+        }
+
+        return result;
+    } 
+
+    public virtual async Task<TaskResult> RenameFileAsync(Guid id, string newFilename)
+    {
+        var fileRef = await _fileStructureStorage.GetByIdAsync(id);
+        await EnsureAuthorized(fileRef?.Folder.FullPath ?? "", fileRef?.Name ?? "", null, ActionType.Update);
+        
+        if (fileRef == null)
+        {
+            return TaskResult.Failed("File not found");
+        }
+        var newRef = fileRef.Copy(x =>
+        {
+            x.Name = newFilename;
+            x.Folder = new FolderReference { Name = fileRef.Folder.Name, Path = fileRef.Folder.Path, FullPath = fileRef.Folder.FullPath };
+        });
+        await TriggerEvents(fileRef, newRef, MediaLibraryFileEventType.Updating);
+
+        var result = await _fileStructureStorage.UpdateFileAsync(fileRef.Id, new FileModel()
+        {
+            Tags = fileRef.Tags.ToArray(),
+            Name = newFilename,
+            Path = fileRef.Folder.FullPath,
+            MetaData = fileRef.MetaData,
+            Description = fileRef.Description,
+            AltText = fileRef.AltText,
+            Title = fileRef.Title,
+            Creator = fileRef.Creator,
+        });
+        if (result.Success)
+        {
+            await TriggerEvents(fileRef, newRef, MediaLibraryFileEventType.Updating);
+        }
+
+        return result;
+    }
+    
 
     public virtual async Task<TaskResult> RenameFileAsync(string path, string filename, string newPath,
         string newFilename)
@@ -116,7 +168,7 @@ public class MediaLibraryService : IMediaLibraryService
         });
         if (result.Success)
         {
-            await TriggerEvents(fileRef, newRef, MediaLibraryFileEventType.Updating);
+            await TriggerEvents(fileRef, newRef, MediaLibraryFileEventType.Updated);
         }
 
         return result;
