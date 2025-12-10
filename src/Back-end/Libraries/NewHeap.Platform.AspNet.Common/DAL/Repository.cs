@@ -13,15 +13,15 @@ namespace NewHeap.Platform.AspNet.Common.DAL;
 public partial class Repository<T> : IRepository<T> 
     where T : class
 {
-    protected DbSet<T> DbSet;
+    protected readonly DbSet<T> DbSet;
 
-    public string TableName => Context.Model.Table<T>()!;
+    public string TableName { get; }
     
     public Repository(DbContext context)
     {
         Context = context;
         DbSet = context.Set<T>();
-        _ = TableFor<T>(); // We want this to blow up ASAP if the entity is not mapped to a table.
+        TableName = TableFor<T>(); // We want this to blow up ASAP if the entity is not mapped to a table.
     }
 
     public DbContext Context { get; }
