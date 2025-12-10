@@ -57,6 +57,6 @@ public static class IModelExtensions
             throw new InvalidOperationException($"Entity type {typeof(T).Name} does not refer to a table.");
         }
 
-        return string.Join('.', table!.Split('.').Select(x => $"[x]"));
+        return string.Join('.', table!.Split('.').Select(x => $"[{x}]"));
     }
 }
