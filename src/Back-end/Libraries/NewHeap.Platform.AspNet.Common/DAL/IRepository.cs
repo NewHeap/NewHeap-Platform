@@ -7,6 +7,13 @@ public interface IRepository<T> where T : class
 {
     DbContext Context { get; }
 
+    string TableName { get; }
+
+    
+    string TableFor<V>();
+    
+    string ColumnFor<V>(Expression<Func<V, object?>> prop, bool prefixTable = true);
+    
     void Add(T entity);
     void Add<TEntity>(TEntity entity) where TEntity : class;
     ValueTask<EntityEntry<T>> AddAsync(T entity);
