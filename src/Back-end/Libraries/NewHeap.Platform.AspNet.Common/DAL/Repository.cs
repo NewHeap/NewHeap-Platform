@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.Common.Extensions;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Transactions;
@@ -12,12 +13,15 @@ namespace NewHeap.Platform.AspNet.Common.DAL;
 public partial class Repository<T> : IRepository<T> 
     where T : class
 {
-    protected DbSet<T> DbSet;
+    protected readonly DbSet<T> DbSet;
 
+    public string TableName { get; }
+    
     public Repository(DbContext context)
     {
         Context = context;
         DbSet = context.Set<T>();
+        TableName = TableFor<T>(); // We want this to blow up ASAP if the entity is not mapped to a table.
     }
 
     public DbContext Context { get; }
@@ -28,6 +32,10 @@ public partial class Repository<T> : IRepository<T>
         return Context.Set<TDbSet>();
     }
 
+    public string TableFor<V>() => Context.Model.Table<V>();
+    
+    public string ColumnFor<V>(Expression<Func<V, object?>> prop, bool prefixTable = true) => Context.Model.Column(prop, prefixTable);
+    
     public virtual CollectionEntry<TEntity, TProperty> Collection<TEntity, TProperty>(TEntity entity,
         Expression<Func<TEntity, IEnumerable<TProperty>>> propertyExpression)
         where TProperty : class
