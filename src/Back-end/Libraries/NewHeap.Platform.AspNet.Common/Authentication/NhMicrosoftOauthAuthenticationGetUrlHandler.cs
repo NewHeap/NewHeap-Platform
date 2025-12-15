@@ -99,7 +99,7 @@ where TUser : IdentityUser<Guid>
         }
         
         var profile = await microsoftAuthService.GetProfile(token.AccessToken);
-        var user = await userManager.FindByEmailAsync(profile!.Mail!);
+        var user = await userManager.FindByNameAsync(profile!.Mail!);
         if (user == null)
         {
             return BadRequest(TaskResult.Failed("Unknown user"));

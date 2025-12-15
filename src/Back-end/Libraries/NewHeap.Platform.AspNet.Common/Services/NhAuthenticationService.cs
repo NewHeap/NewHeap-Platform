@@ -65,7 +65,7 @@ public class NhAuthenticationService<
     /// <returns>A new token when refresh token is valid</returns>
     public virtual async Task<TaskResult<UserToken>> AuthenticateRefreshTokenAsync(RefreshTokenRequest request)
     {
-        var user = await FindUserByEmailAsync(request.UserName);
+        var user = await FindUserByUsernamelAsync(request.UserName);
 
         if (user == null)
         {
@@ -174,9 +174,9 @@ public class NhAuthenticationService<
         return new Uri(GetIssuer()).Host;
     }
 
-    protected virtual Task<TUser?> FindUserByEmailAsync(string email)
+    protected virtual Task<TUser?> FindUserByUsernamelAsync(string username)
     {
-        return _userManager.FindByEmailAsync(email);
+        return _userManager.FindByNameAsync(username);
     }
 
     /// <summary>
@@ -193,7 +193,7 @@ public class NhAuthenticationService<
         AuthenticateRequest request,
         IEnumerable<Claim>? requiredClaims = null)
     {
-        var user = await FindUserByEmailAsync(request.UserName);
+        var user = await FindUserByUsernamelAsync(request.UserName);
         if (user == null)
         {
             return TaskResult<UserToken>.Failed("Unknown user");
