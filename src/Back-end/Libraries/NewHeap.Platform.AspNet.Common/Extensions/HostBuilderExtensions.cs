@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NewHeap.Platform.Common;
 
@@ -38,13 +39,45 @@ public static partial class HostBuilderExtensions
         return configBuilder;
     }
 
-    public static IWebHostBuilder UseNewHeapDevelopmentKestrelDefaults(this IWebHostBuilder builder, Action<KestrelServerOptions>? serverOptions = null, string? forcedEnvironmentName = "Development")
+    public static IWebHostBuilder UseNewHeapDevelopmentKestrelDefaults(
+        this IWebHostBuilder builder, 
+        Action<KestrelServerOptions>? serverOptions = null, 
+        string? forcedEnvironmentName = "Development"
+        )
     {
-        builder.ConfigureKestrel((context, options) =>
+        return builder.ConfigureServices((context, app) =>
+        {
+            var env = context.HostingEnvironment;
+            app.UseNewHeapDevelopmentKestrelDefaults(
+                env.EnvironmentName,
+                serverOptions,
+                forcedEnvironmentName
+            );
+        });
+    }
+
+    public static IHostApplicationBuilder UseNewHeapDevelopmentKestrelDefaults(
+        this IHostApplicationBuilder builder, 
+        Action<KestrelServerOptions>? serverOptions = null, 
+        string? forcedEnvironmentName = "Development")
+    {
+        var env = builder.Environment;
+        builder.Services.UseNewHeapDevelopmentKestrelDefaults(env.EnvironmentName, serverOptions, forcedEnvironmentName);
+
+        return builder;
+    }
+
+    private static IServiceCollection UseNewHeapDevelopmentKestrelDefaults(
+        this IServiceCollection services, 
+        string environmentName,
+        Action<KestrelServerOptions>? serverOptions = null, 
+        string? forcedEnvironmentName = "Development")
+    {
+        services.Configure<KestrelServerOptions>(options =>
         {
             if (!string.IsNullOrWhiteSpace(forcedEnvironmentName))
             {
-                if (!string.Equals(context.HostingEnvironment.EnvironmentName, forcedEnvironmentName, StringComparison.InvariantCultureIgnoreCase))
+                if (!string.Equals(environmentName, forcedEnvironmentName, StringComparison.InvariantCultureIgnoreCase))
                 {
                     return;
                 }
@@ -60,7 +93,7 @@ public static partial class HostBuilderExtensions
             serverOptions?.Invoke(options);
         });
 
-        return builder;
+        return services;
     }
 
     public static IConfigurationBuilder ConfigureNewHeapAspNetCommonConfiguration(
