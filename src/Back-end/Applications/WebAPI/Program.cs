@@ -17,6 +17,7 @@ public class Program
             .ConfigureWebHostDefaults(webBuilder =>
             {
                 webBuilder.UseStartup<Startup>();
+                webBuilder.UseNewHeapDevelopmentKestrelDefaults();
 #if DEBUG
                 webBuilder.UseKestrel(options =>
                 {
