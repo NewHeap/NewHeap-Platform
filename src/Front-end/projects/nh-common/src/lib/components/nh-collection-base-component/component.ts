@@ -2,7 +2,7 @@ import {
   Component, inject,
   OnDestroy,
   OnInit,
-  input, PLATFORM_ID, Type
+  input, PLATFORM_ID, Type, model
 } from "@angular/core";
 import {Observable, Subscription} from "rxjs";
 import {ActivatedRoute, Router} from "@angular/router";
@@ -45,8 +45,8 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
   protected nhRouterService: NhRouterService = inject(NhRouterService);
   tableInfo: any = {offset: 0, limit: 10};
   claimTypes = ClaimTypes;
-  readonly queryParamUpdates = input<boolean>(true);
-  readonly localStorageUpdates = input<boolean>(true);
+  readonly queryParamUpdates = model<boolean>(true);
+  readonly localStorageUpdates = model<boolean>(true);
   protected filtersActive = false;
   protected isLoading: boolean = false;
   protected requestOptions = new CollectionHttpRequestOptions();
