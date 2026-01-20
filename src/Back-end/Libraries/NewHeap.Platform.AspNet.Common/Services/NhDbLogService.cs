@@ -26,7 +26,7 @@ public partial class NhDbLogService : NhDbLogService<
         IOptions<DbLogServiceSettings> logSettings,
         IRepository<NhLog> logRepository,
         IHttpContextAccessor httpContextAccessor,
-        IStringLocalizer<INhDbLogService> logLocalizer,
+        IStringLocalizer<NhDbLogService> logLocalizer,
         IOptions<NewHeapAspNetCommonSettings> settings
     ) : base(logSettings, logRepository, httpContextAccessor, logLocalizer, settings)
     {
@@ -62,7 +62,7 @@ public abstract partial class NhDbLogService<
     where TDivisionRoleClaim : NhDivisionRoleClaim
 {
     protected readonly IHttpContextAccessor _httpContextAccessor;
-    protected readonly IStringLocalizer<INhDbLogService> _logLocalizer;
+    protected readonly IStringLocalizer _logLocalizer;
     protected readonly IRepository<TLog> _logRepository;
     protected readonly DbLogServiceSettings _logSettings;
     protected readonly NewHeapAspNetCommonSettings _settings;
@@ -71,7 +71,7 @@ public abstract partial class NhDbLogService<
         IOptions<DbLogServiceSettings> logSettings,
         IRepository<TLog> logRepository,
         IHttpContextAccessor httpContextAccessor,
-        IStringLocalizer<INhDbLogService> logLocalizer,
+        IStringLocalizer<NhDbLogService> logLocalizer,
         IOptions<NewHeapAspNetCommonSettings> settings
     )
     {
