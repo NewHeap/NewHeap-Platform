@@ -209,6 +209,26 @@ internal class NhNotificationProcessingService : BackgroundService
                 return;
             }
 
+            try
+            {
+                var dispatchResult = await dispatcher.DispatchAsync(delivery.Data, stoppingToken);
+                await handleResult(dispatchResult);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Dispatch error in channel {Channel}", dispatcherId);
+                var errorResult = new TaskResult();
+                errorResult.AddError("DispatchError", $"Failed to dispatch notification delivery {deliveryId} in channel {dispatcherId}: {ex.Message}");
+
+                await handleResult(errorResult);
+            }
+            finally
+            {
+                _inFlight[dispatcherId].TryRemove(deliveryId, out _);
+            }
+
+            continue;
+
             async Task handleResult(TaskResult taskResult)
             {
                 delivery.AttemptCount++;
@@ -236,24 +256,6 @@ internal class NhNotificationProcessingService : BackgroundService
                 }
 
                 await notificationRepository.SaveChangesAsync(stoppingToken);
-            }
-
-            try
-            {
-                var dispatchResult = await dispatcher.DispatchAsync(delivery.Data, stoppingToken);
-                await handleResult(dispatchResult);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Dispatch error in channel {Channel}", dispatcherId);
-                var errorResult = new TaskResult();
-                errorResult.AddError("DispatchError", $"Failed to dispatch notification delivery {deliveryId} in channel {dispatcherId}: {ex.Message}");
-
-                await handleResult(errorResult);
-            }
-            finally
-            {
-                _inFlight[dispatcherId].TryRemove(deliveryId, out _);
             }
         }
 

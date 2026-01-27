@@ -28,6 +28,7 @@ using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Resolvers;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
+using NewHeap.Platform.AspNet.Common.Utilities;
 using NewHeap.Platform.AspNet.Policy.AuthorizationHandlers;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Localization;
@@ -175,7 +176,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection.AddMvc(options =>
             {
                 options.EnableEndpointRouting = false;
-
+                options.ValueProviderFactories.Insert(0, new InvariantFormValueProviderFactory());
                 _options.MvcOptionsAction?.Invoke(options);
             })
             .AddNewtonsoftJson( /* Options are configured by MvcNewtonsoftJsonOptionsWrapper */)
