@@ -64,7 +64,7 @@ export class NhFormDropDownSettings {
 
   lazyLoad = true;
   translateOptionValue = true;
-  multiSelectSettings: IMultiSelectSettings = new DefaultMultiSelectSettings();
+  multiSelectSettings: IMultiSelectSettings = new DefaultMultiSelectSettings({});
   multiSelectTexts: IMultiSelectTexts = new DefaultMultiSelectTexts();
   requestOptions = new CollectionHttpRequestOptions();
   debounceTime = 300;
@@ -76,6 +76,7 @@ export class NhFormDropDownSettings {
   keyGetLambda = (x: any) => {
     return x.id
   };
+  imageGetLambda = (x: any) => undefined;
   valueGetLambda = (x: any) => {
     return x.name
   };
@@ -207,7 +208,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
       if(this.settings.loadLambda) {
         this.settings.loadLambda().subscribe((options) => {
           this.options = options.map(x => {
-            return {id: this.settings.keyGetLambda(x), name: this.settings.valueGetLambda(x)}
+            return {id: this.settings.keyGetLambda(x), name: this.settings.valueGetLambda(x), image: this.settings.imageGetLambda(x)}
           });
           this.rawOptions = options;
         });
@@ -240,7 +241,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
           const selectedOptions = [];
           if (response && response.items && response.items.length > 0) {
             for (const item of response.items) {
-              const option = {id: this.settings.keyGetLambda(item), name: this.settings.valueGetLambda(item)};
+              const option = {id: this.settings.keyGetLambda(item), name: this.settings.valueGetLambda(item), image: this.settings.imageGetLambda(item)};
 
               if (this.settings.translateOptionValue) {
                 option.name = this.translate.instant(option.name);
