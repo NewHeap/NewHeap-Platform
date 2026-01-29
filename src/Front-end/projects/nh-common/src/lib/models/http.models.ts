@@ -158,6 +158,20 @@ export class CollectionHttpRequestOptions extends SearchableCollectionHttpReques
     return this;
   }
 
+  public orderByFirst(propertyName:string, collectionItemProperty: string, direction: 'ASC' | 'DESC') : this {
+    this.orderBy.push(new OrderByRequestOptions({
+      key: `${propertyName}.{first:${direction}}${collectionItemProperty}`
+      , direction}));
+    return this;
+  }
+
+  public orderByLast(propertyName:string, collectionItemProperty: string, direction: 'ASC' | 'DESC') : this {
+    this.orderBy.push(new OrderByRequestOptions({
+      key: `${propertyName}.{last:${direction}}${collectionItemProperty}`
+      , direction}));
+    return this;
+  }
+
   public orderAsc(key: string) : this {
     return this.order(key, 'ASC');
   }
