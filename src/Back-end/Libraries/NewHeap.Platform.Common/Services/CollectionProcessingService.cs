@@ -21,14 +21,31 @@ public interface ICollectionProcessingService
         where TEntity : class
         where TViewModel : class;
 
+    Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, bool asNoTracking = true, CancellationToken cancellationToken = default)
+        where TEntity : class
+        where TViewModel : class;
+
     Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, CancellationToken cancellationToken = default, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+         where TEntity : class
+         where TViewModel : class;
+
+    Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, bool asNoTracking = true, CancellationToken cancellationToken = default, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
 
     Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, CancellationToken cancellationToken = default)
         where TEntity : class
         where TViewModel : class;
+
+    Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, bool asNoTracking = true, CancellationToken cancellationToken = default)
+        where TEntity : class
+        where TViewModel : class;
+
     Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, CancellationToken cancellationToken = default, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TEntity : class
+        where TViewModel : class;
+
+    Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(ICollectionRequestModel requestModel, IQueryable<TEntity> queryable, Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null, bool asNoTracking = true, CancellationToken cancellationToken = default, params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
         where TEntity : class
         where TViewModel : class;
 
@@ -872,6 +889,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         IQueryable<TEntity> queryable,
         List<(Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)> defaultOrderBy,
         Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+        bool asNoTracking = true,
         CancellationToken cancellationToken = default
         )
         where TEntity : class
@@ -895,7 +913,11 @@ public partial class CollectionProcessingService : ICollectionProcessingService
             requestModel.Page = 1;
         }
 
-        queryable = queryable.AsNoTracking();
+        if (asNoTracking)
+        { 
+            queryable = queryable.AsNoTracking();
+        }
+
         var processedResult = await _ProcessQueryable<TEntity, TViewModel>(
             requestModel,
             queryable,
@@ -940,11 +962,32 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         where TEntity : class
         where TViewModel : class
     {
+        return GetCollectionResultModelAsync<TEntity, TViewModel>(
+            requestModel,
+            queryable,
+            resultQueryableFunc,
+            asNoTracking: true,
+            cancellationToken,
+            defaultOrderBy
+        );
+    }
+
+    public virtual Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(
+       ICollectionRequestModel requestModel,
+       IQueryable<TEntity> queryable,
+       Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+       bool asNoTracking = true,
+       CancellationToken cancellationToken = default,
+       params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+       where TEntity : class
+       where TViewModel : class
+    {
         return _GetCollectionResultModelAsync<TEntity, TViewModel>(
             requestModel,
             queryable,
             [.. defaultOrderBy],
             resultQueryableFunc,
+            asNoTracking,
             cancellationToken
         );
     }
@@ -959,20 +1002,42 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         where TEntity : class
         where TViewModel : class
     {
+        return GetCollectionResultModelAsync<TEntity, TViewModel>(
+            requestModel,
+            queryable,
+            resultQueryableFunc,
+            asNoTracking: true,
+            cancellationToken
+        );
+    }
+
+    public virtual Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(
+        ICollectionRequestModel requestModel,
+        IQueryable<TEntity> queryable,
+        Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+        bool asNoTracking = true,
+        CancellationToken cancellationToken = default
+    )
+        where TEntity : class
+        where TViewModel : class
+    {
         return _GetCollectionResultModelAsync<TEntity, TViewModel>(
             requestModel,
             queryable,
             new List<(Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)>(),
             resultQueryableFunc,
+            asNoTracking,
             cancellationToken
         );
     }
+
 
     protected async Task<SimpleCollectionResultModel<TViewModel>> _GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
         ICollectionRequestModel requestModel,
         IQueryable<TEntity> queryable,
         List<(Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)> defaultOrderBy,
         Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+        bool asNoTracking = true,
         CancellationToken cancellationToken = default
         )
         where TEntity : class
@@ -983,6 +1048,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
             queryable,
             defaultOrderBy,
             resultQueryableFunc,
+            asNoTracking,
             cancellationToken
         );
 
@@ -1005,11 +1071,31 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         where TEntity : class
         where TViewModel : class
     {
+        return GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
+            requestModel,
+            queryable,
+            resultQueryableFunc,
+            asNoTracking: true,
+            cancellationToken
+        );
+    }
+
+    public virtual Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
+        ICollectionRequestModel requestModel,
+        IQueryable<TEntity> queryable,
+        Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+        bool asNoTracking = true,
+        CancellationToken cancellationToken = default,
+        params (Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TEntity : class
+        where TViewModel : class
+    {
         return _GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
             requestModel,
             queryable,
             [.. defaultOrderBy],
             resultQueryableFunc,
+            asNoTracking,
             cancellationToken
         );
     }
@@ -1023,11 +1109,31 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         where TEntity : class
         where TViewModel : class
     {
+        return GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
+            requestModel,
+            queryable,
+            resultQueryableFunc,
+            asNoTracking: true,
+            cancellationToken
+        );
+    }
+
+    public virtual Task<SimpleCollectionResultModel<TViewModel>> GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
+        ICollectionRequestModel requestModel,
+        IQueryable<TEntity> queryable,
+        Func<IQueryable<TEntity>, CancellationToken, Task<IQueryable<TEntity>>>? resultQueryableFunc = null,
+        bool asNoTracking = true,
+        CancellationToken cancellationToken = default
+    )
+        where TEntity : class
+        where TViewModel : class
+    {
         return _GetSimpleCollectionResultModelAsync<TEntity, TViewModel>(
             requestModel,
             queryable,
             new List<(Expression<Func<TEntity, object>> orderByKey, ListSortDirection sortDirection)>(),
             resultQueryableFunc,
+            asNoTracking,
             cancellationToken
         );
     }

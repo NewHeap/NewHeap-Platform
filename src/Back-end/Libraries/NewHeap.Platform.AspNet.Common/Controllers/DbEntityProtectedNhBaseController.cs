@@ -83,19 +83,32 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TCrea
     [NonAction]
     protected virtual Task<IActionResult> DoGet(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null, CancellationToken cancellationToken = default)
     {
-        return DoGet<TViewModel>(requestModel, overrideQuery, cancellationToken);
+        return DoGet(requestModel, overrideQuery, asNotracking: true, cancellationToken);
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoGet<TCustomViewModel>(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null, CancellationToken cancellationToken = default)
+    protected virtual Task<IActionResult> DoGet(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null, bool asNotracking = true, CancellationToken cancellationToken = default)
+    {
+        return DoGet<TViewModel>(requestModel, overrideQuery, asNotracking: asNotracking, cancellationToken);
+    }
+
+    [NonAction]
+    protected virtual Task<IActionResult> DoGet<TCustomViewModel>(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null, CancellationToken cancellationToken = default)
+        where TCustomViewModel : class
+    {
+        return DoGet<TCustomViewModel>(requestModel, overrideQuery, asNotracking: true, cancellationToken);
+    }
+
+    [NonAction]
+    protected virtual async Task<IActionResult> DoGet<TCustomViewModel>(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null, bool asNotracking = true, CancellationToken cancellationToken = default)
         where TCustomViewModel : class
     {
         requestModel ??= new TCollectionRequestModel();
         var query = overrideQuery?.AsNoTracking() ?? (await GetQueryableAsync(cancellationToken)).AsNoTracking();
 
         try
-        { 
-            var result = await GetCollectionResultModel<TDbEntity, TCustomViewModel>(requestModel, query, null, cancellationToken: cancellationToken, GetDefaultCollectionResultOrderBy());
+        {
+            var result = await GetCollectionResultModel<TDbEntity, TCustomViewModel>(requestModel, query, null, asNoTracking: asNotracking, cancellationToken: cancellationToken, GetDefaultCollectionResultOrderBy());
 
             return Ok(result);
         }
@@ -113,10 +126,23 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TCrea
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoGetById<TCustomViewModel>(Guid id, IQueryable<TDbEntity>? overrideQuery = null, CancellationToken cancellationToken = default)
+    protected virtual Task<IActionResult> DoGetById<TCustomViewModel>(Guid id, IQueryable<TDbEntity>? overrideQuery = null, CancellationToken cancellationToken = default)
         where TCustomViewModel : class
     {
-        var query = overrideQuery?.AsNoTracking() ?? (await GetQueryableAsync(cancellationToken)).AsNoTracking();
+        return DoGetById<TCustomViewModel>(id, overrideQuery, asNoTracking: true, cancellationToken);
+    }
+
+    [NonAction]
+    protected virtual async Task<IActionResult> DoGetById<TCustomViewModel>(Guid id, IQueryable<TDbEntity>? overrideQuery = null, bool asNoTracking = true, CancellationToken cancellationToken = default)
+    where TCustomViewModel : class
+    {
+        var query = overrideQuery ?? (await GetQueryableAsync(cancellationToken));
+
+        if (asNoTracking)
+        {
+            query = query.AsNoTracking();
+        }
+
         var entity = await query.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (entity == null)
