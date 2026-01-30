@@ -81,6 +81,18 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TCrea
     }
 
     [NonAction]
+    protected virtual Task<IActionResult> DoGet(TCollectionRequestModel requestModel)
+    {
+        return DoGet(requestModel, default);
+    }
+
+    [NonAction]
+    protected virtual Task<IActionResult> DoGet(TCollectionRequestModel requestModel, CancellationToken cancellationToken = default)
+    {
+        return DoGet(requestModel, null, cancellationToken);
+    }
+
+    [NonAction]
     protected virtual Task<IActionResult> DoGet(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null, CancellationToken cancellationToken = default)
     {
         return DoGet(requestModel, overrideQuery, asNotracking: true, cancellationToken);

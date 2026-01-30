@@ -70,7 +70,7 @@ public abstract class NhBaseDivisionController<
     [Authorize(Policy = READ_POLICY)]
     public virtual Task<IActionResult> Get([FromQuery] DivisionCollectionRequestModel requestModel, CancellationToken cancellationToken = default)
     {
-        return DoGet(requestModel, cancellationToken: cancellationToken);
+        return DoGet(requestModel, cancellationToken);
     }
 
     [HttpGet("{id}")]
