@@ -99,7 +99,7 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TCrea
     }
 
     [NonAction]
-    protected virtual Task<IActionResult> DoGet(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null, bool asNotracking = true, CancellationToken cancellationToken = default)
+    protected virtual Task<IActionResult> DoGet(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery, bool asNotracking, CancellationToken cancellationToken)
     {
         return DoGet<TViewModel>(requestModel, overrideQuery, asNotracking: asNotracking, cancellationToken);
     }
@@ -112,7 +112,7 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TCrea
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoGet<TCustomViewModel>(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery = null, bool asNotracking = true, CancellationToken cancellationToken = default)
+    protected virtual async Task<IActionResult> DoGet<TCustomViewModel>(TCollectionRequestModel requestModel, IQueryable<TDbEntity>? overrideQuery, bool asNotracking, CancellationToken cancellationToken = default)
         where TCustomViewModel : class
     {
         requestModel ??= new TCollectionRequestModel();
@@ -145,7 +145,7 @@ public abstract partial class DbEntityProtectedNhBaseController<TDbEntity, TCrea
     }
 
     [NonAction]
-    protected virtual async Task<IActionResult> DoGetById<TCustomViewModel>(Guid id, IQueryable<TDbEntity>? overrideQuery = null, bool asNoTracking = true, CancellationToken cancellationToken = default)
+    protected virtual async Task<IActionResult> DoGetById<TCustomViewModel>(Guid id, IQueryable<TDbEntity>? overrideQuery, bool asNoTracking, CancellationToken cancellationToken = default)
     where TCustomViewModel : class
     {
         var query = overrideQuery ?? (await GetQueryableAsync(cancellationToken));

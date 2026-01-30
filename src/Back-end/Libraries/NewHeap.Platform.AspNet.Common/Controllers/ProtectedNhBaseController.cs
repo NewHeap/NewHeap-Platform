@@ -53,6 +53,22 @@ public abstract partial class ProtectedNhBaseController : NhBaseController
     [NonAction]
     protected Task<IActionResult> GetCollectionResultAsync<TModel, TViewModel>(
         IQueryable<TModel> query,
+        CancellationToken cancellationToken = default,
+        params (Expression<Func<TModel, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy)
+        where TModel : class where TViewModel : class
+    {
+        return GetCollectionResultAsync<TModel, TViewModel>(
+            query,
+            null,
+            null,
+            cancellationToken,
+            defaultOrderBy
+        );
+    }
+
+    [NonAction]
+    protected Task<IActionResult> GetCollectionResultAsync<TModel, TViewModel>(
+        IQueryable<TModel> query,
         Func<IQueryable<TModel>, CancellationToken, Task<IQueryable<TModel>>>? resultQueryableFunc = null,
         int? maxItemsPerPage = null,
         CancellationToken cancellationToken = default,
