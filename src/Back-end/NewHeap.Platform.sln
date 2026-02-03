@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.12.35707.178
+# Visual Studio Version 18
+VisualStudioVersion = 18.2.11415.280 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewHeap.Platform.Common", "Libraries\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj", "{595BE0C3-E5F2-4DA6-A5B3-2F3A9594FE7F}"
 EndProject
@@ -13,8 +13,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Applications", "Application
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebAPI", "Applications\WebAPI\WebAPI.csproj", "{B5382C67-D8A6-4248-80B8-190E9167B5B0}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{33C97E81-613D-46F6-8EA4-81F8D96BB7C9}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "__Solution Items", "__Solution Items", "{33C97E81-613D-46F6-8EA4-81F8D96BB7C9}"
 	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
 		Directory.Packages.props = Directory.Packages.props
 		nuget.config = nuget.config
 		publish-caching.ps1 = publish-caching.ps1
@@ -45,6 +46,17 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewHeap.Platform.Events.Cap", "Libraries\NewHeap.Platform.Events.Cap\NewHeap.Platform.Events.Cap.csproj", "{B63F4B9A-6516-4B31-8958-3C61AF95B344}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewHeap.Platform.Media.MediaStorage.S3Bucket", "Libraries\NewHeap.Platform.Media.MediaStorage.S3Bucket\NewHeap.Platform.Media.MediaStorage.S3Bucket.csproj", "{F613D021-75F5-4ED6-92C0-696769BCBF4D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{1D360831-537F-430C-A2ED-0F9F81AA8CE4}"
+	ProjectSection(SolutionItems) = preProject
+		.gitkeep = .gitkeep
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewHeap.Platform.Common.Test", "Libraries\NewHeap.Platform.Common.Test\NewHeap.Platform.Common.Test.csproj", "{8A88A67F-9E6D-4523-A837-41D4E1139FAD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewHeap.Platform.AspNet.Common.Test", "Libraries\NewHeap.Platform.AspNet.Common.Test\NewHeap.Platform.AspNet.Common.Test.csproj", "{F9D8F982-57E7-47A6-8C0B-F7696434C2C1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Test", "Test", "{15F9FA78-71D0-4BF4-B032-4FC66D4EFF0E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -96,6 +108,14 @@ Global
 		{F613D021-75F5-4ED6-92C0-696769BCBF4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F613D021-75F5-4ED6-92C0-696769BCBF4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F613D021-75F5-4ED6-92C0-696769BCBF4D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A88A67F-9E6D-4523-A837-41D4E1139FAD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A88A67F-9E6D-4523-A837-41D4E1139FAD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A88A67F-9E6D-4523-A837-41D4E1139FAD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A88A67F-9E6D-4523-A837-41D4E1139FAD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F9D8F982-57E7-47A6-8C0B-F7696434C2C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9D8F982-57E7-47A6-8C0B-F7696434C2C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9D8F982-57E7-47A6-8C0B-F7696434C2C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9D8F982-57E7-47A6-8C0B-F7696434C2C1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -113,6 +133,9 @@ Global
 		{C81F7586-4617-4539-A43C-5FBB2EA7A964} = {5FC542AC-AA75-453A-8F5E-76CFF5D76D50}
 		{B63F4B9A-6516-4B31-8958-3C61AF95B344} = {5FC542AC-AA75-453A-8F5E-76CFF5D76D50}
 		{F613D021-75F5-4ED6-92C0-696769BCBF4D} = {026E006D-3564-42A8-8CD0-484C1F9262CA}
+		{8A88A67F-9E6D-4523-A837-41D4E1139FAD} = {15F9FA78-71D0-4BF4-B032-4FC66D4EFF0E}
+		{F9D8F982-57E7-47A6-8C0B-F7696434C2C1} = {15F9FA78-71D0-4BF4-B032-4FC66D4EFF0E}
+		{15F9FA78-71D0-4BF4-B032-4FC66D4EFF0E} = {5FC542AC-AA75-453A-8F5E-76CFF5D76D50}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2ECAB1E7-4BFF-456B-8F6F-7D0002756B1A}
