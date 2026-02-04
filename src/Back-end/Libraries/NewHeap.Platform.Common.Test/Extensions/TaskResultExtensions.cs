@@ -24,27 +24,31 @@ public static class TaskResultExtensions
     public static AndConstraint<BooleanAssertions> ShouldBeSuccess<T>(
         this TaskResult<T> taskResult, string? because = null)
     {
-        return taskResult.ShouldBeSuccess(because);
+        because ??= "Expected success result, but got error result.";
+        return taskResult.Success.Should().BeTrue(because);
     }
 
     public static AndConstraint<BooleanAssertions> ShouldBeError<T>(
         this TaskResult<T> taskResult, string? because = null)
     {
-        return taskResult.ShouldBeError(because);
+        because ??= "Expected error result, but got success result.";
+        return taskResult.Success.Should().BeFalse(because);
     }
 
     public static AndConstraint<BooleanAssertions> ShouldBeSuccess<T>(
         this DisposableTaskResult<T> taskResult, string? because = null)
         where T : IDisposable
     {
-        return ((TaskResult<T>)taskResult).ShouldBeSuccess(because);
+        because ??= "Expected success result, but got error result.";
+        return taskResult.Success.Should().BeTrue(because);
     }
 
     public static AndConstraint<BooleanAssertions> ShouldBeError<T>(
         this DisposableTaskResult<T> taskResult, string? because = null)
         where T : IDisposable
     {
-        return ((TaskResult<T>)taskResult).ShouldBeError(because);
+        because ??= "Expected error result, but got success result.";
+        return taskResult.Success.Should().BeFalse(because);
     }
 
     public static TaskResult AsSuccess(
@@ -66,14 +70,16 @@ public static class TaskResultExtensions
     public static TaskResult<T> AsSuccess<T>(
         this TaskResult<T> taskResult, string? because = null)
     {
-        ((TaskResult)taskResult).AsSuccess(because);
+        using var _ = new AssertionScope();
+        taskResult.ShouldBeSuccess(because);
         return taskResult;
     }
 
     public static TaskResult<T> AsError<T>(
         this TaskResult<T> taskResult, string? because = null)
     {
-        ((TaskResult)taskResult).AsError(because);
+        using var _ = new AssertionScope();
+        taskResult.ShouldBeError(because);
         return taskResult;
     }
 
@@ -81,7 +87,8 @@ public static class TaskResultExtensions
         this DisposableTaskResult<T> taskResult, string? because = null)
         where T : IDisposable
     {
-        ((TaskResult<T>)taskResult).AsSuccess(because);
+        using var _ = new AssertionScope();
+        taskResult.ShouldBeSuccess(because);
         return taskResult;
     }
 
@@ -89,7 +96,8 @@ public static class TaskResultExtensions
         this DisposableTaskResult<T> taskResult, string? because = null)
         where T : IDisposable
     {
-        ((TaskResult<T>)taskResult).AsError(because);
+        using var _ = new AssertionScope();
+        taskResult.ShouldBeError(because);
         return taskResult;
     }
 }
