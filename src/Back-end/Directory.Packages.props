@@ -29,6 +29,7 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="9.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="9.0.3" />
     <PackageVersion Include="Microsoft.OpenApi" Version="1.6.23" />
+    <PackageVersion Include="Microsoft.Playwright.Xunit" Version="1.58.0" />
     <PackageVersion Include="NewHeap.Platform.Common" Version="1.0.0-ci-20250916-1707" />
     <PackageVersion Include="OneOf" Version="3.0.271" />
     <PackageVersion Include="OpenTelemetry" Version="1.11.2" />
