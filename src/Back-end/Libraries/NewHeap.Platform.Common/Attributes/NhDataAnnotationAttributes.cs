@@ -62,11 +62,17 @@ public class NhGreaterThanAttribute : ValidationAttribute
     protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
     {
         var stringLocalizer =
-          (validationContext.GetService(typeof(IStringLocalizer<SharedDataAnnotationRecources>)) as
-              IStringLocalizer<SharedDataAnnotationRecources>)!;
+           (validationContext.GetService(typeof(IStringLocalizer<SharedDataAnnotationRecources>)) as
+               IStringLocalizer<SharedDataAnnotationRecources>)!;
 
-        var fieldDisplayNameTranslation = stringLocalizer[validationContext.DisplayName];
-        ErrorMessage = stringLocalizer["{0} should be greater than {1}.", fieldDisplayNameTranslation, Minimum];
+        var fieldDisplayNameTranslation = (stringLocalizer != null)
+            ? stringLocalizer[validationContext.DisplayName]
+            : validationContext.DisplayName;
+
+        var fallBack = string.Format("{0} should be greater than {1}.", fieldDisplayNameTranslation, Minimum);
+        ErrorMessage = (stringLocalizer != null)
+            ? stringLocalizer["{0} should be greater than {1}.", fieldDisplayNameTranslation, Minimum]?.Value ?? fallBack
+            : fallBack;
 
         if (value == null)
         {
@@ -110,10 +116,16 @@ public class NhLessThanAttribute : ValidationAttribute
     {
         var stringLocalizer =
             (validationContext.GetService(typeof(IStringLocalizer<SharedDataAnnotationRecources>)) as
-                IStringLocalizer<SharedDataAnnotationRecources>)!;
+            IStringLocalizer<SharedDataAnnotationRecources>)!;
 
-        var fieldDisplayNameTranslation = stringLocalizer[validationContext.DisplayName];
-        ErrorMessage = stringLocalizer["{0} should be less than {1}.", fieldDisplayNameTranslation, Maximum];
+        var fieldDisplayNameTranslation = (stringLocalizer != null)
+            ? stringLocalizer[validationContext.DisplayName]
+            : validationContext.DisplayName;
+
+        var fallBack = string.Format("{0} should be less than {1}.", fieldDisplayNameTranslation, Maximum);
+        ErrorMessage = (stringLocalizer != null)
+            ? stringLocalizer["{0} should be less than {1}.", fieldDisplayNameTranslation, Maximum]?.Value ?? fallBack
+            : fallBack;
 
         if (value == null)
         {
