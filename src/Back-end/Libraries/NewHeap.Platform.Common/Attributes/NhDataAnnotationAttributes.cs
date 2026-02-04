@@ -15,8 +15,11 @@ public partial class NhRequiredAttribute : RequiredAttribute
             (validationContext.GetService(typeof(IStringLocalizer<SharedDataAnnotationRecources>)) as
                 IStringLocalizer<SharedDataAnnotationRecources>)!;
 
+        var fallBack = $"The {validationContext.DisplayName} field is required.";
         var fieldDisplayNameTranslation = stringLocalizer[validationContext.DisplayName];
-        ErrorMessage = stringLocalizer["The {0} field is required.", fieldDisplayNameTranslation]?.Value ?? $"The {validationContext.DisplayName} field is required.";
+        ErrorMessage = (stringLocalizer != null)
+            ? stringLocalizer["The {0} field is required.", fieldDisplayNameTranslation]?.Value ?? fallBack
+            : fallBack;
 
         if (DisallowAllDefaultValues && value is not null)
         {
