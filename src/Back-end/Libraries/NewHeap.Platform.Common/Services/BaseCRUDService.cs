@@ -3,6 +3,7 @@ using Microsoft.Extensions.Localization;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
+using NewHeap.Platform.Common.Utilities;
 using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Services;
@@ -192,6 +193,16 @@ public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMuta
     protected abstract Task<TaskResult<T?>> DoUpdateAsync(
         Guid id,
         TUpdateMutateModel mutateModel,
+        Guid? committedByUserId = default,
+        Action<T>? beforeSave = null,
+        CancellationToken cancellationToken = default,
+        TOperationOptions? options = null
+    );
+
+    protected abstract Task<TaskResult<T?>> DoUpdatePartialAsync(
+        Guid id,
+        Func<NhSetPropertyCalls<TUpdateMutateModel>, NhSetPropertyCalls<TUpdateMutateModel>> set,
+        Action<NhSetPropertyCalls<TUpdateMutateModel>>? callsReady = null,
         Guid? committedByUserId = default,
         Action<T>? beforeSave = null,
         CancellationToken cancellationToken = default,

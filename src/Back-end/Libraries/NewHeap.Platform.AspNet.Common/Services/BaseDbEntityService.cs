@@ -5,6 +5,7 @@ using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
+using NewHeap.Platform.Common.Utilities;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
@@ -32,6 +33,16 @@ public interface IBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutate
     Task<TaskResult<TEntity?>> DeleteAsync(Guid id, Guid? committedByUserId = null, CancellationToken cancellationToken = default, BaseDbEntityServiceOperationOptions? options = null);
     Task<TEntity?> GetAsync(Guid id, CancellationToken cancellationToken = default);
     Task<TaskResult<TEntity?>> UpdateAsync(Guid id, TUpdateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default, BaseDbEntityServiceOperationOptions? options = null);
+
+    Task<TaskResult<TEntity?>> UpdatePartialAsync(
+        Guid id,
+        Func<NhSetPropertyCalls<TUpdateMutateModel>, NhSetPropertyCalls<TUpdateMutateModel>> set,
+        Action<NhSetPropertyCalls<TUpdateMutateModel>>? callsReady = null,
+        Guid? committedByUserId = default,
+        Action<TEntity>? beforeSave = null,
+        CancellationToken cancellationToken = default,
+        BaseDbEntityServiceOperationOptions? options = null
+    );
 }
 
 public abstract partial class BaseDbEntityService<TEntity, TMutateModel, TBaseDbEntityService> : BaseDbEntityService<TEntity, TMutateModel, TMutateModel, TMutateModel, TBaseDbEntityService>, IBaseDbEntityService<TEntity, TMutateModel>
@@ -145,6 +156,16 @@ public abstract partial class BaseDbEntityService<TEntity, TCreateMutateModel, T
 
     public virtual Task<TaskResult<TEntity?>> DeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default, BaseDbEntityServiceOperationOptions? options = null)
         => DoDeleteAsync(id, committedByUserId, cancellationToken, options);
+
+    public virtual Task<TaskResult<TEntity?>> UpdatePartialAsync(
+        Guid id,
+        Func<NhSetPropertyCalls<TUpdateMutateModel>, NhSetPropertyCalls<TUpdateMutateModel>> set,
+        Action<NhSetPropertyCalls<TUpdateMutateModel>>? callsReady = null,
+        Guid? committedByUserId = default,
+        Action<TEntity>? beforeSave = null,
+        CancellationToken cancellationToken = default,
+        BaseDbEntityServiceOperationOptions? options = null
+    ) => DoUpdatePartialAsync(id, set, callsReady, committedByUserId, beforeSave, cancellationToken, options);
 
     #endregion
 }

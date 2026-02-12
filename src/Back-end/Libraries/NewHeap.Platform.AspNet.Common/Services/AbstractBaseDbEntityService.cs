@@ -8,6 +8,7 @@ using NewHeap.Platform.AspNet.Services;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
+using NewHeap.Platform.Common.Utilities;
 using System.Linq.Expressions;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
@@ -332,6 +333,55 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         return result;
     }
 
+    protected override async Task<TaskResult<TEntity?>> DoUpdatePartialAsync(
+        Guid id,
+        Func<NhSetPropertyCalls<TUpdateMutateModel>, NhSetPropertyCalls<TUpdateMutateModel>> set,
+        Action<NhSetPropertyCalls<TUpdateMutateModel>>? callsReady = null,
+        Guid? committedByUserId = default,
+        Action<TEntity>? beforeSave = null,
+        CancellationToken cancellationToken = default,
+        TOperationOptions? options = null
+    )
+    {
+        var result = new TaskResult<TEntity?>();
+
+        var entity = await QueryableWithUpdateDeleteIncludes()
+            .OrderBy(x => x.Id)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+        if (entity == null)
+        {
+            return result.WithKeylessError(_localizer["EntityNotFound", id]);
+        }
+
+        var mutateModel = _mapper.Map<TUpdateMutateModel>(entity);
+
+        var calls = set(new NhSetPropertyCalls<TUpdateMutateModel>());
+        calls.Apply(mutateModel);
+        callsReady?.Invoke(calls);
+
+        using var transaction = await _repository.StartOrGetTransactionScopeAsync(cancellationToken);
+
+        var updateResult = await DoUpdateAsync(
+             id,
+             mutateModel,
+             committedByUserId,
+             beforeSave,
+             cancellationToken,
+             options
+        );
+
+        if (!updateResult.Success)
+        {
+            updateResult.ApplyTo(result);
+            return result;
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+
+        return result;
+    }
+
     protected override async Task<TaskResult<TEntity?>> DoDeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default, TOperationOptions? options = null)
     {
         var result = new TaskResult<TEntity?>();
@@ -383,4 +433,22 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         return result;
     }
     #endregion
+
+    protected static TaskResult<string> GetPropertyNameFromExpression<T>(Expression<Func<T, object>> expression)
+    {
+        var result = new TaskResult<string>();
+
+        if (expression.Body is MemberExpression member)
+        { 
+            return result.WithData(member.Member.Name);
+        }
+
+        if (expression.Body is UnaryExpression unary &&
+            unary.Operand is MemberExpression unaryMember)
+        { 
+            return result.WithData(unaryMember.Member.Name);
+        }
+
+        return result.WithKeylessError("Invalid expression. Only simple member access expressions are allowed.");
+    }
 }

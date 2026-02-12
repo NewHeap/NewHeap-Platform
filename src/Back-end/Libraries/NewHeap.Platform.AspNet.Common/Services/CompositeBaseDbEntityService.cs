@@ -5,6 +5,7 @@ using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
+using NewHeap.Platform.Common.Utilities;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
 
@@ -30,6 +31,15 @@ public interface ICompositeBaseDbEntityService<TEntity, TCreateMutateModel, TUpd
     Task<TaskResult<TViewModel?>> DeleteAsync(Guid id, Guid? committedByUserId = null, CancellationToken cancellationToken = default, CompositeBaseDbEntityServiceOperationOptions? options = null);
     Task<TViewModel?> GetAsync(Guid id, CancellationToken cancellationToken = default);
     Task<TaskResult<TViewModel?>> UpdateAsync(Guid id, TUpdateMutateModel mutateModel, Guid? committedByUserId = null, Action<TEntity>? beforeSave = null, CancellationToken cancellationToken = default, CompositeBaseDbEntityServiceOperationOptions? options = null);
+    Task<TaskResult<TEntity?>> UpdatePartialAsync(
+        Guid id,
+        Func<NhSetPropertyCalls<TUpdateMutateModel>, NhSetPropertyCalls<TUpdateMutateModel>> set,
+        Action<NhSetPropertyCalls<TUpdateMutateModel>>? callsReady = null,
+        Guid? committedByUserId = default,
+        Action<TEntity>? beforeSave = null,
+        CancellationToken cancellationToken = default,
+        CompositeBaseDbEntityServiceOperationOptions? options = null
+    );
 }
 
 public abstract partial class CompositeBaseDbEntityService<TEntity, TMutateModel, TViewModel, TCompositeBaseDbEntityService> : CompositeBaseDbEntityService<TEntity, TMutateModel, TMutateModel, TMutateModel, TViewModel, TCompositeBaseDbEntityService>, ICompositeBaseDbEntityService<TEntity, TMutateModel, TViewModel>
@@ -130,6 +140,19 @@ public abstract partial class CompositeBaseDbEntityService<TEntity, TCreateMutat
         CancellationToken cancellationToken = default,
         CompositeBaseDbEntityServiceOperationOptions? options = null
         );
+
+    public virtual Task<TaskResult<TEntity?>> UpdatePartialAsync(
+        Guid id,
+        Func<NhSetPropertyCalls<TUpdateMutateModel>, NhSetPropertyCalls<TUpdateMutateModel>> set,
+        Action<NhSetPropertyCalls<TUpdateMutateModel>>? callsReady = null,
+        Guid? committedByUserId = default,
+        Action<TEntity>? beforeSave = null,
+        CancellationToken cancellationToken = default,
+        CompositeBaseDbEntityServiceOperationOptions? options = null
+    )
+    { 
+        return DoUpdatePartialAsync(id, set, callsReady, committedByUserId, beforeSave, cancellationToken, options);
+    }
 
     public abstract Task<TaskResult<TViewModel?>> DeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default, CompositeBaseDbEntityServiceOperationOptions? options = null);
     #endregion
