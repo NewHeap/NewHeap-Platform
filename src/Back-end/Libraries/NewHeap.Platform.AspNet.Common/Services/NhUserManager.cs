@@ -380,7 +380,12 @@ public abstract partial class NhUserManager<
 
     public virtual bool IsOauthAccount(string email)
     {
-        return _microsoftAuthSettings.AuthDomains?.Contains(email.Split(new[] { '@' })[1],
+        var parts = email.Split('@', 2);
+        if (parts.Length < 2)
+        {
+            return false;
+        }
+        return _microsoftAuthSettings.AuthDomains?.Contains(parts[1],
             StringComparer.InvariantCultureIgnoreCase) == true;
     }
 

@@ -1,18 +1,19 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
-using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.Common.Extensions;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Transactions;
 
 namespace NewHeap.Platform.AspNet.Common.DAL;
 
 public partial class Repository<T> : IRepository<T> 
     where T : class
 {
+
+    public DebugView DebugView => Context.ChangeTracker.DebugView;
+    
     protected readonly DbSet<T> DbSet;
 
     public string TableName { get; }
