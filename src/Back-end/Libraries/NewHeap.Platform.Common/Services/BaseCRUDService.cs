@@ -14,6 +14,28 @@ public interface IBaseCRUDServiceOperationOptions
 public class BaseCRUDServiceOperationOptions : IBaseCRUDServiceOperationOptions
 { }
 
+public class BulkCRUDMutateModel<TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel>
+    where TCreateMutateModel : class
+    where TUpdateMutateModel : class
+    where TDeleteMutateModel : class
+{
+    public bool UseTransaction { get; set; } = true;
+    public bool ContinueOnError { get; set; } = false;
+    public IEnumerable<TCreateMutateModel>? Create { get; set; }
+    public IEnumerable<(Guid Id, TUpdateMutateModel MutateModel)>? Update { get; set; }
+
+    public IEnumerable<(Guid Id, Func<NhSetPropertyCalls<TUpdateMutateModel>, NhSetPropertyCalls<TUpdateMutateModel>> Set, Action<NhSetPropertyCalls<TUpdateMutateModel>>? CallsReady)>? UpdatePartial { get; set; }
+    public IEnumerable<Guid>? Delete { get; set; }
+}
+
+public class BulkCRUDResultModel<T>
+    where T : class
+{
+    public IEnumerable<TaskResult<T?>>? CreateResults { get; set; }
+    public IEnumerable<(Guid Id, TaskResult<T?> UpdateResult)>? UpdateResults { get; set; }
+    public IEnumerable<(Guid Id, TaskResult<T?> UpdatePartialResult)>? UpdatePartialResults { get; set; }
+    public IEnumerable<(Guid Id, TaskResult<T?> DeleteResult)>? DeleteResults { get; set; }
+}
 
 public interface IBaseCRUDService<T, TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel, TOperationOptions>
     where T : class
@@ -210,5 +232,14 @@ public abstract partial class BaseCRUDService<T, TCreateMutateModel, TUpdateMuta
     );
 
     protected abstract Task<TaskResult<T?>> DoDeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default, TOperationOptions? options = null);
+
+    protected abstract Task<TaskResult<BulkCRUDResultModel<T>>> DoBulkAsync(
+        BulkCRUDMutateModel<TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel> bulkCRUDMutateModel,
+        TOperationOptions options,
+        Guid? committedByUserId = default,
+        Action<T>? beforeSave = null,
+        CancellationToken cancellationToken = default,
+        Action<NhSetPropertyCalls<TUpdateMutateModel>>? partialUpdateCallsReady = null
+    );
     #endregion
 }

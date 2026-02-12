@@ -432,6 +432,127 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
 
         return result;
     }
+
+    protected override async Task<TaskResult<BulkCRUDResultModel<TEntity>>> DoBulkAsync(
+        BulkCRUDMutateModel<TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel> bulkCRUDMutateModel,
+        TOperationOptions options,
+        Guid? committedByUserId = default,
+        Action<TEntity>? beforeSave = null,
+        CancellationToken cancellationToken = default,
+        Action<NhSetPropertyCalls<TUpdateMutateModel>>? partialUpdateCallsReady = null
+    )
+    {
+        var result = new TaskResult<BulkCRUDResultModel<TEntity>>()
+        {
+            Data = new BulkCRUDResultModel<TEntity>()
+            { 
+                DeleteResults = [],
+                CreateResults = [],
+                UpdateResults = [],
+                UpdatePartialResults = []
+            }
+        };
+
+        options.SaveChangesDisabled = true;
+        INhDbTransactionScope? transaction = null;
+
+        Func<Task> handleExit = async () =>
+        {
+            var allResults = result.Data!.DeleteResults.Select(x => x.DeleteResult)
+                .Concat(result.Data!.CreateResults)
+                .Concat(result.Data!.UpdateResults.Select(x => x.UpdateResult))
+                .Concat(result.Data!.UpdatePartialResults.Select(x => x.UpdatePartialResult))
+            ;
+
+            if (allResults.Any(r => !r.Success))
+            {
+                result.AddError(string.Empty, _localizer["BulkOperationAbortedOnDeleteError"]);
+            }
+
+            // We should savechanges at this point if Success or Errors found but ContinueOnError is enabled, otherwise we should rollback if any errors found
+            if (
+                allResults.All(r => r.Success)
+                || (allResults.Any(r => !r.Success) && bulkCRUDMutateModel.ContinueOnError && allResults.Any(r => r.Success))
+                )
+            {
+                await _repository.SaveChangesAsync(cancellationToken);
+
+                if (transaction != null)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                }
+            }
+            else
+            {
+                if (transaction != null)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                }
+            }
+        };
+
+        try
+        {
+            if (bulkCRUDMutateModel.UseTransaction)
+            {
+                transaction = await _repository.StartOrGetTransactionScopeAsync(cancellationToken);
+            }
+
+            foreach (var deleteId in bulkCRUDMutateModel.Delete ?? [])
+            {
+                var deleteResult = await DoDeleteAsync(deleteId, committedByUserId, cancellationToken, options);
+                result.Data!.DeleteResults = result.Data!.DeleteResults.Append((deleteId, deleteResult));
+
+                if (!deleteResult.Success && !bulkCRUDMutateModel.ContinueOnError)
+                {
+                    await handleExit();
+                    return result;
+                }
+            }
+
+            foreach (var createModel in bulkCRUDMutateModel.Create ?? [])
+            {
+                var createResult = await DoCreateAsync(createModel, committedByUserId, beforeSave, cancellationToken, options);
+                result.Data!.CreateResults = result.Data!.CreateResults.Append(createResult);
+
+                if (!createResult.Success && !bulkCRUDMutateModel.ContinueOnError)
+                {
+                    await handleExit();
+                    return result;
+                }
+            }
+
+            foreach (var updateModel in bulkCRUDMutateModel.Update ?? [])
+            {
+                var updateResult = await DoUpdateAsync(updateModel.Id, updateModel.MutateModel, committedByUserId, beforeSave, cancellationToken, options);
+                result.Data!.UpdateResults = result.Data!.UpdateResults.Append((updateModel.Id, updateResult));
+                if (!updateResult.Success && !bulkCRUDMutateModel.ContinueOnError)
+                {
+                    await handleExit();
+                    return result;
+                }
+            }
+
+            foreach (var updatePartialModel in bulkCRUDMutateModel.UpdatePartial ?? [])
+            {
+                var updatePartialResult = await DoUpdatePartialAsync(updatePartialModel.Id, updatePartialModel.Set, partialUpdateCallsReady, committedByUserId, beforeSave, cancellationToken, options);
+                result.Data!.UpdatePartialResults = result.Data!.UpdatePartialResults.Append((updatePartialModel.Id, updatePartialResult));
+                if (!updatePartialResult.Success && !bulkCRUDMutateModel.ContinueOnError)
+                {
+                    await handleExit();
+                    return result;
+                }
+            }
+
+            await handleExit();
+        }
+        finally
+        {
+            transaction?.Dispose();
+        }
+
+        return result;
+    }
     #endregion
 
     protected static TaskResult<string> GetPropertyNameFromExpression<T>(Expression<Func<T, object>> expression)

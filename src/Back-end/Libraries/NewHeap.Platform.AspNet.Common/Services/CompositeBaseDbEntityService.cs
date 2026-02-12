@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Localization;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Models;
+using NewHeap.Platform.AspNet.Services;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
@@ -39,6 +40,15 @@ public interface ICompositeBaseDbEntityService<TEntity, TCreateMutateModel, TUpd
         Action<TEntity>? beforeSave = null,
         CancellationToken cancellationToken = default,
         CompositeBaseDbEntityServiceOperationOptions? options = null
+    );
+
+    Task<TaskResult<BulkCRUDResultModel<TEntity>>> BulkAsync(
+        BulkCRUDMutateModel<TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel> bulkCRUDMutateModel,
+        CompositeBaseDbEntityServiceOperationOptions options,
+        Guid? committedByUserId = default,
+        Action<TEntity>? beforeSave = null,
+        CancellationToken cancellationToken = default,
+        Action<NhSetPropertyCalls<TUpdateMutateModel>>? partialUpdateCallsReady = null
     );
 }
 
@@ -155,5 +165,17 @@ public abstract partial class CompositeBaseDbEntityService<TEntity, TCreateMutat
     }
 
     public abstract Task<TaskResult<TViewModel?>> DeleteAsync(Guid id, Guid? committedByUserId = default, CancellationToken cancellationToken = default, CompositeBaseDbEntityServiceOperationOptions? options = null);
+    
+    public virtual Task<TaskResult<BulkCRUDResultModel<TEntity>>> BulkAsync(
+        BulkCRUDMutateModel<TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel> bulkCRUDMutateModel,
+        CompositeBaseDbEntityServiceOperationOptions options,
+        Guid? committedByUserId = default,
+        Action<TEntity>? beforeSave = null,
+        CancellationToken cancellationToken = default,
+        Action<NhSetPropertyCalls<TUpdateMutateModel>>? partialUpdateCallsReady = null
+    )
+    {
+        return DoBulkAsync(bulkCRUDMutateModel, options, committedByUserId, beforeSave, cancellationToken, partialUpdateCallsReady);
+    }
     #endregion
 }

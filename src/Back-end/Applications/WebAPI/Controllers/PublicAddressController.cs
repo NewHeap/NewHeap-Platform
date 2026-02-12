@@ -100,4 +100,23 @@ public class PublicAddressController : PublicNhBaseController
 
         return Ok(viewModel);
     }
+
+    [HttpGet("test-lars")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetTestLars(CancellationToken cancellationToken = default)
+    {
+        var query = (await GetQueryableAsync(cancellationToken)).AsNoTracking();
+        var entity = await query.OrderBy(x => x.CreationDateTime)
+            .FirstOrDefaultAsync(cancellationToken: cancellationToken);
+
+        var result = _addressService
+            .UpdatePartialAsync(
+                entity.Id,
+                set => set
+                    .SetProperty(x => x.Province, "Bla")
+                    .SetProperty(x => x.Place, "BlaBla"),
+                cancellationToken: cancellationToken
+        );
+        return Ok();
+    }
 }

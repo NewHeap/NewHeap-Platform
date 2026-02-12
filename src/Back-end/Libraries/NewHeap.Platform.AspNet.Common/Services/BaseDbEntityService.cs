@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Localization;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Models;
+using NewHeap.Platform.AspNet.Services;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
@@ -42,6 +43,15 @@ public interface IBaseDbEntityService<TEntity, TCreateMutateModel, TUpdateMutate
         Action<TEntity>? beforeSave = null,
         CancellationToken cancellationToken = default,
         BaseDbEntityServiceOperationOptions? options = null
+    );
+
+    Task<TaskResult<BulkCRUDResultModel<TEntity>>> BulkAsync(
+        BulkCRUDMutateModel<TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel> bulkCRUDMutateModel,
+        BaseDbEntityServiceOperationOptions options,
+        Guid? committedByUserId = default,
+        Action<TEntity>? beforeSave = null,
+        CancellationToken cancellationToken = default,
+        Action<NhSetPropertyCalls<TUpdateMutateModel>>? partialUpdateCallsReady = null
     );
 }
 
@@ -167,5 +177,13 @@ public abstract partial class BaseDbEntityService<TEntity, TCreateMutateModel, T
         BaseDbEntityServiceOperationOptions? options = null
     ) => DoUpdatePartialAsync(id, set, callsReady, committedByUserId, beforeSave, cancellationToken, options);
 
+    public virtual Task<TaskResult<BulkCRUDResultModel<TEntity>>> BulkAsync(
+        BulkCRUDMutateModel<TCreateMutateModel, TUpdateMutateModel, TDeleteMutateModel> bulkCRUDMutateModel,
+        BaseDbEntityServiceOperationOptions options,
+        Guid? committedByUserId = default,
+        Action<TEntity>? beforeSave = null,
+        CancellationToken cancellationToken = default,
+        Action<NhSetPropertyCalls<TUpdateMutateModel>>? partialUpdateCallsReady = null
+    ) => DoBulkAsync(bulkCRUDMutateModel, options, committedByUserId, beforeSave, cancellationToken, partialUpdateCallsReady);
     #endregion
 }
