@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Exceptions;
@@ -72,4 +73,6 @@ public interface INhAuthenticationService
 
     ClaimsPrincipal? ValidateToken(string token, out SecurityToken validatedToken);
     Task<TaskResult<UserToken>> LoginWithoutValidations(Guid userId, bool iAmSureThatIKnowWhatImDoing = false);
+
+    void WriteTokenToCookie(HttpContext httpContext, UserToken token, string? authCookieName = null, string? refreshCookieName = null);
 }

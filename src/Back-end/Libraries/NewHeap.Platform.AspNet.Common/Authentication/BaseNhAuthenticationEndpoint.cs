@@ -35,34 +35,13 @@ public abstract class BaseNhAuthenticationEndpoint : IAuthenticationEndpoint, ID
 
     protected void WriteTokenToCookie(UserToken token)
     {
-        var domain = new Uri(token.Issuer).Host;
-
-        HttpContext!.Response.Cookies.Append(Configuration.CookieName!, token.Token, new CookieOptions
+        if(HttpContext == null)
         {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Lax,
-            Expires = token.ValidTo,
-            Domain = domain,
-            IsEssential = true,
-        });
-
-        if (Configuration.RefreshTokenEnabled && !string.IsNullOrWhiteSpace(token.RefreshToken))
-        {
-            HttpContext.Response.Cookies.Append(Configuration.RefreshCookieName!, token.RefreshToken!, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Lax,
-                Expires = DateTimeOffset.Now.AddDays(2),
-                Domain = domain,
-                IsEssential = true,
-            });
+            throw new InvalidOperationException("HttpContext is not available.");
         }
-        else
-        {
-            token.RefreshToken = null;
-        }
+
+        var authService = GetAuthService();
+        authService.WriteTokenToCookie(HttpContext, token);
     }
     
     protected virtual INhAuthenticationService GetAuthService()

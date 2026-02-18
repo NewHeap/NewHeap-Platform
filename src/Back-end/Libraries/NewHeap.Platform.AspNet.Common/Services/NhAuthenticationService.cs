@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -469,5 +470,51 @@ public class NhAuthenticationService<
             refreshToken.RefreshToken,
             refreshToken.ExpirationDateTime.DateTime
         );
+    }
+
+
+    public virtual void WriteTokenToCookie(HttpContext httpContext, UserToken token, string? authCookieName = null, string? refreshCookieName = null)
+    {
+        var domain = new Uri(token.Issuer).Host;
+
+        authCookieName ??= _authConfiguration.CookieName;
+        refreshCookieName ??= _authConfiguration.RefreshCookieName;
+
+        if(string.IsNullOrWhiteSpace(authCookieName))
+        {
+            throw new ConfigurationException("Auth cookie name is not configured");
+        }
+
+        if(string.IsNullOrEmpty(refreshCookieName) && _authConfiguration.RefreshTokenEnabled)
+        {
+            throw new ConfigurationException("Refresh cookie name is not configured");
+        }
+
+        httpContext!.Response.Cookies.Append(_authConfiguration.CookieName!, token.Token, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Expires = token.ValidTo,
+            Domain = domain,
+            IsEssential = true,
+        });
+
+        if (_authConfiguration.RefreshTokenEnabled && !string.IsNullOrWhiteSpace(token.RefreshToken))
+        {
+            httpContext.Response.Cookies.Append(_authConfiguration.RefreshCookieName!, token.RefreshToken!, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTimeOffset.Now.AddDays(2),
+                Domain = domain,
+                IsEssential = true,
+            });
+        }
+        else
+        {
+            token.RefreshToken = null;
+        }
     }
 }
