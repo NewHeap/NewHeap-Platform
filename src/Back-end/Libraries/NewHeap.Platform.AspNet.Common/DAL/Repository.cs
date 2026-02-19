@@ -276,7 +276,7 @@ public partial class Repository<T> : IRepository<T>
     }
 }
 
-public interface INhDbTransactionScope : IDisposable
+public interface INhDbTransactionScope : IDisposable, IAsyncDisposable
 {
     bool IsMyTransaction { get; init; }
 
@@ -328,6 +328,14 @@ public class NhDbTransactionScope : INhDbTransactionScope
         if (IsMyTransaction)
         {
             _transaction.Dispose();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (IsMyTransaction)
+        {
+            await _transaction.DisposeAsync();
         }
     }
 }

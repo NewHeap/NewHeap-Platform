@@ -2,7 +2,7 @@
 
 namespace NewHeap.Platform.AspNet.Common.DAL;
 
-public partial interface ITransaction : IDisposable
+public partial interface ITransaction : IDisposable, IAsyncDisposable
 {
     Task RollbackAsync(CancellationToken cancellationToken = default);
 
@@ -21,6 +21,11 @@ public partial class Transaction : ITransaction
     public void Dispose()
     {
         _transaction.Dispose();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _transaction.DisposeAsync();
     }
 
     public async Task RollbackAsync(CancellationToken cancellationToken = default)
