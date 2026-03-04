@@ -296,6 +296,37 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         return true;
     }
 
+    public static string? GetExpressionConstantString(object? value)
+    { 
+        if(value == null)
+        {
+            return null;
+        } else if(value is DateTime || value is DateTime?)
+        {
+            return ((DateTime)value).ToString(Constants.DateTimeOffset.StringFormat);
+        } else if(value is DateTimeOffset || value is DateTimeOffset?)
+        {
+            return ((DateTimeOffset)value).ToString(Constants.DateTimeOffset.StringFormat);
+        }
+        else
+        {
+            return value.ToString();
+        }
+    }
+
+    protected static UnaryExpression? GetExpressionConstant(Type type, object? value)
+    {
+        var memberTypeConverter = TypeDescriptor.GetConverter(type);
+        Expression<Func<object>> closure = () =>
+            (value == null
+                ? null
+                : memberTypeConverter.ConvertFrom((value == null
+                    ? null
+                    : GetExpressionConstantString(value))!))!;
+
+        return Expression.Convert(closure.Body, type);
+    }
+
     protected Expression<Func<T, bool>>? GetFilterLambda<T>(FilterCollectionRequestModel filter,
         IEnumerable<PropertyInfo> filterProperties, ParameterExpression? parameter = null, bool skipValidation = false)
     {
@@ -426,80 +457,38 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                 case "IS":
                 case "==":
                     {
-                        var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
-                        Expression<Func<object>> closure = () =>
-                            (filter.Value == null
-                                ? null
-                                : memberTypeConverter.ConvertFrom((filter.Value == null
-                                    ? null
-                                    : filter.Value.ToString())!))!;
-                        var constant = Expression.Convert(closure.Body, member.Type);
+                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
                         body = Expression.Equal(member, constant);
                         break;
                     }
                 case "IS NOT":
                 case "!=":
                     {
-                        var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
-                        Expression<Func<object>> closure = () =>
-                            (filter.Value == null
-                                ? null
-                                : memberTypeConverter.ConvertFrom((filter.Value == null
-                                    ? null
-                                    : filter.Value.ToString())!))!;
-                        var constant = Expression.Convert(closure.Body, member.Type);
+                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
                         body = Expression.NotEqual(member, constant);
                         break;
                     }
                 case ">":
                     {
-                        var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
-                        Expression<Func<object>> closure = () =>
-                            (filter.Value == null
-                                ? null
-                                : memberTypeConverter.ConvertFrom((filter.Value == null
-                                    ? null
-                                    : filter.Value.ToString())!))!;
-                        var constant = Expression.Convert(closure.Body, member.Type);
+                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
                         body = Expression.GreaterThan(member, constant);
                         break;
                     }
                 case ">=":
                     {
-                        var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
-                        Expression<Func<object>> closure = () =>
-                            (filter.Value == null
-                                ? null
-                                : memberTypeConverter.ConvertFrom((filter.Value == null
-                                    ? null
-                                    : filter.Value.ToString())!))!;
-                        var constant = Expression.Convert(closure.Body, member.Type);
+                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
                         body = Expression.GreaterThanOrEqual(member, constant);
                         break;
                     }
                 case "<":
                     {
-                        var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
-                        Expression<Func<object>> closure = () =>
-                            (filter.Value == null
-                                ? null
-                                : memberTypeConverter.ConvertFrom((filter.Value == null
-                                    ? null
-                                    : filter.Value.ToString())!))!;
-                        var constant = Expression.Convert(closure.Body, member.Type);
+                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
                         body = Expression.LessThan(member, constant);
                         break;
                     }
                 case "<=":
                     {
-                        var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
-                        Expression<Func<object>> closure = () =>
-                            (filter.Value == null
-                                ? null
-                                : memberTypeConverter.ConvertFrom((filter.Value == null
-                                    ? null
-                                    : filter.Value!.ToString())!))!;
-                        var constant = Expression.Convert(closure.Body, member.Type);
+                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
                         body = Expression.LessThanOrEqual(member, constant);
                         break;
                     }
@@ -514,9 +503,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                             return null;
                         }
 
-                        var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
-                        Expression<Func<object>> closure = () => memberTypeConverter.ConvertFrom(valueSplit[0]!.Trim())!;
-                        var constant = Expression.Convert(closure.Body, member.Type);
+                        var constant = GetExpressionConstant(member.Type, valueSplit[0]!.Trim())!;
                         body = Expression.Equal(member, constant);
 
                         if (valueSplit.Length > 1)
@@ -524,8 +511,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                             for (var i = 1; i < valueSplit.Length; i++)
                             {
                                 var value = valueSplit[i]!.Trim();
-                                Expression<Func<object>> closure2 = () => memberTypeConverter.ConvertFrom(value)!;
-                                var constant2 = Expression.Convert(closure2.Body, member.Type);
+                                var constant2 = GetExpressionConstant(member.Type, value)!;
                                 var body2 = Expression.Equal(member, constant2);
                                 body = Expression.OrElse(body, body2);
                             }
@@ -544,9 +530,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                             return null;
                         }
 
-                        var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
-                        Expression<Func<object>> closure = () => memberTypeConverter.ConvertFrom(valueSplit[0]!.Trim())!;
-                        var constant = Expression.Convert(closure.Body, member.Type);
+                        var constant = GetExpressionConstant(member.Type, valueSplit[0]!.Trim())!;
                         body = Expression.NotEqual(member, constant);
 
                         if (valueSplit.Length > 1)
@@ -554,8 +538,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                             for (var i = 1; i < valueSplit.Length; i++)
                             {
                                 var value = valueSplit[i]!.Trim();
-                                Expression<Func<object>> closure2 = () => memberTypeConverter.ConvertFrom(value)!;
-                                var constant2 = Expression.Convert(closure2.Body, member.Type);
+                                var constant2 = GetExpressionConstant(member.Type, value)!;
                                 var body2 = Expression.NotEqual(member, constant2);
                                 body = Expression.AndAlso(body, body2);
                             }
@@ -565,14 +548,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                     }
                 case "LIKE":
                     {
-                        var memberTypeConverter = TypeDescriptor.GetConverter(member.Type);
-                        Expression<Func<object>> closure = () =>
-                            (filter.Value == null
-                                ? null
-                                : memberTypeConverter.ConvertFrom((filter.Value == null
-                                    ? null
-                                    : filter.Value.ToString())!))!;
-                        var constant = Expression.Convert(closure.Body, member.Type);
+                        var constant = GetExpressionConstant(member.Type, filter.Value)!;
 
                         body = Expression.Call(
                             typeof(DbFunctionsExtensions),
