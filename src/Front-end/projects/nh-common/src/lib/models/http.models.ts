@@ -57,7 +57,7 @@ export interface ISimpleCollectionHttpRequestOptions extends IHttpRequestOptions
   itemsPerPage: number;
 }
 
-export class SimpleCollectionHttpRequestOptions extends HttpRequestOptions implements  ISimpleCollectionHttpRequestOptions {
+export class SimpleCollectionHttpRequestOptions extends HttpRequestOptions implements ISimpleCollectionHttpRequestOptions {
   page: number = 1;
   itemsPerPage: number = 30;
 
@@ -94,13 +94,13 @@ export class CollectionHttpRequestOptions extends SearchableCollectionHttpReques
     Object.assign(this, init);
   }
 
-  public or(condition: FilterRequestOptions) : this {
-    if(this.filter.length == 0) {
+  public or(condition: FilterRequestOptions): this {
+    if (this.filter.length == 0) {
       this.filter = [condition];
       return this;
     }
 
-    if(this.filter.length == 1) {
+    if (this.filter.length == 1) {
       this.filter[0].ors.push(condition);
     } else {
       this.filter[0]
@@ -111,72 +111,77 @@ export class CollectionHttpRequestOptions extends SearchableCollectionHttpReques
     return this;
   }
 
-  public and(condition: FilterRequestOptions) : this {
+  public and(condition: FilterRequestOptions): this {
     this.filter.push(condition);
     return this;
   }
 
-  public equals(key: string, value: any) : this {
-    this.and(FilterRequestOptions.equals(key, value));
-    return this;
-  }
-  public notEquals(key: string, value: any) : this {
-    this.and(FilterRequestOptions.notEquals(key, value));
+  public equals(key: string, value: any, tag?: string): this {
+    this.and(FilterRequestOptions.equals(key, value, tag));
     return this;
   }
 
-  public isIn(key: string, value: any[]) : this {
-    this.and(FilterRequestOptions.in(key, value));
+  public notEquals(key: string, value: any, tag?: string): this {
+    this.and(FilterRequestOptions.notEquals(key, value, tag));
     return this;
   }
 
-  public isNotIn(key: string, value: any[]) : this {
-    this.and(FilterRequestOptions.notIn(key, value));
+  public isIn(key: string, value: any[], tag?: string): this {
+    this.and(FilterRequestOptions.in(key, value, tag));
     return this;
   }
 
-  public lessThan(key: string, value: any) : this {
-    this.and(FilterRequestOptions.lessThan(key, value));
-    return this;
-  }
-  public lessThanOrEqual(key: string, value: any) : this {
-    this.and(FilterRequestOptions.lessThanOrEqual(key, value));
+  public isNotIn(key: string, value: any[], tag?: string): this {
+    this.and(FilterRequestOptions.notIn(key, value, tag));
     return this;
   }
 
-  public greaterThan(key: string, value: any) : this {
-    this.and(FilterRequestOptions.greaterThan(key, value));
-    return this;
-  }
-  public greaterThanOrEqual(key: string, value: any) : this {
-    this.and(FilterRequestOptions.greaterThanOrEqual(key, value));
+  public lessThan(key: string, value: any, tag?: string): this {
+    this.and(FilterRequestOptions.lessThan(key, value, tag));
     return this;
   }
 
-  public order(key: string, direction: 'ASC' | 'DESC') : this {
+  public lessThanOrEqual(key: string, value: any, tag?: string): this {
+    this.and(FilterRequestOptions.lessThanOrEqual(key, value, tag));
+    return this;
+  }
+
+  public greaterThan(key: string, value: any, tag?: string): this {
+    this.and(FilterRequestOptions.greaterThan(key, value, tag));
+    return this;
+  }
+
+  public greaterThanOrEqual(key: string, value: any, tag?: string): this {
+    this.and(FilterRequestOptions.greaterThanOrEqual(key, value, tag));
+    return this;
+  }
+
+  public order(key: string, direction: 'ASC' | 'DESC'): this {
     this.orderBy.push(new OrderByRequestOptions({key, direction}));
     return this;
   }
 
-  public orderByFirst(propertyName:string, collectionItemProperty: string, direction: 'ASC' | 'DESC') : this {
+  public orderByFirst(propertyName: string, collectionItemProperty: string, direction: 'ASC' | 'DESC'): this {
     this.orderBy.push(new OrderByRequestOptions({
       key: `${propertyName}.{first:${direction}}${collectionItemProperty}`
-      , direction}));
+      , direction
+    }));
     return this;
   }
 
-  public orderByLast(propertyName:string, collectionItemProperty: string, direction: 'ASC' | 'DESC') : this {
+  public orderByLast(propertyName: string, collectionItemProperty: string, direction: 'ASC' | 'DESC'): this {
     this.orderBy.push(new OrderByRequestOptions({
       key: `${propertyName}.{last:${direction}}${collectionItemProperty}`
-      , direction}));
+      , direction
+    }));
     return this;
   }
 
-  public orderAsc(key: string) : this {
+  public orderAsc(key: string): this {
     return this.order(key, 'ASC');
   }
 
-  public orderDesc(key: string) : this {
+  public orderDesc(key: string): this {
     return this.order(key, 'DESC');
   }
 }
@@ -189,7 +194,7 @@ export interface ISimpleCollectionHttpResponse<T> {
   items?: T[];
 }
 
-export class SimpleCollectionHttpResponse<T> implements ISimpleCollectionHttpResponse<T>{
+export class SimpleCollectionHttpResponse<T> implements ISimpleCollectionHttpResponse<T> {
   page = 1;
   itemsPerPage = 10;
   resultCount: number = 0;
@@ -284,82 +289,92 @@ export class FilterRequestOptions {
     this.ors.push(options);
     return this;
   }
+
   public orArray(options: FilterRequestOptions[]) {
     this.ors.push(...options);
     return this;
   }
 
-  public static like(key: string, value: string) {
+  public static like(key: string, value: string, tag?: string) {
     return new FilterRequestOptions({
       key: key,
       operator: 'LIKE',
-      value: value
+      value: value,
+      tag: tag
     });
   }
 
-  public static in(key: string, value: any[]) {
+  public static in(key: string, value: any[], tag?: string) {
     return new FilterRequestOptions({
       key: key,
       operator: 'IN',
-      value: value
+      value: value,
+      tag: tag
     });
   }
 
-  public static notIn(key: string, value: any[]) {
+  public static notIn(key: string, value: any[], tag?: string) {
     return new FilterRequestOptions({
       key: key,
       operator: 'NOT IN',
-      value: value
+      value: value,
+      tag: tag
     });
   }
 
-  public static lessThan(key: string, value: any) {
+  public static lessThan(key: string, value: any, tag?: string) {
     return new FilterRequestOptions({
       key: key,
       operator: '<',
-      value: value
+      value: value,
+      tag: tag
     });
   }
-  public static lessThanOrEqual(key: string, value: any) {
+
+  public static lessThanOrEqual(key: string, value: any, tag?: string) {
     return new FilterRequestOptions({
       key: key,
       operator: '<=',
-      value: value
+      value: value,
+      tag: tag
     });
   }
 
-  public static greaterThan(key: string, value: any) {
+  public static greaterThan(key: string, value: any, tag?: string) {
     return new FilterRequestOptions({
       key: key,
       operator: '>',
-      value: value
+      value: value,
+      tag: tag
     });
   }
-  public static greaterThanOrEqual(key: string, value: any) {
+
+  public static greaterThanOrEqual(key: string, value: any, tag?: string) {
     return new FilterRequestOptions({
       key: key,
       operator: '>=',
-      value: value
+      value: value,
+      tag: tag
     });
   }
 
-  public static equals(key:string, value: any) {
+  public static equals(key: string, value: any, tag?: string) {
     return new FilterRequestOptions({
       key: key,
       operator: '==',
-      value: value
+      value: value,
+      tag: tag
     })
   }
-  public static notEquals(key:string, value: any) {
+
+  public static notEquals(key: string, value: any, tag?: string) {
     return new FilterRequestOptions({
       key: key,
       operator: '!=',
-      value: value
+      value: value,
+      tag: tag
     })
   }
-
-
-
 
 
   public constructor(init?: Partial<FilterRequestOptions>) {
