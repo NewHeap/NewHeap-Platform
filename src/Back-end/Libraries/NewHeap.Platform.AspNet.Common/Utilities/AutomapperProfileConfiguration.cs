@@ -3,6 +3,7 @@ using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.Common;
 using System.Security.Claims;
+using AutoMapper.Internal;
 
 namespace NewHeap.Platform.AspNet.Common.Utilities;
 
@@ -16,6 +17,7 @@ public class AutomapperProfileConfiguration : AutoMapper.Profile
     protected AutomapperProfileConfiguration(string profileName)
         : base(profileName)
     {
+        this.Internal().ForAllMaps((_,m) => m.MaxDepth(64));
         CreateMap<Claim, NhClaimViewModel>();
         CreateMap<NhUser, NhUserViewModel<NhDivisionViewModel>>();
         CreateMap<NhDivision, NhDivisionViewModel>();
