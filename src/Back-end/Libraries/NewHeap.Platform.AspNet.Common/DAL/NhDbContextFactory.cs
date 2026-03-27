@@ -56,13 +56,16 @@ public abstract partial class NhDbContextFactory<
     protected virtual IConfigurationRoot CreateConfigurationRoot(
         string basePath,
         string appSettingsFileName = "appsettings",
-        string secretsFileName = "secrets")
+        string secretsFileName = "secrets",
+        bool environmentFileIsOptional = true
+        )
     {
         var configuration = new ConfigurationBuilder()
             .ConfigureNewHeapAspNetCommonConfiguration(
                 basePath: basePath,
                 appSettingsFileName: appSettingsFileName,
-                secretsFileName: secretsFileName
+                secretsFileName: secretsFileName,
+                environmentFileIsOptional: environmentFileIsOptional
             )
             .Build();
 

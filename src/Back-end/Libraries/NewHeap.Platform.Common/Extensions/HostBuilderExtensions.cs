@@ -9,11 +9,11 @@ public static partial class HostBuilderExtensions
 {
     private const string ConfigKey = "NewHeap:PlatformCommon:AppSecretsDirectoryPath";
 
-    public static IHostBuilder UseNhCommonConfiguration(this IHostBuilder builder)
+    public static IHostBuilder UseNhCommonConfiguration(this IHostBuilder builder, bool environmentFileIsOptional = true)
     {
         builder.ConfigureAppConfiguration(configBuilder =>
         {
-            configBuilder.ConfigureNhCommonConfiguration();
+            configBuilder.ConfigureNhCommonConfiguration(environmentFileIsOptional);
         });
 
         builder.ConfigureLogging(logging =>
@@ -24,18 +24,19 @@ public static partial class HostBuilderExtensions
         return builder;
     }
 
-    public static IHostApplicationBuilder UseNhCommonConfiguration(this IHostApplicationBuilder builder)
+    public static IHostApplicationBuilder UseNhCommonConfiguration(this IHostApplicationBuilder builder, bool environmentFileIsOptional = true)
     {
-        builder.Configuration.ConfigureNhCommonConfiguration();
+        builder.Configuration.ConfigureNhCommonConfiguration(environmentFileIsOptional);
         builder.Logging.ConfigureNhCommonLogging();
 
         return builder;
     }
 
-    public static IConfigurationBuilder ConfigureNhCommonConfiguration(this IConfigurationBuilder configBuilder) 
+    public static IConfigurationBuilder ConfigureNhCommonConfiguration(this IConfigurationBuilder configBuilder, bool environmentFileIsOptional = true)
     {
         return configBuilder.ConfigureNhCommonConfiguration(
-            basePath: Directory.GetCurrentDirectory()
+            basePath: Directory.GetCurrentDirectory(),
+            environmentFileIsOptional: environmentFileIsOptional
         );
     }
 
@@ -43,7 +44,8 @@ public static partial class HostBuilderExtensions
         this IConfigurationBuilder configBuilder, 
         string basePath, 
         string appSettingsFileName = "appsettings",
-        string secretsFileName = "secrets"
+        string secretsFileName = "secrets",
+        bool environmentFileIsOptional = true
         )
     {
         basePath = Environment.ExpandEnvironmentVariables(basePath);
@@ -61,7 +63,7 @@ public static partial class HostBuilderExtensions
             .SetBasePath(basePath)
             .WithSubstitution(x => x
                 .AddJsonFile(Path.Combine(basePath, $"{appSettingsFileName}.json"))
-                .AddJsonFile(Path.Combine(basePath, $"{appSettingsFileName}.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json"), true)
+                .AddJsonFile(Path.Combine(basePath, $"{appSettingsFileName}.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json"), environmentFileIsOptional)
             )
             .Build();
 
@@ -79,10 +81,10 @@ public static partial class HostBuilderExtensions
                         true)
                     .AddJsonFile(
                         Environment.ExpandEnvironmentVariables(Path.Combine(direcotryPath,
-                            $"{secretsFileName}.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json")), true)
+                            $"{secretsFileName}.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json")), environmentFileIsOptional)
             ).WithSubstitution(x => x
                 .AddJsonFile(Path.Combine(basePath, $"{appSettingsFileName}.json"))
-                .AddJsonFile(Path.Combine(basePath, $"{appSettingsFileName}.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json"), true)
+                .AddJsonFile(Path.Combine(basePath, $"{appSettingsFileName}.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json"), environmentFileIsOptional)
             );
 
         return configBuilder;

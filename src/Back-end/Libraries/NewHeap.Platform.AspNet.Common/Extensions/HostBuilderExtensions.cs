@@ -10,9 +10,9 @@ namespace NewHeap.Platform.AspNet.Common;
 
 public static partial class HostBuilderExtensions
 {
-    public static IHostBuilder UseNewHeapAspnetCommonConfiguration(this IHostBuilder builder)
+    public static IHostBuilder UseNewHeapAspnetCommonConfiguration(this IHostBuilder builder, bool environmentFileIsOptional = true)
     {
-        builder.UseNhCommonConfiguration();
+        builder.UseNhCommonConfiguration(environmentFileIsOptional);
 
         builder.ConfigureAppConfiguration(configBuilder =>
         {
@@ -22,18 +22,19 @@ public static partial class HostBuilderExtensions
         return builder;
     }
 
-    public static IHostApplicationBuilder UseNewHeapAspnetCommonConfiguration(this IHostApplicationBuilder builder)
+    public static IHostApplicationBuilder UseNewHeapAspnetCommonConfiguration(this IHostApplicationBuilder builder, bool environmentFileIsOptional = true)
     {
-        builder.UseNhCommonConfiguration();
+        builder.UseNhCommonConfiguration(environmentFileIsOptional);
         builder.Configuration.ConfigureNewHeapAspNetCommonConfiguration();
 
         return builder;
     }
 
-    public static IConfigurationBuilder ConfigureNewHeapAspNetCommonConfiguration(this IConfigurationBuilder configBuilder)
+    public static IConfigurationBuilder ConfigureNewHeapAspNetCommonConfiguration(this IConfigurationBuilder configBuilder, bool environmentFileIsOptional = true)
     {
         configBuilder.ConfigureNewHeapAspNetCommonConfiguration(
-            basePath: Directory.GetCurrentDirectory()
+            basePath: Directory.GetCurrentDirectory(),
+            environmentFileIsOptional: environmentFileIsOptional
         );
 
         return configBuilder;
@@ -100,13 +101,15 @@ public static partial class HostBuilderExtensions
         this IConfigurationBuilder configBuilder,
         string basePath,
         string appSettingsFileName = "appsettings",
-        string secretsFileName = "secrets"
+        string secretsFileName = "secrets",
+        bool environmentFileIsOptional = true
         )
     {
         configBuilder.ConfigureNhCommonConfiguration(
             basePath: basePath,
             appSettingsFileName: appSettingsFileName,
-            secretsFileName: secretsFileName
+            secretsFileName: secretsFileName,
+            environmentFileIsOptional:environmentFileIsOptional
         );
 
         return configBuilder;
