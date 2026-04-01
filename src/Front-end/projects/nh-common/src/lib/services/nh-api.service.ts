@@ -317,6 +317,102 @@ export class NhApiService implements OnDestroy {
     }).pipe(share());
   }
 
+  public postDownload(url: string, body: any, requestOptions?: IHttpDownloadRequestOptions): Observable<Blob> {
+    requestOptions = requestOptions || new HttpDownloadRequestOptions();
+    requestOptions.withCredentials = true;
+    let httpParams = requestOptions.params || new HttpParams();
+    let headers = requestOptions.headers || new HttpHeaders();
+
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
+
+    headers = this.prepareHeaders(headers);
+    httpParams = this.setCultureHttpParam(httpParams);
+    //httpParams = this.setObjectParams(httpParams, requestOptions);
+
+    return this.httpClient.post(url, body, {
+      headers: headers,
+      observe: 'body',
+      params: httpParams,
+      reportProgress: requestOptions.reportProgress,
+      responseType: 'blob',
+      withCredentials: requestOptions.withCredentials
+    }).pipe(share());
+  }
+
+  public postDownloadResponse(url: string, body: any, requestOptions?: IHttpDownloadRequestOptions): Observable<HttpResponse<Blob>> {
+    requestOptions = requestOptions || new HttpDownloadRequestOptions();
+    requestOptions.withCredentials = true;
+    let httpParams = requestOptions.params || new HttpParams();
+    let headers = requestOptions.headers || new HttpHeaders();
+
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
+
+    headers = this.prepareHeaders(headers);
+    httpParams = this.setCultureHttpParam(httpParams);
+    //httpParams = this.setObjectParams(httpParams, requestOptions);
+
+    return this.httpClient.post(url, body, {
+      headers: headers,
+      observe: 'response',
+      params: httpParams,
+      reportProgress: requestOptions.reportProgress,
+      responseType: 'blob',
+      withCredentials: requestOptions.withCredentials
+    }).pipe(share());
+  }
+
+  public putDownload(url: string, body: any, requestOptions?: IHttpDownloadRequestOptions): Observable<Blob> {
+    requestOptions = requestOptions || new HttpDownloadRequestOptions();
+    requestOptions.withCredentials = true;
+    let httpParams = requestOptions.params || new HttpParams();
+    let headers = requestOptions.headers || new HttpHeaders();
+
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
+
+    headers = this.prepareHeaders(headers);
+    httpParams = this.setCultureHttpParam(httpParams);
+    //httpParams = this.setObjectParams(httpParams, requestOptions);
+
+    return this.httpClient.put(url, body, {
+      headers: headers,
+      observe: 'body',
+      params: httpParams,
+      reportProgress: requestOptions.reportProgress,
+      responseType: 'blob',
+      withCredentials: requestOptions.withCredentials
+    }).pipe(share());
+  }
+
+  public putDownloadResponse(url: string, body: any, requestOptions?: IHttpDownloadRequestOptions): Observable<HttpResponse<Blob>> {
+    requestOptions = requestOptions || new HttpDownloadRequestOptions();
+    requestOptions.withCredentials = true;
+    let httpParams = requestOptions.params || new HttpParams();
+    let headers = requestOptions.headers || new HttpHeaders();
+
+    if(requestOptions.withCredentials === undefined) {
+      requestOptions.withCredentials = true;
+    }
+
+    headers = this.prepareHeaders(headers);
+    httpParams = this.setCultureHttpParam(httpParams);
+    //httpParams = this.setObjectParams(httpParams, requestOptions);
+
+    return this.httpClient.put(url, body, {
+      headers: headers,
+      observe: 'response',
+      params: httpParams,
+      reportProgress: requestOptions.reportProgress,
+      responseType: 'blob',
+      withCredentials: requestOptions.withCredentials
+    }).pipe(share());
+  }
+
   public delete<T>(url: string, requestOptions?: IHttpRequestOptions): Observable<T> {
     requestOptions = requestOptions || new HttpRequestOptions();
     requestOptions.withCredentials = true;
