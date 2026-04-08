@@ -52,5 +52,6 @@ public class NhCapEventBuilder
     {
         _serviceCollection = serviceCollection;
         _serviceCollection.AddSingleton<IConsumerServiceSelector, NhConsumerSelector>();
+        _serviceCollection.AddOptions<NhEventOptions>();
     }
 }

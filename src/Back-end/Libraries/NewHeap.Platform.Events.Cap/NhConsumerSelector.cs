@@ -19,10 +19,15 @@ public class NhConsumerSelector : IConsumerServiceSelector
     private readonly ConcurrentDictionary<string, List<RegexExecuteDescriptor<ConsumerExecutorDescriptor>>> _cacheList =
         [];
 
-    public NhConsumerSelector(IServiceProvider serviceProvider, IOptions<CapOptions> capOptions)
+    private readonly NhEventOptions _eventOptions;
+
+    public NhConsumerSelector(IServiceProvider serviceProvider,
+        IOptions<CapOptions> capOptions,
+        IOptions<NhEventOptions> nhEventOptions)
     {
         _serviceProvider = serviceProvider;
         _capOptions = capOptions.Value;
+        _eventOptions =  nhEventOptions.Value;
     }
 
     public IReadOnlyList<ConsumerExecutorDescriptor> SelectCandidates()
@@ -95,7 +100,7 @@ public class NhConsumerSelector : IConsumerServiceSelector
             }
 
             var processingAttribute = serviceType.GetCustomAttribute<NhMessageProcessingAttribute>();
-            var processingType = MessageProcessingType.PerApplication;
+            var processingType = _eventOptions.DefaultProcessingType;
             if (processingAttribute != null)
             {
                 processingType = processingAttribute.Type;
