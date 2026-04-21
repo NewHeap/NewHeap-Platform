@@ -131,6 +131,7 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
 {
     protected readonly IRepository<TEntity> _repository;
     protected readonly INhDbLogService _dbLogService;
+    protected TOperationOptions? DefaultOperationOptions { get; init; }
 
     public AbstractBaseDbEntityService(
         IRepository<TEntity> repository,
@@ -197,6 +198,8 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
     {
         var result = new TaskResult<TEntity?>();
 
+        options ??= DefaultOperationOptions;
+
         await ValidateCreateAsync(new CreateUpdateDeleteValidateModel<TEntity, TEntity, TCreateMutateModel>(CRUDActionType.Create)
         {
             TaskResult = result,
@@ -254,6 +257,8 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
         )
     {
         var result = new TaskResult<TEntity?>();
+
+        options ??= DefaultOperationOptions;
 
         var entity = await QueryableWithUpdateDeleteIncludes()
             .OrderBy(x => x.Id)
@@ -344,6 +349,8 @@ public abstract partial class AbstractBaseDbEntityService<TEntity, TCreateMutate
     )
     {
         var result = new TaskResult<TEntity?>();
+
+        options ??= DefaultOperationOptions;
 
         var entity = await QueryableWithUpdateDeleteIncludes()
             .OrderBy(x => x.Id)
