@@ -181,21 +181,13 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
   public toggleDropdown() {
     const component = this.getDropdownComponent();
     component!.toggleDropdown();
-    const value = this.value;
-    this.value = -1;
-    this.cdr.detectChanges();
-    this.value = value;
-    this.cdr.detectChanges();
+    this.cdr.markForCheck();
   }
 
   public closeDropdown() {
     const component = this.getDropdownComponent();
     component!.closeDropdown();
-    const value = this.value;
-    this.value = -1;
-    this.cdr.detectChanges();
-    this.value = value;
-    this.cdr.detectChanges();
+    this.cdr.markForCheck();
   }
 
   public override writeValue(value: any) {
@@ -382,6 +374,11 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
       return;
     }
 
+    if (eventIn.isInitial) {
+      this.processLazyLoadEvent(eventIn);
+      return;
+    }
+
     if (!this.debounceObserver) {
 
       new Observable<any>((observer) => {
@@ -389,76 +386,80 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
       }).pipe(debounceTime(this.settings.debounceTime)) // wait x ms after the last event before emitting last event
         .pipe(distinctUntilChanged()) // only emit if value is different from previous value
         .subscribe((event) => {
-          if (this.isLoading) {
-            return;
-          }
-
-          this.lastLazyLoadEvent = event;
-          this.isLoading = true;
-
-          this.lazyLoadSelectedData().subscribe((selectedItems: Array<IMultiSelectOption>) => {
-
-            const filter = (!event.filter) ? '' : event.filter;
-            let page = this.settings.requestOptions.page;
-            if (!event.isInitial) {
-              page++;
-            }
-
-            if (this.activeLazyLoadDataRequestSubscription) {
-              this.activeLazyLoadDataRequestSubscription.unsubscribe();
-            }
-
-            if (filter !== this.settings.requestOptions.search || event.isInitial) {
-              page = 1;
-              this.hasMoreLazyLoadItems = true;
-              this.settings.requestOptions.search = (!filter) ? '' : filter;
-              this.settings.requestOptions.page = page;
-              this.options = [];
-              this.rawOptions = [];
-
-              if(this.settings.lazyLoadLambda) {
-                this.activeLazyLoadDataRequestSubscription = this.settings.lazyLoadLambda(this.settings.requestOptions).subscribe(
-                  response => {
-                    this.activeLazyLoadDataRequestSubscription = null;
-                    this.handleLazyLoadResponse(response, selectedItems);
-                    this.isLoading = false;
-                    this.settings.onSuccess();
-                  },
-                  (err: HttpErrorResponse) => {
-                    this.activeLazyLoadDataRequestSubscription = null;
-                    this.isLoading = false;
-                    this.onLazyLoadError.emit(err);
-                  }
-                );
-              }
-            } else if (this.hasMoreLazyLoadItems) {
-              this.settings.requestOptions.page = page;
-
-              if(this.settings.lazyLoadLambda) {
-                this.activeLazyLoadDataRequestSubscription = this.settings.lazyLoadLambda(this.settings.requestOptions).subscribe(
-                  response => {
-                    this.activeLazyLoadDataRequestSubscription = null;
-                    this.handleLazyLoadResponse(response, selectedItems);
-                    this.isLoading = false;
-                    this.settings.onSuccess();
-                  },
-                  (err: HttpErrorResponse) => {
-                    this.activeLazyLoadDataRequestSubscription = null;
-                    this.isLoading = false;
-                    this.onLazyLoadError.emit(err);
-                  }
-                );
-              }
-
-            } else {
-              this.isLoading = false;
-            }
-          });
+          this.processLazyLoadEvent(event);
         });
     }
 
     this.debounceObserver.next(eventIn);
   };
+
+  private processLazyLoadEvent(event: any) {
+    if (this.isLoading) {
+      return;
+    }
+
+    this.lastLazyLoadEvent = event;
+    this.isLoading = true;
+
+    this.lazyLoadSelectedData().subscribe((selectedItems: Array<IMultiSelectOption>) => {
+
+      const filter = (!event.filter) ? '' : event.filter;
+      let page = this.settings.requestOptions.page;
+      if (!event.isInitial) {
+        page++;
+      }
+
+      if (this.activeLazyLoadDataRequestSubscription) {
+        this.activeLazyLoadDataRequestSubscription.unsubscribe();
+      }
+
+      if (filter !== this.settings.requestOptions.search || event.isInitial) {
+        page = 1;
+        this.hasMoreLazyLoadItems = true;
+        this.settings.requestOptions.search = (!filter) ? '' : filter;
+        this.settings.requestOptions.page = page;
+        this.options = [];
+        this.rawOptions = [];
+
+        if(this.settings.lazyLoadLambda) {
+          this.activeLazyLoadDataRequestSubscription = this.settings.lazyLoadLambda(this.settings.requestOptions).subscribe(
+            response => {
+              this.activeLazyLoadDataRequestSubscription = null;
+              this.handleLazyLoadResponse(response, selectedItems);
+              this.isLoading = false;
+              this.settings.onSuccess();
+            },
+            (err: HttpErrorResponse) => {
+              this.activeLazyLoadDataRequestSubscription = null;
+              this.isLoading = false;
+              this.onLazyLoadError.emit(err);
+            }
+          );
+        }
+      } else if (this.hasMoreLazyLoadItems) {
+        this.settings.requestOptions.page = page;
+
+        if(this.settings.lazyLoadLambda) {
+          this.activeLazyLoadDataRequestSubscription = this.settings.lazyLoadLambda(this.settings.requestOptions).subscribe(
+            response => {
+              this.activeLazyLoadDataRequestSubscription = null;
+              this.handleLazyLoadResponse(response, selectedItems);
+              this.isLoading = false;
+              this.settings.onSuccess();
+            },
+            (err: HttpErrorResponse) => {
+              this.activeLazyLoadDataRequestSubscription = null;
+              this.isLoading = false;
+              this.onLazyLoadError.emit(err);
+            }
+          );
+        }
+
+      } else {
+        this.isLoading = false;
+      }
+    });
+  }
 
   onModelChange(event: any) {
     const value = (this.settings.multiSelectSettings.selectionLimit === 1
