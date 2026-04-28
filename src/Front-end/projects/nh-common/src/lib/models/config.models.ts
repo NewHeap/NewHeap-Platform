@@ -67,6 +67,29 @@ export class NhTranslationNhCommonModuleConfig {
   }
 }
 
+export class NhFormDropDownNhCommonModuleConfig {
+  deferLazyLoadUntilOpened: boolean = false;
+
+  public constructor(init?: Partial<NhFormDropDownNhCommonModuleConfig>) {
+    Object.assign(this, init);
+  }
+}
+
+export class NhHttpNhCommonModuleConfig {
+  deduplicateGetRequests: boolean = false;
+  deduplicateGetRequestHeaderNames: string[] = [
+    'accept',
+    'accept-language',
+    'authorization',
+    'cookie',
+    'x-nh-activedivisionid'
+  ];
+
+  public constructor(init?: Partial<NhHttpNhCommonModuleConfig>) {
+    Object.assign(this, init);
+  }
+}
+
 
 export class NhCommonModuleConfig {
   appDisplayName: string = '';
@@ -89,6 +112,8 @@ export class NhCommonModuleConfig {
   userNotification: UserNotificationNhCommonModuleConfig = new UserNotificationNhCommonModuleConfig();
   errorLogging: NhErrorLoggingNhCommonModuleConfig = new NhErrorLoggingNhCommonModuleConfig();
   translation: NhTranslationNhCommonModuleConfig = new NhTranslationNhCommonModuleConfig();
+  formDropdown: NhFormDropDownNhCommonModuleConfig = new NhFormDropDownNhCommonModuleConfig();
+  http: NhHttpNhCommonModuleConfig = new NhHttpNhCommonModuleConfig();
 
   public constructor(init?: Partial<NhCommonModuleConfig>) {
     Object.assign(this, init);

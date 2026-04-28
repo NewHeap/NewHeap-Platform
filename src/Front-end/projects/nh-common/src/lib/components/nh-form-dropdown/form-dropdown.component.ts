@@ -2,8 +2,10 @@ import {
   ChangeDetectorRef,
   Component,
   EventEmitter,
+  Inject,
   Input,
   OnInit, output,
+  Optional,
   Output,
   ViewChild,
   ViewEncapsulation
@@ -20,6 +22,7 @@ import {
 } from 'ngx-bootstrap-multiselect';
 import {AbstractValueAccessor, MakeProvider} from "../../accessors/abstract-value.accessor";
 import {CollectionHttpRequestOptions, CollectionHttpResponse} from '../../models/http.models';
+import {NhCommonModuleConfig} from '../../models/config.models';
 
 export class DefaultMultiSelectSettings implements IMultiSelectSettings {
   pullRight = false;
@@ -69,6 +72,7 @@ export class NhFormDropDownSettings {
   requestOptions = new CollectionHttpRequestOptions();
   debounceTime = 300;
   selectedRequestOptions = new CollectionHttpRequestOptions();
+  deferLazyLoadUntilOpened?: boolean;
   loadLambda?: () => Observable<Array<any>>;
   lazyLoadLambda?: (options: CollectionHttpRequestOptions) => Observable<CollectionHttpResponse<any>>;
   selectedLazyLoadLambda?: (options: CollectionHttpRequestOptions, value?: any) => Observable<CollectionHttpResponse<any>>;
@@ -135,6 +139,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     value.componentRef = this;
 
     this._settings = value;
+    this.resetSelectedLazyLoadCache();
     this.load();
   }
 
@@ -143,10 +148,17 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
   options: IMultiSelectOption[] = [];
   rawOptions: any[] = [];
   private debounceObserver: any;
+  private hasOpenedDropdown = false;
+  private hasLoadedDeferredLazyLoadData = false;
+  private selectedLazyLoadValueKey?: string;
+  private selectedLazyLoadOptions: IMultiSelectOption[] = [];
+  private activeLazyLoadSelectedDataValueKey?: string;
+  private activeLazyLoadSelectedDataObservers: Array<any> = [];
 
   constructor(
     private translate: TranslateService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    @Optional() @Inject(NhCommonModuleConfig) private commonModuleConfig?: NhCommonModuleConfig
   ) {
     super();
   }
@@ -186,6 +198,26 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     this.cdr.detectChanges();
   }
 
+  public override writeValue(value: any) {
+    const valueKey = this.getValueKey(value);
+    const currentValueKey = this.getValueKey(this.value);
+    super.writeValue(value);
+
+    if (this.settings.lazyLoad && this.deferLazyLoadUntilOpened && valueKey !== currentValueKey) {
+      this.loadSelectedOptions();
+    }
+  }
+
+  public onDropdownOpened() {
+    this.opened.emit();
+    this.hasOpenedDropdown = true;
+
+    if (this.settings.lazyLoad && this.deferLazyLoadUntilOpened && !this.hasLoadedDeferredLazyLoadData) {
+      this.hasLoadedDeferredLazyLoadData = true;
+      this.lazyLoadData({length: 0, isInitial: true});
+    }
+  }
+
   resetSearch() {
     this.settings.requestOptions.page = 1;
     this.settings.requestOptions.search = '';
@@ -195,14 +227,27 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     if (this.noLazyLoadComponent) {
       (<any>this.noLazyLoadComponent).clearSearch(null);
     }
-    this.load();
+    this.load(false);
   }
 
-  public load() {
+  public load(resetDeferredState: boolean = true) {
+    if (resetDeferredState) {
+      this.hasOpenedDropdown = false;
+      this.hasLoadedDeferredLazyLoadData = false;
+    }
+
     this.options = [];
     this.rawOptions = [];
     if (this.settings.lazyLoad) {
-      this.lazyLoadData({length: 0, isInitial: true});
+      if (this.deferLazyLoadUntilOpened && !this.hasOpenedDropdown) {
+        this.loadSelectedOptions();
+      } else {
+        if (this.deferLazyLoadUntilOpened) {
+          this.hasLoadedDeferredLazyLoadData = true;
+        }
+
+        this.lazyLoadData({length: 0, isInitial: true});
+      }
     } else {
       this.settings.multiSelectSettings.isLazyLoad = false;
       if(this.settings.loadLambda) {
@@ -216,29 +261,91 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     }
   }
 
+  private get deferLazyLoadUntilOpened(): boolean {
+    return this.settings.deferLazyLoadUntilOpened ?? this.commonModuleConfig?.formDropdown?.deferLazyLoadUntilOpened ?? false;
+  }
+
+  private getValueKey(value: any): string {
+    if (value === undefined || value === null || value === '') {
+      return '';
+    }
+
+    if (Array.isArray(value)) {
+      return value
+        .map(x => this.getValueKey(x))
+        .filter(x => !!x)
+        .sort()
+        .join('|');
+    }
+
+    if (typeof value === 'object') {
+      return JSON.stringify(value);
+    }
+
+    return `${value}`;
+  }
+
+  private resetSelectedLazyLoadCache() {
+    if (this.activeLazyLoadSelectedDataRequestSubscription) {
+      this.activeLazyLoadSelectedDataRequestSubscription.unsubscribe();
+      this.activeLazyLoadSelectedDataRequestSubscription = null;
+    }
+
+    this.selectedLazyLoadValueKey = undefined;
+    this.selectedLazyLoadOptions = [];
+    this.activeLazyLoadSelectedDataValueKey = undefined;
+    this.activeLazyLoadSelectedDataObservers = [];
+  }
+
+  private loadSelectedOptions() {
+    this.lazyLoadSelectedData().subscribe((selectedItems: Array<IMultiSelectOption>) => {
+      this.selectedHandleLazyLoadResponse(selectedItems);
+    });
+  }
+
   lazyLoadSelectedData(): Observable<Array<IMultiSelectOption>> {
     return new Observable((observer) => {
+      const valueKey = this.getValueKey(this.value);
 
-      if (!this.settings.lazyLoad || !this.settings.selectedRequestOptions || !this.settings.selectedLazyLoadLambda || !this.value || this.value === null) {
+      if (!this.settings.lazyLoad || !this.settings.selectedRequestOptions || !this.settings.selectedLazyLoadLambda || !valueKey) {
+        this.selectedLazyLoadValueKey = undefined;
+        this.selectedLazyLoadOptions = [];
         observer.next([]);
-        return;
+        observer.complete();
+        return undefined;
       }
 
-      if (!this.value || this.value.length < 1 || this.value === null) {
-        observer.next([]);
-        return;
+      if (this.selectedLazyLoadValueKey === valueKey) {
+        observer.next([...this.selectedLazyLoadOptions]);
+        observer.complete();
+        return undefined;
       }
 
       const requestOptions = this.settings.selectedRequestOptions;
 
-      if (this.activeLazyLoadSelectedDataRequestSubscription) {
-        this.activeLazyLoadSelectedDataRequestSubscription.unsubscribe();
+      if (this.activeLazyLoadSelectedDataValueKey === valueKey) {
+        this.activeLazyLoadSelectedDataObservers.push(observer);
+        return () => {
+          this.activeLazyLoadSelectedDataObservers = this.activeLazyLoadSelectedDataObservers.filter(x => x !== observer);
+        };
       }
 
+      if (this.activeLazyLoadSelectedDataRequestSubscription) {
+        this.activeLazyLoadSelectedDataRequestSubscription.unsubscribe();
+        this.activeLazyLoadSelectedDataObservers.forEach(x => {
+          x.next([]);
+          x.complete();
+        });
+        this.activeLazyLoadSelectedDataObservers = [];
+      }
+
+      this.activeLazyLoadSelectedDataValueKey = valueKey;
+      this.activeLazyLoadSelectedDataObservers = [observer];
       this.activeLazyLoadSelectedDataRequestSubscription = this.settings.selectedLazyLoadLambda(requestOptions, this.value).subscribe(
         response => {
           this.activeLazyLoadSelectedDataRequestSubscription = null;
-          const selectedOptions = [];
+          this.activeLazyLoadSelectedDataValueKey = undefined;
+          const selectedOptions: IMultiSelectOption[] = [];
           if (response && response.items && response.items.length > 0) {
             for (const item of response.items) {
               const option = {id: this.settings.keyGetLambda(item), name: this.settings.valueGetLambda(item), image: this.settings.imageGetLambda(item)};
@@ -251,17 +358,30 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
             }
           }
 
-          observer.next(selectedOptions);
+          this.selectedLazyLoadValueKey = valueKey;
+          this.selectedLazyLoadOptions = selectedOptions;
+          this.activeLazyLoadSelectedDataObservers.forEach(x => {
+            x.next([...selectedOptions]);
+            x.complete();
+          });
+          this.activeLazyLoadSelectedDataObservers = [];
         },
         (err: HttpErrorResponse) => {
           this.activeLazyLoadSelectedDataRequestSubscription = null;
-          observer.error(err);
+          this.activeLazyLoadSelectedDataValueKey = undefined;
+          this.activeLazyLoadSelectedDataObservers.forEach(x => x.error(err));
+          this.activeLazyLoadSelectedDataObservers = [];
         }
       );
+      return undefined;
     });
   }
 
   lazyLoadData(eventIn: any) {
+    if (this.settings.lazyLoad && this.deferLazyLoadUntilOpened && !this.hasOpenedDropdown) {
+      return;
+    }
+
     if (!this.debounceObserver) {
 
       new Observable<any>((observer) => {
@@ -341,14 +461,17 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
   };
 
   onModelChange(event: any) {
-    this.value = (this.settings.multiSelectSettings.selectionLimit === 1
+    const value = (this.settings.multiSelectSettings.selectionLimit === 1
         ? (event[0] || undefined)
         : (event || undefined)
     );
 
-    this.lazyLoadSelectedData().subscribe((selectedItems: Array<IMultiSelectOption>) => {
-      this.selectedHandleLazyLoadResponse(selectedItems);
-    });
+    if (this.getValueKey(value) === this.getValueKey(this.value)) {
+      return;
+    }
+
+    this.value = value;
+    this.loadSelectedOptions();
   }
 
 

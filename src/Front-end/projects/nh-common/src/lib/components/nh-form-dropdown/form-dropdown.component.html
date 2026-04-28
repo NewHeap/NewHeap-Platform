@@ -10,7 +10,7 @@
     [settings]="settings.multiSelectSettings"
     [ngModel]="value"
     (dropdownClosed)="closed.emit()"
-    (dropdownOpened)="opened.emit()"
+    (dropdownOpened)="onDropdownOpened()"
     (ngModelChange)="onModelChange($event)"
     (lazyLoad)="lazyLoadData($event)"
   ></ngx-bootstrap-multiselect>

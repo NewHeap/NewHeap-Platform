@@ -20,6 +20,7 @@ export * from './lib/util/nh-mutex.util';
 
 export * from './lib/interceptors/nh-encode-http-params.interceptor';
 export * from './lib/interceptors/nh-server-http.interceptor';
+export * from './lib/interceptors/nh-deduplicate-get-requests.interceptor';
 
 export * from './lib/accessors/abstract-value.accessor';
 

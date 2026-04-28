@@ -46,6 +46,7 @@ import {NhInternetConnectionService} from "./services/nh-internet-connection.ser
 import {NhConfigCommonService} from "./services/nh-config.service";
 import {Observable} from "rxjs";
 import {NhActiveDivisionInterceptor} from "./interceptors/nh-active-division.interceptor";
+import {NhDeduplicateGetRequestsInterceptor} from "./interceptors/nh-deduplicate-get-requests.interceptor";
 import {NhFormDropDownComponent} from "./components/nh-form-dropdown/form-dropdown.component";
 import {NgxBootstrapMultiselectModule} from "ngx-bootstrap-multiselect";
 import {FormsModule} from "@angular/forms";
@@ -182,6 +183,11 @@ import {NhSearchInputComponent} from "./components/nh-search-input/search-input.
     {
       provide: HTTP_INTERCEPTORS,
       useClass: NhServerHttpInterceptor,
+      multi: true
+    },
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: NhDeduplicateGetRequestsInterceptor,
       multi: true
     },
     // Tracing
