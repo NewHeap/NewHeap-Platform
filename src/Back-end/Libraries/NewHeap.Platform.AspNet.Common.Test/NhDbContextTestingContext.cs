@@ -52,7 +52,7 @@ public class NhDbContextTestingContext<TDbContext> : NhTestingContext
     {
         services.AddScoped<IRepository<TEntity>>((facServices) => {
             var dbContext = facServices.GetRequiredService<TDbContext>();
-            return new Repository<TEntity>(dbContext);
+            return new Repository<TEntity>(dbContext, facServices);
         });
 
         return services;

@@ -1,8 +1,13 @@
 ﻿using DotNetCore.CAP;
 using DotNetCore.CAP.Internal;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.Builders;
+using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.Common.Events;
+using System.Data.Common;
 
 namespace NewHeap.Platform.Events.Cap;
 
@@ -13,6 +18,20 @@ public static class NhEventConfigurationBuilderExtensions
     {
         var capBuilder = new NhCapEventBuilder(builder.ServiceCollection);
         configure(capBuilder);
+        builder.ServiceCollection.AddSingleton<NhTransactionFactory>((t, ctx,sp) =>
+            {
+                var publisher = sp.GetRequiredService<ICapPublisher>();
+                if (t == null)
+                {
+                    return ctx.Database.BeginTransaction(publisher);    
+                }
+                // Transaction already exists, wrap it in a CapTransaction and return it
+                publisher.Transaction = ActivatorUtilities.CreateInstance<SqlServerCapTransaction>(publisher.ServiceProvider);
+                publisher.Transaction.DbTransaction = t;
+                publisher.Transaction.AutoCommit = false;
+                return new CapEFDbTransaction(publisher.Transaction);
+            }
+        );
         return builder;
     }
 }
@@ -53,5 +72,58 @@ public class NhCapEventBuilder
         _serviceCollection = serviceCollection;
         _serviceCollection.AddSingleton<IConsumerServiceSelector, NhConsumerSelector>();
         _serviceCollection.AddOptions<NhEventOptions>();
+    }
+}
+
+internal class CapEFDbTransaction : IDbContextTransaction, IInfrastructure<DbTransaction>
+{
+    private readonly ICapTransaction _transaction;
+
+    public CapEFDbTransaction(ICapTransaction transaction)
+    {
+        _transaction = transaction;
+        var dbContextTransaction = (IDbContextTransaction)_transaction.DbTransaction!;
+        TransactionId = dbContextTransaction.TransactionId;
+    }
+
+    public Guid TransactionId { get; }
+
+    public void Dispose()
+    {
+        _transaction.Dispose();
+    }
+
+    public void Commit()
+    {
+        _transaction.Commit();
+    }
+
+    public void Rollback()
+    {
+        _transaction.Rollback();
+    }
+
+    public async Task CommitAsync(CancellationToken cancellationToken = default)
+    {
+        await _transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task RollbackAsync(CancellationToken cancellationToken = default)
+    {
+        await _transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        return new ValueTask(Task.Run(() => _transaction.Dispose()));
+    }
+
+    public DbTransaction Instance
+    {
+        get
+        {
+            var dbContextTransaction = (IDbContextTransaction)_transaction.DbTransaction!;
+            return dbContextTransaction.GetDbTransaction();
+        }
     }
 }

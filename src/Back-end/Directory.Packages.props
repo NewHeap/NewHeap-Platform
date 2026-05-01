@@ -10,7 +10,7 @@
     <PackageVersion Include="AWSSDK.SecurityToken" Version="4.0.2.1" />
     <PackageVersion Include="AWSSDK.SSO" Version="4.0.1.1" />
     <PackageVersion Include="AWSSDK.SSOOIDC" Version="4.0.1.1" />
-    <PackageVersion Include="DotNetCore.CAP" Version="8.3.5" />
+    <PackageVersion Include="DotNetCore.CAP" Version="8.4.1" />
     <PackageVersion Include="DotNetCore.CAP.InMemoryStorage" Version="8.3.5" />
     <PackageVersion Include="DotNetCore.CAP.RabbitMQ" Version="8.3.5" />
     <PackageVersion Include="DotNetCore.CAP.SqlServer" Version="8.3.5" />

@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.Common.Extensions;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -11,6 +12,7 @@ namespace NewHeap.Platform.AspNet.Common.DAL;
 public partial class Repository<T> : IRepository<T> 
     where T : class
 {
+    private readonly IServiceProvider _serviceProvider;
 
     public DebugView DebugView => Context.ChangeTracker.DebugView;
     
@@ -18,8 +20,9 @@ public partial class Repository<T> : IRepository<T>
 
     public string TableName { get; }
     
-    public Repository(DbContext context)
+    public Repository(DbContext context, IServiceProvider serviceProvider)
     {
+        _serviceProvider = serviceProvider;
         Context = context;
         DbSet = context.Set<T>();
         TableName = TableFor<T>(); // We want this to blow up ASAP if the entity is not mapped to a table.
@@ -226,13 +229,25 @@ public partial class Repository<T> : IRepository<T>
         var opt = type.GetField("_options", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(Context);
         var context = (DbContext)Activator.CreateInstance(type, opt)!;
-        return new Repository<T>(context);
+        return new Repository<T>(context, _serviceProvider);
     }
 
     public async Task<ITransaction> StartTransactionAsync(CancellationToken cancellationToken = default)
     {
-        var trans = await Context.Database.BeginTransactionAsync(cancellationToken);
-        return new Transaction(trans);
+        var factories = _serviceProvider.GetServices<NhTransactionFactory>();
+
+        IDbContextTransaction? transaction = null;
+        foreach (var nhTransactionFactory in factories)
+        {
+            transaction = nhTransactionFactory(transaction,Context,_serviceProvider);
+        }
+
+        if (transaction == null)
+        {
+            transaction = await Context.Database.BeginTransactionAsync(cancellationToken);
+        }
+        
+        return new Transaction(transaction);
     }
 
     /// <summary>
@@ -339,3 +354,5 @@ public class NhDbTransactionScope : INhDbTransactionScope
         }
     }
 }
+
+public delegate IDbContextTransaction NhTransactionFactory(IDbContextTransaction? prev,DbContext dbContext,IServiceProvider serviceProvider);

@@ -168,7 +168,7 @@ public static partial class ServiceCollectionExtensions
         serviceCollection.AddScoped<IRepository<TEntity>, Repository<TEntity>>(serviceProvider =>
         {
             var dbContext = (DbContext)serviceProvider.GetRequiredService<INhIdentityDbContext>();
-            return new Repository<TEntity>(dbContext);
+            return new Repository<TEntity>(dbContext, serviceProvider);
         });
 
         return serviceCollection;
