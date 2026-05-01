@@ -18,18 +18,18 @@ public static class NhEventConfigurationBuilderExtensions
     {
         var capBuilder = new NhCapEventBuilder(builder.ServiceCollection);
         configure(capBuilder);
+        builder.ServiceCollection.AddScoped<CapTransactionScope>();
         builder.ServiceCollection.AddSingleton<NhTransactionFactory>((t, ctx,sp) =>
             {
                 var publisher = sp.GetRequiredService<ICapPublisher>();
-                if (t == null)
-                {
-                    return ctx.Database.BeginTransaction(publisher);    
-                }
                 // Transaction already exists, wrap it in a CapTransaction and return it
                 publisher.Transaction = ActivatorUtilities.CreateInstance<SqlServerCapTransaction>(publisher.ServiceProvider);
-                publisher.Transaction.DbTransaction = t;
+                publisher.Transaction.DbTransaction = t ?? ctx.Database.BeginTransaction();
                 publisher.Transaction.AutoCommit = false;
-                return new CapEFDbTransaction(publisher.Transaction);
+                
+                var scope = sp.GetRequiredService<CapTransactionScope>();
+                scope.Current = publisher.Transaction;
+                return new CapEFDbTransaction(publisher.Transaction, scope);
             }
         );
         return builder;
@@ -75,13 +75,15 @@ public class NhCapEventBuilder
     }
 }
 
-internal class CapEFDbTransaction : IDbContextTransaction, IInfrastructure<DbTransaction>
+public class CapEFDbTransaction : IDbContextTransaction, IInfrastructure<DbTransaction>
 {
     private readonly ICapTransaction _transaction;
+    private readonly CapTransactionScope _scope;
 
-    public CapEFDbTransaction(ICapTransaction transaction)
+    public CapEFDbTransaction(ICapTransaction transaction, CapTransactionScope scope)
     {
         _transaction = transaction;
+        _scope = scope;
         var dbContextTransaction = (IDbContextTransaction)_transaction.DbTransaction!;
         TransactionId = dbContextTransaction.TransactionId;
     }
@@ -115,7 +117,15 @@ internal class CapEFDbTransaction : IDbContextTransaction, IInfrastructure<DbTra
 
     public ValueTask DisposeAsync()
     {
-        return new ValueTask(Task.Run(() => _transaction.Dispose()));
+        
+        return new ValueTask(Task.Run(() =>
+        {
+            if (_scope.Current == _transaction)
+            {
+                _scope.Current = null;
+            }
+            _transaction.Dispose();
+        }));
     }
 
     public DbTransaction Instance
