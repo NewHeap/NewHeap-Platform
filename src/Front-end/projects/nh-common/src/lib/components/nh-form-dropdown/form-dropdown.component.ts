@@ -4,6 +4,7 @@ import {
   EventEmitter,
   Inject,
   Input,
+  OnDestroy,
   OnInit, output,
   Optional,
   Output,
@@ -11,9 +12,9 @@ import {
   ViewEncapsulation
 } from '@angular/core';
 import {TranslateService} from '@ngx-translate/core';
-import {Observable} from 'rxjs';
+import {Observable, Subject, Subscription} from 'rxjs';
 import {HttpErrorResponse} from '@angular/common/http';
-import {debounceTime, distinctUntilChanged} from 'rxjs/operators';
+import {debounceTime, distinctUntilChanged, takeUntil} from 'rxjs/operators';
 import {
   IMultiSelectOption,
   IMultiSelectSettings,
@@ -101,7 +102,7 @@ export class NhFormDropDownSettings {
   providers: [MakeProvider(NhFormDropDownComponent)],
   standalone: false
 })
-export class NhFormDropDownComponent extends AbstractValueAccessor implements OnInit {
+export class NhFormDropDownComponent extends AbstractValueAccessor implements OnInit, OnDestroy {
   @ViewChild('lazyLoadComponent') lazyLoadComponent?: NgxDropdownMultiselectComponent;
   @ViewChild('noLazyLoadComponent') noLazyLoadComponent?: NgxDropdownMultiselectComponent;
   defaultTexts = new DefaultMultiSelectTexts();
@@ -145,9 +146,12 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
 
   activeLazyLoadDataRequestSubscription: any = null;
   activeLazyLoadSelectedDataRequestSubscription: any = null;
+  activeLoadRequestSubscription: Subscription|null = null;
   options: IMultiSelectOption[] = [];
   rawOptions: any[] = [];
   private debounceObserver: any;
+  private debounceSubscription: Subscription|null = null;
+  private readonly destroy$ = new Subject<void>();
   private hasOpenedDropdown = false;
   private hasLoadedDeferredLazyLoadData = false;
   private selectedLazyLoadValueKey?: string;
@@ -164,6 +168,22 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
   }
 
   ngOnInit() {
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    this.activeLoadRequestSubscription?.unsubscribe();
+    this.activeLoadRequestSubscription = null;
+    this.activeLazyLoadDataRequestSubscription?.unsubscribe();
+    this.activeLazyLoadDataRequestSubscription = null;
+    this.activeLazyLoadSelectedDataRequestSubscription?.unsubscribe();
+    this.activeLazyLoadSelectedDataRequestSubscription = null;
+    this.debounceSubscription?.unsubscribe();
+    this.debounceSubscription = null;
+    this.debounceObserver = null;
+    this.activeLazyLoadSelectedDataObservers = [];
   }
 
   public getDropdownComponent(): NgxDropdownMultiselectComponent|undefined {
@@ -243,11 +263,17 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     } else {
       this.settings.multiSelectSettings.isLazyLoad = false;
       if(this.settings.loadLambda) {
-        this.settings.loadLambda().subscribe((options) => {
+        this.activeLoadRequestSubscription?.unsubscribe();
+        this.activeLoadRequestSubscription = this.settings.loadLambda().pipe(
+          takeUntil(this.destroy$)
+        ).subscribe((options) => {
           this.options = options.map(x => {
             return {id: this.settings.keyGetLambda(x), name: this.settings.valueGetLambda(x), image: this.settings.imageGetLambda(x)}
           });
           this.rawOptions = options;
+          this.activeLoadRequestSubscription = null;
+        }, () => {
+          this.activeLoadRequestSubscription = null;
         });
       }
     }
@@ -381,10 +407,11 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
 
     if (!this.debounceObserver) {
 
-      new Observable<any>((observer) => {
+      this.debounceSubscription = new Observable<any>((observer) => {
         this.debounceObserver = observer;
       }).pipe(debounceTime(this.settings.debounceTime)) // wait x ms after the last event before emitting last event
         .pipe(distinctUntilChanged()) // only emit if value is different from previous value
+        .pipe(takeUntil(this.destroy$))
         .subscribe((event) => {
           this.processLazyLoadEvent(event);
         });
