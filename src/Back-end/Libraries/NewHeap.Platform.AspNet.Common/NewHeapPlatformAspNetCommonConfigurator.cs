@@ -694,6 +694,28 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         });
 
         _serviceCollection.AddScoped<TDbLogService>();
+        _serviceCollection.AddScoped<NhDbLogAdditionalDataProcessingService<
+            TLog,
+            TUser,
+            TLogMessageArgument,
+            TLogMessageTranslated,
+            TLogFile,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim>>();
+        _serviceCollection.AddHostedService<NhDbLogAdditionalDataHostedService<
+            TLog,
+            TUser,
+            TLogMessageArgument,
+            TLogMessageTranslated,
+            TLogFile,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim>>();
 
         return this;
     }

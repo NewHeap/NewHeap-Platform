@@ -20,6 +20,7 @@ public class NewHeapAspNetCommonSettings
 {
     public string DefaultCulture { get; set; } = "";
     public string[] SupportedCultures { get; set; } = [];
+    public string[] SupportedCulturesDbLogging { get; set; } = [];
     public string[] AllowedOrigins { get; set; } = [];
     public string SelfBaseUrl { get; set; } = "";
     public bool RecurringJobsEnabled { get; set; }

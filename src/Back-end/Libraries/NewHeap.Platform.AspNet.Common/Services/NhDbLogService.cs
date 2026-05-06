@@ -109,6 +109,7 @@ public abstract partial class NhDbLogService<
 
         TLog log = new()
         {
+            Version = 2,
             Message = message,
             Tag = tag,
             ObjectId = objectId,
@@ -117,7 +118,7 @@ public abstract partial class NhDbLogService<
             Action = action,
             Type = type,
             UserId = userId,
-            Source = LogSource.Internal,
+            Source = source,
             DivisionId = _httpContextAccessor?.HttpContext?.Request?.GetActiveDivisionId(),
             MessageTranslateds = [],
             MessageArguments = [],
@@ -145,12 +146,11 @@ public abstract partial class NhDbLogService<
                 }
 
                 log.MessageArguments.Add(logMessageArgument);
-
-                //await dbContext.LogMessageArguments.AddAsync(logMessageArgument);
             }
         }
 
-        var cultures = _settings.SupportedCultures.ToList();
+        var cultures = _settings.SupportedCulturesDbLogging.ToList();
+
         if (!cultures.Any())
         {
             cultures.Add(
@@ -193,11 +193,6 @@ public abstract partial class NhDbLogService<
 
         log.Message = log.StringGuidelineMaxLength(x => x.Message)!;
 
-        if (doSaveChanges)
-        {
-            await SaveChanges();
-        }
-
         if (files?.Any() == true)
         {
             if (string.IsNullOrWhiteSpace(_logSettings.RootDirectory))
@@ -212,10 +207,14 @@ public abstract partial class NhDbLogService<
 
             try
             {
+                if (log.Id == Guid.Empty)
+                {
+                    log.Id = Guid.NewGuid();
+                }
+
                 var logDirectory = Path.Combine(_logSettings.RootDirectory, log.Id.ToString());
                 Directory.CreateDirectory(logDirectory);
 
-                var addedCount = 0;
                 foreach (var (name, contentStream) in files)
                 {
                     //Make 10 attempts of file naming and saving.
@@ -236,15 +235,8 @@ public abstract partial class NhDbLogService<
                         TLogFile logFile = new() { OriginalFileName = name, FilePath = filePath, LogId = log.Id };
 
                         log.Files.Add(logFile);
-
-                        addedCount++;
                         break;
                     }
-                }
-
-                if (addedCount > 0)
-                {
-                    await dbContext.SaveChangesAsync();
                 }
             }
             catch
@@ -252,6 +244,36 @@ public abstract partial class NhDbLogService<
                 //Ignore
             }
         }
+
+        if (log.Version >= 2)
+        {
+            if (log.Files.Any()
+                || log.MessageArguments.Any()
+                || log.MessageTranslateds.Any())
+            {
+                log.AdditionalData = new NhLogAdditionalData<TLogMessageArgument, TLogMessageTranslated, TLogFile>()
+                {
+                    MessageArguments = [.. log.MessageArguments],
+                    MessageTranslateds = [.. log.MessageTranslateds],
+                    Files = [.. log.Files],
+                };
+
+                log.Files.Clear();
+                log.MessageArguments.Clear();
+                log.MessageTranslateds.Clear();
+                log.AdditionalDataProcessed = false; // 2 be sure.
+            }
+            else
+            {
+                log.AdditionalDataProcessed = true;
+            }
+        }
+
+        if (doSaveChanges)
+        {
+            await SaveChanges();
+        }
+
     }
 
     public virtual async Task SaveChanges()

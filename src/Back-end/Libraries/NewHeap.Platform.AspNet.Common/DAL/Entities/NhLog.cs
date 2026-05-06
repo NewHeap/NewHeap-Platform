@@ -112,4 +112,30 @@ public partial class NhLog<
     public Guid? DivisionId { get; set; }
 
     public TDivision? Division { get; set; }
+
+    public short Version { get; set; }
+
+    public bool AdditionalDataProcessed { get; set; }
+
+    public NhLogAdditionalData<
+    TLogMessageArgument,
+    TLogMessageTranslated,
+    TLogFile
+    >? AdditionalData { get; set; }
+}
+
+public class  NhLogAdditionalData<
+    TLogMessageArgument,
+    TLogMessageTranslated,
+    TLogFile
+    >
+    where TLogMessageArgument : NhLogMessageArgument
+    where TLogMessageTranslated : NhLogMessageTranslated
+    where TLogFile : NhLogFile
+{
+    public List<TLogFile> Files { get; set; } = null!;
+
+    public List<TLogMessageArgument> MessageArguments { get; set; } = null!;
+
+    public List<TLogMessageTranslated> MessageTranslateds { get; set; } = null!;
 }

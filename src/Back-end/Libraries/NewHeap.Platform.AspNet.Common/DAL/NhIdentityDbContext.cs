@@ -141,6 +141,10 @@ public abstract partial class NhIdentityDbContext<
             ;
 
         builder.Entity<TLog>()
+            .HasIndex(x => new { x.AdditionalDataProcessed, x.Version, x.CreationDateTime })
+            ;
+
+        builder.Entity<TLog>()
             .HasOne(x => x.User)
             .WithMany()
             .HasForeignKey(x => x.UserId)
@@ -181,6 +185,17 @@ public abstract partial class NhIdentityDbContext<
            .HasForeignKey(x => x.LogId)
            .OnDelete(DeleteBehavior.Cascade)
         ;
+
+        builder.Entity<TLog>()
+            .Property(e => e.AdditionalData)
+            .HasConversion(
+                v => v == null ? null : JsonConvert.SerializeObject(v, ConvertJsonSerializerSettings),
+                v => string.IsNullOrWhiteSpace(v) ? null : JsonConvert.DeserializeObject<NhLogAdditionalData<
+                TLogMessageArgument,
+                TLogMessageTranslated,
+                TLogFile
+                >>(v, ConvertJsonSerializerSettings)!);
+
         #endregion
 
         #region Division
