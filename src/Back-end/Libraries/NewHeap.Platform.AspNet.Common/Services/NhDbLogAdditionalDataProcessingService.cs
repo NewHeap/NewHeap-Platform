@@ -68,6 +68,7 @@ public class NhDbLogAdditionalDataProcessingService<
             if (log.AdditionalData == null)
             {
                 log.AdditionalDataProcessed = true;
+                log.AdditionalData = null;
                 continue;
             }
 
@@ -90,6 +91,7 @@ public class NhDbLogAdditionalDataProcessingService<
             }
 
             log.AdditionalDataProcessed = true;
+            log.AdditionalData = null;
         }
 
         if (messageArguments.Any())
