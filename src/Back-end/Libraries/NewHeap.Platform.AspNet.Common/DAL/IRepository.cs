@@ -58,6 +58,7 @@ public interface IRepository<T> where T : class
     int SaveChanges();
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task<ITransaction> StartTransactionAsync(CancellationToken cancellationToken = default);
+    Task<bool> TryAcquireTransactionLockAsync(INhDbTransactionScope transactionScope, string resourceName, int lockTimeoutInMilliseconds = 0, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Create a transaction scope with support for inner transactions, will only commit if we own the transaction. (First creator)

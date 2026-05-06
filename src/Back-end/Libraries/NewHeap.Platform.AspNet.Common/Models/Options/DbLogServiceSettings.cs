@@ -17,4 +17,6 @@ public class DbLogServiceSettings
     public int AdditionalDataProcessingIntervalInSeconds { get; set; } = 5;
 
     public int AdditionalDataProcessingBatchSize { get; set; } = 100;
+
+    public int AdditionalDataProcessingLockTimeoutInMilliseconds { get; set; } = 0;
 }

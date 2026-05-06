@@ -32,11 +32,14 @@ public class NhDbLogAdditionalDataProcessingService<
     where TDivisionRoleClaim : NhDivisionRoleClaim
 {
     private readonly IRepository<TLog> _logRepository;
+    private readonly DbLogServiceSettings _settings;
 
     public NhDbLogAdditionalDataProcessingService(
-        IRepository<TLog> logRepository)
+        IRepository<TLog> logRepository,
+        IOptions<DbLogServiceSettings> settings)
     {
         _logRepository = logRepository;
+        _settings = settings.Value;
     }
 
     public virtual async Task<int> ProcessBatchAsync(
@@ -44,6 +47,17 @@ public class NhDbLogAdditionalDataProcessingService<
         CancellationToken cancellationToken = default)
     {
         batchSize = Math.Max(1, batchSize);
+
+        await using var transactionScope = await _logRepository.StartOrGetTransactionScopeAsync(cancellationToken);
+
+        if (!await _logRepository.TryAcquireTransactionLockAsync(
+            transactionScope,
+            GetLockResourceName(),
+            _settings.AdditionalDataProcessingLockTimeoutInMilliseconds,
+            cancellationToken))
+        {
+            return 0;
+        }
 
         var logs = await _logRepository
             .GetAll()
@@ -110,8 +124,14 @@ public class NhDbLogAdditionalDataProcessingService<
         }
 
         await _logRepository.SaveChangesAsync(cancellationToken);
+        await transactionScope.CommitAsync(cancellationToken);
 
         return logs.Count;
+    }
+
+    private string GetLockResourceName()
+    {
+        return $"NhDbLogAdditionalDataProcessing:{_logRepository.TableName}";
     }
 }
 

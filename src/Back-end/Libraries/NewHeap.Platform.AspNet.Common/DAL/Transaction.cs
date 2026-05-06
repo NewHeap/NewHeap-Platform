@@ -4,6 +4,8 @@ namespace NewHeap.Platform.AspNet.Common.DAL;
 
 public partial interface ITransaction : IDisposable, IAsyncDisposable
 {
+    IDbContextTransaction DbContextTransaction { get; }
+
     Task RollbackAsync(CancellationToken cancellationToken = default);
 
     Task CommitAsync(CancellationToken cancellationToken = default);
@@ -12,6 +14,8 @@ public partial interface ITransaction : IDisposable, IAsyncDisposable
 public partial class Transaction : ITransaction
 {
     private readonly IDbContextTransaction _transaction;
+
+    public IDbContextTransaction DbContextTransaction => _transaction;
 
     internal Transaction(IDbContextTransaction transaction)
     {

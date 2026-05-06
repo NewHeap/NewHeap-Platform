@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.Common.Extensions;
+using System.Data;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -275,6 +276,55 @@ public partial class Repository<T> : IRepository<T>
         }
     }
 
+    public virtual async Task<bool> TryAcquireTransactionLockAsync(
+        INhDbTransactionScope transactionScope,
+        string resourceName,
+        int lockTimeoutInMilliseconds = 0,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(transactionScope);
+
+        if (string.IsNullOrWhiteSpace(resourceName))
+        {
+            throw new ArgumentException("The lock resource name is required.", nameof(resourceName));
+        }
+
+        resourceName = resourceName.Length <= 255
+            ? resourceName
+            : resourceName[..255];
+
+        var connection = Context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        await using var command = connection.CreateCommand();
+        command.Transaction = transactionScope.Transaction.DbContextTransaction.GetDbTransaction();
+        command.CommandText = """
+                              DECLARE @result int;
+                              EXEC @result = sp_getapplock
+                                  @Resource = @resource,
+                                  @LockMode = 'Exclusive',
+                                  @LockOwner = 'Transaction',
+                                  @LockTimeout = @lockTimeout;
+                              SELECT @result;
+                              """;
+
+        var resourceParameter = command.CreateParameter();
+        resourceParameter.ParameterName = "@resource";
+        resourceParameter.Value = resourceName;
+        command.Parameters.Add(resourceParameter);
+
+        var lockTimeoutParameter = command.CreateParameter();
+        lockTimeoutParameter.ParameterName = "@lockTimeout";
+        lockTimeoutParameter.Value = Math.Max(0, lockTimeoutInMilliseconds);
+        command.Parameters.Add(lockTimeoutParameter);
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return Convert.ToInt32(result) >= 0;
+    }
+
     public virtual int SaveChanges()
     {
         return Context.SaveChanges();
@@ -295,6 +345,8 @@ public interface INhDbTransactionScope : IDisposable, IAsyncDisposable
 {
     bool IsMyTransaction { get; init; }
 
+    ITransaction Transaction { get; }
+
     /// <summary>
     /// Only rolls back if we own the transaction.
     /// </summary>
@@ -314,11 +366,11 @@ public class NhDbTransactionScope : INhDbTransactionScope
 {
     public bool IsMyTransaction { get; init; } = false;
 
-    private ITransaction _transaction { get; init; } = null!;
+    public ITransaction Transaction { get; init; } = null!;
 
     public NhDbTransactionScope(ITransaction transaction, bool isMyTransaction)
     {
-        _transaction = transaction;
+        Transaction = transaction;
         IsMyTransaction = isMyTransaction;
     }
 
@@ -326,7 +378,7 @@ public class NhDbTransactionScope : INhDbTransactionScope
     { 
         if(IsMyTransaction)
         {
-            await _transaction.RollbackAsync(cancellationToken);
+            await Transaction.RollbackAsync(cancellationToken);
         }
     }
 
@@ -334,7 +386,7 @@ public class NhDbTransactionScope : INhDbTransactionScope
     {
         if (IsMyTransaction)
         {
-            await _transaction.CommitAsync(cancellationToken);
+            await Transaction.CommitAsync(cancellationToken);
         }
     }
 
@@ -342,7 +394,7 @@ public class NhDbTransactionScope : INhDbTransactionScope
     {
         if (IsMyTransaction)
         {
-            _transaction.Dispose();
+            Transaction.Dispose();
         }
     }
 
@@ -350,7 +402,7 @@ public class NhDbTransactionScope : INhDbTransactionScope
     {
         if (IsMyTransaction)
         {
-            await _transaction.DisposeAsync();
+            await Transaction.DisposeAsync();
         }
     }
 }

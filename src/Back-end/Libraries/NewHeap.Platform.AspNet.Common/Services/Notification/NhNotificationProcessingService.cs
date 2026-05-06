@@ -22,6 +22,7 @@ public class NhNotificationSettings
     public string ProcessorKey { get; set; } = "default";
     public bool ProcessingEnabled { get; set; } = true;
     public TimeSpan ProcessingLockTimeout { get;set; } = TimeSpan.FromMinutes(1);
+    public TimeSpan ProcessingPollerLockTimeout { get; set; } = TimeSpan.Zero;
     public int ProcessingMaxRetryAttempts { get; set; } = 3;
     public TimeSpan ProcessingCleanupInterval { get; set; } = TimeSpan.FromHours(1);
     public TimeSpan ProcessingRetentionPeriod { get; set; } = TimeSpan.FromDays(30);
@@ -112,6 +113,17 @@ internal class NhNotificationProcessingService : BackgroundService
 
                 using var scope = _scopeFactory.CreateScope();
                 var notificationDeliveryRepository = scope.ServiceProvider.GetRequiredService<IRepository<NhNotificationDelivery>>();
+                await using var transactionScope = await notificationDeliveryRepository.StartOrGetTransactionScopeAsync(stoppingToken);
+
+                if (!await notificationDeliveryRepository.TryAcquireTransactionLockAsync(
+                    transactionScope,
+                    GetPollerLockResourceName(),
+                    (int)Math.Max(0, _settings.ProcessingPollerLockTimeout.TotalMilliseconds),
+                    stoppingToken))
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(taskDelayTimeInSec), stoppingToken);
+                    continue;
+                }
 
                 var now = DateTimeOffset.UtcNow;
                 var staleThreshold = now - _settings.ProcessingLockTimeout;
@@ -126,7 +138,9 @@ internal class NhNotificationProcessingService : BackgroundService
                     .Where(d => 
                         (
                             (d.Status == NotificationDeliveryStatus.Queued && d.ScheduledAt <= now)
-                            || (d.Status == NotificationDeliveryStatus.Processing && !inFlightGuids.Contains(d.Id)) // Pick up hanging, we skip que if they still in processing
+                            || (d.Status == NotificationDeliveryStatus.Processing 
+                                && !inFlightGuids.Contains(d.Id)
+                                && (d.LastSendAttemptAt == null || d.LastSendAttemptAt <= staleThreshold)) // Pick up hanging, we skip que if they still in processing
                         )
                     )
                     .Select(x => new { Priority = (x.Priority.HasValue ? x.Priority : x.Notification!.Priority), NotificationDelivery = x })
@@ -139,9 +153,11 @@ internal class NhNotificationProcessingService : BackgroundService
                 foreach (var delivery in candidates)
                 {
                     delivery.Status = NotificationDeliveryStatus.Processing;
+                    delivery.LastSendAttemptAt = now;
                 }
 
                 await notificationDeliveryRepository.SaveChangesAsync(stoppingToken);
+                await transactionScope.CommitAsync(stoppingToken);
 
                 foreach (var delivery in candidates)
                 {
@@ -179,6 +195,11 @@ internal class NhNotificationProcessingService : BackgroundService
 
             await Task.Delay(TimeSpan.FromSeconds(taskDelayTimeInSec), stoppingToken);
         }
+    }
+
+    private string GetPollerLockResourceName()
+    {
+        return $"NhNotificationProcessing:Poller:{_settings.ProcessorKey}";
     }
 
     private async Task RunChannelConsumerAsync(
