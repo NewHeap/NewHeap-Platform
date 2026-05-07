@@ -134,12 +134,12 @@ public abstract partial class NhIdentityDbContext<
 
         builder.Entity<TLog>()
             .HasIndex(x => new { x.ObjectTypeFull, x.ObjectId })
-            .IncludeProperties(x => x.CreationDateTime)
+            //.IncludeProperties(x => x.CreationDateTime)
         ;
 
         builder.Entity<TLog>()
             .HasIndex(x => new { x.ObjectType, x.ObjectId })
-            .IncludeProperties(x => x.CreationDateTime)
+            //.IncludeProperties(x => x.CreationDateTime)
             ;
 
         builder.Entity<TLog>()
