@@ -63,7 +63,6 @@ public class NhDbLogAdditionalDataProcessingService<
             .GetAll()
             .Where(x => x.Version >= 2)
             .Where(x => !x.AdditionalDataProcessed)
-            .Where(x => x.AdditionalData != null)
             .OrderBy(x => x.CreationDateTime)
             .Take(batchSize)
             .ToListAsync(cancellationToken);
