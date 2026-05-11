@@ -261,6 +261,8 @@ public abstract partial class NhIdentityDbContext<
 
         builder.Entity<NhNotification>(entity =>
         {
+            entity.HasIndex(x => new { x.ProcessorKey, x.Priority });
+
             entity
                 .HasOne(typeof(TUser))
                 .WithMany()
