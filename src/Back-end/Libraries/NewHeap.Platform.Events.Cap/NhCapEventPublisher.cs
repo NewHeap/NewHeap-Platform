@@ -18,6 +18,10 @@ public class NhCapEventPublisher : INhEventPublisher
     {
         var topic = TEvent.Topic;
         _publisher.Transaction = _scope.Current;
+        if (_scope.IsCommitStarted)
+        {
+            throw new InvalidOperationException("Cannot publish events after the transaction commit has started, please make sure to include events before committing the transaction.");
+        }
         await _publisher.PublishAsync(topic, evt);
     }
 }

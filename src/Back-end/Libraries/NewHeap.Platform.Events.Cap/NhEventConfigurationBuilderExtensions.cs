@@ -29,6 +29,7 @@ public static class NhEventConfigurationBuilderExtensions
                 
                 var scope = sp.GetRequiredService<CapTransactionScope>();
                 scope.Current = publisher.Transaction;
+                scope.IsCommitStarted = false;
                 return new CapEFDbTransaction(publisher.Transaction, scope);
             }
         );
@@ -90,13 +91,9 @@ public class CapEFDbTransaction : IDbContextTransaction, IInfrastructure<DbTrans
 
     public Guid TransactionId { get; }
 
-    public void Dispose()
-    {
-        _transaction.Dispose();
-    }
-
     public void Commit()
     {
+        _scope.IsCommitStarted = true;
         _transaction.Commit();
     }
 
@@ -107,6 +104,7 @@ public class CapEFDbTransaction : IDbContextTransaction, IInfrastructure<DbTrans
 
     public async Task CommitAsync(CancellationToken cancellationToken = default)
     {
+        _scope.IsCommitStarted = true;
         await _transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -115,17 +113,17 @@ public class CapEFDbTransaction : IDbContextTransaction, IInfrastructure<DbTrans
         await _transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public void Dispose()
+    {
+        DoDispose();
+        _transaction.Dispose();
+    }
+
     public ValueTask DisposeAsync()
     {
-        
-        return new ValueTask(Task.Run(() =>
-        {
-            if (_scope.Current == _transaction)
-            {
-                _scope.Current = null;
-            }
-            _transaction.Dispose();
-        }));
+        DoDispose();
+        _transaction.Dispose();
+        return ValueTask.CompletedTask;
     }
 
     public DbTransaction Instance
@@ -134,6 +132,14 @@ public class CapEFDbTransaction : IDbContextTransaction, IInfrastructure<DbTrans
         {
             var dbContextTransaction = (IDbContextTransaction)_transaction.DbTransaction!;
             return dbContextTransaction.GetDbTransaction();
+        }
+    }
+
+    private void DoDispose()
+    {
+        if (_scope.Current == _transaction)
+        {
+            _scope.Current = null;
         }
     }
 }
