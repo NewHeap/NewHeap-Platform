@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "NewHeap.Platform.AspNet.Common": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:16432;http://localhost:16433"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+<Project>
+ <PropertyGroup>
+   <LangVersion>latestMajor</LangVersion>
+   <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+   <Authors>NewHeap contributors</Authors>
+   <PackageProjectUrl>https://github.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
+   <RepositoryUrl>https://github.com/NewHeap/NewHeap-Platform</RepositoryUrl>
+   <RepositoryType>git</RepositoryType>
+   <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+   <PublishRepositoryUrl>true</PublishRepositoryUrl>
+   <UseLocalNewHeapProjects Condition="'$(UseLocalNewHeapProjects)' == ''">true</UseLocalNewHeapProjects>
+ </PropertyGroup>
+
+ <ItemGroup>
+   <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-rvv3-g6hj-g44x" />
+
+   <None Include="$(MSBuildThisFileDirectory)..\..\LICENSE"
+         Pack="true"
+         PackagePath=""
+         Visible="false" />
+   <None Include="$(MSBuildThisFileDirectory)..\..\NOTICE"
+         Pack="true"
+         PackagePath=""
+         Visible="false" />
+   <None Include="$(MSBuildThisFileDirectory)..\..\THIRD-PARTY-NOTICES.md"
+         Pack="true"
+         PackagePath=""
+         Visible="false" />
+ </ItemGroup>
+</Project>

@@ -1,0 +1,78 @@
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Tokens;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Exceptions;
+using NewHeap.Platform.AspNet.Common.Models;
+using NewHeap.Platform.Common.Models;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+
+namespace NewHeap.Platform.AspNet.Common.Services;
+
+/// <summary>
+/// 
+/// </summary>
+public interface INhAuthenticationService
+{
+    /// <summary>
+    /// Refresh authentication token
+    /// </summary>
+    /// <param name="request">Refresh token to validate</param>
+    /// <returns>A new token when refresh token is valid</returns>
+    Task<TaskResult<UserToken>> AuthenticateRefreshTokenAsync(RefreshTokenRequest request);
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <returns></returns>
+    string GetIssuer();
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <returns></returns>
+    string GetIssuerDomain();
+
+    /// <summary>
+    /// Authenticate a user using username and password
+    /// </summary>
+    /// <param name="request">Credentials to verify</param>
+    /// <param name="requiredClaims">
+    /// Collection of claims that the user must have for authentication to succeed.
+    /// When a user doesn't have all required claims, authentication will fail.
+    /// If null, no claims are required.
+    /// </param>
+    /// <returns></returns>
+    Task<TaskResult<UserToken>> Authenticate(AuthenticateRequest request,
+        IEnumerable<Claim>? requiredClaims = null);
+
+    /// <summary>
+    /// Create a JWT for a specific user
+    /// </summary>
+    /// <param name="userId"></param>
+    /// <param name="expiration">Duration token is valid for. Defaults to 1 day</param>
+    /// <param name="withDivisionClaims">Default false</param>
+    /// <returns></returns>
+    /// <exception cref="ConfigurationException">Throws when JWT configuration is missing</exception>
+    Task<JwtSecurityToken> CreateToken(Guid userId, TimeSpan? expiration = null, bool withDivisionClaims = false);
+    
+    /// <summary>
+    /// Create a token for the given user with specific claims
+    /// </summary>
+    /// <param name="userId"></param>
+    /// <param name="claims"></param>
+    /// <param name="expiration"></param>
+    /// <returns></returns>
+    Task<JwtSecurityToken> CreateToken(Guid userId, IEnumerable<Claim> claims, TimeSpan? expiration = null);
+
+    JwtSecurityToken? DecodeToken(string token);
+
+    Task<TaskResult<UserToken>> Impersonate(Guid currentUserId, ImpersonateRequest request);
+
+    Task<TaskResult<UserToken>> ImpersonateRevert(Guid impersonatedUserId, Guid originUserId);
+
+    ClaimsPrincipal? ValidateToken(string token, out SecurityToken validatedToken);
+    Task<TaskResult<UserToken>> LoginWithoutValidations(Guid userId, bool iAmSureThatIKnowWhatImDoing = false);
+
+    void WriteTokenToCookie(HttpContext httpContext, UserToken token, string? authCookieName = null, string? refreshCookieName = null);
+}

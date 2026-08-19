@@ -1,0 +1,25 @@
+{
+  "name": "newheap-platform",
+  "version": "1.11.1",
+  "description": "Build consuming applications with the supported NewHeap Platform library patterns and executable examples.",
+  "author": {
+    "name": "NewHeap B.V."
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "NewHeap Platform",
+    "shortDescription": "Build consumer apps with NewHeap",
+    "longDescription": "Versioned NewHeap consumer-development guidance generated from executable SampleProjectManagement cases and the current public library surface.",
+    "developerName": "NewHeap B.V.",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Build this feature with NewHeap Platform patterns.",
+      "Review this consumer integration for NewHeap compatibility.",
+      "Diagnose this NewHeap consumer issue."
+    ]
+  }
+}

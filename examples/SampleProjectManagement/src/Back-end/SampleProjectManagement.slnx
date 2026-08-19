@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/Applications/">
+    <Project Path="Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj" />
+  </Folder>
+  <Folder Name="/Libraries/">
+    <Project Path="Libraries/SampleProjectManagement.Core/SampleProjectManagement.Core.csproj" />
+    <Project Path="Libraries/SampleProjectManagement.DAL/SampleProjectManagement.DAL.csproj" />
+  </Folder>
+  <Folder Name="/Orchestration/">
+    <Project Path="Orchestration/SampleProjectManagement.AppHost/SampleProjectManagement.AppHost.csproj" />
+    <Project Path="Orchestration/SampleProjectManagement.ServiceDefaults/SampleProjectManagement.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/SampleProjectManagement.Core.Tests/SampleProjectManagement.Core.Tests.csproj" />
+  </Folder>
+</Solution>

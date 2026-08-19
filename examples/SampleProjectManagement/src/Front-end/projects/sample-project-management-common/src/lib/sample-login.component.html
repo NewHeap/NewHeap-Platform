@@ -1,0 +1,60 @@
+<main class="login-page">
+  <section class="product-panel" aria-labelledby="product-title">
+    <div class="brand"><span>SP</span><strong>Sample Project Management</strong></div>
+    <div class="product-copy">
+      <p>{{ 'project.login-environment' | translate }}</p>
+      <h1 id="product-title">{{ 'project.login-product-title' | translate }}</h1>
+      <span>{{ 'project.login-product-description' | translate }}</span>
+    </div>
+    <div class="product-assurance">
+      <i class="ph ph-shield-check" aria-hidden="true"></i>
+      <span><strong>{{ 'project.login-assurance-title' | translate }}</strong><small>{{ 'project.login-assurance-description' | translate }}</small></span>
+    </div>
+  </section>
+
+  <section class="form-panel">
+    <form (ngSubmit)="login()" [attr.aria-busy]="isSubmitting()">
+      <header>
+        <span class="mobile-brand">Sample Project Management</span>
+        <h2>{{ 'project.login-title' | translate }}</h2>
+        <p>{{ 'project.login-description' | translate }}</p>
+      </header>
+
+      @if (sessionExpired) {
+        <p class="form-message warning" role="alert"><i class="ph ph-clock-countdown" aria-hidden="true"></i>{{ 'project.session-expired' | translate }}</p>
+      }
+
+      <fieldset>
+        <legend>{{ 'project.authorization-demo-accounts' | translate }}</legend>
+        <div class="account-options">
+          @for (account of demoAccounts; track account.email) {
+            <button type="button" (click)="selectAccount(account)" [class.selected]="username === account.email" [attr.aria-pressed]="username === account.email">
+              <span class="account-icon"><i class="ph ph-user" aria-hidden="true"></i></span>
+              <span class="account-copy"><strong>{{ account.labelKey | translate }}</strong><small>{{ account.email }}</small></span>
+              <i class="ph ph-check selected-icon" aria-hidden="true"></i>
+            </button>
+          }
+        </div>
+        <p class="account-help">{{ 'project.login-account-help' | translate }}</p>
+      </fieldset>
+
+      <div class="form-fields">
+        <label for="sample-login-username">{{ 'project.login-email' | translate }}</label>
+        <input id="sample-login-username" type="email" name="username" [(ngModel)]="username" autocomplete="username" required [disabled]="isSubmitting()">
+
+        <label for="sample-login-password">{{ 'project.login-password' | translate }}</label>
+        <input id="sample-login-password" type="password" name="password" [(ngModel)]="password" autocomplete="current-password" required [disabled]="isSubmitting()">
+      </div>
+
+      @if (errorMessage()) {
+        <p class="form-message error" role="alert"><i class="ph ph-warning-circle" aria-hidden="true"></i>{{ errorMessage() }}</p>
+      }
+
+      <button class="submit-button" type="submit" [disabled]="isSubmitting()">
+        <i class="ph ph-sign-in" aria-hidden="true"></i>
+        {{ (isSubmitting() ? 'project.login-submitting' : 'project.login-submit') | translate }}
+      </button>
+      <p class="development-note"><i class="ph ph-info" aria-hidden="true"></i>{{ 'project.login-development-note' | translate }}</p>
+    </form>
+  </section>
+</main>

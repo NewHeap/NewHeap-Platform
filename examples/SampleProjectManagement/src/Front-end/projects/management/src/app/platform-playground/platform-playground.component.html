@@ -1,0 +1,124 @@
+@if (headDirectiveVisible()) {
+  <meta nhToHead name="sample-project-management-directive" content="NhToHeadDirective removes this element on destroy">
+}
+@if (jsonLdDocument(); as structuredData) {
+  <nh-json-ld nhToHead [json]="structuredData"></nh-json-ld>
+}
+
+<section class="platform-lab" id="platform-playground">
+  <header>
+    <div>
+      <h2>{{ 'project.platform-playground-title' | translate }}</h2>
+      <p>{{ 'project.platform-playground-description' | translate }}</p>
+    </div>
+    <span class="layer-badge"><i class="ph ph-stack" aria-hidden="true"></i> Browser, API, and document head</span>
+  </header>
+
+  <div class="platform-grid">
+    <article>
+      <h3>{{ 'project.http-deduplication-title' | translate }}</h3>
+      <p>{{ 'project.http-deduplication-description' | translate }}</p>
+      <small><code>deduplicateGetRequests = {{ inFlightDeduplicationEnabled }}</code></small>
+      <div class="actions">
+        <button type="button" (click)="loadText()">Text</button>
+        <button type="button" (click)="loadBinary()">ArrayBuffer</button>
+        <button type="button" (click)="downloadCsv()">Download CSV</button>
+        <button type="button" (click)="echoEncodedQuery()">Encoded query</button>
+        <button type="button" (click)="demonstrateDeduplication()">Duplicate GET</button>
+        <button type="button" (click)="loadObservability()">Trace + TaskResult logs</button>
+      </div>
+      <pre>{{ result() }}</pre>
+      @if (duplicateSubscribers()) {
+        <small>{{ duplicateSubscribers() }} subscribers | {{ networkExecutions() }} daadwerkelijke serverexecutie.</small>
+      }
+    </article>
+
+    <article>
+      <h3 (contextmenu)="openContextMenu($event)" title="Right-click for the NewHeap context menu">Custom form control, provider, and helpers</h3>
+      <p><code>AbstractValueAccessor</code>, <code>MakeProvider</code>, disabled and touched state, and <code>NhFormHelper.clearErrors</code> work in one reactive form.</p>
+      <app-project-code-input [formControl]="projectCode" [label]="'Projectcode'"></app-project-code-input>
+      <div class="value-row">
+        <code>{{ projectCode.value }}</code>
+        <button type="button" (click)="toggleControl()">Toggle disabled</button>
+        <button type="button" (click)="demonstrateFormHelpers()">Server error and clear</button>
+      </div>
+      <h4>Translated member multi-select</h4>
+      <nh-form-dropdown [formControl]="memberIds" [settings]="memberSettings"></nh-form-dropdown>
+      <small>Selected IDs: {{ memberIds.value.join(', ') || '-' }}</small>
+    </article>
+
+    <article>
+      <h3>Input and button debounce with teardown</h3>
+      <p>Both directives run live. The teardown sample destroys the input before the timer expires and verifies that no event follows.</p>
+      <label class="debounce-field">Inputdebounce
+        <input type="text" ngModel [nhDebounce]="350" (onDebounce)="debounce($event)" placeholder="Typ snel…">
+      </label>
+      <div class="actions">
+        <button type="button" nhButtonDebounce [debounce]="350" (onDebounce)="buttonDebounced()">Click rapidly several times</button>
+        <button type="button" (click)="demonstrateDebounceTeardown()">Measure teardown</button>
+      </div>
+      @if (teardownProbeVisible()) {
+        <input class="hidden-probe" [ngModel]="teardownProbeValue()" [nhDebounce]="350" (onDebounce)="recordTeardownEmission()" aria-label="Debounce teardown probe">
+      }
+      <small>Input: {{ debouncedValue() || '-' }} | button events: {{ buttonDebounceCount() }} | probe events: {{ teardownEmissionCount() }}</small>
+    </article>
+
+    <article>
+      <h3>Modal lifecycle</h3>
+      <p>The loading modal blocks duplicate submission and always closes after the asynchronous operation.</p>
+      <button type="button" (click)="showLoadingModal()">Run asynchronous action</button>
+    </article>
+
+    <article>
+      <h3>EF Core <code>ChunkAsync</code></h3>
+      <p>Reads a stably sorted project query in batches of two without materializing the complete result set first.</p>
+      <button type="button" (click)="loadProjectChunks()">Read project chunks</button>
+      <small>The endpoint requires <code>app.project.view</code>; every chunk displays its number, size, and rows.</small>
+    </article>
+
+    <article>
+      <h3>FusionCache hit, key, and invalidation</h3>
+      <p>Two consecutive reads retain the same generation timestamp. After invalidation, the next read returns a fresh result.</p>
+      <div class="actions">
+        <button type="button" (click)="loadCachedProjectSummary()">Read twice from cache</button>
+        <button type="button" (click)="invalidateCachedProjectSummary()">Invalidate cache key</button>
+      </div>
+      <small>Read requires <code>app.project.view</code>; invalidation requires <code>app.project.manage</code>.</small>
+    </article>
+
+    <article>
+      <h3>SEO, head, and structured data</h3>
+      <p>Services, <code>nhToHead</code>, <code>nh-json-ld</code>, and review placeholder keys work together; clear demonstrates the removal lifecycle.</p>
+      <div class="actions">
+        <button type="button" (click)="applySeo()">Apply document head</button>
+        <button type="button" (click)="clearSeo()">Remove head data</button>
+        <button type="button" (click)="switchLanguage()">Switch runtime language</button>
+      </div>
+      <pre>{{ jsonLdPreview() }}</pre>
+    </article>
+
+    <article>
+      <h3>Breadcrumb and sitemap from one route configuration</h3>
+      <p>The environment initializer registers multilingual <code>NhRegisterRoute</code> metadata and supplies the same tree to the router, breadcrumb, and sitemap.</p>
+      <button type="button" (click)="inspectNavigationModel()">Inspect navigation model</button>
+      <pre>{{ navigationPreview() }}</pre>
+    </article>
+
+    <article>
+      <h3>Application, page, and runtime configuration state</h3>
+      <p><code>NhAppService</code> manages TransferState and platform status; <code>NhPageService</code> owns title, description, pageData, and clear.</p>
+      <div class="actions">
+        <button type="button" (click)="demonstratePageState()">Set page state</button>
+        <button type="button" (click)="clearPageState()">Clear page state</button>
+      </div>
+      <pre>{{ pageStatePreview() }}</pre>
+    </article>
+
+    <article>
+      <h3>Front-end Sentry pipeline</h3>
+      <p>The sample registers all five runtime hooks, breadcrumb, span, trace service, and the central error handler. Transport deliberately remains disabled locally.</p>
+      <button type="button" (click)="demonstrateSentry()">Run observability pipeline</button>
+      <pre>{{ sentryPreview() }}</pre>
+    </article>
+  </div>
+</section>

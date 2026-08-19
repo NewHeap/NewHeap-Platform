@@ -1,0 +1,56 @@
+<form #projectForm="ngForm" (ngSubmit)="submit($event)" class="edit-form" autocomplete="off" [attr.aria-busy]="isLoadingOrSubmitting">
+  @if (formData) {
+    <div class="form-intro">
+      <span>{{ 'project.edit-modal-label' | translate }}</span>
+      <h2>{{ (mutationType === 0 ? 'project.create-project' : 'project.edit-project') | translate }}</h2>
+      <p>{{ 'project.edit-modal-description' | translate }}</p>
+    </div>
+
+    <div class="form-grid">
+      <label>
+        <span>{{ 'project.key' | translate }}</span>
+        <input #projectKey="ngModel" name="key" required maxlength="30" [(ngModel)]="formData.key">
+        <small>{{ 'project.key-help' | translate }}</small>
+        <nh-form-error-message [control]="projectKey.control"></nh-form-error-message>
+      </label>
+
+      <label>
+        <span>{{ 'project.name' | translate }}</span>
+        <input #projectName="ngModel" name="name" required maxlength="150" [(ngModel)]="formData.name">
+        <nh-form-error-message [control]="projectName.control"></nh-form-error-message>
+      </label>
+
+      <label>
+        <span>{{ 'project.status' | translate }}</span>
+        <select name="status" required [(ngModel)]="formData.status">
+          @for (option of statusOptions; track option.id) {
+            <option [ngValue]="option.id">{{ option.name }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>{{ 'project.deadline' | translate }}</span>
+        <input name="deadline" type="datetime-local" [(ngModel)]="formData.deadline">
+      </label>
+
+      <label class="full-width">
+        <span>{{ 'project.description' | translate }}</span>
+        <textarea name="description" rows="5" maxlength="2000" [(ngModel)]="formData.description"></textarea>
+      </label>
+    </div>
+
+    <nh-form-error-message [control]="projectForm.controls['']"></nh-form-error-message>
+
+    <footer>
+      <button type="button" class="secondary-button" (click)="closeDialog()">
+        <i class="ph ph-x" aria-hidden="true"></i>
+        {{ 'project.cancel' | translate }}
+      </button>
+      <button type="submit" class="primary-button" [disabled]="projectForm.invalid || isLoadingOrSubmitting">
+        <i class="ph" [class.ph-spinner-gap]="isLoadingOrSubmitting" [class.ph-floppy-disk]="!isLoadingOrSubmitting" aria-hidden="true"></i>
+        {{ 'project.save' | translate }}
+      </button>
+    </footer>
+  }
+</form>

@@ -1,0 +1,9 @@
+
+@if(displayErrors.length > 0) {
+  <ul class="text-danger validation-errors">
+    @for(error of displayErrors; track $index) {
+      <li>{{error}}</li>
+    }
+  </ul>
+}
+

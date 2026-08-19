@@ -1,0 +1,51 @@
+<div class="profile-page">
+  <a class="back" routerLink=".."><i class="ph ph-arrow-left" aria-hidden="true"></i>{{ 'project.account-menu.back' | translate }}</a>
+  <header>
+    <h2 class="profile-title">{{ 'project.account-menu.edit-profile' | translate }}</h2>
+    <p>{{ 'project.account-menu.profile-description' | translate }}</p>
+  </header>
+
+  <div class="profile-layout">
+    <aside class="account-summary">
+      <span class="account-avatar"><i class="ph ph-user" aria-hidden="true"></i></span>
+      <div><span>{{ 'project.account-menu.account' | translate }}</span><strong>{{ authorization()?.user?.email }}</strong></div>
+      <dl>
+        <div><dt>{{ 'project.account-menu.email' | translate }}</dt><dd>{{ authorization()?.user?.email }}</dd></div>
+        <div><dt>{{ 'project.account-menu.roles' | translate }}</dt><dd>{{ (authorization()?.user?.roles ?? []).join(', ') || ('project.account-menu.no-roles' | translate) }}</dd></div>
+      </dl>
+    </aside>
+
+    <section class="settings-panel" [attr.aria-busy]="saving()" aria-label="Profielinstellingen">
+      @if (result(); as resultMessage) {
+        <p class="result" [class.error]="resultMessage === 'save-failed' || resultMessage === 'password-mismatch'" [attr.role]="resultMessage === 'save-failed' || resultMessage === 'password-mismatch' ? 'alert' : 'status'">
+          <i class="ph" [class.ph-check-circle]="resultMessage !== 'save-failed' && resultMessage !== 'password-mismatch'" [class.ph-warning-circle]="resultMessage === 'save-failed' || resultMessage === 'password-mismatch'" aria-hidden="true"></i>
+          {{ ('project.account-menu.' + resultMessage) | translate }}
+        </p>
+      }
+
+      <section>
+        <div class="section-heading"><span class="section-icon"><i class="ph ph-buildings" aria-hidden="true"></i></span><div><h2>{{ 'project.account-menu.active-division' | translate }}</h2><p>{{ 'project.account-menu.active-division-description' | translate }}</p></div></div>
+        <label for="profile-division">{{ 'project.account-menu.division' | translate }}</label>
+        <select id="profile-division" [(ngModel)]="activeDivisionId" [disabled]="saving()">
+          @for (division of authorization()?.divisions ?? []; track division.id) {
+            <option [value]="division.id">{{ division.name }}</option>
+          }
+        </select>
+        <button type="button" (click)="saveActiveDivision()" [disabled]="saving()"><i class="ph ph-floppy-disk" aria-hidden="true"></i>{{ 'project.account-menu.save-division' | translate }}</button>
+      </section>
+
+      <section>
+        <div class="section-heading"><span class="section-icon"><i class="ph ph-lock-key" aria-hidden="true"></i></span><div><h2>{{ 'project.account-menu.change-password' | translate }}</h2></div></div>
+        <div class="form-grid">
+          <label for="profile-current-password">{{ 'project.account-menu.current-password' | translate }}</label>
+          <input id="profile-current-password" type="password" [(ngModel)]="currentPassword" autocomplete="current-password" [disabled]="saving()">
+          <label for="profile-new-password">{{ 'project.account-menu.new-password' | translate }}</label>
+          <input id="profile-new-password" type="password" [(ngModel)]="password" autocomplete="new-password" [disabled]="saving()">
+          <label for="profile-confirm-password">{{ 'project.account-menu.confirm-password' | translate }}</label>
+          <input id="profile-confirm-password" type="password" [(ngModel)]="confirmPassword" autocomplete="new-password" [disabled]="saving()">
+        </div>
+        <button type="button" (click)="changePassword()" [disabled]="saving()"><i class="ph ph-floppy-disk" aria-hidden="true"></i>{{ 'project.account-menu.save-password' | translate }}</button>
+      </section>
+    </section>
+  </div>
+</div>

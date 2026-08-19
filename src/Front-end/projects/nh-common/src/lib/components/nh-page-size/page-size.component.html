@@ -1,0 +1,10 @@
+@if (pageSizeDropDownSettings) {
+  <div class="filter dropdown-with-icon">
+    @if (value) {
+      <nh-form-dropdown
+        [name]="name"
+        [(ngModel)]="value"
+      [settings]="pageSizeDropDownSettings"></nh-form-dropdown>
+    }
+  </div>
+}

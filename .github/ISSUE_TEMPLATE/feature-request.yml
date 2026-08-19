@@ -1,0 +1,67 @@
+name: Feature request
+description: Propose a NewHeap library, sample, guidance, or tooling improvement.
+title: "[Feature]: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the consumer problem before proposing an API. Substantial public API, provider, security, dependency, or release changes should be discussed before implementation.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - .NET libraries
+        - Angular libraries
+        - SampleProjectManagement
+        - Consumer guidance or plugin
+        - Release tooling
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Explain the consumer need, limitation, or workflow this request addresses.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the preferred behavior or API without relying on private application details.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe current workarounds or alternative designs.
+
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility and provider impact
+      description: Note potential breaking changes and SQL Server, PostgreSQL, Angular, or migration implications.
+
+  - type: textarea
+    id: sample-evidence
+    attributes:
+      label: Suggested executable sample
+      description: Explain how SampleProjectManagement could demonstrate and verify the behavior.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues and sample cases for this request.
+          required: true
+        - label: This request contains no customer-specific or confidential material.
+          required: true

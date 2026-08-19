@@ -1,0 +1,18 @@
+{
+  "$schema": "../../node_modules/ng-packagr/ng-package.schema.json",
+  "dest": "../../dist/nh-common",
+  "lib": {
+    "entryFile": "src/public-api.ts",
+    "styleIncludePaths": ["src/lib/styles"]
+  },
+  "assets": [
+    "LICENSE",
+    "NOTICE",
+    "THIRD-PARTY-NOTICES.md",
+    {
+      "input": "src/lib/styles",
+      "glob": "**/*.scss",
+      "output": "styles"
+    }
+  ]
+}

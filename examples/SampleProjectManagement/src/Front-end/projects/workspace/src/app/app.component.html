@@ -1,0 +1,55 @@
+<div class="workspace-overview">
+  <section class="workspace-summary">
+    <div>
+      <span class="summary-icon"><i class="ph ph-kanban" aria-hidden="true"></i></span>
+      <div><h2>{{ 'project.week-heading' | translate }}</h2><p>{{ 'project.week-description' | translate }}</p></div>
+    </div>
+    <div class="summary-metric"><strong>{{ completedCount() }}/{{ projects().length }}</strong><span>{{ 'project.week-completed' | translate }}</span></div>
+  </section>
+
+  @if (statusMessage()) {
+    <div class="status-message" [class.error]="statusMessageKind() === 'error'" [class.simulated]="statusMessageKind() === 'simulated'" [attr.role]="statusMessageKind() === 'error' ? 'alert' : 'status'">
+      <i class="ph" [class.ph-check-circle]="statusMessageKind() === 'success'" [class.ph-warning-circle]="statusMessageKind() === 'error'" [class.ph-info]="statusMessageKind() === 'simulated'" aria-hidden="true"></i>
+      {{ statusMessage() }}
+    </div>
+  }
+
+  <section class="board" aria-label="Projectbord" [attr.aria-busy]="loading()">
+    @for (column of columns; track column.status) {
+      <div class="column" [attr.data-status]="column.key">
+        <header><span class="state-indicator" aria-hidden="true"></span><h2>{{ ('project.status-' + column.key) | translate }}</h2><b>{{ projectsFor(column.status).length }}</b></header>
+        <div class="cards">
+          @if (loading()) {
+            @for (item of [1, 2]; track item) {
+              <div class="project-skeleton" aria-hidden="true"><span class="spm-skeleton"></span><span class="spm-skeleton"></span><span class="spm-skeleton"></span><span class="spm-skeleton"></span></div>
+            }
+          } @else {
+            @for (project of projectsFor(column.status); track project.id) {
+              <article>
+                <div class="card-top"><span>{{ project.key }}</span><time>{{ project.lastModifiedDateTime | date:'d MMM':'':'nl-NL' }}</time></div>
+                <h3>{{ project.name }}</h3>
+                <p>{{ project.description }}</p>
+                <footer>
+                  <span class="project-mark" aria-hidden="true"><i class="ph ph-folder" aria-hidden="true"></i></span>
+                  @if (canManage()) {
+                    <label><span class="visually-hidden">{{ 'project.move-project' | translate }}</span><select [disabled]="updatingProjectIds().has(project.id)" (change)="move(project, $event)" [attr.aria-label]="('project.move-project' | translate) + ': ' + project.name">
+                      @for (option of statusOptions; track option.id) {
+                        <option [value]="option.id" [selected]="option.id === project.status">{{ option.name }}</option>
+                      }
+                    </select></label>
+                  } @else {
+                    <span class="read-only"><i class="ph ph-eye" aria-hidden="true"></i>{{ 'project.read-only' | translate }}</span>
+                  }
+                </footer>
+              </article>
+            } @empty {
+              <div class="empty"><i class="ph ph-tray" aria-hidden="true"></i><span>{{ 'project.empty-column' | translate }}</span></div>
+            }
+          }
+        </div>
+      </div>
+    }
+  </section>
+
+  <aside class="sample-note"><i class="ph ph-info" aria-hidden="true"></i><span><strong>{{ 'project.sample-pattern' | translate }}</strong>{{ 'project.sample-pattern-description' | translate }}</span><code>ProjectApiService.updateStatus(id, status)</code></aside>
+</div>

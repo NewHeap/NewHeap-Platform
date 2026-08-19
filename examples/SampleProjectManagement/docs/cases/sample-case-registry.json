@@ -1,0 +1,2900 @@
+{
+  "schemaVersion": 1,
+  "description": "Canonical SampleProjectManagement case registry. Generate the plan, status, Angular catalog, guidance and skills from this file.",
+  "categories": [
+    {
+      "id": "1",
+      "title": "Domain, CRUD, and models"
+    },
+    {
+      "id": "2",
+      "title": "Collections, filtering, and projections"
+    },
+    {
+      "id": "3",
+      "title": "Mutations, partial and bulk operations, and validation"
+    },
+    {
+      "id": "4",
+      "title": "DAL, repositories, and transactions"
+    },
+    {
+      "id": "5",
+      "title": "Authentication, identity, and authorization"
+    },
+    {
+      "id": "6",
+      "title": "Events, jobs, email, and notifications"
+    },
+    {
+      "id": "7",
+      "title": "Localization, configuration, and HTTP infrastructure"
+    },
+    {
+      "id": "8",
+      "title": "Frontend HTTP, forms, and modals"
+    },
+    {
+      "id": "9",
+      "title": "Frontend collections, routing, authentication, and interaction"
+    },
+    {
+      "id": "10",
+      "title": "Utilities, SEO, SSR, and observability"
+    },
+    {
+      "id": "11",
+      "title": "Common helpers and caching"
+    },
+    {
+      "id": "12",
+      "title": "Test helpers"
+    },
+    {
+      "id": "13",
+      "title": "Media"
+    },
+    {
+      "id": "14",
+      "title": "Application services and unit of work"
+    },
+    {
+      "id": "15",
+      "title": "Audit: helpers, extensions, and transactional boundaries"
+    },
+    {
+      "id": "16",
+      "title": "Authorization implementation patterns"
+    },
+    {
+      "id": "17",
+      "title": "Consumer repository foundation"
+    }
+  ],
+  "cases": [
+    {
+      "id": "SPM-001",
+      "categoryId": "1",
+      "title": "Retrieve projects",
+      "surface": "protected base controller, collection response",
+      "outcome": "The register displays paged projects.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-002",
+      "categoryId": "1",
+      "title": "Project by ID",
+      "surface": "`GetById`, `TaskResult<T>`",
+      "outcome": "The detail page displays one project and a clean 404 response.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-003",
+      "categoryId": "1",
+      "title": "Create a project",
+      "surface": "`Create`, `BaseDbEntityService`",
+      "outcome": "The create modal creates and returns a project.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-004",
+      "categoryId": "1",
+      "title": "Full update",
+      "surface": "`Update`, `CRUDActionType.Update`",
+      "outcome": "The edit flow saves every mutable field.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-005",
+      "categoryId": "1",
+      "title": "Delete",
+      "surface": "`Delete`, delete validation",
+      "outcome": "Confirmation deletes the project and refreshes the collection.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-006",
+      "categoryId": "1",
+      "title": "Protected CRUD",
+      "surface": "`DbEntityProtectedNhBaseController`",
+      "outcome": "Requests without the claim receive 403; requests with the claim can perform CRUD.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-007",
+      "categoryId": "1",
+      "title": "Public read API",
+      "surface": "`PublicNhBaseController`",
+      "outcome": "Read operations work without login while mutations remain protected.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/PublicProjectCatalogController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-008",
+      "categoryId": "1",
+      "title": "Composite detail",
+      "surface": "composite controller/service",
+      "outcome": "Project, members, and labels are returned in one response.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectCompositeController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCompositeService.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Utilities/AutomapperProfileConfiguration.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-009",
+      "categoryId": "1",
+      "title": "View model contract",
+      "surface": "`[Filterable]` on `Id`, audit fields",
+      "outcome": "ID filtering works and the OpenAPI contract is correct.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-010",
+      "categoryId": "1",
+      "title": "Mutate model contract",
+      "surface": "create/update mutate model",
+      "outcome": "The contract contains no audit fields and prevents overposting.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-011",
+      "categoryId": "1",
+      "title": "AutoMapper",
+      "surface": "profile, extensions, resolvers",
+      "outcome": "Entity, view, and mutate mappings use the official AutoMapper package, and profiles registered through NewHeap receive a tested recursion-depth guard.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Utilities/AutomapperProfileConfiguration.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AutoMapperSecurityConfigurationTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-012",
+      "categoryId": "1",
+      "title": "Changed properties",
+      "surface": "`OnUpdateGetChangedProperties`",
+      "outcome": "The log contains only actual changes.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-013",
+      "categoryId": "1",
+      "title": "Module wiring",
+      "surface": "DbSet, relationships, repository, DI",
+      "outcome": "The module starts and its relationships load.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-014",
+      "categoryId": "1",
+      "title": "Audit fields",
+      "surface": "base entity timestamps",
+      "outcome": "Create and update timestamps are correct.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-015",
+      "categoryId": "1",
+      "title": "Uniform result handling",
+      "surface": "`TaskResult`, item, disposable result",
+      "outcome": "The UI shows only confirmed success and distinguishes warnings, errors, and local simulation.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+        "src/Front-end/projects/management/src/app/app.component.ts",
+        "src/Front-end/projects/workspace/src/app/app.component.ts",
+        "src/Front-end/scripts/verify-frontend-integrity.mjs"
+      ]
+    },
+    {
+      "id": "SPM-016",
+      "categoryId": "2",
+      "title": "Free-text search",
+      "surface": "`[Searchable]`, searchable request",
+      "outcome": "Changing the name or description changes the result and count.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-017",
+      "categoryId": "2",
+      "title": "Equality filter",
+      "surface": "fluent `.equals()` + `[Filterable]`",
+      "outcome": "The preferred status filter is visible in the request.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-018",
+      "categoryId": "2",
+      "title": "AND/OR filter tree",
+      "surface": "fluent `.and()` / `.or()`",
+      "outcome": "An explicitly nested status OR combines with the remaining AND filters.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-019",
+      "categoryId": "2",
+      "title": "Text operators",
+      "surface": "fluent `.like()`",
+      "outcome": "The playground compares contains, starts-with, and ends-with behavior.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-020",
+      "categoryId": "2",
+      "title": "Date range",
+      "surface": "`.greaterThanOrEqual()` + `.lessThanOrEqual()`",
+      "outcome": "The deadline range includes both boundaries.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-021",
+      "categoryId": "2",
+      "title": "Null filter",
+      "surface": "fluent `.equals(key, null)`",
+      "outcome": "The no-deadline option finds only null values.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-022",
+      "categoryId": "2",
+      "title": "Multiple-value filter",
+      "surface": "fluent `.isIn()`",
+      "outcome": "Multiple statuses can be combined.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-023",
+      "categoryId": "2",
+      "title": "Single-column sorting",
+      "surface": "`.orderAsc()` / `.orderDesc()` + `[Orderable]`",
+      "outcome": "The column switches between ascending and descending server-side sorting.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-024",
+      "categoryId": "2",
+      "title": "Multi-column sorting",
+      "surface": "chained fluent order shortcuts",
+      "outcome": "Status and name sorting remains stable.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-025",
+      "categoryId": "2",
+      "title": "Paging",
+      "surface": "collection request options",
+      "outcome": "Page and page-size values match the metadata.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-026",
+      "categoryId": "2",
+      "title": "Simple collection",
+      "surface": "simple request/result",
+      "outcome": "The dropdown loads a lightweight collection.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-027",
+      "categoryId": "2",
+      "title": "User collection",
+      "surface": "user collection request",
+      "outcome": "My projects uses the current user context.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-028",
+      "categoryId": "2",
+      "title": "Explicit projection",
+      "surface": "projection extensions",
+      "outcome": "SQL selects only the list columns.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-029",
+      "categoryId": "2",
+      "title": "Short projection",
+      "surface": "short-projection extensions",
+      "outcome": "The dropdown retrieves only ID and name.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-030",
+      "categoryId": "2",
+      "title": "NhProjection builder",
+      "surface": "builder/source/definition",
+      "outcome": "Calculated fields work without IncludeAll.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-031",
+      "categoryId": "2",
+      "title": "HTTP processing",
+      "surface": "`IHttpCollectionProcessingService`",
+      "outcome": "Filtering, ordering, paging, and projection work together.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-032",
+      "categoryId": "2",
+      "title": "In-memory processing",
+      "surface": "`CollectionProcessingService`",
+      "outcome": "The same request runs against a test collection.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-033",
+      "categoryId": "2",
+      "title": "Expression resolver",
+      "surface": "collection expression resolver",
+      "outcome": "The UI displays the generated expression.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-034",
+      "categoryId": "2",
+      "title": "Attribute protection",
+      "surface": "filter/search/order attributes",
+      "outcome": "A disallowed field returns a safe error.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-035",
+      "categoryId": "2",
+      "title": "Preserve filter state",
+      "surface": "collection base, URL/storage",
+      "outcome": "Refresh and browser back preserve state.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-036",
+      "categoryId": "3",
+      "title": "Create and edit modal",
+      "surface": "modal service, modal mutate base",
+      "outcome": "One modal handles both create and edit operations.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-037",
+      "categoryId": "3",
+      "title": "End-to-end single-field JSON partial update",
+      "surface": "`NhApiService.patch`, `NhBaseApiService.updatePartial`, `DoUpdatePartial`, `UpdatePartialAsync`, `PreparePartialUpdateMutateModelAsync`, setters",
+      "outcome": "The frontend sends only the selected property with PATCH; the backend normalizes and validates it while omitted values remain unchanged, and a rejection preserves the previous UI value.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/app.component.ts",
+        "src/Front-end/projects/workspace/src/app/app.component.ts",
+        "src/Front-end/scripts/verify-frontend-integrity.mjs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectPartialUpdateTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/DbEntityProtectedNhBaseController.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/AbstractBaseDbEntityService.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/PartialUpdateControllerTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BaseDbEntityServiceTest.cs",
+        "../../src/Front-end/projects/nh-common/src/lib/services/nh-api.service.ts",
+        "../../src/Front-end/projects/nh-common/src/lib/services/nh-base-api.service.ts",
+        "../../src/Front-end/projects/nh-common/src/lib/services/nh-api.service.spec.ts"
+      ]
+    },
+    {
+      "id": "SPM-038",
+      "categoryId": "3",
+      "title": "Multi-field JSON partial update",
+      "surface": "`DoUpdatePartial`, multiple mapped setters",
+      "outcome": "Deadline and description change atomically while omitted properties remain unchanged.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectPartialUpdateTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/DbEntityProtectedNhBaseController.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/AbstractBaseDbEntityService.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/PartialUpdateControllerTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BaseDbEntityServiceTest.cs"
+      ]
+    },
+    {
+      "id": "SPM-039",
+      "categoryId": "3",
+      "title": "Bulk partial update",
+      "surface": "`BulkAsync`, bulk mutate",
+      "outcome": "The selection receives one status.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-040",
+      "categoryId": "3",
+      "title": "Bulk rollback",
+      "surface": "transactional bulk options",
+      "outcome": "One failure rolls back the entire operation.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-041",
+      "categoryId": "3",
+      "title": "Continue on error",
+      "surface": "per-item bulk result",
+      "outcome": "Valid items succeed independently.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-042",
+      "categoryId": "3",
+      "title": "Bulk create",
+      "surface": "bulk create mutation",
+      "outcome": "The CSV preview creates tasks per row.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-043",
+      "categoryId": "3",
+      "title": "Bulk full update",
+      "surface": "bulk update mutation",
+      "outcome": "Complete mutate models are processed in a transaction.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-044",
+      "categoryId": "3",
+      "title": "Bulk delete",
+      "surface": "bulk delete mutation",
+      "outcome": "Confirmation and dependency errors are handled per item.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-045",
+      "categoryId": "3",
+      "title": "Bulk result",
+      "surface": "`BulkCRUDResultModel`",
+      "outcome": "The UI groups successes and failures and never reports transport failures as success.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Models/View/ProjectViewModels.cs",
+        "src/Front-end/projects/management/src/app/app.component.ts",
+        "src/Front-end/projects/management/src/app/app.component.html",
+        "src/Front-end/scripts/verify-frontend-integrity.mjs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TransactionIntegritySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-046",
+      "categoryId": "3",
+      "title": "Create validation",
+      "surface": "validation service/model",
+      "outcome": "A duplicate code produces a field-level message.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-047",
+      "categoryId": "3",
+      "title": "Update validation",
+      "surface": "changed properties + validation",
+      "outcome": "The rule runs only when the relevant field changes.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-048",
+      "categoryId": "3",
+      "title": "Delete validation",
+      "surface": "`CRUDActionType.Delete`",
+      "outcome": "Open tasks block deletion.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-049",
+      "categoryId": "3",
+      "title": "Validation attributes",
+      "surface": "required/greater/less attributes",
+      "outcome": "English and Dutch display the same rule.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-050",
+      "categoryId": "3",
+      "title": "ModelState to form",
+      "surface": "extensions/response types",
+      "outcome": "The error appears on the correct control.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-051",
+      "categoryId": "4",
+      "title": "Generic repository",
+      "surface": "`IRepository<T>`, `Repository<T>`",
+      "outcome": "The service queries through a DI-registered repository.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-052",
+      "categoryId": "4",
+      "title": "Load relationships",
+      "surface": "repository/queryable extensions",
+      "outcome": "The detail loads without an N+1 query.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-054",
+      "categoryId": "4",
+      "title": "Explicit transaction",
+      "surface": "`ITransaction`, transaction scope",
+      "outcome": "Project and task commit or roll back together.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectCompositeController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSetupService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-055",
+      "categoryId": "4",
+      "title": "Safe raw SQL",
+      "surface": "raw/safe formattable string",
+      "outcome": "Injection input remains parameterized.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-056",
+      "categoryId": "4",
+      "title": "Repository SQL",
+      "surface": "SQL extensions",
+      "outcome": "A read-only statistics query executes through the repository.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-057",
+      "categoryId": "4",
+      "title": "EF bulk update",
+      "surface": "EF batch extensions",
+      "outcome": "Overdue tasks are updated with a set-based operation.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-058",
+      "categoryId": "4",
+      "title": "EF bulk delete",
+      "surface": "EF batch extensions",
+      "outcome": "Drafts are deleted with a set-based operation that returns a count.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-059",
+      "categoryId": "4",
+      "title": "Query expressions",
+      "surface": "expression extensions/utils",
+      "outcome": "Optional predicates remain server-side.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-060",
+      "categoryId": "4",
+      "title": "Database log data",
+      "surface": "log additional-data processor",
+      "outcome": "The audit log contains relational context.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-061",
+      "categoryId": "5",
+      "title": "Password login",
+      "surface": "username/password handler",
+      "outcome": "Login restores the original route.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-062",
+      "categoryId": "5",
+      "title": "Microsoft OAuth",
+      "surface": "handlers/service/models",
+      "outcome": "The URL, callback, and failure path work.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-063",
+      "categoryId": "5",
+      "title": "Choose a login method",
+      "surface": "method picker service",
+      "outcome": "Email or domain selection chooses the correct flow.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-064",
+      "categoryId": "5",
+      "title": "Refresh token",
+      "surface": "refresh handler",
+      "outcome": "The access token is refreshed exactly once.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-065",
+      "categoryId": "5",
+      "title": "Session expiration",
+      "surface": "expiration information",
+      "outcome": "The live countdown expires, token state is cleared, and both apps open login with a reason and return URL.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-login.component.ts",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+        "src/Front-end/scripts/verify-frontend-integrity.mjs"
+      ]
+    },
+    {
+      "id": "SPM-066",
+      "categoryId": "5",
+      "title": "Logout",
+      "surface": "logout handler",
+      "outcome": "Local tokens and state are removed even when server logout fails, and the protected route closes.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth.service.ts",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
+        "src/Front-end/scripts/verify-frontend-integrity.mjs"
+      ]
+    },
+    {
+      "id": "SPM-067",
+      "categoryId": "5",
+      "title": "Impersonation",
+      "surface": "handler/models",
+      "outcome": "A visible impersonation banner is displayed.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-068",
+      "categoryId": "5",
+      "title": "Revert impersonation",
+      "surface": "revert handler/models",
+      "outcome": "The original user is restored.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-069",
+      "categoryId": "5",
+      "title": "Account information",
+      "surface": "account endpoint/models",
+      "outcome": "User, claims, division, and roles load.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-070",
+      "categoryId": "5",
+      "title": "Claim authorization",
+      "surface": "authorize attribute",
+      "outcome": "The endpoint returns 403 without the claim.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-071",
+      "categoryId": "5",
+      "title": "Any claim",
+      "surface": "match-one attribute",
+      "outcome": "An editor or administrator may update.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAuthorizationSampleService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-072",
+      "categoryId": "5",
+      "title": "Active division",
+      "surface": "requirement/handler",
+      "outcome": "A different division is inaccessible.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-073",
+      "categoryId": "5",
+      "title": "Switch division",
+      "surface": "change-active-division model",
+      "outcome": "Claims, data, and context refresh.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-074",
+      "categoryId": "5",
+      "title": "Frontend guards",
+      "surface": "auth/permission guards",
+      "outcome": "Routes and actions follow claims.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/app.component.ts",
+        "src/Front-end/projects/workspace/src/app/app.component.ts",
+        "src/Front-end/scripts/verify-frontend-integrity.mjs"
+      ]
+    },
+    {
+      "id": "SPM-075",
+      "categoryId": "5",
+      "title": "Password management",
+      "surface": "recover/reset/change models",
+      "outcome": "All three account flows are complete.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-076",
+      "categoryId": "6",
+      "title": "Publish an event",
+      "surface": "`INhEventPublisher`",
+      "outcome": "Project-created is published with a correlation ID.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-077",
+      "categoryId": "6",
+      "title": "Consume an event",
+      "surface": "`INhEventConsumer<T>`",
+      "outcome": "The consumer creates an audit activity.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-078",
+      "categoryId": "6",
+      "title": "Custom topic",
+      "surface": "custom-topic consumer",
+      "outcome": "A priority event is sent to an explicit topic.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-079",
+      "categoryId": "6",
+      "title": "Retry and idempotency",
+      "surface": "event configuration",
+      "outcome": "A retry does not create a duplicate activity.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-080",
+      "categoryId": "6",
+      "title": "Event bus registration",
+      "surface": "event configuration builder",
+      "outcome": "The Aspire health check displays the connection.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-081",
+      "categoryId": "6",
+      "title": "Enqueue a job",
+      "surface": "`NhHangfireUtil`",
+      "outcome": "Recalculation runs outside the HTTP request.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-082",
+      "categoryId": "6",
+      "title": "Recurring job",
+      "surface": "Hangfire extensions",
+      "outcome": "The overdue job is visible and can be started.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-083",
+      "categoryId": "6",
+      "title": "Prevent duplicate jobs",
+      "surface": "keyed semaphore + Hangfire",
+      "outcome": "Only one execution enters the critical section at a time.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-084",
+      "categoryId": "6",
+      "title": "Simple email",
+      "surface": "mail service/settings",
+      "outcome": "A test email uses the correct sender.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-085",
+      "categoryId": "6",
+      "title": "Razor email template",
+      "surface": "Razor view service",
+      "outcome": "A localized assignment email is rendered.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-086",
+      "categoryId": "6",
+      "title": "Create a user notification",
+      "surface": "notification service",
+      "outcome": "Assignment creates the correct message.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-087",
+      "categoryId": "6",
+      "title": "Delivery channels",
+      "surface": "notification dispatcher workers and per-channel concurrency",
+      "outcome": "A channel opts into parallel workers while unconfigured channels remain serial and deliveries are claimed only when worker capacity is available.",
+      "implementation": "implemented",
+      "evidence": [
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhNotificationProcessingService.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhNotificationProcessingServiceTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhNotificationProcessingProviderTests.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/NotificationProcessingSample.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NotificationProcessingSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-088",
+      "categoryId": "6",
+      "title": "Email dispatcher",
+      "surface": "email notification dispatcher",
+      "outcome": "Sent and failed states include error details.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-089",
+      "categoryId": "6",
+      "title": "Read and unread",
+      "surface": "notification controller/models",
+      "outcome": "The badge responds to mark-as-read.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-090",
+      "categoryId": "6",
+      "title": "Notification component",
+      "surface": "abstract component + FE service",
+      "outcome": "The message, refresh, and target route work.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      ]
+    },
+    {
+      "id": "SPM-091",
+      "categoryId": "7",
+      "title": "Composite localizer",
+      "surface": "composite string localizer",
+      "outcome": "Domain and shared fallback behavior is predictable.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-092",
+      "categoryId": "7",
+      "title": "Validation translations",
+      "surface": "shared annotation resources",
+      "outcome": "The rule is available in Dutch, English, and German.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapLocalizationSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-093",
+      "categoryId": "7",
+      "title": "Resource completeness",
+      "surface": "localizer factory/options",
+      "outcome": "The test reports missing and extra keys.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TranslationContractTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-094",
+      "categoryId": "7",
+      "title": "Module translations",
+      "surface": "browser translate loader",
+      "outcome": "project.<dash-case-key> resolves correctly.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts"
+      ]
+    },
+    {
+      "id": "SPM-095",
+      "categoryId": "7",
+      "title": "Language and culture",
+      "surface": "language map/globalization util",
+      "outcome": "nl selects nl-NL consistently.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-096",
+      "categoryId": "7",
+      "title": "Common options and configuration overrides",
+      "surface": "common/aspnet builders and configuration providers",
+      "outcome": "The app and automation use the same appsettings with host-specific environment and CLI overrides.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Orchestration/SampleProjectManagement.AppHost/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ConfigurationOverrideSamplesTests.cs",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-097",
+      "categoryId": "7",
+      "title": "Startup order",
+      "surface": "configurators/app builder",
+      "outcome": "The minimum registration starts correctly.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-098",
+      "categoryId": "7",
+      "title": "Trace identifier",
+      "surface": "trace middleware/extensions",
+      "outcome": "The response, log, and event share a trace ID.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-099",
+      "categoryId": "7",
+      "title": "No-follow",
+      "surface": "no-follow middleware",
+      "outcome": "The expected robot header is present.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-100",
+      "categoryId": "7",
+      "title": "Exception handling",
+      "surface": "handler + bad-request model",
+      "outcome": "A safe response includes a trace ID.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-101",
+      "categoryId": "7",
+      "title": "OneOf JSON",
+      "surface": "converter",
+      "outcome": "Success and error variants serialize consistently.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-102",
+      "categoryId": "7",
+      "title": "OneOf OpenAPI",
+      "surface": "schema transformer",
+      "outcome": "Swagger displays both variants.",
+      "implementation": "library-gap",
+      "statusReason": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
+      "evidence": []
+    },
+    {
+      "id": "SPM-103",
+      "categoryId": "7",
+      "title": "JSON query binding",
+      "surface": "binder/provider",
+      "outcome": "A complex filter binds from the query string.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-104",
+      "categoryId": "7",
+      "title": "Invariant form values",
+      "surface": "value-provider factory",
+      "outcome": "Decimal and date values behave the same in English and Dutch.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-105",
+      "categoryId": "7",
+      "title": "Backend observability",
+      "surface": "logger/Sentry/stopwatch",
+      "outcome": "Timing, tags, and trace context are present.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts"
+      ]
+    },
+    {
+      "id": "SPM-106",
+      "categoryId": "8",
+      "title": "Typed GET",
+      "surface": "API service/request options",
+      "outcome": "A typed detail request uses the uniform error flow.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs"
+      ]
+    },
+    {
+      "id": "SPM-107",
+      "categoryId": "8",
+      "title": "POST, PUT, and DELETE",
+      "surface": "API mutation methods",
+      "outcome": "All mutations use one loading and TaskResult flow.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs"
+      ]
+    },
+    {
+      "id": "SPM-108",
+      "categoryId": "8",
+      "title": "Binary response",
+      "surface": "array-buffer options",
+      "outcome": "Bytes are returned without JSON conversion.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs"
+      ]
+    },
+    {
+      "id": "SPM-109",
+      "categoryId": "8",
+      "title": "Text response",
+      "surface": "text request options",
+      "outcome": "The plain-text preview is correct.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs"
+      ]
+    },
+    {
+      "id": "SPM-110",
+      "categoryId": "8",
+      "title": "Download",
+      "surface": "download options, HTTP util",
+      "outcome": "Filename and content type are preserved.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs"
+      ]
+    },
+    {
+      "id": "SPM-111",
+      "categoryId": "8",
+      "title": "Query encoding",
+      "surface": "encode interceptor",
+      "outcome": "Special characters are encoded exactly once.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs"
+      ]
+    },
+    {
+      "id": "SPM-112",
+      "categoryId": "8",
+      "title": "GET deduplication",
+      "surface": "deduplication interceptor and explicit sample configuration",
+      "outcome": "Two concurrent identical GET requests share one network request; a later call starts a new request after completion.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts"
+      ]
+    },
+    {
+      "id": "SPM-113",
+      "categoryId": "8",
+      "title": "Server HTTP",
+      "surface": "server interceptor",
+      "outcome": "SSR uses the internal base URL.",
+      "implementation": "library-gap",
+      "statusReason": "The sample frontends do not yet have an Angular server target, so the server interceptor cannot run end to end.",
+      "evidence": []
+    },
+    {
+      "id": "SPM-114",
+      "categoryId": "8",
+      "title": "Base API service",
+      "surface": "`NhBaseApiService`",
+      "outcome": "The project service contains only domain code.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+        "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/app.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-115",
+      "categoryId": "8",
+      "title": "Edit modal",
+      "surface": "modal service/options/base",
+      "outcome": "Create and edit work from both list and detail pages.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+        "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/app.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-116",
+      "categoryId": "8",
+      "title": "Large modal",
+      "surface": "`modalClasses: 'large'`",
+      "outcome": "The large class is demonstrably active.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+        "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/app.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-117",
+      "categoryId": "8",
+      "title": "Confirmation modal",
+      "surface": "confirm component",
+      "outcome": "Delete respects cancellation.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+        "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/app.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-118",
+      "categoryId": "8",
+      "title": "Loading modal",
+      "surface": "loading component",
+      "outcome": "Duplicate submission is prevented and the modal always closes.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+        "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/app.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-119",
+      "categoryId": "8",
+      "title": "Modal lifecycle",
+      "surface": "ref/result/events/directives + `appOn...`",
+      "outcome": "appOnInit initializes content; the parent receives events and appOnDestroy cleans up.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/app.component.ts",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-120",
+      "categoryId": "8",
+      "title": "Mutate base state",
+      "surface": "mutate base components",
+      "outcome": "Dirty, saving, error, and success states are visible.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+        "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/app.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-121",
+      "categoryId": "8",
+      "title": "Single select",
+      "surface": "enum optionbuilder + dropdown settings",
+      "outcome": "The translated status choice preserves the API enum contract.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-status-options.ts",
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-122",
+      "categoryId": "8",
+      "title": "Multi-select",
+      "surface": "enum optionbuilder + defaults/texts",
+      "outcome": "Multiple translated statuses can be selected.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-status-options.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-123",
+      "categoryId": "8",
+      "title": "Form error",
+      "surface": "error-message component",
+      "outcome": "Client and server errors are not duplicated.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+        "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/app.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-124",
+      "categoryId": "8",
+      "title": "Server form validation",
+      "surface": "validator + result models",
+      "outcome": "A nested error appears on the correct control.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-125",
+      "categoryId": "8",
+      "title": "TaskResult validator",
+      "surface": "form validator",
+      "outcome": "General and field errors remain separate.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-215",
+      "categoryId": "8",
+      "title": "Deferred lazy dropdown",
+      "surface": "dropdown settings and explicit sample configuration",
+      "outcome": "An existing selection loads immediately; the full collection loads only when opened, and identical in-flight selected-value lookups share one request.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html",
+        "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.component.spec.ts"
+      ]
+    },
+    {
+      "id": "SPM-126",
+      "categoryId": "9",
+      "title": "Collection base",
+      "surface": "collection base component + `appOn...`",
+      "outcome": "appOnInit runs before the initial beforeLoad, onLoad, and afterLoad cycle.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-127",
+      "categoryId": "9",
+      "title": "Search debounce",
+      "surface": "search input/directive",
+      "outcome": "Rapid typing produces one request.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/sample.routes.ts"
+      ]
+    },
+    {
+      "id": "SPM-128",
+      "categoryId": "9",
+      "title": "Page size",
+      "surface": "page-size component",
+      "outcome": "Changing page size resets the page and preserves the preference.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/sample.routes.ts"
+      ]
+    },
+    {
+      "id": "SPM-129",
+      "categoryId": "9",
+      "title": "Page base",
+      "surface": "page base component + `appOn...`",
+      "outcome": "Title, breadcrumb, and route loading use the base lifecycle; independent work is detached with observed errors while required ordering remains awaitable.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/dirty-route-sample/dirty-route-sample.component.ts",
+        "src/Front-end/scripts/verify-frontend-integrity.mjs",
+        "src/Front-end/projects/management/src/app/sample.routes.ts"
+      ]
+    },
+    {
+      "id": "SPM-130",
+      "categoryId": "9",
+      "title": "Dirty navigation",
+      "surface": "cancel guard/interface",
+      "outcome": "Confirmation respects cancellation.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/sample.routes.ts"
+      ]
+    },
+    {
+      "id": "SPM-131",
+      "categoryId": "9",
+      "title": "Register routes",
+      "surface": "routes/register/setup",
+      "outcome": "Lazy routes include metadata.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/sample.routes.ts"
+      ]
+    },
+    {
+      "id": "SPM-132",
+      "categoryId": "9",
+      "title": "Router link",
+      "surface": "directive/model",
+      "outcome": "Context and modifier keys are preserved.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/sample.routes.ts"
+      ]
+    },
+    {
+      "id": "SPM-133",
+      "categoryId": "9",
+      "title": "Preload URL",
+      "surface": "preload model",
+      "outcome": "The chunk or call is demonstrably preloaded.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/sample.routes.ts"
+      ]
+    },
+    {
+      "id": "SPM-134",
+      "categoryId": "9",
+      "title": "Preconnect URL",
+      "surface": "preconnect model",
+      "outcome": "The document head contains the preconnect entry.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/sample.routes.ts"
+      ]
+    },
+    {
+      "id": "SPM-135",
+      "categoryId": "9",
+      "title": "Authentication guard",
+      "surface": "authenticated guard",
+      "outcome": "The return URL is restored after login.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/sample.routes.ts"
+      ]
+    },
+    {
+      "id": "SPM-136",
+      "categoryId": "9",
+      "title": "Single permission",
+      "surface": "one-permission guard/pipe",
+      "outcome": "One claim allows the action.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/sample.routes.ts"
+      ]
+    },
+    {
+      "id": "SPM-137",
+      "categoryId": "9",
+      "title": "All permissions",
+      "surface": "all-permissions guard/pipe",
+      "outcome": "Both claims are required.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+        "src/Front-end/projects/management/src/app/sample.routes.ts"
+      ]
+    },
+    {
+      "id": "SPM-138",
+      "categoryId": "9",
+      "title": "Active division in the frontend",
+      "surface": "division guard/pipes",
+      "outcome": "Route and content change with the active division.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/sample.routes.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-139",
+      "categoryId": "9",
+      "title": "Authorization pipes",
+      "surface": "claim/permission/auth pipes",
+      "outcome": "The playground displays true and false results.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+        "../../src/Front-end/projects/nh-common/src/lib/pipes/auth.pipes.ts"
+      ]
+    },
+    {
+      "id": "SPM-140",
+      "categoryId": "9",
+      "title": "Context menu",
+      "surface": "service/models/events",
+      "outcome": "Opening and closing are accessible.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/sample.routes.ts"
+      ]
+    },
+    {
+      "id": "SPM-141",
+      "categoryId": "10",
+      "title": "String utilities",
+      "surface": "string util/uppercase",
+      "outcome": "Edge cases have live output.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-142",
+      "categoryId": "10",
+      "title": "HTTP utilities",
+      "surface": "HTTP util",
+      "outcome": "Query and download input and output are visible.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-143",
+      "categoryId": "10",
+      "title": "Encoding",
+      "surface": "encoding util/pipes",
+      "outcome": "Unicode, URL, and Base64 values round-trip.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-144",
+      "categoryId": "10",
+      "title": "Common utilities",
+      "surface": "enum/nameof/guid/groupBy/defined",
+      "outcome": "The existing numeric reverse mappings and string enum values are visible.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-status-options.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-145",
+      "categoryId": "10",
+      "title": "Array extensions",
+      "surface": "array prototype extensions",
+      "outcome": "Operations and mutation effects are visible.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-146",
+      "categoryId": "10",
+      "title": "Observable extensions",
+      "surface": "observable prototype extensions",
+      "outcome": "The lifecycle completes without subscription leaks.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-147",
+      "categoryId": "10",
+      "title": "Async mutex",
+      "surface": "async lock/mutex",
+      "outcome": "Duplicate save attempts produce one mutation.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-148",
+      "categoryId": "10",
+      "title": "Custom form control",
+      "surface": "value accessor/provider",
+      "outcome": "Reactive forms and disabled state work.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/project-code-input/project-code-input.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-149",
+      "categoryId": "10",
+      "title": "Cookies",
+      "surface": "cookie service",
+      "outcome": "Consent can be set, read, and deleted.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-150",
+      "categoryId": "10",
+      "title": "Internet status",
+      "surface": "connection service",
+      "outcome": "The offline banner and reconnect retry work.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-151",
+      "categoryId": "10",
+      "title": "Title, metadata, and head",
+      "surface": "services/directive",
+      "outcome": "Title, description, and canonical URL change.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-152",
+      "categoryId": "10",
+      "title": "JSON-LD",
+      "surface": "service/component/keys",
+      "outcome": "Valid structured data appears in the document head.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-153",
+      "categoryId": "10",
+      "title": "Breadcrumb and sitemap",
+      "surface": "page/app/router metadata",
+      "outcome": "Both derive from the same route configuration.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-154",
+      "categoryId": "10",
+      "title": "Loader and error boundary",
+      "surface": "components/handlers",
+      "outcome": "Loading, empty, and error states are separate.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-155",
+      "categoryId": "10",
+      "title": "Safe content",
+      "surface": "safe HTML/style/URL pipes",
+      "outcome": "Only trusted content is exposed.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-156",
+      "categoryId": "10",
+      "title": "Date and primitive pipes",
+      "surface": "date/boolean pipes",
+      "outcome": "Timezone, null, and boolean values are localized.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-157",
+      "categoryId": "10",
+      "title": "Debounced events",
+      "surface": "input/click directives",
+      "outcome": "Timing and teardown are visible.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-158",
+      "categoryId": "10",
+      "title": "Application and page state",
+      "surface": "app/page/config services",
+      "outcome": "Runtime configuration changes without a reload.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-159",
+      "categoryId": "10",
+      "title": "Frontend Sentry",
+      "surface": "handlers/trace/hooks/config",
+      "outcome": "The error or span includes release, user, and trace information.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-160",
+      "categoryId": "10",
+      "title": "SSR stack",
+      "surface": "server/node-fetch/translate loaders",
+      "outcome": "SSR is localized and makes no browser-only call.",
+      "implementation": "library-gap",
+      "statusReason": "The complete SSR stack still lacks @angular/platform-server, a server bootstrap, and an SSR build target.",
+      "evidence": []
+    },
+    {
+      "id": "SPM-161",
+      "categoryId": "10",
+      "title": "EF Core chunks",
+      "surface": "`IQueryable.ChunkAsync`",
+      "outcome": "An ordered query returns bounded asynchronous batches.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-162",
+      "categoryId": "11",
+      "title": "Conditional queries",
+      "surface": "`WhereIf` / `IncludeIf`",
+      "outcome": "Disabled conditions do not change the query; enabled conditions do.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-163",
+      "categoryId": "11",
+      "title": "Combine expressions",
+      "surface": "`True` / `False` / `And` / `Or`",
+      "outcome": "Dynamically composed predicates return the expected matches.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-164",
+      "categoryId": "11",
+      "title": "Dictionary get-or-add",
+      "surface": "synchronous and asynchronous factories",
+      "outcome": "A factory runs at most once per key.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-165",
+      "categoryId": "11",
+      "title": "In-memory paging",
+      "surface": "`PageSkipTake`",
+      "outcome": "List and IQueryable normalize page and page size identically.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-166",
+      "categoryId": "11",
+      "title": "String and attribute boundaries",
+      "surface": "string/attribute extensions",
+      "outcome": "Length, HTML, JSON, boolean, and StringLength behavior have executable tests.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-167",
+      "categoryId": "11",
+      "title": "Type and reflection",
+      "surface": "type extensions",
+      "outcome": "Instantiation, generics, simple types, and property traversal are visible.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-168",
+      "categoryId": "11",
+      "title": "EF model metadata",
+      "surface": "`IModel.Table` / `Column`",
+      "outcome": "Schema, table, and column names are quoted correctly.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-169",
+      "categoryId": "11",
+      "title": "Hash, culture, and timing",
+      "surface": "Hash/Globalization/Stopwatch utils",
+      "outcome": "Hashes are stable, culture is scoped, and the stopwatch stops.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-170",
+      "categoryId": "11",
+      "title": "Default memory cache",
+      "surface": "`AddNewHeapPlatformCachingDefault`",
+      "outcome": "The Aspire API registers FusionCache with explicit defaults.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs"
+      ]
+    },
+    {
+      "id": "SPM-171",
+      "categoryId": "11",
+      "title": "Cache key and hit",
+      "surface": "`NhCacheKey` / `GetOrSetAsync`",
+      "outcome": "Two reads share a key and generation timestamp.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/CachingSamplesController.cs",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-172",
+      "categoryId": "11",
+      "title": "Cache invalidation",
+      "surface": "`IFusionCache.RemoveAsync`",
+      "outcome": "Authorized invalidation forces the next read to be fresh.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/CachingSamplesController.cs",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-173",
+      "categoryId": "12",
+      "title": "Test service context",
+      "surface": "`NhTestingContext`",
+      "outcome": "A consumer test uses the packable NH helper for a validated DI provider, scopes, and asynchronous disposal; library regression tests remain in a separate non-packable test project.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapTestHelperSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-174",
+      "categoryId": "12",
+      "title": "DbContext test context",
+      "surface": "`NhDbContextTestingContext`",
+      "outcome": "A consumer test uses the ASP.NET NH helper to register an in-memory DbContext and repositories automatically without publishing library-owned tests.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapTestHelperSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-175",
+      "categoryId": "12",
+      "title": "TaskResult assertions",
+      "surface": "test assertion extensions",
+      "outcome": "A consumer test reads success and error results through the reusable NH assertion extensions.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapTestHelperSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-176",
+      "categoryId": "12",
+      "title": "Predicate substitutes",
+      "surface": "NSubstitute test extensions",
+      "outcome": "A consumer test uses the reusable NH NSubstitute extensions to evaluate real expressions against sample data.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapTestHelperSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-177",
+      "categoryId": "13",
+      "title": "Media composition root",
+      "surface": "`AddNhMedia` / context",
+      "outcome": "Storage, structure, and authorization modules are registered together.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-178",
+      "categoryId": "13",
+      "title": "File-system media storage",
+      "surface": "`UseFileSystemMediaStorage`",
+      "outcome": "Upload and read operations use a disposable local storage folder.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts"
+      ]
+    },
+    {
+      "id": "SPM-179",
+      "categoryId": "13",
+      "title": "PostgreSQL file structure",
+      "surface": "PostgreSQL structure provider",
+      "outcome": "Folders, files, and relationships are stored without library-owned sample migrations.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-180",
+      "categoryId": "13",
+      "title": "S3 media storage",
+      "surface": "S3 settings/provider",
+      "outcome": "Configuration validates bucket, region, and credentials without logging secrets.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-181",
+      "categoryId": "13",
+      "title": "Media authorization",
+      "surface": "authorization module/context",
+      "outcome": "Read, mutate, and delete operations respect the active user and division.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaAuthorizationModule.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-182",
+      "categoryId": "13",
+      "title": "Folder lifecycle",
+      "surface": "folder create/update/delete",
+      "outcome": "Project folders can be created, renamed, and deleted safely.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-183",
+      "categoryId": "13",
+      "title": "File upload and download",
+      "surface": "media service + HTTP",
+      "outcome": "File content, content type, and download name remain intact.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/MediaSamplesController.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-184",
+      "categoryId": "13",
+      "title": "Tags and properties",
+      "surface": "tags/properties/localization",
+      "outcome": "Metadata and translations round-trip through the API and UI.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-185",
+      "categoryId": "13",
+      "title": "Media search and sorting",
+      "surface": "search/file-get options",
+      "outcome": "Query, paging, and sorting return stable results.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-186",
+      "categoryId": "13",
+      "title": "Thumbnails",
+      "surface": "thumbnail service/events",
+      "outcome": "Upload generates a thumbnail and cleanup removes derivatives.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaThumbnailService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-187",
+      "categoryId": "13",
+      "title": "Media HTTP surface",
+      "surface": "endpoint mapper/filter",
+      "outcome": "The route group injects context and validates upload requests.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/MediaSamplesController.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts"
+      ]
+    },
+    {
+      "id": "SPM-188",
+      "categoryId": "13",
+      "title": "Media events",
+      "surface": "folder/file event handlers",
+      "outcome": "Create, update, and delete operations publish the expected events.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectMediaEventHandler.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+        "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-189",
+      "categoryId": "14",
+      "title": "Thin controller",
+      "surface": "protected base controller + concrete service",
+      "outcome": "The controller handles only HTTP, authorization, ModelState, and response mapping.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AccountSamplesController.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/OperationsSamplesController.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectTaskController.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectTaskService.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-190",
+      "categoryId": "14",
+      "title": "Business rules in the service",
+      "surface": "validation hooks + repository queries",
+      "outcome": "Normalization, unique keys, and delete conditions work outside HTTP and in bulk operations.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectUnitOfWorkSamplesTests.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-191",
+      "categoryId": "14",
+      "title": "Service-owned transaction",
+      "surface": "`StartOrGetTransactionScopeAsync`",
+      "outcome": "The application service opens the outer unit of work and commits exactly once.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectUnitOfWorkSamplesTests.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-192",
+      "categoryId": "14",
+      "title": "Nested partial and bulk operations",
+      "surface": "transaction scope ownership + `UseTransaction = false`",
+      "outcome": "Library mutations share the outer transaction and cannot commit it prematurely.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-193",
+      "categoryId": "14",
+      "title": "Event before commit",
+      "surface": "`INhEventPublisher` + CAP outbox",
+      "outcome": "The project event is published after save but before commit in the same transaction.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Events/ProjectEvents.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectUnitOfWorkSamplesTests.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-194",
+      "categoryId": "14",
+      "title": "Failure without commit",
+      "surface": "`TaskResult` + uncommitted scope dispose",
+      "outcome": "A validation failure publishes no event and starts no commit.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectUnitOfWorkSamplesTests.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-195",
+      "categoryId": "14",
+      "title": "SQL outbox and broker",
+      "surface": "CAP EF storage + Aspire RabbitMQ",
+      "outcome": "The domain write and outbox record use SQL; RabbitMQ receives the message only after commit.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Orchestration/SampleProjectManagement.AppHost/Program.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-196",
+      "categoryId": "14",
+      "title": "Publication failure rolls back",
+      "surface": "`PublishAsync` failure + `RollbackAsync`",
+      "outcome": "A publication exception causes an explicit rollback and never a commit.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TransactionIntegritySamplesTests.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-197",
+      "categoryId": "14",
+      "title": "Only the owner commits",
+      "surface": "`NhDbTransactionScope.IsMyTransaction`",
+      "outcome": "A nested scope cannot commit or roll back the transaction started by the outer service.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TransactionIntegritySamplesTests.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-198",
+      "categoryId": "14",
+      "title": "Partially successful bulk operation",
+      "surface": "`ContinueOnError` + outer transaction",
+      "outcome": "Only successful items are stored and counted; one summary event precedes one commit.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TransactionIntegritySamplesTests.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-199",
+      "categoryId": "14",
+      "title": "Idempotent consumer",
+      "surface": "event ID deduplication",
+      "outcome": "A redelivered event ID is processed once by the concrete consumer log.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TransactionIntegritySamplesTests.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-200",
+      "categoryId": "14",
+      "title": "Publication followed by rollback",
+      "surface": "SQL write + CAP outbox + deliberate rollback",
+      "outcome": "The project and outbox event both remain invisible when the outer service rolls back.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TransactionIntegritySamplesTests.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+        "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-201",
+      "categoryId": "15",
+      "title": "Chunk validity",
+      "surface": "`IQueryable.ChunkAsync` guard",
+      "outcome": "A batch size of zero fails before a query executes.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-202",
+      "categoryId": "15",
+      "title": "Chunk cancellation",
+      "surface": "`IQueryable.ChunkAsync` cancellation token",
+      "outcome": "A cancelled caller stops before the first batch.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-203",
+      "categoryId": "15",
+      "title": "Server-side semaphore",
+      "surface": "`SemaphoreLocker` / `SemaphoreSlimAsync`",
+      "outcome": "One and two permits respectively limit parallel critical sections.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ServerHelperExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-204",
+      "categoryId": "15",
+      "title": "Semaphore failure recovery",
+      "surface": "semaphore `finally` release",
+      "outcome": "An exception does not leak a permit; subsequent work can continue.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ServerHelperExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-205",
+      "categoryId": "15",
+      "title": "Safe log formatting",
+      "surface": "`SafeFormattableStringFactory`",
+      "outcome": "Broken ToString values or format strings do not break logging.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ServerHelperExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-206",
+      "categoryId": "15",
+      "title": "Identity to result",
+      "surface": "`IdentityResult.ToTaskResult`",
+      "outcome": "The identity error code and description remain visible as a TaskResult error.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ServerHelperExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-207",
+      "categoryId": "15",
+      "title": "JWT validation configuration",
+      "surface": "`ConfigureNhJwtBearerValidationOptions`",
+      "outcome": "Issuer, audience, signing key, lifetime, and zero clock skew are configured explicitly.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ServerHelperExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-208",
+      "categoryId": "15",
+      "title": "CAP consumer group",
+      "surface": "`NhMessageProcessingAttribute`",
+      "outcome": "One stable application group distributes messages across application instances.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/InfrastructureExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-209",
+      "categoryId": "15",
+      "title": "Startup extension point",
+      "surface": "`IStartupConfiguration`",
+      "outcome": "Application-wide infrastructure is registered after platform defaults and outside controllers.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleStartupConfiguration.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/InfrastructureExtensionSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-210",
+      "categoryId": "16",
+      "title": "Multiple application roles",
+      "surface": "Identity roles and `NhPlatformClaimTypes.Permission`",
+      "outcome": "Managers and viewers see different actions and receive demonstrably different 200 and 403 responses.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AuthorizationSamplesController.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html"
+      ]
+    },
+    {
+      "id": "SPM-211",
+      "categoryId": "16",
+      "title": "Division-role permissions",
+      "surface": "division user, role, and claims with the active division",
+      "outcome": "The division editor has project rights inside Sample North but not application-wide.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AuthorizationSamplesController.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAuthorizationSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-212",
+      "categoryId": "16",
+      "title": "ProjectPermission",
+      "surface": "consumer-owned claim type, requirement, handler, and frontend pipes",
+      "outcome": "Alpha is allowed through a resource claim while Beta is not; application and division rights continue to work as higher levels.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Authorization/ProjectAccessHandler.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AuthorizationSamplesController.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-auth.pipes.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAuthorizationSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-213",
+      "categoryId": "16",
+      "title": "Authentication service override",
+      "surface": "`WithAuthenticationService<T>` + `GetClaimsAsync`",
+      "outcome": "The standard endpoints, cookies, and refresh flow remain intact while large runtime claims stay out of the JWT.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAuthenticationService.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationOverrideSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-214",
+      "categoryId": "16",
+      "title": "Hydrate claims per request",
+      "surface": "`IClaimsTransformation` + requestcache",
+      "outcome": "Current claims are loaded once per request and deduplicated; a token for a removed user ends in 401.",
+      "implementation": "implemented",
+      "evidence": [
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhUserManager.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserManagerTest.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Authorization/SampleRuntimeClaimsTransformation.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AuthorizationSamplesController.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/authorization-sample-api.service.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationOverrideSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-216",
+      "categoryId": "17",
+      "title": "Shared .NET build and package policy",
+      "surface": "`Directory.Build.props` and `Directory.Packages.props`",
+      "outcome": "Every backend project inherits one build baseline and resolves versionless package references from one central catalog.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-217",
+      "categoryId": "17",
+      "title": "Scope-driven consumer bootstrap",
+      "surface": "plain-language scope gate, versioned profile bootstrap and post-bootstrap inspector",
+      "outcome": "An empty repository receives only the confirmed service, API or management capabilities, retains extension seams for deferred work, restores the profile-relevant NewHeap packages before feature work, and fails validation when structure or integration patterns drift.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs"
+      ]
+    }
+  ]
+}

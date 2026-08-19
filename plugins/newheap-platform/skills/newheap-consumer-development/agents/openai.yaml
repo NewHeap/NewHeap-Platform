@@ -1,0 +1,4 @@
+interface:
+  display_name: "NewHeap Consumer Development"
+  short_description: "Build consumer apps correctly with NewHeap"
+  default_prompt: "Use $newheap-consumer-development to infer the smallest useful consumer scope in plain language, scaffold only its confirmed NewHeap capabilities, and complete the relevant package gates and validation."

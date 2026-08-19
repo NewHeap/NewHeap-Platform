@@ -1,0 +1,28 @@
+﻿namespace NewHeap.Platform.Common;
+
+public enum CRUDActionType
+{
+    Unknown = 0,
+    Create = 1,
+    Update = 2,
+    Delete = 3
+}
+
+public static partial class Constants
+{
+    public static class DateTimeOffset
+    {
+        public const string StringFormat = "yyyy-MM-ddTHH:mm:ss.fffzzz";
+    }
+
+    public static class PermissionClaimValues
+    {
+        public const string AuthenticatedAccess = "nh.platform.access";
+        public const string AuthImpersonateAllowed = "nh.platform.auth.impersonate.allowed";
+    }
+
+    public static class DivisionPermissionClaimValues
+    {
+        public const string AccessAll = "nh.division.access-all";
+    }
+}

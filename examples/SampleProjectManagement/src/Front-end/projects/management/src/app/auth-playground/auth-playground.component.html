@@ -1,0 +1,190 @@
+<section class="auth-lab" id="auth-playground">
+  <header>
+    <div>
+      <h2>{{ 'project.auth-playground-title' | translate }}</h2>
+      <p>{{ 'project.auth-playground-description' | translate }}</p>
+    </div>
+    <span class="auth-state" [class.active]="state().authenticated">{{ state().authenticated ? 'authenticated' : 'anonymous' }}</span>
+  </header>
+  <div class="auth-grid">
+    <form (submit)="$event.preventDefault()">
+      <label><span>Username</span><input type="email" [value]="username()" (input)="updateUsername($event)"></label>
+      <label><span>Password</span><input type="password" [value]="password()" (input)="updatePassword($event)" autocomplete="current-password"></label>
+      <div class="demo-accounts">
+        <strong>{{ 'project.authorization-demo-accounts' | translate }}</strong>
+        @for (account of demoAccounts; track account.email) {
+          <button type="button" (click)="selectDemoAccount(account)">
+            <span>{{ account.labelKey | translate }}</span>
+            <small>{{ account.expectedAccessKey | translate }}</small>
+          </button>
+        }
+      </div>
+      <div class="actions">
+        <button type="button" (click)="detectAuthenticationFlow()">Detect flow</button>
+        <button type="button" (click)="requestMicrosoftRedirect()">Microsoft URL</button>
+        <button type="button" (click)="login()">Password login</button>
+        <button type="button" (click)="refresh()">Refresh</button>
+        <button type="button" (click)="logout()">Logout</button>
+      </div>
+      <label><span>Impersonate user id</span><input [value]="impersonateUserId()" (input)="updateImpersonateId($event)"></label>
+      <div class="actions">
+        <button type="button" (click)="impersonate()">Impersonate</button>
+        <button type="button" (click)="revertImpersonation()">Revert</button>
+      </div>
+      <div class="actions local">
+        <button type="button" (click)="activateDemoAuthorization()">Activate local claim demo</button>
+        <button type="button" (click)="activateExpiringDemoAuthorization()">{{ 'project.activate-expiring-session' | translate }}</button>
+        <button type="button" (click)="clearAuthorization()">Clear local auth</button>
+        <a routerLink="/management/samples/division">Open active-division guardroute</a>
+        <a routerLink="/management/samples/all-permissions">Open all-permissions guardroute</a>
+      </div>
+    </form>
+    <div class="claim-panel">
+      <h3>Alle auth pipes + division guard</h3>
+      <p>Enable the local claims first. The guarded route and visible content then use the same active-division permission.</p>
+      <dl>
+        <div><dt><code>isAuthenticated</code></dt><dd>{{ authenticatedByPipe() }}</dd></div>
+        <div><dt><code>isGrantedRole</code></dt><dd>{{ 'sample-project-manager' | isGrantedRole }}</dd></div>
+        <div><dt><code>isOnePermissionGranted</code></dt><dd>{{ [permission] | isOnePermissionGranted }}</dd></div>
+        <div><dt><code>isAllPermissionsGranted</code></dt><dd>{{ ["app.project.view", "app.project.manage"] | isAllPermissionsGranted }}</dd></div>
+        <div><dt><code>isClaimGranted</code></dt><dd>{{ projectClaim | isClaimGranted }}</dd></div>
+        <div><dt><code>isOneClaimGranted</code></dt><dd>{{ [projectClaim] | isOneClaimGranted }}</dd></div>
+        <div><dt><code>isOneRoleGranted</code></dt><dd>{{ ['sample-project-manager'] | isOneRoleGranted }}</dd></div>
+        <div><dt><code>isOneDivisionPermissionGranted</code></dt><dd>{{ (state().activeDivisionId || '') | isOneDivisionPermissionGranted: ['project.view'] }}</dd></div>
+        <div><dt><code>isOneDivisionRoleGranted</code></dt><dd>{{ (state().activeDivisionId || '') | isOneDivisionRoleGranted: ['sample-division-editor'] }}</dd></div>
+        <div><dt><code>isOneActiveDivisionPermissionGranted</code></dt><dd>{{ ['project.view'] | isOneActiveDivisionPermissionGranted }}</dd></div>
+        <div><dt><code>isOneActiveDivisionRoleGranted</code></dt><dd>{{ ['sample-division-editor'] | isOneActiveDivisionRoleGranted }}</dd></div>
+        <div><dt>Session</dt><dd>{{ state().session.displayMinutesSecondsUntilExpiration }}</dd></div>
+        <div><dt>Impersonating</dt><dd>{{ state().impersonating }}</dd></div>
+      </dl>
+      <pre>{{ state() | json }}</pre>
+    </div>
+    <section class="authorization-matrix">
+      <header>
+        <h3>{{ 'project.authorization-levels-title' | translate }}</h3>
+        <p>{{ 'project.authorization-levels-description' | translate }}</p>
+      </header>
+
+      <article>
+        <span class="level">{{ 'project.authorization-application-role' | translate }}</span>
+        <h4>{{ 'project.authorization-application-title' | translate }}</h4>
+        <p>{{ 'project.authorization-application-description' | translate }}</p>
+        <dl>
+          <div><dt><code>sample-project-manager</code></dt><dd>{{ state().isManagerRole }}</dd></div>
+          <div><dt><code>sample-project-viewer</code></dt><dd>{{ state().isViewerRole }}</dd></div>
+          <div><dt><code>app.project.view</code></dt><dd>{{ state().canView }}</dd></div>
+          <div><dt><code>app.project.manage</code></dt><dd>{{ state().canManage }}</dd></div>
+        </dl>
+        <div class="visible-actions">
+          <button *ngIf="state().canView" type="button" (click)="probeApplicationView()">
+            {{ 'project.authorization-view-action' | translate }}
+          </button>
+          <button *ngIf="state().canManage" type="button" (click)="probeApplicationManage()">
+            {{ 'project.authorization-manage-action' | translate }}
+          </button>
+        </div>
+        <div class="probe-actions">
+          <button type="button" (click)="probeApplicationView()">GET view</button>
+          <button type="button" (click)="probeApplicationManage()">GET manage</button>
+        </div>
+      </article>
+
+      <article>
+        <span class="level">{{ 'project.authorization-division-role' | translate }}</span>
+        <h4>{{ 'project.authorization-division-title' | translate }}</h4>
+        <p>{{ 'project.authorization-division-description' | translate }}</p>
+        <dl>
+          <div><dt>{{ 'project.active-division' | translate }}</dt><dd>{{ state().activeDivisionId || '-' }}</dd></div>
+          <div><dt><code>sample-division-editor</code></dt><dd>{{ state().isDivisionEditorRole }}</dd></div>
+          <div><dt><code>project.view</code></dt><dd>{{ state().canViewActiveDivision }}</dd></div>
+        </dl>
+        <div class="visible-actions">
+          <button *ngIf="state().canViewActiveDivision" type="button" (click)="probeDivisionView()">
+            {{ 'project.authorization-division-action' | translate }}
+          </button>
+        </div>
+        <div class="probe-actions">
+          <button type="button" (click)="probeDivisionView()">GET division/view</button>
+        </div>
+      </article>
+
+      <article>
+        <span class="level"><code>ProjectPermission</code></span>
+        <h4>{{ 'project.authorization-project-title' | translate }}</h4>
+        <p>{{ 'project.authorization-project-description' | translate }}</p>
+        <dl>
+          <div>
+            <dt>Authorization Alpha</dt>
+            <dd>{{ authorizationIds.alphaProject | isOneProjectPermissionGranted: ['confidential.view'] }}</dd>
+          </div>
+          <div>
+            <dt>Authorization Beta</dt>
+            <dd>{{ authorizationIds.betaProject | isOneProjectPermissionGranted: ['confidential.view'] }}</dd>
+          </div>
+          <div>
+            <dt><code>project-editor</code></dt>
+            <dd>{{ authorizationIds.alphaProject | isOneProjectRoleGranted: ['project-editor'] }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'project.authorization-any-level' | translate }}</dt>
+            <dd>{{ authorizationIds.alphaProject | hasProjectDivisionOrApplicationPermission: 'confidential.view' }}</dd>
+          </div>
+        </dl>
+        <div class="visible-actions">
+          <button
+            *ngIf="authorizationIds.alphaProject | hasProjectDivisionOrApplicationPermission: 'confidential.view'"
+            type="button"
+            (click)="probeProject(authorizationIds.alphaProject)">
+            {{ 'project.authorization-alpha-action' | translate }}
+          </button>
+          <button
+            *ngIf="authorizationIds.betaProject | hasProjectDivisionOrApplicationPermission: 'confidential.view'"
+            type="button"
+            (click)="probeProject(authorizationIds.betaProject)">
+            {{ 'project.authorization-beta-action' | translate }}
+          </button>
+        </div>
+        <div class="probe-actions">
+          <button type="button" (click)="probeProject(authorizationIds.alphaProject)">GET Alpha</button>
+          <button type="button" (click)="probeProject(authorizationIds.betaProject)">GET Beta</button>
+        </div>
+      </article>
+    </section>
+    <section class="authorization-matrix auth-overrides">
+      <header>
+        <h3>{{ 'project.authentication-overrides-title' | translate }}</h3>
+        <p>{{ 'project.authentication-overrides-description' | translate }}</p>
+      </header>
+
+      <article>
+        <span class="level"><code>WithAuthenticationService&lt;T&gt;</code></span>
+        <h4>{{ 'project.authentication-service-override-title' | translate }}</h4>
+        <p>{{ 'project.authentication-service-override-description' | translate }}</p>
+        <dl>
+          <div><dt>username</dt><dd>trim</dd></div>
+          <div><dt>JWT</dt><dd>compact</dd></div>
+          <div><dt>application claims</dt><dd>token</dd></div>
+          <div><dt>division/project claims</dt><dd>runtime</dd></div>
+        </dl>
+      </article>
+
+      <article>
+        <span class="level"><code>IClaimsTransformation</code></span>
+        <h4>{{ 'project.request-claims-transformation-title' | translate }}</h4>
+        <p>{{ 'project.request-claims-transformation-description' | translate }}</p>
+        <dl>
+          <div><dt>database state</dt><dd>current</dd></div>
+          <div><dt>cache</dt><dd>per request</dd></div>
+          <div><dt>duplicate claims</dt><dd>blocked</dd></div>
+          <div><dt>authorization</dt><dd>hydrated</dd></div>
+        </dl>
+        <div class="probe-actions">
+          <button type="button" (click)="probeAuthenticationOverrides()">
+            {{ 'project.inspect-runtime-claims' | translate }}
+          </button>
+        </div>
+      </article>
+    </section>
+    <div class="auth-result"><span>TaskResult / endpoint response</span><pre>{{ result() || 'Run an action to inspect the result.' }}</pre></div>
+  </div>
+</section>

@@ -1,0 +1,16 @@
+<a class="skip-link" href="#page-content">Skip to content</a>
+<div class="workspace-shell">
+  <header class="workspace-header">
+    <a class="brand" routerLink="/workspace" aria-label="Sample Project Management werkruimte">
+      <span class="brand-mark">SP</span>
+      <span class="brand-copy"><strong>Sample Project</strong><small>Workspace</small></span>
+    </a>
+    <div class="heading"><span>{{ 'project.workspace-label' | translate }}</span><h1>{{ 'project.workspace-title' | translate }}</h1></div>
+    <div class="header-actions">
+      <div class="status" [attr.data-mode]="connectionState.mode()" role="status" aria-live="polite"><i></i>{{ connectionState.labelKey() | translate }}</div>
+      <app-sample-user-menu profileRoute="/workspace/profile" />
+    </div>
+  </header>
+
+  <main id="page-content" tabindex="-1"><router-outlet /></main>
+</div>

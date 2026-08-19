@@ -1,0 +1,18 @@
+{
+  "name": "sample-project-management",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "validate:structure": "node tools/validate-structure.mjs",
+    "test:consumer-bootstrap": "node src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs",
+    "generate:samples": "node ../../tools/guidance/generate-guidance.mjs && npm --prefix src/Front-end run generate:samples",
+    "verify:samples": "npm run validate:structure && npm run test:consumer-bootstrap && node ../../tools/guidance/validate-guidance.mjs && npm --prefix src/Front-end run verify:samples",
+    "test:backend": "dotnet test src/Back-end/SampleProjectManagement.slnx",
+    "build:management": "npm --prefix src/Front-end run build:management",
+    "build:workspace": "npm --prefix src/Front-end run build:workspace",
+    "build:frontend": "npm --prefix src/Front-end run build"
+  }
+}

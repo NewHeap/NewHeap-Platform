@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sample Project Management"
+  short_description: "Maintain executable NewHeap consumer samples"
+  default_prompt: "Use $sample-project-management-development to add or update an executable NewHeap sample correctly."

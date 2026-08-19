@@ -1,0 +1,128 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "newProjectRoot": "projects",
+  "projects": {
+    "management": {
+      "projectType": "application",
+      "root": "projects/management",
+      "sourceRoot": "projects/management/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": "dist/management",
+            "index": "projects/management/src/index.html",
+            "browser": "projects/management/src/main.ts",
+            "polyfills": ["zone.js"],
+            "tsConfig": "projects/management/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "projects/management/public"
+              }
+            ],
+            "styles": [
+              "node_modules/@phosphor-icons/web/src/regular/style.css",
+              "projects/management/src/styles.scss"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "1.51MB",
+                  "maximumError": "2MB"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "management:build:production"
+            },
+            "development": {
+              "buildTarget": "management:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        }
+      }
+    },
+    "workspace": {
+      "projectType": "application",
+      "root": "projects/workspace",
+      "sourceRoot": "projects/workspace/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": "dist/workspace",
+            "index": "projects/workspace/src/index.html",
+            "browser": "projects/workspace/src/main.ts",
+            "polyfills": ["zone.js"],
+            "tsConfig": "projects/workspace/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "projects/workspace/public"
+              }
+            ],
+            "styles": [
+              "node_modules/@phosphor-icons/web/src/regular/style.css",
+              "projects/workspace/src/styles.scss"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "1.5MB",
+                  "maximumError": "2MB"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "workspace:build:production"
+            },
+            "development": {
+              "buildTarget": "workspace:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        }
+      }
+    }
+  },
+  "cli": {
+    "analytics": false
+  }
+}

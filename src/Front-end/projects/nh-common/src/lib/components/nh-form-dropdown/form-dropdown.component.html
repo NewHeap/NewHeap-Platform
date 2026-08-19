@@ -1,0 +1,33 @@
+<div>
+  @if (settings.lazyLoad) {
+    <ngx-bootstrap-multiselect
+      #lazyLoadComponent
+      (focus)="hasFocus = true"
+      (blur)="hasFocus = false"
+      [options]="options"
+      [disabled]="disabled"
+      [texts]="settings.multiSelectTexts"
+      [settings]="settings.multiSelectSettings"
+      [ngModel]="value"
+      (dropdownClosed)="closed.emit()"
+      (dropdownOpened)="onDropdownOpened()"
+      (ngModelChange)="onModelChange($event)"
+      (lazyLoad)="lazyLoadData($event)"
+    ></ngx-bootstrap-multiselect>
+  }
+  @if (!settings.lazyLoad) {
+    <ngx-bootstrap-multiselect
+      #noLazyLoadComponent
+      (focus)="hasFocus = true"
+      (blur)="hasFocus = false"
+      [options]="options"
+      [disabled]="disabled"
+      (dropdownClosed)="closed.emit()"
+      (dropdownOpened)="opened.emit()"
+      [texts]="settings.multiSelectTexts"
+      [settings]="settings.multiSelectSettings"
+      [ngModel]="value"
+      (ngModelChange)="onModelChange($event)"
+    ></ngx-bootstrap-multiselect>
+  }
+</div>

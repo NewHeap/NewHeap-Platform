@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PackageId>NewHeap.Platform.Media.MediaStorage.S3Bucket</PackageId>
+        <Version>0.1.0</Version>
+        <Copyright>NewHeap B.V.</Copyright>
+        <Title>NewHeap Media S3 Storage</Title>
+        <PackageProjectUrl>https://github.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/NewHeap/NewHeap-Platform</RepositoryUrl>
+        <Copyright>Copyright © NewHeap 2025</Copyright>
+        <IncludeSymbols>True</IncludeSymbols>
+        <EmbedAllSources>True</EmbedAllSources>
+        <DebugType>Embedded</DebugType>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <IsPackable>True</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\NewHeap.Platform.Media.Core\NewHeap.Platform.Media.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="AWSSDK.S3" />
+      <PackageReference Include="AWSSDK.SecurityToken" />
+      <PackageReference Include="AWSSDK.SSO" />
+      <PackageReference Include="AWSSDK.SSOOIDC" />
+      <PackageReference Include="Microsoft.Extensions.Configuration" />
+      <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+      <PackageReference Include="Microsoft.Extensions.Options" />
+    </ItemGroup>
+
+</Project>

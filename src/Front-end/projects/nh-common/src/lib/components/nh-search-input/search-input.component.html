@@ -1,0 +1,6 @@
+<div class="filter search-filter" [class.open]="open || value">
+  <div class=" mb-2" (click)="focusInput()">
+    <input #searchInput (focusin)="open = true" (focusout)="open = false" class="form-control" type="text" placeholder="{{ 'general.search' | translate }}..."
+           [ngModel]="value" [nhDebounce]="500" (onDebounce)="onDebounceEvent($event)" />
+  </div>
+</div>

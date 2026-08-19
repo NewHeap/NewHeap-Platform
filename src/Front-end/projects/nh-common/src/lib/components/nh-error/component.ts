@@ -1,0 +1,22 @@
+import {Component, input} from '@angular/core'
+import { TaskResult } from '../../models/misc.models';
+
+@Component({
+  selector: 'nh-error',
+  templateUrl: 'component.html',
+  styleUrls: ['component.scss'],
+  standalone: false
+})
+export class NhErrorComponent {
+  key = input.required<string | undefined>();
+  errors = input.required<TaskResult<any> | undefined>();
+
+
+  get displayErrors() {
+    if(this.key() == undefined) {
+      return this.errors()?.items.reduce((a,b) => [...a, ...b.errorMessages] ,<string[]>[]) || [];
+    }
+
+    return this.errors()?.items.find(x => x.name?.toLowerCase() === this.key()?.toLowerCase())?.errorMessages || []
+  }
+}

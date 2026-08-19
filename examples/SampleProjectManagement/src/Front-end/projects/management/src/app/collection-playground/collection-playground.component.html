@@ -1,0 +1,97 @@
+<section class="playground" id="collection-playground">
+  <header>
+    <div>
+      <h2>{{ 'project.collection-playground-title' | translate }}</h2>
+      <p>{{ 'project.collection-playground-description' | translate }}</p>
+    </div>
+    <button type="button" (click)="validateAgainstApi()">{{ 'project.validate-with-api' | translate }}</button>
+  </header>
+
+  <div class="library-controls">
+    <label>
+      <span>{{ 'project.library-search-control' | translate }}</span>
+      <nh-search-input [value]="search()" (onDebounce)="updateSearchValue($event)"></nh-search-input>
+    </label>
+    <label>
+      <span>{{ 'project.library-page-size-control' | translate }}</span>
+      <span class="page-size-preview"><nh-page-size [ngModel]="libraryPageSize()" (ngModelChange)="updateLibraryPageSize($event)"></nh-page-size><small>{{ 'project.rows-per-page' | translate: { count: libraryPageSize() } }}</small></span>
+    </label>
+  </div>
+
+  <div class="playground-grid">
+    <form class="controls" (submit)="$event.preventDefault()">
+      <label>
+        <span>{{ 'project.search-projects' | translate }}</span>
+        <input type="search" [value]="search()" (input)="updateSearch($event)" placeholder="key, name or description">
+      </label>
+
+      <label><span>Text operator</span><select [value]="textOperator()" (change)="updateTextOperator($event)"><option value="contains">contains (%term%)</option><option value="starts-with">starts with (term%)</option><option value="ends-with">ends with (%term)</option></select></label>
+
+      <fieldset>
+        <legend>{{ 'project.multi-status' | translate }}</legend>
+        @for (item of statusOptions; track item.id) {
+          <label class="check"><input type="checkbox" [checked]="statuses().has($any(item.id))" (change)="toggleStatus($any(item.id), $any($event.target).checked)">{{ item.name }}</label>
+        }
+      </fieldset>
+
+      <div class="date-grid">
+        <label><span>{{ 'project.deadline-from' | translate }}</span><input type="date" [value]="deadlineFrom()" (input)="updateDeadlineFrom($event)" [disabled]="withoutDeadline()"></label>
+        <label><span>{{ 'project.deadline-to' | translate }}</span><input type="date" [value]="deadlineTo()" (input)="updateDeadlineTo($event)" [disabled]="withoutDeadline()"></label>
+      </div>
+
+      <label class="check"><input type="checkbox" [checked]="withoutDeadline()" (change)="withoutDeadline.set($any($event.target).checked); page.set(1)">{{ 'project.without-deadline' | translate }}</label>
+      <label class="check"><input type="checkbox" [checked]="activeOrCompleted()" (change)="activeOrCompleted.set($any($event.target).checked); page.set(1)">{{ 'project.nested-or-preset' | translate }}</label>
+      <label class="check danger"><input type="checkbox" [checked]="unsafeField()" (change)="unsafeField.set($any($event.target).checked)">{{ 'project.unsafe-filter' | translate }}</label>
+
+      <label><span>{{ 'project.sorting' | translate }}</span><select [value]="order()" (change)="updateOrder($event)"><option value="status-name">Status + name</option><option value="name-desc">Name descending</option><option value="deadline">Deadline ascending</option></select></label>
+      <label><span>{{ 'project.page-size' | translate }}</span><select [value]="itemsPerPage()" (change)="updatePageSize($event)"><option value="1">1</option><option value="2">2</option><option value="4">4</option></select></label>
+    </form>
+
+    <div class="results">
+      <div class="result-meta"><strong>{{ totalCount() }} matches</strong><span>page {{ page() }}</span></div>
+      @for (project of matchingProjects(); track project.id) {
+        <article><span>{{ project.key }}</span><div><strong>{{ project.name }}</strong><small>{{ statusTranslationKey(project.status) | translate }} | {{ project.deadline || 'no deadline' }}</small></div></article>
+      } @empty {
+        <p class="empty">{{ 'project.no-projects' | translate }}</p>
+      }
+      <div class="pager">
+        <button type="button" (click)="previousPage()" [disabled]="page() === 1" aria-label="Previous page"><i class="ph ph-arrow-left" aria-hidden="true"></i></button>
+        <button type="button" (click)="nextPage()" [disabled]="page() * itemsPerPage() >= totalCount()" aria-label="Next page"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="request">
+      <span>CollectionHttpRequestOptions</span>
+      <pre>{{ requestPreview() }}</pre>
+      <button type="button" (click)="resolveExpression()">{{ 'project.show-resolver-expression' | translate }}</button>
+      @if (resolverExpression()) {
+        <div class="resolver-result">
+          <span>{{ 'project.resolver-expression' | translate }} | {{ resolverPath() }} | @if (resolverSupported()) { {{ 'project.selector-accepted' | translate }} } @else { {{ 'project.library-gap' | translate }} }</span>
+          <pre>{{ resolverExpression() }}</pre>
+          @if (!resolverSupported()) { <small class="resolver-gap">{{ resolverLimitation() }}</small> }
+        </div>
+      }
+      @if (apiResult()) { <p role="status">{{ apiResult() }}</p> }
+    </div>
+  </div>
+
+  <section class="api-guidance" aria-labelledby="fluent-api-title">
+    <header>
+      <div>
+        <span class="preferred-badge">{{ 'project.preferred-way' | translate }}</span>
+        <h3 id="fluent-api-title">{{ 'project.fluent-api-title' | translate }}</h3>
+        <p>{{ 'project.fluent-api-description' | translate }}</p>
+      </div>
+    </header>
+    <div class="operator-grid">
+      @for (example of fluentExamples; track example.labelKey) {
+        <article><strong>{{ ('project.' + example.labelKey) | translate }}</strong><code>{{ example.code }}</code></article>
+      }
+    </div>
+    <details>
+      <summary>{{ 'project.low-level-alternative' | translate }}</summary>
+      <p>{{ 'project.low-level-filter-description' | translate }}</p>
+      <pre><code>{{ lowLevelFilterExample }}</code></pre>
+    </details>
+  </section>
+</section>

@@ -1,0 +1,141 @@
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace NewHeap.Platform.AspNet.Common.DAL.Entities;
+
+public enum LogSource
+{
+    Unknown = 0,
+    Internal = 1000,
+    External = 2000
+}
+
+public enum LogType
+{
+    Unknown = 0,
+    Information = 1000,
+    Warning = 2000,
+    Error = 3000
+}
+
+public enum LogAction
+{
+    Unknown = 0,
+    Read = 1000,
+    Create = 2000,
+    Update = 3000,
+    Delete = 4000
+}
+
+public class NhLog : NhLog<NhUser, NhLogMessageArgument, NhLogMessageTranslated, NhLogFile, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole, NhDivisionRoleClaim>
+{
+}
+
+/// <summary>
+///     Note: Immutable rows
+/// </summary>
+public partial class NhLog<
+    TUser, 
+    TLogMessageArgument, 
+    TLogMessageTranslated,
+    TLogFile,
+    TDivision,
+    TDivisionUser,
+    TDivisionRole,
+    TDivisionUserRole,
+    TDivisionRoleClaim
+    >
+    where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
+    where TLogMessageArgument : NhLogMessageArgument
+    where TLogMessageTranslated : NhLogMessageTranslated
+    where TLogFile : NhLogFile
+    where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
+    where TDivisionUser : NhDivisionUser<TDivisionUserRole, TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
+    where TDivisionUserRole : NhDivisionUserRole<TDivisionUser, TDivisionRole, TDivisionRoleClaim, TDivisionUserRole, TDivision, TUser>
+    where TDivisionRoleClaim : NhDivisionRoleClaim
+{
+    public NhLog()
+    {
+        CreationDateTime = DateTimeOffset.UtcNow;
+        Source = LogSource.Unknown;
+        Type = LogType.Unknown;
+        Action = LogAction.Unknown;
+    }
+
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public Guid Id { get; set; }
+
+    public DateTimeOffset CreationDateTime { get; set; }
+
+    [StringLength(50)]
+    public string? Tag { get; set; }
+
+    /// <summary>
+    ///     The object type
+    /// </summary>
+    [StringLength(100)]
+    public string? ObjectType { get; set; }
+
+    /// <summary>
+    ///     The object type including namespace
+    /// </summary>
+    [StringLength(250)]
+    public string? ObjectTypeFull { get; set; }
+
+    /// <summary>
+    ///     The object id
+    /// </summary>
+    [StringLength(64)]
+    public string? ObjectId { get; set; }
+
+    public string Message { get; set; } = "";
+
+    public LogType Type { get; set; }
+
+    public LogAction Action { get; set; }
+
+    public LogSource Source { get; set; }
+
+    [Display(Name = "User")]
+    public Guid? UserId { get; set; }
+
+    public TUser? User { get; set; }
+
+    public List<TLogFile> Files { get; set; } = null!;
+
+    public List<TLogMessageArgument> MessageArguments { get; set; } = null!;
+
+    public List<TLogMessageTranslated> MessageTranslateds { get; set; } = null!;
+
+    public Guid? DivisionId { get; set; }
+
+    public TDivision? Division { get; set; }
+
+    public short Version { get; set; }
+
+    public bool AdditionalDataProcessed { get; set; }
+
+    public NhLogAdditionalData<
+    TLogMessageArgument,
+    TLogMessageTranslated,
+    TLogFile
+    >? AdditionalData { get; set; }
+}
+
+public class  NhLogAdditionalData<
+    TLogMessageArgument,
+    TLogMessageTranslated,
+    TLogFile
+    >
+    where TLogMessageArgument : NhLogMessageArgument
+    where TLogMessageTranslated : NhLogMessageTranslated
+    where TLogFile : NhLogFile
+{
+    public List<TLogFile> Files { get; set; } = null!;
+
+    public List<TLogMessageArgument> MessageArguments { get; set; } = null!;
+
+    public List<TLogMessageTranslated> MessageTranslateds { get; set; } = null!;
+}

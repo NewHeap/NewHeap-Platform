@@ -1,0 +1,34 @@
+---
+id: nh-consumer-scope-gate
+title: "Confirm product scope before choosing technical structure"
+area: consumer-bootstrap
+reference: consumer-bootstrap
+summary: "Infer the smallest useful consumer profile from existing context and plain-language product questions before scaffolding any technical capability."
+sample-cases: ["SPM-217"]
+public-symbols: ["NewHeapPlatformCommonConfigurator", "NewHeapPlatformAspNetCommonConfigurator", "NhCommonModule"]
+skills: ["newheap-consumer-development"]
+providers: ["provider-neutral"]
+risk: high
+---
+## Preferred approach
+
+Inspect the request, repository and established organizational choices before asking anything. Determine what the first useful increment must accomplish, who or what interacts with it, whether it retains its own information, whether people sign in or have different permissions, whether a visible interface is needed now, and which existing systems or operational constraints it must connect to. Ask only for missing answers that would change the generated structure, and ask no more than three short questions at a time.
+
+Phrase questions in product language. Ask whether employees need screens, whether another system sends requests, whether work happens automatically, whether information must be found again later, and whether different people may do different things. Do not ask a non-technical user to select an API, worker, Angular, authentication middleware or database engine. Use repository standards for technical choices that are already established. When a technical choice remains consequential and cannot be inferred, explain it through its user-visible effect.
+
+Translate the confirmed answers internally: automatic or scheduled work becomes a `service` profile; system-to-system requests become an `api` profile; confirmed interactive administration becomes a `management-portal` profile; retained application data selects persistence; sign-in or differentiated access selects authentication; and optional infrastructure is selected only for a concrete need. Summarize the proposal in plain language before generation, including what will deliberately remain deferred. Record the resulting profile and capabilities in `newheap-consumer.json`.
+
+Keep future possibilities as extension points, not installed frameworks. A backend-only consumer still uses the standard `src/Back-end/Applications`, `Libraries`, `Tests` and `Orchestration` seams so additional hosts can be added later. Leave only `src/Front-end/.gitkeep` when no interface is currently required. When later work confirms a frontend, preserve the existing backend, add an API only if the interface needs one, update the recorded capabilities, and then materialize the Angular workspace from the executable frontend evidence.
+
+## Avoid
+
+- Presenting a checklist of technical frameworks or infrastructure to a user who described a business outcome.
+- Asking for information already stated in the request or discoverable from the repository.
+- Treating every possible future capability as part of the first scaffold.
+- Assuming a management portal merely because the application may need one later.
+- Creating Angular configuration, npm dependencies or a generic starter behind a placeholder-only frontend seam.
+- Choosing a database when the first increment does not retain application-owned data.
+
+## Verification
+
+Before running the bootstrap, state the inferred profile and capabilities in one short product-language summary. Verify that each generated project corresponds to a confirmed current need. For a backend-only API or service, require `src/Front-end/.gitkeep` and reject `angular.json` and `package.json`. For an interactive management profile, require the Angular workspace and its NewHeap package gate. Run the executable consumer bootstrap test for service, API and management-portal profiles, including the failure path where no profile was confirmed.

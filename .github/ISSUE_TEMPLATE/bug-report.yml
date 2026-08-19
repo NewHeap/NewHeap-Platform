@@ -1,0 +1,91 @@
+name: Bug report
+description: Report a reproducible defect in a NewHeap package or sample.
+title: "[Bug]: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a problem. Do not include credentials, customer data, private URLs, or production configuration. Report security vulnerabilities through the private channel in SECURITY.md.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Select the primary area where the problem occurs.
+      options:
+        - .NET libraries
+        - Angular libraries
+        - SampleProjectManagement
+        - Consumer guidance or plugin
+        - Release tooling
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: package-version
+    attributes:
+      label: Package and version
+      description: Name the affected NuGet/npm package or repository revision.
+      placeholder: NewHeap.Platform.Common 1.1.2
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include relevant .NET, Node.js, Angular, operating-system, browser, and database-provider versions.
+      placeholder: |
+        .NET: 10.0.x
+        Node.js: 22.x
+        Database provider: PostgreSQL
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest reproducible sequence and, when possible, a minimal public repository.
+      placeholder: |
+        1. Configure ...
+        2. Call ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Describe what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Describe what happened instead. Include sanitized logs when useful.
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add screenshots, provider differences, workarounds, or other relevant details.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: I removed credentials, customer data, private URLs, and other confidential material.
+          required: true
+        - label: This is not a security vulnerability requiring private disclosure.
+          required: true

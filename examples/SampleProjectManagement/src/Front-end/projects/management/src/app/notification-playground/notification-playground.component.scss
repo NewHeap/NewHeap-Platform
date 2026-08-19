@@ -1,0 +1,16 @@
+@use '../../../../../styles/playground' as pg;
+
+:host { display: block; }
+@include pg.shell('.notification-lab');
+@include pg.buttons('.notification-lab');
+@include pg.badge('.badge', accent);
+
+.notification-lab > .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.notifications { display: grid; gap: 8px; margin-top: 15px; }
+.notifications article { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 15px; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface-subtle); }
+.notifications article.unread { border-left: 4px solid var(--brand); }
+.notifications article p { margin: 4px 0 0; color: var(--muted); }
+.notifications article .actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.empty { margin: 0; padding: 24px; border: 1px dashed var(--line-strong); border-radius: var(--radius-card); color: var(--muted); text-align: center; }
+
+@media (max-width: 700px) { .notifications article { flex-direction: column; } }

@@ -1,0 +1,31 @@
+{
+  "name": "newheap-platform-guidance",
+  "private": true,
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "guidance:generate": "node tools/guidance/generate-guidance.mjs",
+    "guidance:check": "node tools/guidance/generate-guidance.mjs --check",
+    "guidance:snapshot": "node tools/guidance/snapshot-public-api.mjs",
+    "guidance:snapshot:check": "node tools/guidance/snapshot-public-api.mjs --check",
+    "guidance:impact": "node tools/guidance/verify-change-impact.mjs",
+    "guidance:validate": "node tools/guidance/validate-guidance.mjs",
+    "guidance:validate:test": "node tools/guidance/test-validate-guidance.mjs",
+    "plugin:validate": "node tools/guidance/validate-plugin-distribution.mjs",
+    "consumer-skill:install": "node tools/guidance/install-consumer-skill.mjs",
+    "consumer-skill:check": "node tools/guidance/install-consumer-skill.mjs --check",
+    "consumer-skill:test": "node tools/guidance/test-consumer-skill-installer.mjs",
+    "license:check": "node tools/licensing/validate-licensing.mjs",
+    "security:public-source": "node tools/security/validate-public-source.mjs",
+    "security:public-source:test": "node tools/security/test-validate-public-source.mjs",
+    "sample:structure": "node examples/SampleProjectManagement/tools/validate-structure.mjs",
+    "skills:eval": "node tools/guidance/validate-skill-evals.mjs",
+    "skills:validate": "node tools/guidance/validate-guidance.mjs && node tools/guidance/test-validate-guidance.mjs && node tools/guidance/validate-skill-evals.mjs && node tools/guidance/validate-plugin-distribution.mjs && node tools/guidance/test-consumer-skill-installer.mjs",
+    "release:validate": "node tools/release/validate-release.mjs",
+    "release:test": "node tools/licensing/validate-licensing.mjs && node tools/security/validate-public-source.mjs && node tools/security/test-validate-public-source.mjs && node tools/release/validate-release.mjs && node tools/release/test-release-tooling.mjs && node tools/release/test-verify-public-release-targets.mjs",
+    "release:prepare": "node tools/release/prepare-release.mjs",
+    "release:package": "node tools/release/package-release.mjs"
+  }
+}

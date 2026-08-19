@@ -1,0 +1,4 @@
+interface:
+  display_name: "NewHeap Library Maintenance"
+  short_description: "Keep libraries, samples, guidance, and skills aligned"
+  default_prompt: "Use $newheap-library-maintenance to update this NewHeap library surface and keep its samples and skills synchronized."

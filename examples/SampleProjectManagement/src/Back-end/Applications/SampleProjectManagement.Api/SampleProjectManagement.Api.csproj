@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="DotNetCore.CAP.RabbitMQ" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Scalar.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../Libraries/SampleProjectManagement.Core/SampleProjectManagement.Core.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.Events.Cap/NewHeap.Platform.Events.Cap.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.Media.Core/NewHeap.Platform.Media.Core.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.Media.Http/NewHeap.Platform.Media.Http.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/NewHeap.Platform.Media.FileStructureStorage.PostgreSql.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.Media.MediaStorage.FileSystem/NewHeap.Platform.Media.MediaStorage.FileSystem.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.Media.MediaStorage.S3Bucket/NewHeap.Platform.Media.MediaStorage.S3Bucket.csproj" />
+    <ProjectReference Include="../../Libraries/SampleProjectManagement.DAL/SampleProjectManagement.DAL.csproj" />
+    <ProjectReference Include="../../Orchestration/SampleProjectManagement.ServiceDefaults/SampleProjectManagement.ServiceDefaults.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Caching/NewHeap.Platform.AspNet.Caching.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeap.Platform.AspNet.Common.csproj" />
+  </ItemGroup>
+</Project>

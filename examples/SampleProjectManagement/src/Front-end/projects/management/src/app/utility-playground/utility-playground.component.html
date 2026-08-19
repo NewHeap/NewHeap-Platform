@@ -1,0 +1,44 @@
+<section class="utility-lab" id="utility-playground">
+  <header><div><h2>{{ 'project.utility-playground-title' | translate }}</h2><p>{{ 'project.utility-playground-description' | translate }}</p></div><span class="online" [class.offline]="!internetConnected()"><i class="ph ph-wifi-high" aria-hidden="true"></i>{{ internetConnected() ? 'online' : 'offline' }}</span></header>
+
+  <div class="static-grid">
+    @for (item of values; track item.name) {
+      <article><code>{{ item.name }}</code><strong>{{ item.value }}</strong></article>
+    }
+  </div>
+
+  <section class="enum-dropdown-samples">
+    <header><span class="preferred-badge">{{ 'project.preferred-way' | translate }}</span><h3>{{ 'project.enum-dropdown-title' | translate }}</h3><p>{{ 'project.enum-dropdown-description' | translate }}</p></header>
+    <label><span>{{ 'project.single-status' | translate }}</span><nh-form-dropdown [formControl]="singleStatus" [settings]="singleStatusSettings"></nh-form-dropdown><small>{{ singleStatus.value.join(', ') }}</small></label>
+    <label><span>{{ 'project.multiple-statuses' | translate }}</span><nh-form-dropdown [formControl]="multipleStatuses" [settings]="multipleStatusSettings"></nh-form-dropdown><small>{{ multipleStatuses.value.join(', ') }}</small></label>
+  </section>
+
+  <section class="deferred-dropdown-sample">
+    <header>
+      <span class="preferred-badge">{{ 'project.preferred-way' | translate }}</span>
+      <h3>{{ 'project.deferred-dropdown-title' | translate }}</h3>
+      <p>{{ 'project.deferred-dropdown-description' | translate }}</p>
+    </header>
+    <label>
+      <span>{{ 'project.projects' | translate }}</span>
+      <nh-form-dropdown [formControl]="deferredProjectIds" [settings]="deferredProjectSettings"></nh-form-dropdown>
+    </label>
+    <dl>
+      <div><dt>{{ 'project.recommended-configuration' | translate }}</dt><dd><code>deferLazyLoadUntilOpened = {{ deferredLazyLoadEnabled }}</code></dd></div>
+      <div><dt>{{ 'project.selected-option-requests' | translate }}</dt><dd>{{ deferredSelectedRequests() }}</dd></div>
+      <div><dt>{{ 'project.collection-requests' | translate }}</dt><dd>{{ deferredCollectionRequests() }}</dd></div>
+    </dl>
+  </section>
+
+  <div class="runners">
+    <article><h3>NhAsyncLock + NhMutex</h3><p>{{ 'project.mutex-description' | translate }}</p><button type="button" (click)="runMutex()">RunExclusive</button><button type="button" (click)="runMutexPrimitive()">lock/release</button><pre>{{ asyncLog().join('\n') || '-' }}</pre></article>
+    <article><h3>NhEncodingUtil</h3><p>{{ 'project.encoding-description' | translate }}</p><button type="button" (click)="runEncoding()">Blob to Base64</button><pre>{{ encodedBlob() || '-' }}</pre></article>
+    <article><h3>Observable extensions</h3><p>{{ 'project.observable-description' | translate }}</p><button type="button" (click)="runObservable()">Run typed result</button><pre>{{ observableResult() || '-' }}</pre></article>
+    <article><h3>NhCookieService</h3><p>{{ 'project.cookie-description' | translate }}</p><button type="button" (click)="runCookie()">Set, read & delete</button><pre>{{ cookieResult() || '-' }}</pre></article>
+    <article><h3>Form, API, and HTTP utility matrix</h3><p>Runs nested clearErrors, request parsing, objectToFormData, and HttpError-to-TaskResult conversion.</p><button type="button" (click)="runUtilityMatrix()">Run utility matrix</button><pre>{{ utilityMatrixResult() || '-' }}</pre></article>
+    <article><h3>Button debounce</h3><p>Ten rapid clicks produce one onDebounce event only after 400 ms.</p><button type="button" nhButtonDebounce [debounce]="400" (onDebounce)="runDebouncedButton()">Click rapidly</button><pre>Executed events: {{ debouncedButtonRuns() }}</pre></article>
+    <article><h3>Loader and error boundary</h3><p>Separate loading and error states with the library components.</p><nh-loader [hasBackdrop]="false"></nh-loader><nh-error [key]="undefined" [errors]="presentationError"></nh-error></article>
+    <article><h3>Safe/date/encoding/primitive pipes</h3><p [innerHTML]="trustedHtml | safeHtml"></p><a [href]="'https://newheap.com' | safeUrl">Trusted URL</a><iframe title="Safe empty resource" [src]="'about:blank' | safeResourceUrl"></iframe><pre>{{ now | nhDate }} | {{ now | nhDateTime }} | {{ '2026-07-24T10:00:00' | nhDateUtc }} | {{ true | nhBooleanToString }} | {{ 'project planning/roadmap' | nhUrlEncode }}</pre></article>
+    <article><h3>Frontend Sentry hooks</h3><p>Register tags and user and trace hooks without sending sample data.</p><button type="button" (click)="runSentryDryRun()">Register dry-run hook</button><pre>{{ sentryResult() || '-' }}</pre></article>
+  </div>
+</section>

@@ -1,0 +1,62 @@
+<div class="user-menu">
+  <div class="menu-group">
+    <button class="icon-button" type="button" (click)="toggleNotifications()"
+      [attr.aria-expanded]="notificationsOpen()" aria-haspopup="dialog" aria-controls="sample-notifications-popover"
+      [attr.aria-label]="'project.account-menu.notifications' | translate">
+      <i class="ph ph-bell" aria-hidden="true"></i>
+      @if (userNotificationState.overview.unreadCount > 0) {
+        <span class="notification-count" [attr.aria-label]="userNotificationState.overview.unreadCount + ' unread notifications'">{{ userNotificationState.overview.unreadCount > 99 ? '99+' : userNotificationState.overview.unreadCount }}</span>
+      }
+    </button>
+
+    @if (notificationsOpen()) {
+      <section id="sample-notifications-popover" class="dropdown notifications" role="dialog" aria-modal="false" [attr.aria-label]="'project.account-menu.notifications' | translate">
+        <header>
+          <div>
+            <strong>{{ 'project.account-menu.notifications' | translate }}</strong>
+            <span>{{ userNotificationState.overview.unreadCount }} {{ 'project.account-menu.unread' | translate }}</span>
+          </div>
+          <button type="button" (click)="clearNotifications()" [disabled]="notificationsBusy()">{{ 'project.account-menu.clear' | translate }}</button>
+        </header>
+        @if (notificationError()) {
+          <p class="notification-error" role="alert"><i class="ph ph-warning-circle" aria-hidden="true"></i>{{ notificationError() }}</p>
+        }
+        <div class="notification-list">
+          @if (isLoading) {
+            @for (item of [1, 2, 3]; track item) {
+              <div class="notification-skeleton" aria-hidden="true"><span class="spm-skeleton"></span><div><span class="spm-skeleton"></span><span class="spm-skeleton"></span></div></div>
+            }
+            <span class="visually-hidden">Notifications are loading</span>
+          } @else {
+            @for (notification of collectionResponse.items; track notification.id) {
+            <button type="button" class="notification" [class.unread]="!notification.isLastRead"
+              (click)="openNotification(notification)">
+              <span class="notification-icon"><i class="ph ph-bell-ringing" aria-hidden="true"></i></span>
+              <span><strong>{{ notification.lastTitle }}</strong><small>{{ notification.lastMessage }}</small></span>
+            </button>
+            } @empty {
+              <div class="notification-empty"><i class="ph ph-bell-slash" aria-hidden="true"></i><p>{{ 'project.account-menu.empty-notifications' | translate }}</p></div>
+            }
+          }
+        </div>
+      </section>
+    }
+  </div>
+
+  <div class="menu-group">
+    <button class="user-toggle" type="button" (click)="toggleUserMenu()"
+      [attr.aria-expanded]="userMenuOpen()" aria-haspopup="menu" aria-controls="sample-account-menu">
+      <span class="avatar">{{ userInitials() }}</span>
+      <span class="user-email">{{ userEmail() }}</span>
+      <i class="ph ph-caret-down chevron" aria-hidden="true"></i>
+    </button>
+
+    @if (userMenuOpen()) {
+      <section id="sample-account-menu" class="dropdown account" role="menu">
+        <div class="account-summary" role="none"><span class="avatar">{{ userInitials() }}</span><span><strong>{{ userEmail() }}</strong><small>{{ 'project.account-menu.signed-in' | translate }}</small></span></div>
+        <a [routerLink]="profileRoute" (click)="closeMenus()" role="menuitem"><i class="ph ph-user-circle" aria-hidden="true"></i>{{ 'project.account-menu.edit-profile' | translate }}</a>
+        <button type="button" role="menuitem" (click)="logout()" [disabled]="loggingOut()"><i class="ph ph-sign-out" aria-hidden="true"></i>{{ 'project.account-menu.log-out' | translate }}</button>
+      </section>
+    }
+  </div>
+</div>

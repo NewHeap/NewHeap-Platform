@@ -1,0 +1,55 @@
+{
+  "name": "sample-project-management-front-end",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start:management": "ng serve management --host 127.0.0.1 --port 4210 --proxy-config proxy.conf.cjs",
+    "start:workspace": "ng serve workspace --host 127.0.0.1 --port 4220 --proxy-config proxy.conf.cjs",
+    "build:management": "ng build management",
+    "build:workspace": "ng build workspace",
+    "build": "npm run build:management && npm run build:workspace",
+    "generate:samples": "node scripts/generate-sample-cases.mjs",
+    "prebuild:management": "npm run sync:nh-common && npm run generate:samples && npm run verify:samples",
+    "prebuild:workspace": "npm run sync:nh-common && npm run generate:samples && npm run verify:samples",
+    "verify:samples": "node scripts/verify-sample-evidence.mjs && node scripts/verify-frontend-integrity.mjs",
+    "sync:nh-common": "node scripts/sync-nh-common.mjs",
+    "prestart:management": "npm run sync:nh-common",
+    "prestart:workspace": "npm run sync:nh-common"
+  },
+  "dependencies": {
+    "@angular/animations": "20.3.28",
+    "@angular/common": "20.3.28",
+    "@angular/compiler": "20.3.28",
+    "@angular/core": "20.3.28",
+    "@angular/forms": "20.3.28",
+    "@angular/platform-browser": "20.3.28",
+    "@angular/platform-browser-dynamic": "20.3.28",
+    "@angular/router": "20.3.28",
+    "@msgpack/msgpack": "^2.8.0",
+    "@newheap/platform-common": "file:../../../../src/Front-end/projects/nh-common",
+    "@ngx-translate/core": "^17.0.0",
+    "@ngx-translate/http-loader": "^17.0.0",
+    "@phosphor-icons/web": "^2.1.2",
+    "@sentry/angular": "^10.53.1",
+    "@swimlane/ngx-datatable": "^23.0.1",
+    "bootstrap": "^5.3.8",
+    "js-base64": "^3.7.8",
+    "luxon": "^3.7.2",
+    "ngx-bootstrap-multiselect": "^4.0.0",
+    "ngx-cookie-service": "^20.1.1",
+    "ngx-toastr": "^19.1.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.15.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^20.3.34",
+    "@angular/cli": "^20.3.34",
+    "@angular/compiler-cli": "20.3.28",
+    "typescript": "~5.9.2"
+  },
+  "overrides": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@hono/node-server": "2.1.0"
+  }
+}

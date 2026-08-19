@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PackageId>NewHeap.Platform.Media.FileStructureStorage.PostgreSql</PackageId>
+        <Version>0.1.0</Version>
+        <Copyright>NewHeap B.V.</Copyright>
+        <Title>NewHeap Media PostgreSQL FileStructure Storage</Title>
+        <PackageProjectUrl>https://github.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/NewHeap/NewHeap-Platform</RepositoryUrl>
+        <RootNamespace>NewHeap.Media.FileStructureStorage.PostgreSql</RootNamespace>
+        <IncludeSymbols>True</IncludeSymbols>
+        <EmbedAllSources>True</EmbedAllSources>
+        <DebugType>Embedded</DebugType>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <IsPackable>True</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\NewHeap.Platform.Media.FileStructureStorage.SqlServer\NewHeap.Platform.Media.FileStructureStorage.SqlServer.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    </ItemGroup>
+
+</Project>

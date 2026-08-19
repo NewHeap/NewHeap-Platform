@@ -1,0 +1,50 @@
+<a class="skip-link" href="#page-content">Skip to content</a>
+<div class="app-shell" [class.navigation-open]="navigationOpen()">
+  <button class="navigation-scrim" type="button" (click)="closeNavigation()" tabindex="-1" aria-label="Close navigation" [attr.aria-hidden]="navigationOpen() ? null : true"></button>
+  <aside class="sidebar" id="management-navigation">
+    <a class="brand" routerLink="/management" aria-label="Sample Project Management">
+      <span class="brand-mark">SP</span>
+      <span class="brand-copy"><strong>Sample Project</strong><small>Management</small></span>
+    </a>
+
+    <p class="navigation-label">Library examples</p>
+    <nav aria-label="Samplecatalogus">
+      <a class="nav-item" routerLink="/management" routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"><i class="ph ph-squares-four" aria-hidden="true"></i>{{ 'project.projects' | translate }}</a>
+      <a class="nav-item" routerLink="/management/collections" routerLinkActive="active"><i class="ph ph-funnel-simple" aria-hidden="true"></i>{{ 'project.collection-playground-nav' | translate }}</a>
+      <a class="nav-item" routerLink="/management/interactions" routerLinkActive="active"><i class="ph ph-cursor-click" aria-hidden="true"></i>{{ 'project.interaction-playground-nav' | translate }}</a>
+      <a class="nav-item" routerLink="/management/authorization" routerLinkActive="active"><i class="ph ph-shield-check" aria-hidden="true"></i>{{ 'project.auth-playground-nav' | translate }}</a>
+      <a class="nav-item" routerLink="/management/notifications" routerLinkActive="active"><i class="ph ph-bell" aria-hidden="true"></i>{{ 'project.notification-playground-nav' | translate }}</a>
+      <a class="nav-item" routerLink="/management/platform" routerLinkActive="active"><i class="ph ph-stack" aria-hidden="true"></i>{{ 'project.platform-playground-nav' | translate }}</a>
+      <a class="nav-item" routerLink="/management/media" routerLinkActive="active"><i class="ph ph-image" aria-hidden="true"></i>{{ 'project.media-playground-nav' | translate }}</a>
+      <a class="nav-item" routerLink="/management/transactions" routerLinkActive="active"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i>{{ 'project.transaction-playground-nav' | translate }}</a>
+      <a class="nav-item" routerLink="/management/utilities" routerLinkActive="active"><i class="ph ph-toolbox" aria-hidden="true"></i>{{ 'project.sample-utilities' | translate }}</a>
+      <a class="nav-item" routerLink="/management/cases" routerLinkActive="active"><i class="ph ph-books" aria-hidden="true"></i>{{ 'project.all-sample-cases' | translate }}</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="environment">Sample environment</span>
+      <span>NewHeap Platform</span>
+    </div>
+  </aside>
+
+  <main id="page-content" tabindex="-1">
+    <header class="topbar">
+      <div class="topbar-title">
+        <button class="menu-button" type="button" (click)="toggleNavigation()" [attr.aria-expanded]="navigationOpen()" aria-controls="management-navigation" [attr.aria-label]="navigationOpen() ? 'Close navigation' : 'Open navigation'">
+          <i class="ph ph-list" aria-hidden="true"></i>
+        </button>
+        <div>
+          <span>NewHeap Platform</span>
+          <h1>{{ pageTitle() }}</h1>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span class="connection" [attr.data-mode]="connectionState.mode()" role="status" aria-live="polite"><span></span>{{ connectionState.labelKey() | translate }}</span>
+        <app-sample-user-menu profileRoute="/management/profile" />
+      </div>
+    </header>
+
+    <div class="route-content"><router-outlet /></div>
+  </main>
+</div>

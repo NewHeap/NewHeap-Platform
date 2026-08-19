@@ -1,0 +1,78 @@
+<section class="case-catalog" id="case-catalog">
+  <header>
+    <div>
+      <span class="eyebrow">{{ 'project.case-catalog-label' | translate }}</span>
+      <h2>{{ 'project.case-catalog-title' | translate }}</h2>
+      <p>{{ 'project.case-catalog-description' | translate }}</p>
+    </div>
+    <div class="coverage">
+      <strong>{{ implementedCount }} / {{ cases.length }}</strong>
+      <span>{{ 'project.cases-implemented' | translate }} | {{ partialCount }} {{ 'project.partial-cases' | translate }} | {{ gapCount }} {{ 'project.library-gaps' | translate }}</span>
+    </div>
+  </header>
+
+  <div class="case-filters">
+    <label>
+      <span>{{ 'project.search-cases' | translate }}</span>
+      <input type="search" [value]="query()" (input)="updateQuery($event)" [placeholder]="'project.search-cases-placeholder' | translate">
+    </label>
+    <label>
+      <span>{{ 'project.category' | translate }}</span>
+      <select [value]="category()" (change)="updateCategory($event)">
+        <option value="">{{ 'project.all-categories' | translate }}</option>
+        @for (item of categories; track item) {
+          <option [value]="item">{{ item }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>{{ 'project.implementation' | translate }}</span>
+      <select [value]="implementation()" (change)="updateImplementation($event)">
+        <option value="">{{ 'project.all-cases' | translate }}</option>
+        <option value="implemented">{{ 'project.implemented' | translate }}</option>
+        <option value="partial">{{ 'project.partial' | translate }}</option>
+        <option value="planned">{{ 'project.planned' | translate }}</option>
+        <option value="library-gap">{{ 'project.library-gap' | translate }}</option>
+      </select>
+    </label>
+  </div>
+
+  <p class="result-count">{{ filteredCases().length }} {{ 'project.cases-found' | translate }}</p>
+
+  <div class="case-list">
+    @for (item of filteredCases(); track item.id) {
+      <article [class.implemented]="item.implementation === 'implemented'" [class.partial]="item.implementation === 'partial'" [class.library-gap]="item.implementation === 'library-gap'">
+        <button type="button" (click)="select(item)">
+          <span class="case-id">{{ item.id }}</span>
+          <span class="case-copy">
+            <strong>{{ item.title }}</strong>
+            <small>{{ item.surface }}</small>
+          </span>
+          <span class="case-state">{{ ('project.' + item.implementation) | translate }}</span>
+        </button>
+        @if (selectedCase()?.id === item.id) {
+          <div class="case-detail">
+            <dl>
+              <div><dt>{{ 'project.expected-result' | translate }}</dt><dd>{{ item.outcome }}</dd></div>
+            </dl>
+            @if (item.evidence.length) {
+              <div class="evidence">
+                <strong>{{ 'project.evidence' | translate }}</strong>
+                @for (path of item.evidence; track path) { <code>{{ path }}</code> }
+              </div>
+            }
+            @if (item.statusReason) {
+              <p class="status-reason">
+                <strong>{{ ('project.' + item.implementation) | translate }}:</strong> {{ item.statusReason }}
+              </p>
+            } @else if (anchorFor(item); as anchor) {
+              <a [href]="anchor">{{ 'project.open-working-sample' | translate }}</a>
+            } @else {
+              <span>{{ 'project.implementation-pending' | translate }}</span>
+            }
+          </div>
+        }
+      </article>
+    }
+  </div>
+</section>

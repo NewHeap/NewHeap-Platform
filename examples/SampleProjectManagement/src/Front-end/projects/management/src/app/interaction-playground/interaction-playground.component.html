@@ -1,0 +1,65 @@
+<section class="interaction-lab" id="interaction-playground">
+  <header>
+    <div>
+      <h2>{{ 'project.interaction-playground-title' | translate }}</h2>
+      <p>{{ 'project.interaction-playground-description' | translate }}</p>
+    </div>
+  </header>
+
+  <div class="interaction-grid">
+    <article>
+      <h3>{{ 'project.collection-lifecycle' | translate }}</h3>
+      <p>{{ 'project.collection-lifecycle-note' | translate }}</p>
+      <div class="actions">
+        <input #searchInput type="search" [placeholder]="'project.search-projects' | translate">
+        <button type="button" (click)="searchProjects(searchInput.value)">{{ 'project.apply' | translate }}</button>
+        <button type="button" (click)="sortProjects('asc')">A-Z</button>
+        <button type="button" (click)="sortProjects('desc')">Z-A</button>
+      </div>
+      <div class="collection-items">
+        @for (project of items; track project.id) {
+          <div><strong>{{ project.key }}</strong><span>{{ project.name }}</span></div>
+        } @empty {
+          <p>{{ 'project.no-projects' | translate }}</p>
+        }
+      </div>
+      <div class="pager">
+        <button type="button" (click)="previousPage()" aria-label="Previous page"><i class="ph ph-arrow-left" aria-hidden="true"></i></button>
+        <button type="button" (click)="nextPage()" aria-label="Next page"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+      </div>
+      <ol class="event-log">
+        @for (event of lifecycleEvents(); track $index) { <li>{{ event }}</li> }
+      </ol>
+    </article>
+
+    <article>
+      <h3>{{ 'project.server-validation' | translate }}</h3>
+      <form [formGroup]="validationForm">
+        <div formGroupName="project">
+          <label>
+            <span>{{ 'project.name' | translate }}</span>
+            <input formControlName="name">
+            <nh-form-error-message [control]="validationForm.get('project.name')!"></nh-form-error-message>
+          </label>
+        </div>
+        <label>
+          <span>{{ 'project.key' | translate }}</span>
+          <input formControlName="code">
+          <nh-form-error-message [control]="validationForm.get('code')!"></nh-form-error-message>
+        </label>
+        <div class="general-error">
+          <strong>{{ 'project.general-errors' | translate }}</strong>
+          <nh-form-error-message [control]="validationForm.get('')!"></nh-form-error-message>
+        </div>
+      </form>
+      <div class="validation-actions">
+        <button type="button" (click)="showAspMvcValidation()">
+          {{ 'project.show-nested-validation' | translate }}
+        </button>
+        <button type="button" (click)="showTaskResultValidation()">
+          {{ 'project.show-task-result-validation' | translate }}
+        </button>
+      </div>
+    </article>
+  </div>
+</section>

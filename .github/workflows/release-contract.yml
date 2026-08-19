@@ -1,0 +1,198 @@
+name: Release contract
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_call:
+    inputs:
+      component:
+        description: Release unit prepared by the Prepare release workflow
+        required: true
+        type: string
+      version:
+        description: Prepared release version, or all for a coordinated release
+        required: true
+        type: string
+      source_branch:
+        description: Generated release branch
+        required: true
+        type: string
+      source_sha:
+        description: Exact generated release commit
+        required: true
+        type: string
+      base_sha:
+        description: Main commit from which the release was prepared
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-contract-${{ inputs.source_branch != '' && 'automatic-release' || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+      - name: Verify automatic release request
+        if: inputs.source_branch != ''
+        env:
+          COMPONENT: ${{ inputs.component }}
+          VERSION: ${{ inputs.version }}
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          BASE_SHA: ${{ inputs.base_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$SOURCE_BRANCH" =~ ^release/ ]]; then
+            echo "The automatic release must use its generated release/* branch." >&2
+            exit 1
+          fi
+          if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "The source and base revisions must be full Git commit hashes." >&2
+            exit 1
+          fi
+          if [[ "$(git rev-parse HEAD)" != "$SOURCE_SHA" ]]; then
+            echo "The checked-out commit does not match the requested release commit." >&2
+            exit 1
+          fi
+          remote_source_sha="$(git ls-remote origin "refs/heads/${SOURCE_BRANCH}" | awk '{print $1}')"
+          if [[ "$remote_source_sha" != "$SOURCE_SHA" ]]; then
+            echo "The generated release branch does not point to the requested release commit." >&2
+            exit 1
+          fi
+          if [[ "$(git rev-parse "${SOURCE_SHA}^")" != "$BASE_SHA" ]]; then
+            echo "A release branch must contain exactly one generated commit on its recorded main base." >&2
+            exit 1
+          fi
+
+          case "$COMPONENT" in
+            all|nuget-common|nuget-caching|nuget-media|npm-platform-common|npm-nh-toastr|newheap-platform-plugin) ;;
+            *)
+              echo "Unsupported release component: $COMPONENT" >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ "$COMPONENT" == "all" ]]; then
+            if [[ "$VERSION" != "all" ]]; then
+              echo "A coordinated release must use the all version marker." >&2
+              exit 1
+            fi
+          else
+            expected_version="$(node tools/release/release-info.mjs --component "$COMPONENT" --field version)"
+            if [[ "$VERSION" != "$expected_version" ]]; then
+              echo "Requested version $VERSION does not match prepared version $expected_version." >&2
+              exit 1
+            fi
+          fi
+      - name: Validate release tooling
+        run: npm run release:test
+      - name: Audit public .NET dependency graph
+        shell: bash
+        run: |
+          dotnet restore src/Back-end/NewHeap.Platform.sln \
+            --configfile release/nuget.public.config \
+            -p:NuGetAudit=true \
+            -p:NuGetAuditMode=all \
+            -p:NuGetAuditLevel=high \
+            -p:WarningsAsErrors=NU1903%3BNU1904
+          dotnet list src/Back-end/NewHeap.Platform.sln package \
+            --vulnerable \
+            --include-transitive \
+            --no-restore \
+            --configfile release/nuget.public.config
+      - name: Audit npm runtime dependency graphs
+        run: |
+          npm --prefix src/Front-end audit --audit-level=critical
+          npm --prefix src/Front-end audit --omit=dev --audit-level=high
+          npm --prefix examples/SampleProjectManagement/src/Front-end audit --audit-level=critical
+          npm --prefix examples/SampleProjectManagement/src/Front-end audit --omit=dev --audit-level=high
+      - name: Validate guidance, skills and plugin
+        run: npm run skills:validate
+      - name: Validate sample repository structure
+        run: npm run sample:structure
+      - name: Validate library change impact
+        if: github.event_name == 'pull_request'
+        run: node tools/guidance/verify-change-impact.mjs --base "origin/${{ github.base_ref }}"
+      - name: Validate prepared release impact
+        if: inputs.source_branch != ''
+        run: node tools/guidance/verify-change-impact.mjs --base "${{ inputs.base_sha }}"
+
+  complete-release:
+    if: inputs.source_branch != ''
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release_sha: ${{ steps.merge.outputs.release_sha }}
+    steps:
+      - name: Advance main to the validated release
+        id: merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          BASE_SHA: ${{ inputs.base_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          current_main="$(gh api "repos/${GITHUB_REPOSITORY}/branches/main" --jq '.commit.sha')"
+          if [[ "$current_main" != "$BASE_SHA" ]]; then
+            echo "Main advanced after this release was prepared." >&2
+            echo "Run Prepare release again so versions and generated artifacts are based on the current main commit." >&2
+            exit 1
+          fi
+
+          update_result="$(gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/main" \
+            --raw-field sha="$SOURCE_SHA" \
+            --field force=false)"
+          release_sha="$(jq -r '.object.sha' <<< "$update_result")"
+          if [[ "$release_sha" != "$SOURCE_SHA" ]]; then
+            echo "GitHub did not advance main to the validated release commit." >&2
+            exit 1
+          fi
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+
+          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${SOURCE_BRANCH}" >/dev/null 2>&1 || \
+            echo "Warning: release branch ${SOURCE_BRANCH} could not be deleted automatically." >&2
+
+  publish:
+    if: inputs.source_branch != ''
+    needs: complete-release
+    permissions:
+      contents: write
+      id-token: write
+    uses: ./.github/workflows/publish-release.yml
+    with:
+      component: ${{ inputs.component }}
+      version: ${{ inputs.version }}
+      release_sha: ${{ needs.complete-release.outputs.release_sha }}
+    secrets: inherit

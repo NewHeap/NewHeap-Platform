@@ -1,0 +1,29 @@
+﻿<div class="{{modalClass}}">
+  <div class="row">
+    <div class="col-12">
+      <p [innerHTML]="message"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-12">
+      @if (errorResult && !errorResult?.isSuccess) {
+        <div class="alert alert-danger" role="alert">
+          <b>Er is een fout opgetreden</b>
+          <ul>
+            @for (resultItem of errorResult.items; track resultItem) {
+              @for (resultItemErrorMsg of resultItem.errorMessages; track resultItemErrorMsg) {
+                <li>{{ resultItemErrorMsg }}</li>
+              }
+            }
+          </ul>
+        </div>
+      }
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-12 text-end">
+      <button [disabled]="allBtnsDisabled || btnCancelDisabled" class="btn btn-danger me-2" (click)="cancel()">{{ btnCancelText | translate  }}</button>
+      <button [disabled]="allBtnsDisabled || btnConfirmDisabled" class="btn btn-success" (click)="confirm()">{{ btnConfirmText | translate }}</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,29 @@
+import { resolve } from 'node:path';
+import { loadRules, readJson, repositoryRoot } from './lib.mjs';
+
+const evaluations = await readJson(resolve(repositoryRoot, 'skill-evals', 'evals.json'));
+const rules = await loadRules();
+const failures = [];
+if (evaluations.schemaVersion !== 1 || !Array.isArray(evaluations.evals)) failures.push('Invalid skill eval schema.');
+const knownRules = new Set(rules.map(rule => rule.id));
+const knownSkills = new Set(['newheap-consumer-development', 'newheap-library-maintenance']);
+const coveredRules = new Set();
+const ids = new Set();
+
+for (const item of evaluations.evals ?? []) {
+  if (!item.id || ids.has(item.id)) failures.push(`Invalid or duplicate eval id: ${item.id}`);
+  ids.add(item.id);
+  if (!knownSkills.has(item.skill)) failures.push(`${item.id}: unknown skill ${item.skill}`);
+  if (!item.prompt || !item.expectedOutcome) failures.push(`${item.id}: prompt and expectedOutcome are required`);
+  if (!Array.isArray(item.expectedRules) || item.expectedRules.length === 0) failures.push(`${item.id}: expectedRules are required`);
+  for (const rule of item.expectedRules ?? []) {
+    if (!knownRules.has(rule)) failures.push(`${item.id}: unknown rule ${rule}`);
+    coveredRules.add(rule);
+  }
+}
+
+for (const rule of knownRules) if (!coveredRules.has(rule)) failures.push(`No skill eval covers ${rule}`);
+for (const skill of knownSkills) if (!(evaluations.evals ?? []).some(item => item.skill === skill)) failures.push(`No eval targets ${skill}`);
+
+if (failures.length > 0) throw new Error(failures.join('\n'));
+console.log(`Validated ${evaluations.evals.length} skill evals covering ${knownRules.size} guidance rules.`);

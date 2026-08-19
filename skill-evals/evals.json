@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "evals": [
+    {
+      "id": "consumer-dotnet-project-foundation",
+      "skill": "newheap-consumer-development",
+      "prompt": "Generate a new multi-project .NET consumer solution that uses NewHeap packages and keeps shared build and dependency settings consistent.",
+      "expectedRules": ["nh-backend-project-foundation"],
+      "expectedOutcome": "The solution and Directory props live in src/Back-end, Directory.Build.props defines the shared build baseline, Directory.Packages.props enables central package management, and project PackageReference items remain versionless."
+    },
+    {
+      "id": "consumer-empty-repository-bootstrap",
+      "skill": "newheap-consumer-development",
+      "prompt": "Here is the verified URL for the versioned NewHeap plugin package. Prepare this empty repository as a PostgreSQL management portal, prove package access before adding features, use NewHeap controllers and modals, enable Aspire and Docker but leave Elasticsearch disabled, and audit the completed setup.",
+      "expectedRules": ["nh-consumer-scope-gate", "nh-consumer-bootstrap-sequence", "nh-consumer-management-portal", "nh-consumer-optional-infrastructure"],
+      "expectedOutcome": "The explicit request supplies enough product context to select the management-portal profile without redundant questions; the pinned skill bootstraps src/Back-end and src/Front-end, package restore and install form a hard gate, only selected infrastructure is added, and foundation plus final validation pass."
+    },
+    {
+      "id": "consumer-nontechnical-scope-gate",
+      "skill": "newheap-consumer-development",
+      "prompt": "Every night we need to collect a delivery file from an existing partner system, check it, and send a result back. Nobody needs screens or user accounts for the first version, and the partner remains the source of the information.",
+      "expectedRules": ["nh-consumer-scope-gate", "nh-consumer-bootstrap-sequence"],
+      "expectedOutcome": "The agent uses the supplied product context without asking the user to choose frameworks, proposes a service with no application-owned database, authentication or frontend, keeps only the frontend placeholder, and preserves standard backend extension seams for later APIs or interfaces."
+    },
+    {
+      "id": "consumer-backend-crud-scalar",
+      "skill": "newheap-consumer-development",
+      "prompt": "Add a CRUD module to a consumer with view and mutate models, a service, a controller, and a Scalar contract.",
+      "expectedRules": ["nh-backend-module-composition", "nh-backend-controller-contracts", "nh-backend-models-localization"],
+      "expectedOutcome": "Consumer-owned DbSet, mapping, repository/service registration, thin authorized controller and typed OpenAPI metadata."
+    },
+    {
+      "id": "consumer-frontend-collection-modal",
+      "skill": "newheap-consumer-development",
+      "prompt": "Build a filterable collection page and edit modal with the NewHeap lifecycle.",
+      "expectedRules": ["nh-frontend-collection-query", "nh-frontend-lifecycle-modals"],
+      "expectedOutcome": "Fluent server-side filters, one initial load and appOn lifecycle extension points."
+    },
+    {
+      "id": "consumer-frontend-lifecycle-scheduling",
+      "skill": "newheap-consumer-development",
+      "prompt": "Review an appOnInitAndLoad hook where this.load().then() intentionally lets page metadata and the remaining lifecycle continue before the request completes. Modernize it safely, but await the load when later initialization really depends on its result.",
+      "expectedRules": ["nh-frontend-lifecycle-modals"],
+      "expectedOutcome": "Await is treated as an ordering decision: dependent work is awaited, while truly independent work remains explicitly detached with observed errors, destruction-safe cancellation, and protection against stale or repeated route loads."
+    },
+    {
+      "id": "consumer-frontend-root-options",
+      "skill": "newheap-consumer-development",
+      "prompt": "Configure GET deduplication and deferred dropdowns for a new consumer without breaking upgrades.",
+      "expectedRules": ["nh-frontend-root-configuration"],
+      "expectedOutcome": "Explicit root opt-ins while library defaults remain false."
+    },
+    {
+      "id": "consumer-auth-scopes",
+      "skill": "newheap-consumer-development",
+      "prompt": "Create application roles, division roles, and a consumer-specific resource permission with claim hydration.",
+      "expectedRules": ["nh-auth-permission-scopes", "nh-auth-override-hydration"],
+      "expectedOutcome": "Seed-to-policy-to-frontend chain with backend enforcement and removed-user 401 behavior."
+    },
+    {
+      "id": "consumer-provider-query",
+      "skill": "newheap-consumer-development",
+      "prompt": "Add a query and raw SQL path that work on SQL Server and PostgreSQL.",
+      "expectedRules": ["nh-database-provider-portability"],
+      "expectedOutcome": "Provider-neutral LINQ plus separate parameterized dialect implementations and real-provider tests."
+    },
+    {
+      "id": "consumer-transaction-events",
+      "skill": "newheap-consumer-development",
+      "prompt": "Add a transactional mutation with a CAP event, an idempotent consumer, a job, and a notification.",
+      "expectedRules": ["nh-backend-service-unit-of-work", "nh-operations-events-jobs-notifications"],
+      "expectedOutcome": "Service-owned transaction, atomic outbox and scoped/idempotent processing."
+    },
+    {
+      "id": "consumer-partial-update",
+      "skill": "newheap-consumer-development",
+      "prompt": "Expose a PATCH endpoint that updates only the supplied top-level JSON properties while preserving omitted values and the normal service update pipeline, then call it from an Angular API service without sending a complete mutate model.",
+      "expectedRules": ["nh-backend-partial-update"],
+      "expectedOutcome": "The Angular client uses NhBaseApiService.updatePartial or NhApiService.patch with only selected fields and handles the standard 204 response; the controller delegates JSON mapping and validation to DoUpdatePartial, explicitly allow-lists patchable fields, and reaches UpdatePartialAsync with typed NhSetPropertyCalls while service-owned transactions and side effects remain intact."
+    },
+    {
+      "id": "consumer-media",
+      "skill": "newheap-consumer-development",
+      "prompt": "Integrate media storage with domain authorization, uploads, metadata, and events.",
+      "expectedRules": ["nh-media-storage-contract"],
+      "expectedOutcome": "Composition-root adapter, consumer authorization and typed HTTP/event contracts."
+    },
+    {
+      "id": "consumer-configuration-automation",
+      "skill": "newheap-consumer-development",
+      "prompt": "Run NewHeap tooling in a production pipeline on another host with environment and CLI overrides for configuration and secrets.",
+      "expectedRules": ["nh-configuration-overrides"],
+      "expectedOutcome": "Shared appsettings with environment-aware secrets-path resolution, explicit args forwarding and CLI precedence over environment variables."
+    },
+    {
+      "id": "consumer-reusable-test-helpers",
+      "skill": "newheap-consumer-development",
+      "prompt": "Use the NewHeap test helpers in a consumer and also add regression tests for a change to the NewHeap library itself.",
+      "expectedRules": ["nh-reusable-test-helper-boundaries"],
+      "expectedOutcome": "Consumer tests reference the packable .Test helper packages, while NewHeap self-tests stay in non-packable plural .Tests projects and relational behavior is verified on real providers."
+    },
+    {
+      "id": "maintainer-public-change",
+      "skill": "newheap-library-maintenance",
+      "prompt": "Change a public NewHeap option and deliver the library change ready for release.",
+      "expectedRules": ["nh-backend-module-composition", "nh-frontend-root-configuration", "nh-database-provider-portability"],
+      "expectedOutcome": "Tests, executable sample, atomic rule, regenerated skill/docs, snapshot and compatibility verification."
+    }
+  ]
+}

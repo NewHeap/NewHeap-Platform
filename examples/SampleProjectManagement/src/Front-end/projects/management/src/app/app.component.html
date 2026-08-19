@@ -1,0 +1,194 @@
+<div class="management-overview">
+
+    <section class="catalog-intro">
+      <div class="catalog-copy">
+        <span class="catalog-icon"><i class="ph ph-code-block" aria-hidden="true"></i></span>
+        <div>
+          <h2>{{ 'project.catalog-heading' | translate }}</h2>
+          <p>{{ 'project.catalog-description' | translate }}</p>
+        </div>
+      </div>
+      <div class="catalog-stats">
+        <span><strong>208</strong><small>{{ 'project.working-samples' | translate }}</small></span>
+        <span><strong>2</strong><small>{{ 'project.frontends' | translate }}</small></span>
+        <span><strong>1</strong><small>{{ 'project.domain' | translate }}</small></span>
+      </div>
+    </section>
+
+    <div class="overview-actions">
+      @if (canManage()) {
+        <button class="primary-button" type="button" (click)="openEditModal()"><i class="ph ph-plus" aria-hidden="true"></i>{{ 'project.create-project' | translate }}</button>
+      }
+    </div>
+
+    @if (lastAction()) {
+      <div
+        class="action-result"
+        [class.error]="lastActionKind() === 'error'"
+        [class.simulated]="lastActionKind() === 'simulated'"
+        [class.warning]="lastActionKind() === 'warning'"
+        [attr.role]="lastActionKind() === 'error' ? 'alert' : 'status'">
+        <i class="ph" [class.ph-check-circle]="lastActionKind() === 'success'" [class.ph-warning-circle]="lastActionKind() === 'error'" [class.ph-info]="lastActionKind() === 'simulated' || lastActionKind() === 'warning'" aria-hidden="true"></i>{{ lastAction() }}
+      </div>
+    }
+
+    @if (modalLifecycle().length > 0) {
+      <div class="modal-lifecycle" role="log">
+        <strong>{{ 'project.modal-lifecycle' | translate }}</strong>
+        @for (event of modalLifecycle(); track $index) { <span>{{ event }}</span> }
+      </div>
+    }
+
+    <section class="project-section" id="projects">
+      <div class="section-heading">
+        <div>
+          <h2>{{ 'project.project-directory' | translate }}</h2>
+          <p>{{ 'project.directory-description' | translate }}</p>
+        </div>
+        <div class="filter-bar">
+          <label class="search-field">
+            <span class="visually-hidden">{{ 'project.search-projects' | translate }}</span>
+            <input type="search" [value]="search()" (input)="updateSearch($event)" (keyup.enter)="loadProjects()" [placeholder]="'project.search-placeholder' | translate">
+            <kbd>Enter</kbd>
+          </label>
+          <select [value]="statusFilter()" (change)="updateStatusFilter($event)" aria-label="Filter by status">
+            @for (option of statusFilterOptions; track option.id) {
+              <option [value]="option.id">{{ option.id === '' ? ('project.all-statuses' | translate) : option.name }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      @if (canManage() && selectedIds().size > 0) {
+        <div class="bulk-bar">
+          <strong>{{ selectedIds().size }} {{ 'project.selected' | translate }}</strong>
+          <span>{{ 'project.bulk-change-status' | translate }}</span>
+          <select [value]="bulkStatus()" (change)="updateBulkStatus($event)">
+            @for (option of bulkStatusOptions; track option.id) {
+              <option [value]="option.id">{{ option.name }}</option>
+            }
+          </select>
+          <button type="button" [disabled]="bulkUpdating()" (click)="applyBulkStatus()">{{ 'project.apply' | translate }}</button>
+        </div>
+      }
+
+      <div class="table-shell" [class.loading]="loading()" [attr.aria-busy]="loading()">
+        <div class="table-row table-header">
+          <input type="checkbox" [disabled]="!canManage()" [checked]="allVisibleSelected()" (change)="toggleAll($any($event.target).checked)" aria-label="Select all visible projects">
+          <span>{{ 'project.project' | translate }}</span>
+          <span>{{ 'project.status' | translate }}</span>
+          <span>{{ 'project.partial-update' | translate }}</span>
+          <span></span>
+        </div>
+        @if (loading()) {
+          @for (row of [1, 2, 3]; track row) {
+            <div class="table-row skeleton-row" aria-hidden="true">
+              <span class="spm-skeleton checkbox-skeleton"></span>
+              <div class="project-cell"><span class="spm-skeleton key-skeleton"></span><div><span class="spm-skeleton title-skeleton"></span><span class="spm-skeleton copy-skeleton"></span></div></div>
+              <span class="spm-skeleton status-skeleton"></span>
+              <span class="spm-skeleton control-skeleton"></span>
+              <span class="spm-skeleton action-skeleton"></span>
+            </div>
+          }
+          <span class="visually-hidden">Projects are loading</span>
+        } @else {
+          @for (project of filteredProjects(); track project.id) {
+            <article class="table-row">
+            <input type="checkbox" [disabled]="!canManage()" [checked]="selectedIds().has(project.id)" (change)="toggleProject(project.id, $any($event.target).checked)" [attr.aria-label]="'Select ' + project.name">
+            <div class="project-cell">
+              <span class="project-key">{{ project.key }}</span>
+              <div><h3>{{ project.name }}</h3><p>{{ project.description }}</p></div>
+            </div>
+            <span class="status" [attr.data-status]="statusKey(project.status)">{{ ('project.status-' + statusKey(project.status)) | translate }}</span>
+            @if (canManage()) {
+              <select class="inline-status" [disabled]="updatingProjectIds().has(project.id)" (change)="updateSingleStatus(project, $event)" [attr.aria-label]="'Status of ' + project.name">
+                @for (option of editableStatusOptions; track option.id) {
+                  <option [value]="option.id" [selected]="option.id === project.status">{{ option.name }}</option>
+                }
+              </select>
+            } @else {
+              <span class="read-only-action">{{ 'project.manage-permission-required' | translate }}</span>
+            }
+            <div class="row-actions">
+              @if (canManage()) {
+                <button class="icon-button" type="button" (click)="openEditModal(project)" [attr.aria-label]="('project.edit-project' | translate) + ' ' + project.name"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
+                <button class="icon-button danger" type="button" (click)="openDeleteModal(project)" [attr.aria-label]="('project.delete-project' | translate) + ' ' + project.name"><i class="ph ph-trash" aria-hidden="true"></i></button>
+              }
+            </div>
+            </article>
+          } @empty {
+            <div class="empty-state"><i class="ph ph-folder-dashed" aria-hidden="true"></i><strong>{{ 'project.no-projects' | translate }}</strong><span>Adjust the search term or status filter.</span></div>
+          }
+        }
+      </div>
+    </section>
+
+    <section class="sample-grid">
+      <article class="sample-card" id="filtering">
+        <header><span class="layer-badge"><i class="ph ph-browser" aria-hidden="true"></i>Frontend to API</span></header>
+        <h2>{{ 'project.filtering-title' | translate }}</h2>
+        <p>{{ 'project.filtering-description' | translate }}</p>
+        <ul>
+          <li><code>CollectionHttpRequestOptions</code> preserves search, sorting, and paging.</li>
+          <li><code>FilterRequestOptions</code> builds a status filter validated by the backend.</li>
+          <li><code>[Filterable]</code>, <code>[Searchable]</code>, and <code>[Orderable]</code> define what is allowed server-side.</li>
+        </ul>
+        <details open><summary>{{ 'project.preferred-way' | translate }}</summary><pre><code>{{ filterCode }}</code></pre></details>
+        <details><summary>{{ 'project.low-level-alternative' | translate }}</summary><p>{{ 'project.low-level-filter-description' | translate }}</p><pre><code>{{ lowLevelFilterCode }}</code></pre></details>
+        <div class="request-preview"><span>Live request model</span><pre>{{ requestPreview() }}</pre></div>
+      </article>
+
+      <article class="sample-card" id="partial">
+        <header><span class="layer-badge backend"><i class="ph ph-database" aria-hidden="true"></i>Backend</span></header>
+        <h2>{{ 'project.partial-title' | translate }}</h2>
+        <p>{{ 'project.partial-description' | translate }}</p>
+        <ul>
+          <li><code>ProjectService</code> opens the outer transaction scope; the partial update joins it.</li>
+          <li>Validation and audit logging run before the event; <code>PublishAsync</code> runs before <code>CommitAsync</code>.</li>
+          <li>The controller handles only HTTP, ModelState, and response mapping.</li>
+        </ul>
+        <details open><summary>{{ 'project.code-example' | translate }}</summary><pre><code>{{ partialCode }}</code></pre></details>
+      </article>
+
+      <article class="sample-card wide" id="bulk">
+        <header><span class="layer-badge full"><i class="ph ph-stack" aria-hidden="true"></i>Full stack</span></header>
+        <h2>{{ 'project.bulk-title' | translate }}</h2>
+        <p>{{ 'project.bulk-description' | translate }}</p>
+        <div class="bulk-explanation">
+          <div><i class="ph ph-check-square-offset" aria-hidden="true"></i><span>Select multiple projects</span></div>
+          <div><i class="ph ph-arrows-left-right" aria-hidden="true"></i><span>Choose one status action</span></div>
+          <div><i class="ph ph-database" aria-hidden="true"></i><span>The service opens one transaction; <code>BulkAsync</code> shares that scope</span></div>
+          <div><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i><span>Publish the event, commit, and return the result</span></div>
+        </div>
+        @if (bulkResult(); as result) {
+          <div class="bulk-results" role="status">
+            <section>
+              <h3>{{ 'project.bulk-succeeded' | translate }} ({{ result.succeededCount }})</h3>
+              @for (item of bulkSucceeded(); track item.id) {
+                <code>{{ item.id }}</code>
+              } @empty { <span>-</span> }
+            </section>
+            <section class="failed">
+              <h3>{{ 'project.bulk-failed' | translate }} ({{ result.failedCount }})</h3>
+              @for (item of bulkFailed(); track item.id) {
+                <div><code>{{ item.id }}</code><small>{{ item.errorMessages.join('; ') }}</small></div>
+              } @empty { <span>-</span> }
+            </section>
+          </div>
+        }
+        <details><summary>{{ 'project.code-example' | translate }}</summary><pre><code>{{ bulkCode }}</code></pre></details>
+      </article>
+
+      <article class="sample-card wide" id="utilities">
+        <header><span class="layer-badge utility"><i class="ph ph-toolbox" aria-hidden="true"></i>Utilities</span></header>
+        <h2>{{ 'project.utilities-title' | translate }}</h2>
+        <p>{{ 'project.utilities-description' | translate }}</p>
+        <div class="utility-table">
+          @for (sample of utilitySamples; track sample.utility) {
+            <div><code>{{ sample.utility }}</code><span>{{ sample.input }}</span><strong>{{ sample.output }}</strong></div>
+          }
+        </div>
+        <p class="note">Use utilities where they clarify intent. Do not wrap a utility only to introduce another project layer.</p>
+      </article>
+    </section>
+</div>

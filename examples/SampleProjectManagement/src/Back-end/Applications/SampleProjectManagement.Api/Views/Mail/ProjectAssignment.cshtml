@@ -1,0 +1,10 @@
+@model SampleProjectManagement.Api.Models.ProjectAssignmentMailViewModel
+<!doctype html>
+<html lang="@Model.Language">
+<body>
+  <h1>@Model.Title</h1>
+  <p>@Model.Introduction</p>
+  <p><strong>@Model.ProjectKey</strong> · @Model.ProjectName</p>
+  <a href="@Model.ProjectUrl">@Model.ActionLabel</a>
+</body>
+</html>

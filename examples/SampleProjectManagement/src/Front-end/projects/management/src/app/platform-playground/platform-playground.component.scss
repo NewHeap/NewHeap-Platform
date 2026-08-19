@@ -1,0 +1,25 @@
+@use '../../../../../styles/playground' as pg;
+
+:host { display: block; }
+@include pg.shell('.platform-lab');
+@include pg.buttons('.platform-lab');
+@include pg.controls('.platform-lab');
+@include pg.code-block('.platform-lab');
+@include pg.panel('.platform-grid article');
+@include pg.badge('.layer-badge');
+
+.platform-grid { display: grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap: 14px; margin-top: 22px; }
+.platform-grid article { display: flex; flex-direction: column; align-items: flex-start; }
+.platform-grid h3 { margin: 0 0 7px; }
+.platform-grid h4 { margin: 18px 0 4px; }
+.platform-grid p { min-height: 44px; margin: 0; color: var(--muted); font-size: 12px; }
+.actions, .value-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+.platform-grid > article > button { margin-top: 14px; }
+.platform-grid pre { width: 100%; min-height: 48px; max-height: 180px; }
+.value-row { width: 100%; align-items: center; justify-content: space-between; }
+.debounce-field { display: grid; width: 100%; gap: 6px; margin-top: 15px; }
+small { display: block; margin-top: 8px; color: var(--muted); }
+app-project-code-input, nh-form-dropdown { width: 100%; }
+.hidden-probe { max-width: 1px; max-height: 1px; overflow: hidden; opacity: 0; }
+
+@media (max-width: 760px) { .platform-grid { grid-template-columns: 1fr; } }

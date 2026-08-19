@@ -1,0 +1,11 @@
+# NewHeap consumer guidance
+
+- authentication: ./authentication.md
+- backend-modules: ./backend-modules.md
+- consumer-bootstrap: ./consumer-bootstrap.md
+- database-providers: ./database-providers.md
+- frontend-components: ./frontend-components.md
+- operations: ./operations.md
+- testing: ./testing.md
+- consumer skill: ../../skills/newheap-consumer-development/SKILL.md
+- maintenance skill: ../../skills/newheap-library-maintenance/SKILL.md

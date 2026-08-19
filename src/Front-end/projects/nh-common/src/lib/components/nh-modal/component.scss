@@ -1,0 +1,183 @@
+.nh-modal hr {
+  height: 2px;
+  border: 0;
+  margin: 10px 0;
+  padding: 0;
+  background-color: #bababa;
+  display: block;
+  width: calc(100% + 40px);
+  border-radius: 2px;
+}
+
+.nh-modal-body {
+  padding: 0;
+  margin: 0;
+  background-color: transparent;
+}
+
+.nh-modal-body.p-0 {
+  padding: 0 !important;
+}
+
+.nh-modal-body .container-text {
+  padding: 0 !important;
+}
+
+.nh-modal-holder {
+  overflow: auto;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 250000;
+  display: grid;
+  place-items: center;
+  overscroll-behavior: none;
+  @media all and (max-width: 768px) {
+      max-width: calc(100% - 30px);
+      margin: 0 auto;
+  }
+}
+
+.nh-modal-backdrop {
+  content: " ";
+  background-color: rgba(0, 0, 0, 0.85);
+  //backdrop-filter: blur(3px); does not work correctly on all browser (especially in combination with opacity/animations)
+  opacity: 0;
+  transition: opacity 0.5s;
+  will-change: opacity;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.nh-modal {
+  background-color: var(--color-background-white);
+  border-radius: 5px;
+  max-width: 95vw;
+  width: 600px;
+  position: relative;
+  //margin: 60px auto 0;
+  // modal viel buiten scherm bij voedingscalculator mocht dit een probleem zijn ineens voor anderen
+  margin: 100px auto 100px;
+
+  .nh-modal-body {
+    padding: 20px 20px;
+    border-top: 2px solid #dcdcdc;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+
+    ::ng-deep {
+      h1.header {
+        background-color: #255a34;
+        color: #fff;
+        border-radius: 15px;
+        text-align: center;
+      }
+    }
+  }
+
+
+  &.large {
+    width: 1000px !important;
+
+    .nh-modal-header {
+      margin-top: -72px;
+    }
+  }
+
+  > strong {
+    text-align: center;
+    font-size: 1.5em;
+  }
+
+  button {
+    font-size: 1em;
+  }
+
+  .nh-modal-header {
+    margin-top: -67px;
+  }
+
+  .nh-modal-header h3 {
+    margin-bottom: 0;
+    padding: 10px 20px 10px;
+    //background-color: #dadada;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    color:#fff;
+    min-height: 48px;
+  }
+  .large .nh-modal-header h3 {
+    min-height: 51px;
+  }
+
+  .close-nh-modal {
+    position: absolute;
+    right: 6px;
+    top: -45px;
+    font-size: 13px;
+    background-color: transparent;
+    height: 40px;
+    border: 2px solid #255A34;
+    padding: 0 15px;
+
+    svg {
+      height: 10px;
+      fill: black;
+    }
+  }
+
+  .nh-modal-slider {
+    display: none;
+  }
+  @media all and (max-width: 768px) {
+    max-width: calc(100vw - 30px) !important;
+    margin: 0 auto;
+  }
+  .large-padding {
+    @media all and (max-width: 768px) {
+      padding-left: 3em;
+      padding-right: 3em;
+    }
+  }
+}
+
+@media only screen and (max-width: 920px) {
+  .nh-modal-holder {
+    place-items: end;
+
+    .nh-modal {
+      //margin: 50px auto 0;
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+      max-width: 100vw;
+      transition: transform 0.5s;
+    }
+
+    .nh-modal-body {
+      padding: 0 20px 15px 20px;
+    }
+    .nh-modal-slider {
+      width: 100%;
+      display: block;
+    }
+  }
+  .nh-modal-holder.slidable {
+    .nh-modal-slider {
+      cursor: pointer;
+    }
+    .nh-modal-slider:before {
+      content: " ";
+      width: 40px;
+      border-radius: 2px;
+      display: block;
+      margin: 0 auto;
+      height: 3px;
+      background-color: #bababa;
+    }
+  }
+}

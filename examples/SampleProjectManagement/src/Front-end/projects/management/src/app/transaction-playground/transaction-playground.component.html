@@ -1,0 +1,46 @@
+<section class="transaction-lab" id="transaction-playground" [class.running]="running()">
+  <header>
+    <div>
+      <h2>{{ 'project.transaction-playground-title' | translate }}</h2>
+      <p>{{ 'project.transaction-playground-description' | translate }}</p>
+    </div>
+    <span class="outbox-badge"><i class="ph ph-database" aria-hidden="true"></i> One SQL transaction</span>
+  </header>
+
+  <div class="transaction-grid">
+    <article class="run-card">
+      <h3>Live rollback sample</h3>
+      <p>This call uses <code>POST /projects/transaction-rollback-sample</code>. The endpoint returns IDs so the sample can demonstrably verify afterward that nothing became permanent.</p>
+      <label>Division ID<input [value]="divisionId()" (input)="updateDivisionId($event)"></label>
+      <label>Project key<input [value]="key()" (input)="updateKey($event)" maxlength="30"></label>
+      <label>Project name<input [value]="name()" (input)="updateName($event)" maxlength="150"></label>
+      <button type="button" (click)="runRollback()" [disabled]="running()">{{ running() ? 'Rollback is running…' : 'Run rollback sample' }}</button>
+      <p class="result" role="status">{{ result() }}</p>
+    </article>
+
+    <article class="timeline-card">
+      <h3>Order inside the service</h3>
+      <ol>
+        @for (step of steps(); track step.title) {
+          <li [attr.data-state]="step.state">
+            <span class="step-state"></span>
+            <div><strong>{{ step.title }}</strong><p>{{ step.detail }}</p></div>
+          </li>
+        }
+      </ol>
+    </article>
+  </div>
+
+  @if (rollback(); as item) {
+    <article class="verification-card">
+      <h3>Verification outside the transaction</h3>
+      <div class="identifiers"><code>ProjectId: {{ item.projectId }}</code><code>EventId: {{ item.eventId }}</code></div>
+      @if (verification(); as proof) {
+        <div class="proof"><p>{{ proof.project }}</p><p>{{ proof.event }}</p></div>
+      } @else {
+        <p>The project and event checks are running…</p>
+      }
+      <small>Why this matters: an event is recorded before commit, but CAP and RabbitMQ can publish it only after a successful commit.</small>
+    </article>
+  }
+</section>

@@ -1,0 +1,276 @@
+name: Publish release
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        description: Release unit
+        required: true
+        type: string
+      version:
+        description: Exact SemVer to publish, or all for a coordinated release
+        required: true
+        type: string
+      release_sha:
+        description: Exact validated release commit on main
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+      - name: Verify release commit is on main
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || [[ "$(git rev-parse HEAD)" != "$RELEASE_SHA" ]]; then
+            echo "The checked-out revision does not match the requested release commit." >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/main; then
+            echo "The release commit is not contained in main." >&2
+            exit 1
+          fi
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+          scope: '@newheap'
+      - name: Verify public release targets before build
+        run: node tools/release/verify-public-release-targets.mjs --component "${{ inputs.component }}" --allow-missing
+      - name: Set up .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+      - name: Verify requested release
+        env:
+          SELECTED_COMPONENT: ${{ inputs.component }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          if [[ "$SELECTED_COMPONENT" == "all" ]]; then
+            if [[ "$REQUESTED_VERSION" != "all" ]]; then
+              echo "Version must be exactly 'all' when all release units are selected." >&2
+              exit 1
+            fi
+            echo "Publishing $(node tools/release/release-info.mjs --component all --field summary)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            expected="$(node tools/release/release-info.mjs --component "$SELECTED_COMPONENT" --field version)"
+            if [[ "$expected" != "$REQUESTED_VERSION" ]]; then
+              echo "Manifest contains ${expected}, not ${REQUESTED_VERSION}." >&2
+              exit 1
+            fi
+            echo "Publishing ${SELECTED_COMPONENT}=${expected}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Prepare public NuGet configuration
+        if: inputs.component == 'all' || startsWith(inputs.component, 'nuget-')
+        shell: bash
+        run: |
+          cp release/nuget.public.config "$RUNNER_TEMP/nuget.public.config"
+      - name: Install Angular workspace dependencies
+        if: inputs.component == 'all' || startsWith(inputs.component, 'npm-')
+        run: npm ci
+        working-directory: src/Front-end
+      - name: Audit npm runtime dependencies
+        if: inputs.component == 'all' || startsWith(inputs.component, 'npm-')
+        run: |
+          npm audit --audit-level=critical
+          npm audit --omit=dev --audit-level=high
+        working-directory: src/Front-end
+      - name: Validate release contract
+        run: |
+          npm run release:test
+          npm run skills:validate
+      - name: Test common package group
+        if: inputs.component == 'all' || inputs.component == 'nuget-common'
+        shell: bash
+        run: |
+          dotnet test src/Back-end/Tests/NewHeap.Platform.Common.Tests/NewHeap.Platform.Common.Tests.csproj --configuration Release /p:RestoreConfigFile="$RUNNER_TEMP/nuget.public.config"
+          dotnet test src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NewHeap.Platform.AspNet.Common.Tests.csproj --configuration Release /p:RestoreConfigFile="$RUNNER_TEMP/nuget.public.config"
+      - name: Pack immutable release artifacts
+        env:
+          SELECTED_COMPONENT: ${{ inputs.component }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        shell: bash
+        run: |
+          if [[ "$SELECTED_COMPONENT" == "all" ]]; then
+            mapfile -t components < <(node tools/release/release-info.mjs --component all --field components)
+          else
+            components=("$SELECTED_COMPONENT")
+          fi
+          for component in "${components[@]}"; do
+            version="$(node tools/release/release-info.mjs --component "$component" --field version)"
+            kind="$(node tools/release/release-info.mjs --component "$component" --field kind)"
+            args=(
+              --component "$component"
+              --version "$version"
+              --output "release-artifacts/${component}"
+              --repository-url "https://github.com/${{ github.repository }}"
+              --commit "$RELEASE_SHA"
+            )
+            if [[ "$kind" == "nuget" ]]; then
+              args+=(--nuget-config "$RUNNER_TEMP/nuget.public.config")
+            fi
+            node tools/release/package-release.mjs "${args[@]}"
+            if [[ "$SELECTED_COMPONENT" == "all" && "$component" == "nuget-common" ]]; then
+              node tools/release/add-local-nuget-source.mjs \
+                --config "$RUNNER_TEMP/nuget.public.config" \
+                --source "$GITHUB_WORKSPACE/release-artifacts/nuget-common"
+            fi
+          done
+      - name: Create or update draft GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SELECTED_COMPONENT: ${{ inputs.component }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        shell: bash
+        run: |
+          if [[ "$SELECTED_COMPONENT" == "all" ]]; then
+            mapfile -t components < <(node tools/release/release-info.mjs --component all --field components)
+          else
+            components=("$SELECTED_COMPONENT")
+          fi
+          for component in "${components[@]}"; do
+            tag="$(node tools/release/release-info.mjs --component "$component" --field tag)"
+            tag_prefix="$(node tools/release/release-info.mjs --component "$component" --field tagPrefix)"
+            title="$(node tools/release/release-info.mjs --component "$component" --field displayName)"
+            version="$(node tools/release/release-info.mjs --component "$component" --field version)"
+            if gh release view "$tag" >/dev/null 2>&1; then
+              if [[ "$(gh release view "$tag" --json isDraft --jq .isDraft)" != "true" ]]; then
+                echo "Release ${tag} already exists and is not a draft." >&2
+                exit 1
+              fi
+            else
+              previous="$(git tag --list "${tag_prefix}*" --sort=-version:refname | head -n 1)"
+              command=(gh release create "$tag" --draft --title "${title} ${version}" --generate-notes --target "$RELEASE_SHA")
+              if [[ -n "$previous" ]]; then command+=(--notes-start-tag "$previous"); fi
+              "${command[@]}"
+            fi
+            gh release upload "$tag" "release-artifacts/${component}"/* --clobber
+          done
+      - name: Sign in to nuget.org with trusted publishing
+        if: inputs.component == 'all' || startsWith(inputs.component, 'nuget-')
+        id: nuget-login
+        uses: NuGet/login@d22cc5f58ff5b88bf9bd452535b4335137e24544 # v1.1.0
+        with:
+          user: ${{ vars.NUGET_USER }}
+      - name: Publish public NuGet packages
+        if: inputs.component == 'all' || startsWith(inputs.component, 'nuget-')
+        env:
+          SELECTED_COMPONENT: ${{ inputs.component }}
+        shell: bash
+        run: |
+          if [[ "$SELECTED_COMPONENT" == "all" ]]; then
+            mapfile -t components < <(node tools/release/release-info.mjs --component all --field nugetComponents)
+          else
+            components=("$SELECTED_COMPONENT")
+          fi
+          for component in "${components[@]}"; do
+            for package in "release-artifacts/${component}"/*.nupkg; do
+              [[ "$package" == *.symbols.nupkg ]] && continue
+              dotnet nuget push "$package" \
+                --source "https://api.nuget.org/v3/index.json" \
+                --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
+                --skip-duplicate
+            done
+          done
+      - name: Publish public npm package with trusted publishing
+        if: inputs.component == 'all' || startsWith(inputs.component, 'npm-')
+        env:
+          SELECTED_COMPONENT: ${{ inputs.component }}
+        shell: bash
+        run: |
+          if [[ "$SELECTED_COMPONENT" == "all" ]]; then
+            mapfile -t components < <(node tools/release/release-info.mjs --component all --field npmComponents)
+          else
+            components=("$SELECTED_COMPONENT")
+          fi
+          for component in "${components[@]}"; do
+            npm publish "release-artifacts/${component}"/*.tgz --access public --registry https://registry.npmjs.org
+          done
+
+  finalize:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out exact release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+      - name: Verify release commit is still on main
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || [[ "$(git rev-parse HEAD)" != "$RELEASE_SHA" ]]; then
+            echo "The checked-out revision does not match the requested release commit." >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/main; then
+            echo "The release commit is not contained in main." >&2
+            exit 1
+          fi
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Verify exact public package versions are anonymously readable
+        run: node tools/release/verify-public-release-targets.mjs --component "${{ inputs.component }}"
+      - name: Validate and publish immutable GitHub releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SELECTED_COMPONENT: ${{ inputs.component }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$SELECTED_COMPONENT" == "all" ]]; then
+            mapfile -t components < <(node tools/release/release-info.mjs --component all --field components)
+          else
+            components=("$SELECTED_COMPONENT")
+          fi
+          for component in "${components[@]}"; do
+            tag="$(node tools/release/release-info.mjs --component "$component" --field tag)"
+            release="$(gh release view "$tag" --json isDraft,targetCommitish,assets)"
+            target="$(jq -r .targetCommitish <<< "$release")"
+            if [[ "$target" != "$RELEASE_SHA" ]]; then
+              echo "Release ${tag} targets ${target}, not ${RELEASE_SHA}." >&2
+              exit 1
+            fi
+            if ! jq -e '([.assets[].name] | index("SHA256SUMS")) != null and ([.assets[].name] | map(select(. != "SHA256SUMS")) | length > 0)' <<< "$release" >/dev/null; then
+              echo "Release ${tag} must contain artifacts and SHA256SUMS before publication." >&2
+              exit 1
+            fi
+            if [[ "$(jq -r .isDraft <<< "$release")" == "true" ]]; then
+              gh release edit "$tag" --draft=false --latest=false
+            else
+              echo "Release ${tag} is already published; leaving it unchanged."
+            fi
+          done

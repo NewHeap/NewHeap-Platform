@@ -1,0 +1,28 @@
+{
+  "name": "@newheap/nh-toastr",
+  "version": "0.0.5",
+  "peerDependencies": {
+    "@angular/common": "^20.3.28",
+    "@angular/core": "^20.3.28",
+    "@ngx-translate/core": "^17.0.0",
+    "rxjs": "~7.8.0"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "sideEffects": true,
+  "license": "Apache-2.0",
+  "description": "NewHeap toast notifications for Angular applications.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NewHeap/NewHeap-Platform.git",
+    "directory": "src/Front-end/projects/nh-toastr"
+  },
+  "homepage": "https://github.com/NewHeap/NewHeap-Platform#readme",
+  "bugs": {
+    "url": "https://github.com/NewHeap/NewHeap-Platform/issues"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  }
+}

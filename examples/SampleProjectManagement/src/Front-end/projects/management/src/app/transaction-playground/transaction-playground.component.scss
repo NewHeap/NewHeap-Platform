@@ -1,0 +1,35 @@
+@use '../../../../../styles/playground' as pg;
+
+:host { display: block; }
+@include pg.shell('.transaction-lab');
+@include pg.buttons('.transaction-lab');
+@include pg.controls('.transaction-lab');
+@include pg.panel('.transaction-grid article');
+@include pg.panel('.verification-card');
+@include pg.badge('.outbox-badge');
+
+.transaction-lab.running { opacity: .78; }
+.transaction-grid { display: grid; grid-template-columns: minmax(280px, .9fr) minmax(330px, 1.1fr); gap: 14px; margin-top: 18px; }
+h3 { margin: 0 0 8px; }
+p { margin: 0; color: var(--muted); }
+label { display: grid; gap: 5px; margin-top: 11px; }
+input { width: 100%; }
+.run-card > button { margin-top: 15px; }
+.result { min-height: 34px; margin-top: 12px; font-size: 12px; }
+ol { display: grid; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
+li { display: grid; grid-template-columns: 13px 1fr; gap: 9px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); }
+li[data-state='active'] { border-color: var(--info); background: var(--info-soft); }
+li[data-state='done'], li[data-state='verified'] { border-color: var(--success); }
+li[data-state='failed'] { border-color: var(--danger); background: var(--danger-soft); }
+.step-state { width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: var(--line-strong); }
+li[data-state='active'] .step-state { background: var(--info); box-shadow: 0 0 0 4px color-mix(in srgb, var(--info) 20%, transparent); }
+li[data-state='done'] .step-state, li[data-state='verified'] .step-state { background: var(--success); }
+li[data-state='failed'] .step-state { background: var(--danger); }
+li p { margin-top: 3px; font-size: 11px; }
+.verification-card { margin-top: 14px; }
+.identifiers, .proof { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 12px; }
+code, .proof p { overflow-wrap: anywhere; padding: 9px; border-radius: var(--radius-control); color: #e6e9f4; background: var(--surface-strong); font: 11px/1.4 var(--font-mono); }
+.proof p { color: var(--success); background: var(--success-soft); }
+small { display: block; margin-top: 13px; color: var(--muted); font-size: 11px; }
+
+@media (max-width: 760px) { .transaction-grid, .identifiers, .proof { grid-template-columns: 1fr; } }

@@ -1,0 +1,1315 @@
+{
+  "implemented": [
+    "SPM-001",
+    "SPM-002",
+    "SPM-003",
+    "SPM-004",
+    "SPM-005",
+    "SPM-006",
+    "SPM-007",
+    "SPM-008",
+    "SPM-009",
+    "SPM-010",
+    "SPM-011",
+    "SPM-012",
+    "SPM-013",
+    "SPM-014",
+    "SPM-015",
+    "SPM-016",
+    "SPM-017",
+    "SPM-018",
+    "SPM-019",
+    "SPM-020",
+    "SPM-021",
+    "SPM-022",
+    "SPM-023",
+    "SPM-024",
+    "SPM-025",
+    "SPM-026",
+    "SPM-027",
+    "SPM-028",
+    "SPM-029",
+    "SPM-030",
+    "SPM-031",
+    "SPM-032",
+    "SPM-033",
+    "SPM-034",
+    "SPM-035",
+    "SPM-036",
+    "SPM-037",
+    "SPM-038",
+    "SPM-039",
+    "SPM-040",
+    "SPM-041",
+    "SPM-042",
+    "SPM-043",
+    "SPM-044",
+    "SPM-045",
+    "SPM-046",
+    "SPM-047",
+    "SPM-048",
+    "SPM-049",
+    "SPM-050",
+    "SPM-051",
+    "SPM-052",
+    "SPM-054",
+    "SPM-055",
+    "SPM-056",
+    "SPM-057",
+    "SPM-058",
+    "SPM-059",
+    "SPM-060",
+    "SPM-061",
+    "SPM-062",
+    "SPM-063",
+    "SPM-064",
+    "SPM-065",
+    "SPM-066",
+    "SPM-067",
+    "SPM-068",
+    "SPM-069",
+    "SPM-070",
+    "SPM-071",
+    "SPM-072",
+    "SPM-073",
+    "SPM-074",
+    "SPM-075",
+    "SPM-076",
+    "SPM-077",
+    "SPM-078",
+    "SPM-079",
+    "SPM-080",
+    "SPM-081",
+    "SPM-082",
+    "SPM-083",
+    "SPM-084",
+    "SPM-085",
+    "SPM-086",
+    "SPM-087",
+    "SPM-088",
+    "SPM-089",
+    "SPM-090",
+    "SPM-091",
+    "SPM-092",
+    "SPM-093",
+    "SPM-094",
+    "SPM-095",
+    "SPM-096",
+    "SPM-097",
+    "SPM-098",
+    "SPM-099",
+    "SPM-100",
+    "SPM-101",
+    "SPM-103",
+    "SPM-104",
+    "SPM-105",
+    "SPM-106",
+    "SPM-107",
+    "SPM-108",
+    "SPM-109",
+    "SPM-110",
+    "SPM-111",
+    "SPM-112",
+    "SPM-114",
+    "SPM-115",
+    "SPM-116",
+    "SPM-117",
+    "SPM-118",
+    "SPM-119",
+    "SPM-120",
+    "SPM-121",
+    "SPM-122",
+    "SPM-123",
+    "SPM-124",
+    "SPM-125",
+    "SPM-215",
+    "SPM-126",
+    "SPM-127",
+    "SPM-128",
+    "SPM-129",
+    "SPM-130",
+    "SPM-131",
+    "SPM-132",
+    "SPM-133",
+    "SPM-134",
+    "SPM-135",
+    "SPM-136",
+    "SPM-137",
+    "SPM-138",
+    "SPM-139",
+    "SPM-140",
+    "SPM-141",
+    "SPM-142",
+    "SPM-143",
+    "SPM-144",
+    "SPM-145",
+    "SPM-146",
+    "SPM-147",
+    "SPM-148",
+    "SPM-149",
+    "SPM-150",
+    "SPM-151",
+    "SPM-152",
+    "SPM-153",
+    "SPM-154",
+    "SPM-155",
+    "SPM-156",
+    "SPM-157",
+    "SPM-158",
+    "SPM-159",
+    "SPM-161",
+    "SPM-162",
+    "SPM-163",
+    "SPM-164",
+    "SPM-165",
+    "SPM-166",
+    "SPM-167",
+    "SPM-168",
+    "SPM-169",
+    "SPM-170",
+    "SPM-171",
+    "SPM-172",
+    "SPM-173",
+    "SPM-174",
+    "SPM-175",
+    "SPM-176",
+    "SPM-177",
+    "SPM-178",
+    "SPM-179",
+    "SPM-180",
+    "SPM-181",
+    "SPM-182",
+    "SPM-183",
+    "SPM-184",
+    "SPM-185",
+    "SPM-186",
+    "SPM-187",
+    "SPM-188",
+    "SPM-189",
+    "SPM-190",
+    "SPM-191",
+    "SPM-192",
+    "SPM-193",
+    "SPM-194",
+    "SPM-195",
+    "SPM-196",
+    "SPM-197",
+    "SPM-198",
+    "SPM-199",
+    "SPM-200",
+    "SPM-201",
+    "SPM-202",
+    "SPM-203",
+    "SPM-204",
+    "SPM-205",
+    "SPM-206",
+    "SPM-207",
+    "SPM-208",
+    "SPM-209",
+    "SPM-210",
+    "SPM-211",
+    "SPM-212",
+    "SPM-213",
+    "SPM-214",
+    "SPM-216",
+    "SPM-217"
+  ],
+  "gaps": {
+    "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
+    "SPM-113": "The sample frontends do not yet have an Angular server target, so the server interceptor cannot run end to end.",
+    "SPM-160": "The complete SSR stack still lacks @angular/platform-server, a server bootstrap, and an SSR build target."
+  },
+  "partial": {},
+  "evidence": {
+    "SPM-001": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+    ],
+    "SPM-002": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+    ],
+    "SPM-003": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+    ],
+    "SPM-004": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+    ],
+    "SPM-005": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+    ],
+    "SPM-006": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+    ],
+    "SPM-007": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/PublicProjectCatalogController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+    ],
+    "SPM-008": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectCompositeController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCompositeService.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Utilities/AutomapperProfileConfiguration.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+    ],
+    "SPM-009": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+    ],
+    "SPM-010": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+    ],
+    "SPM-011": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Utilities/AutomapperProfileConfiguration.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AutoMapperSecurityConfigurationTests.cs"
+    ],
+    "SPM-012": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+    ],
+    "SPM-013": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+    ],
+    "SPM-014": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+    ],
+    "SPM-015": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "src/Front-end/projects/management/src/app/app.component.ts",
+      "src/Front-end/projects/workspace/src/app/app.component.ts",
+      "src/Front-end/scripts/verify-frontend-integrity.mjs"
+    ],
+    "SPM-016": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-017": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-018": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-019": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-020": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-021": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-022": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-023": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-024": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-025": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-026": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-027": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-028": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-029": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+    ],
+    "SPM-030": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-031": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-032": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-033": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+    ],
+    "SPM-034": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-035": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+    ],
+    "SPM-036": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-037": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/app.component.ts",
+      "src/Front-end/projects/workspace/src/app/app.component.ts",
+      "src/Front-end/scripts/verify-frontend-integrity.mjs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectPartialUpdateTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/DbEntityProtectedNhBaseController.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/AbstractBaseDbEntityService.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/PartialUpdateControllerTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BaseDbEntityServiceTest.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-api.service.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-base-api.service.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-api.service.spec.ts"
+    ],
+    "SPM-038": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectPartialUpdateTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/DbEntityProtectedNhBaseController.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/AbstractBaseDbEntityService.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/PartialUpdateControllerTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BaseDbEntityServiceTest.cs"
+    ],
+    "SPM-039": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-040": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-041": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-042": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-043": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-044": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-045": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Models/View/ProjectViewModels.cs",
+      "src/Front-end/projects/management/src/app/app.component.ts",
+      "src/Front-end/projects/management/src/app/app.component.html",
+      "src/Front-end/scripts/verify-frontend-integrity.mjs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TransactionIntegritySamplesTests.cs"
+    ],
+    "SPM-046": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-047": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-048": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-049": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-050": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-051": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-052": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-054": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectCompositeController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSetupService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+    ],
+    "SPM-055": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-056": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-057": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-058": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-059": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+    ],
+    "SPM-060": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+    ],
+    "SPM-061": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+    ],
+    "SPM-062": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+    ],
+    "SPM-063": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+    ],
+    "SPM-064": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+    ],
+    "SPM-065": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-login.component.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/scripts/verify-frontend-integrity.mjs"
+    ],
+    "SPM-066": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth.service.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
+      "src/Front-end/scripts/verify-frontend-integrity.mjs"
+    ],
+    "SPM-067": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+    ],
+    "SPM-068": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+    ],
+    "SPM-069": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+    ],
+    "SPM-070": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+    ],
+    "SPM-071": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAuthorizationSampleService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+    ],
+    "SPM-072": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+    ],
+    "SPM-073": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+    ],
+    "SPM-074": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/app.component.ts",
+      "src/Front-end/projects/workspace/src/app/app.component.ts",
+      "src/Front-end/scripts/verify-frontend-integrity.mjs"
+    ],
+    "SPM-075": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+    ],
+    "SPM-076": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-077": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-078": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-079": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-080": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-081": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-082": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-083": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-084": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-085": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-086": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-087": [
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhNotificationProcessingService.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhNotificationProcessingServiceTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhNotificationProcessingProviderTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/NotificationProcessingSample.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NotificationProcessingSamplesTests.cs"
+    ],
+    "SPM-088": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-089": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-090": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+    ],
+    "SPM-091": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+    ],
+    "SPM-092": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapLocalizationSamplesTests.cs"
+    ],
+    "SPM-093": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TranslationContractTests.cs"
+    ],
+    "SPM-094": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts"
+    ],
+    "SPM-095": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+    ],
+    "SPM-096": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Orchestration/SampleProjectManagement.AppHost/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ConfigurationOverrideSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+    ],
+    "SPM-097": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+    ],
+    "SPM-098": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+    ],
+    "SPM-099": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+    ],
+    "SPM-100": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+    ],
+    "SPM-101": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+    ],
+    "SPM-103": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+    ],
+    "SPM-104": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+    ],
+    "SPM-105": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts"
+    ],
+    "SPM-106": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs"
+    ],
+    "SPM-107": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs"
+    ],
+    "SPM-108": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs"
+    ],
+    "SPM-109": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs"
+    ],
+    "SPM-110": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs"
+    ],
+    "SPM-111": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs"
+    ],
+    "SPM-112": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts"
+    ],
+    "SPM-114": [
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/app.component.ts"
+    ],
+    "SPM-115": [
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/app.component.ts"
+    ],
+    "SPM-116": [
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/app.component.ts"
+    ],
+    "SPM-117": [
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/app.component.ts"
+    ],
+    "SPM-118": [
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/app.component.ts"
+    ],
+    "SPM-119": [
+      "src/Front-end/projects/management/src/app/app.component.ts",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+    ],
+    "SPM-120": [
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/app.component.ts"
+    ],
+    "SPM-121": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-status-options.ts",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+    ],
+    "SPM-122": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-status-options.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+    ],
+    "SPM-123": [
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/app.component.ts"
+    ],
+    "SPM-124": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.html"
+    ],
+    "SPM-125": [
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.html"
+    ],
+    "SPM-215": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.component.spec.ts"
+    ],
+    "SPM-126": [
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.html"
+    ],
+    "SPM-127": [
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/sample.routes.ts"
+    ],
+    "SPM-128": [
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/sample.routes.ts"
+    ],
+    "SPM-129": [
+      "src/Front-end/projects/management/src/app/dirty-route-sample/dirty-route-sample.component.ts",
+      "src/Front-end/scripts/verify-frontend-integrity.mjs",
+      "src/Front-end/projects/management/src/app/sample.routes.ts"
+    ],
+    "SPM-130": [
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/sample.routes.ts"
+    ],
+    "SPM-131": [
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/sample.routes.ts"
+    ],
+    "SPM-132": [
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/sample.routes.ts"
+    ],
+    "SPM-133": [
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/sample.routes.ts"
+    ],
+    "SPM-134": [
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/sample.routes.ts"
+    ],
+    "SPM-135": [
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/sample.routes.ts"
+    ],
+    "SPM-136": [
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/sample.routes.ts"
+    ],
+    "SPM-137": [
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+      "src/Front-end/projects/management/src/app/sample.routes.ts"
+    ],
+    "SPM-138": [
+      "src/Front-end/projects/management/src/app/sample.routes.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html"
+    ],
+    "SPM-139": [
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/pipes/auth.pipes.ts"
+    ],
+    "SPM-140": [
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/sample.routes.ts"
+    ],
+    "SPM-141": [
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+    ],
+    "SPM-142": [
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+    ],
+    "SPM-143": [
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+    ],
+    "SPM-144": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-status-options.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+    ],
+    "SPM-145": [
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+    ],
+    "SPM-146": [
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+    ],
+    "SPM-147": [
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+    ],
+    "SPM-148": [
+      "src/Front-end/projects/management/src/app/project-code-input/project-code-input.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+    ],
+    "SPM-149": [
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+    ],
+    "SPM-150": [
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+    ],
+    "SPM-151": [
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+    ],
+    "SPM-152": [
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+    ],
+    "SPM-153": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+    ],
+    "SPM-154": [
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+    ],
+    "SPM-155": [
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+    ],
+    "SPM-156": [
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+    ],
+    "SPM-157": [
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+    ],
+    "SPM-158": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+    ],
+    "SPM-159": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+    ],
+    "SPM-161": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+    ],
+    "SPM-162": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+    ],
+    "SPM-163": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+    ],
+    "SPM-164": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+    ],
+    "SPM-165": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+    ],
+    "SPM-166": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+    ],
+    "SPM-167": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+    ],
+    "SPM-168": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+    ],
+    "SPM-169": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs"
+    ],
+    "SPM-170": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs"
+    ],
+    "SPM-171": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/CachingSamplesController.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+    ],
+    "SPM-172": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/CachingSamplesController.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
+    ],
+    "SPM-173": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapTestHelperSamplesTests.cs"
+    ],
+    "SPM-174": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapTestHelperSamplesTests.cs"
+    ],
+    "SPM-175": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapTestHelperSamplesTests.cs"
+    ],
+    "SPM-176": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapTestHelperSamplesTests.cs"
+    ],
+    "SPM-177": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+    ],
+    "SPM-178": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts"
+    ],
+    "SPM-179": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+    ],
+    "SPM-180": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"
+    ],
+    "SPM-181": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaAuthorizationModule.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+    ],
+    "SPM-182": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"
+    ],
+    "SPM-183": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/MediaSamplesController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+    ],
+    "SPM-184": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"
+    ],
+    "SPM-185": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"
+    ],
+    "SPM-186": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaThumbnailService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"
+    ],
+    "SPM-187": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/MediaSamplesController.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts"
+    ],
+    "SPM-188": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectMediaEventHandler.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts"
+    ],
+    "SPM-189": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AccountSamplesController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/OperationsSamplesController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectTaskController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectTaskService.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+    ],
+    "SPM-190": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectUnitOfWorkSamplesTests.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+    ],
+    "SPM-191": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectUnitOfWorkSamplesTests.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+    ],
+    "SPM-192": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+    ],
+    "SPM-193": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Events/ProjectEvents.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectUnitOfWorkSamplesTests.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+    ],
+    "SPM-194": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectUnitOfWorkSamplesTests.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+    ],
+    "SPM-195": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Orchestration/SampleProjectManagement.AppHost/Program.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+    ],
+    "SPM-196": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TransactionIntegritySamplesTests.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+    ],
+    "SPM-197": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TransactionIntegritySamplesTests.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+    ],
+    "SPM-198": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TransactionIntegritySamplesTests.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+    ],
+    "SPM-199": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TransactionIntegritySamplesTests.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+    ],
+    "SPM-200": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TransactionIntegritySamplesTests.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.ts",
+      "src/Front-end/projects/management/src/app/transaction-playground/transaction-playground.component.html"
+    ],
+    "SPM-201": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+    ],
+    "SPM-202": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/EfCoreExtensionSamplesTests.cs"
+    ],
+    "SPM-203": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ServerHelperExtensionSamplesTests.cs"
+    ],
+    "SPM-204": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ServerHelperExtensionSamplesTests.cs"
+    ],
+    "SPM-205": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ServerHelperExtensionSamplesTests.cs"
+    ],
+    "SPM-206": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ServerHelperExtensionSamplesTests.cs"
+    ],
+    "SPM-207": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ServerHelperExtensionSamplesTests.cs"
+    ],
+    "SPM-208": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/InfrastructureExtensionSamplesTests.cs"
+    ],
+    "SPM-209": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleStartupConfiguration.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/InfrastructureExtensionSamplesTests.cs"
+    ],
+    "SPM-210": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AuthorizationSamplesController.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html"
+    ],
+    "SPM-211": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AuthorizationSamplesController.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAuthorizationSamplesTests.cs"
+    ],
+    "SPM-212": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Authorization/ProjectAccessHandler.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AuthorizationSamplesController.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-auth.pipes.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAuthorizationSamplesTests.cs"
+    ],
+    "SPM-213": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAuthenticationService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationOverrideSamplesTests.cs"
+    ],
+    "SPM-214": [
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhUserManager.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserManagerTest.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Authorization/SampleRuntimeClaimsTransformation.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AuthorizationSamplesController.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/authorization-sample-api.service.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationOverrideSamplesTests.cs"
+    ],
+    "SPM-216": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs"
+    ],
+    "SPM-217": [
+      "src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs"
+    ]
+  }
+}

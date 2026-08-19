@@ -1,0 +1,39 @@
+.backdrop {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  z-index: 15;
+  background-color: rgba(255,255,255,0.4);
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  border-radius: 5px;
+}
+
+.backdrop.noTrans {
+  background-color: rgba(255,255,255,1);
+}
+
+.spinner {
+  display: inline-block;
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 4px solid transparent;
+  border-top: 4px solid #FF5722;
+  animation: spin 1.5s linear infinite;
+  box-shadow: inset 0 0 25px 25px #fff, 0 0 0 5px #fff;
+  background-color: #d8d8d8;
+}
+
+.dark .spinner {
+  box-shadow: inset 0 0 25px 25px #071e2b, 0 0 0 5px #061a25;
+  background-color: #000000;
+
+}
+
+

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../SampleProjectManagement.DAL/SampleProjectManagement.DAL.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeap.Platform.AspNet.Common.csproj" />
+  </ItemGroup>
+</Project>

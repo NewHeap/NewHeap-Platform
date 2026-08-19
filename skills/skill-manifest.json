@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "guidance": {
+    "schemaVersion": 1,
+    "guidanceVersion": "1.11.1",
+    "sampleRegistryVersion": 1,
+    "minimumNodeVersion": "22.0.0"
+  },
+  "source": {
+    "caseRegistry": "examples/SampleProjectManagement/docs/cases/sample-case-registry.json",
+    "guidanceRules": "guidance/rules"
+  },
+  "packages": {
+    "@newheap/nh-toastr": "0.0.5",
+    "@newheap/platform-common": "0.20.6",
+    "NewHeap.Platform.AspNet.Caching": "0.1.3",
+    "NewHeap.Platform.AspNet.Common": "1.1.3",
+    "NewHeap.Platform.AspNet.Common.Test": "1.1.3",
+    "NewHeap.Platform.Common": "1.1.3",
+    "NewHeap.Platform.Common.Test": "1.1.3",
+    "NewHeap.Platform.Events.Cap": "1.1.3",
+    "NewHeap.Platform.Media": "1.1.3",
+    "NewHeap.Platform.Media.Core": "1.1.3",
+    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "1.1.3",
+    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "1.1.3",
+    "NewHeap.Platform.Media.Http": "1.1.3",
+    "NewHeap.Platform.Media.MediaStorage.FileSystem": "1.1.3",
+    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "1.1.3"
+  },
+  "skills": [
+    {
+      "name": "newheap-consumer-development",
+      "path": "skills/newheap-consumer-development",
+      "audience": "consumer-applications",
+      "distribution": {
+        "plugin": "plugins/newheap-platform",
+        "pluginVersion": "1.11.1",
+        "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skill.mjs",
+        "githubReleaseUnit": "newheap-platform-plugin",
+        "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
+        "repositoryInstallCommand": "node tools/guidance/install-consumer-skill.mjs --consumer <consumer-root>"
+      },
+      "references": [
+        "references/authentication.md",
+        "references/backend-modules.md",
+        "references/consumer-bootstrap.md",
+        "references/database-providers.md",
+        "references/frontend-components.md",
+        "references/operations.md",
+        "references/testing.md",
+        "references/package-sources.md"
+      ]
+    },
+    {
+      "name": "newheap-library-maintenance",
+      "path": "skills/newheap-library-maintenance",
+      "audience": "platform-maintainers",
+      "references": [
+        "references/sample-maintenance.md",
+        "references/skill-impact.md",
+        "references/release-checklist.md",
+        "references/github-releases.md"
+      ]
+    }
+  ]
+}

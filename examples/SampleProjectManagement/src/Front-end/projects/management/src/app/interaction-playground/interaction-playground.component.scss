@@ -1,0 +1,27 @@
+@use '../../../../../styles/playground' as pg;
+
+:host { display: block; }
+@include pg.shell('.interaction-lab');
+@include pg.buttons('.interaction-lab');
+@include pg.controls('.interaction-lab');
+@include pg.panel('.interaction-grid article');
+
+.interaction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; }
+h3 { margin: 0 0 7px; }
+article > p { margin: 0; color: var(--muted); }
+.actions, .validation-actions, .pager { display: flex; flex-wrap: wrap; gap: 8px; }
+.actions { margin-top: 14px; }
+.actions input { flex: 1 1 180px; }
+.collection-items { margin: 14px 0; border-top: 1px solid var(--line); }
+.collection-items > div { display: grid; grid-template-columns: 75px 1fr; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.collection-items strong { color: var(--brand); font-family: var(--font-mono); font-size: 12px; }
+.pager button { width: 38px; padding: 0; }
+.event-log { max-height: 160px; overflow: auto; margin: 14px 0 0; padding: 12px 12px 12px 31px; border-radius: var(--radius-control); color: #e6e9f4; background: var(--surface-strong); font: 11px/1.7 var(--font-mono); }
+form { display: grid; gap: 14px; }
+label { display: grid; gap: 6px; }
+label input { width: 100%; }
+.general-error { min-height: 48px; padding: 10px 12px; border-left: 3px solid var(--warning); border-radius: 0 var(--radius-control) var(--radius-control) 0; background: var(--warning-soft); }
+.general-error strong { font-size: 12px; }
+.validation-actions { margin-top: 15px; }
+
+@media (max-width: 850px) { .interaction-grid { grid-template-columns: 1fr; } }

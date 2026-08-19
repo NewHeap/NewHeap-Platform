@@ -1,0 +1,110 @@
+name: Finalize pending release
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Pending release unit
+        required: true
+        type: choice
+        options:
+          - all
+          - nuget-common
+          - nuget-caching
+          - nuget-media
+          - npm-platform-common
+          - npm-nh-toastr
+          - newheap-platform-plugin
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Resolve and validate pending release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SELECTED_COMPONENT: ${{ inputs.component }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$SELECTED_COMPONENT" == "all" ]]; then
+            mapfile -t components < <(node tools/release/release-info.mjs --component all --field components)
+          else
+            components=("$SELECTED_COMPONENT")
+          fi
+
+          release_sha=""
+          for component in "${components[@]}"; do
+            tag="$(node tools/release/release-info.mjs --component "$component" --field tag)"
+            release="$(gh release view "$tag" --json targetCommitish,assets)"
+            target="$(jq -r .targetCommitish <<< "$release")"
+            if [[ ! "$target" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "Release ${tag} does not target an immutable commit SHA." >&2
+              exit 1
+            fi
+            if [[ -z "$release_sha" ]]; then
+              release_sha="$target"
+            elif [[ "$release_sha" != "$target" ]]; then
+              echo "Pending releases do not target the same commit." >&2
+              exit 1
+            fi
+            if ! jq -e '([.assets[].name] | index("SHA256SUMS")) != null and ([.assets[].name] | map(select(. != "SHA256SUMS")) | length > 0)' <<< "$release" >/dev/null; then
+              echo "Release ${tag} must contain artifacts and SHA256SUMS before finalization." >&2
+              exit 1
+            fi
+          done
+
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$release_sha" origin/main; then
+            echo "Pending release commit ${release_sha} is not contained in main." >&2
+            exit 1
+          fi
+          echo "release_sha=$release_sha" >> "$GITHUB_OUTPUT"
+          echo "Recovering ${SELECTED_COMPONENT} from ${release_sha}." >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify exact public package versions are anonymously readable
+        run: node tools/release/verify-public-release-targets.mjs --component "${{ inputs.component }}"
+      - name: Publish pending immutable GitHub releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SELECTED_COMPONENT: ${{ inputs.component }}
+          RELEASE_SHA: ${{ steps.release.outputs.release_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$SELECTED_COMPONENT" == "all" ]]; then
+            mapfile -t components < <(node tools/release/release-info.mjs --component all --field components)
+          else
+            components=("$SELECTED_COMPONENT")
+          fi
+          for component in "${components[@]}"; do
+            tag="$(node tools/release/release-info.mjs --component "$component" --field tag)"
+            release="$(gh release view "$tag" --json isDraft,targetCommitish)"
+            target="$(jq -r .targetCommitish <<< "$release")"
+            if [[ "$target" != "$RELEASE_SHA" ]]; then
+              echo "Release ${tag} targets ${target}, not ${RELEASE_SHA}." >&2
+              exit 1
+            fi
+            if [[ "$(jq -r .isDraft <<< "$release")" == "true" ]]; then
+              gh release edit "$tag" --draft=false --latest=false
+            else
+              echo "Release ${tag} is already published; leaving it unchanged."
+            fi
+          done

@@ -1,0 +1,26 @@
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
+
+namespace NewHeap.Platform.AspNet.Common.Resolvers;
+
+public partial class MvcNewtonsoftJsonOptionsWrapper : IConfigureOptions<MvcNewtonsoftJsonOptions>
+{
+    public void Configure(MvcNewtonsoftJsonOptions options)
+    {
+        options.SerializerSettings.DateFormatString = Platform.Common.Constants.DateTimeOffset.StringFormat;
+        options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+        options.SerializerSettings.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
+        options.SerializerSettings.ContractResolver = new DefaultContractResolver
+        {
+            NamingStrategy = new CamelCaseNamingStrategy { ProcessDictionaryKeys = true }
+        };
+
+#if !DEBUG
+            options.SerializerSettings.Formatting = Newtonsoft.Json.Formatting.None;
+#else
+        options.SerializerSettings.Formatting = Newtonsoft.Json.Formatting.Indented;
+#endif
+    }
+}

@@ -1,0 +1,9 @@
+@if (getErrors().length > 0) {
+  <div class="error-list">
+    @for (error of this.getErrors(); track error) {
+      <div>
+        <p class="text-danger m-0"><i>{{ error|translate }}</i></p>
+      </div>
+    }
+  </div>
+}

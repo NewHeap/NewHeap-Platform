@@ -1,0 +1,24 @@
+<section class="notification-lab" id="notification-playground">
+  <header>
+    <div>
+      <h2>{{ 'project.notification-playground-title' | translate }}</h2>
+      <p>{{ 'project.notification-playground-description' | translate }}</p>
+    </div>
+    <div class="badge">{{ userNotificationState.overview.unreadCount }} unread</div>
+  </header>
+  <div class="actions">
+    <button type="button" (click)="load()">Refresh</button>
+    <button type="button" (click)="markAllAsRead()">Mark all as read</button>
+    <button type="button" (click)="archiveAll()">Archive all</button>
+  </div>
+  <div class="notifications">
+    @for (notification of collectionResponse.items; track notification.id) {
+      <article [class.unread]="!notification.isLastRead">
+        <div><strong>{{ notification.lastTitle }}</strong><p>{{ notification.lastMessage }}</p></div>
+        <div class="actions"><button type="button" (click)="read(notification)">Mark as read</button><button type="button" (click)="archiveItem(notification)">Archive</button></div>
+      </article>
+    } @empty {
+      <p class="empty">Sign in and create a notification through <code>POST /operations-samples/notifications</code> to see polling, the badge, and mark-as-read behavior live.</p>
+    }
+  </div>
+</section>

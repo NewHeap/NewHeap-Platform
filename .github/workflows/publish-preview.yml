@@ -1,0 +1,167 @@
+name: Publish preview packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: PowerShell replacement package group
+        required: true
+        type: choice
+        options:
+          - nuget-common
+          - nuget-caching
+          - nuget-media
+      publish:
+        description: Publish the prerelease to nuget.org after packing
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: preview-${{ inputs.component }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch-main:
+    if: github.ref_name != 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Re-dispatch from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMPONENT: ${{ inputs.component }}
+          PUBLISH: ${{ inputs.publish }}
+        shell: bash
+        run: |
+          gh workflow run publish-preview.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            --raw-field component="$COMPONENT" \
+            --raw-field publish="$PUBLISH"
+          echo "::notice::The new run uses the current main branch revision."
+          echo "Re-dispatched Publish preview packages from the main branch." >> "$GITHUB_STEP_SUMMARY"
+
+  pack:
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      artifact: ${{ steps.info.outputs.artifact }}
+      version: ${{ steps.info.outputs.version }}
+    steps:
+      - name: Check main branch
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_NAME" != "main" ]]; then
+            echo "Preview packages must be built from the main branch." >&2
+            exit 1
+          fi
+      - name: Check out selected revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Verify public release targets before build
+        run: node tools/release/verify-public-release-targets.mjs --component "${{ inputs.component }}" --allow-missing
+      - name: Set up .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+      - name: Prepare public NuGet configuration
+        shell: bash
+        run: |
+          cp release/nuget.public.config "$RUNNER_TEMP/nuget.public.config"
+      - name: Derive immutable preview version
+        id: info
+        shell: bash
+        run: |
+          base="$(node tools/release/release-info.mjs --component '${{ inputs.component }}' --field version)"
+          version="${base}-ci.${GITHUB_RUN_NUMBER}.${GITHUB_SHA:0:7}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "artifact=preview-${{ inputs.component }}-${version}" >> "$GITHUB_OUTPUT"
+      - name: Validate release tooling
+        run: npm run release:test
+      - name: Audit public .NET dependency graph
+        shell: bash
+        run: |
+          dotnet restore src/Back-end/NewHeap.Platform.sln \
+            --configfile "$RUNNER_TEMP/nuget.public.config" \
+            -p:NuGetAudit=true \
+            -p:NuGetAuditMode=all \
+            -p:NuGetAuditLevel=high \
+            -p:WarningsAsErrors=NU1903%3BNU1904
+          dotnet list src/Back-end/NewHeap.Platform.sln package \
+            --vulnerable \
+            --include-transitive \
+            --no-restore \
+            --configfile "$RUNNER_TEMP/nuget.public.config"
+      - name: Pack preview artifacts
+        shell: bash
+        run: |
+          node tools/release/package-release.mjs \
+            --component "${{ inputs.component }}" \
+            --version "${{ steps.info.outputs.version }}" \
+            --output release-artifacts \
+            --repository-url "https://github.com/${{ github.repository }}" \
+            --commit "$GITHUB_SHA" \
+            --nuget-config "$RUNNER_TEMP/nuget.public.config"
+      - name: Upload preview artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.info.outputs.artifact }}
+          path: release-artifacts
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    if: github.ref_name == 'main' && inputs.publish
+    needs: pack
+    runs-on: ubuntu-latest
+    environment: public-package-preview
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out selected revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Download packed artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: ${{ needs.pack.outputs.artifact }}
+          path: release-artifacts
+      - name: Set up .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Sign in to nuget.org with trusted publishing
+        id: nuget-login
+        uses: NuGet/login@d22cc5f58ff5b88bf9bd452535b4335137e24544 # v1.1.0
+        with:
+          user: ${{ vars.NUGET_USER }}
+      - name: Publish public preview packages
+        shell: bash
+        run: |
+          for package in release-artifacts/*.nupkg; do
+            [[ "$package" == *.symbols.nupkg ]] && continue
+            dotnet nuget push "$package" \
+              --source "https://api.nuget.org/v3/index.json" \
+              --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
+              --skip-duplicate
+          done
+      - name: Verify exact public preview versions are anonymously readable
+        run: node tools/release/verify-public-release-targets.mjs --component "${{ inputs.component }}" --version "${{ needs.pack.outputs.version }}"

@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "packageOwner": "NewHeap",
+  "packageVisibility": "public",
+  "registries": {
+    "nuget": "https://api.nuget.org/v3/index.json",
+    "npm": "https://registry.npmjs.org/"
+  },
+  "branches": {
+    "preview": "main",
+    "stable": "main"
+  },
+  "units": {
+    "nuget-common": {
+      "displayName": "NewHeap common NuGet packages",
+      "kind": "nuget",
+      "version": "1.1.3",
+      "tagPrefix": "nuget-common-v",
+      "includeSymbols": true,
+      "replaces": "src/Back-end/publish-common.ps1",
+      "projects": [
+        {
+          "packageId": "NewHeap.Platform.Common",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.Common/NewHeap.Platform.Common.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.Common.Test",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.Common.Test/NewHeap.Platform.Common.Test.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AspNet.Common",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeap.Platform.AspNet.Common.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AspNet.Common.Test",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NewHeap.Platform.AspNet.Common.Test.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.Events.Cap",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.Events.Cap/NewHeap.Platform.Events.Cap.csproj"
+        }
+      ]
+    },
+    "nuget-caching": {
+      "displayName": "NewHeap caching NuGet package",
+      "kind": "nuget",
+      "version": "0.1.3",
+      "tagPrefix": "nuget-caching-v",
+      "includeSymbols": false,
+      "replaces": "src/Back-end/publish-caching.ps1",
+      "projects": [
+        {
+          "packageId": "NewHeap.Platform.AspNet.Caching",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Caching/NewHeap.Platform.AspNet.Caching.csproj"
+        }
+      ]
+    },
+    "nuget-media": {
+      "displayName": "NewHeap media NuGet packages",
+      "kind": "nuget",
+      "version": "1.1.3",
+      "tagPrefix": "nuget-media-v",
+      "includeSymbols": true,
+      "replaces": "src/Back-end/publish-media.ps1",
+      "projects": [
+        {
+          "packageId": "NewHeap.Platform.Media.Core",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/NewHeap.Platform.Media.Core.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.Media.FileStructureStorage.SqlServer",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/NewHeap.Platform.Media.FileStructureStorage.SqlServer.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.Media.FileStructureStorage.PostgreSql",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/NewHeap.Platform.Media.FileStructureStorage.PostgreSql.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.Media.Http",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/NewHeap.Platform.Media.Http.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.Media.MediaStorage.FileSystem",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.Media.MediaStorage.FileSystem/NewHeap.Platform.Media.MediaStorage.FileSystem.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.Media.MediaStorage.S3Bucket",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.Media.MediaStorage.S3Bucket/NewHeap.Platform.Media.MediaStorage.S3Bucket.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.Media",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.Media/NewHeap.Platform.Media.csproj"
+        }
+      ]
+    },
+    "npm-platform-common": {
+      "displayName": "@newheap/platform-common",
+      "kind": "npm",
+      "version": "0.20.6",
+      "tagPrefix": "npm-platform-common-v",
+      "packageName": "@newheap/platform-common",
+      "packageJson": "src/Front-end/projects/nh-common/package.json",
+      "workspace": "src/Front-end",
+      "buildScript": "nh-common:build:production",
+      "distDirectory": "src/Front-end/dist/nh-common"
+    },
+    "npm-nh-toastr": {
+      "displayName": "@newheap/nh-toastr",
+      "kind": "npm",
+      "version": "0.0.5",
+      "tagPrefix": "npm-nh-toastr-v",
+      "packageName": "@newheap/nh-toastr",
+      "packageJson": "src/Front-end/projects/nh-toastr/package.json",
+      "workspace": "src/Front-end",
+      "buildScript": "nh-toastr:build:production",
+      "distDirectory": "src/Front-end/dist/nh-toastr"
+    },
+    "newheap-platform-plugin": {
+      "displayName": "NewHeap Platform AI plugin",
+      "kind": "plugin",
+      "version": "1.11.1",
+      "tagPrefix": "newheap-platform-plugin-v",
+      "directory": "plugins/newheap-platform",
+      "packageName": "newheap-platform"
+    }
+  }
+}

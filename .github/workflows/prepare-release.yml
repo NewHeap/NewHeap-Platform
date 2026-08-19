@@ -1,0 +1,135 @@
+name: Prepare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Release unit
+        required: true
+        type: choice
+        options:
+          - all
+          - nuget-common
+          - nuget-caching
+          - nuget-media
+          - npm-platform-common
+          - npm-nh-toastr
+          - newheap-platform-plugin
+      bump:
+        description: Semantic version increment
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      source_branch: ${{ steps.start.outputs.source_branch }}
+      source_sha: ${{ steps.start.outputs.source_sha }}
+      base_sha: ${{ steps.start.outputs.base_sha }}
+    steps:
+      - name: Check main branch
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_NAME" != "main" ]]; then
+            echo "Prepare release must be run from the main branch." >&2
+            exit 1
+          fi
+      - name: Check out main branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Validate current release state
+        run: |
+          npm run release:test
+          npm run skills:validate
+      - name: Increment version and regenerate guidance
+        run: node tools/release/prepare-release.mjs --component "${{ inputs.component }}" --bump "${{ inputs.bump }}"
+      - name: Read prepared release
+        id: release
+        shell: bash
+        run: |
+          if [[ "${{ inputs.component }}" == "all" ]]; then
+            echo "version=all" >> "$GITHUB_OUTPUT"
+            echo "tag=all release units" >> "$GITHUB_OUTPUT"
+            echo "summary=$(node tools/release/release-info.mjs --component all --field summary)" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$(node tools/release/release-info.mjs --component '${{ inputs.component }}' --field version)" >> "$GITHUB_OUTPUT"
+            echo "tag=$(node tools/release/release-info.mjs --component '${{ inputs.component }}' --field tag)" >> "$GITHUB_OUTPUT"
+            echo "summary=${{ inputs.component }}=$(node tools/release/release-info.mjs --component '${{ inputs.component }}' --field version)" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Validate prepared release
+        run: |
+          npm run release:test
+          npm run skills:validate
+          git diff --check
+      - name: Start automatic release
+        id: start
+        env:
+          COMPONENT: ${{ inputs.component }}
+          VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag }}
+          SUMMARY: ${{ steps.release.outputs.summary }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base_sha="$(git rev-parse HEAD)"
+          if [[ "$COMPONENT" == "all" ]]; then
+            branch="release/all-${GITHUB_RUN_ID}"
+            title="chore(release): all release units"
+          else
+            branch="release/${COMPONENT}-v${VERSION}-${GITHUB_RUN_ID}"
+            title="chore(release): ${COMPONENT} v${VERSION}"
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add --all
+          git commit -m "$title"
+          source_sha="$(git rev-parse HEAD)"
+          git push --set-upstream origin "$branch"
+
+          echo "source_branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Automatic release started"
+            echo
+            echo "Prepared ${TAG}: ${SUMMARY}."
+            echo "The release contract now validates the exact commit, merges it into main and publishes it automatically."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    needs: prepare
+    permissions:
+      contents: write
+      id-token: write
+    uses: ./.github/workflows/release-contract.yml
+    with:
+      component: ${{ inputs.component }}
+      version: ${{ needs.prepare.outputs.version }}
+      source_branch: ${{ needs.prepare.outputs.source_branch }}
+      source_sha: ${{ needs.prepare.outputs.source_sha }}
+      base_sha: ${{ needs.prepare.outputs.base_sha }}
+    secrets: inherit

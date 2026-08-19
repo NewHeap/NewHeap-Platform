@@ -1,0 +1,126 @@
+<section class="media-lab" id="media-playground" [class.loading]="loading()">
+  <header>
+    <div>
+      <h2>{{ 'project.media-playground-title' | translate }}</h2>
+      <p>{{ 'project.media-playground-description' | translate }}</p>
+    </div>
+    <span class="scope-badge"><i class="ph ph-buildings" aria-hidden="true"></i> Division scoped</span>
+  </header>
+
+  <div class="media-toolbar">
+    <button type="button" (click)="goToScopeRoot()">Project root</button>
+    <code>{{ currentPath() }}</code>
+    <button type="button" (click)="toggleLanguage()">Language: {{ language() }}</button>
+    <button type="button" (click)="toggleSort()">Sort: {{ sortKey() }} <i class="ph" [class.ph-sort-descending]="descending()" [class.ph-sort-ascending]="!descending()" aria-hidden="true"></i></button>
+    <button type="button" (click)="loadFolder()">Refresh</button>
+  </div>
+
+  <div class="media-grid">
+    <article>
+      <h3>Folder lifecycle</h3>
+      <p>The SQL structure provider manages the tree; the service authorizes every create, update, and delete operation against the active division.</p>
+      <div class="field-row">
+        <input [value]="newFolderName()" (input)="updateNewFolderName($event)" placeholder="Mapnaam">
+        <button type="button" (click)="createFolder()">Create folder</button>
+      </div>
+      <div class="folder-list">
+        @for (folder of folders(); track folder.id || folder.fullPath) {
+          <div>
+            <button class="folder" type="button" (click)="openFolder(folder)"><i class="ph ph-folder-open" aria-hidden="true"></i>{{ folder.name }}</button>
+            <button type="button" (click)="renameFolder(folder)">Rename</button>
+            <button class="danger" type="button" (click)="deleteFolder(folder)">Delete</button>
+          </div>
+        } @empty {
+          <small>There are no subfolders at this level yet.</small>
+        }
+      </div>
+    </article>
+
+    <article>
+      <h3>Upload and metadata</h3>
+      <p>Multipart upload stores bytes in the temporary file-system store and file, tag, and localization metadata in the library schema.</p>
+      <label>File<input type="file" (change)="selectUpload($event)" accept=".pdf,.txt,.png,.jpg,.jpeg"></label>
+      <label>Tags<input [value]="tagsText()" (input)="updateTagsText($event)" placeholder="project,document"></label>
+      <label>Translated title<input [value]="localizationText()" (input)="updateLocalizationText($event)"></label>
+      <button type="button" (click)="upload()">Upload to current folder</button>
+    </article>
+
+    <article class="wide">
+      <h3>Files, download headers, and thumbnails</h3>
+      <p>The download preserves the filename and derives the content type safely. Upload and delete events create and remove the thumbnail.</p>
+      <div class="file-list">
+        @for (file of visibleFiles(); track file.id) {
+          <div class="file-row" [class.selected]="selectedReference()?.id === file.id">
+            @if (file.thumbnail) {
+              <img [src]="file.thumbnail" [alt]="file.altText || file.name">
+            } @else {
+              <span class="file-icon">FILE</span>
+            }
+            <div class="file-info">
+              <strong>{{ file.title || file.name }}</strong>
+              <small>{{ file.name }} | {{ file.tags.join(', ') || 'no tags' }}</small>
+              <small>{{ file.folder.fullPath }}</small>
+            </div>
+            <div class="file-actions">
+              <button type="button" (click)="download(file)">Download</button>
+              <button type="button" (click)="updateTags(file)">Tags</button>
+              <button type="button" (click)="localize(file)">Translate title</button>
+              <button class="danger" type="button" (click)="deleteFile(file)">Delete</button>
+            </div>
+          </div>
+        } @empty {
+          <small>Upload a file or change the search query.</small>
+        }
+      </div>
+    </article>
+
+    <article>
+      <h3>Search, paging, and stable sorting</h3>
+      <p>SearchOptions normalizes extensions, tags, and paging; the list uses FileGetOptions with explicit ordering.</p>
+      <div class="field-row">
+        <input [value]="searchTerm()" (input)="updateSearchTerm($event)" (keyup.enter)="search()" placeholder="Search by name or tag">
+        <button type="button" (click)="search()">Search</button>
+      </div>
+      <small>Clear the search field and select Search to return to the folder list.</small>
+    </article>
+
+    <article>
+      <h3>Composition, S3, and authorization</h3>
+      <p>The active providers are visible. S3 configuration is only validated and redacted; credentials never appear in output or logs.</p>
+      @if (diagnostics(); as info) {
+        <dl>
+          <div><dt>Binary</dt><dd>{{ info.mediaStorage }}</dd></div>
+          <div><dt>Structure</dt><dd>{{ info.fileStructureStorage }}</dd></div>
+          <div><dt>Authorization</dt><dd>{{ info.authorizationModule }}</dd></div>
+          <div><dt>Thumbnails</dt><dd>{{ info.thumbnailCount }}</dd></div>
+          <div><dt>S3 valid</dt><dd>{{ info.s3.valid }}</dd></div>
+          <div><dt>S3 keys</dt><dd>{{ info.s3.accessKey }} / {{ info.s3.secretKey }}</dd></div>
+        </dl>
+        <small>{{ info.s3.validationErrors.join('; ') || 'The S3 configuration is valid.' }}</small>
+      }
+    </article>
+
+    <article class="wide">
+      <h3>Media events and authorization decisions</h3>
+      <p>The library publishes typed before and after events to handlers. The sample log also shows the division and permission decision made by the module.</p>
+      @if (diagnostics(); as info) {
+        <div class="event-grid">
+          <div>
+            <h4>Events</h4>
+            @for (event of info.recentEvents.slice(0, 8); track $index) {
+              <code>{{ event.resourceType }}.{{ event.eventType }} | {{ event.name }}</code>
+            } @empty { <small>Run a create, update, or delete operation.</small> }
+          </div>
+          <div>
+            <h4>Authorization</h4>
+            @for (decision of info.recentAuthorizationDecisions.slice(0, 8); track $index) {
+              <code [class.denied]="!decision.authorized">{{ decision.action }} | {{ decision.requiredPermission }} | {{ decision.authorized }}</code>
+            } @empty { <small>Load a folder to see the first read decision.</small> }
+          </div>
+        </div>
+      }
+    </article>
+  </div>
+
+  <pre>{{ result() }}</pre>
+</section>
