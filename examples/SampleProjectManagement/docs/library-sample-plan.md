@@ -260,7 +260,7 @@ The complete public-surface mapping and intended sample entry points are documen
 |---|---|---|---|
 | SPM-177 | Media composition root | `AddNhMedia` / context | Storage, structure, and authorization modules are registered together. |
 | SPM-178 | File-system media storage | `UseFileSystemMediaStorage` | Upload and read operations use a disposable local storage folder. |
-| SPM-179 | PostgreSQL file structure | PostgreSQL structure provider | Folders, files, and relationships are stored without library-owned sample migrations. |
+| SPM-179 | PostgreSQL file structure | PostgreSQL structure provider | Folders, files, and relationships are stored through the independent PostgreSQL provider package without a SQL Server package dependency or library-owned sample migrations. |
 | SPM-180 | S3 media storage | S3 settings/provider | Configuration validates bucket, region, and credentials without logging secrets. |
 | SPM-181 | Media authorization | authorization module/context | Read, mutate, and delete operations respect the active user and division. |
 | SPM-182 | Folder lifecycle | folder create/update/delete | Project folders can be created, renamed, and deleted safely. |

@@ -1,13 +1,34 @@
 <Project>
-  <PropertyGroup Condition="'$(IsPackable)' != 'false' and '$(PackageReadmeFile)' == ''">
-    <_UseRepositoryPackageReadme>true</_UseRepositoryPackageReadme>
+  <PropertyGroup Condition="'$(IsPackable)' != 'false'">
+    <_ProjectPackageReadme Condition="Exists('$(MSBuildProjectDirectory)\README.md')">README.md</_ProjectPackageReadme>
+    <_ProjectPackageReadme Condition="'$(_ProjectPackageReadme)' == '' and Exists('$(MSBuildProjectDirectory)\readme.md')">readme.md</_ProjectPackageReadme>
+    <_RepositoryPackageReadme>$(MSBuildThisFileDirectory)..\..\README.md</_RepositoryPackageReadme>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(_UseRepositoryPackageReadme)' == 'true'">
+  <ItemGroup Condition="'$(IsPackable)' != 'false' and '$(_ProjectPackageReadme)' != ''">
+    <None Include="$(MSBuildProjectDirectory)\$(_ProjectPackageReadme)"
+          Pack="true"
+          PackagePath="README.md"
+          Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' != 'false' and '$(_ProjectPackageReadme)' == ''">
     <None Include="$(MSBuildThisFileDirectory)..\..\README.md"
           Pack="true"
           PackagePath="README.md"
           Visible="false" />
   </ItemGroup>
+
+  <!-- Sentry's build-transitive target writes the absolute build directory into every
+       consuming assembly. It is not needed by the runtime SDK and makes public packages
+       machine-specific, so remove only that generated assembly metadata source. -->
+  <Target Name="RemoveSentryProjectDirectoryMetadata"
+          AfterTargets="WriteSentryAttributes"
+          BeforeTargets="CoreCompile"
+          Condition="'$(SentryAttributesFilePath)' != ''">
+    <ItemGroup>
+      <Compile Remove="$(SentryAttributesFilePath)" />
+    </ItemGroup>
+  </Target>
 </Project>

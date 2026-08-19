@@ -46,7 +46,7 @@
       "kind": "nuget",
       "version": "0.1.3",
       "tagPrefix": "nuget-caching-v",
-      "includeSymbols": false,
+      "includeSymbols": true,
       "replaces": "src/Back-end/publish-caching.ps1",
       "projects": [
         {
@@ -118,7 +118,7 @@
     "newheap-platform-plugin": {
       "displayName": "NewHeap Platform AI plugin",
       "kind": "plugin",
-      "version": "1.11.2",
+      "version": "1.11.3",
       "tagPrefix": "newheap-platform-plugin-v",
       "directory": "plugins/newheap-platform",
       "packageName": "newheap-platform"

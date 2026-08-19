@@ -6,27 +6,14 @@
     <Nullable>enable</Nullable>
 	<Copyright>NewHeap B.V.</Copyright>
 	<Title>NewHeap ASP.NET Common reusable test helpers</Title>
-	<PackageProjectUrl>https://github.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
-	<PackageReadmeFile>README.md</PackageReadmeFile>
-	<RepositoryUrl>https://github.com/NewHeap/NewHeap-Platform</RepositoryUrl>
+	<PackageDescription>Reusable ASP.NET Core and Entity Framework test helpers for applications built with NewHeap.Platform.AspNet.Common.</PackageDescription>
+	<PackageTags>newheap platform aspnetcore testing entity-framework</PackageTags>
 	<GenerateDocumentationFile>True</GenerateDocumentationFile>
 	<!-- If all members are not documented, you can disable the compiler warnings -->
 	<NoWarn>$(NoWarn);CS1591</NoWarn>
-	<IncludeSymbols>True</IncludeSymbols>
-	<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-	<EmbedAllSources>True</EmbedAllSources>
-	<DebugType>Embedded</DebugType>
-	<PackageIcon>NH_logo.png</PackageIcon>
 	<IsPackable>true</IsPackable>
 	<IsTestProject>false</IsTestProject>
   </PropertyGroup>
-
-	<ItemGroup>
-		<None Include="..\..\Assets\NH_logo.png">
-			<Pack>True</Pack>
-			<PackagePath>\</PackagePath>
-		</None>
-	</ItemGroup>
 
 <ItemGroup>
 	<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
@@ -35,13 +22,6 @@
   <ItemGroup>
     <ProjectReference Include="..\NewHeap.Platform.AspNet.Common\NewHeap.Platform.AspNet.Common.csproj" />
     <ProjectReference Include="..\NewHeap.Platform.Common.Test\NewHeap.Platform.Common.Test.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="README.md">
-      <PackagePath>\</PackagePath>
-      <Pack>True</Pack>
-    </None>
   </ItemGroup>
 
 </Project>

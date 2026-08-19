@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "guidanceVersion": "1.11.2",
+  "guidanceVersion": "1.11.3",
   "backEnd": {
-    "hash": "e81b1c0d08902790ac64b88639de7c22041445ddfcf2e1354c5eed6c03eb2a1a",
-    "declarationCount": 2280,
+    "hash": "4d101dd681c2c9ff8fd48862495913bca8dcdbcfd4b94f34fe70dcc659e0df33",
+    "declarationCount": 2283,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Caching/Extensions.cs",
@@ -7830,6 +7830,286 @@
         "declaration": "public enum MediaLibraryFolderEventType {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Attributes.cs",
+        "declaration": "public class OrderableAttribute: Attribute;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FileEntity.cs",
+        "declaration": "public class FileEntity {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FileEntity.cs",
+        "declaration": "public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FileEntity.cs",
+        "declaration": "[StringLength(10_000)] public required string? Path { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FileEntity.cs",
+        "declaration": "[StringLength(100)] public string? AltText { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FileEntity.cs",
+        "declaration": "[StringLength(100)] [Orderable] public string? Title { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FileEntity.cs",
+        "declaration": "[StringLength(500)] public string? Description { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FileEntity.cs",
+        "declaration": "[StringLength(150)] public string? Creator { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FileEntity.cs",
+        "declaration": "[StringLength(2000)] [Orderable] public required string Name { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FileEntity.cs",
+        "declaration": "[Orderable] public DateTimeOffset CreationDateTime { get; set; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FileEntity.cs",
+        "declaration": "public List<string> Tags { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FileEntity.cs",
+        "declaration": "public string? MetaData { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FolderEntity.cs",
+        "declaration": "public class FolderEntity {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FolderEntity.cs",
+        "declaration": "public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FolderEntity.cs",
+        "declaration": "[StringLength(10_000)] public string? Path { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/FolderEntity.cs",
+        "declaration": "[StringLength(2000)] public required string Name { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/Localization.cs",
+        "declaration": "public class Localization : ILocalizationData {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/Localization.cs",
+        "declaration": "public required string TypeName { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/Localization.cs",
+        "declaration": "public Guid EntityId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/Localization.cs",
+        "declaration": "[StringLength(5)] public required string Language { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/Localization.cs",
+        "declaration": "[StringLength(2000)] public required string Value { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/Entities/Localization.cs",
+        "declaration": "[StringLength(100)] public required string PropertyName { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
+        "declaration": "public class FileStructureDbContext : DbContext {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
+        "declaration": "public const string PathLookupHashColumn = \"PathLookupHash\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
+        "declaration": "public const string PathNameLookupHashColumn = \"PathNameLookupHash\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
+        "declaration": "public const string PathLookupHashSql ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
+        "declaration": "public const string PathNameLookupHashSql ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
+        "declaration": "public DbSet<FileEntity> Files { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
+        "declaration": "public DbSet<FolderEntity> Folders { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
+        "declaration": "public DbSet<Localization> Localizations { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
+        "declaration": "public FileStructureDbContext(DbContextOptions<FileStructureDbContext> options, FileStructureDbContextOptions dbContextOptions) : base(options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
+        "declaration": "protected override void OnModelCreating(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
+        "declaration": "public override int SaveChanges(bool acceptAllChangesOnSuccess) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
+        "declaration": "public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContextOptions.cs",
+        "declaration": "public class FileStructureDbContextOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContextOptions.cs",
+        "declaration": "public string Scheme { get; set; } = \"nhmedia\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContextOptions.cs",
+        "declaration": "public bool RunMigrations { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/HashHelper.cs",
+        "declaration": "public static class HashHelper {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/HashHelper.cs",
+        "declaration": "public static byte[] ComputeHash(params string?[] values) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/HashHelper.cs",
+        "declaration": "public static byte[] ComputePostgreSqlHash(params string?[] values) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public abstract partial class RelationalFileStructureStorage : IFileStructureStorage {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "protected RelationalFileStructureStorage(FileStructureDbContext dbContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<TaskResult<FileReference>> CreateFileAsync(FileModel model, Guid id) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<TaskResult<FileReference>> UpdateFileAsync(Guid id, FileModel model) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<FolderReference> CreateFolderAsync(string? path, string folderName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<bool> DeleteFolderAsync(string? path, string folderName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<IEnumerable<FileReference>> GetFilesAsync(string? path, string? language, FileGetOptions? sortOptions) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<FolderReference> GetFolderReferenceAsync(string? path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<FolderContents> GetFolderAsync(string? path, string? language, FileGetOptions? sortOptions) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<FileReference?> GetFileAsync(string? path, string fileName, string? language) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<TaskResult> DeleteFileAsync(string? path, string filename) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<SearchResults> SearchAsync(string? searchTerm, string? path, SearchOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<TaskResult> LocalizeAsync(Guid entityId, string language, string propertyName, string? value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<TaskResult> UpdateTagsAsync(string path, string fileName, IEnumerable<string> tags) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<FileReference?> GetByIdAsync(Guid id) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<FolderReference?> MoveFolderAsync(string? path, string folderName, string newPath, string newName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "protected abstract byte[] ComputeLookupHash(params string?[] values);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public Guid Id { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public required string Name { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public string? Path { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public string? Title { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public string? Description { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public string? AltText { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public string? Creator { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public string? MetaData { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public List<string> Tags { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public DateTimeOffset CreationDateTime { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public static IQueryable<FileEntity> WhereFilesInFolderTree(this IQueryable<FileEntity> query, string fullPath) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public static IQueryable<FileReferenceRow> AsFileReferenceRow(this IQueryable<FileEntity> query) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public static string GetChildPathPrefix(string fullPath) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/HostBuilderExtensions.cs",
         "declaration": "public static class HostBuilderExtensions {"
       },
@@ -8355,7 +8635,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlFileStructureStorage.cs",
-        "declaration": "public sealed class PostgreSqlFileStructureStorage : SqlServerFileStructureStorage {"
+        "declaration": "public sealed class PostgreSqlFileStructureStorage : RelationalFileStructureStorage {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlFileStructureStorage.cs",
@@ -8386,168 +8666,8 @@
         "declaration": "public static IApplicationBuilder UseMediaPostgreSqlStorage(this IApplicationBuilder app) {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Attributes.cs",
-        "declaration": "public class OrderableAttribute: Attribute;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FileEntity.cs",
-        "declaration": "public class FileEntity {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FileEntity.cs",
-        "declaration": "public Guid Id { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FileEntity.cs",
-        "declaration": "[StringLength(10_000)] public required string? Path { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FileEntity.cs",
-        "declaration": "[StringLength(100)] public string? AltText { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FileEntity.cs",
-        "declaration": "[StringLength(100)] [Orderable] public string? Title { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FileEntity.cs",
-        "declaration": "[StringLength(500)] public string? Description { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FileEntity.cs",
-        "declaration": "[StringLength(150)] public string? Creator { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FileEntity.cs",
-        "declaration": "[StringLength(2000)] [Orderable] public required string Name { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FileEntity.cs",
-        "declaration": "[Orderable] public DateTimeOffset CreationDateTime { get; set; } = DateTimeOffset.UtcNow;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FileEntity.cs",
-        "declaration": "public List<string> Tags { get; set; } = [];"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FileEntity.cs",
-        "declaration": "public string? MetaData { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FolderEntity.cs",
-        "declaration": "public class FolderEntity {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FolderEntity.cs",
-        "declaration": "public Guid Id { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FolderEntity.cs",
-        "declaration": "[StringLength(10_000)] public string? Path { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/FolderEntity.cs",
-        "declaration": "[StringLength(2000)] public required string Name { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/Localization.cs",
-        "declaration": "public class Localization : ILocalizationData {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/Localization.cs",
-        "declaration": "public required string TypeName { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/Localization.cs",
-        "declaration": "public Guid EntityId { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/Localization.cs",
-        "declaration": "[StringLength(5)] public required string Language { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/Localization.cs",
-        "declaration": "[StringLength(2000)] public required string Value { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Entities/Localization.cs",
-        "declaration": "[StringLength(100)] public required string PropertyName { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContext.cs",
-        "declaration": "public class FileStructureDbContext : DbContext {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContext.cs",
-        "declaration": "public const string PathLookupHashColumn = \"PathLookupHash\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContext.cs",
-        "declaration": "public const string PathNameLookupHashColumn = \"PathNameLookupHash\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContext.cs",
-        "declaration": "public const string PathLookupHashSql ="
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContext.cs",
-        "declaration": "public const string PathNameLookupHashSql ="
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContext.cs",
-        "declaration": "public DbSet<FileEntity> Files { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContext.cs",
-        "declaration": "public DbSet<FolderEntity> Folders { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContext.cs",
-        "declaration": "public DbSet<Localization> Localizations { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContext.cs",
-        "declaration": "public FileStructureDbContext(DbContextOptions<FileStructureDbContext> options, FileStructureDbContextOptions dbContextOptions) : base(options) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContext.cs",
-        "declaration": "protected override void OnModelCreating(ModelBuilder modelBuilder) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContext.cs",
-        "declaration": "public override int SaveChanges(bool acceptAllChangesOnSuccess) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContext.cs",
-        "declaration": "public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)"
-      },
-      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContextFactory.cs",
         "declaration": "public FileStructureDbContext CreateDbContext(string[] args) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContextOptions.cs",
-        "declaration": "public class FileStructureDbContextOptions {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContextOptions.cs",
-        "declaration": "public string Scheme { get; set; } = \"nhmedia\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/FileStructureDbContextOptions.cs",
-        "declaration": "public bool RunMigrations { get; set; } = true;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/HashHelper.cs",
-        "declaration": "public static class HashHelper {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/HashHelper.cs",
-        "declaration": "public static byte[] ComputeHash(params string?[] values) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/HashHelper.cs",
-        "declaration": "public static byte[] ComputePostgreSqlHash(params string?[] values) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/HostBuilderExtensions.cs",
@@ -8687,7 +8807,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Migrations/BaseMigration.cs",
-        "declaration": "public static string DefaultScheme { get; internal set; } = null!;"
+        "declaration": "public static string DefaultScheme { get; internal set; } = \"nhmedia\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Migrations/FileStructureDbContextModelSnapshot.cs",
@@ -8703,123 +8823,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public partial class SqlServerFileStructureStorage : IFileStructureStorage {"
+        "declaration": "public class SqlServerFileStructureStorage : RelationalFileStructureStorage {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public SqlServerFileStructureStorage(FileStructureDbContext dbContext) {"
+        "declaration": "public SqlServerFileStructureStorage(FileStructureDbContext dbContext) : base(dbContext) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<TaskResult<FileReference>> CreateFileAsync(FileModel model, Guid id) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<TaskResult<FileReference>> UpdateFileAsync(Guid id, FileModel model) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<FolderReference> CreateFolderAsync(string? path, string folderName) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<bool> DeleteFolderAsync(string? path, string folderName) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<IEnumerable<FileReference>> GetFilesAsync(string? path, string? language, FileGetOptions? sortOptions) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<FolderReference> GetFolderReferenceAsync(string? path) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<FolderContents> GetFolderAsync(string? path, string? language, FileGetOptions? sortOptions) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<FileReference?> GetFileAsync(string? path, string fileName, string? language) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<TaskResult> DeleteFileAsync(string? path, string filename) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<SearchResults> SearchAsync(string? searchTerm, string? path, SearchOptions options) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<TaskResult> LocalizeAsync(Guid entityId, string language, string propertyName, string? value) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<TaskResult> UpdateTagsAsync(string path, string fileName, IEnumerable<string> tags) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<FileReference?> GetByIdAsync(Guid id) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public async Task<FolderReference?> MoveFolderAsync(string? path, string folderName, string newPath, string newName) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "protected virtual byte[] ComputeLookupHash(params string?[] values) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public Guid Id { get; init; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public required string Name { get; init; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public string? Path { get; init; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public string? Title { get; init; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public string? Description { get; init; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public string? AltText { get; init; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public string? Creator { get; init; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public string? MetaData { get; init; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public List<string> Tags { get; init; } = [];"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public DateTimeOffset CreationDateTime { get; init; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public static IQueryable<FileEntity> WhereFilesInFolderTree(this IQueryable<FileEntity> query, string fullPath) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public static IQueryable<FileReferenceRow> AsFileReferenceRow(this IQueryable<FileEntity> query) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "public static string GetChildPathPrefix(string fullPath) {"
+        "declaration": "protected override byte[] ComputeLookupHash(params string?[] values) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/HttpContextExtensions.cs",

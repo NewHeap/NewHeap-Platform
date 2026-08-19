@@ -3,7 +3,7 @@ id: nh-media-storage-contract
 title: "Media storage and authorization as a consumer contract"
 area: media
 reference: operations
-summary: "Choose storage in the composition root, keep media authorization domain-specific, and provide one typed HTTP contract for folders, files, metadata, and events."
+summary: "Choose an independent storage-provider package in the composition root, keep media authorization domain-specific, and provide one typed HTTP contract for folders, files, metadata, and events."
 sample-cases: ["SPM-177", "SPM-178", "SPM-179", "SPM-180", "SPM-181", "SPM-182", "SPM-183", "SPM-184", "SPM-185", "SPM-186", "SPM-187", "SPM-188"]
 public-symbols: ["UseFileSystemMediaStorage", "NhMediaServiceConfigurationContext", "IAuthorizationModule"]
 skills: ["newheap-consumer-development"]
@@ -14,7 +14,9 @@ risk: high
 
 Select a file-system, S3, or other storage adapter only in the composition root. Keep media folders, tags, properties, and domain authorization in typed consumer services. Enforce upload, download, and mutation rights in the backend, and document content types, limits, and responses in OpenAPI and Scalar. Publish typed media events within the agreed transactional boundary.
 
-Test PostgreSQL and SQL Server for all relational metadata, and test the selected blob adapter separately with the same storage contract tests.
+Reference only the relational provider that the application uses. The PostgreSQL file-structure package depends on the neutral Media.Core contract and does not require the SQL Server provider package; the SQL Server provider follows the same boundary.
+
+Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup hashes, folder operations and file operations. Test the selected blob adapter separately with the same storage contract tests.
 
 ## Avoid
 

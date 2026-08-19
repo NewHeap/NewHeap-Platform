@@ -122,8 +122,47 @@ for (const [id, unit] of Object.entries(manifest.units)) {
 }
 
 const media = manifest.units['nuget-media'];
-if (!manifest.units['nuget-common'].includeSymbols || manifest.units['nuget-caching'].includeSymbols || !media.includeSymbols) {
-  failures.push('Symbol-package behavior must remain compatible with the replaced PowerShell scripts.');
+if (!manifest.units['nuget-common'].includeSymbols || !manifest.units['nuget-caching'].includeSymbols || !media.includeSymbols) {
+  failures.push('Every public NuGet release unit must publish Portable PDB symbol packages.');
+}
+if (!packageReleaseTool.includes('validatePackageArtifacts')) {
+  failures.push('NuGet packaging must validate produced artifacts before checksums and publication.');
+}
+const [centralBuildProperties, centralBuildTargets] = await Promise.all([
+  readFile(resolveRepositoryPath('src/Back-end/Directory.Build.props'), 'utf8'),
+  readFile(resolveRepositoryPath('src/Back-end/Directory.Build.targets'), 'utf8')
+]);
+for (const [property, value] of [
+  ['DebugType', 'portable'],
+  ['EmbedAllSources', 'false'],
+  ['EmbedUntrackedSources', 'true'],
+  ['IncludeSymbols', 'true'],
+  ['SymbolPackageFormat', 'snupkg']
+]) {
+  if (!centralBuildProperties.includes(`<${property}>${value}</${property}>`)) {
+    failures.push(`Packable NuGet projects must centrally set ${property}=${value}.`);
+  }
+}
+if (!centralBuildTargets.includes('RemoveSentryProjectDirectoryMetadata')
+  || !centralBuildTargets.includes('$(SentryAttributesFilePath)')
+  || !centralBuildTargets.includes('<Compile Remove="$(SentryAttributesFilePath)"')) {
+  failures.push('Packable NuGet projects must exclude Sentry.ProjectDirectory source generation before compilation.');
+}
+for (const [id, unit] of Object.entries(manifest.units)) {
+  if (unit.kind !== 'nuget') continue;
+  for (const project of unit.projects) {
+    const projectSource = await readFile(resolveRepositoryPath(project.path), 'utf8');
+    if (!/<PackageDescription>(?!Package Description<)[^<]+<\/PackageDescription>/i.test(projectSource)) {
+      failures.push(`${id}: ${project.path} must declare a meaningful PackageDescription.`);
+    }
+    if (!/<PackageTags>[^<]+<\/PackageTags>/i.test(projectSource)) {
+      failures.push(`${id}: ${project.path} must declare PackageTags.`);
+    }
+    if (/<EmbedAllSources>\s*true\s*<\/EmbedAllSources>/i.test(projectSource)
+      || /<DebugType>\s*embedded\s*<\/DebugType>/i.test(projectSource)) {
+      failures.push(`${id}: ${project.path} must not embed source code or PDBs in the library assembly.`);
+    }
+  }
 }
 const commonProject = manifest.units['nuget-common'].projects.find(project => project.packageId === 'NewHeap.Platform.Common');
 const mediaCoreProject = media.projects.find(project => project.packageId === 'NewHeap.Platform.Media.Core');
@@ -149,6 +188,17 @@ if (!mediaCoreProjectSource.includes("Condition=\"'$(UseLocalNewHeapProjects)' =
 }
 for (const provider of ['NewHeap.Platform.Media.FileStructureStorage.SqlServer', 'NewHeap.Platform.Media.FileStructureStorage.PostgreSql']) {
   if (!media.projects.some(project => project.packageId === provider)) failures.push(`nuget-media: missing provider package ${provider}.`);
+}
+const [sqlServerProviderProject, postgreSqlProviderProject] = await Promise.all([
+  readFile(resolveRepositoryPath('src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/NewHeap.Platform.Media.FileStructureStorage.SqlServer.csproj'), 'utf8'),
+  readFile(resolveRepositoryPath('src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/NewHeap.Platform.Media.FileStructureStorage.PostgreSql.csproj'), 'utf8')
+]);
+if (!sqlServerProviderProject.includes('..\\NewHeap.Platform.Media.Core\\NewHeap.Platform.Media.Core.csproj')) {
+  failures.push('The SQL Server file-structure provider must depend on the neutral Media.Core package boundary.');
+}
+if (!postgreSqlProviderProject.includes('..\\NewHeap.Platform.Media.Core\\NewHeap.Platform.Media.Core.csproj')
+  || /NewHeap\.Platform\.Media\.FileStructureStorage\.SqlServer/i.test(postgreSqlProviderProject)) {
+  failures.push('The PostgreSQL file-structure provider must depend directly on Media.Core and never on the SQL Server provider.');
 }
 const mediaBundle = await readFile(resolveRepositoryPath('src/Back-end/Libraries/NewHeap.Platform.Media/NewHeap.Platform.Media.csproj'), 'utf8');
 for (const dependency of ['Media.Core', 'Media.FileStructureStorage.SqlServer', 'Media.Http', 'Media.MediaStorage.FileSystem']) {

@@ -19,6 +19,7 @@ public static class PostgreSqlServiceCollectionExtensions
     {
         var options = new FileStructureDbContextOptions();
         configureDbSet?.Invoke(options);
+        PostgreSqlFileStructureModelConfiguration.Apply(options);
 
         services.AddSingleton(options);
         services.AddDbContextPool<FileStructureDbContext>(opt =>

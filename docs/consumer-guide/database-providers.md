@@ -48,6 +48,7 @@ Run the same integration scenarios on real SQL Server and PostgreSQL: query tran
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs)
+  - [../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/FileStructureStorageProviderTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/FileStructureStorageProviderTests.cs)
 - SPM-194 — Failure without commit
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectUnitOfWorkSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectUnitOfWorkSamplesTests.cs)
   - [src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts](../../examples/SampleProjectManagement/src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts)

@@ -18,8 +18,7 @@ public abstract partial class KeyedSemaphoreBase<T> where T : notnull
     /// <param name="key">The unique key of this keyed semaphore</param>
     /// <param name="cancellationToken">A cancellation token that will interrupt trying to acquire the lock</param>
     /// <returns>
-    ///     An instance of <see cref="IKeyedSemaphore" /> that has already acquired a lock on the inner
-    ///     <see cref="SemaphoreSlim" />
+    ///     A disposable handle that has already acquired a lock on the inner <see cref="SemaphoreSlim" />.
     /// </returns>
     public static ValueTask<IDisposable> LockAsync(T key, CancellationToken cancellationToken = default)
     {
@@ -42,8 +41,7 @@ public abstract partial class KeyedSemaphoreBase<T> where T : notnull
     /// <param name="key">The unique key of this keyed semaphore</param>
     /// <param name="cancellationToken">A cancellation token that will interrupt trying to acquire the lock</param>
     /// <returns>
-    ///     An instance of <see cref="IKeyedSemaphore{TKey}" /> that has already acquired a lock on the inner
-    ///     <see cref="SemaphoreSlim" />
+    ///     A disposable handle that has already acquired a lock on the inner <see cref="SemaphoreSlim" />.
     /// </returns>
     public static IDisposable Lock(T key, CancellationToken cancellationToken = default)
     {

@@ -82,7 +82,7 @@ public class S3BucketStorage : IMediaStorage
             ms.Seek(0, SeekOrigin.Begin);
             return ms;
         }
-        catch (Exception e)
+        catch (Exception)
         {
             return null;
         }

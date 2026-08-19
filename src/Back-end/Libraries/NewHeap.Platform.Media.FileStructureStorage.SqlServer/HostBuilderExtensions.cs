@@ -22,6 +22,7 @@ public static class HostBuilderExtensions
         {
             configureDbSet(options);
         }
+        SqlServerFileStructureModelConfiguration.Apply(options);
         
         services.AddSingleton(options);
         
@@ -42,6 +43,7 @@ public static class HostBuilderExtensions
             {
                 var scheme = string.IsNullOrWhiteSpace(options.Scheme) ? "medialibrary" : options.Scheme;
                 efOptions.MigrationsHistoryTable("_migrations", scheme);
+                efOptions.MigrationsAssembly(typeof(SqlServerFileStructureStorage).Assembly.FullName);
             });
         });
 

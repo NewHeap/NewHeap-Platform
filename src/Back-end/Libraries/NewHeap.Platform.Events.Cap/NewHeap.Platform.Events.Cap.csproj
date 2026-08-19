@@ -5,17 +5,12 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <Title>NewHeap Platform Events CAP</Title>
+        <PackageDescription>CAP-based transactional event publishing with SQL Server and PostgreSQL integrations for NewHeap Platform applications.</PackageDescription>
+        <PackageTags>newheap platform events cap messaging sql-server postgresql</PackageTags>
         <Copyright>NewHeap B.V.</Copyright>
-        <PackageProjectUrl>https://github.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/NewHeap/NewHeap-Platform</RepositoryUrl>
         <GenerateDocumentationFile>True</GenerateDocumentationFile>
         <!-- If all members are not documented, you can disable the compiler warnings -->
         <NoWarn>$(NoWarn);CS1591</NoWarn>
-        <IncludeSymbols>True</IncludeSymbols>
-        <EmbedAllSources>True</EmbedAllSources>
-        <DebugType>Embedded</DebugType>
-        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-        <PackageIcon>NH_logo.png</PackageIcon>
     </PropertyGroup>
 
     <ItemGroup>
@@ -28,13 +23,4 @@
       <ProjectReference Include="..\NewHeap.Platform.AspNet.Common\NewHeap.Platform.AspNet.Common.csproj" />
       <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
     </ItemGroup>
-
-    <ItemGroup>
-      <None Include="..\..\Assets\NH_logo.png">
-        <Pack>True</Pack>
-        <PackagePath>\</PackagePath>
-        <Link>NH_logo.png</Link>
-      </None>
-    </ItemGroup>
-
 </Project>

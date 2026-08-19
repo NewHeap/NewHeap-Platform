@@ -1,7 +1,12 @@
 ﻿namespace NewHeap.Media.FileStructureStorage.SqlServer;
 
+using Microsoft.EntityFrameworkCore;
+
 public class FileStructureDbContextOptions
 {
+    internal Action<ModelBuilder>? ConfigureProviderModel { get; set; }
+    internal Func<string?[], byte[]>? LookupHashFactory { get; set; }
+
     /// <summary>
     /// Database schema to use. Defaults to 'nhmedia'
     /// </summary>

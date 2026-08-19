@@ -5,16 +5,10 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <PackageId>NewHeap.Platform.Media.MediaStorage.FileSystem</PackageId>
-        <Version>0.1.0</Version>
-        <Copyright>NewHeap B.V.</Copyright>
         <Title>NewHeap Media FileSystem Storage</Title>
-        <PackageProjectUrl>https://github.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/NewHeap/NewHeap-Platform</RepositoryUrl>
-        <Copyright>Copyright © NewHeap 2025</Copyright>
-        <IncludeSymbols>True</IncludeSymbols>
-        <EmbedAllSources>True</EmbedAllSources>
-        <DebugType>Embedded</DebugType>
-        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <Copyright>NewHeap B.V.</Copyright>
+        <PackageDescription>Local file-system blob storage for NewHeap Platform media libraries.</PackageDescription>
+        <PackageTags>newheap platform media storage filesystem</PackageTags>
         <IsPackable>True</IsPackable>
     </PropertyGroup>
 

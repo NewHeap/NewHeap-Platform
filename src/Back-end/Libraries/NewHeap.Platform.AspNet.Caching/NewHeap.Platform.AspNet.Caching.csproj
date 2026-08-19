@@ -7,11 +7,10 @@
         <OutputType>Library</OutputType>
 
         <PackageId>NewHeap.Platform.AspNet.Caching</PackageId>
-        <Version>0.1.0</Version>
         <Copyright>NewHeap B.V.</Copyright>
         <Title>NewHeap AspNet Caching</Title>
-        <PackageProjectUrl>https://github.com/NewHeap/NewHeap-Platform</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/NewHeap/NewHeap-Platform</RepositoryUrl>
+        <PackageDescription>ASP.NET Core caching integration for NewHeap Platform using FusionCache and SQLite-backed cache storage.</PackageDescription>
+        <PackageTags>newheap platform aspnetcore caching fusioncache sqlite</PackageTags>
         <IsPackable>true</IsPackable>
     </PropertyGroup>
 

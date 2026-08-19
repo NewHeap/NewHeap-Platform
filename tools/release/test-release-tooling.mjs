@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import {
@@ -10,6 +11,72 @@ import {
   releaseTag,
   repositoryRoot
 } from './lib.mjs';
+import { validateNugetArtifactEntries } from './validate-package-artifacts.mjs';
+
+const validNuspec = Buffer.from(`<?xml version="1.0"?><package><metadata>
+  <id>NewHeap.Platform.Example</id><version>1.2.3</version>
+  <authors>NewHeap contributors</authors><description>Example package.</description>
+  <tags>newheap example</tags><license type="expression">Apache-2.0</license>
+  <icon>NH_logo.png</icon><readme>README.md</readme>
+  <repository type="git" url="https://github.com/NewHeap/NewHeap-Platform" commit="0123456789abcdef0123456789abcdef01234567" />
+</metadata></package>`);
+assert.deepEqual(validateNugetArtifactEntries({
+  fileName: 'NewHeap.Platform.Example.1.2.3.nupkg',
+  packageId: 'NewHeap.Platform.Example',
+  version: '1.2.3',
+  symbolPackage: false,
+  entries: [
+    { name: 'NewHeap.Platform.Example.nuspec', data: validNuspec },
+    { name: 'lib/net10.0/NewHeap.Platform.Example.dll', data: Buffer.from('clean binary') }
+  ]
+}), []);
+assert.match(validateNugetArtifactEntries({
+  fileName: 'NewHeap.Platform.Example.1.2.3.snupkg',
+  packageId: 'NewHeap.Platform.Example',
+  version: '1.2.3',
+  symbolPackage: true,
+  entries: [{ name: 'NewHeap.Platform.Example.nuspec', data: validNuspec }]
+}).join('\n'), /contains no PDB files/);
+assert.deepEqual(validateNugetArtifactEntries({
+  fileName: 'NewHeap.Platform.Example.1.2.3.snupkg',
+  packageId: 'NewHeap.Platform.Example',
+  version: '1.2.3',
+  symbolPackage: true,
+  entries: [
+    { name: 'NewHeap.Platform.Example.nuspec', data: validNuspec },
+    { name: 'lib/net10.0/NewHeap.Platform.Example.pdb', data: Buffer.from('BSJB portable symbols') }
+  ]
+}), []);
+assert.match(validateNugetArtifactEntries({
+  fileName: 'NewHeap.Platform.Example.1.2.3.snupkg',
+  packageId: 'NewHeap.Platform.Example',
+  version: '1.2.3',
+  symbolPackage: true,
+  entries: [
+    { name: 'NewHeap.Platform.Example.nuspec', data: validNuspec },
+    { name: 'lib/net10.0/NewHeap.Platform.Example.pdb', data: Buffer.from('Microsoft C/C++ symbols') }
+  ]
+}).join('\n'), /not a managed Portable PDB/);
+assert.match(validateNugetArtifactEntries({
+  fileName: 'NewHeap.Platform.Example.1.2.3.nupkg',
+  packageId: 'NewHeap.Platform.Example',
+  version: '1.2.3',
+  symbolPackage: false,
+  entries: [
+    { name: 'NewHeap.Platform.Example.nuspec', data: validNuspec },
+    { name: 'lib/net10.0/NewHeap.Platform.Example.dll', data: Buffer.from('Sentry.ProjectDirectory C:\\Users\\maintainer\\source') }
+  ]
+}).join('\n'), /Sentry project-directory metadata/);
+assert.match(validateNugetArtifactEntries({
+  fileName: 'NewHeap.Platform.Example.1.2.3.nupkg',
+  packageId: 'NewHeap.Platform.Example',
+  version: '1.2.3',
+  symbolPackage: false,
+  entries: [
+    { name: 'NewHeap.Platform.Example.nuspec', data: validNuspec },
+    { name: 'lib/net10.0/NewHeap.Platform.Example.dll', data: Buffer.from('C:\\Users\\maintainer\\source\\private.cs') }
+  ]
+}).join('\n'), /Windows user-profile path/);
 
 const manifest = await loadReleaseManifest();
 if (manifest.packageVisibility !== 'public'

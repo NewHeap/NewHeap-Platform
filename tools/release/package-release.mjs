@@ -12,6 +12,7 @@ import {
   resolveRepositoryPath,
   writeJson
 } from './lib.mjs';
+import { validatePackageArtifacts } from './validate-package-artifacts.mjs';
 
 const options = parseArguments(process.argv.slice(2));
 if (!options.component) {
@@ -101,6 +102,12 @@ if (unit.kind === 'plugin') {
 }
 
 if (!dryRun) {
+  await validatePackageArtifacts({
+    component: options.component,
+    unit,
+    version,
+    outputDirectory
+  });
   const names = (await readdir(outputDirectory)).filter(name => name !== 'SHA256SUMS').sort();
   if (names.length === 0) throw new Error(`No artifacts were produced for ${options.component}.`);
   const lines = [];

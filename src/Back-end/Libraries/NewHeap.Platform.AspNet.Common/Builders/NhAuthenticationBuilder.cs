@@ -6,6 +6,7 @@ using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Builders;
@@ -171,7 +172,7 @@ public class NhAuthenticationBuilder<
             
             services.Configure<AuthenticationMethodPickerOptions>(opt =>
             {
-                opt.AddCheck((username, ref name, sp) =>
+                opt.AddCheck((string username, [NotNullWhen(true)] ref string? name, IServiceProvider sp) =>
                 {
                     if (sp.GetRequiredService<INhUserManager>().IsOauthAccount(username))
                     {
@@ -188,7 +189,7 @@ public class NhAuthenticationBuilder<
         {
             services.Configure<AuthenticationMethodPickerOptions>(opt =>
             {
-                opt.AddCheck((_, ref name, _) =>
+                opt.AddCheck((string _, [NotNullWhen(true)] ref string? name, IServiceProvider _) =>
                 {
                     name = "password";
                     return true;

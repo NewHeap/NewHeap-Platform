@@ -10,8 +10,11 @@ internal class FileStructureDbContextFactory : IDesignTimeDbContextFactory<FileS
         var connectionString = Environment.GetEnvironmentVariable("NH_MEDIA_SQLSERVER_CONNECTION")
             ?? "Server=localhost;Database=nh_media;Integrated Security=true;TrustServerCertificate=true";
         var builder = new DbContextOptionsBuilder<FileStructureDbContext>()
-            .UseSqlServer(connectionString);
+            .UseSqlServer(connectionString, options =>
+                options.MigrationsAssembly(typeof(FileStructureDbContextFactory).Assembly.FullName));
 
-        return new FileStructureDbContext(builder.Options, new FileStructureDbContextOptions());
+        var storageOptions = new FileStructureDbContextOptions();
+        SqlServerFileStructureModelConfiguration.Apply(storageOptions);
+        return new FileStructureDbContext(builder.Options, storageOptions);
     }
 }

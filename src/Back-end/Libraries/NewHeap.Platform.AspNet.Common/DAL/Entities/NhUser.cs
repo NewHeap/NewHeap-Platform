@@ -35,8 +35,8 @@ public partial class NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisi
     public TDivision? ActiveDivision { get; set; }
 
     /// <summary>
-    ///     Unlike <see cref="IdentityUser.LockoutEnd" /> this property not part of the identity framework. Therefore this
-    ///     value will not influence <see cref="IdentityUser.LockoutEnabled" />.
+    ///     Unlike <see cref="IdentityUser{Guid}.LockoutEnd" /> this property is not part of the identity framework.
+    ///     Therefore this value will not influence <see cref="IdentityUser{Guid}.LockoutEnabled" />.
     ///     Therefore when evaluating if a user is locked out you should always separately evaluate this field.
     /// </summary>
     public DateTimeOffset? LockoutStart { get; set; }

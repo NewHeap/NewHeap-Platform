@@ -43,13 +43,15 @@ Test that an environment variable overrides the secrets directory during bootstr
 
 ## Media storage and authorization as a consumer contract
 
-Choose storage in the composition root, keep media authorization domain-specific, and provide one typed HTTP contract for folders, files, metadata, and events.
+Choose an independent storage-provider package in the composition root, keep media authorization domain-specific, and provide one typed HTTP contract for folders, files, metadata, and events.
 
 ## Preferred approach
 
 Select a file-system, S3, or other storage adapter only in the composition root. Keep media folders, tags, properties, and domain authorization in typed consumer services. Enforce upload, download, and mutation rights in the backend, and document content types, limits, and responses in OpenAPI and Scalar. Publish typed media events within the agreed transactional boundary.
 
-Test PostgreSQL and SQL Server for all relational metadata, and test the selected blob adapter separately with the same storage contract tests.
+Reference only the relational provider that the application uses. The PostgreSQL file-structure package depends on the neutral Media.Core contract and does not require the SQL Server provider package; the SQL Server provider follows the same boundary.
+
+Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup hashes, folder operations and file operations. Test the selected blob adapter separately with the same storage contract tests.
 
 ## Avoid
 
@@ -76,6 +78,7 @@ Test the folder lifecycle, upload and download, search and sorting, metadata, th
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs)
+  - [../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/FileStructureStorageProviderTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/FileStructureStorageProviderTests.cs)
 - SPM-180 — S3 media storage
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs)

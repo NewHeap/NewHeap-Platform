@@ -4,5 +4,5 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations;
 
 public abstract class BaseMigration : Migration
 {
-    public static string DefaultScheme { get; internal set; } = null!;
+    public static string DefaultScheme { get; internal set; } = "nhmedia";
 }

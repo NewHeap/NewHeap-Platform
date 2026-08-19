@@ -15,6 +15,8 @@ internal sealed class FileStructurePostgreSqlDbContextFactory : IDesignTimeDbCon
                 builder.MigrationsAssembly(typeof(FileStructurePostgreSqlDbContextFactory).Assembly.FullName))
             .Options;
 
-        return new FileStructureDbContext(options, new FileStructureDbContextOptions());
+        var storageOptions = new FileStructureDbContextOptions();
+        PostgreSqlFileStructureModelConfiguration.Apply(storageOptions);
+        return new FileStructureDbContext(options, storageOptions);
     }
 }

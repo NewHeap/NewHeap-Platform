@@ -11,6 +11,15 @@
    <UseLocalNewHeapProjects Condition="'$(UseLocalNewHeapProjects)' == ''">true</UseLocalNewHeapProjects>
  </PropertyGroup>
 
+ <PropertyGroup Condition="'$(IsPackable)' != 'false'">
+   <PackageIcon>NH_logo.png</PackageIcon>
+   <IncludeSymbols>true</IncludeSymbols>
+   <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+   <DebugType>portable</DebugType>
+   <EmbedAllSources>false</EmbedAllSources>
+   <EmbedUntrackedSources>true</EmbedUntrackedSources>
+ </PropertyGroup>
+
  <ItemGroup>
    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-rvv3-g6hj-g44x" />
 
@@ -23,6 +32,10 @@
          PackagePath=""
          Visible="false" />
    <None Include="$(MSBuildThisFileDirectory)..\..\THIRD-PARTY-NOTICES.md"
+         Pack="true"
+         PackagePath=""
+         Visible="false" />
+   <None Include="$(MSBuildThisFileDirectory)Assets\NH_logo.png"
          Pack="true"
          PackagePath=""
          Visible="false" />
