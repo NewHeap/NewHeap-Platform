@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "pluginVersion": "1.11.1",
-  "guidanceVersion": "1.11.1",
-  "skillContentHash": "a755b4693aba7ede726d1692f3a1dbe3ab1f3322bf1deb6e4df196d7ad170bf8",
+  "pluginVersion": "1.11.2",
+  "guidanceVersion": "1.11.2",
+  "skillContentHash": "2b8e15e58af514edf1b9711c2f2a5cc986a12e8215fb350ed3673cb2f0182bc2",
   "compatiblePackages": {
     "@newheap/nh-toastr": "0.0.5",
     "@newheap/platform-common": "0.20.6",

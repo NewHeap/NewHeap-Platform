@@ -17,7 +17,7 @@ Use this reference when installing or upgrading NewHeap npm/NuGet packages or th
 
 A `401` or `403` during consumer restore is configuration drift, not a request for a new credential. Inspect repository, user-level, and CI package configuration for old `npm.pkg.github.com`, `nuget.pkg.github.com`, or Azure mappings and remove the narrow stale override. Do not print or collect unrelated user-level credentials while diagnosing the source chain.
 
-NewHeap currently depends on the official `AutoMapper` 14.0.0 package and application code uses the `AutoMapper` namespace. This compatibility pin is a documented release blocker because the selected version is affected by GHSA-rvv3-g6hj-g44x. Do not suppress the NuGet audit warning or publish the package set as security-clean; resolve the mapping dependency decision before the first public release.
+NewHeap currently depends on the official `AutoMapper` 14.0.0 package and application code uses the `AutoMapper` namespace. The selected version is affected by GHSA-rvv3-g6hj-g44x, so NewHeap applies the documented pre-patch mitigation to every mapper configuration managed through `NewHeapAspNetCommonOptionsBuilder.ConfigureAutoMapper`: maps without an explicit limit receive `MaxDepth(64)`, while explicit consumer limits remain unchanged. Public releases must retain the focused circular-map regression tests and the time-bounded exception in `docs/security/dependency-decisions.md`; every other high or critical NuGet advisory remains release-blocking. A consumer that constructs an independent `MapperConfiguration` is outside this mitigation boundary and must apply and test its own depth guard.
 
 ## Upgrade atomically
 
