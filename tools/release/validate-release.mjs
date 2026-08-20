@@ -13,7 +13,6 @@ import {
 const manifest = await loadReleaseManifest();
 const failures = [];
 const workflowPaths = [
-  '.github/workflows/bootstrap-npm.yml',
   '.github/workflows/release-contract.yml',
   '.github/workflows/prepare-release.yml',
   '.github/workflows/publish-preview.yml',
@@ -243,22 +242,6 @@ for (const workflowPath of workflowPaths) {
       failures.push(`${workflowPath}: public publication must use pinned OIDC trusted publishing for NuGet.`);
     }
   }
-  if (workflowPath.endsWith('bootstrap-npm.yml')) {
-    if (!workflow.includes('workflow_dispatch:')
-      || workflow.includes('workflow_call:')
-      || !workflow.includes("github.repository == 'NewHeap/NewHeap-Platform'")
-      || !workflow.includes("github.ref == 'refs/heads/main'")
-      || !workflow.includes('ref: ${{ github.sha }}')
-      || !workflow.includes('git rev-parse origin/main')
-      || !workflow.includes('--require-missing')
-      || !workflow.includes('NPM_BOOTSTRAP_TOKEN')
-      || !workflow.includes('--access public --registry https://registry.npmjs.org')
-      || (workflow.match(/verify-public-release-targets\.mjs/g) ?? []).length < 2
-      || workflow.includes('dotnet nuget push')
-      || workflow.includes('NuGet/login@')) {
-      failures.push(`${workflowPath}: npm bootstrap must be main-only, token-scoped, fail closed for existing packages and verify publication anonymously.`);
-    }
-  }
   if (workflowPath.endsWith('prepare-release.yml')) {
     if (!workflow.includes('ref: main')
       || !workflow.includes('uses: ./.github/workflows/release-contract.yml')
@@ -366,9 +349,7 @@ for (const workflowPath of workflowPaths) {
       failures.push(`${workflowPath}: recovery must only verify current public versions and finalize complete drafts from a commit contained in main.`);
     }
   }
-  const selectable = workflowPath.endsWith('bootstrap-npm.yml')
-    ? Object.keys(manifest.units).filter(id => manifest.units[id].kind === 'npm')
-    : workflowPath.endsWith('publish-preview.yml')
+  const selectable = workflowPath.endsWith('publish-preview.yml')
     ? Object.keys(manifest.units).filter(id => id.startsWith('nuget-'))
     : workflowPath.endsWith('prepare-release.yml') || workflowPath.endsWith('release-contract.yml') || workflowPath.endsWith('finalize-pending-release.yml')
       ? Object.keys(manifest.units)
