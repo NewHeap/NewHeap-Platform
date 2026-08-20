@@ -44,7 +44,7 @@
     "nuget-caching": {
       "displayName": "NewHeap caching NuGet package",
       "kind": "nuget",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "tagPrefix": "nuget-caching-v",
       "includeSymbols": true,
       "replaces": "src/Back-end/publish-caching.ps1",
