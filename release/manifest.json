@@ -107,7 +107,7 @@
     "npm-nh-toastr": {
       "displayName": "@newheap/nh-toastr",
       "kind": "npm",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "tagPrefix": "npm-nh-toastr-v",
       "packageName": "@newheap/nh-toastr",
       "packageJson": "src/Front-end/projects/nh-toastr/package.json",

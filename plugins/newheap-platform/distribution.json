@@ -4,7 +4,7 @@
   "guidanceVersion": "1.11.3",
   "skillContentHash": "13fff23ef401d572104184fad36c66bcedd5c675e8fd281563fd296fc219f177",
   "compatiblePackages": {
-    "@newheap/nh-toastr": "0.0.5",
+    "@newheap/nh-toastr": "0.0.6",
     "@newheap/platform-common": "0.20.7",
     "NewHeap.Platform.AspNet.Caching": "0.1.4",
     "NewHeap.Platform.AspNet.Common": "2.0.0",

@@ -11,7 +11,7 @@
     "guidanceRules": "guidance/rules"
   },
   "packages": {
-    "@newheap/nh-toastr": "0.0.5",
+    "@newheap/nh-toastr": "0.0.6",
     "@newheap/platform-common": "0.20.7",
     "NewHeap.Platform.AspNet.Caching": "0.1.4",
     "NewHeap.Platform.AspNet.Common": "2.0.0",
