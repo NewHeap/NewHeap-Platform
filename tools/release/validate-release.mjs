@@ -1,6 +1,7 @@
 import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
+  isSingleVersionBump,
   loadReleaseManifest,
   missingTargetFrameworks,
   projectTargetFrameworks,
@@ -213,8 +214,12 @@ if (mediaBundle.includes('<PackageReference Include="NewHeap.Platform.Media.')) 
 const pluginUnit = manifest.units['newheap-platform-plugin'];
 const guidance = await readJson(resolve(repositoryRoot, 'guidance', 'version.json'));
 const plugin = await readJson(resolve(repositoryRoot, 'plugins', 'newheap-platform', '.codex-plugin', 'plugin.json'));
-if (guidance.guidanceVersion !== pluginUnit.version || plugin.version !== pluginUnit.version) {
-  failures.push('Guidance, plugin manifest and plugin release unit versions must match.');
+const pluginVersion = plugin.version;
+const guidanceVersion = guidance.guidanceVersion;
+const pluginVersionIsCurrent = pluginVersion === pluginUnit.version;
+const pluginVersionIsPendingBump = isSingleVersionBump(pluginUnit.version, pluginVersion);
+if (guidanceVersion !== pluginVersion || (!pluginVersionIsCurrent && !pluginVersionIsPendingBump)) {
+  failures.push('Guidance and plugin versions must match the release unit or contain the same pending SemVer bump.');
 }
 
 for (const workflowPath of workflowPaths) {

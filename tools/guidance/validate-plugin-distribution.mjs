@@ -27,6 +27,9 @@ if (distribution.pluginVersion !== manifest.version) failures.push('Plugin distr
 if (distribution.compatiblePackages?.['@newheap/platform-common'] !== versions['@newheap/platform-common']) failures.push('Plugin package compatibility metadata is stale.');
 if (distribution.schemaVersion !== 2) failures.push('Plugin distribution metadata must use schema version 2.');
 if (distribution.repositoryTarget !== '.agents/skills') failures.push('Plugin repository target is invalid.');
+if (distribution.repositoryTargets?.codex !== '.agents/skills' || distribution.repositoryTargets?.claude !== '.claude/skills') {
+  failures.push('Plugin repository targets must identify the Codex and Claude skill roots.');
+}
 if (JSON.stringify(distribution.skills) !== JSON.stringify(consumerSkillNames)) failures.push('Plugin distributed skill list is stale.');
 if (manifest.skills !== './skills/') failures.push('Plugin skills path must be ./skills/.');
 for (const key of ['displayName', 'shortDescription', 'longDescription', 'developerName', 'category']) {
@@ -36,6 +39,7 @@ if (manifest.hooks || manifest.apps || manifest.mcpServers) failures.push('Plugi
 if (!installGuide.includes('newheap-platform-plugin-v<version>')) failures.push('Plugin install guide must identify the versioned GitHub Release tag.');
 if (!installGuide.includes('newheap-platform-<version>.tar.gz')) failures.push('Plugin install guide must identify the generated archive name.');
 if (!installGuide.includes('install-consumer-skills.mjs')) failures.push('Plugin install guide must use the focused skill-suite installer.');
+if (!installGuide.includes('--target claude') || !installGuide.includes('--target both')) failures.push('Plugin install guide must document Claude and mixed-agent targets.');
 if (!installGuide.includes('self-contained') || !installGuide.includes('immutable public source')) failures.push('Plugin install guide must explain the optional immutable sample evidence.');
 if (!installGuide.includes('--profile management-portal --database postgresql')) failures.push('Plugin bootstrap example must select an explicit profile and persistence provider.');
 if (!installGuide.includes('https://api.nuget.org/v3/index.json') || !installGuide.includes('https://registry.npmjs.org/')) {

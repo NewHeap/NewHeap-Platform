@@ -315,7 +315,17 @@ module.exports = [{
   await writeManaged('src/Front-end/.gitkeep', '');
 }
 
-const agentsInstructions = `# NewHeap consumer instructions
+const installedAgentTargets = [];
+for (const target of [
+  { directory: '.agents', instructionsFile: 'AGENTS.md' },
+  { directory: '.claude', instructionsFile: 'CLAUDE.md' }
+]) {
+  const installedSkill = await stat(resolve(consumerRoot, target.directory, 'skills', 'newheap-consumer-development', 'SKILL.md')).catch(() => undefined);
+  if (installedSkill?.isFile()) installedAgentTargets.push(target);
+}
+if (installedAgentTargets.length === 0) installedAgentTargets.push({ directory: '.agents', instructionsFile: 'AGENTS.md' });
+
+const renderAgentInstructions = skillDirectory => `# NewHeap consumer instructions
 
 - Infer the smallest current product scope from existing context. Ask only missing product questions in plain language, summarize the resulting profile, and scaffold only confirmed capabilities.
 - Keep the .NET solution and central props in \`src/Back-end\`.
@@ -323,13 +333,16 @@ const agentsInstructions = `# NewHeap consumer instructions
 - Leave only \`src/Front-end/.gitkeep\` while no user interface is needed. Create the Angular workspace in \`src/Front-end\` and applications in \`src/Front-end/projects\` only after an interactive frontend is confirmed.
 - Complete package restore and installation before generating domain features.
 - For a confirmed management portal, use NewHeap protected/base controllers, \`NhBaseApiService\`, collection bases and modal services; do not substitute generic CRUD panels or edit asides.
-- Run \`node .agents/skills/newheap-consumer-development/scripts/inspect-newheap-consumer.mjs . --mode validate\` before handoff.
+- Run \`node ${skillDirectory}/skills/newheap-consumer-development/scripts/inspect-newheap-consumer.mjs . --mode validate\` before handoff.
 `;
-try {
-  await readFile(resolve(consumerRoot, 'AGENTS.md'), 'utf8');
-  unchanged.push('AGENTS.md (preserved existing repository instructions)');
-} catch {
-  await writeManaged('AGENTS.md', agentsInstructions);
+
+for (const target of installedAgentTargets) {
+  try {
+    await readFile(resolve(consumerRoot, target.instructionsFile), 'utf8');
+    unchanged.push(`${target.instructionsFile} (preserved existing repository instructions)`);
+  } catch {
+    await writeManaged(target.instructionsFile, renderAgentInstructions(target.directory));
+  }
 }
 
 await writeManaged('src/Back-end/Orchestration/.gitkeep', '');

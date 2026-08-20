@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
-  "pluginVersion": "1.11.6",
-  "guidanceVersion": "1.11.6",
-  "skillContentHash": "755c10655203476473818a35e3c69180b615b786e5ffc150b98572ef2b18eca3",
+  "pluginVersion": "1.11.7",
+  "guidanceVersion": "1.11.7",
+  "skillContentHash": "87c99bc7a0058b73b6b385e09b3c20b876ed8ec9a85638ba4922c0e78621c043",
   "skills": [
     "newheap-consumer-development",
     "newheap-authentication",
@@ -31,5 +31,9 @@
     "NewHeap.Platform.Media.MediaStorage.FileSystem": "2.0.0",
     "NewHeap.Platform.Media.MediaStorage.S3Bucket": "2.0.0"
   },
-  "repositoryTarget": ".agents/skills"
+  "repositoryTarget": ".agents/skills",
+  "repositoryTargets": {
+    "codex": ".agents/skills",
+    "claude": ".claude/skills"
+  }
 }

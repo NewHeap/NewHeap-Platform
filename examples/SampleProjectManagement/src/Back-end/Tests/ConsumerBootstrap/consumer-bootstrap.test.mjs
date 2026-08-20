@@ -23,6 +23,11 @@ function run(script, argumentsList) {
 try {
   const existingInstructions = '# Existing repository instructions\n\nKeep local ownership rules.\n';
   await writeFile(resolve(consumerRoot, 'AGENTS.md'), existingInstructions, 'utf8');
+  for (const targetDirectory of ['.agents', '.claude']) {
+    const installedSkillRoot = resolve(consumerRoot, targetDirectory, 'skills', 'newheap-consumer-development');
+    await mkdir(installedSkillRoot, { recursive: true });
+    await writeFile(resolve(installedSkillRoot, 'SKILL.md'), '---\nname: newheap-consumer-development\ndescription: Test installation.\n---\n', 'utf8');
+  }
   const bootstrap = run(bootstrapScript, [
     consumerRoot,
     '--name', 'Example.Portal',
@@ -49,6 +54,8 @@ try {
   assert.equal(manifest.paths.backend, 'src/Back-end');
   assert.equal(manifest.paths.frontend, 'src/Front-end');
   assert.equal(await readFile(resolve(consumerRoot, 'AGENTS.md'), 'utf8'), existingInstructions);
+  const claudeInstructions = await readFile(resolve(consumerRoot, 'CLAUDE.md'), 'utf8');
+  assert.match(claudeInstructions, /node \.claude\/skills\/newheap-consumer-development\/scripts\/inspect-newheap-consumer\.mjs/);
 
   await readFile(resolve(consumerRoot, 'src/Back-end/Example.Portal.slnx'), 'utf8');
   await readFile(resolve(consumerRoot, 'src/Back-end/Directory.Build.props'), 'utf8');
@@ -65,9 +72,11 @@ try {
   await assert.rejects(readFile(resolve(consumerRoot, 'angular.json'), 'utf8'));
 
   await mkdir(resolve(consumerRoot, '.agents/skills/noise'), { recursive: true });
+  await mkdir(resolve(consumerRoot, '.claude/skills/noise'), { recursive: true });
   await mkdir(resolve(consumerRoot, 'docs'), { recursive: true });
   const ignoredLifecycleSource = 'export class Noise extends NhModalMutateBaseComponent<object, object> { ngOnInit() {} }';
   await writeFile(resolve(consumerRoot, '.agents/skills/noise/noise.ts'), ignoredLifecycleSource, 'utf8');
+  await writeFile(resolve(consumerRoot, '.claude/skills/noise/noise.ts'), ignoredLifecycleSource, 'utf8');
   await writeFile(resolve(consumerRoot, 'docs/noise.ts'), ignoredLifecycleSource, 'utf8');
 
   const inventory = run(inspectorScript, [consumerRoot, '--mode', 'inventory']);

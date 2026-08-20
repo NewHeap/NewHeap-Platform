@@ -65,6 +65,10 @@ export function bumpVersion(version, bump) {
   return `${major}.${minor}.${patch}`;
 }
 
+export function isSingleVersionBump(previousVersion, version) {
+  return ['patch', 'minor', 'major'].some(bump => bumpVersion(previousVersion, bump) === version);
+}
+
 export function resolveRepositoryPath(path) {
   const resolved = resolve(repositoryRoot, path);
   const display = relative(repositoryRoot, resolved);

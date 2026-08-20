@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidance": {
     "schemaVersion": 1,
-    "guidanceVersion": "1.11.6",
+    "guidanceVersion": "1.11.7",
     "sampleRegistryVersion": 1,
     "minimumNodeVersion": "22.0.0"
   },
@@ -34,12 +34,21 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.6",
+        "pluginVersion": "1.11.7",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/consumer-bootstrap-sequence.md",
@@ -55,12 +64,21 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.6",
+        "pluginVersion": "1.11.7",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/authentication-overrides.md",
@@ -73,12 +91,21 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.6",
+        "pluginVersion": "1.11.7",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/backend-controller-contracts.md",
@@ -95,12 +122,21 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.6",
+        "pluginVersion": "1.11.7",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/backend-unit-of-work.md",
@@ -113,12 +149,21 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.6",
+        "pluginVersion": "1.11.7",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/database-providers.md"
@@ -130,12 +175,21 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.6",
+        "pluginVersion": "1.11.7",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/frontend-collection-query.md",
@@ -149,12 +203,21 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.6",
+        "pluginVersion": "1.11.7",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/media.md"
@@ -166,12 +229,21 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.6",
+        "pluginVersion": "1.11.7",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/runtime-configuration.md"
@@ -183,12 +255,21 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.6",
+        "pluginVersion": "1.11.7",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/testing.md"

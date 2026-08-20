@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import {
   addLocalNugetSource,
   bumpVersion,
+  isSingleVersionBump,
   loadReleaseManifest,
   missingTargetFrameworks,
   projectTargetFrameworks,
@@ -114,6 +115,11 @@ for (const [input, output] of expected) {
   const [version, bump] = input.split(':');
   if (bumpVersion(version, bump) !== output) throw new Error(`Unexpected bump result for ${input}.`);
 }
+assert.equal(isSingleVersionBump('1.11.6', '1.11.7'), true);
+assert.equal(isSingleVersionBump('1.11.6', '1.12.0'), true);
+assert.equal(isSingleVersionBump('1.11.6', '2.0.0'), true);
+assert.equal(isSingleVersionBump('1.11.6', '1.11.8'), false);
+assert.equal(isSingleVersionBump('1.11.6', '1.11.6'), false);
 
 if (projectTargetFrameworks('<TargetFramework>net10.0</TargetFramework>').join(';') !== 'net10.0'
   || projectTargetFrameworks('<TargetFrameworks>net9.0;net10.0</TargetFrameworks>').join(';') !== 'net9.0;net10.0'
