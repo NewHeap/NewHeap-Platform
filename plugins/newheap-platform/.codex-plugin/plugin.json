@@ -1,6 +1,6 @@
 {
   "name": "newheap-platform",
-  "version": "1.11.4",
+  "version": "1.11.5",
   "description": "Build consuming applications with the supported NewHeap Platform library patterns and executable examples.",
   "author": {
     "name": "NewHeap B.V."
