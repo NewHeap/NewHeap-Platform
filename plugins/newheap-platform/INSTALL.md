@@ -1,22 +1,24 @@
 # Install NewHeap Platform guidance
 
-The plugin contains the consumer-facing `newheap-consumer-development` skill. It does not contain the Platform maintainer workflow.
+The plugin contains a focused consumer skill suite for foundation setup, backend, frontend, authentication, databases, media, background processing, runtime configuration and testing. It does not contain the Platform maintainer workflow. Codex discovers the relevant installed skill from the request; consumers do not need to route tasks through one catch-all skill.
 
 Download `newheap-platform-<version>.tar.gz` and `SHA256SUMS` from the matching immutable GitHub Release tagged `newheap-platform-plugin-v<version>`. Verify the archive against the checksum file before extracting it. If that release does not exist, the plugin version is not available for stable consumer installation; do not substitute an unversioned workflow artifact.
 
 For a repository-pinned installation, run from this plugin directory:
 
 ```text
-node scripts/install-consumer-skill.mjs --consumer <consumer-root>
+node scripts/install-consumer-skills.mjs --consumer <consumer-root>
 ```
 
-Commit `<consumer-root>/.agents/skills/newheap-consumer-development`. Codex discovers that repository skill automatically. Verify it after updating the plugin with:
+Commit the managed `<consumer-root>/.agents/skills/newheap-*` directories and `<consumer-root>/.agents/skills/.newheap-platform-install.json`. Codex discovers those repository skills automatically. Verify them after updating the plugin with:
 
 ```text
-node scripts/install-consumer-skill.mjs --consumer <consumer-root> --check
+node scripts/install-consumer-skills.mjs --consumer <consumer-root> --check
 ```
 
-The installer refuses to overwrite locally changed installed files. Review those changes first, or pass `--force` only when full replacement is intentional.
+The installer refuses to overwrite locally changed installed files. Review those changes first, or pass `--force` only when replacement of the NewHeap-managed skill directories is intentional. Other skills in `.agents/skills` are never removed.
+
+The shipped rules are self-contained. Their optional sample links point to the immutable public source at the matching plugin release and are only for resolving an unclear API-composition detail; the SampleProjectManagement source tree is not required in the consumer repository.
 
 The plugin follows the guidance version in `guidance/version.json`. Compatible library-package versions are recorded separately in `distribution.json`.
 
@@ -28,7 +30,7 @@ creates a management portal backed by PostgreSQL; select another explicit
 profile and persistence choice when that better matches the confirmed scope:
 
 ```text
-node <extracted-plugin>/scripts/install-consumer-skill.mjs --consumer <consumer-root>
+node <extracted-plugin>/scripts/install-consumer-skills.mjs --consumer <consumer-root>
 node <consumer-root>/.agents/skills/newheap-consumer-development/scripts/bootstrap-newheap-consumer.mjs <consumer-root> --name Example.Portal --profile management-portal --database postgresql
 ```
 

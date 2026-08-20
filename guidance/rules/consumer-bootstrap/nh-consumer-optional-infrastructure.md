@@ -2,7 +2,7 @@
 id: nh-consumer-optional-infrastructure
 title: "Add infrastructure only through explicit bootstrap options"
 area: consumer-bootstrap
-reference: consumer-bootstrap
+reference: consumer-optional-infrastructure
 summary: "Keep Aspire, Docker and Elasticsearch outside the selected profile and add each only after its required package access and application foundation are healthy."
 sample-cases: ["SPM-195", "SPM-217"]
 public-symbols: ["ConfigureNhCommonConfiguration", "NhEventConfigurationBuilder", "NewHeapPlatformAspNetCommonConfigurator"]

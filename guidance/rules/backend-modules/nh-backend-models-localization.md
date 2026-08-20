@@ -2,11 +2,11 @@
 id: nh-backend-models-localization
 title: "Model contracts, validation, and localization"
 area: backend
-reference: backend-modules
+reference: backend-models-localization
 summary: "Keep read and write contracts separate, make filterability explicit, and provide complete localized validation resources."
 sample-cases: ["SPM-009", "SPM-049", "SPM-092", "SPM-093"]
 public-symbols: ["FilterableAttribute", "CollectionProcessingOptions"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: medium
 ---

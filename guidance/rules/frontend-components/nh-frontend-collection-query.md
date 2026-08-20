@@ -2,11 +2,11 @@
 id: nh-frontend-collection-query
 title: "Fluent collections, filtering, and ordering"
 area: frontend
-reference: frontend-components
+reference: frontend-collection-query
 summary: "Use the fluent collection API by default and keep filtering, ordering, and paging server-side without losing falsy values or enum values."
 sample-cases: ["SPM-016", "SPM-017", "SPM-018", "SPM-019", "SPM-020", "SPM-021", "SPM-022", "SPM-023", "SPM-024", "SPM-025"]
 public-symbols: ["CollectionHttpRequestOptions", "FilterRequestOptions", "NhCollectionTypeBaseComponent"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-frontend-development"]
 providers: ["provider-neutral"]
 risk: high
 ---

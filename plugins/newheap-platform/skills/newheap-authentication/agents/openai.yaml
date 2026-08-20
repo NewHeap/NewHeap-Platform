@@ -1,0 +1,4 @@
+interface:
+  display_name: "NewHeap Authentication"
+  short_description: "Build NewHeap identity and permission flows"
+  default_prompt: "Use $newheap-authentication to implement this consumer identity or authorization change with the supported NewHeap claim and policy boundaries."

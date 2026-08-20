@@ -1,0 +1,4 @@
+interface:
+  display_name: "NewHeap Consumer Testing"
+  short_description: "Test NewHeap consumer applications correctly"
+  default_prompt: "Use $newheap-testing to add focused consumer tests with the supported NewHeap helper and provider boundaries."

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidance": {
     "schemaVersion": 1,
-    "guidanceVersion": "1.11.5",
+    "guidanceVersion": "1.11.6",
     "sampleRegistryVersion": 1,
     "minimumNodeVersion": "22.0.0"
   },
@@ -34,21 +34,164 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.5",
-        "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skill.mjs",
+        "pluginVersion": "1.11.6",
+        "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
-        "repositoryInstallCommand": "node tools/guidance/install-consumer-skill.mjs --consumer <consumer-root>"
+        "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
+        "repositoryTarget": ".agents/skills"
       },
       "references": [
-        "references/authentication.md",
-        "references/backend-modules.md",
-        "references/consumer-bootstrap.md",
-        "references/database-providers.md",
-        "references/frontend-components.md",
-        "references/operations.md",
-        "references/testing.md",
+        "references/consumer-bootstrap-sequence.md",
+        "references/consumer-management-portal.md",
+        "references/consumer-optional-infrastructure.md",
+        "references/consumer-scope-gate.md",
         "references/package-sources.md"
+      ]
+    },
+    {
+      "name": "newheap-authentication",
+      "path": "skills/newheap-authentication",
+      "audience": "consumer-applications",
+      "distribution": {
+        "plugin": "plugins/newheap-platform",
+        "pluginVersion": "1.11.6",
+        "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
+        "githubReleaseUnit": "newheap-platform-plugin",
+        "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
+        "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
+        "repositoryTarget": ".agents/skills"
+      },
+      "references": [
+        "references/authentication-overrides.md",
+        "references/authorization-permissions.md"
+      ]
+    },
+    {
+      "name": "newheap-backend-development",
+      "path": "skills/newheap-backend-development",
+      "audience": "consumer-applications",
+      "distribution": {
+        "plugin": "plugins/newheap-platform",
+        "pluginVersion": "1.11.6",
+        "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
+        "githubReleaseUnit": "newheap-platform-plugin",
+        "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
+        "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
+        "repositoryTarget": ".agents/skills"
+      },
+      "references": [
+        "references/backend-controller-contracts.md",
+        "references/backend-models-localization.md",
+        "references/backend-module-composition.md",
+        "references/backend-partial-update.md",
+        "references/backend-project-foundation.md",
+        "references/backend-unit-of-work.md"
+      ]
+    },
+    {
+      "name": "newheap-background-processing",
+      "path": "skills/newheap-background-processing",
+      "audience": "consumer-applications",
+      "distribution": {
+        "plugin": "plugins/newheap-platform",
+        "pluginVersion": "1.11.6",
+        "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
+        "githubReleaseUnit": "newheap-platform-plugin",
+        "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
+        "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
+        "repositoryTarget": ".agents/skills"
+      },
+      "references": [
+        "references/backend-unit-of-work.md",
+        "references/background-processing.md"
+      ]
+    },
+    {
+      "name": "newheap-database-development",
+      "path": "skills/newheap-database-development",
+      "audience": "consumer-applications",
+      "distribution": {
+        "plugin": "plugins/newheap-platform",
+        "pluginVersion": "1.11.6",
+        "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
+        "githubReleaseUnit": "newheap-platform-plugin",
+        "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
+        "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
+        "repositoryTarget": ".agents/skills"
+      },
+      "references": [
+        "references/database-providers.md"
+      ]
+    },
+    {
+      "name": "newheap-frontend-development",
+      "path": "skills/newheap-frontend-development",
+      "audience": "consumer-applications",
+      "distribution": {
+        "plugin": "plugins/newheap-platform",
+        "pluginVersion": "1.11.6",
+        "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
+        "githubReleaseUnit": "newheap-platform-plugin",
+        "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
+        "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
+        "repositoryTarget": ".agents/skills"
+      },
+      "references": [
+        "references/frontend-collection-query.md",
+        "references/frontend-lifecycle-modals.md",
+        "references/frontend-root-configuration.md"
+      ]
+    },
+    {
+      "name": "newheap-media-development",
+      "path": "skills/newheap-media-development",
+      "audience": "consumer-applications",
+      "distribution": {
+        "plugin": "plugins/newheap-platform",
+        "pluginVersion": "1.11.6",
+        "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
+        "githubReleaseUnit": "newheap-platform-plugin",
+        "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
+        "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
+        "repositoryTarget": ".agents/skills"
+      },
+      "references": [
+        "references/media.md"
+      ]
+    },
+    {
+      "name": "newheap-runtime-configuration",
+      "path": "skills/newheap-runtime-configuration",
+      "audience": "consumer-applications",
+      "distribution": {
+        "plugin": "plugins/newheap-platform",
+        "pluginVersion": "1.11.6",
+        "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
+        "githubReleaseUnit": "newheap-platform-plugin",
+        "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
+        "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
+        "repositoryTarget": ".agents/skills"
+      },
+      "references": [
+        "references/runtime-configuration.md"
+      ]
+    },
+    {
+      "name": "newheap-testing",
+      "path": "skills/newheap-testing",
+      "audience": "consumer-applications",
+      "distribution": {
+        "plugin": "plugins/newheap-platform",
+        "pluginVersion": "1.11.6",
+        "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
+        "githubReleaseUnit": "newheap-platform-plugin",
+        "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
+        "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
+        "repositoryTarget": ".agents/skills"
+      },
+      "references": [
+        "references/testing.md"
       ]
     },
     {

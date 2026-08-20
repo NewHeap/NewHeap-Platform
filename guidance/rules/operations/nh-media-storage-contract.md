@@ -2,11 +2,11 @@
 id: nh-media-storage-contract
 title: "Media storage and authorization as a consumer contract"
 area: media
-reference: operations
+reference: media
 summary: "Choose an independent storage-provider package in the composition root, keep media authorization domain-specific, and provide one typed HTTP contract for folders, files, metadata, and events."
 sample-cases: ["SPM-177", "SPM-178", "SPM-179", "SPM-180", "SPM-181", "SPM-182", "SPM-183", "SPM-184", "SPM-185", "SPM-186", "SPM-187", "SPM-188"]
 public-symbols: ["UseFileSystemMediaStorage", "NhMediaServiceConfigurationContext", "IAuthorizationModule"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-media-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
 ---

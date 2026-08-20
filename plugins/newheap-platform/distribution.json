@@ -1,8 +1,19 @@
 {
-  "schemaVersion": 1,
-  "pluginVersion": "1.11.5",
-  "guidanceVersion": "1.11.5",
-  "skillContentHash": "13fff23ef401d572104184fad36c66bcedd5c675e8fd281563fd296fc219f177",
+  "schemaVersion": 2,
+  "pluginVersion": "1.11.6",
+  "guidanceVersion": "1.11.6",
+  "skillContentHash": "755c10655203476473818a35e3c69180b615b786e5ffc150b98572ef2b18eca3",
+  "skills": [
+    "newheap-consumer-development",
+    "newheap-authentication",
+    "newheap-backend-development",
+    "newheap-background-processing",
+    "newheap-database-development",
+    "newheap-frontend-development",
+    "newheap-media-development",
+    "newheap-runtime-configuration",
+    "newheap-testing"
+  ],
   "compatiblePackages": {
     "@newheap/nh-toastr": "0.0.6",
     "@newheap/platform-common": "0.20.7",
@@ -20,5 +31,5 @@
     "NewHeap.Platform.Media.MediaStorage.FileSystem": "2.0.0",
     "NewHeap.Platform.Media.MediaStorage.S3Bucket": "2.0.0"
   },
-  "repositoryTarget": ".agents/skills/newheap-consumer-development"
+  "repositoryTarget": ".agents/skills"
 }

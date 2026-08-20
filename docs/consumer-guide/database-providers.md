@@ -2,7 +2,7 @@
 
 # Database Providers
 
-Human-readable reference generated from the same rules as the NewHeap consumer skill.
+Human-readable reference generated from the same rules as the NewHeap consumer skills.
 
 ## Contents
 

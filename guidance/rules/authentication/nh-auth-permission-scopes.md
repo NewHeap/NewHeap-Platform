@@ -2,11 +2,11 @@
 id: nh-auth-permission-scopes
 title: "Application, division, and resource permissions"
 area: authentication
-reference: authentication
+reference: authorization-permissions
 summary: "Model permissions as three explicit scopes and prove the complete chain from seed and claim to backend policy and frontend visibility."
 sample-cases: ["SPM-071", "SPM-072", "SPM-073", "SPM-074", "SPM-137", "SPM-138", "SPM-210", "SPM-211", "SPM-212"]
 public-symbols: ["ProtectedNhBaseController", "NhDivisionRoleClaim", "NhUserManager"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-authentication"]
 providers: ["provider-neutral"]
 risk: critical
 ---

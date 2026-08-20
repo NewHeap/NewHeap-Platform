@@ -2,11 +2,11 @@
 id: nh-backend-service-unit-of-work
 title: "Service-owned unit of work"
 area: backend
-reference: backend-modules
+reference: backend-unit-of-work
 summary: "Let the concrete service own the transactional boundary, business rules, and event order while nested operations join the existing scope."
 sample-cases: ["SPM-054", "SPM-190", "SPM-191", "SPM-192", "SPM-193", "SPM-194", "SPM-196", "SPM-197", "SPM-198", "SPM-200"]
 public-symbols: ["StartOrGetTransactionScopeAsync", "UpdatePartialAsync", "INhDbTransactionScope"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-backend-development", "newheap-background-processing"]
 providers: ["sql-server", "postgresql"]
 risk: critical
 ---

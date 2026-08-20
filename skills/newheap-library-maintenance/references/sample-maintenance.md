@@ -5,7 +5,7 @@ catalog narrative and all AI-facing instructions. Executable UI samples must
 always include English translations. Additional languages are allowed, but
 their translation key sets must remain aligned with English.
 
-`examples/SampleProjectManagement/docs/cases/sample-case-registry.json` is the canonical case inventory. `library-sample-plan.md`, `sample-implementation-status.json`, the Angular `sample-cases.ts`, human consumer guide and consumer-skill references are generated views.
+`examples/SampleProjectManagement/docs/cases/sample-case-registry.json` is the canonical case inventory. `library-sample-plan.md`, `sample-implementation-status.json`, the Angular `sample-cases.ts`, human consumer guide and focused consumer-skill references are generated views.
 
 ## Update a case
 
@@ -24,8 +24,8 @@ Never edit these generated files directly:
 - `examples/SampleProjectManagement/docs/sample-implementation-status.json`
 - `examples/SampleProjectManagement/src/Front-end/projects/sample-project-management-common/src/lib/sample-cases.ts`
 - `docs/consumer-guide/**`
-- `skills/newheap-consumer-development/references/**`
+- `skills/newheap-*/references/**` for consumer skills
 - `skills/skill-manifest.json`
-- `plugins/newheap-platform/skills/newheap-consumer-development/**`
+- `plugins/newheap-platform/skills/newheap-*/**`
 
 The sample must stand alone. Do not refer to copied comparison applications, temporary workspaces or proprietary consumer implementations.

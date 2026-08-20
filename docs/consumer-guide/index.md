@@ -2,26 +2,39 @@
 
 # NewHeap consumer guide
 
-This guide turns the public NewHeap surface and executable SampleProjectManagement cases into prescriptive rules for consumer applications. The same rules are bundled in the installable consumer skill.
+This guide turns the public NewHeap surface and executable SampleProjectManagement cases into prescriptive rules for consumer applications. The same self-contained rules are bundled in focused, automatically discoverable consumer skills.
 
 ## Install in a consumer
 
 For a reproducible, repository-pinned installation, run this from the Platform repository:
 
 ```text
-node tools/guidance/install-consumer-skill.mjs --consumer <consumer-root>
+node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>
 ```
 
-Then commit `<consumer-root>/.agents/skills/newheap-consumer-development`. Check for updates with the same command plus `--check`. For central distribution, the exact same skill is published as the `newheap-platform` plugin. The plugin artifact contains a standalone `scripts/install-consumer-skill.mjs`, so a consumer does not need a Platform checkout. Anonymous npm/NuGet sources and upgrade cutover are documented in [Consume public packages](../how-to/consume-public-packages.md).
+Then commit the managed `<consumer-root>/.agents/skills/newheap-*` directories and `.agents/skills/.newheap-platform-install.json`. Check for updates with the same command plus `--check`. The `newheap-platform` plugin publishes the same skill suite and a standalone plural installer, so a consumer does not need a Platform checkout. Anonymous npm/NuGet sources and upgrade cutover are documented in [Consume public packages](../how-to/consume-public-packages.md).
 
 ## Topics
 
-- [authentication](./authentication.md) — 2 rules
-- [backend-modules](./backend-modules.md) — 6 rules
-- [consumer-bootstrap](./consumer-bootstrap.md) — 4 rules
+- [authentication-overrides](./authentication-overrides.md) — 1 rule
+- [authorization-permissions](./authorization-permissions.md) — 1 rule
+- [backend-controller-contracts](./backend-controller-contracts.md) — 1 rule
+- [backend-models-localization](./backend-models-localization.md) — 1 rule
+- [backend-module-composition](./backend-module-composition.md) — 1 rule
+- [backend-partial-update](./backend-partial-update.md) — 1 rule
+- [backend-project-foundation](./backend-project-foundation.md) — 1 rule
+- [backend-unit-of-work](./backend-unit-of-work.md) — 1 rule
+- [background-processing](./background-processing.md) — 1 rule
+- [consumer-bootstrap-sequence](./consumer-bootstrap-sequence.md) — 1 rule
+- [consumer-management-portal](./consumer-management-portal.md) — 1 rule
+- [consumer-optional-infrastructure](./consumer-optional-infrastructure.md) — 1 rule
+- [consumer-scope-gate](./consumer-scope-gate.md) — 1 rule
 - [database-providers](./database-providers.md) — 1 rule
-- [frontend-components](./frontend-components.md) — 3 rules
-- [operations](./operations.md) — 3 rules
+- [frontend-collection-query](./frontend-collection-query.md) — 1 rule
+- [frontend-lifecycle-modals](./frontend-lifecycle-modals.md) — 1 rule
+- [frontend-root-configuration](./frontend-root-configuration.md) — 1 rule
+- [media](./media.md) — 1 rule
+- [runtime-configuration](./runtime-configuration.md) — 1 rule
 - [testing](./testing.md) — 1 rule
 
 ## Maintenance

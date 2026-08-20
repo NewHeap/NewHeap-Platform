@@ -2,11 +2,11 @@
 id: nh-frontend-lifecycle-modals
 title: "NewHeap lifecycle, pages, and modals"
 area: frontend
-reference: frontend-components
+reference: frontend-lifecycle-modals
 summary: "Use the appOn lifecycle of NewHeap base components so routing, metadata, request state, modal behavior, and cleanup remain intact."
 sample-cases: ["SPM-114", "SPM-115", "SPM-116", "SPM-117", "SPM-118", "SPM-119", "SPM-120", "SPM-129"]
 public-symbols: ["NhPageTypeBaseComponent", "NhCollectionTypeBaseComponent", "NhModalMutateBaseComponent", "NhModalComponentImpl", "NhModalService"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-frontend-development"]
 providers: ["frontend"]
 risk: critical
 ---

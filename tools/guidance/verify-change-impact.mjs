@@ -45,7 +45,7 @@ if (base) {
     }
     const distributableGuidanceChanged = changed.some(path =>
       path.startsWith('guidance/rules/') ||
-      path.startsWith('skills/newheap-consumer-development/') ||
+      path.startsWith('skills/newheap-') && !path.startsWith('skills/newheap-library-maintenance/') ||
       path.startsWith('plugins/newheap-platform/scripts/') ||
       path === 'plugins/newheap-platform/INSTALL.md' ||
       path === 'examples/SampleProjectManagement/docs/cases/sample-case-registry.json'

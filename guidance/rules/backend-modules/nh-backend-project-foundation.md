@@ -2,11 +2,11 @@
 id: nh-backend-project-foundation
 title: "Create the shared .NET project foundation"
 area: backend
-reference: backend-modules
+reference: backend-project-foundation
 summary: "Start a consumer solution with one shared MSBuild baseline and one central package version catalog so generated projects do not drift independently."
 sample-cases: ["SPM-216"]
 public-symbols: ["NewHeapPlatformCommonConfigurator", "NewHeapPlatformAspNetCommonConfigurator", "NhEventConfigurationBuilder"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: medium
 ---

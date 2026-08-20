@@ -2,7 +2,8 @@ import { access, readFile, readdir } from 'node:fs/promises';
 import { relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
-  consumerSkillRoot,
+  consumerSkillNames,
+  consumerSkillRoots,
   loadRegistry,
   loadRules,
   maintenanceSkillRoot,
@@ -85,7 +86,7 @@ validateEnglishNarrative(
 );
 
 for (const metadataPath of [
-  resolve(consumerSkillRoot, 'agents', 'openai.yaml'),
+  ...consumerSkillNames.map(name => resolve(consumerSkillRoots.get(name), 'agents', 'openai.yaml')),
   resolve(maintenanceSkillRoot, 'agents', 'openai.yaml'),
   resolve(sampleRoot, 'skills', 'sample-project-management-development', 'agents', 'openai.yaml')
 ]) {
@@ -165,7 +166,7 @@ async function validateSkill(skillRoot, expectedName) {
   if (!metadata.includes(`$${expectedName}`)) failures.push(`${expectedName}: openai.yaml default_prompt must mention the skill`);
 }
 
-await validateSkill(consumerSkillRoot, 'newheap-consumer-development');
+for (const skillName of consumerSkillNames) await validateSkill(consumerSkillRoots.get(skillName), skillName);
 await validateSkill(maintenanceSkillRoot, 'newheap-library-maintenance');
 
 const generation = spawnSync(process.execPath, [resolve(repositoryRoot, 'tools', 'guidance', 'generate-guidance.mjs'), '--check'], {
@@ -187,4 +188,4 @@ const plugin = spawnSync(process.execPath, [resolve(repositoryRoot, 'tools', 'gu
 if (plugin.status !== 0) failures.push(plugin.stderr || plugin.stdout || 'Plugin distribution check failed.');
 
 if (failures.length > 0) throw new Error(failures.join('\n'));
-console.log(`Validated ${registry.cases.length} sample cases, ${rules.length} guidance rules and 2 skills.`);
+console.log(`Validated ${registry.cases.length} sample cases, ${rules.length} guidance rules and ${consumerSkillNames.length + 1} skills.`);

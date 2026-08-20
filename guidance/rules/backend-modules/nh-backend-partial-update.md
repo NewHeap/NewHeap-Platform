@@ -2,11 +2,11 @@
 id: nh-backend-partial-update
 title: "Top-level JSON partial updates"
 area: backend
-reference: backend-modules
+reference: backend-partial-update
 summary: "Send and map a top-level JSON partial update while preserving omitted values and the regular service validation, transaction, logging, and save pipeline."
 sample-cases: ["SPM-037", "SPM-038"]
 public-symbols: ["patch", "patchResult", "updatePartial", "DoUpdatePartial", "CanPartiallyUpdateProperty", "UpdatePartialAsync", "PreparePartialUpdateMutateModelAsync", "NhSetPropertyCalls"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-backend-development"]
 providers: ["frontend", "provider-neutral"]
 risk: medium
 ---

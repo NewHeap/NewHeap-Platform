@@ -1,12 +1,13 @@
 import { resolve } from 'node:path';
-import { loadRules, readJson, repositoryRoot } from './lib.mjs';
+import { consumerSkillNames, loadRules, readJson, repositoryRoot } from './lib.mjs';
 
 const evaluations = await readJson(resolve(repositoryRoot, 'skill-evals', 'evals.json'));
 const rules = await loadRules();
 const failures = [];
 if (evaluations.schemaVersion !== 1 || !Array.isArray(evaluations.evals)) failures.push('Invalid skill eval schema.');
 const knownRules = new Set(rules.map(rule => rule.id));
-const knownSkills = new Set(['newheap-consumer-development', 'newheap-library-maintenance']);
+const ruleById = new Map(rules.map(rule => [rule.id, rule]));
+const knownSkills = new Set([...consumerSkillNames, 'newheap-library-maintenance']);
 const coveredRules = new Set();
 const ids = new Set();
 
@@ -18,6 +19,9 @@ for (const item of evaluations.evals ?? []) {
   if (!Array.isArray(item.expectedRules) || item.expectedRules.length === 0) failures.push(`${item.id}: expectedRules are required`);
   for (const rule of item.expectedRules ?? []) {
     if (!knownRules.has(rule)) failures.push(`${item.id}: unknown rule ${rule}`);
+    else if (item.skill !== 'newheap-library-maintenance' && !ruleById.get(rule).skills.includes(item.skill)) {
+      failures.push(`${item.id}: ${rule} is not routed to ${item.skill}`);
+    }
     coveredRules.add(rule);
   }
 }

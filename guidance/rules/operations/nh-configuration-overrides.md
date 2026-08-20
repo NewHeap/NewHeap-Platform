@@ -2,11 +2,11 @@
 id: nh-configuration-overrides
 title: "Configuration overrides for runtime and automation"
 area: configuration
-reference: operations
+reference: runtime-configuration
 summary: "Use the same appsettings and NewHeap secrets files on every host while allowing environment variables and explicitly supplied CLI arguments to override host-specific values."
 sample-cases: ["SPM-096"]
 public-symbols: ["ConfigureNhCommonConfiguration", "UseNhCommonConfiguration", "UseNewHeapAspnetCommonConfiguration", "CreateConfigurationRoot"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-runtime-configuration"]
 providers: ["provider-neutral"]
 risk: medium
 ---

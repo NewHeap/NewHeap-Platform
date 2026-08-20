@@ -46,6 +46,7 @@ if (!(await stat(consumerRoot).catch(() => undefined))?.isDirectory()) {
 async function loadDistribution() {
   const candidates = [
     resolve(skillRoot, '.newheap-skill-install.json'),
+    resolve(skillRoot, '..', '.newheap-platform-install.json'),
     resolve(skillRoot, '..', '..', 'distribution.json'),
     resolve(skillRoot, '..', '..', 'plugins', 'newheap-platform', 'distribution.json')
   ];
@@ -316,7 +317,6 @@ module.exports = [{
 
 const agentsInstructions = `# NewHeap consumer instructions
 
-- Use the repository-pinned \`newheap-consumer-development\` skill for all NewHeap work.
 - Infer the smallest current product scope from existing context. Ask only missing product questions in plain language, summarize the resulting profile, and scaffold only confirmed capabilities.
 - Keep the .NET solution and central props in \`src/Back-end\`.
 - Keep application hosts in \`src/Back-end/Applications\`, reusable application code in \`src/Back-end/Libraries\`, and tests in \`src/Back-end/Tests\` so more APIs or services can be added without restructuring.

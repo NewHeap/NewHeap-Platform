@@ -6,7 +6,7 @@ reference: testing
 summary: "Use the packable NewHeap .Test projects only as reusable test support for consumers, and keep NewHeap library regression tests in separate non-packable .Tests projects."
 sample-cases: ["SPM-173", "SPM-174", "SPM-175", "SPM-176"]
 public-symbols: ["NhTestingContext", "NhDbContextTestingContext", "TaskResultExtensions", "TestExtensions"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-testing"]
 providers: ["provider-neutral"]
 risk: medium
 ---

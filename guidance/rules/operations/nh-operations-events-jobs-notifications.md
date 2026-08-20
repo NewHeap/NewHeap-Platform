@@ -2,11 +2,11 @@
 id: nh-operations-events-jobs-notifications
 title: "Organize events, jobs, and notifications transactionally"
 area: operations
-reference: operations
+reference: background-processing
 summary: "Tie event publication to the unit of work, make consumers idempotent, and keep hosted services free of directly injected scoped state."
 sample-cases: ["SPM-076", "SPM-077", "SPM-078", "SPM-079", "SPM-080", "SPM-081", "SPM-082", "SPM-083", "SPM-084", "SPM-085", "SPM-086", "SPM-087", "SPM-088", "SPM-089", "SPM-090", "SPM-193", "SPM-195", "SPM-199", "SPM-208"]
 public-symbols: ["CapTransactionScope", "INhNotificationDispatcher", "NhHangfireUtil", "NhMailService", "NhNotificationSettings"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-background-processing"]
 providers: ["sql-server", "postgresql"]
 risk: critical
 ---

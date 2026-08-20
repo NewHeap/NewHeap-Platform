@@ -6,7 +6,7 @@ reference: database-providers
 summary: "Keep neutral EF code provider-translatable and put registration, SQL, and migrations in the project that actually owns the provider or consumer schema."
 sample-cases: ["SPM-051", "SPM-054", "SPM-055", "SPM-179", "SPM-194"]
 public-symbols: ["IRepository", "Repository", "StartOrGetTransactionScopeAsync"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-database-development"]
 providers: ["sql-server", "postgresql"]
 risk: critical
 ---

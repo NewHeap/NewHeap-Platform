@@ -21,18 +21,17 @@ files may add rules for a subtree, but may not weaken the requirements below.
   rather than editing generated copies.
 
 For public or behaviorally observable NewHeap library work, use the repository
-skill at `skills/newheap-library-maintenance/SKILL.md`. For implementation work
-in a consuming application, use
-`skills/newheap-consumer-development/SKILL.md`. These skills are versioned with
-the libraries; their generated references must not drift from executable sample
-evidence.
+skill at `skills/newheap-library-maintenance/SKILL.md`. Consumer work is split
+across the focused `skills/newheap-*` consumer suite; automatic skill discovery
+selects the relevant domain skill. These skills are versioned with the libraries;
+their generated references must not drift from executable sample evidence.
 
-The canonical consumer skill is mirrored into the versioned
+The canonical consumer skill suite is mirrored into the versioned
 `plugins/newheap-platform` distribution by `npm run guidance:generate`. Never
-edit the plugin's generated skill copy directly. Bump the guidance and plugin
+edit the plugin's generated skill copies directly. Bump the guidance and plugin
 version for a distributable guidance change, keep package compatibility metadata
 generated, run `npm run plugin:validate`, and use
-`tools/guidance/install-consumer-skill.mjs` when pinning the skill into a
+`tools/guidance/install-consumer-skills.mjs` when pinning the suite into a
 consumer repository under `.agents/skills`.
 
 `examples/SampleProjectManagement` is the executable documentation for the

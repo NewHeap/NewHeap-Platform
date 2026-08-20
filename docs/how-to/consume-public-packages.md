@@ -43,14 +43,14 @@ Run restore from an empty local package cache when validating a source cutover. 
 
 ## AI plugin and consumer skill
 
-Download `newheap-platform-<version>.tar.gz` and `SHA256SUMS` from the immutable GitHub Release tagged `newheap-platform-plugin-v<version>`, verify the archive, and install the plugin, or run `scripts/install-consumer-skill.mjs --consumer <consumer-root>` from the extracted artifact. If the matching release does not exist, that plugin version is not available for stable installation. Commit the pinned `.agents/skills/newheap-consumer-development` directory in the consumer.
+Download `newheap-platform-<version>.tar.gz` and `SHA256SUMS` from the immutable GitHub Release tagged `newheap-platform-plugin-v<version>`, verify the archive, and install the plugin, or run `scripts/install-consumer-skills.mjs --consumer <consumer-root>` from the extracted artifact. If the matching release does not exist, that plugin version is not available for stable installation. Commit the pinned NewHeap skill directories and `.agents/skills/.newheap-platform-install.json` in the consumer. The suite is self-contained; its optional sample links target immutable public source and do not require a SampleProjectManagement checkout.
 
 For every upgrade, verify that package versions, plugin version, and `distribution.json` compatibility metadata agree. Change registry source, declared versions, central version files, and lockfiles in one reviewed change.
 
 ## Empty repository sequence
 
 1. Download the immutable plugin release asset and verify its checksum.
-2. Install the bundled consumer skill into the empty repository.
+2. Install the bundled consumer skill suite into the empty repository.
 3. Confirm the smallest useful product scope and summarize what remains deferred.
 4. Run `bootstrap-newheap-consumer.mjs` with an application name, explicit profile, and persistence choice.
 5. Require anonymous `dotnet restore`, the profile-relevant `npm install`, and `inspect-newheap-consumer.mjs --mode foundation` to pass before feature work.

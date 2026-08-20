@@ -2,11 +2,11 @@
 id: nh-auth-override-hydration
 title: "Authentication overrides and claim hydration"
 area: authentication
-reference: authentication
+reference: authentication-overrides
 summary: "Extend token creation through the intended service extension point and hydrate mutable claims per request without replacing the standard protocol."
 sample-cases: ["SPM-069", "SPM-213", "SPM-214"]
 public-symbols: ["NhAuthenticationService", "INhAuthenticationService", "WithAuthenticationService", "NhUserManager"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-authentication"]
 providers: ["provider-neutral"]
 risk: critical
 ---

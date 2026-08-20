@@ -2,11 +2,11 @@
 id: nh-backend-module-composition
 title: "Wire a backend module end to end"
 area: backend
-reference: backend-modules
+reference: backend-module-composition
 summary: "Build a consumer module as a complete vertical slice so contracts, entity, DbContext, repository, service, mappings, DI, and HTTP composition remain demonstrably in sync."
 sample-cases: ["SPM-001", "SPM-009", "SPM-011", "SPM-013"]
 public-symbols: ["BaseDbEntityService", "DbEntityProtectedNhBaseController", "FilterableAttribute", "NewHeapAspNetCommonOptionsBuilder"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
 ---

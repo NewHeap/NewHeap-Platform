@@ -1,0 +1,4 @@
+interface:
+  display_name: "NewHeap Database Development"
+  short_description: "Build portable NewHeap EF Core behavior"
+  default_prompt: "Use $newheap-database-development to implement this consumer database change for the supported SQL Server and PostgreSQL provider matrix."

@@ -40,8 +40,9 @@ The [NewHeap consumer guide](docs/consumer-guide/index.md) and executable
 [SampleProjectManagement catalog](examples/SampleProjectManagement/docs/sample-catalog.md)
 share one canonical case registry. Reusable agent skills live under `skills`:
 
-- [consumer development](skills/newheap-consumer-development/SKILL.md) for
-  applications that use NewHeap packages;
+- the focused consumer suite in [the skill manifest](skills/skill-manifest.json)
+  for foundation, backend, frontend, authentication, databases, media,
+  background processing, runtime configuration and testing;
 - [library maintenance](skills/newheap-library-maintenance/SKILL.md) for keeping
   libraries, samples, guidance, and skills synchronized.
 
@@ -50,11 +51,12 @@ and `npm run skills:validate` before committing guidance or public library work.
 To pin the supported consumer workflow into another repository, run:
 
 ```text
-node tools/guidance/install-consumer-skill.mjs --consumer <consumer-root>
+node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>
 ```
 
-Commit the generated `.agents/skills/newheap-consumer-development` directory in
-that consumer. The same generated skill is packaged in the
+Commit the generated `.agents/skills/newheap-*` directories and
+`.agents/skills/.newheap-platform-install.json` in that consumer. The same
+generated skill suite is packaged in the
 [NewHeap Platform plugin](plugins/newheap-platform/.codex-plugin/plugin.json).
 
 ## Releases

@@ -1,0 +1,4 @@
+interface:
+  display_name: "NewHeap Frontend Development"
+  short_description: "Build NewHeap Angular application features"
+  default_prompt: "Use $newheap-frontend-development to implement this consumer Angular change with the supported NewHeap lifecycle and component patterns."

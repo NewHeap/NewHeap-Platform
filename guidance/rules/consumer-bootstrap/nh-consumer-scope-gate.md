@@ -2,7 +2,7 @@
 id: nh-consumer-scope-gate
 title: "Confirm product scope before choosing technical structure"
 area: consumer-bootstrap
-reference: consumer-bootstrap
+reference: consumer-scope-gate
 summary: "Infer the smallest useful consumer profile from existing context and plain-language product questions before scaffolding any technical capability."
 sample-cases: ["SPM-217"]
 public-symbols: ["NewHeapPlatformCommonConfigurator", "NewHeapPlatformAspNetCommonConfigurator", "NhCommonModule"]

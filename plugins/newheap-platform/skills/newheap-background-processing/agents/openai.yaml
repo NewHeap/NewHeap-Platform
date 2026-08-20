@@ -1,0 +1,4 @@
+interface:
+  display_name: "NewHeap Background Processing"
+  short_description: "Build events, jobs and notification flows"
+  default_prompt: "Use $newheap-background-processing to implement this event, job or notification workflow with transactional and idempotent NewHeap patterns."

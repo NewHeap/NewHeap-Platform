@@ -3,8 +3,9 @@ import { createHash } from 'node:crypto';
 import { dirname, relative, resolve } from 'node:path';
 import {
   consumerGuideRoot,
-  consumerPluginSkillRoot,
-  consumerSkillRoot,
+  consumerPluginSkillRoots,
+  consumerSkillNames,
+  consumerSkillRoots,
   groupRulesByReference,
   loadRegistry,
   loadRules,
@@ -32,6 +33,7 @@ if (failures.length > 0) throw new Error(failures.join('\n'));
 const groups = groupRulesByReference(rules);
 const versions = await packageVersions();
 const guidanceVersion = JSON.parse(await readFile(resolve(repositoryRoot, 'guidance', 'version.json'), 'utf8'));
+const pluginReleaseRef = `newheap-platform-plugin-v${guidanceVersion.guidanceVersion}`;
 const template = await readFile(planTemplatePath, 'utf8');
 const outputs = new Map([
   [planPath, renderPlan(registry, template)],
@@ -43,24 +45,52 @@ const outputs = new Map([
 for (const [reference, matchingRules] of [...groups.entries()].sort(([left], [right]) => left.localeCompare(right))) {
   const title = reference.split('-').map(word => word[0].toUpperCase() + word.slice(1)).join(' ');
   outputs.set(
-    resolve(consumerSkillRoot, 'references', `${reference}.md`),
-    renderRuleCollection(title, 'Use only the rules that apply to the current consumer task.', matchingRules, registry)
-  );
-  outputs.set(
     resolve(consumerGuideRoot, `${reference}.md`),
-    renderRuleCollection(title, 'Human-readable reference generated from the same rules as the NewHeap consumer skill.', matchingRules, registry, true)
+    renderRuleCollection(title, 'Human-readable reference generated from the same rules as the NewHeap consumer skills.', matchingRules, registry, 'links')
   );
 }
 
-const consumerSkillFiles = (await walkFiles(consumerSkillRoot)).map(path => ({
-  path,
-  name: relative(consumerSkillRoot, path).replaceAll('\\', '/')
-})).sort((left, right) => left.name.localeCompare(right.name));
+const referencesBySkill = new Map();
+for (const skillName of consumerSkillNames) {
+  const skillGroups = groupRulesByReference(rules.filter(rule => rule.skills.includes(skillName)));
+  referencesBySkill.set(skillName, skillGroups);
+  for (const [reference, matchingRules] of [...skillGroups.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+    const title = reference.split('-').map(word => word[0].toUpperCase() + word.slice(1)).join(' ');
+    outputs.set(
+      resolve(consumerSkillRoots.get(skillName), 'references', `${reference}.md`),
+      renderRuleCollection(
+        title,
+        'Use only the rules that apply to the current consumer task.',
+        matchingRules,
+        registry,
+        'compact-remote',
+        pluginReleaseRef
+      )
+    );
+  }
+}
+
+const consumerSkillFiles = [];
+for (const skillName of consumerSkillNames) {
+  const skillRoot = consumerSkillRoots.get(skillName);
+  const skillPaths = new Set(await walkFiles(skillRoot));
+  for (const path of outputs.keys()) {
+    const outputRelative = relative(skillRoot, path);
+    if (outputRelative && !outputRelative.startsWith('..')) skillPaths.add(path);
+  }
+  for (const path of skillPaths) {
+    consumerSkillFiles.push({
+      path,
+      name: `${skillName}/${relative(skillRoot, path).replaceAll('\\', '/')}`,
+      distributionPath: resolve(consumerPluginSkillRoots.get(skillName), relative(skillRoot, path))
+    });
+  }
+}
+consumerSkillFiles.sort((left, right) => left.name.localeCompare(right.name));
 const consumerSkillContents = new Map();
-for (const { path } of consumerSkillFiles) {
+for (const { path, distributionPath } of consumerSkillFiles) {
   const sourceContent = outputs.get(path) ?? await readFile(path, 'utf8');
   consumerSkillContents.set(path, sourceContent);
-  const distributionPath = resolve(consumerPluginSkillRoot, relative(consumerSkillRoot, path));
   outputs.set(distributionPath, sourceContent);
 }
 
@@ -68,6 +98,28 @@ const consumerSkillContentHash = createHash('sha256').update(consumerSkillFiles.
   const content = consumerSkillContents.get(path);
   return `${name}\0${content.replaceAll('\r\n', '\n')}`;
 }).join('\n')).digest('hex');
+
+const distribution = {
+  plugin: 'plugins/newheap-platform',
+  pluginVersion: guidanceVersion.guidanceVersion,
+  portableInstaller: 'plugins/newheap-platform/scripts/install-consumer-skills.mjs',
+  githubReleaseUnit: 'newheap-platform-plugin',
+  releaseAssetPattern: 'newheap-platform-<version>.tar.gz',
+  repositoryInstallCommand: 'node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>',
+  repositoryTarget: '.agents/skills'
+};
+
+const consumerSkillManifestEntries = consumerSkillNames.map(name => {
+  const references = [...referencesBySkill.get(name).keys()].sort().map(reference => `references/${reference}.md`);
+  if (name === 'newheap-consumer-development') references.push('references/package-sources.md');
+  return {
+    name,
+    path: `skills/${name}`,
+    audience: 'consumer-applications',
+    distribution,
+    references
+  };
+});
 
 const manifest = {
   schemaVersion: 1,
@@ -78,23 +130,7 @@ const manifest = {
   },
   packages: versions,
   skills: [
-    {
-      name: 'newheap-consumer-development',
-      path: 'skills/newheap-consumer-development',
-      audience: 'consumer-applications',
-      distribution: {
-        plugin: 'plugins/newheap-platform',
-        pluginVersion: guidanceVersion.guidanceVersion,
-        portableInstaller: 'plugins/newheap-platform/scripts/install-consumer-skill.mjs',
-        githubReleaseUnit: 'newheap-platform-plugin',
-        releaseAssetPattern: 'newheap-platform-<version>.tar.gz',
-        repositoryInstallCommand: 'node tools/guidance/install-consumer-skill.mjs --consumer <consumer-root>'
-      },
-      references: [
-        ...[...groups.keys()].sort().map(reference => `references/${reference}.md`),
-        'references/package-sources.md'
-      ]
-    },
+    ...consumerSkillManifestEntries,
     {
       name: 'newheap-library-maintenance',
       path: 'skills/newheap-library-maintenance',
@@ -105,12 +141,13 @@ const manifest = {
 };
 outputs.set(resolve(repositoryRoot, 'skills', 'skill-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 outputs.set(resolve(repositoryRoot, 'plugins', 'newheap-platform', 'distribution.json'), `${JSON.stringify({
-  schemaVersion: 1,
+  schemaVersion: 2,
   pluginVersion: guidanceVersion.guidanceVersion,
   guidanceVersion: guidanceVersion.guidanceVersion,
   skillContentHash: consumerSkillContentHash,
+  skills: consumerSkillNames,
   compatiblePackages: versions,
-  repositoryTarget: '.agents/skills/newheap-consumer-development'
+  repositoryTarget: '.agents/skills'
 }, null, 2)}\n`);
 
 const stale = [];

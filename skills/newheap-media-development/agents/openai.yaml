@@ -1,0 +1,4 @@
+interface:
+  display_name: "NewHeap Media Development"
+  short_description: "Build NewHeap media storage and APIs"
+  default_prompt: "Use $newheap-media-development to implement this consumer media workflow with the supported storage, authorization and HTTP boundaries."

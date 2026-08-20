@@ -2,11 +2,11 @@
 id: nh-frontend-root-configuration
 title: "Root configuration with compatible opt-ins"
 area: frontend
-reference: frontend-components
+reference: frontend-root-configuration
 summary: "Register NhCommonModule once at the root and explicitly enable recommended optimizations without changing library defaults for existing consumers."
 sample-cases: ["SPM-112", "SPM-121", "SPM-215"]
 public-symbols: ["NhCommonModule", "NhHttpNhCommonModuleConfig", "NhFormDropDownNhCommonModuleConfig"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-frontend-development"]
 providers: ["frontend"]
 risk: critical
 ---

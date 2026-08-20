@@ -2,7 +2,7 @@
 id: nh-consumer-management-portal
 title: "Use a NewHeap management portal for confirmed interactive work"
 area: consumer-bootstrap
-reference: consumer-bootstrap
+reference: consumer-management-portal
 summary: "When the product scope requires interactive administration, use the authenticated, information-dense NewHeap management profile instead of a generic website starter."
 sample-cases: ["SPM-001", "SPM-112", "SPM-115", "SPM-217"]
 public-symbols: ["DbEntityProtectedNhBaseController", "NhBaseApiService", "NhModalMutateBaseComponent"]

@@ -1,0 +1,4 @@
+interface:
+  display_name: "NewHeap Runtime Configuration"
+  short_description: "Configure NewHeap hosts and automation"
+  default_prompt: "Use $newheap-runtime-configuration to configure this consumer host with the supported NewHeap settings and override precedence."

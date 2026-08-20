@@ -1,0 +1,4 @@
+interface:
+  display_name: "NewHeap Backend Development"
+  short_description: "Build NewHeap .NET modules and APIs"
+  default_prompt: "Use $newheap-backend-development to implement this consumer backend change with the supported NewHeap module, service and API patterns."

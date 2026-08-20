@@ -2,7 +2,7 @@
 id: nh-consumer-bootstrap-sequence
 title: "Bootstrap an empty consumer before feature work"
 area: consumer-bootstrap
-reference: consumer-bootstrap
+reference: consumer-bootstrap-sequence
 summary: "Turn a confirmed product scope into a deterministic, capability-sized NewHeap foundation, prove anonymous public package restore, and only then generate application features."
 sample-cases: ["SPM-216", "SPM-217"]
 public-symbols: ["NewHeapPlatformCommonConfigurator", "NewHeapPlatformAspNetCommonConfigurator", "NhCommonModule"]

@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { loadRegistry, loadRules, repositoryRoot } from './lib.mjs';
+import { consumerSkillNames, loadRegistry, loadRules, repositoryRoot } from './lib.mjs';
 
 const environmentWithoutPath = Object.fromEntries(
   Object.entries(process.env).filter(([key]) => key.toLowerCase() !== 'path')
@@ -9,7 +9,7 @@ environmentWithoutPath.PATH = '';
 
 const validator = resolve(repositoryRoot, 'tools', 'guidance', 'validate-guidance.mjs');
 const [registry, rules] = await Promise.all([loadRegistry(), loadRules()]);
-const expectedOutput = `Validated ${registry.cases.length} sample cases, ${rules.length} guidance rules and 2 skills.`;
+const expectedOutput = `Validated ${registry.cases.length} sample cases, ${rules.length} guidance rules and ${consumerSkillNames.length + 1} skills.`;
 const result = spawnSync(process.execPath, [validator], {
   cwd: repositoryRoot,
   encoding: 'utf8',

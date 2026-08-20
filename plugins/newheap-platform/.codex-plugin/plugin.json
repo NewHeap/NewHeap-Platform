@@ -1,7 +1,7 @@
 {
   "name": "newheap-platform",
-  "version": "1.11.5",
-  "description": "Build consuming applications with the supported NewHeap Platform library patterns and executable examples.",
+  "version": "1.11.6",
+  "description": "Build consuming applications with focused, discoverable NewHeap Platform skills.",
   "author": {
     "name": "NewHeap B.V."
   },
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "NewHeap Platform",
     "shortDescription": "Build consumer apps with NewHeap",
-    "longDescription": "Versioned NewHeap consumer-development guidance generated from executable SampleProjectManagement cases and the current public library surface.",
+    "longDescription": "Versioned, self-contained NewHeap consumer guidance split into focused skills and backed by optional immutable public sample evidence.",
     "developerName": "NewHeap B.V.",
     "category": "Developer Tools",
     "capabilities": [

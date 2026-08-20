@@ -2,11 +2,11 @@
 id: nh-backend-controller-contracts
 title: "Controllers and Scalar as an executable contract"
 area: backend
-reference: backend-modules
+reference: backend-controller-contracts
 summary: "Make routing, binding, authorization, and response metadata explicit for every action so Scalar can display and test the real contract."
 sample-cases: ["SPM-001", "SPM-009", "SPM-189"]
 public-symbols: ["ProtectedNhBaseController", "DbEntityProtectedNhBaseController", "PublicNhBaseController"]
-skills: ["newheap-consumer-development"]
+skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: medium
 ---
