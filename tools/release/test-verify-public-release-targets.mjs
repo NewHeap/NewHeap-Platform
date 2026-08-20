@@ -58,6 +58,20 @@ if (missingAllowed.code !== 0 || !missingAllowed.stdout.includes('0 existing ano
   throw new Error(`The pre-publication missing-package check failed.\n${missingAllowed.stdout}\n${missingAllowed.stderr}`);
 }
 
+const missingRequired = await exercise(npmComponent, (_request, response) => {
+  json(response, 404, { message: 'Not Found' });
+}, ['--require-missing', '--attempts', '1', '--retry-delay-ms', '0']);
+if (missingRequired.code !== 0 || !missingRequired.stdout.includes('unused public package name')) {
+  throw new Error(`The bootstrap missing-package requirement failed.\n${missingRequired.stdout}\n${missingRequired.stderr}`);
+}
+
+const existingRejected = await exercise(npmComponent, (_request, response) => {
+  json(response, 200, { versions: { [npmVersion]: {} } });
+}, ['--require-missing', '--attempts', '1', '--retry-delay-ms', '0']);
+if (existingRejected.code === 0 || !existingRejected.stderr.includes('already exists')) {
+  throw new Error(`The bootstrap accepted an existing package name.\n${existingRejected.stdout}\n${existingRejected.stderr}`);
+}
+
 const nugetVisible = await exercise(nugetComponent, (_request, response) => {
   json(response, 200, { versions: [nugetVersion] });
 }, ['--attempts', '1', '--retry-delay-ms', '0']);
