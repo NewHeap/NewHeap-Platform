@@ -43,7 +43,7 @@ Run restore from an empty local package cache when validating a source cutover. 
 
 ## AI plugin and consumer skill
 
-Download the `newheap-platform-plugin-v*` GitHub Release asset, verify it against the accompanying `SHA256SUMS`, and install the plugin, or run `scripts/install-consumer-skill.mjs --consumer <consumer-root>` from the extracted artifact. Commit the pinned `.agents/skills/newheap-consumer-development` directory in the consumer.
+Download `newheap-platform-<version>.tar.gz` and `SHA256SUMS` from the immutable GitHub Release tagged `newheap-platform-plugin-v<version>`, verify the archive, and install the plugin, or run `scripts/install-consumer-skill.mjs --consumer <consumer-root>` from the extracted artifact. If the matching release does not exist, that plugin version is not available for stable installation. Commit the pinned `.agents/skills/newheap-consumer-development` directory in the consumer.
 
 For every upgrade, verify that package versions, plugin version, and `distribution.json` compatibility metadata agree. Change registry source, declared versions, central version files, and lockfiles in one reviewed change.
 
