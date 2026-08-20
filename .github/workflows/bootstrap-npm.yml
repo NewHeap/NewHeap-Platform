@@ -1,0 +1,96 @@
+name: Bootstrap npm package
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: npm release unit to create before trusted publishing is configured
+        required: true
+        type: choice
+        options:
+          - npm-platform-common
+          - npm-nh-toastr
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-package-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    if: github.repository == 'NewHeap/NewHeap-Platform' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out dispatched main commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Verify bootstrap commit is current main
+        env:
+          BOOTSTRAP_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$BOOTSTRAP_SHA" =~ ^[0-9a-f]{40}$ ]] || [[ "$(git rev-parse HEAD)" != "$BOOTSTRAP_SHA" ]]; then
+            echo "The checked-out revision does not match the dispatched commit." >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if [[ "$(git rev-parse origin/main)" != "$BOOTSTRAP_SHA" ]]; then
+            echo "The dispatched commit is no longer current main; start the bootstrap again." >&2
+            exit 1
+          fi
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+          scope: '@newheap'
+      - name: Install Angular workspace dependencies
+        run: npm ci
+        working-directory: src/Front-end
+      - name: Audit npm dependencies
+        run: |
+          npm audit --audit-level=critical
+          npm audit --omit=dev --audit-level=high
+        working-directory: src/Front-end
+      - name: Validate release tooling
+        run: npm run release:test
+      - name: Require an unused public package name
+        env:
+          SELECTED_COMPONENT: ${{ inputs.component }}
+        run: node tools/release/verify-public-release-targets.mjs --component "$SELECTED_COMPONENT" --require-missing --attempts 1 --retry-delay-ms 0
+      - name: Pack validated bootstrap artifact
+        env:
+          BOOTSTRAP_SHA: ${{ github.sha }}
+          SELECTED_COMPONENT: ${{ inputs.component }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node tools/release/release-info.mjs --component "$SELECTED_COMPONENT" --field version)"
+          node tools/release/package-release.mjs \
+            --component "$SELECTED_COMPONENT" \
+            --version "$version" \
+            --output "release-artifacts/${SELECTED_COMPONENT}" \
+            --repository-url "https://github.com/${{ github.repository }}" \
+            --commit "$BOOTSTRAP_SHA"
+      - name: Publish initial public npm package with temporary token
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
+          SELECTED_COMPONENT: ${{ inputs.component }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${NODE_AUTH_TOKEN:-}" ]]; then
+            echo "NPM_BOOTSTRAP_TOKEN is required for the one-time initial package publication." >&2
+            exit 1
+          fi
+          npm publish "release-artifacts/${SELECTED_COMPONENT}"/*.tgz --access public --registry https://registry.npmjs.org
+      - name: Verify exact version is anonymously readable
+        env:
+          SELECTED_COMPONENT: ${{ inputs.component }}
+        run: node tools/release/verify-public-release-targets.mjs --component "$SELECTED_COMPONENT"

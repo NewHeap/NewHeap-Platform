@@ -18,6 +18,9 @@ const retryDelayMs = numericOption('retry-delay-ms', 2000, 0, 60000);
 if (options.version && options.component === 'all') {
   throw new Error('--version cannot override multiple independently versioned release units.');
 }
+if (options['allow-missing'] && options['require-missing']) {
+  throw new Error('--allow-missing and --require-missing cannot be combined.');
+}
 
 const manifest = await loadReleaseManifest();
 const npmRegistry = (process.env.NPM_REGISTRY_URL ?? manifest.registries.npm).replace(/\/+$/, '');
@@ -56,6 +59,14 @@ const packageTargets = releasePackages(manifest, options.component);
 let checked = 0;
 for (const releasePackage of packageTargets) {
   const expectedVersion = options.version ?? releasePackage.version;
+  if (options['require-missing']) {
+    const metadata = await registryJson(releasePackage);
+    if (metadata !== null) {
+      throw new Error(`Public ${releasePackage.packageType} package ${releasePackage.packageName} already exists; bootstrap publication requires an unused package name.`);
+    }
+    checked += 1;
+    continue;
+  }
   if (options['allow-missing']) {
     const metadata = await registryJson(releasePackage);
     if (metadata === null) continue;
@@ -82,5 +93,9 @@ for (const releasePackage of packageTargets) {
   checked += 1;
 }
 
-const description = options['allow-missing'] ? 'existing anonymously readable package target(s)' : 'exact public package version(s)';
+const description = options['require-missing']
+  ? 'unused public package name(s)'
+  : options['allow-missing']
+    ? 'existing anonymously readable package target(s)'
+    : 'exact public package version(s)';
 console.log(`Verified ${checked} ${description} for ${options.component}.`);
