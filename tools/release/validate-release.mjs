@@ -258,6 +258,16 @@ for (const workflowPath of workflowPaths) {
       failures.push(`${workflowPath}: guidance state must be validated both before and after release preparation.`);
     }
     if (!workflow.includes('- all')) failures.push(`${workflowPath}: must support selecting all release units.`);
+    if (!workflow.includes('refresh-plugin:')
+      || !workflow.includes('name: Queue plugin compatibility release')
+      || !workflow.includes('needs: release')
+      || !workflow.includes("inputs.component != 'all' && inputs.component != 'newheap-platform-plugin'")
+      || !workflow.includes('actions: write')
+      || !workflow.includes('actions/workflows/prepare-release.yml/dispatches')
+      || !workflow.includes('inputs[component]=newheap-platform-plugin')
+      || !workflow.includes('inputs[bump]=patch')) {
+      failures.push(`${workflowPath}: successful individual package releases must queue one guarded plugin patch release.`);
+    }
   }
   if (workflowPath.endsWith('release-contract.yml')) {
     if (!workflow.includes('- main') || workflow.includes('- staging') || workflow.includes('- production')) {
