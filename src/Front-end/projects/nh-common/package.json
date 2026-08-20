@@ -1,6 +1,6 @@
 {
   "name": "@newheap/platform-common",
-  "version": "0.20.6",
+  "version": "0.20.7",
   "peerDependencies": {
     "@angular/common": "^20.3.28",
     "@angular/core": "^20.3.28",
