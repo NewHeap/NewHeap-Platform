@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "pluginVersion": "1.11.3",
-  "guidanceVersion": "1.11.3",
+  "pluginVersion": "1.11.4",
+  "guidanceVersion": "1.11.4",
   "skillContentHash": "13fff23ef401d572104184fad36c66bcedd5c675e8fd281563fd296fc219f177",
   "compatiblePackages": {
     "@newheap/nh-toastr": "0.0.6",

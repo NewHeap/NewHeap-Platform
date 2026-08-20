@@ -15,6 +15,7 @@ const failures = [];
 const manifestPath = resolve(consumerPluginRoot, '.codex-plugin', 'plugin.json');
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 const distribution = JSON.parse(await readFile(resolve(consumerPluginRoot, 'distribution.json'), 'utf8'));
+const installGuide = await readFile(resolve(consumerPluginRoot, 'INSTALL.md'), 'utf8');
 const versions = await packageVersions();
 const guidanceVersion = await readJson(resolve(repositoryRoot, 'guidance', 'version.json'));
 
@@ -29,6 +30,13 @@ for (const key of ['displayName', 'shortDescription', 'longDescription', 'develo
   if (!manifest.interface?.[key]) failures.push(`Plugin interface.${key} is required.`);
 }
 if (manifest.hooks || manifest.apps || manifest.mcpServers) failures.push('Plugin declares a companion surface that is not packaged.');
+if (!installGuide.includes('newheap-platform-plugin-v<version>')) failures.push('Plugin install guide must identify the versioned GitHub Release tag.');
+if (!installGuide.includes('newheap-platform-<version>.tar.gz')) failures.push('Plugin install guide must identify the generated archive name.');
+if (!installGuide.includes('--profile management-portal --database postgresql')) failures.push('Plugin bootstrap example must select an explicit profile and persistence provider.');
+if (!installGuide.includes('https://api.nuget.org/v3/index.json') || !installGuide.includes('https://registry.npmjs.org/')) {
+  failures.push('Plugin install guide must use the public NuGet and npm registries.');
+}
+if (/configure machine-level credentials/i.test(installGuide)) failures.push('Plugin install guide must not request consumer credentials for public NewHeap packages.');
 
 const canonicalFiles = new Map((await walkFiles(consumerSkillRoot)).map(path => [
   relative(consumerSkillRoot, path).replaceAll('\\', '/'),
