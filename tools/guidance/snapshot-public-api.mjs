@@ -22,6 +22,10 @@ function normalizedPath(path) {
   return relative(repositoryRoot, path).replaceAll('\\', '/');
 }
 
+function normalizedText(content) {
+  return content.replace(/\r\n?/g, '\n');
+}
+
 function hash(entries) {
   return createHash('sha256').update(entries.map(item => `${item.path}\0${item.declaration}`).join('\n')).digest('hex');
 }
@@ -84,7 +88,9 @@ const content = `${JSON.stringify(snapshot, null, 2)}\n`;
 if (checkOnly) {
   let current;
   try { current = await readFile(outputPath, 'utf8'); } catch { current = undefined; }
-  if (current !== content) throw new Error('Public API snapshot is stale. Run npm run guidance:snapshot and review the guidance impact.');
+  if (current === undefined || normalizedText(current) !== content) {
+    throw new Error('Public API snapshot is stale. Run npm run guidance:snapshot and review the guidance impact.');
+  }
   console.log(`Verified ${backEndEntries.length} backend and ${frontEndEntries.length} frontend public declarations.`);
 } else {
   await writeFile(outputPath, content, 'utf8');

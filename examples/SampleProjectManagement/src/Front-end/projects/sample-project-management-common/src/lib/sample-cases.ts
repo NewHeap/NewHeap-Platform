@@ -2325,12 +2325,13 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "PostgreSQL file structure",
     "category": "Media",
     "surface": "PostgreSQL structure provider",
-    "outcome": "Folders, files, and relationships are stored without library-owned sample migrations.",
+    "outcome": "Folders, files, and relationships are stored through the independent PostgreSQL provider package without a SQL Server package dependency or library-owned sample migrations.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/FileStructureStorageProviderTests.cs"
     ]
   },
   {

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import { basename, relative, resolve } from 'node:path';
+import { basename, dirname, relative, resolve } from 'node:path';
 import {
   isPackageSemver,
   loadReleaseManifest,
@@ -30,7 +30,10 @@ const repositoryUrl = options['repository-url'] ?? 'https://github.com/OWNER/REP
 const repositoryCommit = options.commit ?? 'local';
 const dryRun = Boolean(options['dry-run']);
 const commands = [];
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const npmCommand = process.platform === 'win32' ? process.execPath : 'npm';
+const npmArgumentPrefix = process.platform === 'win32'
+  ? [process.env.npm_execpath ?? resolve(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')]
+  : [];
 
 function run(command, argumentsList, runOptions = {}) {
   commands.push({ command, arguments: argumentsList, cwd: relative(repositoryRoot, runOptions.cwd ?? repositoryRoot) || '.' });
@@ -40,7 +43,12 @@ function run(command, argumentsList, runOptions = {}) {
     stdio: 'inherit',
     shell: false
   });
+  if (result.error) throw new Error(`${command} failed to start: ${result.error.message}`);
   if (result.status !== 0) throw new Error(`${command} failed with exit code ${result.status}.`);
+}
+
+function runNpm(argumentsList, runOptions = {}) {
+  run(npmCommand, [...npmArgumentPrefix, ...argumentsList], runOptions);
 }
 
 if (!dryRun) {
@@ -84,16 +92,19 @@ if (unit.kind === 'nuget') {
 
 if (unit.kind === 'npm') {
   const workspace = resolveRepositoryPath(unit.workspace);
-  run(npmCommand, ['run', unit.buildScript], { cwd: workspace });
+  const distDirectory = resolveRepositoryPath(unit.distDirectory);
+  if (distDirectory === repositoryRoot) throw new Error('The repository root cannot be used as an npm distribution directory.');
+  if (!dryRun) await rm(distDirectory, { recursive: true, force: true });
+  runNpm(['run', unit.buildScript], { cwd: workspace });
   if (!dryRun) {
-    const distPackagePath = resolve(resolveRepositoryPath(unit.distDirectory), 'package.json');
+    const distPackagePath = resolve(distDirectory, 'package.json');
     const distPackage = await readJson(distPackagePath);
     distPackage.version = version;
     distPackage.repository = { type: 'git', url: `git+${repositoryUrl}.git` };
     distPackage.publishConfig = { registry: manifest.registries.npm, access: manifest.packageVisibility };
     await writeJson(distPackagePath, distPackage);
   }
-  run(npmCommand, ['pack', resolveRepositoryPath(unit.distDirectory), '--pack-destination', outputDirectory]);
+  runNpm(['pack', distDirectory, '--pack-destination', outputDirectory]);
 }
 
 if (unit.kind === 'plugin') {

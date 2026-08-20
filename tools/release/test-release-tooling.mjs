@@ -11,7 +11,7 @@ import {
   releaseTag,
   repositoryRoot
 } from './lib.mjs';
-import { validateNugetArtifactEntries } from './validate-package-artifacts.mjs';
+import { validateNpmArtifactEntries, validateNugetArtifactEntries } from './validate-package-artifacts.mjs';
 
 const validNuspec = Buffer.from(`<?xml version="1.0"?><package><metadata>
   <id>NewHeap.Platform.Example</id><version>1.2.3</version>
@@ -77,6 +77,27 @@ assert.match(validateNugetArtifactEntries({
     { name: 'lib/net10.0/NewHeap.Platform.Example.dll', data: Buffer.from('C:\\Users\\maintainer\\source\\private.cs') }
   ]
 }).join('\n'), /Windows user-profile path/);
+assert.deepEqual(validateNpmArtifactEntries({
+  fileName: 'newheap-example-1.2.3.tgz',
+  packageName: '@newheap/example',
+  version: '1.2.3',
+  entries: [{
+    name: 'package/package.json',
+    data: Buffer.from(JSON.stringify({ name: '@newheap/example', version: '1.2.3' }))
+  }]
+}), []);
+assert.match(validateNpmArtifactEntries({
+  fileName: 'newheap-example-1.2.3.tgz',
+  packageName: '@newheap/example',
+  version: '1.2.3',
+  entries: [
+    {
+      name: 'package/package.json',
+      data: Buffer.from(JSON.stringify({ name: '@newheap/example', version: '1.2.3' }))
+    },
+    { name: 'package/newheap-example-1.2.2.tgz', data: Buffer.from('stale package') }
+  ]
+}).join('\n'), /contains a nested package archive/);
 
 const manifest = await loadReleaseManifest();
 if (manifest.packageVisibility !== 'public'

@@ -1,0 +1,2 @@
+# Keep source files consistent across Windows and WSL.
+* text=auto eol=lf

@@ -1,4 +1,4 @@
-import { inflateRawSync } from 'node:zlib';
+import { gunzipSync, inflateRawSync } from 'node:zlib';
 import { readFile, readdir } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -70,6 +70,29 @@ export function readZipEntries(buffer) {
   return entries;
 }
 
+export function readTarGzipEntries(buffer) {
+  const archive = gunzipSync(buffer);
+  const entries = [];
+  let offset = 0;
+
+  while (offset + 512 <= archive.length) {
+    const header = archive.subarray(offset, offset + 512);
+    if (header.every(byte => byte === 0)) break;
+    const name = header.subarray(0, 100).toString('utf8').replace(/\0.*$/s, '');
+    const prefix = header.subarray(345, 500).toString('utf8').replace(/\0.*$/s, '');
+    const path = prefix ? `${prefix}/${name}` : name;
+    const sizeText = header.subarray(124, 136).toString('ascii').replace(/\0.*$/s, '').trim();
+    const size = sizeText ? Number.parseInt(sizeText, 8) : 0;
+    if (!Number.isFinite(size) || size < 0) throw new Error(`${path}: invalid TAR entry size.`);
+    const dataOffset = offset + 512;
+    if (dataOffset + size > archive.length) throw new Error(`${path}: TAR entry exceeds the archive length.`);
+    entries.push({ name: path, data: Buffer.from(archive.subarray(dataOffset, dataOffset + size)) });
+    offset = dataOffset + Math.ceil(size / 512) * 512;
+  }
+
+  return entries;
+}
+
 function xmlText(source, element) {
   const match = source.match(new RegExp(`<${element}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${element}>`, 'i'));
   return match?.[1]?.trim() ?? '';
@@ -136,7 +159,51 @@ export function validateNugetArtifactEntries({ fileName, entries, packageId, ver
   return failures;
 }
 
+export function validateNpmArtifactEntries({ fileName, entries, packageName, version }) {
+  const failures = [];
+  const names = entries.map(entry => entry.name);
+  if (names.some(name => /\.(?:tgz|tar\.gz)$/i.test(name))) {
+    failures.push(`${fileName}: contains a nested package archive.`);
+  }
+
+  const packageJsonEntry = entries.find(entry => entry.name === 'package/package.json');
+  if (!packageJsonEntry) {
+    failures.push(`${fileName}: has no package/package.json metadata.`);
+  } else {
+    try {
+      const packageJson = JSON.parse(packageJsonEntry.data.toString('utf8'));
+      if (packageJson.name !== packageName) failures.push(`${fileName}: package name does not match ${packageName}.`);
+      if (packageJson.version !== version) failures.push(`${fileName}: package version does not match ${version}.`);
+    } catch (error) {
+      failures.push(`${fileName}: package/package.json is invalid JSON: ${error.message}`);
+    }
+  }
+
+  return failures;
+}
+
 export async function validatePackageArtifacts({ component, unit, version, outputDirectory }) {
+  if (unit.kind === 'npm') {
+    const failures = [];
+    const names = (await readdir(outputDirectory)).filter(name => name !== 'SHA256SUMS').sort();
+    const expectedName = `${unit.packageName.replace(/^@/, '').replaceAll('/', '-')}-${version}.tgz`;
+    if (names.join('\n') !== expectedName) {
+      failures.push(`${component}: expected artifact ${expectedName}, found ${names.join(', ')}.`);
+    }
+    try {
+      const entries = readTarGzipEntries(await readFile(resolve(outputDirectory, expectedName)));
+      failures.push(...validateNpmArtifactEntries({
+        fileName: expectedName,
+        entries,
+        packageName: unit.packageName,
+        version
+      }));
+    } catch (error) {
+      failures.push(`${expectedName}: ${error.message}`);
+    }
+    if (failures.length > 0) throw new Error(failures.join('\n'));
+    return;
+  }
   if (unit.kind !== 'nuget') return;
   const failures = [];
   const names = (await readdir(outputDirectory)).filter(name => name !== 'SHA256SUMS').sort();
