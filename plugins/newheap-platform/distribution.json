@@ -12,13 +12,13 @@
     "NewHeap.Platform.Common": "2.0.0",
     "NewHeap.Platform.Common.Test": "2.0.0",
     "NewHeap.Platform.Events.Cap": "2.0.0",
-    "NewHeap.Platform.Media": "1.1.4",
-    "NewHeap.Platform.Media.Core": "1.1.4",
-    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "1.1.4",
-    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "1.1.4",
-    "NewHeap.Platform.Media.Http": "1.1.4",
-    "NewHeap.Platform.Media.MediaStorage.FileSystem": "1.1.4",
-    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "1.1.4"
+    "NewHeap.Platform.Media": "2.0.0",
+    "NewHeap.Platform.Media.Core": "2.0.0",
+    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "2.0.0",
+    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "2.0.0",
+    "NewHeap.Platform.Media.Http": "2.0.0",
+    "NewHeap.Platform.Media.MediaStorage.FileSystem": "2.0.0",
+    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "2.0.0"
   },
   "repositoryTarget": ".agents/skills/newheap-consumer-development"
 }
