@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
-  "pluginVersion": "1.11.6",
-  "guidanceVersion": "1.11.6",
-  "skillContentHash": "0ea72e9a2de0eaad9a9d3cede52d13bfb046b96f021b963863f2d9509018b28b",
+  "pluginVersion": "1.11.7",
+  "guidanceVersion": "1.11.7",
+  "skillContentHash": "87c99bc7a0058b73b6b385e09b3c20b876ed8ec9a85638ba4922c0e78621c043",
   "skills": [
     "newheap-consumer-development",
     "newheap-authentication",

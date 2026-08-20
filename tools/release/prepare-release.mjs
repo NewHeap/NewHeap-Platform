@@ -83,8 +83,14 @@ for (const { component, unit, previousVersion, version } of releases) {
     const pluginPath = resolve(repositoryRoot, 'plugins', 'newheap-platform', '.codex-plugin', 'plugin.json');
     const guidance = await readJson(guidancePath);
     const plugin = await readJson(pluginPath);
-    if (guidance.guidanceVersion !== previousVersion || plugin.version !== previousVersion) {
-      throw new Error(`Plugin, guidance and release manifest must all start at ${previousVersion}.`);
+    const guidanceVersion = guidance.guidanceVersion;
+    const pluginVersion = plugin.version;
+    if (guidanceVersion !== pluginVersion
+      || (guidanceVersion !== previousVersion && guidanceVersion !== version)) {
+      throw new Error(
+        `Plugin and guidance must both be ${previousVersion} or the requested ${version}; `
+        + `found ${pluginVersion} and ${guidanceVersion}.`
+      );
     }
     guidance.guidanceVersion = version;
     plugin.version = version;

@@ -32,4 +32,4 @@ Run the reflection-based controller contract test and open both the OpenAPI docu
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.6/docs/consumer-guide/backend-controller-contracts.md#controllers-and-scalar-as-an-executable-contract)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.7/docs/consumer-guide/backend-controller-contracts.md#controllers-and-scalar-as-an-executable-contract)
