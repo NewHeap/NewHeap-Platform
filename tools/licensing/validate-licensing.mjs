@@ -51,7 +51,7 @@ requireText(license, '6. Trademarks.', 'LICENSE');
 for (const path of [
   'plugins/newheap-platform/LICENSE',
   'skills/newheap-consumer-development/LICENSE',
-  'plugins/newheap-platform/skills/newheap-consumer-development/LICENSE',
+  'plugins/newheap-platform/skills/newheap-platform-development/skills/foundation/LICENSE',
   'src/Front-end/projects/nh-common/LICENSE',
   'src/Front-end/projects/nh-toastr/LICENSE'
 ]) {
@@ -111,7 +111,7 @@ for (const attribution of ['Phil Booth', 'Salesforce.com, Inc.']) {
 for (const path of [
   'plugins/newheap-platform/NOTICE',
   'skills/newheap-consumer-development/NOTICE',
-  'plugins/newheap-platform/skills/newheap-consumer-development/NOTICE'
+  'plugins/newheap-platform/skills/newheap-platform-development/skills/foundation/NOTICE'
 ]) {
   if (!await exists(path)) failures.push(`${path} is required in the standalone distribution.`);
 }

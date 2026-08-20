@@ -41,35 +41,43 @@ async function exists(path) {
   try { await access(path); return true; } catch { return false; }
 }
 
+async function readJsonIfPresent(path) {
+  try { return JSON.parse(await readFile(path, 'utf8')); } catch { return undefined; }
+}
+
 const plugin = JSON.parse(await readFile(resolve(pluginRoot, '.codex-plugin', 'plugin.json'), 'utf8'));
 const distribution = JSON.parse(await readFile(resolve(pluginRoot, 'distribution.json'), 'utf8'));
-if (distribution.schemaVersion !== 2 || !Array.isArray(distribution.skills) || distribution.skills.length === 0) {
-  throw new Error('The plugin does not contain a valid NewHeap consumer skill-suite manifest.');
+if (distribution.schemaVersion !== 3 || !Array.isArray(distribution.skills) || distribution.skills.length !== 1) {
+  throw new Error('The plugin does not contain a valid grouped NewHeap consumer skill-suite manifest.');
 }
-const skillNames = distribution.skills;
-if (new Set(skillNames).size !== skillNames.length || skillNames.some(name => !/^newheap-[a-z0-9-]+$/.test(name))) {
-  throw new Error('The plugin contains an invalid or duplicate consumer skill name.');
+const [suiteName] = distribution.skills;
+const moduleNames = distribution.modules;
+const moduleDirectories = distribution.moduleDirectories;
+if (!/^newheap-[a-z0-9-]+$/.test(suiteName)
+  || !Array.isArray(moduleNames) || moduleNames.length === 0
+  || new Set(moduleNames).size !== moduleNames.length
+  || moduleNames.some(name => !/^newheap-[a-z0-9-]+$/.test(name))
+  || !moduleDirectories || Object.keys(moduleDirectories).length !== moduleNames.length
+  || moduleNames.some(name => !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(moduleDirectories[name] ?? ''))
+  || new Set(Object.values(moduleDirectories)).size !== moduleNames.length) {
+  throw new Error('The plugin contains invalid or duplicate NewHeap module metadata.');
+}
+
+const sourceRoot = resolve(pluginRoot, 'skills', suiteName);
+if (!(await stat(sourceRoot).catch(() => undefined))?.isDirectory()) {
+  throw new Error(`Plugin skill is missing: ${suiteName}`);
+}
+const digest = value => createHash('sha256').update(value).digest('hex');
+const sourceFiles = new Map();
+for (const path of (await walkFiles(sourceRoot)).sort()) {
+  const name = relative(sourceRoot, path).replaceAll('\\', '/');
+  const content = await readFile(path);
+  sourceFiles.set(name, { content, hash: digest(content) });
 }
 
 const consumerRoot = resolve(consumerArgument);
-const consumerInfo = await stat(consumerRoot).catch(() => undefined);
-if (!consumerInfo?.isDirectory()) throw new Error(`Consumer root does not exist: ${consumerRoot}`);
-
-const digest = value => createHash('sha256').update(value).digest('hex');
-const sourceFiles = new Map();
-for (const skillName of skillNames) {
-  const sourceRoot = resolve(pluginRoot, 'skills', skillName);
-  const sourceInfo = await stat(sourceRoot).catch(() => undefined);
-  if (!sourceInfo?.isDirectory()) throw new Error(`Plugin skill is missing: ${skillName}`);
-  for (const path of (await walkFiles(sourceRoot)).sort()) {
-    const name = `${skillName}/${relative(sourceRoot, path).replaceAll('\\', '/')}`;
-    const content = await readFile(path);
-    sourceFiles.set(name, { content, hash: digest(content) });
-  }
-}
-
-async function readJsonIfPresent(path) {
-  try { return JSON.parse(await readFile(path, 'utf8')); } catch { return undefined; }
+if (!(await stat(consumerRoot).catch(() => undefined))?.isDirectory()) {
+  throw new Error(`Consumer root does not exist: ${consumerRoot}`);
 }
 
 function legacyFiles(lock) {
@@ -83,86 +91,103 @@ function legacyFiles(lock) {
 async function prepareTarget(targetName) {
   const target = targetDefinitions.get(targetName);
   const destinationSkillsRoot = resolve(consumerRoot, target.directory, 'skills');
-  if (relative(consumerRoot, destinationSkillsRoot).replaceAll('\\', '/') !== target.relativeSkillsRoot) {
-    throw new Error(`Refusing unexpected ${targetName} skills destination: ${destinationSkillsRoot}`);
+  const destinationRoot = resolve(destinationSkillsRoot, suiteName);
+  const relativeDestinationRoot = `${target.relativeSkillsRoot}/${suiteName}`;
+  if (relative(consumerRoot, destinationSkillsRoot).replaceAll('\\', '/') !== target.relativeSkillsRoot
+    || relative(consumerRoot, destinationRoot).replaceAll('\\', '/') !== relativeDestinationRoot) {
+    throw new Error(`Refusing unexpected ${targetName} skill destination: ${destinationRoot}`);
   }
 
-  const destinationRoots = new Map(skillNames.map(name => [name, resolve(destinationSkillsRoot, name)]));
-  for (const path of [resolve(consumerRoot, target.directory), destinationSkillsRoot, ...destinationRoots.values()]) {
+  const flatDestinationRoots = new Map(moduleNames.map(name => [name, resolve(destinationSkillsRoot, name)]));
+  const lockPath = resolve(destinationRoot, '.newheap-platform-install.json');
+  const flatLockPath = resolve(destinationSkillsRoot, '.newheap-platform-install.json');
+  const legacyLockPath = target.supportsLegacyLock
+    ? resolve(destinationSkillsRoot, 'newheap-consumer-development', '.newheap-skill-install.json')
+    : undefined;
+  for (const path of [
+    resolve(consumerRoot, target.directory),
+    destinationSkillsRoot,
+    destinationRoot,
+    ...flatDestinationRoots.values(),
+    lockPath,
+    flatLockPath,
+    legacyLockPath
+  ].filter(Boolean)) {
     const info = await lstat(path).catch(() => undefined);
     if (info?.isSymbolicLink()) throw new Error(`Refusing symbolic link in ${targetName} skill destination: ${path}`);
   }
 
-  const lockPath = resolve(destinationSkillsRoot, '.newheap-platform-install.json');
-  const legacyLockPath = target.supportsLegacyLock
-    ? resolve(destinationSkillsRoot, 'newheap-consumer-development', '.newheap-skill-install.json')
-    : undefined;
-  for (const path of [lockPath, legacyLockPath].filter(Boolean)) {
-    const info = await lstat(path).catch(() => undefined);
-    if (info?.isSymbolicLink()) throw new Error(`Refusing symbolic link for NewHeap install metadata: ${path}`);
-  }
-
   function destinationFor(name) {
-    const separator = name.indexOf('/');
-    const skillName = separator > 0 ? name.slice(0, separator) : '';
-    const fileName = separator > 0 ? name.slice(separator + 1) : '';
-    if (!destinationRoots.has(skillName) || !fileName || fileName.startsWith('../')) {
-      throw new Error(`Refusing unexpected managed skill path: ${name}`);
-    }
-    const destination = resolve(destinationRoots.get(skillName), fileName);
-    const expected = `${skillName}/${fileName}`;
-    if (relative(destinationSkillsRoot, destination).replaceAll('\\', '/') !== expected) {
+    if (!name || name.startsWith('../')) throw new Error(`Refusing unexpected managed skill path: ${name}`);
+    const destination = resolve(destinationRoot, name);
+    if (relative(destinationRoot, destination).replaceAll('\\', '/') !== name) {
       throw new Error(`Refusing unexpected managed skill destination: ${destination}`);
     }
     return destination;
   }
 
-  async function destinationFiles() {
+  async function groupedDestinationFiles() {
     const files = new Map();
-    for (const [skillName, destinationRoot] of destinationRoots) {
-      if (!(await exists(destinationRoot))) continue;
-      for (const path of await walkFiles(destinationRoot)) {
+    if (!(await exists(destinationRoot))) return files;
+    for (const path of await walkFiles(destinationRoot)) {
+      if (path === lockPath) continue;
+      files.set(relative(destinationRoot, path).replaceAll('\\', '/'), path);
+    }
+    return files;
+  }
+
+  async function flatDestinationFiles() {
+    const files = new Map();
+    for (const [moduleName, moduleRoot] of flatDestinationRoots) {
+      if (!(await exists(moduleRoot))) continue;
+      for (const path of await walkFiles(moduleRoot)) {
         if (legacyLockPath && path === legacyLockPath) continue;
-        files.set(`${skillName}/${relative(destinationRoot, path).replaceAll('\\', '/')}`, path);
+        files.set(`${moduleName}/${relative(moduleRoot, path).replaceAll('\\', '/')}`, path);
       }
     }
     return files;
   }
 
-  const suiteLock = await readJsonIfPresent(lockPath);
-  const legacyLock = suiteLock || !legacyLockPath ? undefined : await readJsonIfPresent(legacyLockPath);
-  const previousFiles = suiteLock?.files ?? legacyFiles(legacyLock);
-  const currentFiles = await destinationFiles();
+  const groupedLock = await readJsonIfPresent(lockPath);
+  const flatLock = groupedLock ? undefined : await readJsonIfPresent(flatLockPath);
+  const legacyLock = groupedLock || flatLock || !legacyLockPath ? undefined : await readJsonIfPresent(legacyLockPath);
+  const layout = groupedLock ? 'grouped' : flatLock ? 'flat' : legacyLock ? 'legacy' : undefined;
+  const previousFiles = groupedLock?.files ?? flatLock?.files ?? legacyFiles(legacyLock);
+  const groupedFiles = await groupedDestinationFiles();
+  const flatFiles = await flatDestinationFiles();
   const drift = [];
 
+  if (layout !== 'grouped') drift.push(`installation layout ${layout ?? 'missing'} != grouped`);
   for (const [name, source] of sourceFiles) {
-    const currentPath = currentFiles.get(name);
+    const currentPath = groupedFiles.get(name);
     if (!currentPath) drift.push(`missing ${name}`);
     else if (digest(await readFile(currentPath)) !== source.hash) drift.push(`changed ${name}`);
   }
-  for (const name of currentFiles.keys()) if (!sourceFiles.has(name)) drift.push(`unexpected ${name}`);
-  if (!suiteLock) drift.push(`missing ${target.relativeSkillsRoot}/.newheap-platform-install.json`);
+  for (const name of groupedFiles.keys()) if (!sourceFiles.has(name)) drift.push(`unexpected ${name}`);
+  if (!groupedLock) drift.push(`missing ${relativeDestinationRoot}/.newheap-platform-install.json`);
   else {
-    if (suiteLock.schemaVersion !== 3) drift.push(`install metadata schema ${suiteLock.schemaVersion ?? 'missing'} != 3`);
-    if (suiteLock.target !== targetName) drift.push(`install target ${suiteLock.target ?? 'missing'} != ${targetName}`);
-    if (suiteLock.repositoryTarget !== target.relativeSkillsRoot) drift.push('repository target is stale');
-    if (suiteLock.pluginVersion !== plugin.version) drift.push(`plugin version ${suiteLock.pluginVersion} != ${plugin.version}`);
-    if (suiteLock.guidanceVersion !== distribution.guidanceVersion) drift.push('guidance version is stale');
-    if (suiteLock.skillContentHash !== distribution.skillContentHash) drift.push('skill content is stale');
-    if (JSON.stringify(suiteLock.skills) !== JSON.stringify(skillNames)) drift.push('installed skill list is stale');
-    for (const [name, source] of sourceFiles) if (suiteLock.files?.[name] !== source.hash) drift.push(`lock hash is stale for ${name}`);
-    for (const name of Object.keys(suiteLock.files ?? {})) if (!sourceFiles.has(name)) drift.push(`lock contains stale file ${name}`);
+    if (groupedLock.schemaVersion !== 4) drift.push(`install metadata schema ${groupedLock.schemaVersion ?? 'missing'} != 4`);
+    if (groupedLock.target !== targetName) drift.push(`install target ${groupedLock.target ?? 'missing'} != ${targetName}`);
+    if (groupedLock.repositoryTarget !== relativeDestinationRoot) drift.push('repository target is stale');
+    if (groupedLock.skill !== suiteName) drift.push('installed skill name is stale');
+    if (groupedLock.pluginVersion !== plugin.version) drift.push(`plugin version ${groupedLock.pluginVersion} != ${plugin.version}`);
+    if (groupedLock.guidanceVersion !== distribution.guidanceVersion) drift.push('guidance version is stale');
+    if (groupedLock.skillContentHash !== distribution.skillContentHash) drift.push('skill content is stale');
+    if (JSON.stringify(groupedLock.modules) !== JSON.stringify(moduleNames)) drift.push('installed module list is stale');
+    for (const [name, source] of sourceFiles) if (groupedLock.files?.[name] !== source.hash) drift.push(`lock hash is stale for ${name}`);
+    for (const name of Object.keys(groupedLock.files ?? {})) if (!sourceFiles.has(name)) drift.push(`lock contains stale file ${name}`);
   }
 
   if (checkOnly && drift.length > 0) {
-    throw new Error(`NewHeap consumer skills are not synchronized for ${targetName}:\n- ${drift.join('\n- ')}`);
+    throw new Error(`NewHeap Platform development skill is not synchronized for ${targetName}:\n- ${drift.join('\n- ')}`);
   }
-  if (!checkOnly && !previousFiles && currentFiles.size > 0 && !force) {
-    throw new Error(`One or more unmanaged NewHeap skill directories already exist for ${targetName}. Re-run with --force only if replacing those directories is intentional.`);
+  if (!checkOnly && !previousFiles && (groupedFiles.size > 0 || flatFiles.size > 0) && !force) {
+    throw new Error(`An unmanaged NewHeap skill installation already exists for ${targetName}. Re-run with --force only if replacing it is intentional.`);
   }
   if (!checkOnly && previousFiles && !force) {
+    const installedFiles = layout === 'grouped' ? groupedFiles : flatFiles;
     const locallyChanged = [];
-    for (const [name, currentPath] of currentFiles) {
+    for (const [name, currentPath] of installedFiles) {
       if (!previousFiles[name] || digest(await readFile(currentPath)) !== previousFiles[name]) locallyChanged.push(name);
     }
     if (locallyChanged.length > 0) {
@@ -172,26 +197,26 @@ async function prepareTarget(targetName) {
 
   return {
     targetName,
-    target,
-    destinationSkillsRoot,
-    destinationRoots,
+    destinationRoot,
+    relativeDestinationRoot,
+    flatDestinationRoots,
     destinationFor,
     lockPath,
+    flatLockPath,
     legacyLockPath,
-    previousFiles
+    layout
   };
 }
 
 async function applyTarget(state) {
-  if (force) {
-    for (const destinationRoot of state.destinationRoots.values()) {
-      if (await exists(destinationRoot)) await rm(destinationRoot, { recursive: true, force: true });
-    }
-  } else if (state.previousFiles) {
-    for (const name of Object.keys(state.previousFiles)) {
-      if (!sourceFiles.has(name)) await rm(state.destinationFor(name), { force: true });
+  if (await exists(state.destinationRoot)) await rm(state.destinationRoot, { recursive: true, force: true });
+  if (state.layout === 'flat' || state.layout === 'legacy' || force) {
+    for (const moduleRoot of state.flatDestinationRoots.values()) {
+      if (await exists(moduleRoot)) await rm(moduleRoot, { recursive: true, force: true });
     }
   }
+  await rm(state.flatLockPath, { force: true });
+  if (state.legacyLockPath) await rm(state.legacyLockPath, { force: true });
 
   for (const [name, source] of sourceFiles) {
     const destination = state.destinationFor(name);
@@ -199,13 +224,12 @@ async function applyTarget(state) {
     await writeFile(destination, source.content);
   }
 
-  if (state.legacyLockPath) await rm(state.legacyLockPath, { force: true });
-  await mkdir(state.destinationSkillsRoot, { recursive: true });
   const lock = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     target: state.targetName,
-    repositoryTarget: state.target.relativeSkillsRoot,
-    skills: skillNames,
+    repositoryTarget: state.relativeDestinationRoot,
+    skill: suiteName,
+    modules: moduleNames,
     pluginVersion: plugin.version,
     guidanceVersion: distribution.guidanceVersion,
     skillContentHash: distribution.skillContentHash,
@@ -221,12 +245,12 @@ for (const targetName of selectedTargets) preparedTargets.push(await prepareTarg
 
 if (checkOnly) {
   for (const state of preparedTargets) {
-    console.log(`NewHeap consumer skills are synchronized at ${state.destinationSkillsRoot} for ${state.targetName} (plugin ${plugin.version}).`);
+    console.log(`NewHeap Platform development skill is synchronized at ${state.destinationRoot} for ${state.targetName} (plugin ${plugin.version}).`);
   }
   process.exit(0);
 }
 
 for (const state of preparedTargets) {
   await applyTarget(state);
-  console.log(`Installed ${skillNames.length} NewHeap consumer skills from plugin ${plugin.version} into ${state.destinationSkillsRoot} for ${state.targetName}. Commit the managed newheap-* skill directories and .newheap-platform-install.json.`);
+  console.log(`Installed NewHeap Platform development from plugin ${plugin.version} into ${state.destinationRoot} for ${state.targetName}. Commit that single managed directory, including .newheap-platform-install.json.`);
 }

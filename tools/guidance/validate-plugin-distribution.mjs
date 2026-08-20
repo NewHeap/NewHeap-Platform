@@ -1,13 +1,18 @@
-import { access, readFile } from 'node:fs/promises';
+import { access, readFile, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { relative, resolve } from 'node:path';
 import {
   consumerPluginRoot,
-  consumerPluginSkillRoots,
+  consumerPluginSkillBundleRoot,
+  consumerPluginSkillsRoot,
+  consumerSkillBundleName,
+  consumerSkillBundleRoot,
+  consumerSkillModuleDirectories,
   consumerSkillNames,
   consumerSkillRoots,
   packageVersions,
   readJson,
+  renderBundledConsumerSkillFile,
   repositoryRoot,
   walkFiles
 } from './lib.mjs';
@@ -25,12 +30,17 @@ if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(manifest.ve
 if (manifest.version !== guidanceVersion.guidanceVersion) failures.push(`Plugin ${manifest.version} does not match guidance ${guidanceVersion.guidanceVersion}.`);
 if (distribution.pluginVersion !== manifest.version) failures.push('Plugin distribution metadata has a stale pluginVersion.');
 if (distribution.compatiblePackages?.['@newheap/platform-common'] !== versions['@newheap/platform-common']) failures.push('Plugin package compatibility metadata is stale.');
-if (distribution.schemaVersion !== 2) failures.push('Plugin distribution metadata must use schema version 2.');
-if (distribution.repositoryTarget !== '.agents/skills') failures.push('Plugin repository target is invalid.');
-if (distribution.repositoryTargets?.codex !== '.agents/skills' || distribution.repositoryTargets?.claude !== '.claude/skills') {
-  failures.push('Plugin repository targets must identify the Codex and Claude skill roots.');
+if (distribution.schemaVersion !== 3) failures.push('Plugin distribution metadata must use schema version 3.');
+if (distribution.repositoryTarget !== `.agents/skills/${consumerSkillBundleName}`) failures.push('Plugin repository target is invalid.');
+if (distribution.repositoryTargets?.codex !== `.agents/skills/${consumerSkillBundleName}`
+  || distribution.repositoryTargets?.claude !== `.claude/skills/${consumerSkillBundleName}`) {
+  failures.push('Plugin repository targets must identify the grouped Codex and Claude skill directories.');
 }
-if (JSON.stringify(distribution.skills) !== JSON.stringify(consumerSkillNames)) failures.push('Plugin distributed skill list is stale.');
+if (JSON.stringify(distribution.skills) !== JSON.stringify([consumerSkillBundleName])) failures.push('Plugin distributed skill list is stale.');
+if (JSON.stringify(distribution.modules) !== JSON.stringify(consumerSkillNames)) failures.push('Plugin module list is stale.');
+if (JSON.stringify(distribution.moduleDirectories) !== JSON.stringify(Object.fromEntries(consumerSkillModuleDirectories))) {
+  failures.push('Plugin module-directory mapping is stale.');
+}
 if (manifest.skills !== './skills/') failures.push('Plugin skills path must be ./skills/.');
 for (const key of ['displayName', 'shortDescription', 'longDescription', 'developerName', 'category']) {
   if (!manifest.interface?.[key]) failures.push(`Plugin interface.${key} is required.`);
@@ -49,21 +59,31 @@ if (/configure machine-level credentials/i.test(installGuide)) failures.push('Pl
 
 const canonicalFiles = new Map();
 const distributedFiles = new Map();
+for (const path of await walkFiles(consumerSkillBundleRoot)) {
+  canonicalFiles.set(relative(consumerSkillBundleRoot, path).replaceAll('\\', '/'), path);
+}
 for (const skillName of consumerSkillNames) {
   const canonicalRoot = consumerSkillRoots.get(skillName);
   for (const path of await walkFiles(canonicalRoot)) {
-    canonicalFiles.set(`${skillName}/${relative(canonicalRoot, path).replaceAll('\\', '/')}`, path);
+    canonicalFiles.set(`skills/${consumerSkillModuleDirectories.get(skillName)}/${relative(canonicalRoot, path).replaceAll('\\', '/')}`, path);
   }
-  const distributedRoot = consumerPluginSkillRoots.get(skillName);
-  for (const path of await walkFiles(distributedRoot)) {
-    distributedFiles.set(`${skillName}/${relative(distributedRoot, path).replaceAll('\\', '/')}`, path);
-  }
+}
+for (const path of await walkFiles(consumerPluginSkillBundleRoot)) {
+  distributedFiles.set(relative(consumerPluginSkillBundleRoot, path).replaceAll('\\', '/'), path);
+}
+const pluginSkillEntries = await readdir(consumerPluginSkillsRoot);
+if (pluginSkillEntries.length !== 1 || pluginSkillEntries[0] !== consumerSkillBundleName) {
+  failures.push(`Plugin skills must be contained only in ${consumerSkillBundleName}.`);
 }
 const normalize = value => value.replaceAll('\r\n', '\n');
 const canonicalContents = new Map();
 
 for (const [path, sourcePath] of canonicalFiles) {
-  const source = await readFile(sourcePath, 'utf8');
+  const canonicalSource = await readFile(sourcePath, 'utf8');
+  const bundleRelative = relative(consumerSkillBundleRoot, sourcePath);
+  const source = bundleRelative && !bundleRelative.startsWith('..')
+    ? renderBundledConsumerSkillFile(path, canonicalSource)
+    : canonicalSource;
   canonicalContents.set(path, source);
   if (path.includes('/references/') && source.startsWith('<!-- Generated by tools/guidance/generate-guidance.mjs.')) {
     if (source.includes('## Executable evidence')) failures.push(`Shipped skill reference contains local-only evidence paths: ${path}.`);
@@ -90,4 +110,4 @@ try { await access(resolve(consumerPluginRoot, 'scripts', 'install-consumer-skil
 catch { failures.push('Plugin is missing its backward-compatible singular installer alias.'); }
 
 if (failures.length > 0) throw new Error(failures.join('\n'));
-console.log(`Validated newheap-platform ${manifest.version} with ${consumerSkillNames.length} skills and ${canonicalFiles.size} mirrored files.`);
+console.log(`Validated newheap-platform ${manifest.version} with one router skill, ${consumerSkillNames.length} modules and ${canonicalFiles.size} mirrored files.`);

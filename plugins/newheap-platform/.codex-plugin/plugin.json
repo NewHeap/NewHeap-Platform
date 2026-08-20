@@ -1,7 +1,7 @@
 {
   "name": "newheap-platform",
-  "version": "1.11.7",
-  "description": "Build consuming applications with focused, discoverable NewHeap Platform skills.",
+  "version": "1.11.8",
+  "description": "Build consuming applications with one discoverable NewHeap Platform skill and focused internal modules.",
   "author": {
     "name": "NewHeap B.V."
   },
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "NewHeap Platform",
     "shortDescription": "Build consumer apps with NewHeap",
-    "longDescription": "Versioned, self-contained NewHeap consumer guidance split into focused skills and backed by optional immutable public sample evidence.",
+    "longDescription": "Versioned, self-contained NewHeap consumer guidance exposed through one thin router with focused internal modules and optional immutable public sample evidence.",
     "developerName": "NewHeap B.V.",
     "category": "Developer Tools",
     "capabilities": [

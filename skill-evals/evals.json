@@ -2,6 +2,13 @@
   "schemaVersion": 1,
   "evals": [
     {
+      "id": "consumer-grouped-skill-routing",
+      "skill": "newheap-platform-development",
+      "prompt": "Add an authorized NewHeap CRUD API and a matching Angular collection page to this configured consumer application.",
+      "expectedRules": ["nh-backend-module-composition", "nh-frontend-collection-query"],
+      "expectedOutcome": "The thin router loads only the backend and frontend internal modules, keeps their detailed concerns separate, and does not load unrelated database, media, background-processing or testing guidance."
+    },
+    {
       "id": "consumer-dotnet-project-foundation",
       "skill": "newheap-backend-development",
       "prompt": "Generate a new multi-project .NET consumer solution that uses NewHeap packages and keeps shared build and dependency settings consistent.",
