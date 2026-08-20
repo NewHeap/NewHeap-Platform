@@ -9,7 +9,7 @@ const root = resolve(rootArgument ?? process.cwd());
 if (!['inventory', 'foundation', 'validate'].includes(mode)) throw new Error('--mode must be inventory, foundation, or validate.');
 if (!(await stat(root)).isDirectory()) throw new Error(`${root} is not a directory.`);
 
-const ignored = new Set(['.agents', '.angular', '.git', '.nx', 'bin', 'dist', 'docs', 'node_modules', 'obj']);
+const ignored = new Set(['.agents', '.angular', '.claude', '.git', '.nx', 'bin', 'dist', 'docs', 'node_modules', 'obj']);
 const extensions = new Set(['.cjs', '.config', '.cs', '.csproj', '.html', '.json', '.mjs', '.props', '.sln', '.slnx', '.ts']);
 const files = [];
 async function walk(directory) {

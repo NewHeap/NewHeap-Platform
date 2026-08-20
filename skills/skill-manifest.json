@@ -39,7 +39,16 @@
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/consumer-bootstrap-sequence.md",
@@ -60,7 +69,16 @@
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/authentication-overrides.md",
@@ -78,7 +96,16 @@
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/backend-controller-contracts.md",
@@ -100,7 +127,16 @@
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/backend-unit-of-work.md",
@@ -118,7 +154,16 @@
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/database-providers.md"
@@ -135,7 +180,16 @@
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/frontend-collection-query.md",
@@ -154,7 +208,16 @@
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/media.md"
@@ -171,7 +234,16 @@
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/runtime-configuration.md"
@@ -188,7 +260,16 @@
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
         "repositoryInstallCommand": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>",
-        "repositoryTarget": ".agents/skills"
+        "repositoryInstallCommands": {
+          "codex": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex",
+          "claude": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude",
+          "both": "node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both"
+        },
+        "repositoryTarget": ".agents/skills",
+        "repositoryTargets": {
+          "codex": ".agents/skills",
+          "claude": ".claude/skills"
+        }
       },
       "references": [
         "references/testing.md"

@@ -48,15 +48,17 @@ share one canonical case registry. Reusable agent skills live under `skills`:
 
 Run `npm run guidance:generate` after changing the case registry or atomic rules,
 and `npm run skills:validate` before committing guidance or public library work.
-To pin the supported consumer workflow into another repository, run:
+To pin the supported consumer workflow into another repository for Codex, run:
 
 ```text
 node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>
 ```
 
-Commit the generated `.agents/skills/newheap-*` directories and
-`.agents/skills/.newheap-platform-install.json` in that consumer. The same
-generated skill suite is packaged in the
+The default target is `codex` and writes `.agents/skills`. Use `--target
+claude` for `.claude/skills`, or `--target both` for a mixed-agent repository.
+Commit the generated `newheap-*` directories and
+`.newheap-platform-install.json` under every selected skill root. The same
+provider-neutral skill suite is packaged in the
 [NewHeap Platform plugin](plugins/newheap-platform/.codex-plugin/plugin.json).
 
 ## Releases

@@ -106,7 +106,16 @@ const distribution = {
   githubReleaseUnit: 'newheap-platform-plugin',
   releaseAssetPattern: 'newheap-platform-<version>.tar.gz',
   repositoryInstallCommand: 'node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>',
-  repositoryTarget: '.agents/skills'
+  repositoryInstallCommands: {
+    codex: 'node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target codex',
+    claude: 'node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude',
+    both: 'node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both'
+  },
+  repositoryTarget: '.agents/skills',
+  repositoryTargets: {
+    codex: '.agents/skills',
+    claude: '.claude/skills'
+  }
 };
 
 const consumerSkillManifestEntries = consumerSkillNames.map(name => {
@@ -147,7 +156,11 @@ outputs.set(resolve(repositoryRoot, 'plugins', 'newheap-platform', 'distribution
   skillContentHash: consumerSkillContentHash,
   skills: consumerSkillNames,
   compatiblePackages: versions,
-  repositoryTarget: '.agents/skills'
+  repositoryTarget: '.agents/skills',
+  repositoryTargets: {
+    codex: '.agents/skills',
+    claude: '.claude/skills'
+  }
 }, null, 2)}\n`);
 
 const stale = [];

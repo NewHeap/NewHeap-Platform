@@ -6,13 +6,13 @@ This guide turns the public NewHeap surface and executable SampleProjectManageme
 
 ## Install in a consumer
 
-For a reproducible, repository-pinned installation, run this from the Platform repository:
+For a reproducible, repository-pinned Codex installation, run this from the Platform repository:
 
 ```text
 node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>
 ```
 
-Then commit the managed `<consumer-root>/.agents/skills/newheap-*` directories and `.agents/skills/.newheap-platform-install.json`. Check for updates with the same command plus `--check`. The `newheap-platform` plugin publishes the same skill suite and a standalone plural installer, so a consumer does not need a Platform checkout. Anonymous npm/NuGet sources and upgrade cutover are documented in [Consume public packages](../how-to/consume-public-packages.md).
+The default target is `codex`, which writes `.agents/skills`. Use `--target claude` for `.claude/skills`, or `--target both` for a repository used with both agents. Commit the managed `newheap-*` directories and `.newheap-platform-install.json` under every selected skill root. Check for updates with the same target and the `--check` flag. The `newheap-platform` plugin publishes the same provider-neutral skill suite and a standalone plural installer, so a consumer does not need a Platform checkout. Anonymous npm/NuGet sources and upgrade cutover are documented in [Consume public packages](../how-to/consume-public-packages.md).
 
 ## Topics
 
