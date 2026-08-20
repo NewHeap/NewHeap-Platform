@@ -14,12 +14,12 @@ The release pipeline publishes NuGet packages to nuget.org, scoped npm packages 
 
 | Unit | Contents | Example tag |
 |---|---|---|
-| `nuget-common` | Common, Common.Test, AspNet.Common, AspNet.Common.Test, and Events.Cap | `nuget-common-v1.1.3` |
-| `nuget-caching` | AspNet.Caching | `nuget-caching-v0.1.3` |
-| `nuget-media` | Core, SQL Server, PostgreSQL, HTTP, file system, S3, and the bundle | `nuget-media-v1.1.3` |
-| `npm-platform-common` | `@newheap/platform-common` | `npm-platform-common-v0.20.6` |
-| `npm-nh-toastr` | `@newheap/nh-toastr` | `npm-nh-toastr-v0.0.5` |
-| `newheap-platform-plugin` | Installable AI plugin and consumer skill | `newheap-platform-plugin-v1.11.1` |
+| `nuget-common` | Common, Common.Test, AspNet.Common, AspNet.Common.Test, and Events.Cap | `nuget-common-v<version>` |
+| `nuget-caching` | AspNet.Caching | `nuget-caching-v<version>` |
+| `nuget-media` | Core, SQL Server, PostgreSQL, HTTP, file system, S3, and the bundle | `nuget-media-v<version>` |
+| `npm-platform-common` | `@newheap/platform-common` | `npm-platform-common-v<version>` |
+| `npm-nh-toastr` | `@newheap/nh-toastr` | `npm-nh-toastr-v<version>` |
+| `newheap-platform-plugin` | Installable AI plugin and consumer skill | `newheap-platform-plugin-v<version>` |
 
 Versions remain independent. The `all` option applies the selected SemVer bump to every unit but preserves separate versions, tags, artifacts, and GitHub Releases. In an all-unit release, Common is packed first and exposed as a temporary local NuGet source for dependent Media packages.
 
@@ -27,12 +27,12 @@ Versions remain independent. The `all` option applies the selected SemVer bump t
 
 1. Recreate `NewHeap/NewHeap-Platform` as a public repository and protect `main` against deletion and non-fast-forward changes while allowing the release workflow to fast-forward its validated commit.
 2. Create or verify the `@newheap` npm organization/scope and the NuGet.org `NewHeap` owner. Confirm every package ID and npm name is controlled by NewHeap before the first push.
-3. Bootstrap the first version of a new npm package only if npm requires an existing package before trusted publishing can be configured. Use a reviewed, temporary main-only workflow and a short-lived granular token that is limited to the required public package names, enables bypass 2FA only for the bootstrap, and expires as soon as practical. The workflow must refuse existing package names, package through the normal artifact validator, publish with public access, and verify the exact version anonymously. Immediately configure the package's trusted publisher for the public repository and the calling workflow `release-contract.yml`, delete the repository secret, revoke the npm token, and remove the temporary workflow in the next cleanup commit. No bootstrap token or workflow may remain in the established repository.
+3. Bootstrap the first version of a new npm package only if npm requires an existing package before trusted publishing can be configured. Use a reviewed, temporary main-only workflow and a short-lived granular token that is limited to the required public package names, enables bypass 2FA only for the bootstrap, and expires as soon as practical. The workflow must refuse existing package names, package through the normal artifact validator, publish with public access, and verify the exact version anonymously. Immediately configure the package's trusted publisher for the public repository and the top-level calling workflow `prepare-release.yml`, delete the repository secret, revoke the npm token, and remove the temporary workflow in the next cleanup commit. No bootstrap token or workflow may remain in the established repository.
 4. On nuget.org, add a trusted publishing policy for the NewHeap owner, repository, and publishing workflow `publish-release.yml`. Set repository variable `NUGET_USER` to the NuGet.org profile name, not an email address.
 5. For optional preview publication, create a separate nuget.org policy for `publish-preview.yml`, create the protected `public-package-preview` environment, and bind the policy to that environment.
 6. Give the relevant jobs `id-token: write`. Keep external Actions pinned to full commit SHAs and enable GitHub Release immutability.
 
-npm validates the calling workflow for reusable-workflow chains, so its trusted publisher uses `release-contract.yml`. NuGet validates the reusable publishing workflow identity, so its policy uses `publish-release.yml`. Perform a one-package smoke release before selecting `all`; if a registry does not accept the configured workflow identity, stop and adjust the policy/workflow boundary without falling back to a permanent token.
+npm validates the top-level calling workflow for this reusable-workflow chain, so its trusted publisher uses `prepare-release.yml`. NuGet validates the reusable publishing workflow identity, so its policy uses `publish-release.yml`. Perform a one-package smoke release before selecting `all`; if a registry does not accept the configured workflow identity, stop and adjust the policy/workflow boundary without falling back to a permanent token.
 
 ## Preview packages
 
@@ -45,6 +45,7 @@ Run **Publish preview packages**. Leave `publish` disabled to create a 14-day wo
 3. The release contract fast-forwards unchanged `main` to that exact commit and invokes the publisher for the validated SHA.
 4. The publisher packs immutable artifacts, obtains short-lived registry credentials through OIDC, pushes the selected packages, and verifies the exact public versions anonymously with bounded retries.
 5. Finalization publishes only complete GitHub Release drafts containing package artifacts and `SHA256SUMS`.
+6. After a successful individual NuGet or npm release, the top-level workflow queues a separate plugin patch release so its immutable artifact records the new `compatiblePackages`. A plugin release never queues itself, and `all` already includes the plugin.
 
 If registry publication succeeds but finalization is interrupted, run **Finalize pending release** for the current unit or `all`. Recovery never bumps or republishes; it verifies the current public versions, commit, artifacts, and checksums before publishing drafts.
 

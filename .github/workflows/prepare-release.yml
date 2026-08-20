@@ -133,3 +133,39 @@ jobs:
       source_sha: ${{ needs.prepare.outputs.source_sha }}
       base_sha: ${{ needs.prepare.outputs.base_sha }}
     secrets: inherit
+
+  refresh-plugin:
+    name: Queue plugin compatibility release
+    needs: release
+    if: ${{ inputs.component != 'all' && inputs.component != 'newheap-platform-plugin' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Queue plugin patch release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMPONENT: ${{ inputs.component }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          response="$(gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/prepare-release.yml/dispatches" \
+            --raw-field ref=main \
+            --raw-field "inputs[component]=newheap-platform-plugin" \
+            --raw-field "inputs[bump]=patch")"
+
+          run_url="$(jq -r '.html_url // empty' <<< "$response")"
+          {
+            echo "### Plugin compatibility release queued"
+            echo
+            echo "${SOURCE_COMPONENT} changed the generated plugin compatibility metadata."
+            if [[ -n "$run_url" ]]; then
+              echo "Queued the plugin patch release: ${run_url}"
+            else
+              echo "Queued a plugin patch release from main."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
