@@ -2,6 +2,8 @@ import { access, readFile, readdir } from 'node:fs/promises';
 import { relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
+  consumerSkillBundleName,
+  consumerSkillBundleRoot,
   consumerSkillNames,
   consumerSkillRoots,
   loadRegistry,
@@ -86,6 +88,7 @@ validateEnglishNarrative(
 );
 
 for (const metadataPath of [
+  resolve(consumerSkillBundleRoot, 'agents', 'openai.yaml'),
   ...consumerSkillNames.map(name => resolve(consumerSkillRoots.get(name), 'agents', 'openai.yaml')),
   resolve(maintenanceSkillRoot, 'agents', 'openai.yaml'),
   resolve(sampleRoot, 'skills', 'sample-project-management-development', 'agents', 'openai.yaml')
@@ -157,9 +160,9 @@ async function validateSkill(skillRoot, expectedName) {
   if (lines.length > 500) failures.push(`${relative(repositoryRoot, skillPath)} exceeds 500 lines`);
   if (!normalizedSource.startsWith(`---\nname: ${expectedName}\n`)) failures.push(`${relative(repositoryRoot, skillPath)} has invalid name/frontmatter`);
   if (/\[TODO|TODO:/.test(source)) failures.push(`${relative(repositoryRoot, skillPath)} contains TODO placeholders`);
-  const references = [...source.matchAll(/\]\(references\/([^)]+)\)/g)].map(match => match[1]);
+  const references = [...source.matchAll(/\]\((?!https?:)([^)#]+\.md)(?:#[^)]+)?\)/g)].map(match => match[1]);
   for (const reference of references) {
-    try { await access(resolve(skillRoot, 'references', reference)); }
+    try { await access(resolve(skillRoot, reference)); }
     catch { failures.push(`${relative(repositoryRoot, skillPath)} references missing file ${reference}`); }
   }
   const metadata = await readFile(resolve(skillRoot, 'agents', 'openai.yaml'), 'utf8');
@@ -167,6 +170,7 @@ async function validateSkill(skillRoot, expectedName) {
 }
 
 for (const skillName of consumerSkillNames) await validateSkill(consumerSkillRoots.get(skillName), skillName);
+await validateSkill(consumerSkillBundleRoot, consumerSkillBundleName);
 await validateSkill(maintenanceSkillRoot, 'newheap-library-maintenance');
 
 const generation = spawnSync(process.execPath, [resolve(repositoryRoot, 'tools', 'guidance', 'generate-guidance.mjs'), '--check'], {
@@ -188,4 +192,4 @@ const plugin = spawnSync(process.execPath, [resolve(repositoryRoot, 'tools', 'gu
 if (plugin.status !== 0) failures.push(plugin.stderr || plugin.stdout || 'Plugin distribution check failed.');
 
 if (failures.length > 0) throw new Error(failures.join('\n'));
-console.log(`Validated ${registry.cases.length} sample cases, ${rules.length} guidance rules and ${consumerSkillNames.length + 1} skills.`);
+console.log(`Validated ${registry.cases.length} sample cases, ${rules.length} guidance rules and ${consumerSkillNames.length + 2} skills.`);

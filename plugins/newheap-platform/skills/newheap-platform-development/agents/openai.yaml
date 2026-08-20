@@ -1,0 +1,4 @@
+interface:
+  display_name: "NewHeap Platform Development"
+  short_description: "Build and maintain NewHeap consumer apps"
+  default_prompt: "Use $newheap-platform-development to route this consumer-app task to the smallest relevant NewHeap development module."

@@ -20,13 +20,14 @@
 - media: ./media.md
 - runtime-configuration: ./runtime-configuration.md
 - testing: ./testing.md
-- consumer skill: ../../skills/newheap-consumer-development/SKILL.md
-- consumer skill: ../../skills/newheap-authentication/SKILL.md
-- consumer skill: ../../skills/newheap-backend-development/SKILL.md
-- consumer skill: ../../skills/newheap-background-processing/SKILL.md
-- consumer skill: ../../skills/newheap-database-development/SKILL.md
-- consumer skill: ../../skills/newheap-frontend-development/SKILL.md
-- consumer skill: ../../skills/newheap-media-development/SKILL.md
-- consumer skill: ../../skills/newheap-runtime-configuration/SKILL.md
-- consumer skill: ../../skills/newheap-testing/SKILL.md
+- consumer router skill: ../../skills/newheap-platform-development/SKILL.md
+- consumer module: ../../skills/newheap-consumer-development/SKILL.md
+- consumer module: ../../skills/newheap-authentication/SKILL.md
+- consumer module: ../../skills/newheap-backend-development/SKILL.md
+- consumer module: ../../skills/newheap-background-processing/SKILL.md
+- consumer module: ../../skills/newheap-database-development/SKILL.md
+- consumer module: ../../skills/newheap-frontend-development/SKILL.md
+- consumer module: ../../skills/newheap-media-development/SKILL.md
+- consumer module: ../../skills/newheap-runtime-configuration/SKILL.md
+- consumer module: ../../skills/newheap-testing/SKILL.md
 - maintenance skill: ../../skills/newheap-library-maintenance/SKILL.md

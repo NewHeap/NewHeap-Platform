@@ -1,9 +1,14 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { dirname, relative, resolve } from 'node:path';
 import {
   consumerGuideRoot,
+  consumerPluginSkillBundleRoot,
   consumerPluginSkillRoots,
+  consumerPluginSkillsRoot,
+  consumerSkillBundleName,
+  consumerSkillBundleRoot,
+  consumerSkillModuleDirectories,
   consumerSkillNames,
   consumerSkillRoots,
   groupRulesByReference,
@@ -14,6 +19,7 @@ import {
   planPath,
   planTemplatePath,
   renderGuideIndex,
+  renderBundledConsumerSkillFile,
   renderLlmsIndex,
   renderPlan,
   renderRuleCollection,
@@ -71,6 +77,15 @@ for (const skillName of consumerSkillNames) {
 }
 
 const consumerSkillFiles = [];
+for (const path of await walkFiles(consumerSkillBundleRoot)) {
+  const name = relative(consumerSkillBundleRoot, path).replaceAll('\\', '/');
+  consumerSkillFiles.push({
+    path,
+    name,
+    bundleEntry: true,
+    distributionPath: resolve(consumerPluginSkillBundleRoot, name)
+  });
+}
 for (const skillName of consumerSkillNames) {
   const skillRoot = consumerSkillRoots.get(skillName);
   const skillPaths = new Set(await walkFiles(skillRoot));
@@ -81,21 +96,22 @@ for (const skillName of consumerSkillNames) {
   for (const path of skillPaths) {
     consumerSkillFiles.push({
       path,
-      name: `${skillName}/${relative(skillRoot, path).replaceAll('\\', '/')}`,
+      name: `skills/${consumerSkillModuleDirectories.get(skillName)}/${relative(skillRoot, path).replaceAll('\\', '/')}`,
       distributionPath: resolve(consumerPluginSkillRoots.get(skillName), relative(skillRoot, path))
     });
   }
 }
 consumerSkillFiles.sort((left, right) => left.name.localeCompare(right.name));
 const consumerSkillContents = new Map();
-for (const { path, distributionPath } of consumerSkillFiles) {
+for (const { path, name, bundleEntry, distributionPath } of consumerSkillFiles) {
   const sourceContent = outputs.get(path) ?? await readFile(path, 'utf8');
-  consumerSkillContents.set(path, sourceContent);
-  outputs.set(distributionPath, sourceContent);
+  const distributedContent = bundleEntry ? renderBundledConsumerSkillFile(name, sourceContent) : sourceContent;
+  consumerSkillContents.set(name, distributedContent);
+  outputs.set(distributionPath, distributedContent);
 }
 
-const consumerSkillContentHash = createHash('sha256').update(consumerSkillFiles.map(({ path, name }) => {
-  const content = consumerSkillContents.get(path);
+const consumerSkillContentHash = createHash('sha256').update(consumerSkillFiles.map(({ name }) => {
+  const content = consumerSkillContents.get(name);
   return `${name}\0${content.replaceAll('\r\n', '\n')}`;
 }).join('\n')).digest('hex');
 
@@ -111,10 +127,10 @@ const distribution = {
     claude: 'node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target claude',
     both: 'node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root> --target both'
   },
-  repositoryTarget: '.agents/skills',
+  repositoryTarget: `.agents/skills/${consumerSkillBundleName}`,
   repositoryTargets: {
-    codex: '.agents/skills',
-    claude: '.claude/skills'
+    codex: `.agents/skills/${consumerSkillBundleName}`,
+    claude: `.claude/skills/${consumerSkillBundleName}`
   }
 };
 
@@ -124,6 +140,7 @@ const consumerSkillManifestEntries = consumerSkillNames.map(name => {
   return {
     name,
     path: `skills/${name}`,
+    bundledPath: `skills/${consumerSkillBundleName}/skills/${consumerSkillModuleDirectories.get(name)}`,
     audience: 'consumer-applications',
     distribution,
     references
@@ -139,6 +156,13 @@ const manifest = {
   },
   packages: versions,
   skills: [
+    {
+      name: consumerSkillBundleName,
+      path: `skills/${consumerSkillBundleName}`,
+      audience: 'consumer-applications',
+      distribution,
+      modules: consumerSkillNames
+    },
     ...consumerSkillManifestEntries,
     {
       name: 'newheap-library-maintenance',
@@ -150,21 +174,28 @@ const manifest = {
 };
 outputs.set(resolve(repositoryRoot, 'skills', 'skill-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 outputs.set(resolve(repositoryRoot, 'plugins', 'newheap-platform', 'distribution.json'), `${JSON.stringify({
-  schemaVersion: 2,
+  schemaVersion: 3,
   pluginVersion: guidanceVersion.guidanceVersion,
   guidanceVersion: guidanceVersion.guidanceVersion,
   skillContentHash: consumerSkillContentHash,
-  skills: consumerSkillNames,
+  skills: [consumerSkillBundleName],
+  modules: consumerSkillNames,
+  moduleDirectories: Object.fromEntries(consumerSkillModuleDirectories),
   compatiblePackages: versions,
-  repositoryTarget: '.agents/skills',
+  repositoryTarget: `.agents/skills/${consumerSkillBundleName}`,
   repositoryTargets: {
-    codex: '.agents/skills',
-    claude: '.claude/skills'
+    codex: `.agents/skills/${consumerSkillBundleName}`,
+    claude: `.claude/skills/${consumerSkillBundleName}`
   }
 }, null, 2)}\n`);
 
 const stale = [];
 const normalizeLineEndings = value => value?.replaceAll('\r\n', '\n');
+const expectedPluginSkillFiles = new Set([...outputs.keys()].filter(path => {
+  const outputRelative = relative(consumerPluginSkillsRoot, path);
+  return outputRelative && !outputRelative.startsWith('..');
+}));
+if (!checkOnly) await rm(consumerPluginSkillsRoot, { recursive: true, force: true });
 for (const [path, content] of outputs) {
   let current;
   try { current = await readFile(path, 'utf8'); } catch { current = undefined; }
@@ -175,6 +206,13 @@ for (const [path, content] of outputs) {
   if (normalizeLineEndings(current) === normalizeLineEndings(content)) continue;
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, content, 'utf8');
+}
+
+if (checkOnly) {
+  const existingPluginSkillFiles = await walkFiles(consumerPluginSkillsRoot).catch(() => []);
+  for (const path of existingPluginSkillFiles) {
+    if (!expectedPluginSkillFiles.has(path)) stale.push(path);
+  }
 }
 
 if (stale.length > 0) {

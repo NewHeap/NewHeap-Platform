@@ -2,7 +2,7 @@
 
 # NewHeap consumer guide
 
-This guide turns the public NewHeap surface and executable SampleProjectManagement cases into prescriptive rules for consumer applications. The same self-contained rules are bundled in focused, automatically discoverable consumer skills.
+This guide turns the public NewHeap surface and executable SampleProjectManagement cases into prescriptive rules for consumer applications. The same self-contained rules are bundled behind one automatically discoverable NewHeap Platform skill with focused internal modules.
 
 ## Install in a consumer
 
@@ -12,7 +12,7 @@ For a reproducible, repository-pinned Codex installation, run this from the Plat
 node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>
 ```
 
-The default target is `codex`, which writes `.agents/skills`. Use `--target claude` for `.claude/skills`, or `--target both` for a repository used with both agents. Commit the managed `newheap-*` directories and `.newheap-platform-install.json` under every selected skill root. Check for updates with the same target and the `--check` flag. The `newheap-platform` plugin publishes the same provider-neutral skill suite and a standalone plural installer, so a consumer does not need a Platform checkout. Anonymous npm/NuGet sources and upgrade cutover are documented in [Consume public packages](../how-to/consume-public-packages.md).
+The default target is `codex`, which writes the complete suite under `.agents/skills/newheap-platform-development`. Use `--target claude` for `.claude/skills/newheap-platform-development`, or `--target both` for a repository used with both agents. Commit that single managed directory, including its `.newheap-platform-install.json`. Check for updates with the same target and the `--check` flag. The installer safely migrates the earlier flat `newheap-*` layout after confirming those managed files were not changed locally. The `newheap-platform` plugin publishes the same provider-neutral suite and a standalone installer, so a consumer does not need a Platform checkout. Anonymous npm/NuGet sources and upgrade cutover are documented in [Consume public packages](../how-to/consume-public-packages.md).
 
 ## Topics
 

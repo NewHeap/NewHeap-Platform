@@ -54,11 +54,12 @@ To pin the supported consumer workflow into another repository for Codex, run:
 node tools/guidance/install-consumer-skills.mjs --consumer <consumer-root>
 ```
 
-The default target is `codex` and writes `.agents/skills`. Use `--target
-claude` for `.claude/skills`, or `--target both` for a mixed-agent repository.
-Commit the generated `newheap-*` directories and
-`.newheap-platform-install.json` under every selected skill root. The same
-provider-neutral skill suite is packaged in the
+The default target is `codex` and writes the complete suite under
+`.agents/skills/newheap-platform-development`. Use `--target claude` for the
+matching `.claude/skills/newheap-platform-development` directory, or
+`--target both` for a mixed-agent repository. Commit that single generated
+directory, including its `.newheap-platform-install.json`. The same
+provider-neutral, internally modular skill suite is packaged in the
 [NewHeap Platform plugin](plugins/newheap-platform/.codex-plugin/plugin.json).
 
 ## Releases

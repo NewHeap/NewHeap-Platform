@@ -1,9 +1,12 @@
 {
-  "schemaVersion": 2,
-  "pluginVersion": "1.11.7",
-  "guidanceVersion": "1.11.7",
-  "skillContentHash": "87c99bc7a0058b73b6b385e09b3c20b876ed8ec9a85638ba4922c0e78621c043",
+  "schemaVersion": 3,
+  "pluginVersion": "1.11.8",
+  "guidanceVersion": "1.11.8",
+  "skillContentHash": "30f8f5f87a18c45d4bd00f6f15c23b3e5066fa156b354c6d0893ffdda2bacd1d",
   "skills": [
+    "newheap-platform-development"
+  ],
+  "modules": [
     "newheap-consumer-development",
     "newheap-authentication",
     "newheap-backend-development",
@@ -14,6 +17,17 @@
     "newheap-runtime-configuration",
     "newheap-testing"
   ],
+  "moduleDirectories": {
+    "newheap-consumer-development": "foundation",
+    "newheap-authentication": "authentication",
+    "newheap-backend-development": "backend",
+    "newheap-background-processing": "background-processing",
+    "newheap-database-development": "database",
+    "newheap-frontend-development": "frontend",
+    "newheap-media-development": "media",
+    "newheap-runtime-configuration": "runtime-configuration",
+    "newheap-testing": "testing"
+  },
   "compatiblePackages": {
     "@newheap/nh-toastr": "0.0.6",
     "@newheap/platform-common": "0.20.7",
@@ -31,9 +45,9 @@
     "NewHeap.Platform.Media.MediaStorage.FileSystem": "2.0.0",
     "NewHeap.Platform.Media.MediaStorage.S3Bucket": "2.0.0"
   },
-  "repositoryTarget": ".agents/skills",
+  "repositoryTarget": ".agents/skills/newheap-platform-development",
   "repositoryTargets": {
-    "codex": ".agents/skills",
-    "claude": ".claude/skills"
+    "codex": ".agents/skills/newheap-platform-development",
+    "claude": ".claude/skills/newheap-platform-development"
   }
 }

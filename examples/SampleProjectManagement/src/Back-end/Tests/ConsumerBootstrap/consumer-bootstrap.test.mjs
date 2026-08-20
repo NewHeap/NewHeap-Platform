@@ -24,7 +24,14 @@ try {
   const existingInstructions = '# Existing repository instructions\n\nKeep local ownership rules.\n';
   await writeFile(resolve(consumerRoot, 'AGENTS.md'), existingInstructions, 'utf8');
   for (const targetDirectory of ['.agents', '.claude']) {
-    const installedSkillRoot = resolve(consumerRoot, targetDirectory, 'skills', 'newheap-consumer-development');
+    const installedSkillRoot = resolve(
+      consumerRoot,
+      targetDirectory,
+      'skills',
+      'newheap-platform-development',
+      'skills',
+      'foundation'
+    );
     await mkdir(installedSkillRoot, { recursive: true });
     await writeFile(resolve(installedSkillRoot, 'SKILL.md'), '---\nname: newheap-consumer-development\ndescription: Test installation.\n---\n', 'utf8');
   }
@@ -55,7 +62,7 @@ try {
   assert.equal(manifest.paths.frontend, 'src/Front-end');
   assert.equal(await readFile(resolve(consumerRoot, 'AGENTS.md'), 'utf8'), existingInstructions);
   const claudeInstructions = await readFile(resolve(consumerRoot, 'CLAUDE.md'), 'utf8');
-  assert.match(claudeInstructions, /node \.claude\/skills\/newheap-consumer-development\/scripts\/inspect-newheap-consumer\.mjs/);
+  assert.match(claudeInstructions, /node \.claude\/skills\/newheap-platform-development\/skills\/foundation\/scripts\/inspect-newheap-consumer\.mjs/);
 
   await readFile(resolve(consumerRoot, 'src/Back-end/Example.Portal.slnx'), 'utf8');
   await readFile(resolve(consumerRoot, 'src/Back-end/Directory.Build.props'), 'utf8');

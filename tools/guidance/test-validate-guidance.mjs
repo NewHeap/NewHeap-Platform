@@ -9,7 +9,7 @@ environmentWithoutPath.PATH = '';
 
 const validator = resolve(repositoryRoot, 'tools', 'guidance', 'validate-guidance.mjs');
 const [registry, rules] = await Promise.all([loadRegistry(), loadRules()]);
-const expectedOutput = `Validated ${registry.cases.length} sample cases, ${rules.length} guidance rules and ${consumerSkillNames.length + 1} skills.`;
+const expectedOutput = `Validated ${registry.cases.length} sample cases, ${rules.length} guidance rules and ${consumerSkillNames.length + 2} skills.`;
 const result = spawnSync(process.execPath, [validator], {
   cwd: repositoryRoot,
   encoding: 'utf8',
