@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "guidanceVersion": "1.11.8",
+  "guidanceVersion": "1.11.10",
   "backEnd": {
-    "hash": "4d101dd681c2c9ff8fd48862495913bca8dcdbcfd4b94f34fe70dcc659e0df33",
-    "declarationCount": 2283,
+    "hash": "67b9fb4bb5683ec0153c44d3b152259812014cc9d64f3a8e2775737056335531",
+    "declarationCount": 2333,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Caching/Extensions.cs",
@@ -1166,6 +1166,198 @@
         "declaration": "public override bool CanConvert(Type objectType) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public BulkUpsertDataReader( IEnumerable<TEntity> entities, IReadOnlyList<BulkUpsertProperty<TEntity>> properties, string? sourceOrdinalColumnName = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override int FieldCount => _properties.Count + (_sourceOrdinalColumnName is null ? 0 : 1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override bool HasRows => _hasRows;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override bool IsClosed => _closed;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override int RecordsAffected => -1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override int Depth => 0;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override object this[int ordinal] => GetValue(ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override object this[string name] => GetValue(GetOrdinal(name));"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override bool Read() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override Task<bool> ReadAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override object GetValue(int ordinal) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override int GetValues(object[] values) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override bool IsDBNull(int ordinal) => GetValue(ordinal) is DBNull;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override string GetName(int ordinal) =>"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override string GetDataTypeName(int ordinal) =>"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override Type GetFieldType(int ordinal) =>"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override int GetOrdinal(string name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override bool GetBoolean(int ordinal) => (bool)GetValue(ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override byte GetByte(int ordinal) => (byte)GetValue(ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override char GetChar(int ordinal) => (char)GetValue(ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override DateTime GetDateTime(int ordinal) => (DateTime)GetValue(ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override decimal GetDecimal(int ordinal) => (decimal)GetValue(ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override double GetDouble(int ordinal) => (double)GetValue(ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override float GetFloat(int ordinal) => (float)GetValue(ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override Guid GetGuid(int ordinal) => (Guid)GetValue(ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override short GetInt16(int ordinal) => (short)GetValue(ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override int GetInt32(int ordinal) => (int)GetValue(ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override long GetInt64(int ordinal) => (long)GetValue(ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override string GetString(int ordinal) => (string)GetValue(ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override bool NextResult() => false;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override Task<bool> NextResultAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override IEnumerator GetEnumerator() => new DbEnumerator(this, closeReader: false);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "public override void Close() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertDataReader.cs",
+        "declaration": "protected override void Dispose(bool disposing) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertPlan.cs",
+        "declaration": "public string TableName { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertPlan.cs",
+        "declaration": "public string? Schema { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertPlan.cs",
+        "declaration": "public IReadOnlyList<BulkUpsertProperty<TEntity>> InsertProperties { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertPlan.cs",
+        "declaration": "public IReadOnlyList<BulkUpsertProperty<TEntity>> MatchProperties { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertPlan.cs",
+        "declaration": "public IReadOnlyList<BulkUpsertProperty<TEntity>> UpdateProperties { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertPlan.cs",
+        "declaration": "public static BulkUpsertPlan<TEntity> Create<TMatch>( DbContext context, Expression<Func<TEntity, TMatch>> matchOn) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertPlan.cs",
+        "declaration": "public string ColumnName { get; } = columnName;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertPlan.cs",
+        "declaration": "public string StoreTypeName { get; } = typeMapping.StoreTypeNameBase;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertPlan.cs",
+        "declaration": "public Type ProviderClrType { get; } = Nullable.GetUnderlyingType( typeMapping.Converter?.ProviderClrType ?? property.ClrType) ?? typeMapping.Converter?.ProviderClrType ?? property.ClrType;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertPlan.cs",
+        "declaration": "public object? GetProviderValue(TEntity entity) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/PostgreSqlBulkUpsertExecutor.cs",
+        "declaration": "public static async Task<int> ExecuteAsync<TEntity>( DbContext context, BulkUpsertPlan<TEntity> plan, IEnumerable<TEntity> entities, DbTransaction transaction, CancellationToken cancellationToken) where TEntity : class {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/SqlServerBulkUpsertExecutor.cs",
+        "declaration": "public static async Task<int> ExecuteAsync<TEntity>( DbContext context, BulkUpsertPlan<TEntity> plan, IEnumerable<TEntity> entities, DbTransaction transaction, CancellationToken cancellationToken) where TEntity : class {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/DatabaseProviderConfigurationExtensions.cs",
         "declaration": "public enum DatabaseProvider {"
       },
@@ -2196,6 +2388,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Repository.cs",
         "declaration": "public delegate IDbContextTransaction NhTransactionFactory(IDbContextTransaction? prev,DbContext dbContext,IServiceProvider serviceProvider);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs",
+        "declaration": "public static class RepositoryBulkExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs",
+        "declaration": "public static async Task<int> ExecuteUpsertAsync<TEntity, TMatch>( this IRepository<TEntity> repository, IEnumerable<TEntity> entities, Expression<Func<TEntity, TMatch>> matchOn, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositorySqlExtensions.cs",
@@ -12231,6 +12431,10 @@
       "NewHeapPlatformCommonConfigurator",
       "NewHeapPlatformAspNetCommonConfigurator",
       "NhCommonModule"
+    ],
+    "nh-database-bulk-upsert": [
+      "RepositoryBulkExtensions",
+      "ExecuteUpsertAsync"
     ],
     "nh-database-provider-portability": [
       "IRepository",

@@ -34,4 +34,4 @@ Run `inspect-newheap-consumer.mjs <consumer-root> --mode validate` and require e
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.8/docs/consumer-guide/consumer-management-portal.md#use-a-newheap-management-portal-for-confirmed-interactive-work)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.9/docs/consumer-guide/consumer-management-portal.md#use-a-newheap-management-portal-for-confirmed-interactive-work)

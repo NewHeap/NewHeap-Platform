@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidance": {
     "schemaVersion": 1,
-    "guidanceVersion": "1.11.8",
+    "guidanceVersion": "1.11.9",
     "sampleRegistryVersion": 1,
     "minimumNodeVersion": "22.0.0"
   },
@@ -34,7 +34,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.8",
+        "pluginVersion": "1.11.9",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -69,7 +69,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.8",
+        "pluginVersion": "1.11.9",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -100,7 +100,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.8",
+        "pluginVersion": "1.11.9",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -128,7 +128,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.8",
+        "pluginVersion": "1.11.9",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -150,7 +150,8 @@
         "references/backend-module-composition.md",
         "references/backend-partial-update.md",
         "references/backend-project-foundation.md",
-        "references/backend-unit-of-work.md"
+        "references/backend-unit-of-work.md",
+        "references/database-bulk-upsert.md"
       ]
     },
     {
@@ -160,7 +161,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.8",
+        "pluginVersion": "1.11.9",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -188,7 +189,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.8",
+        "pluginVersion": "1.11.9",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -205,6 +206,7 @@
         }
       },
       "references": [
+        "references/database-bulk-upsert.md",
         "references/database-providers.md"
       ]
     },
@@ -215,7 +217,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.8",
+        "pluginVersion": "1.11.9",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -244,7 +246,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.8",
+        "pluginVersion": "1.11.9",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -271,7 +273,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.8",
+        "pluginVersion": "1.11.9",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -298,7 +300,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.8",
+        "pluginVersion": "1.11.9",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",

@@ -13,6 +13,7 @@
 - consumer-management-portal: ./consumer-management-portal.md
 - consumer-optional-infrastructure: ./consumer-optional-infrastructure.md
 - consumer-scope-gate: ./consumer-scope-gate.md
+- database-bulk-upsert: ./database-bulk-upsert.md
 - database-providers: ./database-providers.md
 - frontend-collection-query: ./frontend-collection-query.md
 - frontend-lifecycle-modals: ./frontend-lifecycle-modals.md

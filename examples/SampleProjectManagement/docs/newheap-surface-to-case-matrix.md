@@ -5,7 +5,7 @@ This is the completion criterion for SampleProjectManagement: every author-facin
 | Library surface | Author-facing concepts | Cases | Concrete sample entry |
 |---|---|---|---|
 | NewHeap.Platform.Common | TaskResult, CRUD/bulk contracts, filters, projections, validation, utilities, localization and Hangfire helpers | SPM-001–050, SPM-076–083, SPM-141–169, SPM-201–207 | ProjectService, collection and utility playgrounds, executable tests |
-| NewHeap.Platform.AspNet.Common: DAL and services | repository, composite service, partial/bulk mutation, SQL, transaction ownership and db logging | SPM-051–052, SPM-054–060, SPM-189–200 | concrete ProjectService and ProjectCompositeService |
+| NewHeap.Platform.AspNet.Common: DAL and services | repository, composite service, partial/bulk mutation, provider-native upsert, SQL, transaction ownership and db logging | SPM-051–060, SPM-189–200 | concrete ProjectService and ProjectCompositeService |
 | NewHeap.Platform.AspNet.Common: authentication | password, Microsoft OAuth, picker, refresh, logout, impersonation, account, scoped policies, authentication-service overrides and request-time claim transformation | SPM-061–075, SPM-210–214 | Program authentication builder, SampleAuthenticationService, AuthorizationSamplesController and auth playground |
 | NewHeap.Platform.AspNet.Common: notifications | notification creation, deliveries, dispatcher and frontend state | SPM-084–090 | OperationsSampleService and notification playground |
 | NewHeap.Platform.AspNet.Common: application infrastructure | configuration, startup builder, localization, trace, error, OneOf, query binding and invariant forms | SPM-091–105, SPM-209 | Program, SampleStartupConfiguration and LibrarySamplesController |

@@ -721,6 +721,19 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     ]
   },
   {
+    "id": "SPM-053",
+    "title": "Provider-native bulk upsert",
+    "category": "DAL, repositories, and transactions",
+    "surface": "ExecuteUpsertAsync",
+    "outcome": "Project imports stream thousands of rows, atomically insert or update by the division-scoped project key, and receive supported database-generated primary keys for inserted entities.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs"
+    ]
+  },
+  {
     "id": "SPM-054",
     "title": "Explicit transaction",
     "category": "DAL, repositories, and transactions",

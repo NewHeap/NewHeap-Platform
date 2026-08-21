@@ -72,6 +72,13 @@
       "expectedOutcome": "Provider-neutral LINQ plus separate parameterized dialect implementations and real-provider tests."
     },
     {
+      "id": "consumer-provider-bulk-upsert",
+      "skill": "newheap-database-development",
+      "prompt": "Import thousands of entities through an existing repository, matching each row on a composite business key and inserting or updating immediately without EF change tracking.",
+      "expectedRules": ["nh-database-bulk-upsert"],
+      "expectedOutcome": "ExecuteUpsertAsync uses the configured unique business key, streams through SQL Server MERGE or PostgreSQL ON CONFLICT in one transaction, writes supported database-generated primary keys back to inserted entities, and rejects unsupported providers and duplicate source keys."
+    },
+    {
       "id": "consumer-transaction-events",
       "skill": "newheap-background-processing",
       "prompt": "Add a transactional mutation with a CAP event, an idempotent consumer, a job, and a notification.",

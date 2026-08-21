@@ -89,6 +89,7 @@ The complete public-surface mapping and intended sample entry points are documen
 |---|---|---|---|
 | SPM-051 | Generic repository | `IRepository<T>`, `Repository<T>` | The service queries through a DI-registered repository. |
 | SPM-052 | Load relationships | repository/queryable extensions | The detail loads without an N+1 query. |
+| SPM-053 | Provider-native bulk upsert | `ExecuteUpsertAsync` | Project imports stream thousands of rows, atomically insert or update by the division-scoped project key, and receive supported database-generated primary keys for inserted entities. |
 | SPM-054 | Explicit transaction | `ITransaction`, transaction scope | Project and task commit or roll back together. |
 | SPM-055 | Safe raw SQL | raw/safe formattable string | Injection input remains parameterized. |
 | SPM-056 | Repository SQL | SQL extensions | A read-only statistics query executes through the repository. |
@@ -326,7 +327,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | CRUD, controllers, services, and models | SPM-001–015 | 15 |
 | Collections, filters, expressions, and projections | SPM-016–035 | 20 |
 | Full, partial, and bulk mutations and validation | SPM-036–050 | 15 |
-| DAL, repositories, SQL, EF, and transactions | SPM-051–052, SPM-054–060 | 9 |
+| DAL, repositories, SQL, EF, and transactions | SPM-051–060 | 10 |
 | Authentication, identity, claims, and policies | SPM-061–075 | 15 |
 | Events, Hangfire, email, and notifications | SPM-076–090 | 15 |
 | Localization, options, middleware, and OpenAPI | SPM-091–105 | 15 |
@@ -340,7 +341,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | Helpers, extensions, and transactional boundaries | SPM-201–209 | 9 |
 | Authorization implementation patterns | SPM-210–214 | 5 |
 | Consumer repository foundation | SPM-216–217 | 2 |
-| **Total** | **216 cases (SPM-053 was removed)** | **216** |
+| **Total** | **217 cases** | **217** |
 
 ## Identified gaps and risks
 
