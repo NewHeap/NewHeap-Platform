@@ -725,7 +725,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Provider-native bulk upsert",
     "category": "DAL, repositories, and transactions",
     "surface": "ExecuteUpsertAsync",
-    "outcome": "Project imports stream thousands of rows, atomically insert or update by the division-scoped project key, and receive supported database-generated primary keys for inserted entities.",
+    "outcome": "Project imports atomically upsert roots and explicitly selected one-to-many tasks, retain omitted children, and reject populated nested dependencies before changing stored data.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",

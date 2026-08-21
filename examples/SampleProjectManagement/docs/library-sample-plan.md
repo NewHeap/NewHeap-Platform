@@ -89,7 +89,7 @@ The complete public-surface mapping and intended sample entry points are documen
 |---|---|---|---|
 | SPM-051 | Generic repository | `IRepository<T>`, `Repository<T>` | The service queries through a DI-registered repository. |
 | SPM-052 | Load relationships | repository/queryable extensions | The detail loads without an N+1 query. |
-| SPM-053 | Provider-native bulk upsert | `ExecuteUpsertAsync` | Project imports stream thousands of rows, atomically insert or update by the division-scoped project key, and receive supported database-generated primary keys for inserted entities. |
+| SPM-053 | Provider-native bulk upsert | `ExecuteUpsertAsync` | Project imports atomically upsert roots and explicitly selected one-to-many tasks, retain omitted children, and reject populated nested dependencies before changing stored data. |
 | SPM-054 | Explicit transaction | `ITransaction`, transaction scope | Project and task commit or roll back together. |
 | SPM-055 | Safe raw SQL | raw/safe formattable string | Injection input remains parameterized. |
 | SPM-056 | Repository SQL | SQL extensions | A read-only statistics query executes through the repository. |

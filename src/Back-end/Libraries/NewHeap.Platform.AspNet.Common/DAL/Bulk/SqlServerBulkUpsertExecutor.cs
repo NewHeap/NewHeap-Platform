@@ -17,6 +17,24 @@ internal static class SqlServerBulkUpsertExecutor
         CancellationToken cancellationToken)
         where TEntity : class
     {
+        return await ExecuteAsync(
+            context,
+            plan,
+            entities,
+            transaction,
+            hydrateMatchedPrimaryKeys: false,
+            cancellationToken);
+    }
+
+    internal static async Task<int> ExecuteAsync<TEntity>(
+        DbContext context,
+        BulkUpsertPlan<TEntity> plan,
+        IEnumerable<TEntity> entities,
+        DbTransaction transaction,
+        bool hydrateMatchedPrimaryKeys,
+        CancellationToken cancellationToken)
+        where TEntity : class
+    {
         var connection = context.Database.GetDbConnection() as SqlConnection
             ?? throw new InvalidOperationException("The SQL Server provider did not expose a SqlConnection.");
         var sqlTransaction = transaction as SqlTransaction
@@ -34,7 +52,7 @@ internal static class SqlServerBulkUpsertExecutor
             : $"__nh_source_ordinal_{Guid.NewGuid():N}";
         var temporaryTable = sql.DelimitIdentifier(temporaryTableName);
         var targetTable = sql.DelimitIdentifier(plan.TableName, plan.Schema);
-        var columns = JoinColumns(sql, plan.InsertProperties);
+        var columns = JoinColumns(sql, plan.StagingProperties);
         var stagingColumns = sourceOrdinalColumnName is null
             ? columns
             : $"{columns}, CAST(0 AS bigint) AS {sql.DelimitIdentifier(sourceOrdinalColumnName)}";
@@ -47,7 +65,7 @@ internal static class SqlServerBulkUpsertExecutor
 
         using var reader = new BulkUpsertDataReader<TEntity>(
             entities,
-            plan.InsertProperties,
+            plan.StagingProperties,
             sourceOrdinalColumnName);
         using (var bulkCopy = new SqlBulkCopy(
                    connection,
@@ -58,7 +76,7 @@ internal static class SqlServerBulkUpsertExecutor
                    EnableStreaming = true
                })
         {
-            foreach (var property in plan.InsertProperties)
+            foreach (var property in plan.StagingProperties)
             {
                 bulkCopy.ColumnMappings.Add(property.ColumnName, property.ColumnName);
             }
@@ -70,11 +88,14 @@ internal static class SqlServerBulkUpsertExecutor
             await bulkCopy.WriteToServerAsync(reader, cancellationToken);
         }
 
-        await ExecuteCommandAsync(
-            connection,
-            sqlTransaction,
-            $"CREATE UNIQUE INDEX {sql.DelimitIdentifier(temporaryIndexName)} ON {temporaryTable} ({JoinColumns(sql, plan.MatchProperties)});",
-            cancellationToken);
+        if (plan.Operation != BulkUpsertOperation.InsertOnly)
+        {
+            await ExecuteCommandAsync(
+                connection,
+                sqlTransaction,
+                $"CREATE UNIQUE INDEX {sql.DelimitIdentifier(temporaryIndexName)} ON {temporaryTable} ({JoinColumns(sql, plan.MatchProperties)});",
+                cancellationToken);
+        }
 
         var mergeSql = BuildMergeSql(
             sql,
@@ -94,7 +115,15 @@ internal static class SqlServerBulkUpsertExecutor
                 mergeSql,
                 plan.GeneratedPrimaryKey,
                 reader.StagedEntities,
+                hydrateMatchedPrimaryKeys,
                 cancellationToken);
+
+        if (plan.Operation == BulkUpsertOperation.UpdateOnly &&
+            affected != reader.StagedEntities.Count)
+        {
+            throw new InvalidOperationException(
+                $"Bulk upsert navigation update expected {reader.StagedEntities.Count} existing '{typeof(TEntity).Name}' rows but matched {affected}.");
+        }
 
         await ExecuteCommandAsync(
             connection,
@@ -112,27 +141,44 @@ internal static class SqlServerBulkUpsertExecutor
         string? sourceOrdinalColumnName)
         where TEntity : class
     {
-        var match = string.Join(
-            " AND ",
-            plan.MatchProperties.Select(property =>
-                $"target.{sql.DelimitIdentifier(property.ColumnName)} = source.{sql.DelimitIdentifier(property.ColumnName)}"));
-        var update = plan.UpdateProperties.Count == 0
+        var match = plan.Operation == BulkUpsertOperation.InsertOnly
+            ? "1 = 0"
+            : string.Join(
+                " AND ",
+                plan.MatchProperties.Select(property =>
+                    $"target.{sql.DelimitIdentifier(property.ColumnName)} = source.{sql.DelimitIdentifier(property.ColumnName)}"));
+        var update = plan.Operation == BulkUpsertOperation.InsertOnly || plan.UpdateProperties.Count == 0
             ? string.Empty
             : $"WHEN MATCHED THEN UPDATE SET {string.Join(", ", plan.UpdateProperties.Select(property => $"target.{sql.DelimitIdentifier(property.ColumnName)} = source.{sql.DelimitIdentifier(property.ColumnName)}"))}\n";
-        var insertColumns = JoinColumns(sql, plan.InsertProperties);
+        var generateGuidInStatement = plan.GeneratedPrimaryKey is not null &&
+                                      (Nullable.GetUnderlyingType(plan.GeneratedPrimaryKey.ModelClrType) ??
+                                       plan.GeneratedPrimaryKey.ModelClrType) == typeof(Guid) &&
+                                      plan.GeneratedPrimaryKey.DefaultValueSql is null;
+        var insertColumns = string.Join(
+            ", ",
+            (generateGuidInStatement
+                    ? new[] { plan.GeneratedPrimaryKey! }.Concat(plan.InsertProperties)
+                    : plan.InsertProperties)
+                .Select(property => sql.DelimitIdentifier(property.ColumnName)));
         var insertValues = string.Join(
             ", ",
-            plan.InsertProperties.Select(property => $"source.{sql.DelimitIdentifier(property.ColumnName)}"));
+            (generateGuidInStatement ? new[] { "NEWID()" } : [])
+                .Concat(plan.InsertProperties.Select(property => $"source.{sql.DelimitIdentifier(property.ColumnName)}")));
         var output = plan.GeneratedPrimaryKey is null
             ? string.Empty
             : $"\nOUTPUT $action, source.{sql.DelimitIdentifier(sourceOrdinalColumnName!)}, inserted.{sql.DelimitIdentifier(plan.GeneratedPrimaryKey.ColumnName)}";
+        var insert = plan.Operation == BulkUpsertOperation.UpdateOnly
+            ? string.Empty
+            : $"WHEN NOT MATCHED BY TARGET THEN\n    INSERT ({insertColumns}) VALUES ({insertValues}){output};";
+        var updateOutput = plan.Operation == BulkUpsertOperation.UpdateOnly && plan.GeneratedPrimaryKey is not null
+            ? $"{output};"
+            : string.Empty;
 
         return $"""
             MERGE {targetTable} WITH (HOLDLOCK) AS target
             USING {temporaryTable} AS source
             ON {match}
-            {update}WHEN NOT MATCHED BY TARGET THEN
-                INSERT ({insertColumns}) VALUES ({insertValues}){output};
+            {update}{insert}{updateOutput}
             """;
     }
 
@@ -142,6 +188,7 @@ internal static class SqlServerBulkUpsertExecutor
         string commandText,
         BulkUpsertProperty<TEntity> generatedPrimaryKey,
         IReadOnlyList<TEntity> stagedEntities,
+        bool hydrateMatchedPrimaryKeys,
         CancellationToken cancellationToken)
         where TEntity : class
     {
@@ -153,7 +200,8 @@ internal static class SqlServerBulkUpsertExecutor
         while (await result.ReadAsync(cancellationToken))
         {
             affected++;
-            if (!string.Equals(result.GetString(0), "INSERT", StringComparison.OrdinalIgnoreCase))
+            if (!hydrateMatchedPrimaryKeys &&
+                !string.Equals(result.GetString(0), "INSERT", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }

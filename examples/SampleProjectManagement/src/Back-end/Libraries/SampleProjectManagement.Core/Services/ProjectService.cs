@@ -397,7 +397,7 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
 
     /// <summary>
     /// SPM-053 demonstrates the provider-native import path. The operation is immediate,
-    /// bypasses EF change tracking, and hydrates supported database-generated primary keys on inserts.
+    /// bypasses EF change tracking, and upserts explicitly selected dependent tasks by primary key.
     /// </summary>
     public Task<int> ImportAsync(
         IReadOnlyCollection<Project> projects,
@@ -419,11 +419,22 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
             }
 
             project.LastModifiedDateTime = importDateTime;
+            foreach (var task in project.Tasks)
+            {
+                task.Title = task.Title.Trim();
+                if (task.CreationDateTime == default)
+                {
+                    task.CreationDateTime = importDateTime;
+                }
+
+                task.LastModifiedDateTime = importDateTime;
+            }
         }
 
         return _repository.ExecuteUpsertAsync(
             projects,
             project => new { project.DivisionId, project.Key },
+            [project => project.Tasks],
             cancellationToken);
     }
 

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "guidanceVersion": "1.11.10",
+  "guidanceVersion": "1.11.9",
   "backEnd": {
-    "hash": "67b9fb4bb5683ec0153c44d3b152259812014cc9d64f3a8e2775737056335531",
-    "declarationCount": 2333,
+    "hash": "4e07277a14c8ad48a84727916db847f0e6450a8a38321178ba3c34d58cc3bde7",
+    "declarationCount": 2334,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Caching/Extensions.cs",
@@ -2396,6 +2396,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs",
         "declaration": "public static async Task<int> ExecuteUpsertAsync<TEntity, TMatch>( this IRepository<TEntity> repository, IEnumerable<TEntity> entities, Expression<Func<TEntity, TMatch>> matchOn, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs",
+        "declaration": "public static async Task<int> ExecuteUpsertAsync<TEntity, TMatch>( this IRepository<TEntity> repository, IEnumerable<TEntity> entities, Expression<Func<TEntity, TMatch>> matchOn, IReadOnlyCollection<Expression<Func<TEntity, object?>>> navigationSelectors, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositorySqlExtensions.cs",

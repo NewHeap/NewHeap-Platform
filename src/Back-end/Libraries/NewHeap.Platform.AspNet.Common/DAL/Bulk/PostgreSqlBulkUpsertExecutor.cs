@@ -17,6 +17,24 @@ internal static class PostgreSqlBulkUpsertExecutor
         CancellationToken cancellationToken)
         where TEntity : class
     {
+        return await ExecuteAsync(
+            context,
+            plan,
+            entities,
+            transaction,
+            hydrateMatchedPrimaryKeys: false,
+            cancellationToken);
+    }
+
+    internal static async Task<int> ExecuteAsync<TEntity>(
+        DbContext context,
+        BulkUpsertPlan<TEntity> plan,
+        IEnumerable<TEntity> entities,
+        DbTransaction transaction,
+        bool hydrateMatchedPrimaryKeys,
+        CancellationToken cancellationToken)
+        where TEntity : class
+    {
         var connection = context.Database.GetDbConnection() as NpgsqlConnection
             ?? throw new InvalidOperationException("The PostgreSQL provider did not expose an NpgsqlConnection.");
         var npgsqlTransaction = transaction as NpgsqlTransaction
@@ -37,7 +55,7 @@ internal static class PostgreSqlBulkUpsertExecutor
             : $"__nh_inserted_key_{Guid.NewGuid():N}";
         var temporaryTable = sql.DelimitIdentifier(temporaryTableName);
         var targetTable = sql.DelimitIdentifier(plan.TableName, plan.Schema);
-        var columns = JoinColumns(sql, plan.InsertProperties);
+        var columns = JoinColumns(sql, plan.StagingProperties);
         var stagingColumns = plan.GeneratedPrimaryKey is null
             ? columns
             : $"{columns}, 0::bigint AS {sql.DelimitIdentifier(sourceOrdinalColumnName!)}, NULL::{plan.GeneratedPrimaryKey.StoreTypeName} AS {sql.DelimitIdentifier(insertedPrimaryKeyColumnName!)}";
@@ -65,7 +83,7 @@ internal static class PostgreSqlBulkUpsertExecutor
                 }
 
                 await importer.StartRowAsync(cancellationToken);
-                foreach (var property in plan.InsertProperties)
+                foreach (var property in plan.StagingProperties)
                 {
                     var value = property.GetProviderValue(entity);
                     if (value is null)
@@ -88,14 +106,65 @@ internal static class PostgreSqlBulkUpsertExecutor
             await importer.CompleteAsync(cancellationToken);
         }
 
-        await ExecuteCommandAsync(
-            connection,
-            npgsqlTransaction,
-            $"CREATE UNIQUE INDEX {sql.DelimitIdentifier(temporaryIndexName)} ON {temporaryTable} ({JoinColumns(sql, plan.MatchProperties)});",
-            cancellationToken);
+        if (plan.Operation != BulkUpsertOperation.InsertOnly)
+        {
+            await ExecuteCommandAsync(
+                connection,
+                npgsqlTransaction,
+                $"CREATE UNIQUE INDEX {sql.DelimitIdentifier(temporaryIndexName)} ON {temporaryTable} ({JoinColumns(sql, plan.MatchProperties)});",
+                cancellationToken);
+        }
 
         int affected;
-        if (plan.GeneratedPrimaryKey is null)
+        if (plan.Operation == BulkUpsertOperation.InsertOnly)
+        {
+            await PopulateGeneratedKeysAsync(
+                connection,
+                npgsqlTransaction,
+                temporaryTable,
+                insertedPrimaryKeyColumnName!,
+                targetTable,
+                plan.GeneratedPrimaryKey!,
+                cancellationToken);
+            affected = await ExecuteCommandAsync(
+                connection,
+                npgsqlTransaction,
+                BuildInsertOnlySql(
+                    sql,
+                    targetTable,
+                    temporaryTable,
+                    insertedPrimaryKeyColumnName!,
+                    plan),
+                cancellationToken);
+            await HydrateGeneratedKeysAsync(
+                connection,
+                npgsqlTransaction,
+                temporaryTable,
+                sourceOrdinalColumnName!,
+                insertedPrimaryKeyColumnName!,
+                plan.GeneratedPrimaryKey!,
+                stagedEntities!,
+                cancellationToken);
+        }
+        else if (plan.Operation == BulkUpsertOperation.UpdateOnly)
+        {
+            affected = await ExecuteCommandAsync(
+                connection,
+                npgsqlTransaction,
+                BuildUpdateExistingSql(
+                    sql,
+                    targetTable,
+                    temporaryTable,
+                    insertedPrimaryKeyColumnName!,
+                    plan),
+                cancellationToken);
+            if (affected != stagedEntities!.Count)
+            {
+                throw new InvalidOperationException(
+                    $"Bulk upsert navigation update expected {stagedEntities.Count} existing '{typeof(TEntity).Name}' rows but matched {affected}.");
+            }
+        }
+        else if (plan.GeneratedPrimaryKey is null)
         {
             affected = await ExecuteCommandAsync(
                 connection,
@@ -127,6 +196,19 @@ internal static class PostgreSqlBulkUpsertExecutor
                         insertedPrimaryKeyColumnName!,
                         plan),
                     cancellationToken);
+            if (hydrateMatchedPrimaryKeys)
+            {
+                await ExecuteCommandAsync(
+                    connection,
+                    npgsqlTransaction,
+                    BuildCaptureMatchedKeysSql(
+                        sql,
+                        targetTable,
+                        temporaryTable,
+                        insertedPrimaryKeyColumnName!,
+                        plan),
+                    cancellationToken);
+            }
             await HydrateGeneratedKeysAsync(
                 connection,
                 npgsqlTransaction,
@@ -155,7 +237,20 @@ internal static class PostgreSqlBulkUpsertExecutor
         BulkUpsertPlan<TEntity> plan)
         where TEntity : class
     {
-        var columns = JoinColumns(sql, plan.InsertProperties);
+        var generateGuidInStatement = plan.GeneratedPrimaryKey is not null &&
+                                      (Nullable.GetUnderlyingType(plan.GeneratedPrimaryKey.ModelClrType) ??
+                                       plan.GeneratedPrimaryKey.ModelClrType) == typeof(Guid) &&
+                                      plan.GeneratedPrimaryKey.DefaultValueSql is null;
+        var columns = string.Join(
+            ", ",
+            (generateGuidInStatement
+                    ? new[] { plan.GeneratedPrimaryKey! }.Concat(plan.InsertProperties)
+                    : plan.InsertProperties)
+                .Select(property => sql.DelimitIdentifier(property.ColumnName)));
+        var selectColumns = string.Join(
+            ", ",
+            (generateGuidInStatement ? new[] { "gen_random_uuid()" } : [])
+                .Concat(plan.InsertProperties.Select(property => sql.DelimitIdentifier(property.ColumnName))));
         var conflictColumns = JoinColumns(sql, plan.MatchProperties);
         var match = string.Join(
             " AND ",
@@ -170,7 +265,7 @@ internal static class PostgreSqlBulkUpsertExecutor
         return $"""
             WITH inserted_rows AS (
                 INSERT INTO {targetTable} ({columns})
-                SELECT {columns} FROM {temporaryTable}
+                SELECT {selectColumns} FROM {temporaryTable}
                 ON CONFLICT ({conflictColumns}) DO NOTHING
                 RETURNING {returningColumns}
             )
@@ -179,6 +274,91 @@ internal static class PostgreSqlBulkUpsertExecutor
             FROM inserted_rows
             WHERE {match};
             """;
+    }
+
+    private static string BuildInsertOnlySql<TEntity>(
+        ISqlGenerationHelper sql,
+        string targetTable,
+        string temporaryTable,
+        string insertedPrimaryKeyColumnName,
+        BulkUpsertPlan<TEntity> plan)
+        where TEntity : class
+    {
+        var insertedKey = sql.DelimitIdentifier(insertedPrimaryKeyColumnName);
+        var insertColumns = string.Join(
+            ", ",
+            new[] { plan.GeneratedPrimaryKey! }
+                .Concat(plan.InsertProperties)
+                .Select(property => sql.DelimitIdentifier(property.ColumnName)));
+        var selectColumns = string.Join(
+            ", ",
+            new[] { insertedKey }
+                .Concat(plan.InsertProperties.Select(property => sql.DelimitIdentifier(property.ColumnName))));
+
+        return $"""
+            INSERT INTO {targetTable} ({insertColumns}) OVERRIDING SYSTEM VALUE
+            SELECT {selectColumns} FROM {temporaryTable};
+            """;
+    }
+
+    private static string BuildCaptureMatchedKeysSql<TEntity>(
+        ISqlGenerationHelper sql,
+        string targetTable,
+        string temporaryTable,
+        string insertedPrimaryKeyColumnName,
+        BulkUpsertPlan<TEntity> plan)
+        where TEntity : class
+    {
+        var match = string.Join(
+            " AND ",
+            plan.MatchProperties.Select(property =>
+                $"target.{sql.DelimitIdentifier(property.ColumnName)} = source.{sql.DelimitIdentifier(property.ColumnName)}"));
+        var insertedKey = sql.DelimitIdentifier(insertedPrimaryKeyColumnName);
+
+        return $"""
+            UPDATE {temporaryTable} AS source
+            SET {insertedKey} = target.{sql.DelimitIdentifier(plan.GeneratedPrimaryKey!.ColumnName)}
+            FROM {targetTable} AS target
+            WHERE source.{insertedKey} IS NULL
+              AND {match};
+            """;
+    }
+
+    private static async Task PopulateGeneratedKeysAsync<TEntity>(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string temporaryTable,
+        string insertedPrimaryKeyColumnName,
+        string targetTable,
+        BulkUpsertProperty<TEntity> generatedPrimaryKey,
+        CancellationToken cancellationToken)
+        where TEntity : class
+    {
+        string generatedValueSql;
+        if ((Nullable.GetUnderlyingType(generatedPrimaryKey.ModelClrType) ?? generatedPrimaryKey.ModelClrType) == typeof(Guid))
+        {
+            generatedValueSql = generatedPrimaryKey.DefaultValueSql ?? "gen_random_uuid()";
+        }
+        else
+        {
+            // ponytail: Numeric generated navigation keys require an identity/serial sequence;
+            // add modelled default-expression support before accepting other generators.
+            await using var sequenceCommand = connection.CreateCommand();
+            sequenceCommand.Transaction = transaction;
+            sequenceCommand.CommandText = "SELECT pg_get_serial_sequence(@table_name, @column_name);";
+            sequenceCommand.Parameters.AddWithValue("table_name", targetTable);
+            sequenceCommand.Parameters.AddWithValue("column_name", generatedPrimaryKey.ColumnName);
+            var sequence = await sequenceCommand.ExecuteScalarAsync(cancellationToken) as string
+                ?? throw new NotSupportedException(
+                    $"PostgreSQL graph upsert requires a sequence-backed generated numeric key '{generatedPrimaryKey.ColumnName}'.");
+            generatedValueSql = $"nextval('{sequence.Replace("'", "''", StringComparison.Ordinal)}'::regclass)";
+        }
+
+        await ExecuteCommandAsync(
+            connection,
+            transaction,
+            $"UPDATE {temporaryTable} SET \"{insertedPrimaryKeyColumnName.Replace("\"", "\"\"", StringComparison.Ordinal)}\" = {generatedValueSql};",
+            cancellationToken);
     }
 
     private static string BuildUpdateExistingSql<TEntity>(

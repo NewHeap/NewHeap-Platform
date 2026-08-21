@@ -86,11 +86,16 @@ public sealed class BulkUpsertProviderTests
             new Repository<NumericImportRow>(
                 serviceProvider.GetRequiredService<BulkUpsertDbContext>(),
                 serviceProvider));
+        services.AddScoped<IRepository<GraphParent>>(serviceProvider =>
+            new Repository<GraphParent>(
+                serviceProvider.GetRequiredService<BulkUpsertDbContext>(),
+                serviceProvider));
         await using var serviceProvider = services.BuildServiceProvider();
         await using var scope = serviceProvider.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<BulkUpsertDbContext>();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<ImportRow>>();
         var numericRepository = scope.ServiceProvider.GetRequiredService<IRepository<NumericImportRow>>();
+        var graphRepository = scope.ServiceProvider.GetRequiredService<IRepository<GraphParent>>();
         await context.Database.EnsureCreatedAsync();
 
         const int existingCount = 1_000;
@@ -162,6 +167,8 @@ public sealed class BulkUpsertProviderTests
         storedNumeric["NUMERIC-INSERTED"].Id.Should().Be(numericImport[1].Id);
         storedNumeric["NUMERIC-INSERTED"].Name.Should().Be("Inserted");
 
+        await VerifyNavigationGraphAsync(context, graphRepository, providerName);
+
         var rolledBackKey = $"ROLLBACK-{providerName}";
         await using (var transaction = await repository.StartOrGetTransactionScopeAsync())
         {
@@ -186,6 +193,122 @@ public sealed class BulkUpsertProviderTests
             row => new { row.DivisionId, row.ExternalKey });
 
         await duplicateAction.Should().ThrowAsync<DbException>();
+    }
+
+    private static async Task VerifyNavigationGraphAsync(
+        BulkUpsertDbContext context,
+        IRepository<GraphParent> repository,
+        string providerName)
+    {
+        var seeded = new GraphParent
+        {
+            ExternalKey = $"GRAPH-{providerName}",
+            Name = "Original root",
+            Detail = new GraphDetail { Value = "Original detail" },
+            Children =
+            [
+                new GraphChild { Value = "Original child" },
+                new GraphChild { Value = "Child omitted from import" }
+            ]
+        };
+        context.GraphParents.Add(seeded);
+        await context.SaveChangesAsync();
+        var seededParentId = seeded.Id;
+        var seededDetailId = seeded.Detail!.Id;
+        var updatedChildId = seeded.Children.First().Id;
+        var omittedChildId = seeded.Children.Last().Id;
+        context.ChangeTracker.Clear();
+
+        var matched = new GraphParent
+        {
+            ExternalKey = seeded.ExternalKey,
+            Name = "Updated root",
+            Detail = new GraphDetail { Id = seededDetailId, Value = "Updated detail" },
+            Children =
+            [
+                new GraphChild { Id = updatedChildId, Value = "Updated child" },
+                new GraphChild { Value = "Inserted child" }
+            ]
+        };
+        var inserted = new GraphParent
+        {
+            ExternalKey = $"GRAPH-NEW-{providerName}",
+            Name = "Inserted root",
+            Detail = new GraphDetail { Value = "Inserted detail" }
+        };
+
+        (await repository.ExecuteUpsertAsync(
+            [matched, inserted],
+            parent => parent.ExternalKey,
+            [parent => parent.Detail, parent => parent.Children]))
+            .Should().Be(6);
+
+        matched.Id.Should().Be(seededParentId);
+        inserted.Id.Should().NotBeEmpty();
+        matched.Detail!.ParentId.Should().Be(seededParentId);
+        inserted.Detail!.Id.Should().BePositive();
+        inserted.Detail.ParentId.Should().Be(inserted.Id);
+        matched.Children.Last().Id.Should().NotBeEmpty();
+        matched.Children.Should().OnlyContain(child => child.ParentId == seededParentId);
+        context.ChangeTracker.Entries().Should().BeEmpty();
+
+        var stored = await context.GraphParents
+            .AsNoTracking()
+            .Include(parent => parent.Detail)
+            .Include(parent => parent.Children)
+            .ToDictionaryAsync(parent => parent.ExternalKey);
+        stored[seeded.ExternalKey].Name.Should().Be("Updated root");
+        stored[seeded.ExternalKey].Detail!.Value.Should().Be("Updated detail");
+        stored[seeded.ExternalKey].Children.Single(child => child.Id == updatedChildId)
+            .Value.Should().Be("Updated child");
+        stored[seeded.ExternalKey].Children.Should().Contain(child => child.Id == omittedChildId);
+        stored[seeded.ExternalKey].Children.Should().Contain(child => child.Value == "Inserted child");
+        stored[inserted.ExternalKey].Detail!.Value.Should().Be("Inserted detail");
+
+        var nestedImport = new GraphParent
+        {
+            ExternalKey = seeded.ExternalKey,
+            Name = "Nested import must fail",
+            Children =
+            [
+                new GraphChild
+                {
+                    Value = "Nested parent",
+                    GrandChildren = [new GraphGrandChild { Value = "Nested dependent" }]
+                }
+            ]
+        };
+        var nestedAction = () => repository.ExecuteUpsertAsync(
+            [nestedImport],
+            parent => parent.ExternalKey,
+            [parent => parent.Children]);
+
+        await nestedAction.Should()
+            .ThrowAsync<NotSupportedException>()
+            .WithMessage("*GraphParent.Children.GrandChildren*");
+        var afterNestedFailure = await context.GraphParents
+            .AsNoTracking()
+            .Include(parent => parent.Children)
+            .SingleAsync(parent => parent.Id == seededParentId);
+        afterNestedFailure.Name.Should().Be("Updated root");
+        afterNestedFailure.Children.Should().HaveCount(3);
+
+        var missingChild = new GraphParent
+        {
+            ExternalKey = seeded.ExternalKey,
+            Name = "Must roll back",
+            Children = [new GraphChild { Id = Guid.NewGuid(), Value = "Missing child" }]
+        };
+        var missingAction = () => repository.ExecuteUpsertAsync(
+            [missingChild],
+            parent => parent.ExternalKey,
+            [parent => parent.Children]);
+
+        await missingAction.Should().ThrowAsync<InvalidOperationException>();
+        (await context.GraphParents
+                .AsNoTracking()
+                .SingleAsync(parent => parent.Id == seededParentId))
+            .Name.Should().Be("Updated root");
     }
 
     private static ImportRow CreateImportRow(
@@ -214,6 +337,14 @@ public sealed class BulkUpsertProviderTests
 
         public DbSet<NumericImportRow> NumericImportRows => Set<NumericImportRow>();
 
+        public DbSet<GraphParent> GraphParents => Set<GraphParent>();
+
+        public DbSet<GraphDetail> GraphDetails => Set<GraphDetail>();
+
+        public DbSet<GraphChild> GraphChildren => Set<GraphChild>();
+
+        public DbSet<GraphGrandChild> GraphGrandChildren => Set<GraphGrandChild>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<ImportRow>(entity =>
@@ -237,6 +368,49 @@ public sealed class BulkUpsertProviderTests
                 entity.Property(row => row.ExternalKey).HasMaxLength(40);
                 entity.Property(row => row.Name).HasMaxLength(100);
                 entity.HasIndex(row => row.ExternalKey).IsUnique();
+            });
+
+            modelBuilder.Entity<GraphParent>(entity =>
+            {
+                entity.ToTable("BulkGraphParents");
+                entity.HasKey(parent => parent.Id);
+                entity.Property(parent => parent.Id).ValueGeneratedOnAdd();
+                entity.Property(parent => parent.ExternalKey).HasMaxLength(80);
+                entity.Property(parent => parent.Name).HasMaxLength(100);
+                entity.HasIndex(parent => parent.ExternalKey).IsUnique();
+            });
+
+            modelBuilder.Entity<GraphDetail>(entity =>
+            {
+                entity.ToTable("BulkGraphDetails");
+                entity.HasKey(detail => detail.Id);
+                entity.Property(detail => detail.Id).ValueGeneratedOnAdd();
+                entity.Property(detail => detail.Value).HasMaxLength(100);
+                entity.HasOne(detail => detail.Parent)
+                    .WithOne(parent => parent.Detail)
+                    .HasForeignKey<GraphDetail>(detail => detail.ParentId);
+            });
+
+            modelBuilder.Entity<GraphChild>(entity =>
+            {
+                entity.ToTable("BulkGraphChildren");
+                entity.HasKey(child => child.Id);
+                entity.Property(child => child.Id).ValueGeneratedOnAdd();
+                entity.Property(child => child.Value).HasMaxLength(100);
+                entity.HasOne(child => child.Parent)
+                    .WithMany(parent => parent.Children)
+                    .HasForeignKey(child => child.ParentId);
+            });
+
+            modelBuilder.Entity<GraphGrandChild>(entity =>
+            {
+                entity.ToTable("BulkGraphGrandChildren");
+                entity.HasKey(grandChild => grandChild.Id);
+                entity.Property(grandChild => grandChild.Id).ValueGeneratedOnAdd();
+                entity.Property(grandChild => grandChild.Value).HasMaxLength(100);
+                entity.HasOne(grandChild => grandChild.Parent)
+                    .WithMany(child => child.GrandChildren)
+                    .HasForeignKey(grandChild => grandChild.ParentId);
             });
         }
     }
@@ -267,6 +441,54 @@ public sealed class BulkUpsertProviderTests
         public string ExternalKey { get; set; } = "";
 
         public string Name { get; set; } = "";
+    }
+
+    private sealed class GraphParent
+    {
+        public Guid Id { get; set; }
+
+        public string ExternalKey { get; set; } = "";
+
+        public string Name { get; set; } = "";
+
+        public GraphDetail? Detail { get; set; }
+
+        public ICollection<GraphChild> Children { get; set; } = [];
+    }
+
+    private sealed class GraphDetail
+    {
+        public long Id { get; set; }
+
+        public Guid ParentId { get; set; }
+
+        public GraphParent Parent { get; set; } = null!;
+
+        public string Value { get; set; } = "";
+    }
+
+    private sealed class GraphChild
+    {
+        public Guid Id { get; set; }
+
+        public Guid ParentId { get; set; }
+
+        public GraphParent Parent { get; set; } = null!;
+
+        public string Value { get; set; } = "";
+
+        public ICollection<GraphGrandChild> GrandChildren { get; set; } = [];
+    }
+
+    private sealed class GraphGrandChild
+    {
+        public Guid Id { get; set; }
+
+        public Guid ParentId { get; set; }
+
+        public GraphChild Parent { get; set; } = null!;
+
+        public string Value { get; set; } = "";
     }
 
     private enum ImportState

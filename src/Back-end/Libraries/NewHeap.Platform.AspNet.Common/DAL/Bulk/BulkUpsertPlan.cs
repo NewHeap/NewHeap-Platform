@@ -13,6 +13,8 @@ internal sealed class BulkUpsertPlan<TEntity>
     private BulkUpsertPlan(
         string tableName,
         string? schema,
+        BulkUpsertOperation operation,
+        IReadOnlyList<BulkUpsertProperty<TEntity>> stagingProperties,
         IReadOnlyList<BulkUpsertProperty<TEntity>> insertProperties,
         IReadOnlyList<BulkUpsertProperty<TEntity>> matchProperties,
         IReadOnlyList<BulkUpsertProperty<TEntity>> updateProperties,
@@ -20,6 +22,8 @@ internal sealed class BulkUpsertPlan<TEntity>
     {
         TableName = tableName;
         Schema = schema;
+        Operation = operation;
+        StagingProperties = stagingProperties;
         InsertProperties = insertProperties;
         MatchProperties = matchProperties;
         UpdateProperties = updateProperties;
@@ -29,6 +33,10 @@ internal sealed class BulkUpsertPlan<TEntity>
     public string TableName { get; }
 
     public string? Schema { get; }
+
+    internal BulkUpsertOperation Operation { get; }
+
+    internal IReadOnlyList<BulkUpsertProperty<TEntity>> StagingProperties { get; }
 
     public IReadOnlyList<BulkUpsertProperty<TEntity>> InsertProperties { get; }
 
@@ -42,9 +50,45 @@ internal sealed class BulkUpsertPlan<TEntity>
         DbContext context,
         Expression<Func<TEntity, TMatch>> matchOn)
     {
-        var entityType = context.Model.FindEntityType(typeof(TEntity))
+        var entityType = GetEntityType(context);
+        return Create(
+            context,
+            entityType,
+            GetMatchProperties(entityType, matchOn),
+            BulkUpsertOperation.Upsert,
+            allowStoreGeneratedMatch: false);
+    }
+
+    internal static BulkUpsertPlan<TEntity> CreateForPrimaryKey(
+        DbContext context,
+        BulkUpsertOperation operation)
+    {
+        var entityType = GetEntityType(context);
+        var primaryKey = entityType.FindPrimaryKey()
+            ?? throw new NotSupportedException(
+                $"Bulk upsert navigation entity '{typeof(TEntity).Name}' must have a primary key.");
+        return Create(
+            context,
+            entityType,
+            primaryKey.Properties,
+            operation,
+            allowStoreGeneratedMatch: true);
+    }
+
+    private static IEntityType GetEntityType(DbContext context)
+    {
+        return context.Model.FindEntityType(typeof(TEntity))
             ?? throw new InvalidOperationException(
                 $"Entity type '{typeof(TEntity).Name}' was not found in the EF Core model.");
+    }
+
+    private static BulkUpsertPlan<TEntity> Create(
+        DbContext context,
+        IEntityType entityType,
+        IReadOnlyList<IProperty> matchMetadata,
+        BulkUpsertOperation operation,
+        bool allowStoreGeneratedMatch)
+    {
         var tableName = entityType.GetTableName()
             ?? throw new NotSupportedException(
                 $"Bulk upsert requires '{typeof(TEntity).Name}' to be mapped to a relational table.");
@@ -62,7 +106,6 @@ internal sealed class BulkUpsertPlan<TEntity>
         }
 
         var storeObject = StoreObjectIdentifier.Table(tableName, schema);
-        var matchMetadata = GetMatchProperties(entityType, matchOn);
         foreach (var property in matchMetadata)
         {
             if (property.IsNullable)
@@ -71,7 +114,7 @@ internal sealed class BulkUpsertPlan<TEntity>
                     $"Bulk upsert match property '{property.Name}' must be non-nullable.");
             }
 
-            if (property.ValueGenerated != ValueGenerated.Never)
+            if (!allowStoreGeneratedMatch && property.ValueGenerated != ValueGenerated.Never)
             {
                 throw new NotSupportedException(
                     $"Bulk upsert cannot match on store-generated property '{property.Name}'.");
@@ -117,8 +160,17 @@ internal sealed class BulkUpsertPlan<TEntity>
                 property.GetAfterSaveBehavior() == PropertySaveBehavior.Save &&
                 !string.Equals(property.Name, creationDateTimeName, StringComparison.Ordinal))
             .ToList();
+        if (operation == BulkUpsertOperation.UpdateOnly && updateMetadata.Count == 0)
+        {
+            throw new NotSupportedException(
+                $"Bulk upsert navigation entity '{typeof(TEntity).Name}' has no writable columns to update.");
+        }
 
-        var propertyMap = insertMetadata.ToDictionary(
+        var stagingMetadata = insertMetadata
+            .Concat(matchMetadata)
+            .Distinct()
+            .ToList();
+        var propertyMap = stagingMetadata.ToDictionary(
             property => property,
             property => CreateProperty(property, storeObject));
         var generatedPrimaryKeyMetadata = primaryKey?.Properties.Count == 1
@@ -127,13 +179,15 @@ internal sealed class BulkUpsertPlan<TEntity>
         var generatedPrimaryKey = generatedPrimaryKeyMetadata is not null &&
                                   generatedPrimaryKeyMetadata.ValueGenerated == ValueGenerated.OnAdd &&
                                   !generatedPrimaryKeyMetadata.IsShadowProperty() &&
-                                  IsSupportedGeneratedKeyType(generatedPrimaryKeyMetadata.ClrType)
+                                  IsSupportedKeyType(generatedPrimaryKeyMetadata.ClrType)
             ? CreateProperty(generatedPrimaryKeyMetadata, storeObject)
             : null;
 
         return new BulkUpsertPlan<TEntity>(
             tableName,
             schema,
+            operation,
+            stagingMetadata.Select(property => propertyMap[property]).ToList(),
             insertMetadata.Select(property => propertyMap[property]).ToList(),
             matchMetadata.Select(property => propertyMap[property]).ToList(),
             updateMetadata.Select(property => propertyMap[property]).ToList(),
@@ -150,7 +204,7 @@ internal sealed class BulkUpsertPlan<TEntity>
             property.GetRelationalTypeMapping());
     }
 
-    private static bool IsSupportedGeneratedKeyType(Type type)
+    internal static bool IsSupportedKeyType(Type type)
     {
         type = Nullable.GetUnderlyingType(type) ?? type;
         return type == typeof(Guid) || Type.GetTypeCode(type) is
@@ -261,6 +315,10 @@ internal sealed class BulkUpsertProperty<TEntity>(
 
     public string StoreTypeName { get; } = typeMapping.StoreTypeNameBase;
 
+    internal Type ModelClrType { get; } = property.ClrType;
+
+    internal string? DefaultValueSql { get; } = property.GetDefaultValueSql();
+
     public Type ProviderClrType { get; } = Nullable.GetUnderlyingType(
         typeMapping.Converter?.ProviderClrType ?? property.ClrType)
         ?? typeMapping.Converter?.ProviderClrType
@@ -292,4 +350,11 @@ internal sealed class BulkUpsertProperty<TEntity>(
                     $"Bulk upsert cannot set generated property '{property.Name}'.");
         }
     }
+}
+
+internal enum BulkUpsertOperation
+{
+    Upsert,
+    InsertOnly,
+    UpdateOnly
 }
