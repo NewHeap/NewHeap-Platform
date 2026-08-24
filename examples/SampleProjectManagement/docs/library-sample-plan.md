@@ -69,7 +69,7 @@ The complete public-surface mapping and intended sample entry points are documen
 |---|---|---|---|
 | SPM-036 | Create and edit modal | modal service, modal mutate base | One modal handles both create and edit operations. |
 | SPM-037 | End-to-end single-field JSON partial update | `NhApiService.patch`, `NhBaseApiService.updatePartial`, `DoUpdatePartial`, `UpdatePartialAsync`, `PreparePartialUpdateMutateModelAsync`, setters | The frontend sends only the selected property with PATCH; the backend normalizes and validates it while omitted values remain unchanged, and a rejection preserves the previous UI value. |
-| SPM-038 | Multi-field JSON partial update | `DoUpdatePartial`, multiple mapped setters | Deadline and description change atomically while omitted properties remain unchanged. |
+| SPM-038 | Multi-field JSON partial update and custom workflow | `DoUpdatePartial`, `TryApplyPartialUpdate`, multiple mapped setters, custom service workflows | A custom planning route loads an existing mutate model, changes deadline and description atomically, preserves omitted properties and then runs its domain workflow. |
 | SPM-039 | Bulk partial update | `BulkAsync`, bulk mutate | The selection receives one status. |
 | SPM-040 | Bulk rollback | transactional bulk options | One failure rolls back the entire operation. |
 | SPM-041 | Continue on error | per-item bulk result | Valid items succeed independently. |

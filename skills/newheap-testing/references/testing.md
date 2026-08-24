@@ -46,4 +46,4 @@ tests in addition to any in-memory unit tests.
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.9/docs/consumer-guide/testing.md#separate-reusable-test-helpers-from-library-tests)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.12.0/docs/consumer-guide/testing.md#separate-reusable-test-helpers-from-library-tests)

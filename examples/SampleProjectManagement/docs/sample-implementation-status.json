@@ -433,6 +433,8 @@
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectPartialUpdateTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBaseController.PartialUpdate.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhPartialUpdateControllerExecutor.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/DbEntityProtectedNhBaseController.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/AbstractBaseDbEntityService.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/PartialUpdateControllerTests.cs",

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "guidanceVersion": "1.11.9",
+  "guidanceVersion": "1.12.0",
   "backEnd": {
-    "hash": "4e07277a14c8ad48a84727916db847f0e6450a8a38321178ba3c34d58cc3bde7",
-    "declarationCount": 2334,
+    "hash": "bae6476727b09556ac540a05b1c8aad837391c28fb0f61b5b9777fa5def3f5e8",
+    "declarationCount": 2336,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Caching/Extensions.cs",
@@ -728,6 +728,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/DbEntityProtectedNhBaseController.cs",
         "declaration": "[NonAction] protected virtual async Task<IActionResult> DoDelete([FromRoute] Guid id, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBaseController.PartialUpdate.cs",
+        "declaration": "public abstract partial class NhBaseController {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBaseController.PartialUpdate.cs",
+        "declaration": "[NonAction] protected bool TryApplyPartialUpdate<TModel>( TModel target, JObject? partialUpdate, Func<string, bool>? canPartiallyUpdateProperty = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBaseController.cs",
@@ -12401,6 +12409,7 @@
       "patchResult",
       "updatePartial",
       "DoUpdatePartial",
+      "TryApplyPartialUpdate",
       "CanPartiallyUpdateProperty",
       "UpdatePartialAsync",
       "PreparePartialUpdateMutateModelAsync",

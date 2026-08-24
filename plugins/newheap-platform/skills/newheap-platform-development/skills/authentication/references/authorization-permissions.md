@@ -32,4 +32,4 @@ Test one allowed and one denied combination for every scope, switch the active d
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.9/docs/consumer-guide/authorization-permissions.md#application-division-and-resource-permissions)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.12.0/docs/consumer-guide/authorization-permissions.md#application-division-and-resource-permissions)

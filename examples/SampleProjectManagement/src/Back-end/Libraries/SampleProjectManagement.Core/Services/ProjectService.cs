@@ -308,6 +308,21 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
         return result;
     }
 
+    public Task<ProjectPlanningMutateModel?> GetPlanningMutateModelAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return _repository.GetAll()
+            .AsNoTracking()
+            .Where(project => project.Id == id)
+            .Select(project => new ProjectPlanningMutateModel
+            {
+                Deadline = project.Deadline,
+                Description = project.Description
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<TaskResult<Project?>> UpdateStatusAsync(
         Guid id,
         ProjectStatusMutateModel mutateModel,

@@ -34,4 +34,4 @@ Restore and build the complete solution from a clean state. Confirm every projec
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.9/docs/consumer-guide/backend-project-foundation.md#create-the-shared-net-project-foundation)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.12.0/docs/consumer-guide/backend-project-foundation.md#create-the-shared-net-project-foundation)
