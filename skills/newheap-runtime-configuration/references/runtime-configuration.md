@@ -32,4 +32,4 @@ Test that an environment variable overrides the secrets directory during bootstr
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.12.0/docs/consumer-guide/runtime-configuration.md#configuration-overrides-for-runtime-and-automation)
+- [Immutable guide and executable evidence](../../newheap-platform-development/references/immutable-evidence.md#runtime-configuration)

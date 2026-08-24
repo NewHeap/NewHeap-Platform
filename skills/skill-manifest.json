@@ -50,6 +50,9 @@
           "claude": ".claude/skills/newheap-platform-development"
         }
       },
+      "references": [
+        "references/immutable-evidence.md"
+      ],
       "modules": [
         "newheap-consumer-development",
         "newheap-authentication",

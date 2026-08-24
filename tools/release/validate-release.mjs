@@ -1,7 +1,6 @@
 import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
-  isSingleVersionBump,
   loadReleaseManifest,
   missingTargetFrameworks,
   projectTargetFrameworks,
@@ -216,10 +215,8 @@ const guidance = await readJson(resolve(repositoryRoot, 'guidance', 'version.jso
 const plugin = await readJson(resolve(repositoryRoot, 'plugins', 'newheap-platform', '.codex-plugin', 'plugin.json'));
 const pluginVersion = plugin.version;
 const guidanceVersion = guidance.guidanceVersion;
-const pluginVersionIsCurrent = pluginVersion === pluginUnit.version;
-const pluginVersionIsPendingBump = isSingleVersionBump(pluginUnit.version, pluginVersion);
-if (guidanceVersion !== pluginVersion || (!pluginVersionIsCurrent && !pluginVersionIsPendingBump)) {
-  failures.push('Guidance and plugin versions must match the release unit or contain the same pending SemVer bump.');
+if (guidanceVersion !== pluginVersion || pluginVersion !== pluginUnit.version) {
+  failures.push('Guidance and plugin versions must match the released manifest version; Prepare release owns every version bump.');
 }
 
 for (const workflowPath of workflowPaths) {
@@ -295,6 +292,9 @@ for (const workflowPath of workflowPaths) {
       || !workflow.includes('uses: ./.github/workflows/publish-release.yml')
       || !workflow.includes('release_sha: ${{ needs.complete-release.outputs.release_sha }}')) {
       failures.push(`${workflowPath}: the validated release must fast-forward main through the GitHub REST API and pass that exact SHA to the reusable publisher.`);
+    }
+    if (!workflow.includes('verify-change-impact.mjs --base "${{ inputs.base_sha }}" --release')) {
+      failures.push(`${workflowPath}: generated release commits must use explicit release-mode impact validation.`);
     }
     for (const auditMarker of [
       'NuGetAuditMode=all',

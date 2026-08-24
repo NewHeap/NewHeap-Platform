@@ -44,4 +44,4 @@ Test that the Angular client uses HTTP PATCH, preserves request headers and quer
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.12.0/docs/consumer-guide/backend-partial-update.md#top-level-json-partial-updates)
+- [Immutable guide and executable evidence](../../newheap-platform-development/references/immutable-evidence.md#backend-partial-update)

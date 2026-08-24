@@ -32,7 +32,7 @@ For every new or observably changed public surface:
 4. Update the canonical case registry and the applicable atomic rule under `guidance/rules`.
 5. Generate consumer documentation and skill references; never hand-edit generated files.
 6. Refresh the public API snapshot when the exported surface intentionally changed.
-7. Bump the guidance and `newheap-platform` plugin version for a distributable guidance change, regenerate its consumer-skill mirror and review package compatibility metadata.
+7. Keep every release-unit, guidance and `newheap-platform` plugin version unchanged during feature work. Regenerate the consumer-skill mirror and review package compatibility metadata; the protected `Prepare release` workflow owns every eventual SemVer bump.
 
 Keep packable test-support projects and internal regression tests separate.
 `NewHeap.Platform.*.Test` contains only reusable consumer helpers; NewHeap's own

@@ -35,4 +35,4 @@ Build the backend, run the service and controller tests, and inspect the OpenAPI
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.12.0/docs/consumer-guide/backend-module-composition.md#wire-a-backend-module-end-to-end)
+- [Immutable guide and executable evidence](../../newheap-platform-development/references/immutable-evidence.md#backend-module-composition)

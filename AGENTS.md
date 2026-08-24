@@ -29,9 +29,10 @@ their generated references must not drift from executable sample evidence.
 
 The canonical consumer skill suite is mirrored into the versioned
 `plugins/newheap-platform` distribution by `npm run guidance:generate`. Never
-edit the plugin's generated skill copies directly. Bump the guidance and plugin
-version for a distributable guidance change, keep package compatibility metadata
-generated, run `npm run plugin:validate`, and use
+edit the plugin's generated skill copies directly. Keep every release-unit,
+guidance and plugin version unchanged in feature work: the protected `Prepare
+release` workflow is the only normal version writer. Regenerate package
+compatibility and immutable evidence metadata, run `npm run plugin:validate`, and use
 `tools/guidance/install-consumer-skills.mjs` when pinning the grouped suite into
 a consumer repository under `.agents/skills/newheap-platform-development` or
 `.claude/skills/newheap-platform-development`.

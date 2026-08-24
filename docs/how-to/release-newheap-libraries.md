@@ -40,8 +40,10 @@ Run **Publish preview packages**. Leave `publish` disabled to create a 14-day wo
 
 ## Stable release
 
-1. Run **Prepare release** on `main`; select one unit or `all` and a `patch`, `minor`, or `major` bump.
-2. The workflow validates release tooling, guidance, executable samples, change impact, and the public API snapshot. It creates one generated release commit.
+Do not edit unit version fields in `release/manifest.json`, `guidance/version.json` or the plugin manifest in a feature branch. They stay on the last published version while guidance generation updates only content hashes, package compatibility metadata and content that actually changed. Structural release-manifest changes remain reviewable as ordinary feature work. The generated consumer references route through one release-pinned immutable-evidence catalog instead of embedding the version in every file.
+
+1. Run **Prepare release** on `main`; select one unit or `all` and a `patch`, `minor`, or `major` bump. This selection is the only normal manual release action.
+2. The workflow validates release tooling, guidance, executable samples, change impact, and the public API snapshot. It computes and writes every coupled version, refreshes the immutable-evidence catalog, and creates one generated release commit.
 3. The release contract fast-forwards unchanged `main` to that exact commit and invokes the publisher for the validated SHA.
 4. The publisher packs immutable artifacts, obtains short-lived registry credentials through OIDC, pushes the selected packages, and verifies the exact public versions anonymously with bounded retries.
 5. Finalization publishes only complete GitHub Release drafts containing package artifacts and `SHA256SUMS`.

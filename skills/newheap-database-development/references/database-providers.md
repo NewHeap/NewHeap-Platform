@@ -33,4 +33,4 @@ Run the same integration scenarios on real SQL Server and PostgreSQL: query tran
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.12.0/docs/consumer-guide/database-providers.md#sql-server-and-postgresql-as-equivalent-providers)
+- [Immutable guide and executable evidence](../../newheap-platform-development/references/immutable-evidence.md#database-providers)

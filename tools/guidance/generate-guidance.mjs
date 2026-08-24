@@ -8,6 +8,8 @@ import {
   consumerPluginSkillsRoot,
   consumerSkillBundleName,
   consumerSkillBundleRoot,
+  canonicalConsumerSkillEvidenceCatalogLink,
+  consumerSkillEvidenceCatalogPath,
   consumerSkillModuleDirectories,
   consumerSkillNames,
   consumerSkillRoots,
@@ -20,6 +22,7 @@ import {
   planTemplatePath,
   renderGuideIndex,
   renderBundledConsumerSkillFile,
+  renderImmutableEvidenceCatalog,
   renderLlmsIndex,
   renderPlan,
   renderRuleCollection,
@@ -45,7 +48,8 @@ const outputs = new Map([
   [planPath, renderPlan(registry, template)],
   [statusPath, renderStatus(registry)],
   [resolve(consumerGuideRoot, 'index.md'), renderGuideIndex(groups, rules)],
-  [resolve(consumerGuideRoot, 'llms.txt'), renderLlmsIndex(groups)]
+  [resolve(consumerGuideRoot, 'llms.txt'), renderLlmsIndex(groups)],
+  [consumerSkillEvidenceCatalogPath, renderImmutableEvidenceCatalog(groups, pluginReleaseRef)]
 ]);
 
 for (const [reference, matchingRules] of [...groups.entries()].sort(([left], [right]) => left.localeCompare(right))) {
@@ -69,20 +73,24 @@ for (const skillName of consumerSkillNames) {
         'Use only the rules that apply to the current consumer task.',
         matchingRules,
         registry,
-        'compact-remote',
-        pluginReleaseRef
+        'compact-catalog',
+        canonicalConsumerSkillEvidenceCatalogLink
       )
     );
   }
 }
 
 const consumerSkillFiles = [];
-for (const path of await walkFiles(consumerSkillBundleRoot)) {
+const consumerSkillBundlePaths = new Set(await walkFiles(consumerSkillBundleRoot));
+for (const path of outputs.keys()) {
+  const outputRelative = relative(consumerSkillBundleRoot, path);
+  if (outputRelative && !outputRelative.startsWith('..')) consumerSkillBundlePaths.add(path);
+}
+for (const path of consumerSkillBundlePaths) {
   const name = relative(consumerSkillBundleRoot, path).replaceAll('\\', '/');
   consumerSkillFiles.push({
     path,
     name,
-    bundleEntry: true,
     distributionPath: resolve(consumerPluginSkillBundleRoot, name)
   });
 }
@@ -103,9 +111,9 @@ for (const skillName of consumerSkillNames) {
 }
 consumerSkillFiles.sort((left, right) => left.name.localeCompare(right.name));
 const consumerSkillContents = new Map();
-for (const { path, name, bundleEntry, distributionPath } of consumerSkillFiles) {
+for (const { path, name, distributionPath } of consumerSkillFiles) {
   const sourceContent = outputs.get(path) ?? await readFile(path, 'utf8');
-  const distributedContent = bundleEntry ? renderBundledConsumerSkillFile(name, sourceContent) : sourceContent;
+  const distributedContent = renderBundledConsumerSkillFile(name, sourceContent);
   consumerSkillContents.set(name, distributedContent);
   outputs.set(distributionPath, distributedContent);
 }
@@ -161,6 +169,7 @@ const manifest = {
       path: `skills/${consumerSkillBundleName}`,
       audience: 'consumer-applications',
       distribution,
+      references: ['references/immutable-evidence.md'],
       modules: consumerSkillNames
     },
     ...consumerSkillManifestEntries,
@@ -182,6 +191,10 @@ outputs.set(resolve(repositoryRoot, 'plugins', 'newheap-platform', 'distribution
   modules: consumerSkillNames,
   moduleDirectories: Object.fromEntries(consumerSkillModuleDirectories),
   compatiblePackages: versions,
+  evidence: {
+    sourceRef: pluginReleaseRef,
+    catalog: `skills/${consumerSkillBundleName}/references/immutable-evidence.md`
+  },
   repositoryTarget: `.agents/skills/${consumerSkillBundleName}`,
   repositoryTargets: {
     codex: `.agents/skills/${consumerSkillBundleName}`,

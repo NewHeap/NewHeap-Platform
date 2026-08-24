@@ -62,6 +62,10 @@ if (!/^newheap-[a-z0-9-]+$/.test(suiteName)
   || new Set(Object.values(moduleDirectories)).size !== moduleNames.length) {
   throw new Error('The plugin contains invalid or duplicate NewHeap module metadata.');
 }
+if (!/^newheap-platform-plugin-v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(distribution.evidence?.sourceRef ?? '')
+  || distribution.evidence?.catalog !== `skills/${suiteName}/references/immutable-evidence.md`) {
+  throw new Error('The plugin contains invalid immutable-evidence metadata.');
+}
 
 const sourceRoot = resolve(pluginRoot, 'skills', suiteName);
 if (!(await stat(sourceRoot).catch(() => undefined))?.isDirectory()) {
@@ -173,6 +177,7 @@ async function prepareTarget(targetName) {
     if (groupedLock.pluginVersion !== plugin.version) drift.push(`plugin version ${groupedLock.pluginVersion} != ${plugin.version}`);
     if (groupedLock.guidanceVersion !== distribution.guidanceVersion) drift.push('guidance version is stale');
     if (groupedLock.skillContentHash !== distribution.skillContentHash) drift.push('skill content is stale');
+    if (JSON.stringify(groupedLock.evidence) !== JSON.stringify(distribution.evidence)) drift.push('immutable-evidence metadata is stale');
     if (JSON.stringify(groupedLock.modules) !== JSON.stringify(moduleNames)) drift.push('installed module list is stale');
     for (const [name, source] of sourceFiles) if (groupedLock.files?.[name] !== source.hash) drift.push(`lock hash is stale for ${name}`);
     for (const name of Object.keys(groupedLock.files ?? {})) if (!sourceFiles.has(name)) drift.push(`lock contains stale file ${name}`);
@@ -234,6 +239,7 @@ async function applyTarget(state) {
     guidanceVersion: distribution.guidanceVersion,
     skillContentHash: distribution.skillContentHash,
     compatiblePackages: distribution.compatiblePackages,
+    evidence: distribution.evidence,
     source: 'newheap-platform-plugin',
     files: Object.fromEntries([...sourceFiles].map(([name, value]) => [name, value.hash]))
   };
