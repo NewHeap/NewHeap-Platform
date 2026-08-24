@@ -249,7 +249,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             >));
 
             _options.AutoMapperConfigurationAction?.Invoke(options);
-            AutoMapperSecurityConfiguration.Apply(options);
         });
     }
 

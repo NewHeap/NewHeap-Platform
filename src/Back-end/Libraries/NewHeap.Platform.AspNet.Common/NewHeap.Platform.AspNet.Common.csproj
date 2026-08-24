@@ -40,6 +40,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
+        <ProjectReference Include="..\NewHeap.Platform.Mapping\NewHeap.Platform.Mapping.csproj" />
     </ItemGroup>
 
     <ItemGroup>

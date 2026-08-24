@@ -14,7 +14,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AutoMapper" />
         <PackageReference Include="Hangfire" />
         <PackageReference Include="Hangfire.Console" />
         <PackageReference Include="KeyedSemaphores" />
@@ -35,5 +34,9 @@
         <PackageReference Include="Sentry.Extensions.Logging" />
         <PackageReference Include="StackExchange.Utils.Configuration" />
         <PackageReference Include="System.Linq.Dynamic.Core" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\NewHeap.Platform.Mapping\NewHeap.Platform.Mapping.csproj" />
     </ItemGroup>
 </Project>

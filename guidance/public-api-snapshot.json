@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.12.0",
   "backEnd": {
-    "hash": "bae6476727b09556ac540a05b1c8aad837391c28fb0f61b5b9777fa5def3f5e8",
-    "declarationCount": 2336,
+    "hash": "d0d13443a58132c216c168afd3bacb5c2f16983510d6f4db81bd899fe131d0aa",
+    "declarationCount": 2394,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Caching/Extensions.cs",
@@ -4991,7 +4991,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/AutomapperProfileConfiguration.cs",
-        "declaration": "public class AutomapperProfileConfiguration : AutoMapper.Profile {"
+        "declaration": "public class AutomapperProfileConfiguration : NewHeap.Platform.Mapping.Profile {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Utilities/AutomapperProfileConfiguration.cs",
@@ -7988,6 +7988,238 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Events.Cap/NhEventOptions.cs",
         "declaration": "public MessageProcessingType DefaultProcessingType { get; set; } = MessageProcessingType.PerInstance;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public sealed class Mapper : IMapper {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public Mapper(IConfigurationProvider configurationProvider) : this(configurationProvider, _ => null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public Mapper(IConfigurationProvider configurationProvider, Func<Type, object?> serviceFactory) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public IConfigurationProvider ConfigurationProvider => _configuration;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public TDestination Map<TDestination>(object? source) => (TDestination)MapCore( source, source?.GetType() ?? typeof(object), typeof(TDestination), destination: null, new MappingContext())!;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public TDestination Map<TSource, TDestination>(TSource source) => (TDestination)MapCore( source, typeof(TSource), typeof(TDestination), destination: null, new MappingContext())!;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public TDestination Map<TSource, TDestination>(TSource source, TDestination destination) => (TDestination)MapCore( source, typeof(TSource), typeof(TDestination), destination, new MappingContext())!;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public object? Map(object? source, Type sourceType, Type destinationType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public object? Map(object? source, object? destination, Type sourceType, Type destinationType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public bool TryEnter(TypePair typePair, int maximumDepth) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public void Exit(TypePair typePair) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public interface IConfigurationProvider {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public interface IMapper {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public interface IMapperConfigurationExpression {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public interface IMappingExpression<TSource, TDestination> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public interface IMemberConfigurationExpression<TSource, TDestination, TDestinationMember> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public class MappingException : InvalidOperationException {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public MappingException(string message) : base(message) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public MappingException(string message, Exception innerException) : base(message, innerException) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public sealed class MappingConfigurationException : MappingException {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public MappingConfigurationException(string message) : base(message) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public abstract class Profile {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "protected Profile() : this(null) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "protected Profile(string? profileName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public string ProfileName { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "protected IMappingExpression<TSource, TDestination> CreateMap<TSource, TDestination>() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public sealed class MapperConfiguration : IConfigurationProvider {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public MapperConfiguration(Action<IMapperConfigurationExpression> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IMapper CreateMapper() => new Mapper(this);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IMapper CreateMapper(Func<Type, object?> serviceFactory) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IMappingExpression<TSource, TDestination> CreateMap<TSource, TDestination>() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public void AddProfile(Profile profile) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public void AddProfile<TProfile>() where TProfile : Profile, new() => AddProfile(new TProfile());"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public void AddMaps(params Assembly[] assemblies) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public void AddMaps(params Type[] markerTypes) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "protected TypeMapDefinition(Type sourceType, Type destinationType, string profileName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public Type SourceType { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public Type DestinationType { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public string ProfileName { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public int MaximumDepth { get; protected set; } = MapperConfiguration.DefaultMaxDepth;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IReadOnlyList<MemberMapDefinition> MemberMaps { get; private set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "protected Dictionary<string, ConfiguredMemberMap> ConfiguredMembers { get; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "protected Func<object, object, object?, object?, bool>? AllMembersCondition { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "protected void ThrowIfSealed() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public TypeMapDefinition(string profileName) : base(typeof(TSource), typeof(TDestination), profileName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IMappingExpression<TSource, TDestination> ForMember<TDestinationMember>( Expression<Func<TDestination, TDestinationMember>> destinationMember, Action<IMemberConfigurationExpression<TSource, TDestination, TDestinationMember>> memberOptions) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public void ForAllMembers( Action<IMemberConfigurationExpression<TSource, TDestination, object?>> memberOptions) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IMappingExpression<TSource, TDestination> MaxDepth(int depth) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public MemberConfigurationExpression(ConfiguredMemberMap configuredMember) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public void MapFrom<TSourceMember>(Expression<Func<TSource, TSourceMember>> sourceMember) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public void Condition(Func<TSource, TDestination, object?, object?, bool> condition) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public Func<object, object?>? SourceResolver { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public Type? SourceValueType { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public Func<object, object, object?, object?, bool>? Condition { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/ServiceCollectionExtensions.cs",
+        "declaration": "public static class NewHeapMappingServiceCollectionExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/ServiceCollectionExtensions.cs",
+        "declaration": "public static IServiceCollection AddAutoMapper( this IServiceCollection services, Action<IMapperConfigurationExpression> configurationAction) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/ServiceCollectionExtensions.cs",
+        "declaration": "public static IServiceCollection AddAutoMapper( this IServiceCollection services, Action<IMapperConfigurationExpression> configurationAction, params Assembly[] assemblies) => services.AddAutoMapper(configuration => { configurationAction(configuration); configuration.AddMaps(assemblies); });"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/ServiceCollectionExtensions.cs",
+        "declaration": "public static IServiceCollection AddAutoMapper( this IServiceCollection services, Action<IMapperConfigurationExpression> configurationAction, params Type[] markerTypes) => services.AddAutoMapper(configuration => { configurationAction(configuration); configuration.AddMaps(markerTypes); });"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/EventHandlers/IHandleMediaLibraryEvent.cs",
@@ -12402,7 +12634,11 @@
       "BaseDbEntityService",
       "DbEntityProtectedNhBaseController",
       "FilterableAttribute",
-      "NewHeapAspNetCommonOptionsBuilder"
+      "NewHeapAspNetCommonOptionsBuilder",
+      "IMapper",
+      "Profile",
+      "MapperConfiguration",
+      "AutomapperExtensions"
     ],
     "nh-backend-partial-update": [
       "patch",

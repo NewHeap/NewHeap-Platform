@@ -1,4 +1,4 @@
-using AutoMapper;
+using NewHeap.Platform.Mapping;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -67,6 +67,43 @@ public sealed class BackendLibraryPartialSamplesTests
 
         Assert.Equal(project.Id, result.Project.Id);
         Assert.Equal("Composite task", Assert.Single(result.Tasks).Title);
+    }
+
+    [Fact]
+    public void ChangeAwareMappingUpdatesScalarsWithoutReplacingNavigationProperties()
+    {
+        var mapper = new Mapper(new MapperConfiguration(configuration =>
+            configuration.AddProfile<AutomapperProfileConfiguration>()));
+        var project = NewProject();
+        var division = new NhDivision { Id = project.DivisionId, Name = "Delivery" };
+        var tasks = project.Tasks;
+        tasks.Add(new ProjectTask
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Title = "Retained navigation"
+        });
+        project.Division = division;
+        project.Description = "Before mapping";
+
+        var result = mapper.Map(
+            new ProjectMutateModel
+            {
+                DivisionId = project.DivisionId,
+                OwnerUserId = project.OwnerUserId,
+                Key = project.Key,
+                Name = project.Name,
+                Description = "After mapping",
+                Status = project.Status,
+                Deadline = project.Deadline
+            },
+            project);
+
+        Assert.Same(project, result);
+        Assert.Equal("After mapping", result.Description);
+        Assert.Same(division, result.Division);
+        Assert.Same(tasks, result.Tasks);
+        Assert.Equal("Retained navigation", Assert.Single(result.Tasks).Title);
     }
 
     [Fact]

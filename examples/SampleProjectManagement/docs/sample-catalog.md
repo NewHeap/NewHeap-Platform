@@ -120,10 +120,12 @@ remains in the service.
 `/project-composites` uses the concrete NewHeap composite controller and service
 bases end to end. `ProjectCompositeService` delegates domain mutations to
 `ProjectService`, so the composite surface does not acquire a second set of
-business rules. The AutoMapper configuration builds the project with its tasks.
-The sample registers its profile through `ConfigureAutoMapper`, so the
-NewHeap-managed mapper applies the tested recursion-depth guard to otherwise
-unbounded maps without replacing an explicit consumer limit.
+business rules. The NewHeap mapping profile builds the project with its tasks.
+The sample registers its profile through the source-compatible
+`ConfigureAutoMapper` entry point. `NewHeap.Platform.Mapping` applies its
+recursion-depth guard to both platform and consumer mappings, maps nested task
+collections, and keeps entity navigation references intact when a mutate model
+does not expose those members.
 
 `GET /projects/short` executes the real short-projection extension with an
 explicit `Project -> ProjectShortViewModel` expression. The source query defines

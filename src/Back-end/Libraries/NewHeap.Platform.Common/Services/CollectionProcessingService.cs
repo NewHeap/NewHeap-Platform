@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using NewHeap.Platform.Mapping;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Logging;

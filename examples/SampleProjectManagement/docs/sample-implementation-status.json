@@ -280,12 +280,16 @@
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AutoMapperSecurityConfigurationTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/MapperCompatibilityTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/MapOnlyIfChangedTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/MappingProfileCompatibilityTests.cs"
     ],
     "SPM-012": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
-      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/MapOnlyIfChangedTests.cs"
     ],
     "SPM-013": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",

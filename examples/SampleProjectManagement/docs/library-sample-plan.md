@@ -8,7 +8,7 @@ The inventory combines the public types from `NewHeap.Platform.Common` and `NewH
 
 ## Definition of done
 
-A case becomes a sample only when it is executable from Management or Workspace, uses real NewHeap types, explains its intent and request or response, and has a focused test or reproducible check. Backend modules include controller, service, entity, view model, mutate model, AutoMapper, repository, `DbSet`, and relationships where relevant, with authorization and no library-owned DAL migrations. Mutate models contain no audit fields. Mutating modal content uses `NhModalMutateBaseComponent`; other dynamic modal content may use `NhModalComponentImpl`. Large modals use `modalClasses: 'large'`. Pages, collections, and modal content derived from a NewHeap base use the `appOn...` extension points and do not override Angular hooks owned by the base. Documentation and AI instructions are English. Every executable UI has a complete English translation; additional languages use matching lowercase dash-case keys under the module object.
+A case becomes a sample only when it is executable from Management or Workspace, uses real NewHeap types, explains its intent and request or response, and has a focused test or reproducible check. Backend modules include controller, service, entity, view model, mutate model, a NewHeap mapping profile, repository, `DbSet`, and relationships where relevant, with authorization and no library-owned DAL migrations. Mutate models contain no audit fields. Mutating modal content uses `NhModalMutateBaseComponent`; other dynamic modal content may use `NhModalComponentImpl`. Large modals use `modalClasses: 'large'`. Pages, collections, and modal content derived from a NewHeap base use the `appOn...` extension points and do not override Angular hooks owned by the base. Documentation and AI instructions are English. Every executable UI has a complete English translation; additional languages use matching lowercase dash-case keys under the module object.
 
 ## Library sources
 
@@ -32,7 +32,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-008 | Composite detail | composite controller/service | Project, members, and labels are returned in one response. |
 | SPM-009 | View model contract | `[Filterable]` on `Id`, audit fields | ID filtering works and the OpenAPI contract is correct. |
 | SPM-010 | Mutate model contract | create/update mutate model | The contract contains no audit fields and prevents overposting. |
-| SPM-011 | AutoMapper | profile, extensions, resolvers | Entity, view, and mutate mappings use the official AutoMapper package, and profiles registered through NewHeap receive a tested recursion-depth guard. |
+| SPM-011 | NewHeap mapping | profile, nested and collection mapping, `MapOnlyIfChanged` | Entity, view, mutate, nested, and collection mappings use `NewHeap.Platform.Mapping`, preserve existing navigation references during mutate mapping, and enforce a tested recursion-depth guard. |
 | SPM-012 | Changed properties | `OnUpdateGetChangedProperties` | The log contains only actual changes. |
 | SPM-013 | Module wiring | DbSet, relationships, repository, DI | The module starts and its relationships load. |
 | SPM-014 | Audit fields | base entity timestamps | Create and update timestamps are correct. |

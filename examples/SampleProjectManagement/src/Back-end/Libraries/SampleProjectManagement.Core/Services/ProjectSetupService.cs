@@ -1,4 +1,4 @@
-using AutoMapper;
+using NewHeap.Platform.Mapping;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.Common.Models;
 using SampleProjectManagement.Core.Models.Mutate;

@@ -1,4 +1,4 @@
-using AutoMapper;
+using NewHeap.Platform.Mapping;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

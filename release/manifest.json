@@ -20,6 +20,10 @@
       "replaces": "src/Back-end/publish-common.ps1",
       "projects": [
         {
+          "packageId": "NewHeap.Platform.Mapping",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/NewHeap.Platform.Mapping.csproj"
+        },
+        {
           "packageId": "NewHeap.Platform.Common",
           "path": "src/Back-end/Libraries/NewHeap.Platform.Common/NewHeap.Platform.Common.csproj"
         },

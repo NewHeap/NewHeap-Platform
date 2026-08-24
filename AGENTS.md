@@ -182,7 +182,7 @@ and mutate models where applicable.
   authorization attributes.
 - Keep controllers thin; put normalization, validation, query composition and
   orchestration in concrete services.
-- Register view/mutate mappings in `AutoMapperProfileConfiguration.cs`.
+- Register view/mutate mappings in a NewHeap mapping `Profile` configuration.
 - Mark a view model `Id` with `Filterable`.
 - Do not include `creationDateTime` or `lastModifiedDateTime` in mutate models.
 

@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.12.0",
   "guidanceVersion": "1.12.0",
-  "skillContentHash": "be983a656098918d5e8807a722088f2651e5f18a3981bb4d1798ea62c9d9ca06",
+  "skillContentHash": "5f67c4cc8ae7210ee5b98a8411b8d88475a4375e87c94b02b71e5c30011d653d",
   "skills": [
     "newheap-platform-development"
   ],
@@ -37,6 +37,7 @@
     "NewHeap.Platform.Common": "2.1.0",
     "NewHeap.Platform.Common.Test": "2.1.0",
     "NewHeap.Platform.Events.Cap": "2.1.0",
+    "NewHeap.Platform.Mapping": "2.1.0",
     "NewHeap.Platform.Media": "2.0.0",
     "NewHeap.Platform.Media.Core": "2.0.0",
     "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "2.0.0",

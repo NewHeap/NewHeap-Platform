@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using NewHeap.Platform.Mapping;
 using Microsoft.Extensions.Localization;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;

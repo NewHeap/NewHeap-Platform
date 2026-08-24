@@ -148,10 +148,10 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
   },
   {
     "id": "SPM-011",
-    "title": "AutoMapper",
+    "title": "NewHeap mapping",
     "category": "Domain, CRUD, and models",
-    "surface": "profile, extensions, resolvers",
-    "outcome": "Entity, view, and mutate mappings use the official AutoMapper package, and profiles registered through NewHeap receive a tested recursion-depth guard.",
+    "surface": "profile, nested and collection mapping, MapOnlyIfChanged",
+    "outcome": "Entity, view, mutate, nested, and collection mappings use `NewHeap.Platform.Mapping`, preserve existing navigation references during mutate mapping, and enforce a tested recursion-depth guard.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
@@ -160,7 +160,9 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AutoMapperSecurityConfigurationTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/MapperCompatibilityTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/MapOnlyIfChangedTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/MappingProfileCompatibilityTests.cs"
     ]
   },
   {
@@ -173,7 +175,9 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
-      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts"
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/MapOnlyIfChangedTests.cs"
     ]
   },
   {

@@ -14,11 +14,13 @@ Build a consumer module as a complete vertical slice so contracts, entity, DbCon
 
 ## Preferred approach
 
-Start from the consumer's existing pattern and deliver the module as one complete change. Define a view model and a separate mutate model, mark the view model `Id` with `Filterable`, add AutoMapper mappings, and route create, update, and delete operations through the concrete service. Register a `DbSet`, relationships, repository, and service in the composition root. Keep normalization, validation, and query composition in the service; the controller only translates HTTP into a typed service contract.
+Start from the consumer's existing pattern and deliver the module as one complete change. Define a view model and a separate mutate model, mark the view model `Id` with `Filterable`, add NewHeap mapping profiles, and route create, update, and delete operations through the concrete service. Register a `DbSet`, relationships, repository, and service in the composition root. Keep normalization, validation, and query composition in the service; the controller only translates HTTP into a typed service contract.
 
 A mutate model does not contain `CreationDateTime` or `LastModifiedDateTime`. Database entities and migrations remain owned by the consumer implementation. For a schema change, verify that the migration is generated in that consumer's database project.
 
-Register consumer AutoMapper profiles through `NewHeapAspNetCommonOptionsBuilder.ConfigureAutoMapper`. The NewHeap-managed mapper applies a recursion-depth guard to maps without an explicit limit while preserving explicit consumer limits. If an application constructs an independent `MapperConfiguration`, that mapper is outside the NewHeap registration boundary and needs its own tested depth guard.
+Reference `NewHeap.Platform.Mapping`, import `NewHeap.Platform.Mapping`, and register consumer `Profile` classes through `NewHeapAspNetCommonOptionsBuilder.ConfigureAutoMapper`. The familiar profile, `CreateMap`, `ForMember`, `MapFrom`, `MaxDepth`, `IMapper`, and `AddAutoMapper` syntax is provided by NewHeap without an AutoMapper package dependency. Every map receives a default maximum depth of 64, including maps created through an independent `MapperConfiguration`; an explicit `MaxDepth` remains authoritative.
+
+Use `MapOnlyIfChanged` for mutate-to-entity maps. It compares each resolved source member with the current destination member through `Equals`: equal scalar values are not assigned, a null source clears a non-null destination, and nested objects or collections retain their normal reference-equality and mapping behavior. Mapping into an existing object reuses compatible nested destination objects and collection instances; collections are cleared and repopulated. A destination navigation with no matching source member is not mapped.
 
 ## Avoid
 
@@ -26,11 +28,12 @@ Register consumer AutoMapper profiles through `NewHeapAspNetCommonOptionsBuilder
 - Business logic, normalization, or transaction ownership in the controller.
 - Consumer entities or consumer migrations in a reusable NewHeap library.
 - Assuming a repository or mapping exists without proving its registration.
-- Constructing an independent mapper for recursive input without a maximum-depth convention and a circular-map audit.
+- Treating `MapOnlyIfChanged` as structural or deep equality for objects or collections.
+- Adding unsupported AutoMapper APIs such as `ProjectTo`, `ReverseMap`, converters, or `AutoMapper.Collection`; use the focused NewHeap mapping surface or an explicit application-owned alternative.
 
 ## Verification
 
-Build the backend, run the service and controller tests, and inspect the OpenAPI output. Verify that every circular AutoMapper type map has a non-zero maximum depth. For a schema change, verify the real relational providers, not only EF Core InMemory.
+Build the backend, run the mapping, service, and controller tests, and inspect the OpenAPI output. Verify nested object reuse, collection reuse and replacement contents, null handling, the 64-level default recursion guard, explicit `MaxDepth`, and `MapOnlyIfChanged` setter behavior. For a schema change, verify the real relational providers, not only EF Core InMemory.
 
 ## Optional source evidence
 

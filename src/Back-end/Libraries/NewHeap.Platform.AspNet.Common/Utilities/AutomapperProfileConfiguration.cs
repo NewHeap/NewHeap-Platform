@@ -6,7 +6,7 @@ using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Utilities;
 
-public class AutomapperProfileConfiguration : AutoMapper.Profile
+public class AutomapperProfileConfiguration : NewHeap.Platform.Mapping.Profile
 {
     public AutomapperProfileConfiguration()
         : this("NewHeapPlatformCommonProfile")
@@ -16,7 +16,6 @@ public class AutomapperProfileConfiguration : AutoMapper.Profile
     protected AutomapperProfileConfiguration(string profileName)
         : base(profileName)
     {
-        AutoMapperSecurityConfiguration.Apply(this);
         CreateMap<Claim, NhClaimViewModel>();
         CreateMap<NhUser, NhUserViewModel<NhDivisionViewModel>>();
         CreateMap<NhDivision, NhDivisionViewModel>();

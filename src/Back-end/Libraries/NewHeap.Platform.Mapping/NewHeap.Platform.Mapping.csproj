@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Title>NewHeap Mapping</Title>
+    <PackageDescription>A focused object-mapping runtime with profiles, nested mapping, collection mapping, change-aware member conditions, and dependency-injection registration for NewHeap Platform applications.</PackageDescription>
+    <PackageTags>newheap platform dotnet mapping profiles dependency-injection</PackageTags>
+    <Copyright>NewHeap B.V.</Copyright>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+</Project>
