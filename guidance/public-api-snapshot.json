@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.12.0",
   "backEnd": {
-    "hash": "d51c0816f885bf5583c5133c1795cdf71e48ab389235fe5b8f23877365b4bc8c",
+    "hash": "5839200cc9dd91ac03aac2be1c49efd09ec099f47ba9491fc75b5b3b88b2ed5c",
     "declarationCount": 2921,
     "declarations": [
       {
@@ -1447,7 +1447,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[Key] public Guid Id { get; set; }"
+        "declaration": "[Key] public Guid Id {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1471,19 +1471,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid OwnerUserId { get; set; }"
+        "declaration": "public Guid OwnerUserId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid? DivisionId { get; set; }"
+        "declaration": "public Guid? DivisionId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid? ParentOperationId { get; set; }"
+        "declaration": "public Guid? ParentOperationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public NhBackgroundOperation? ParentOperation { get; set; }"
+        "declaration": "public NhBackgroundOperation? ParentOperation {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1491,15 +1491,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid? RootOperationId { get; set; }"
+        "declaration": "public Guid? RootOperationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(200)] public string? FanOutKey { get; set; }"
+        "declaration": "[StringLength(200)] public string? FanOutKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(200)] public string? FanOutItemKey { get; set; }"
+        "declaration": "[StringLength(200)] public string? FanOutItemKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1511,7 +1511,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public int Priority { get; set; }"
+        "declaration": "public int Priority {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1519,127 +1519,127 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public int DispatchGeneration { get; set; }"
+        "declaration": "public int DispatchGeneration {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(100)] public string? SchedulerJobId { get; set; }"
+        "declaration": "[StringLength(100)] public string? SchedulerJobId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public int CurrentAttemptNumber { get; set; }"
+        "declaration": "public int CurrentAttemptNumber {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid? CurrentAttemptId { get; set; }"
+        "declaration": "public Guid? CurrentAttemptId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(450)] public string? ConcurrencyKey { get; set; }"
+        "declaration": "[StringLength(450)] public string? ConcurrencyKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(100)] public string? DomainObjectType { get; set; }"
+        "declaration": "[StringLength(100)] public string? DomainObjectType {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(200)] public string? DomainObjectId { get; set; }"
+        "declaration": "[StringLength(200)] public string? DomainObjectId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(100)] public string? CorrelationId { get; set; }"
+        "declaration": "[StringLength(100)] public string? CorrelationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public decimal? ProgressCurrent { get; set; }"
+        "declaration": "public decimal? ProgressCurrent {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public decimal? ProgressTotal { get; set; }"
+        "declaration": "public decimal? ProgressTotal {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public decimal? ProgressPercentage { get; set; }"
+        "declaration": "public decimal? ProgressPercentage {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(200)] public string? ProgressPhaseKey { get; set; }"
+        "declaration": "[StringLength(200)] public string? ProgressPhaseKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(300)] public string? ProgressMessageKey { get; set; }"
+        "declaration": "[StringLength(300)] public string? ProgressMessageKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public string? ProgressMessageArgumentsJson { get; set; }"
+        "declaration": "public string? ProgressMessageArgumentsJson {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? CancelRequestedAt { get; set; }"
+        "declaration": "public DateTimeOffset? CancelRequestedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid? CancelRequestedByUserId { get; set; }"
+        "declaration": "public Guid? CancelRequestedByUserId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? StartedAt { get; set; }"
+        "declaration": "public DateTimeOffset? StartedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? HeartbeatAt { get; set; }"
+        "declaration": "public DateTimeOffset? HeartbeatAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? NextDispatchAt { get; set; }"
+        "declaration": "public DateTimeOffset? NextDispatchAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+        "declaration": "public DateTimeOffset? CompletedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? SensitiveDataRedactedAt { get; set; }"
+        "declaration": "public DateTimeOffset? SensitiveDataRedactedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(100)] public string? ResultReferenceType { get; set; }"
+        "declaration": "[StringLength(100)] public string? ResultReferenceType {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(200)] public string? ResultReferenceId { get; set; }"
+        "declaration": "[StringLength(200)] public string? ResultReferenceId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(1000)] public string? ResultUrl { get; set; }"
+        "declaration": "[StringLength(1000)] public string? ResultUrl {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(100)] public string? FailureCode { get; set; }"
+        "declaration": "[StringLength(100)] public string? FailureCode {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(300)] public string? FailureMessageKey { get; set; }"
+        "declaration": "[StringLength(300)] public string? FailureMessageKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(100)] public string? DiagnosticCorrelationId { get; set; }"
+        "declaration": "[StringLength(100)] public string? DiagnosticCorrelationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long Version { get; set; }"
+        "declaration": "public long Version {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long LatestEventSequence { get; set; }"
+        "declaration": "public long LatestEventSequence {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid? UserNotificationId { get; set; }"
+        "declaration": "public Guid? UserNotificationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long LastProjectedNotificationEventSequence { get; set; }"
+        "declaration": "public long LastProjectedNotificationEventSequence {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1663,7 +1663,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[Key] public Guid Id { get; set; }"
+        "declaration": "[Key] public Guid Id {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1675,23 +1675,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid OperationId { get; set; }"
+        "declaration": "public Guid OperationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public NhBackgroundOperation? Operation { get; set; }"
+        "declaration": "public NhBackgroundOperation? Operation {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public int AttemptNumber { get; set; }"
+        "declaration": "public int AttemptNumber {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public int DispatchGeneration { get; set; }"
+        "declaration": "public int DispatchGeneration {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(100)] public string? SchedulerJobId { get; set; }"
+        "declaration": "[StringLength(100)] public string? SchedulerJobId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1699,35 +1699,35 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(200)] public string? WorkerId { get; set; }"
+        "declaration": "[StringLength(200)] public string? WorkerId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? StartedAt { get; set; }"
+        "declaration": "public DateTimeOffset? StartedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? HeartbeatAt { get; set; }"
+        "declaration": "public DateTimeOffset? HeartbeatAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+        "declaration": "public DateTimeOffset? CompletedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(100)] public string? FailureCode { get; set; }"
+        "declaration": "[StringLength(100)] public string? FailureCode {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(100)] public string? DiagnosticCorrelationId { get; set; }"
+        "declaration": "[StringLength(100)] public string? DiagnosticCorrelationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(300)] public string? RecoveryReason { get; set; }"
+        "declaration": "[StringLength(300)] public string? RecoveryReason {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long Version { get; set; }"
+        "declaration": "public long Version {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1735,7 +1735,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[Key] public Guid Id { get; set; }"
+        "declaration": "[Key] public Guid Id {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1747,19 +1747,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid OperationId { get; set; }"
+        "declaration": "public Guid OperationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public NhBackgroundOperation? Operation { get; set; }"
+        "declaration": "public NhBackgroundOperation? Operation {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid? ParentStepId { get; set; }"
+        "declaration": "public Guid? ParentStepId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public NhBackgroundOperationStep? ParentStep { get; set; }"
+        "declaration": "public NhBackgroundOperationStep? ParentStep {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1771,27 +1771,27 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(300)] public string? TitleKey { get; set; }"
+        "declaration": "[StringLength(300)] public string? TitleKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public string? TitleArgumentsJson { get; set; }"
+        "declaration": "public string? TitleArgumentsJson {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(300)] public string? MessageKey { get; set; }"
+        "declaration": "[StringLength(300)] public string? MessageKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public string? MessageArgumentsJson { get; set; }"
+        "declaration": "public string? MessageArgumentsJson {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public NhBackgroundOperationStepStatus Status { get; set; }"
+        "declaration": "public NhBackgroundOperationStepStatus Status {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public NhBackgroundOperationAggregationMode AggregationMode { get; set; }"
+        "declaration": "public NhBackgroundOperationAggregationMode AggregationMode {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1799,79 +1799,79 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public decimal? Current { get; set; }"
+        "declaration": "public decimal? Current {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public decimal? Total { get; set; }"
+        "declaration": "public decimal? Total {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public decimal? Percentage { get; set; }"
+        "declaration": "public decimal? Percentage {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long DiscoveredItems { get; set; }"
+        "declaration": "public long DiscoveredItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long ProcessedItems { get; set; }"
+        "declaration": "public long ProcessedItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long SucceededItems { get; set; }"
+        "declaration": "public long SucceededItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long FailedItems { get; set; }"
+        "declaration": "public long FailedItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long SkippedItems { get; set; }"
+        "declaration": "public long SkippedItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long RetriedItems { get; set; }"
+        "declaration": "public long RetriedItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long ActiveItems { get; set; }"
+        "declaration": "public long ActiveItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public bool ContinueOnChildFailure { get; set; }"
+        "declaration": "public bool ContinueOnChildFailure {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public int DisplayOrder { get; set; }"
+        "declaration": "public int DisplayOrder {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public int Depth { get; set; }"
+        "declaration": "public int Depth {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? StartedAt { get; set; }"
+        "declaration": "public DateTimeOffset? StartedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? HeartbeatAt { get; set; }"
+        "declaration": "public DateTimeOffset? HeartbeatAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+        "declaration": "public DateTimeOffset? CompletedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid? CurrentAttemptId { get; set; }"
+        "declaration": "public Guid? CurrentAttemptId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long FencingVersion { get; set; }"
+        "declaration": "public long FencingVersion {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long Version { get; set; }"
+        "declaration": "public long Version {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1879,47 +1879,47 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[Key] public Guid Id { get; set; }"
+        "declaration": "[Key] public Guid Id {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid OperationId { get; set; }"
+        "declaration": "public Guid OperationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public NhBackgroundOperation? Operation { get; set; }"
+        "declaration": "public NhBackgroundOperation? Operation {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long Sequence { get; set; }"
+        "declaration": "public long Sequence {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid? StepId { get; set; }"
+        "declaration": "public Guid? StepId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(200)] public string? StepKey { get; set; }"
+        "declaration": "[StringLength(200)] public string? StepKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public NhBackgroundOperationEventType EventType { get; set; }"
+        "declaration": "public NhBackgroundOperationEventType EventType {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public NhBackgroundOperationMessageSeverity Severity { get; set; }"
+        "declaration": "public NhBackgroundOperationMessageSeverity Severity {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(300)] public string? MessageKey { get; set; }"
+        "declaration": "[StringLength(300)] public string? MessageKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public string? MessageArgumentsJson { get; set; }"
+        "declaration": "public string? MessageArgumentsJson {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long SnapshotVersion { get; set; }"
+        "declaration": "public long SnapshotVersion {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1931,27 +1931,27 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(100)] public string? ResultReferenceType { get; set; }"
+        "declaration": "[StringLength(100)] public string? ResultReferenceType {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(200)] public string? ResultReferenceId { get; set; }"
+        "declaration": "[StringLength(200)] public string? ResultReferenceId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "[StringLength(1000)] public string? ResultUrl { get; set; }"
+        "declaration": "[StringLength(1000)] public string? ResultUrl {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid? AttemptId { get; set; }"
+        "declaration": "public Guid? AttemptId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public bool IsMilestone { get; set; }"
+        "declaration": "public bool IsMilestone {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public bool IsOperatorOnly { get; set; }"
+        "declaration": "public bool IsOperatorOnly {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1959,11 +1959,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid OperationId { get; set; }"
+        "declaration": "public Guid OperationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public NhBackgroundOperation? Operation { get; set; }"
+        "declaration": "public NhBackgroundOperation? Operation {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1979,7 +1979,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid? AttemptId { get; set; }"
+        "declaration": "public Guid? AttemptId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1991,7 +1991,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long Version { get; set; }"
+        "declaration": "public long Version {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -2007,11 +2007,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid OperationId { get; set; }"
+        "declaration": "public Guid OperationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public NhBackgroundOperation? Operation { get; set; }"
+        "declaration": "public NhBackgroundOperation? Operation {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -2019,7 +2019,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? ExpiresAt { get; set; }"
+        "declaration": "public DateTimeOffset? ExpiresAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -2031,39 +2031,39 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public int Slot { get; set; }"
+        "declaration": "public int Slot {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid? OperationId { get; set; }"
+        "declaration": "public Guid? OperationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public NhBackgroundOperation? Operation { get; set; }"
+        "declaration": "public NhBackgroundOperation? Operation {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public Guid? AttemptId { get; set; }"
+        "declaration": "public Guid? AttemptId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? AcquiredAt { get; set; }"
+        "declaration": "public DateTimeOffset? AcquiredAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? HeartbeatAt { get; set; }"
+        "declaration": "public DateTimeOffset? HeartbeatAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public DateTimeOffset? ExpiresAt { get; set; }"
+        "declaration": "public DateTimeOffset? ExpiresAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long FencingToken { get; set; }"
+        "declaration": "public long FencingToken {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
-        "declaration": "public long Version { get; set; }"
+        "declaration": "public long Version {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhDivision.cs",
@@ -3623,11 +3623,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
-        "declaration": "public Guid OwnerUserId { get; set; }"
+        "declaration": "public Guid OwnerUserId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
-        "declaration": "public Guid? DivisionId { get; set; }"
+        "declaration": "public Guid? DivisionId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
@@ -3639,7 +3639,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
-        "declaration": "public int Priority { get; set; }"
+        "declaration": "public int Priority {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
@@ -3647,19 +3647,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
-        "declaration": "public string? ConcurrencyKey { get; set; }"
+        "declaration": "public string? ConcurrencyKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
-        "declaration": "public string? DomainObjectType { get; set; }"
+        "declaration": "public string? DomainObjectType {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
-        "declaration": "public string? DomainObjectId { get; set; }"
+        "declaration": "public string? DomainObjectId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
-        "declaration": "public string? CorrelationId { get; set; }"
+        "declaration": "public string? CorrelationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhUserNotificationMutateModels.cs",
@@ -4075,15 +4075,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "[Filterable, Orderable] public Guid Id { get; set; }"
+        "declaration": "[Filterable, Orderable] public Guid Id {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "[Filterable, Orderable] public DateTimeOffset CreationDateTime { get; set; }"
+        "declaration": "[Filterable, Orderable] public DateTimeOffset CreationDateTime {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "[Filterable, Orderable] public DateTimeOffset LastModifiedDateTime { get; set; }"
+        "declaration": "[Filterable, Orderable] public DateTimeOffset LastModifiedDateTime {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
@@ -4091,35 +4091,35 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public int PayloadSchemaVersion { get; set; }"
+        "declaration": "public int PayloadSchemaVersion {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "[Filterable] public Guid OwnerUserId { get; set; }"
+        "declaration": "[Filterable] public Guid OwnerUserId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "[Filterable] public Guid? DivisionId { get; set; }"
+        "declaration": "[Filterable] public Guid? DivisionId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public Guid? ParentOperationId { get; set; }"
+        "declaration": "public Guid? ParentOperationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public Guid? RootOperationId { get; set; }"
+        "declaration": "public Guid? RootOperationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? FanOutKey { get; set; }"
+        "declaration": "public string? FanOutKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? FanOutItemKey { get; set; }"
+        "declaration": "public string? FanOutItemKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "[Filterable, Orderable] public NhBackgroundOperationStatus Status { get; set; }"
+        "declaration": "[Filterable, Orderable] public NhBackgroundOperationStatus Status {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
@@ -4127,95 +4127,95 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public int Priority { get; set; }"
+        "declaration": "public int Priority {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public int CurrentAttemptNumber { get; set; }"
+        "declaration": "public int CurrentAttemptNumber {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? DomainObjectType { get; set; }"
+        "declaration": "public string? DomainObjectType {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? DomainObjectId { get; set; }"
+        "declaration": "public string? DomainObjectId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? CorrelationId { get; set; }"
+        "declaration": "public string? CorrelationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public decimal? ProgressCurrent { get; set; }"
+        "declaration": "public decimal? ProgressCurrent {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public decimal? ProgressTotal { get; set; }"
+        "declaration": "public decimal? ProgressTotal {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public decimal? ProgressPercentage { get; set; }"
+        "declaration": "public decimal? ProgressPercentage {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? ProgressPhaseKey { get; set; }"
+        "declaration": "public string? ProgressPhaseKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? ProgressMessageKey { get; set; }"
+        "declaration": "public string? ProgressMessageKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? ProgressMessageArgumentsJson { get; set; }"
+        "declaration": "public string? ProgressMessageArgumentsJson {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset? CancelRequestedAt { get; set; }"
+        "declaration": "public DateTimeOffset? CancelRequestedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset? StartedAt { get; set; }"
+        "declaration": "public DateTimeOffset? StartedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset? HeartbeatAt { get; set; }"
+        "declaration": "public DateTimeOffset? HeartbeatAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+        "declaration": "public DateTimeOffset? CompletedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset? SensitiveDataRedactedAt { get; set; }"
+        "declaration": "public DateTimeOffset? SensitiveDataRedactedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? ResultReferenceType { get; set; }"
+        "declaration": "public string? ResultReferenceType {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? ResultReferenceId { get; set; }"
+        "declaration": "public string? ResultReferenceId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? ResultUrl { get; set; }"
+        "declaration": "public string? ResultUrl {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? FailureCode { get; set; }"
+        "declaration": "public string? FailureCode {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? FailureMessageKey { get; set; }"
+        "declaration": "public string? FailureMessageKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public long Version { get; set; }"
+        "declaration": "public long Version {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public long LatestEventSequence { get; set; }"
+        "declaration": "public long LatestEventSequence {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
@@ -4239,11 +4239,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "[Filterable] public Guid Id { get; set; }"
+        "declaration": "[Filterable] public Guid Id {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public Guid? ParentOperationId { get; set; }"
+        "declaration": "public Guid? ParentOperationId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
@@ -4251,47 +4251,47 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? FanOutKey { get; set; }"
+        "declaration": "public string? FanOutKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? FanOutItemKey { get; set; }"
+        "declaration": "public string? FanOutItemKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public NhBackgroundOperationStatus Status { get; set; }"
+        "declaration": "public NhBackgroundOperationStatus Status {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public decimal? ProgressPercentage { get; set; }"
+        "declaration": "public decimal? ProgressPercentage {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset CreationDateTime { get; set; }"
+        "declaration": "public DateTimeOffset CreationDateTime {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset LastModifiedDateTime { get; set; }"
+        "declaration": "public DateTimeOffset LastModifiedDateTime {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+        "declaration": "public DateTimeOffset? CompletedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? ResultReferenceType { get; set; }"
+        "declaration": "public string? ResultReferenceType {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? ResultReferenceId { get; set; }"
+        "declaration": "public string? ResultReferenceId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? ResultUrl { get; set; }"
+        "declaration": "public string? ResultUrl {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? FailureCode { get; set; }"
+        "declaration": "public string? FailureCode {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
@@ -4303,35 +4303,35 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "[Filterable] public Guid Id { get; set; }"
+        "declaration": "[Filterable] public Guid Id {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public int AttemptNumber { get; set; }"
+        "declaration": "public int AttemptNumber {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public NhBackgroundOperationAttemptStatus Status { get; set; }"
+        "declaration": "public NhBackgroundOperationAttemptStatus Status {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset? StartedAt { get; set; }"
+        "declaration": "public DateTimeOffset? StartedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset? HeartbeatAt { get; set; }"
+        "declaration": "public DateTimeOffset? HeartbeatAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+        "declaration": "public DateTimeOffset? CompletedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? FailureCode { get; set; }"
+        "declaration": "public string? FailureCode {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? RecoveryReason { get; set; }"
+        "declaration": "public string? RecoveryReason {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
@@ -4339,11 +4339,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "[Filterable] public Guid Id { get; set; }"
+        "declaration": "[Filterable] public Guid Id {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public Guid? ParentStepId { get; set; }"
+        "declaration": "public Guid? ParentStepId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
@@ -4351,91 +4351,91 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? TitleKey { get; set; }"
+        "declaration": "public string? TitleKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? TitleArgumentsJson { get; set; }"
+        "declaration": "public string? TitleArgumentsJson {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? MessageKey { get; set; }"
+        "declaration": "public string? MessageKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? MessageArgumentsJson { get; set; }"
+        "declaration": "public string? MessageArgumentsJson {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public NhBackgroundOperationStepStatus Status { get; set; }"
+        "declaration": "public NhBackgroundOperationStepStatus Status {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public NhBackgroundOperationAggregationMode AggregationMode { get; set; }"
+        "declaration": "public NhBackgroundOperationAggregationMode AggregationMode {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public decimal Weight { get; set; }"
+        "declaration": "public decimal Weight {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public decimal? Current { get; set; }"
+        "declaration": "public decimal? Current {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public decimal? Total { get; set; }"
+        "declaration": "public decimal? Total {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public decimal? Percentage { get; set; }"
+        "declaration": "public decimal? Percentage {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public long DiscoveredItems { get; set; }"
+        "declaration": "public long DiscoveredItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public long ProcessedItems { get; set; }"
+        "declaration": "public long ProcessedItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public long SucceededItems { get; set; }"
+        "declaration": "public long SucceededItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public long FailedItems { get; set; }"
+        "declaration": "public long FailedItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public long SkippedItems { get; set; }"
+        "declaration": "public long SkippedItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public long RetriedItems { get; set; }"
+        "declaration": "public long RetriedItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public long ActiveItems { get; set; }"
+        "declaration": "public long ActiveItems {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public bool ContinueOnChildFailure { get; set; }"
+        "declaration": "public bool ContinueOnChildFailure {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public int DisplayOrder { get; set; }"
+        "declaration": "public int DisplayOrder {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public int Depth { get; set; }"
+        "declaration": "public int Depth {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset? StartedAt { get; set; }"
+        "declaration": "public DateTimeOffset? StartedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+        "declaration": "public DateTimeOffset? CompletedAt {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
@@ -4447,59 +4447,59 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "[Filterable] public Guid Id { get; set; }"
+        "declaration": "[Filterable] public Guid Id {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public long Sequence { get; set; }"
+        "declaration": "public long Sequence {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public Guid? StepId { get; set; }"
+        "declaration": "public Guid? StepId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? StepKey { get; set; }"
+        "declaration": "public string? StepKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public NhBackgroundOperationEventType EventType { get; set; }"
+        "declaration": "public NhBackgroundOperationEventType EventType {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public NhBackgroundOperationMessageSeverity Severity { get; set; }"
+        "declaration": "public NhBackgroundOperationMessageSeverity Severity {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? MessageKey { get; set; }"
+        "declaration": "public string? MessageKey {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? MessageArgumentsJson { get; set; }"
+        "declaration": "public string? MessageArgumentsJson {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public long SnapshotVersion { get; set; }"
+        "declaration": "public long SnapshotVersion {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public DateTimeOffset CreationDateTime { get; set; }"
+        "declaration": "public DateTimeOffset CreationDateTime {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? ResultReferenceType { get; set; }"
+        "declaration": "public string? ResultReferenceType {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? ResultReferenceId { get; set; }"
+        "declaration": "public string? ResultReferenceId {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public string? ResultUrl { get; set; }"
+        "declaration": "public string? ResultUrl {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public bool IsMilestone { get; set; }"
+        "declaration": "public bool IsMilestone {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",

@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -6,6 +5,7 @@ using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Utilities;
+using System.Text;
 
 namespace NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 
@@ -199,7 +199,11 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
                 NhBackgroundOperationEventType.ChildrenCreated,
                 NhBackgroundOperationMessageSeverity.Information,
                 "background-operation.children-created",
-                new { fanOutKey, count = prepared.Count },
+                new
+                {
+                    fanOutKey,
+                    count = prepared.Count
+                },
                 false,
                 claim.AttemptId,
                 step.Id,
@@ -314,6 +318,8 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
             await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
             if (!await LockAsync(repository, transaction, parentOperationId, cancellationToken))
             {
+                await transaction.CommitAsync(cancellationToken);
+                await SchedulePromptParentRecheckAsync(parentOperationId, cancellationToken);
                 return;
             }
             parent = await repository.GetAll()
@@ -368,7 +374,10 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
                     NhBackgroundOperationEventType.ChildrenCompleted,
                     NhBackgroundOperationMessageSeverity.Information,
                     "background-operation.children-completed",
-                    new { count = children.Count },
+                    new
+                    {
+                        count = children.Count
+                    },
                     false);
             }
             else if (allChildrenTerminal
@@ -406,6 +415,34 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
         {
             await AggregateParentAsync(parent.ParentOperationId.Value, cancellationToken);
         }
+    }
+
+    private async Task SchedulePromptParentRecheckAsync(
+        Guid parentOperationId,
+        CancellationToken cancellationToken)
+    {
+        var recheckAt = DateTimeOffset.UtcNow + _options.DispatchInterval;
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
+        var parent = await repository.GetAll().SingleOrDefaultAsync(
+            operation => operation.Id == parentOperationId
+                         && operation.Status == NhBackgroundOperationStatus.WaitingForChildren,
+            cancellationToken);
+        if (parent is null
+            || !parent.NextDispatchAt.HasValue
+            || parent.NextDispatchAt.Value <= recheckAt)
+        {
+            return;
+        }
+
+        // This is an idempotent scheduling hint rather than a state transition.
+        // Persistence updates only the due time, so an overlapping aggregator's
+        // status transition remains authoritative.
+        parent.NextDispatchAt = recheckAt;
+        await repository.SaveChangesAsync(cancellationToken);
+        _logger.LogDebug(
+            "Scheduled prompt fan-in recheck for parent operation {OperationId} after aggregation lock contention.",
+            parentOperationId);
     }
 
     private PreparedFanOutItem PrepareItem<TRequest>(

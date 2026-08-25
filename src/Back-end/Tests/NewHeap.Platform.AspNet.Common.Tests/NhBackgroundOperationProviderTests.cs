@@ -54,6 +54,9 @@ public sealed class NhBackgroundOperationProviderTests
         services.AddScoped<ProviderExpectedFailureHandler>();
         services.AddScoped<ProviderRetryResultHandler>();
         services.AddScoped<ProviderCancellationHandler>();
+        services.AddScoped<ProviderFanInParentHandler>();
+        services.AddScoped<ProviderFanInChildHandler>();
+        services.AddSingleton<INhBackgroundOperationScheduler, NoOpScheduler>();
         var notificationService = Substitute.For<INhUserNotificationService>();
         services.AddSingleton(notificationService);
         services.AddSingleton<INhBackgroundOperationNotificationFormatter,
@@ -119,6 +122,7 @@ public sealed class NhBackgroundOperationProviderTests
         {
             UserNotificationProjectionEnabled = false,
             LiveUpdatesEnabled = false,
+            DispatchInterval = TimeSpan.FromMilliseconds(50),
             HeartbeatInterval = TimeSpan.FromMilliseconds(100),
             DefaultLeaseDuration = TimeSpan.FromSeconds(2),
             PayloadRetentionPeriod = TimeSpan.FromDays(1),
@@ -144,6 +148,10 @@ public sealed class NhBackgroundOperationProviderTests
             operation => operation.WithRetry(2));
         registryBuilder.Add<ProviderCancellationRequest, ProviderCancellationHandler>(
             "provider-cancellation");
+        registryBuilder.Add<ProviderFanInParentRequest, ProviderFanInParentHandler>(
+            "provider-fan-in-parent");
+        registryBuilder.Add<ProviderFanInChildRequest, ProviderFanInChildHandler>(
+            "provider-fan-in-child");
         var registry = registryBuilder.Build();
         var fanOutCoordinator = new NhBackgroundOperationFanOutCoordinator(
             serviceProvider.GetRequiredService<IServiceScopeFactory>(),
@@ -859,6 +867,13 @@ public sealed class NhBackgroundOperationProviderTests
         var parentCleanup = await cleanup.CleanupAsync(utcNow: DateTimeOffset.UtcNow.AddDays(31));
         parentCleanup.RemovedOperations.Should().Be(1);
 
+        await VerifyPromptFanInWakeAfterContentionAsync(
+            serviceProvider,
+            persistence,
+            fanOutCoordinator,
+            registry,
+            options,
+            ownerId);
         await VerifyTaskResultRunnerSemanticsAsync(
             serviceProvider,
             persistence,
@@ -873,6 +888,127 @@ public sealed class NhBackgroundOperationProviderTests
             registry,
             options,
             ownerId);
+    }
+
+    private static async Task VerifyPromptFanInWakeAfterContentionAsync(
+        ServiceProvider serviceProvider,
+        NhBackgroundOperationPersistence persistence,
+        NhBackgroundOperationFanOutCoordinator fanOutCoordinator,
+        NhBackgroundOperationRegistry registry,
+        NhBackgroundOperationsOptions options,
+        Guid ownerId)
+    {
+        var parentId = Guid.NewGuid();
+        await using (var seedScope = serviceProvider.CreateAsyncScope())
+        {
+            var context = seedScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            context.BackgroundOperations.Add(CreateQueuedOperation(
+                parentId,
+                ownerId,
+                "provider-fan-in-parent"));
+            await context.SaveChangesAsync();
+        }
+
+        var runner = new NhBackgroundOperationRunner(
+            serviceProvider,
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            persistence,
+            registry,
+            fanOutCoordinator,
+            options,
+            NullLogger<NhBackgroundOperationRunner>.Instance);
+        var dispatcher = new NhBackgroundOperationDispatchService(
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            options,
+            new NoOpLiveUpdatePublisher(),
+            new NoOpNotificationProjector(),
+            fanOutCoordinator,
+            NullLogger<NhBackgroundOperationDispatchService>.Instance);
+
+        await runner.RunAsync(parentId, 1);
+
+        Guid[] childIds;
+        await using (var suspendedScope = serviceProvider.CreateAsyncScope())
+        {
+            var context = suspendedScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            var parent = await context.BackgroundOperations
+                .AsNoTracking()
+                .SingleAsync(operation => operation.Id == parentId);
+            parent.Status.Should().Be(NhBackgroundOperationStatus.WaitingForChildren);
+            parent.NextDispatchAt.Should().BeAfter(DateTimeOffset.UtcNow.AddSeconds(10));
+            childIds = await context.BackgroundOperations
+                .AsNoTracking()
+                .Where(operation => operation.ParentOperationId == parentId)
+                .OrderBy(operation => operation.FanOutItemKey)
+                .Select(operation => operation.Id)
+                .ToArrayAsync();
+            childIds.Should().HaveCount(2);
+        }
+
+        (await dispatcher.DispatchAvailableAsync(CancellationToken.None)).Should().Be(2);
+        await runner.RunAsync(childIds[0], 1);
+
+        DateTimeOffset promptRecheckAt;
+        await using (var lockScope = serviceProvider.CreateAsyncScope())
+        {
+            var repository = lockScope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
+            await using var transaction = await repository.StartOrGetTransactionScopeAsync();
+            var acquired = await repository.TryAcquireTransactionLockAsync(
+                transaction,
+                $"NhBackgroundOperation:Operation:{parentId:N}",
+                options.TransactionLockTimeoutMilliseconds);
+            acquired.Should().BeTrue();
+
+            await runner.RunAsync(childIds[1], 1);
+
+            await using var contentionScope = serviceProvider.CreateAsyncScope();
+            var context = contentionScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            var parent = await context.BackgroundOperations
+                .AsNoTracking()
+                .SingleAsync(operation => operation.Id == parentId);
+            parent.Status.Should().Be(NhBackgroundOperationStatus.WaitingForChildren);
+            parent.NextDispatchAt.Should().NotBeNull();
+            promptRecheckAt = parent.NextDispatchAt!.Value;
+            promptRecheckAt.Should().BeOnOrBefore(DateTimeOffset.UtcNow + options.DispatchInterval + TimeSpan.FromSeconds(1));
+            (await context.BackgroundOperations
+                    .AsNoTracking()
+                    .Where(operation => operation.ParentOperationId == parentId)
+                    .Select(operation => operation.Status)
+                    .ToListAsync())
+                .Should().OnlyContain(status => status == NhBackgroundOperationStatus.Succeeded);
+
+            await transaction.CommitAsync();
+        }
+
+        var dispatchDelay = promptRecheckAt - DateTimeOffset.UtcNow + TimeSpan.FromMilliseconds(25);
+        if (dispatchDelay > TimeSpan.Zero)
+        {
+            await Task.Delay(dispatchDelay);
+        }
+
+        (await dispatcher.DispatchAvailableAsync(CancellationToken.None)).Should().Be(1);
+        await runner.RunAsync(parentId, 2);
+
+        await using var verificationScope = serviceProvider.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+        var completedParent = await verificationContext.BackgroundOperations
+            .AsNoTracking()
+            .SingleAsync(operation => operation.Id == parentId);
+        completedParent.Status.Should().Be(NhBackgroundOperationStatus.Succeeded);
+        completedParent.ProgressPercentage.Should().Be(100);
+        (await verificationContext.BackgroundOperationSteps
+                .AsNoTracking()
+                .SingleAsync(step => step.OperationId == parentId && step.StepKey == "publish-summary"))
+            .Status.Should().Be(NhBackgroundOperationStepStatus.Succeeded);
+        (await verificationContext.BackgroundOperationAttempts
+                .AsNoTracking()
+                .Where(attempt => attempt.OperationId == parentId)
+                .OrderBy(attempt => attempt.AttemptNumber)
+                .Select(attempt => attempt.Status)
+                .ToListAsync())
+            .Should().Equal(
+                NhBackgroundOperationAttemptStatus.Suspended,
+                NhBackgroundOperationAttemptStatus.Succeeded);
     }
 
     private static async Task VerifyRunningCancellationAsync(
@@ -1099,6 +1235,10 @@ public sealed class NhBackgroundOperationProviderTests
 
     private sealed record ProviderCancellationRequest;
 
+    private sealed record ProviderFanInParentRequest;
+
+    private sealed record ProviderFanInChildRequest(int Index);
+
     private sealed record ProviderParentRequest;
 
     private sealed class ProviderParentHandler : INhBackgroundOperationHandler<ProviderParentRequest>
@@ -1116,6 +1256,53 @@ public sealed class NhBackgroundOperationProviderTests
     {
         public Task<TaskResult> ExecuteAsync(
             ProviderChildRequest request,
+            INhBackgroundOperationContext context,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(TaskResult.Succeeded());
+        }
+    }
+
+    private sealed class ProviderFanInParentHandler :
+        INhBackgroundOperationHandler<ProviderFanInParentRequest>
+    {
+        public async Task<TaskResult> ExecuteAsync(
+            ProviderFanInParentRequest request,
+            INhBackgroundOperationContext context,
+            CancellationToken cancellationToken)
+        {
+            await context.Progress.DefineAsync(plan => plan
+                .Step("fan-out", 90, "provider.fan-out")
+                .Step("publish-summary", 10, "provider.publish-summary"),
+                cancellationToken);
+
+            var fanOutResult = await context.FanOut.RunAsync(
+                "fan-out",
+                Enumerable.Range(1, 2).Select(index => NhBackgroundOperationFanOut.Item(
+                    $"child-{index}",
+                    new ProviderFanInChildRequest(index))),
+                cancellationToken);
+            if (!fanOutResult.Success)
+            {
+                return fanOutResult;
+            }
+
+            return await context.Progress.RunStepAsync(
+                "publish-summary",
+                async (step, token) =>
+                {
+                    await step.ReportAsync(1, 1, cancellationToken: token);
+                    return TaskResult.Succeeded();
+                },
+                cancellationToken);
+        }
+    }
+
+    private sealed class ProviderFanInChildHandler :
+        INhBackgroundOperationHandler<ProviderFanInChildRequest>
+    {
+        public Task<TaskResult> ExecuteAsync(
+            ProviderFanInChildRequest request,
             INhBackgroundOperationContext context,
             CancellationToken cancellationToken)
         {

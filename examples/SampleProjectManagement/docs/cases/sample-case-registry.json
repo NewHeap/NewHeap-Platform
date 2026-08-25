@@ -1186,7 +1186,7 @@
       "categoryId": "6",
       "title": "Durable background operation with fan-out and nested progress",
       "surface": "`WithBackgroundOperations`, `INhBackgroundOperationHandler<T>`, `TaskResult`, `NhBackgroundOperationRetryResult`, fan-out/fan-in, durable leases, scoped polling, and scoped SignalR",
-      "outcome": "A division-exclusive parent durably fans out project work, releases its worker while children execute concurrently, propagates expected batch, checkpoint, step, and fan-in outcomes through TaskResult, reschedules internal lock contention without consuming handler retries, aggregates nested progress, protects unprojected notification milestones during event retention, and remains isolated to the authenticated user and accessible active division through notifications, SignalR, and polling.",
+      "outcome": "A division-exclusive parent durably fans out project work, releases its worker while children execute concurrently, propagates expected batch, checkpoint, step, and fan-in outcomes through TaskResult, reschedules internal lock contention without consuming handler retries, advances a contended final-child wake-up to the next dispatcher interval, aggregates nested progress, protects unprojected notification milestones during event retention, and remains isolated to the authenticated user and accessible active division through notifications, SignalR, and polling.",
       "implementation": "implemented",
       "evidence": [
         "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
