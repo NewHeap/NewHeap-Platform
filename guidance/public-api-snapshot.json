@@ -14926,6 +14926,10 @@
       "Repository",
       "StartOrGetTransactionScopeAsync"
     ],
+    "nh-read-only-database-diagnostics": [
+      "NewHeapDatabaseReadApplication",
+      "UseNhCommonConfiguration"
+    ],
     "nh-frontend-collection-query": [
       "CollectionHttpRequestOptions",
       "FilterRequestOptions",

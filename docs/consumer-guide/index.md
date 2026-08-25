@@ -30,6 +30,7 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 - [consumer-optional-infrastructure](./consumer-optional-infrastructure.md) — 1 rule
 - [consumer-scope-gate](./consumer-scope-gate.md) — 1 rule
 - [database-bulk-upsert](./database-bulk-upsert.md) — 1 rule
+- [database-diagnostics](./database-diagnostics.md) — 1 rule
 - [database-providers](./database-providers.md) — 1 rule
 - [frontend-collection-query](./frontend-collection-query.md) — 1 rule
 - [frontend-lifecycle-modals](./frontend-lifecycle-modals.md) — 1 rule
@@ -41,4 +42,4 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 
 ## Maintenance
 
-Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 22 validated rules.
+Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 23 validated rules.

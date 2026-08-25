@@ -79,6 +79,13 @@
       "expectedOutcome": "ExecuteUpsertAsync uses the configured unique business key, streams through SQL Server MERGE or PostgreSQL ON CONFLICT in one transaction, writes supported database-generated primary keys back to inserted entities, and rejects unsupported providers and duplicate source keys."
     },
     {
+      "id": "consumer-read-only-database-diagnostics",
+      "skill": "newheap-database-development",
+      "prompt": "Give Codex read-only staging and production database diagnostics without passing connection strings or query values through command-line arguments.",
+      "expectedRules": ["nh-read-only-database-diagnostics"],
+      "expectedOutcome": "The consumer pins newheap-db, checks in bounded provider profiles and typed JSON stdin requests, resolves a dedicated read-only credential through NewHeap secrets, returns strict JSON stdout, and proves both successful reads and rejected writes on SQL Server and PostgreSQL."
+    },
+    {
       "id": "consumer-transaction-events",
       "skill": "newheap-background-processing",
       "prompt": "Add a transactional mutation with a CAP event, an idempotent consumer, a job, and a notification.",

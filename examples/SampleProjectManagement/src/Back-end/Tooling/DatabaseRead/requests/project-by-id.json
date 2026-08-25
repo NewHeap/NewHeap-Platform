@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "profile": "sample-development",
+  "sql": "SELECT \"Id\", \"Key\", \"Name\", \"Status\" FROM \"Projects\" WHERE \"Id\" = @projectId",
+  "parameters": [
+    {
+      "name": "projectId",
+      "type": "uuid",
+      "value": "87534f33-bd4b-43ed-8ce5-8861d320271d"
+    }
+  ],
+  "limits": {
+    "maximumRows": 10,
+    "timeoutSeconds": 10
+  },
+  "reason": "Investigate the seeded Authorization Alpha project"
+}

@@ -67,6 +67,32 @@ the RabbitMQ values and
 `NewHeap.PlatformAspNetCommon.Authorization.JWT.Token.Key`. Generate a unique
 64-byte Base64 JWT key for every installation.
 
+## Read-only database diagnostics
+
+The backend contains a checked-in
+`.newheap/database-read.json` profile and a parameterized
+`Tooling/DatabaseRead/requests/project-by-id.json` request. Create a dedicated
+PostgreSQL login that has only `CONNECT`, schema `USAGE`, and `SELECT` on the
+approved diagnostic tables or views. Put that login's connection string in
+`ConnectionStrings.NewHeapDiagnosticsReadOnly` in the local `secrets.json`.
+Never reuse the application owner credential.
+
+After installing `NewHeap.Platform.DatabaseRead.Tool` in a local .NET tool
+manifest, run this from `src/Back-end` in PowerShell:
+
+```powershell
+Get-Content -Raw Tooling/DatabaseRead/requests/project-by-id.json |
+  dotnet tool run newheap-db validate
+
+Get-Content -Raw Tooling/DatabaseRead/requests/project-by-id.json |
+  dotnet tool run newheap-db query
+```
+
+Both commands accept JSON on standard input and return one JSON document on
+standard output. `validate` does not load the connection string or open the
+database. `query` additionally refuses a principal when write, DDL, or elevated
+permissions are detected.
+
 ## Maintain the samples
 
 The canonical machine-readable source is

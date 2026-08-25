@@ -2880,5 +2880,20 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "evidence": [
       "src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs"
     ]
+  },
+  {
+    "id": "SPM-218",
+    "title": "Read-only database diagnostics",
+    "category": "DAL, repositories, and transactions",
+    "surface": "newheap-db JSON request and response contract",
+    "outcome": "Developers and agents validate and execute small parameterized diagnostics through NewHeap configuration profiles while SQL Server and PostgreSQL enforce dedicated read-only credentials.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/.newheap/database-read.json",
+      "src/Back-end/Tooling/DatabaseRead/requests/project-by-id.json",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs"
+    ]
   }
 ] as const;

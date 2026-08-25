@@ -62,6 +62,10 @@ Source release: `newheap-platform-plugin-v1.13.3`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/database-bulk-upsert.md)
 
+## Database Diagnostics
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/database-diagnostics.md)
+
 ## Database Providers
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/database-providers.md)

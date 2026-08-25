@@ -19,5 +19,6 @@
     <ProjectReference Include="../../Libraries/SampleProjectManagement.Core/SampleProjectManagement.Core.csproj" />
     <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.Common.Test/NewHeap.Platform.Common.Test.csproj" />
     <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NewHeap.Platform.AspNet.Common.Test.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/NewHeap.Platform.DatabaseRead.Tool.csproj" />
   </ItemGroup>
 </Project>

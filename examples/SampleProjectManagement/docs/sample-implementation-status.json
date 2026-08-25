@@ -213,7 +213,8 @@
     "SPM-213",
     "SPM-214",
     "SPM-216",
-    "SPM-217"
+    "SPM-217",
+    "SPM-218"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -1345,6 +1346,13 @@
     ],
     "SPM-217": [
       "src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs"
+    ],
+    "SPM-218": [
+      "src/Back-end/.newheap/database-read.json",
+      "src/Back-end/Tooling/DatabaseRead/requests/project-by-id.json",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs"
     ]
   }
 }

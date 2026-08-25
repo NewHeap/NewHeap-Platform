@@ -18,6 +18,7 @@
     "NewHeap.Platform.AspNet.Common.Test": "3.0.0",
     "NewHeap.Platform.Common": "3.0.0",
     "NewHeap.Platform.Common.Test": "3.0.0",
+    "NewHeap.Platform.DatabaseRead.Tool": "3.0.0",
     "NewHeap.Platform.Events.Cap": "3.0.0",
     "NewHeap.Platform.Mapping": "3.0.0",
     "NewHeap.Platform.Media": "3.0.0",
@@ -212,6 +213,7 @@
       },
       "references": [
         "references/database-bulk-upsert.md",
+        "references/database-diagnostics.md",
         "references/database-providers.md"
       ]
     },
@@ -296,6 +298,7 @@
         }
       },
       "references": [
+        "references/database-diagnostics.md",
         "references/observability-logging.md",
         "references/runtime-configuration.md"
       ]

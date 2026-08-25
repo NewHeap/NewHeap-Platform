@@ -94,6 +94,23 @@ temporary secrets directory. In automation, prefer passing sensitive values such
 as connection strings directly as environment variables; CLI is more suitable
 for non-secret host settings.
 
+## Read-only database diagnostics
+
+SPM-218 provides a checked-in `.newheap/database-read.json` profile, a typed
+JSON request, and an executable validation test for `newheap-db`. The request
+keeps the project ID in the parameter collection instead of concatenating it
+into PostgreSQL text. Standard input carries the request and standard output
+contains one schema-versioned JSON result, which makes the contract suitable
+for developers, Codex, and other agent environments.
+
+The profile selects the existing NewHeap application configuration and the
+`NewHeapDiagnosticsReadOnly` connection-string name. The actual connection
+string remains in the normal secrets file and must use a separate login with
+only the approved `SELECT` permissions. The parser, transaction rollback,
+timeouts, and row/output limits are additional safeguards; the database login
+is the security boundary. Platform integration tests prove that the same login
+can read but cannot update on real SQL Server and PostgreSQL instances.
+
 ## Recommended deferred lazy dropdown
 
 `deferLazyLoadUntilOpened` is also disabled as a library default for backward
@@ -438,8 +455,8 @@ The traced catalog is in the
 generated for every build from that plan and
 `sample-implementation-status.json`.
 
-The current status is **211 implemented, 0 partial, 0 planned, and 3 gap cases
-out of 214**. Implemented cases show evidence paths to tests, endpoints, or
+The current status is **215 implemented, 0 partial, 0 planned, and 3 gap cases
+out of 218**. Implemented cases show evidence paths to tests, endpoints, or
 frontend code; only the remaining gaps stay explicitly visible.
 
 - SPM-033 is now a working resolver example: `WithFilterable` accepts the selector and generates `Tasks{any}.Title`. SPM-031 and SPM-032 cover concrete collection filtering separately;

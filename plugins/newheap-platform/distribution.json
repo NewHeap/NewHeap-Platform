@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.3",
   "guidanceVersion": "1.13.3",
-  "skillContentHash": "a11a742f127dd8302b60a064eeef2970b817e10288a3563bb085c317449c91d8",
+  "skillContentHash": "d58fdc49eef317b3a3ec84b4f0700e8b3155eb0c0049cd6309b6f48f91a5263e",
   "skills": [
     "newheap-platform-development"
   ],
@@ -36,6 +36,7 @@
     "NewHeap.Platform.AspNet.Common.Test": "3.0.0",
     "NewHeap.Platform.Common": "3.0.0",
     "NewHeap.Platform.Common.Test": "3.0.0",
+    "NewHeap.Platform.DatabaseRead.Tool": "3.0.0",
     "NewHeap.Platform.Events.Cap": "3.0.0",
     "NewHeap.Platform.Mapping": "3.0.0",
     "NewHeap.Platform.Media": "3.0.0",

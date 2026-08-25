@@ -42,6 +42,10 @@
         {
           "packageId": "NewHeap.Platform.Events.Cap",
           "path": "src/Back-end/Libraries/NewHeap.Platform.Events.Cap/NewHeap.Platform.Events.Cap.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.DatabaseRead.Tool",
+          "path": "src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/NewHeap.Platform.DatabaseRead.Tool.csproj"
         }
       ]
     },
