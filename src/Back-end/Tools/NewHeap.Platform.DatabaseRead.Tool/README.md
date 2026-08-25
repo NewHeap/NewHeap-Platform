@@ -72,7 +72,7 @@ do not concatenate them into SQL.
 {
   "schemaVersion": 1,
   "profile": "staging",
-  "sql": "SELECT Id, Name FROM Projects WHERE Id = @projectId",
+  "sql": "SELECT Id, Name FROM Projects WHERE Id = @projectId LIMIT 100",
   "parameters": [
     {
       "name": "projectId",

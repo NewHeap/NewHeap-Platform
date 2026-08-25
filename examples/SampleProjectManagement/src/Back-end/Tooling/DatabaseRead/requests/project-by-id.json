@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "profile": "sample-development",
-  "sql": "SELECT \"Id\", \"Key\", \"Name\", \"Status\" FROM \"Projects\" WHERE \"Id\" = @projectId",
+  "sql": "SELECT \"Id\", \"Key\", \"Name\", \"Status\" FROM \"Projects\" WHERE \"Id\" = @projectId LIMIT 10",
   "parameters": [
     {
       "name": "projectId",

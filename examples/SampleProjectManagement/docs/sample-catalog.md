@@ -99,7 +99,8 @@ for non-secret host settings.
 SPM-218 provides a checked-in `.newheap/database-read.json` profile, a typed
 JSON request, and an executable validation test for `newheap-db`. The request
 keeps the project ID in the parameter collection instead of concatenating it
-into PostgreSQL text. Standard input carries the request and standard output
+into PostgreSQL text and applies `LIMIT` in addition to the request-level row
+and timeout limits. Standard input carries the request and standard output
 contains one schema-versioned JSON result, which makes the contract suitable
 for developers, Codex, and other agent environments.
 
@@ -109,7 +110,8 @@ string remains in the normal secrets file and must use a separate login with
 only the approved `SELECT` permissions. The parser, transaction rollback,
 timeouts, and row/output limits are additional safeguards; the database login
 is the security boundary. Platform integration tests prove that the same login
-can read but cannot update on real SQL Server and PostgreSQL instances.
+can read but cannot update on real SQL Server and PostgreSQL instances while
+the diagnostic queries use provider-native `TOP` and `LIMIT` caps.
 
 ## Recommended deferred lazy dropdown
 

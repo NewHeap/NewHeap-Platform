@@ -71,7 +71,7 @@ public sealed class DatabaseReadProviderTests
 
         using var workspace = new DatabaseReadTestWorkspace("sql-server", readerBuilder.ConnectionString);
         using var input = DatabaseReadTestWorkspace.Request(
-            "SELECT Id, Name FROM dbo.DiagnosticProjects WHERE Id = @id",
+            "SELECT TOP (10) Id, Name FROM dbo.DiagnosticProjects WHERE Id = @id",
             [new { name = "id", type = "uuid", value = ProjectId.ToString() }]);
         using var output = new MemoryStream();
 
@@ -131,7 +131,7 @@ public sealed class DatabaseReadProviderTests
         };
         using var workspace = new DatabaseReadTestWorkspace("postgresql", readerBuilder.ConnectionString);
         using var input = DatabaseReadTestWorkspace.Request(
-            "SELECT id, name FROM diagnostic_projects WHERE id = @id",
+            "SELECT id, name FROM diagnostic_projects WHERE id = @id LIMIT 10",
             [new { name = "id", type = "uuid", value = ProjectId.ToString() }]);
         using var output = new MemoryStream();
 

@@ -86,6 +86,20 @@
       "expectedOutcome": "The consumer pins newheap-db, checks in bounded provider profiles and typed JSON stdin requests, resolves a dedicated read-only credential through NewHeap secrets, returns strict JSON stdout, and proves both successful reads and rejected writes on SQL Server and PostgreSQL."
     },
     {
+      "id": "consumer-debug-persisted-state-diagnostics",
+      "skill": "newheap-platform-development",
+      "prompt": "An order is shown as paid in the staging UI, but the API still returns pending. Can you find out why?",
+      "expectedRules": ["nh-read-only-database-diagnostics"],
+      "expectedOutcome": "The router recognizes that persisted-state evidence could clarify the discrepancy, loads the database diagnostics guidance without requiring the user to name a database tool, and offers to investigate through newheap-db with selective parameters, a provider-native SQL row cap, small request limits, and no exposed secrets."
+    },
+    {
+      "id": "consumer-large-table-database-diagnostics",
+      "skill": "newheap-database-development",
+      "prompt": "Investigate on production why a customer event was not processed. The event table may be very large, and this must not put avoidable load on the database.",
+      "expectedRules": ["nh-read-only-database-diagnostics"],
+      "expectedOutcome": "The agent treats production as a live large database, selects only required columns, uses selective typed parameters, applies SQL Server TOP or PostgreSQL LIMIT as well as small maximumRows and timeoutSeconds values, and makes at most one focused index-metadata check when selectivity is uncertain. It avoids broad counts, full scans, SELECT *, EXPLAIN ANALYZE and automatic retries with wider limits, stopping and reporting when a safe bounded query is not supported by the available index evidence."
+    },
+    {
       "id": "consumer-transaction-events",
       "skill": "newheap-background-processing",
       "prompt": "Add a transactional mutation with a CAP event, an idempotent consumer, a job, and a notification.",

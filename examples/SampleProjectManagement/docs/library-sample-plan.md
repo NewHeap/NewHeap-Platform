@@ -97,7 +97,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-058 | EF bulk delete | EF batch extensions | Drafts are deleted with a set-based operation that returns a count. |
 | SPM-059 | Query expressions | expression extensions/utils | Optional predicates remain server-side. |
 | SPM-060 | Database log data | log additional-data processor | The audit log contains relational context. |
-| SPM-218 | Read-only database diagnostics | `newheap-db` JSON request and response contract | Developers and agents validate and execute small parameterized diagnostics through NewHeap configuration profiles while SQL Server and PostgreSQL enforce dedicated read-only credentials. |
+| SPM-218 | Read-only database diagnostics | `newheap-db` JSON request and response contract | Developers and agents validate and execute small parameterized and SQL-bounded diagnostics through NewHeap configuration profiles while SQL Server and PostgreSQL enforce dedicated read-only credentials. |
 
 ## 5. Authentication, identity, and authorization
 
