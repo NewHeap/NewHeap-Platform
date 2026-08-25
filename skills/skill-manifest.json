@@ -12,7 +12,7 @@
   },
   "packages": {
     "@newheap/nh-toastr": "0.0.6",
-    "@newheap/platform-common": "0.20.7",
+    "@newheap/platform-common": "1.0.0",
     "NewHeap.Platform.AspNet.Caching": "0.1.4",
     "NewHeap.Platform.AspNet.Common": "3.0.0",
     "NewHeap.Platform.AspNet.Common.Test": "3.0.0",
