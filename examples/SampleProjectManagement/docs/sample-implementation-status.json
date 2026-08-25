@@ -799,9 +799,11 @@
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
     ],
     "SPM-105": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ObservabilitySampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
-      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
-      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts"
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ObservabilitySampleServiceTests.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
     ],
     "SPM-106": [
       "src/Front-end/projects/sample-project-management-common/src/lib/project-api.service.ts",
@@ -1062,6 +1064,7 @@
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
     ],
     "SPM-159": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-frontend-error-handler.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"

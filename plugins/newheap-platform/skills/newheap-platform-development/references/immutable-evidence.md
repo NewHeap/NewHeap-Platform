@@ -82,6 +82,10 @@ Source release: `newheap-platform-plugin-v1.12.1`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.12.1/docs/consumer-guide/media.md)
 
+## Observability Logging
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.12.1/docs/consumer-guide/observability-logging.md)
+
 ## Runtime Configuration
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.12.1/docs/consumer-guide/runtime-configuration.md)

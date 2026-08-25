@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Options;
@@ -27,8 +28,9 @@ public partial class NhDbLogService : NhDbLogService<
         IRepository<NhLog> logRepository,
         IHttpContextAccessor httpContextAccessor,
         IStringLocalizer<NhDbLogService> logLocalizer,
-        IOptions<NewHeapAspNetCommonSettings> settings
-    ) : base(logSettings, logRepository, httpContextAccessor, logLocalizer, settings)
+        IOptions<NewHeapAspNetCommonSettings> settings,
+        ILogger<NhDbLogService> logger
+    ) : base(logSettings, logRepository, httpContextAccessor, logLocalizer, settings, logger)
     {
     }
 }
@@ -66,13 +68,15 @@ public abstract partial class NhDbLogService<
     protected readonly IRepository<TLog> _logRepository;
     protected readonly DbLogServiceSettings _logSettings;
     protected readonly NewHeapAspNetCommonSettings _settings;
+    protected readonly ILogger _logger;
 
     public NhDbLogService(
         IOptions<DbLogServiceSettings> logSettings,
         IRepository<TLog> logRepository,
         IHttpContextAccessor httpContextAccessor,
         IStringLocalizer<NhDbLogService> logLocalizer,
-        IOptions<NewHeapAspNetCommonSettings> settings
+        IOptions<NewHeapAspNetCommonSettings> settings,
+        ILogger logger
     )
     {
         _logSettings = logSettings.Value;
@@ -80,6 +84,7 @@ public abstract partial class NhDbLogService<
         _logLocalizer = logLocalizer;
         _httpContextAccessor = httpContextAccessor;
         _settings = settings.Value;
+        _logger = logger;
     }
 
     public virtual IQueryable<TLog> GetQueryable()
@@ -176,9 +181,12 @@ public abstract partial class NhDbLogService<
                 var inputMsg = log.StringGuidelineMaxLength(x => x.Message);
                 localizedMessage = _logLocalizer.GetString(inputMsg ?? "", [.. messageArguments!]);
             }
-            catch
+            catch (Exception exception)
             {
-                //Ignore
+                _logger.LogWarning(
+                    exception,
+                    "Could not localize an audit log message for culture {Culture}.",
+                    culture);
             }
 
             log.MessageTranslateds.Add(new TLogMessageTranslated
@@ -197,12 +205,12 @@ public abstract partial class NhDbLogService<
         {
             if (string.IsNullOrWhiteSpace(_logSettings.RootDirectory))
             {
-                throw new Exception("The log directory is not specified.");
+                throw new InvalidOperationException("The audit log file directory is not specified.");
             }
 
             if (!Directory.Exists(_logSettings.RootDirectory))
             {
-                throw new Exception("The log directory does not exist.");
+                throw new InvalidOperationException("The audit log file directory does not exist.");
             }
 
             try
@@ -239,9 +247,13 @@ public abstract partial class NhDbLogService<
                     }
                 }
             }
-            catch
+            catch (Exception exception)
             {
-                //Ignore
+                _logger.LogError(
+                    exception,
+                    "Could not persist {FileCount} audit log attachment(s) for audit log {AuditLogId}.",
+                    files.Length,
+                    log.Id);
             }
         }
 

@@ -62,7 +62,9 @@ public class BaseDbEntityServiceTest
         var service = new TestEntityService(
             repository,
             Substitute.For<INhDbLogService>(),
-            new LogHelperService(Substitute.For<IStringLocalizer<SharedDataAnnotationRecources>>()),
+            new LogHelperService(
+                Substitute.For<IStringLocalizer<SharedDataAnnotationRecources>>(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<LogHelperService>.Instance),
             mapper,
             Substitute.For<IStringLocalizer<TestEntityService>>(),
             new ValidationService(serviceProvider)

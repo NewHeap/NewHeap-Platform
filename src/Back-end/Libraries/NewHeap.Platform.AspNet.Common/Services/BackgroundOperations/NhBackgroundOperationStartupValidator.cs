@@ -2,6 +2,7 @@ using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
@@ -12,11 +13,16 @@ internal sealed class NhBackgroundOperationStartupValidator : IHostedService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly NhBackgroundOperationsOptions _options;
+    private readonly ILogger<NhBackgroundOperationStartupValidator> _logger;
 
-    public NhBackgroundOperationStartupValidator(IServiceProvider serviceProvider, NhBackgroundOperationsOptions options)
+    public NhBackgroundOperationStartupValidator(
+        IServiceProvider serviceProvider,
+        NhBackgroundOperationsOptions options,
+        ILogger<NhBackgroundOperationStartupValidator> logger)
     {
         _serviceProvider = serviceProvider;
         _options = options;
+        _logger = logger;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -65,6 +71,13 @@ internal sealed class NhBackgroundOperationStartupValidator : IHostedService
         {
             throw new InvalidOperationException("Background-operation notification projection is enabled, but user notifications are not configured. Call WithNotifications or disable UserNotificationProjectionEnabled.");
         }
+
+        _logger.LogInformation(
+            "Background operation infrastructure validated for processor {ProcessorKey}. Dispatch workers: {DispatchWorkersEnabled}; live updates: {LiveUpdatesEnabled}; notification projection: {UserNotificationProjectionEnabled}.",
+            _options.ProcessorKey,
+            _options.DispatchWorkersEnabled,
+            _options.LiveUpdatesEnabled,
+            _options.UserNotificationProjectionEnabled);
     }
 
     public Task StopAsync(CancellationToken cancellationToken)

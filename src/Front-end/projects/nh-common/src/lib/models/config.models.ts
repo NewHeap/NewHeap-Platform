@@ -1,7 +1,3 @@
-import type {BrowserOptions} from "@sentry/browser/build/npm/types/client";
-import * as Sentry from "@sentry/angular";
-import {ErrorHandlerOptions} from "@sentry/angular";
-
 export class EndpointsAuthenticationNhCommonModuleConfig {
   msAuthenticate: string = '/authentication/oath/microsoft/authorize';
   msRedirectUrl: string = '/authentication/oath/microsoft';
@@ -51,27 +47,6 @@ export class BackgroundOperationsNhCommonModuleConfig {
     Object.assign(this, init);
   }
 }
-
-export class NhSentryErrorLoggingNhCommonModuleConfig {
-  errorLoggingEnabled: boolean = false;
-  tracingEnabled: boolean = false;
-  beforeSendAddAuthServiceInformation: boolean = true;
-  options: BrowserOptions = {};
-  errorHandlerOptions: ErrorHandlerOptions = {};
-
-  public constructor(init?: Partial<NhSentryErrorLoggingNhCommonModuleConfig>) {
-    Object.assign(this, init);
-  }
-}
-
-export class NhErrorLoggingNhCommonModuleConfig {
-  sentry: NhSentryErrorLoggingNhCommonModuleConfig = new NhSentryErrorLoggingNhCommonModuleConfig();
-
-  public constructor(init?: Partial<NhErrorLoggingNhCommonModuleConfig>) {
-    Object.assign(this, init);
-  }
-}
-
 export class NhTranslationNhCommonModuleConfig {
   browserLoaderPrefix: string = './assets/i18n/';
   serverLoaderPath: string = 'assets/i18n/';
@@ -124,7 +99,6 @@ export class NhCommonModuleConfig {
   authentication: AuthenticationNhCommonModuleConfig = new AuthenticationNhCommonModuleConfig();
   userNotification: UserNotificationNhCommonModuleConfig = new UserNotificationNhCommonModuleConfig();
   backgroundOperations: BackgroundOperationsNhCommonModuleConfig = new BackgroundOperationsNhCommonModuleConfig();
-  errorLogging: NhErrorLoggingNhCommonModuleConfig = new NhErrorLoggingNhCommonModuleConfig();
   translation: NhTranslationNhCommonModuleConfig = new NhTranslationNhCommonModuleConfig();
   formDropdown: NhFormDropDownNhCommonModuleConfig = new NhFormDropDownNhCommonModuleConfig();
   http: NhHttpNhCommonModuleConfig = new NhHttpNhCommonModuleConfig();

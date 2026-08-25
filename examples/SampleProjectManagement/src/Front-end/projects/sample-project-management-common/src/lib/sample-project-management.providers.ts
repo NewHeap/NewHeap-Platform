@@ -17,10 +17,9 @@ import {
   BackgroundOperationsNhCommonModuleConfig,
   NhCommonModule,
   NhCommonModuleConfig,
-  NhErrorLoggingNhCommonModuleConfig,
   NhFormDropDownNhCommonModuleConfig,
   NhHttpNhCommonModuleConfig,
-  NhSentryErrorLoggingNhCommonModuleConfig,
+  NH_ERROR_HANDLERS,
   NhTranslationNhCommonModuleConfig,
   nhTranslateBrowserLoaderFactory,
   UserNotificationNhCommonModuleConfig
@@ -33,6 +32,7 @@ import {
 import { ToastrModule } from 'ngx-toastr';
 import { SampleAuthService } from './sample-auth.service';
 import { SampleAuthSessionService } from './sample-auth-session.service';
+import { SampleFrontendErrorHandler } from './sample-frontend-error-handler';
 
 registerLocaleData(localeNl, 'nl');
 registerLocaleData(localeEn, 'en');
@@ -62,18 +62,6 @@ export function provideSampleProjectManagement(routes: Routes = []) {
     formDropdown: new NhFormDropDownNhCommonModuleConfig({
       deferLazyLoadUntilOpened: true
     }),
-    errorLogging: new NhErrorLoggingNhCommonModuleConfig({
-      sentry: new NhSentryErrorLoggingNhCommonModuleConfig({
-        errorLoggingEnabled: true,
-        tracingEnabled: true,
-        options: {
-          enabled: false,
-          environment: 'sample',
-          release: 'sample-project-management@0.1.0',
-          tracesSampleRate: 1
-        }
-      })
-    }),
     userNotification: new UserNotificationNhCommonModuleConfig({
       urlSuffix: '/project-user-notifications',
       pollingInterval: 5000
@@ -90,6 +78,11 @@ export function provideSampleProjectManagement(routes: Routes = []) {
 
   return makeEnvironmentProviders([
     SampleAuthService,
+    {
+      provide: NH_ERROR_HANDLERS,
+      useClass: SampleFrontendErrorHandler,
+      multi: true
+    },
     provideEnvironmentInitializer(() => {
       inject(SampleAuthSessionService).start();
     }),

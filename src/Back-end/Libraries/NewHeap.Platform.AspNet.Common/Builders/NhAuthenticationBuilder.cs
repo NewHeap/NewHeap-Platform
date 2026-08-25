@@ -159,7 +159,7 @@ public class NhAuthenticationBuilder<
         {
             services.AddSingleton<NhMicrosoftOauthAuthenticationGetUrlHandler>();
             services.AddSingleton<NhMicrosoftOauthAuthenticationAuthorizeHandler<TUser>>();
-            services.AddScoped<MicrosoftAuthService, MicrosoftAuthService>();
+            services.AddHttpClient<MicrosoftAuthService>();
             services.Configure<MicrosoftAuthSettings>(opt =>
             {
                 opt.AuthDomains = MicrosoftOAuthOptionsValue.Settings.AuthDomains;

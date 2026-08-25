@@ -44,6 +44,14 @@ public sealed class NhBackgroundOperationRunner
             return;
         }
 
+        using var operationScope = _logger.BeginScope(new Dictionary<string, object?>
+        {
+            ["operation_id"] = claim.OperationId,
+            ["attempt_id"] = claim.AttemptId,
+            ["operation_type"] = claim.OperationType,
+            ["queue"] = claim.Queue
+        });
+
         if (!_registry.TryGetForOperationType(claim.OperationType, out var descriptor))
         {
             await _persistence.CompleteAsync(

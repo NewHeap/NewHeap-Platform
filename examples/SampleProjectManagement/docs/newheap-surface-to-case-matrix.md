@@ -16,7 +16,7 @@ This is the completion criterion for SampleProjectManagement: every author-facin
 | nh-common: HTTP and API | request/response options, encoding, authentication/active-division/deduplication interceptors and API service lifecycle | SPM-106–114, SPM-126–130 | shared ProjectApiService and collection/platform playgrounds |
 | nh-common: forms and modals | value accessors, dropdown/page size/search, deferred lazy loading, form errors, validation, mutate lifecycle, loading/confirm/edit modal | SPM-115–125, SPM-148, SPM-154, SPM-215 | project edit modal, utility, interaction and platform playgrounds |
 | nh-common: routing, auth and notifications | guards, application/division/resource pipes, routes, page state, context menu and notification component | SPM-061–075, SPM-089–090, SPM-131–140, SPM-153, SPM-210–214 | auth/notification playgrounds and route configuration |
-| nh-common: utilities and browser services | utilities, arrays/observables, mutex, cookies, connection, head/meta/JSON-LD, Sentry and browser translations | SPM-091–095, SPM-141–161 | utility and platform playgrounds |
+| nh-common: utilities and browser services | utilities, arrays/observables, mutex, cookies, connection, head/meta/JSON-LD, provider-neutral error handling, and browser translations | SPM-091–095, SPM-141–161 | utility and platform playgrounds |
 
 ## Runtime plumbing
 

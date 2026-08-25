@@ -135,6 +135,12 @@ internal sealed class NhBackgroundOperationPersistence
         await repository.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         NhBackgroundOperationMetrics.RecordAttemptStarted(operation.OperationType);
+        _logger.LogInformation(
+            "Background operation {OperationId} attempt {AttemptNumber} started for {OperationType} on queue {Queue}.",
+            operation.Id,
+            attempt.AttemptNumber,
+            operation.OperationType,
+            operation.Queue);
         await PublishSafelyAsync(operation, cancellationToken);
         return new NhBackgroundOperationAttemptClaim(
             operation.Id,
@@ -279,6 +285,22 @@ internal sealed class NhBackgroundOperationPersistence
         await repository.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         NhBackgroundOperationMetrics.RecordAttemptCompleted(operation.OperationType, operation.Status);
+        if (operation.Status is NhBackgroundOperationStatus.Failed or NhBackgroundOperationStatus.TimedOut)
+        {
+            _logger.LogWarning(
+                "Background operation {OperationId} attempt {AttemptNumber} completed with status {Status}.",
+                operation.Id,
+                attempt.AttemptNumber,
+                operation.Status);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Background operation {OperationId} attempt {AttemptNumber} completed with status {Status}.",
+                operation.Id,
+                attempt.AttemptNumber,
+                operation.Status);
+        }
         await PublishSafelyAsync(operation, cancellationToken);
     }
 

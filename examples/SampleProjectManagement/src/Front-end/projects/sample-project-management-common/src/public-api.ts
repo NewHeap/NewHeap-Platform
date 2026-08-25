@@ -10,6 +10,7 @@ export * from './lib/sample-auth-session.service';
 export * from './lib/sample-project-auth.pipes';
 export * from './lib/sample-auth.guard';
 export * from './lib/sample-api-connection-state.service';
+export * from './lib/sample-frontend-error-handler';
 export * from './lib/sample-login.component';
 export * from './lib/sample-profile.component';
 export * from './lib/sample-project-management.providers';

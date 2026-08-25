@@ -32,20 +32,13 @@ public class NewHeapPlatformCommonConfigurator
         _serviceCollection.AddSingleton<ValidationService>();
         _serviceCollection.AddSingleton<ICollectionProcessingService, CollectionProcessingService>();
 
-        AddOpenTelementry();
-    }
-
-    private void AddOpenTelementry()
-    {
-        _serviceCollection.AddOpenTelemetry()
-            .WithMetrics(metrics =>
-            {
-                metrics.AddRuntimeInstrumentation();
-            });
-
         if (_options.OtlpUseExporter)
         {
-            _serviceCollection.AddOpenTelemetry().UseOtlpExporter();
+            if (!_serviceCollection.HasNewHeapOtlpExporterRegistration())
+            {
+                _serviceCollection.AddOpenTelemetry().UseOtlpExporter();
+                _serviceCollection.MarkNewHeapOtlpExporterRegistered();
+            }
         }
 
         _serviceCollection.AddServiceDiscovery();
@@ -68,17 +61,4 @@ public class NewHeapPlatformCommonConfigurator
         return this;
     }
 
-    public NewHeapPlatformCommonConfigurator WithSentry(Action<SentryOptions> optionsAction)
-    {
-        Action<SentryOptions> defaultOptionsAction = options =>
-        {
-            // Add default options
-            optionsAction?.Invoke(options);
-            // Add hard overrides
-        };
-
-        SentrySdk.Init(defaultOptionsAction);
-
-        return this;
-    }
 }

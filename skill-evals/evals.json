@@ -107,6 +107,13 @@
       "expectedOutcome": "Shared appsettings with environment-aware secrets-path resolution, explicit args forwarding and CLI precedence over environment variables."
     },
     {
+      "id": "consumer-provider-neutral-observability-upgrade",
+      "skill": "newheap-platform-development",
+      "prompt": "Upgrade this API, worker and Angular consumer to the NewHeap provider-neutral observability release, remove Sentry, eliminate duplicate ServiceDefaults telemetry and preserve safe structured domain logs.",
+      "expectedRules": ["nh-observability-logging"],
+      "expectedOutcome": "The router selects backend, frontend and runtime-configuration guidance; NewHeap owns common ILogger/OpenTelemetry registration once, consumer ServiceDefaults retains health/discovery/resilience, Angular uses NH_ERROR_HANDLERS, and secrets, payloads and raw error messages stay out of telemetry."
+    },
+    {
       "id": "consumer-reusable-test-helpers",
       "skill": "newheap-testing",
       "prompt": "Use the NewHeap test helpers in a consumer and also add regression tests for a change to the NewHeap library itself.",

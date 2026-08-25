@@ -155,7 +155,8 @@
         "references/backend-partial-update.md",
         "references/backend-project-foundation.md",
         "references/backend-unit-of-work.md",
-        "references/database-bulk-upsert.md"
+        "references/database-bulk-upsert.md",
+        "references/observability-logging.md"
       ]
     },
     {
@@ -240,7 +241,8 @@
       "references": [
         "references/frontend-collection-query.md",
         "references/frontend-lifecycle-modals.md",
-        "references/frontend-root-configuration.md"
+        "references/frontend-root-configuration.md",
+        "references/observability-logging.md"
       ]
     },
     {
@@ -294,6 +296,7 @@
         }
       },
       "references": [
+        "references/observability-logging.md",
         "references/runtime-configuration.md"
       ]
     },

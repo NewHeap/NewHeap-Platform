@@ -8,6 +8,13 @@ export class NhErrorHandlerService implements ErrorHandler {
 
   handleError(error: any): void {
     const handlers = this.injector.get(NH_ERROR_HANDLERS, []);
-    handlers.forEach(handle => handle.handleError(error));
+    for (const handler of handlers) {
+      try {
+        handler.handleError(error);
+      } catch {
+        // A failing telemetry provider must not prevent the remaining handlers
+        // from observing the original application error.
+      }
+    }
   }
 }
