@@ -62,7 +62,7 @@
     "nuget-media": {
       "displayName": "NewHeap media NuGet packages",
       "kind": "nuget",
-      "version": "2.0.0",
+      "version": "3.0.0",
       "tagPrefix": "nuget-media-v",
       "includeSymbols": true,
       "replaces": "src/Back-end/publish-media.ps1",

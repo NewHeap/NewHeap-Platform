@@ -20,13 +20,13 @@
     "NewHeap.Platform.Common.Test": "3.0.0",
     "NewHeap.Platform.Events.Cap": "3.0.0",
     "NewHeap.Platform.Mapping": "3.0.0",
-    "NewHeap.Platform.Media": "2.0.0",
-    "NewHeap.Platform.Media.Core": "2.0.0",
-    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "2.0.0",
-    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "2.0.0",
-    "NewHeap.Platform.Media.Http": "2.0.0",
-    "NewHeap.Platform.Media.MediaStorage.FileSystem": "2.0.0",
-    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "2.0.0"
+    "NewHeap.Platform.Media": "3.0.0",
+    "NewHeap.Platform.Media.Core": "3.0.0",
+    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "3.0.0",
+    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "3.0.0",
+    "NewHeap.Platform.Media.Http": "3.0.0",
+    "NewHeap.Platform.Media.MediaStorage.FileSystem": "3.0.0",
+    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "3.0.0"
   },
   "skills": [
     {
