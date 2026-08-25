@@ -69,6 +69,10 @@
     {
       "id": "17",
       "title": "Consumer repository foundation"
+    },
+    {
+      "id": "18",
+      "title": "AI tools and generated catalogs"
     }
   ],
   "cases": [
@@ -2951,6 +2955,256 @@
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadProviderTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-219",
+      "categoryId": "18",
+      "title": "Generated local read-only AI tool",
+      "surface": "`NhAiToolSet`, `NhAiTool`, generated `INhAiToolCatalog`, and guarded `AIFunction` invocation",
+      "outcome": "A compile-time generated local function searches only the active division supplied by the authorized invocation context; typed schema binding, bounded input and mandatory budget reservation run before application work, while a denied, oversized or incomplete invocation never reaches the read service.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-220",
+      "categoryId": "18",
+      "title": "Named AI model profile",
+      "surface": "`AddNewHeapPlatformAI`, `AddChatProfile`, keyed `IChatClient`, startup validation, and `INhAiModelProfileResolver`",
+      "outcome": "A consumer-owned deterministic chat client resolves through a stable project-assistant profile only when its declared capabilities, classification, execution region, budget, keyed client and fail-closed budget manager satisfy startup validation.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiModelProfileSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiFoundationTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-221",
+      "categoryId": "18",
+      "title": "Authorized AI tool discovery",
+      "surface": "`INhAiToolDiscoveryService`, default-deny `INhAiToolDiscoveryPolicy`, generated catalog exposure, and scoped capability grants",
+      "outcome": "The generated project search tool is visible only when an explicit discovery policy receives both an authorized division scope and the narrow projects-read capability; otherwise it is absent from model-visible discovery.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolDiscovery.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-222",
+      "categoryId": "18",
+      "title": "Generated tool over MCP",
+      "surface": "`INhAiMcpToolAdapter`, official `ModelContextProtocol.Core` server/client primitives, generated `AIFunction`, and the shared discovery/invocation pipeline",
+      "outcome": "The same generated project search implementation is discovered and invoked through the official in-memory MCP transport while actor-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` semantics remain in the shared NewHeap pipeline; an ungoverned catalog cannot be exported.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs"
+      ]
+    },
+    {
+      "id": "SPM-223",
+      "categoryId": "18",
+      "title": "Authorized ASP.NET AI context",
+      "surface": "`AddNewHeapPlatformAIAspNet`, `IAuthorizationService`, active-division context contribution, execution scopes, and narrow capability grants",
+      "outcome": "The API composes the production ASP.NET tool gate and contributes the authenticated actor's active division and projects-read grant only after existing server-side policies succeed; a browser header, anonymous principal or mismatched actor alone contributes no authority.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetContextTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-224",
+      "categoryId": "18",
+      "title": "Approved and verified AI mutation",
+      "surface": "`NhAiProposal`, `NhAiApproval`, `INhAiCapabilityResolver`, `INhAiBudgetManager`, `INhAiIdempotencyManager`, `INhAiToolVerifier`, and the shared invocation pipeline",
+      "outcome": "An agent can change one project status only inside its authorized division and narrow manage capability after exact proposal approval and mandatory budget reservation; the same idempotency key cannot repeat or alter the side effect, and success is reported only after an independent status read verifies the result.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiApprovalTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiExecutionGuardTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-225",
+      "categoryId": "18",
+      "title": "Policy-bound Agent Framework adapter",
+      "surface": "`NhAiAgentDescriptor`, `INhAiAgentFrameworkAdapter`, Microsoft Agent Framework `ChatClientAgent`, named model profiles, and generated Agent-exposed tools",
+      "outcome": "A stable non-human project agent returns structured creation outcomes, resolves its consumer-owned model profile and receives only attested actor-specific tools inside its allow-list and autonomy ceiling; every model call crosses shared classification, budget, deadline, usage and telemetry governance.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiModelProfileSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.AgentFramework.Tests/NhAiAgentFrameworkAdapterTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-226",
+      "categoryId": "18",
+      "title": "Authorized hierarchical AI context",
+      "surface": "`INhAiContextResolver`, authorization-first context sources, execution-scope filtering, provenance, trust classification, conflict resolution, and content budgets",
+      "outcome": "Project descriptions are retrieved only after source authorization, remain limited to the active division, carry provenance and untrusted-data metadata, and are deterministically deduplicated and budgeted before prompt formatting; instruction-like document text gains no authority.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiContextSource.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextResolver.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiContextResolverTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-227",
+      "categoryId": "18",
+      "title": "Versioned AI instruction asset",
+      "surface": "`NhAiTextAssetFactory`, `NhAiAssetManifest`, prompt version/hash binding, required model/tool contracts, context policy, retention, and evaluation baseline metadata",
+      "outcome": "Project-agent instructions remain normal application-owned text while a content-free manifest records their stable identity, hash, provenance, capabilities, tool contracts, context policy, classification, retention, and evaluation baseline; agent and approval evidence bind the version and hash without logging content.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiModelProfileSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAssets.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs"
+      ]
+    },
+    {
+      "id": "SPM-228",
+      "categoryId": "18",
+      "title": "Governed external MCP tool import",
+      "surface": "`INhAiMcpClientToolImporter`, explicit per-server allow-list and namespace, local effect and authorization metadata, bounded remote schemas and results, and shared invocation governance",
+      "outcome": "Only the explicitly allowlisted external lookup is imported under a collision-safe namespace; its remote description grants no authority, an unlisted destructive-looking tool remains absent, and bounded arguments still cross NewHeap authorization, capability, budget, timeout, concurrency, idempotency, result-bound, and audit controls.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs"
+      ]
+    },
+    {
+      "id": "SPM-229",
+      "categoryId": "6",
+      "title": "Durable external-signal suspension and wake-up",
+      "surface": "`INhBackgroundOperationSuspensionContext`, `INhBackgroundOperationSignalService`, `WaitingForSignal`, typed checkpoint signals, durable expiry, duplicate detection, cancellation, and dispatcher wake-up",
+      "outcome": "A running operation atomically suspends its attempt and releases the worker, accepts one owner-bound typed signal, treats an identical duplicate idempotently, rejects a conflicting signal, resumes as a new fenced attempt, preserves completed idempotent work, and remains cancellable or expiry-wakeable without polling.",
+      "implementation": "implemented",
+      "evidence": [
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSuspension.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationRunner.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationDispatchService.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationProviderTests.cs",
+        "../../src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts"
+      ]
+    },
+    {
+      "id": "SPM-230",
+      "categoryId": "18",
+      "title": "Approval-gated durable AI portfolio report",
+      "surface": "`INhAiBackgroundOperationRunAdapter`, non-human run binding, application snapshot, server-created `NhAiProposal`, canonical `INhAiApprovalValidator`, exact approval signal, idempotent artifact publication, and plan/execute/verify progress",
+      "outcome": "A division-scoped report binds its background-operation ID, attempt, idempotency key and fencing token to a non-human AI invocation, persists application-owned snapshot state plus a server-created canonical proposal and content-free workflow checkpoint, validates the durable approver against that proposal after wake-up, and resumes without conversation history or duplicate publication.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectAiPortfolioReportOperation.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/OperationsSamplesController.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAiPortfolioReportOperationTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiDurableRuns.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationRunAdapter.cs"
+      ]
+    },
+    {
+      "id": "SPM-231",
+      "categoryId": "18",
+      "title": "Authorized provider-neutral AI ingestion",
+      "surface": "`INhAiIngestionPipeline`, authorization-before-read, immutable version leases, budgeted named embedding profiles, deterministic chunks, canonical hashes, and the standard Microsoft `VectorStore` abstraction",
+      "outcome": "A division-scoped document is never opened before read and replacement-delete authorization, remains untrusted data with provenance and classification, and is embedded only after an immutable source/document/version lease plus mandatory model-budget reservation succeed; denial or conflict performs no embedding or vector write.",
+      "implementation": "implemented",
+      "evidence": [
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestIngestion.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiIngestionTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-232",
+      "categoryId": "18",
+      "title": "Content-free AI model usage and streaming telemetry",
+      "surface": "`INhAiChatExecutor`, named profile and run-budget enforcement, OpenTelemetry activities and metrics, `INhAiUsageSink`, token/latency/TTFT accounting, and cancellation-safe streaming",
+      "outcome": "Model calls and streams preserve standard Microsoft AI responses while recording bounded profile, version, token, size, latency, finish and scope metadata; prompts, responses, model deployment identifiers and provider errors are absent from usage records, cancelled streams propagate cancellation, and dependency failures end in a safe `TaskResult` completion.",
+      "implementation": "implemented",
+      "evidence": [
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiCapturedSinks.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiChatExecutionTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-233",
+      "categoryId": "18",
+      "title": "Versioned AI safety evaluation gate",
+      "surface": "Microsoft `IEvaluator`, `NhAiEvaluationDataset`, deterministic scope and injection fixtures, fail-closed metric interpretation, content-free reports, and baseline version/hash evidence",
+      "outcome": "The project agent's prompt-injection and cross-division fixtures run through Microsoft AI Evaluation contracts against a versioned baseline; missing or inconclusive interpretations fail closed, while persisted reports contain hashes and metric outcomes but no prompt, response, reason or diagnostic content.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAiEvaluationSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiEvaluationTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-234",
+      "categoryId": "18",
+      "title": "Native AOT generated AI tool catalog smoke",
+      "surface": "`NewHeap.Platform.AI.AotSmoke`, generated `INhAiToolCatalog`, canonical schema manifest, trimming, and Native AOT publication",
+      "outcome": "A trimmed Native AOT executable resolves the generated catalog and creates its local Microsoft AI function without runtime reflection discovery, proving descriptors and schema manifests remain rooted.",
+      "implementation": "implemented",
+      "evidence": [
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.AotSmoke/Program.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.AotSmoke/NewHeap.Platform.AI.AotSmoke.csproj"
+      ]
+    },
+    {
+      "id": "SPM-235",
+      "categoryId": "18",
+      "title": "Durable AI ingestion lifecycle",
+      "surface": "`INhAiBackgroundOperationIngestionAdapter`, content-free checkpoints, deterministic replacement lineage, authorized deletion, and partial-success batch results",
+      "outcome": "A durable ingestion attempt resumes without reading or embedding the same document twice, replacement deletion is independently authorized before source access, immutable version/hash/key conflicts cannot overwrite vectors, and a failed batch item does not erase successful document evidence.",
+      "implementation": "implemented",
+      "evidence": [
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationIngestionAdapter.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiDurableIngestionTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiIngestionTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-236",
+      "categoryId": "18",
+      "title": "Version-bound Agent Framework workflow checkpoint",
+      "surface": "Microsoft Agent Framework `CheckpointInfo`, `INhAiAgentFrameworkWorkflowCheckpointAdapter`, session identity, workflow version, state hash, and durable NewHeap checkpoint references",
+      "outcome": "An official Agent Framework workflow checkpoint retains its opaque session and checkpoint identity in a content-free durable reference; a changed workflow version, checkpoint lineage or state hash cannot be resumed as the same run.",
+      "implementation": "implemented",
+      "evidence": [
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiDurableRuns.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.AgentFramework.Tests/NhAiAgentFrameworkAdapterTests.cs"
       ]
     }
   ]

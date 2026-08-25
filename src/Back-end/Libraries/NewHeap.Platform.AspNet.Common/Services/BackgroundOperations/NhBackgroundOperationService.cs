@@ -18,6 +18,7 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
         NhBackgroundOperationStatus.Queued,
         NhBackgroundOperationStatus.Running,
         NhBackgroundOperationStatus.WaitingForChildren,
+        NhBackgroundOperationStatus.WaitingForSignal,
         NhBackgroundOperationStatus.CancelRequested,
         NhBackgroundOperationStatus.RetryScheduled
     ];
@@ -283,6 +284,11 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
             target.CancelRequestedAt ??= now;
             target.CancelRequestedByUserId = ownerUserId;
             target.Status = NhBackgroundOperationStatus.CancelRequested;
+            if (!target.CurrentAttemptId.HasValue)
+            {
+                target.NextDispatchAt = now;
+                target.SchedulerJobId = null;
+            }
             Touch(target, now);
             AppendEvent(
                 target,

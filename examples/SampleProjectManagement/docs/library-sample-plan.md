@@ -138,6 +138,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-088 | Email dispatcher | email notification dispatcher | Sent and failed states include error details. |
 | SPM-089 | Read and unread | notification controller/models | The badge responds to mark-as-read. |
 | SPM-090 | Notification component | abstract component + FE service | The message, refresh, and target route work. |
+| SPM-229 | Durable external-signal suspension and wake-up | `INhBackgroundOperationSuspensionContext`, `INhBackgroundOperationSignalService`, `WaitingForSignal`, typed checkpoint signals, durable expiry, duplicate detection, cancellation, and dispatcher wake-up | A running operation atomically suspends its attempt and releases the worker, accepts one owner-bound typed signal, treats an identical duplicate idempotently, rejects a conflicting signal, resumes as a new fenced attempt, preserves completed idempotent work, and remains cancellable or expiry-wakeable without polling. |
 
 ## 7. Localization, configuration, and HTTP infrastructure
 
@@ -321,6 +322,28 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-216 | Shared .NET build and package policy | `Directory.Build.props` and `Directory.Packages.props` | Every backend project inherits one build baseline and resolves versionless package references from one central catalog. |
 | SPM-217 | Scope-driven consumer bootstrap | plain-language scope gate, versioned profile bootstrap and post-bootstrap inspector | An empty repository receives only the confirmed service, API or management capabilities, retains extension seams for deferred work, restores the profile-relevant NewHeap packages before feature work, and fails validation when structure or integration patterns drift. |
 
+## 18. AI tools and generated catalogs
+
+| ID | Case | Library surface | Verifiable outcome |
+|---|---|---|---|
+| SPM-219 | Generated local read-only AI tool | `NhAiToolSet`, `NhAiTool`, generated `INhAiToolCatalog`, and guarded `AIFunction` invocation | A compile-time generated local function searches only the active division supplied by the authorized invocation context; typed schema binding, bounded input and mandatory budget reservation run before application work, while a denied, oversized or incomplete invocation never reaches the read service. |
+| SPM-220 | Named AI model profile | `AddNewHeapPlatformAI`, `AddChatProfile`, keyed `IChatClient`, startup validation, and `INhAiModelProfileResolver` | A consumer-owned deterministic chat client resolves through a stable project-assistant profile only when its declared capabilities, classification, execution region, budget, keyed client and fail-closed budget manager satisfy startup validation. |
+| SPM-221 | Authorized AI tool discovery | `INhAiToolDiscoveryService`, default-deny `INhAiToolDiscoveryPolicy`, generated catalog exposure, and scoped capability grants | The generated project search tool is visible only when an explicit discovery policy receives both an authorized division scope and the narrow projects-read capability; otherwise it is absent from model-visible discovery. |
+| SPM-222 | Generated tool over MCP | `INhAiMcpToolAdapter`, official `ModelContextProtocol.Core` server/client primitives, generated `AIFunction`, and the shared discovery/invocation pipeline | The same generated project search implementation is discovered and invoked through the official in-memory MCP transport while actor-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` semantics remain in the shared NewHeap pipeline; an ungoverned catalog cannot be exported. |
+| SPM-223 | Authorized ASP.NET AI context | `AddNewHeapPlatformAIAspNet`, `IAuthorizationService`, active-division context contribution, execution scopes, and narrow capability grants | The API composes the production ASP.NET tool gate and contributes the authenticated actor's active division and projects-read grant only after existing server-side policies succeed; a browser header, anonymous principal or mismatched actor alone contributes no authority. |
+| SPM-224 | Approved and verified AI mutation | `NhAiProposal`, `NhAiApproval`, `INhAiCapabilityResolver`, `INhAiBudgetManager`, `INhAiIdempotencyManager`, `INhAiToolVerifier`, and the shared invocation pipeline | An agent can change one project status only inside its authorized division and narrow manage capability after exact proposal approval and mandatory budget reservation; the same idempotency key cannot repeat or alter the side effect, and success is reported only after an independent status read verifies the result. |
+| SPM-225 | Policy-bound Agent Framework adapter | `NhAiAgentDescriptor`, `INhAiAgentFrameworkAdapter`, Microsoft Agent Framework `ChatClientAgent`, named model profiles, and generated Agent-exposed tools | A stable non-human project agent returns structured creation outcomes, resolves its consumer-owned model profile and receives only attested actor-specific tools inside its allow-list and autonomy ceiling; every model call crosses shared classification, budget, deadline, usage and telemetry governance. |
+| SPM-226 | Authorized hierarchical AI context | `INhAiContextResolver`, authorization-first context sources, execution-scope filtering, provenance, trust classification, conflict resolution, and content budgets | Project descriptions are retrieved only after source authorization, remain limited to the active division, carry provenance and untrusted-data metadata, and are deterministically deduplicated and budgeted before prompt formatting; instruction-like document text gains no authority. |
+| SPM-227 | Versioned AI instruction asset | `NhAiTextAssetFactory`, `NhAiAssetManifest`, prompt version/hash binding, required model/tool contracts, context policy, retention, and evaluation baseline metadata | Project-agent instructions remain normal application-owned text while a content-free manifest records their stable identity, hash, provenance, capabilities, tool contracts, context policy, classification, retention, and evaluation baseline; agent and approval evidence bind the version and hash without logging content. |
+| SPM-228 | Governed external MCP tool import | `INhAiMcpClientToolImporter`, explicit per-server allow-list and namespace, local effect and authorization metadata, bounded remote schemas and results, and shared invocation governance | Only the explicitly allowlisted external lookup is imported under a collision-safe namespace; its remote description grants no authority, an unlisted destructive-looking tool remains absent, and bounded arguments still cross NewHeap authorization, capability, budget, timeout, concurrency, idempotency, result-bound, and audit controls. |
+| SPM-230 | Approval-gated durable AI portfolio report | `INhAiBackgroundOperationRunAdapter`, non-human run binding, application snapshot, server-created `NhAiProposal`, canonical `INhAiApprovalValidator`, exact approval signal, idempotent artifact publication, and plan/execute/verify progress | A division-scoped report binds its background-operation ID, attempt, idempotency key and fencing token to a non-human AI invocation, persists application-owned snapshot state plus a server-created canonical proposal and content-free workflow checkpoint, validates the durable approver against that proposal after wake-up, and resumes without conversation history or duplicate publication. |
+| SPM-231 | Authorized provider-neutral AI ingestion | `INhAiIngestionPipeline`, authorization-before-read, immutable version leases, budgeted named embedding profiles, deterministic chunks, canonical hashes, and the standard Microsoft `VectorStore` abstraction | A division-scoped document is never opened before read and replacement-delete authorization, remains untrusted data with provenance and classification, and is embedded only after an immutable source/document/version lease plus mandatory model-budget reservation succeed; denial or conflict performs no embedding or vector write. |
+| SPM-232 | Content-free AI model usage and streaming telemetry | `INhAiChatExecutor`, named profile and run-budget enforcement, OpenTelemetry activities and metrics, `INhAiUsageSink`, token/latency/TTFT accounting, and cancellation-safe streaming | Model calls and streams preserve standard Microsoft AI responses while recording bounded profile, version, token, size, latency, finish and scope metadata; prompts, responses, model deployment identifiers and provider errors are absent from usage records, cancelled streams propagate cancellation, and dependency failures end in a safe `TaskResult` completion. |
+| SPM-233 | Versioned AI safety evaluation gate | Microsoft `IEvaluator`, `NhAiEvaluationDataset`, deterministic scope and injection fixtures, fail-closed metric interpretation, content-free reports, and baseline version/hash evidence | The project agent's prompt-injection and cross-division fixtures run through Microsoft AI Evaluation contracts against a versioned baseline; missing or inconclusive interpretations fail closed, while persisted reports contain hashes and metric outcomes but no prompt, response, reason or diagnostic content. |
+| SPM-234 | Native AOT generated AI tool catalog smoke | `NewHeap.Platform.AI.AotSmoke`, generated `INhAiToolCatalog`, canonical schema manifest, trimming, and Native AOT publication | A trimmed Native AOT executable resolves the generated catalog and creates its local Microsoft AI function without runtime reflection discovery, proving descriptors and schema manifests remain rooted. |
+| SPM-235 | Durable AI ingestion lifecycle | `INhAiBackgroundOperationIngestionAdapter`, content-free checkpoints, deterministic replacement lineage, authorized deletion, and partial-success batch results | A durable ingestion attempt resumes without reading or embedding the same document twice, replacement deletion is independently authorized before source access, immutable version/hash/key conflicts cannot overwrite vectors, and a failed batch item does not erase successful document evidence. |
+| SPM-236 | Version-bound Agent Framework workflow checkpoint | Microsoft Agent Framework `CheckpointInfo`, `INhAiAgentFrameworkWorkflowCheckpointAdapter`, session identity, workflow version, state hash, and durable NewHeap checkpoint references | An official Agent Framework workflow checkpoint retains its opaque session and checkpoint identity in a content-free durable reference; a changed workflow version, checkpoint lineage or state hash cannot be resumed as the same run. |
+
 ## Coverage matrix
 
 | Library area | Cases | Count |
@@ -328,9 +351,9 @@ The complete public-surface mapping and intended sample entry points are documen
 | CRUD, controllers, services, and models | SPM-001–015 | 15 |
 | Collections, filters, expressions, and projections | SPM-016–035 | 20 |
 | Full, partial, and bulk mutations and validation | SPM-036–050 | 15 |
-| DAL, repositories, SQL, EF, and transactions | SPM-051–060 | 10 |
+| DAL, repositories, SQL, EF, and transactions | SPM-051–060, SPM-218 | 11 |
 | Authentication, identity, claims, and policies | SPM-061–075 | 15 |
-| Events, Hangfire, email, and notifications | SPM-076–090 | 15 |
+| Events, Hangfire, email, and notifications | SPM-076–090, SPM-229 | 16 |
 | Localization, options, middleware, and OpenAPI | SPM-091–105 | 15 |
 | Frontend HTTP, forms, and modals | SPM-106–125, SPM-215 | 21 |
 | Frontend collections, routing, authentication, and interaction | SPM-126–140 | 15 |
@@ -342,7 +365,8 @@ The complete public-surface mapping and intended sample entry points are documen
 | Helpers, extensions, and transactional boundaries | SPM-201–209 | 9 |
 | Authorization implementation patterns | SPM-210–214 | 5 |
 | Consumer repository foundation | SPM-216–217 | 2 |
-| **Total** | **217 cases** | **217** |
+| AI tools and generated catalogs | SPM-219–228, SPM-230–236 | 17 |
+| **Total** | **236 cases** | **236** |
 
 ## Identified gaps and risks
 
@@ -357,6 +381,24 @@ The complete public-surface mapping and intended sample entry points are documen
 9. SPM-112 and SPM-215 show the recommended opt-ins explicitly in the sample configuration. The library defaults deliberately remain disabled for backward compatibility with existing applications.
 10. SPM-216 keeps shared .NET build settings and direct NuGet versions centralized inside `src/Back-end` so generated consumer projects start from the same backend-wide contract.
 11. SPM-217 proves that the versioned consumer bootstrap creates the standard layout and that post-bootstrap inspection rejects root-level workspace drift before feature work continues.
+12. SPM-219 proves the first provider-neutral AI seam: generated local functions, stable descriptors, fail-closed authorization, explicit division scope, and content-safe telemetry.
+13. SPM-220 keeps model-provider selection consumer-owned while proving stable named profiles, keyed Microsoft clients, declared capability and data policy, deterministic fakes, and fail-fast startup validation.
+14. SPM-221 proves tool discovery is separately authorized and default-deny: a generated tool without both authorized division scope and its narrow capability grant is absent rather than merely failing after model selection.
+15. SPM-222 invokes that same generated function through the official MCP in-memory server/client transport; the adapter adds protocol metadata but cannot bypass NewHeap discovery or invocation authorization.
+16. SPM-223 derives AI division scope and its narrow read grant through the existing ASP.NET authorization policy; request headers and model input remain data rather than authorization evidence.
+17. SPM-224 protects a generated status mutation with exact proposal approval, scoped manage capability, idempotency and fencing, bounded execution, and an independent status re-read before success.
+18. SPM-225 creates a stable non-human Microsoft Agent Framework agent from a named model profile and only the generated tools that survive Agent discovery, allow-listing, and its autonomy ceiling.
+19. SPM-226 authorizes project context before retrieval, filters it to the active division, preserves provenance and untrusted-data classification, and applies deterministic conflict and content budgets.
+20. SPM-227 keeps project-agent instructions application-owned while a content-free version/hash manifest binds required capabilities, tools, context policy, retention, evaluation, agent creation, and approvals.
+21. SPM-228 imports only an explicitly allowlisted external MCP tool under a local namespace, discards remote authority claims, and executes the wrapper through the same NewHeap authorization and runtime guards.
+22. SPM-229 supplies the missing general suspension boundary: a background-operation attempt is atomically released until one typed, owner-bound signal or its durable expiry wakes a new fenced attempt.
+23. SPM-230 maps that durable boundary to a non-human AI report run with application-owned snapshot state, a versioned content-free checkpoint reference, exact approval, and idempotent artifact publication.
+24. SPM-231 uses the standard VectorData abstractions behind an authorization-first, scope-filterable ingestion path with deterministic chunks, provenance, classification, embedding policy and idempotency metadata.
+25. SPM-232 wraps direct and streaming Microsoft AI calls with profile/run budgets, deadlines, content-free usage and telemetry, and cancellation cleanup without replacing the standard response types.
+26. SPM-233 makes model-facing changes evaluable through versioned Microsoft AI Evaluation datasets, deterministic injection and scope fixtures, fail-closed interpretations and content-free baseline reports.
+27. SPM-234 publishes a generated local tool catalog as a trimmed Native AOT executable so descriptors, schema manifests and functions remain rooted without runtime discovery.
+28. SPM-235 completes ingestion lifecycle behavior with durable content-free replay, exact replacement lineage, authorized deletion and per-document partial batch outcomes.
+29. SPM-236 binds official Agent Framework workflow checkpoint identity to a versioned NewHeap durable reference and rejects changed workflow or state lineage.
 
 ## Follow-up for library gaps
 

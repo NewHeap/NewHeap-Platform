@@ -16,6 +16,18 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 
 ## Topics
 
+- [ai-agent-framework](./ai-agent-framework.md) — 1 rule
+- [ai-aspnet-context](./ai-aspnet-context.md) — 1 rule
+- [ai-assets](./ai-assets.md) — 1 rule
+- [ai-context-retrieval](./ai-context-retrieval.md) — 1 rule
+- [ai-durable-runs](./ai-durable-runs.md) — 1 rule
+- [ai-ingestion](./ai-ingestion.md) — 1 rule
+- [ai-local-tools](./ai-local-tools.md) — 1 rule
+- [ai-mcp-imports](./ai-mcp-imports.md) — 1 rule
+- [ai-mcp-tools](./ai-mcp-tools.md) — 1 rule
+- [ai-model-profiles](./ai-model-profiles.md) — 1 rule
+- [ai-observability-evaluation](./ai-observability-evaluation.md) — 1 rule
+- [ai-protected-actions](./ai-protected-actions.md) — 1 rule
 - [authentication-overrides](./authentication-overrides.md) — 1 rule
 - [authorization-permissions](./authorization-permissions.md) — 1 rule
 - [backend-controller-contracts](./backend-controller-contracts.md) — 1 rule
@@ -24,6 +36,7 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 - [backend-partial-update](./backend-partial-update.md) — 1 rule
 - [backend-project-foundation](./backend-project-foundation.md) — 1 rule
 - [backend-unit-of-work](./backend-unit-of-work.md) — 1 rule
+- [background-operation-suspension](./background-operation-suspension.md) — 1 rule
 - [background-processing](./background-processing.md) — 1 rule
 - [consumer-bootstrap-sequence](./consumer-bootstrap-sequence.md) — 1 rule
 - [consumer-management-portal](./consumer-management-portal.md) — 1 rule
@@ -42,4 +55,4 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 
 ## Maintenance
 
-Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 23 validated rules.
+Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 36 validated rules.

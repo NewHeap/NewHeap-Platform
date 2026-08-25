@@ -29,7 +29,7 @@ internal enum NhBackgroundOperationHeartbeatResult
     OwnershipLost
 }
 
-internal sealed class NhBackgroundOperationPersistence
+internal sealed partial class NhBackgroundOperationPersistence
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly NhBackgroundOperationsOptions _options;

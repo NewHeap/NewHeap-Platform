@@ -40,11 +40,13 @@ internal sealed class NhBackgroundOperationHealthCheck : IHealthCheck
                  || (x.Status == NhBackgroundOperationStatus.CancelRequested && x.CurrentAttemptId != null))
                 && (x.HeartbeatAt == null || x.HeartbeatAt <= staleBefore), cancellationToken);
             var overdueDispatches = await query.CountAsync(x =>
-                (x.Status == NhBackgroundOperationStatus.PendingDispatch
-                 || x.Status == NhBackgroundOperationStatus.RetryScheduled
-                 || x.Status == NhBackgroundOperationStatus.WaitingForChildren
-                 || x.Status == NhBackgroundOperationStatus.Queued)
-                && x.LastModifiedDateTime <= undispatchedBefore, cancellationToken);
+                ((x.Status == NhBackgroundOperationStatus.PendingDispatch
+                  || x.Status == NhBackgroundOperationStatus.RetryScheduled
+                  || x.Status == NhBackgroundOperationStatus.WaitingForChildren
+                  || x.Status == NhBackgroundOperationStatus.Queued)
+                 && x.LastModifiedDateTime <= undispatchedBefore)
+                || (x.Status == NhBackgroundOperationStatus.WaitingForSignal
+                    && x.NextDispatchAt <= undispatchedBefore), cancellationToken);
 
             var data = new Dictionary<string, object>
             {

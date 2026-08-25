@@ -24,8 +24,18 @@
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="6.1.1" />
     <PackageVersion Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="10.0.10" />
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.6" />
+    <PackageVersion Include="ModelContextProtocol.Core" Version="2.2.0" />
+    <PackageVersion Include="Microsoft.Agents.AI" Version="1.19.0" />
+    <PackageVersion Include="Microsoft.Agents.AI.Workflows" Version="1.19.0" />
     <PackageVersion Include="Microsoft.Playwright.Xunit" Version="1.61.0" />
     <PackageVersion Include="NewHeap.Platform.Common" Version="3.0.0" />
+    <PackageVersion Include="NewHeap.Platform.AspNet.Common" Version="3.0.0" />
+    <PackageVersion Include="NewHeap.Platform.AI.Common" Version="3.0.0" />
+    <PackageVersion Include="NewHeap.Platform.AI.AspNet.Common" Version="3.0.0" />
+    <PackageVersion Include="NewHeap.Platform.AI.Generators" Version="3.0.0" />
+    <PackageVersion Include="NewHeap.Platform.AI.Mcp" Version="3.0.0" />
+    <PackageVersion Include="NewHeap.Platform.AI.AgentFramework" Version="3.0.0" />
+    <PackageVersion Include="NewHeap.Platform.AI.Test" Version="3.0.0" />
     <PackageVersion Include="OneOf" Version="3.0.271" />
     <PackageVersion Include="OpenTelemetry" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
@@ -50,6 +60,12 @@
     <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Localization" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.9.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI.Evaluation" Version="10.9.0" />
+    <PackageVersion Include="Microsoft.Extensions.VectorData.Abstractions" Version="10.9.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.16.7" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="8.1.0" />
     <PackageVersion Include="System.Formats.Asn1" Version="10.0.10" />

@@ -13,6 +13,12 @@
   "packages": {
     "@newheap/nh-toastr": "0.0.6",
     "@newheap/platform-common": "1.0.0",
+    "NewHeap.Platform.AI.AgentFramework": "3.0.0",
+    "NewHeap.Platform.AI.AspNet.Common": "3.0.0",
+    "NewHeap.Platform.AI.Common": "3.0.0",
+    "NewHeap.Platform.AI.Generators": "3.0.0",
+    "NewHeap.Platform.AI.Mcp": "3.0.0",
+    "NewHeap.Platform.AI.Test": "3.0.0",
     "NewHeap.Platform.AspNet.Caching": "0.1.4",
     "NewHeap.Platform.AspNet.Common": "3.0.0",
     "NewHeap.Platform.AspNet.Common.Test": "3.0.0",
@@ -122,6 +128,7 @@
         }
       },
       "references": [
+        "references/ai-aspnet-context.md",
         "references/authentication-overrides.md",
         "references/authorization-permissions.md"
       ]
@@ -150,6 +157,17 @@
         }
       },
       "references": [
+        "references/ai-agent-framework.md",
+        "references/ai-assets.md",
+        "references/ai-context-retrieval.md",
+        "references/ai-durable-runs.md",
+        "references/ai-ingestion.md",
+        "references/ai-local-tools.md",
+        "references/ai-mcp-imports.md",
+        "references/ai-mcp-tools.md",
+        "references/ai-model-profiles.md",
+        "references/ai-observability-evaluation.md",
+        "references/ai-protected-actions.md",
         "references/backend-controller-contracts.md",
         "references/backend-models-localization.md",
         "references/backend-module-composition.md",
@@ -184,7 +202,11 @@
         }
       },
       "references": [
+        "references/ai-agent-framework.md",
+        "references/ai-durable-runs.md",
+        "references/ai-ingestion.md",
         "references/backend-unit-of-work.md",
+        "references/background-operation-suspension.md",
         "references/background-processing.md"
       ]
     },
@@ -327,6 +349,7 @@
         }
       },
       "references": [
+        "references/ai-observability-evaluation.md",
         "references/testing.md"
       ]
     },

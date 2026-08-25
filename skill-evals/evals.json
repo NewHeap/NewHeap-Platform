@@ -142,6 +142,34 @@
       "expectedOutcome": "Consumer tests reference the packable .Test helper packages, while NewHeap self-tests stay in non-packable plural .Tests projects and relational behavior is verified on real providers."
     },
     {
+      "id": "consumer-ai-governed-assistant",
+      "skill": "newheap-backend-development",
+      "prompt": "Add a provider-neutral project assistant with named model profiles, versioned prompts, authorized retrieval, generated local tools, protected mutations and an allowlisted MCP integration.",
+      "expectedRules": ["nh-ai-model-profiles", "nh-ai-assets", "nh-ai-context-retrieval", "nh-ai-local-tool-contract", "nh-ai-protected-actions", "nh-ai-mcp-tools", "nh-ai-mcp-imports"],
+      "expectedOutcome": "The backend module keeps provider selection named and application-owned, treats retrieved content as scoped untrusted data, versions prompt and tool contracts, applies the shared authorization and approval path to mutations, and exposes or imports only explicitly allowlisted MCP tools."
+    },
+    {
+      "id": "consumer-ai-durable-workflow",
+      "skill": "newheap-background-processing",
+      "prompt": "Run a long-lived AI report workflow that ingests versioned project documents, suspends for a signal, resumes through Agent Framework checkpoints and survives duplicate delivery.",
+      "expectedRules": ["nh-ai-ingestion", "nh-ai-durable-runs", "nh-ai-agent-framework", "nh-background-operation-suspension"],
+      "expectedOutcome": "The workflow uses deterministic vector identities and replacement semantics, binds durable checkpoints to the exact adapter and workflow version, persists content-free resume state, reauthorizes after wake-up, and handles signals and retries idempotently."
+    },
+    {
+      "id": "consumer-ai-http-context",
+      "skill": "newheap-authentication",
+      "prompt": "Hydrate the AI invocation context for an authenticated API request with the current actor, active division and server-resolved capabilities.",
+      "expectedRules": ["nh-ai-aspnet-context"],
+      "expectedOutcome": "The ASP.NET adapter resolves identity, memberships, division scope and capabilities server-side, rejects removed or incomplete users, and never accepts browser-selected scope as authorization evidence."
+    },
+    {
+      "id": "consumer-ai-evaluation-gate",
+      "skill": "newheap-testing",
+      "prompt": "Add deterministic regression evaluation and content-free telemetry for an AI feature, and fail the release gate on unknown or inconclusive evaluator outcomes.",
+      "expectedRules": ["nh-ai-observability-evaluation"],
+      "expectedOutcome": "Versioned datasets and baselines use the Microsoft evaluator contract, unknown and inconclusive results fail closed, deterministic fakes cover failure paths, and telemetry records bounded identifiers and counts without prompts or model content."
+    },
+    {
       "id": "maintainer-public-change",
       "skill": "newheap-library-maintenance",
       "prompt": "Change a public NewHeap option and deliver the library change ready for release.",

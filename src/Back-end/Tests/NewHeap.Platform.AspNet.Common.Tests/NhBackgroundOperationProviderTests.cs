@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +59,8 @@ public sealed class NhBackgroundOperationProviderTests
         services.AddScoped<ProviderCancellationHandler>();
         services.AddScoped<ProviderFanInParentHandler>();
         services.AddScoped<ProviderFanInChildHandler>();
+        services.AddScoped<ProviderSignalHandler>();
+        services.AddSingleton<ProviderSignalState>();
         services.AddSingleton<INhBackgroundOperationScheduler, NoOpScheduler>();
         var notificationService = Substitute.For<INhUserNotificationService>();
         services.AddSingleton(notificationService);
@@ -154,6 +157,8 @@ public sealed class NhBackgroundOperationProviderTests
             "provider-fan-in-parent");
         registryBuilder.Add<ProviderFanInChildRequest, ProviderFanInChildHandler>(
             "provider-fan-in-child");
+        registryBuilder.Add<ProviderSignalRequest, ProviderSignalHandler>(
+            "provider-signal");
         var registry = registryBuilder.Build();
         var fanOutCoordinator = new NhBackgroundOperationFanOutCoordinator(
             serviceProvider.GetRequiredService<IServiceScopeFactory>(),
@@ -902,6 +907,125 @@ public sealed class NhBackgroundOperationProviderTests
             registry,
             options,
             ownerId);
+        await VerifySignalSuspensionAsync(
+            serviceProvider,
+            persistence,
+            fanOutCoordinator,
+            registry,
+            options,
+            ownerId);
+    }
+
+    private static async Task VerifySignalSuspensionAsync(
+        ServiceProvider serviceProvider,
+        NhBackgroundOperationPersistence persistence,
+        NhBackgroundOperationFanOutCoordinator fanOutCoordinator,
+        NhBackgroundOperationRegistry registry,
+        NhBackgroundOperationsOptions options,
+        Guid ownerId)
+    {
+        var operationId = Guid.NewGuid();
+        var request = new ProviderSignalRequest(DateTimeOffset.UtcNow.AddMinutes(5));
+        await using (var seedScope = serviceProvider.CreateAsyncScope())
+        {
+            var context = seedScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            var operation = CreateQueuedOperation(operationId, ownerId, "provider-signal");
+            operation.PayloadJson = JsonSerializer.Serialize(
+                request,
+                NhBackgroundOperationJson.Options);
+            context.BackgroundOperations.Add(operation);
+            await context.SaveChangesAsync();
+        }
+
+        var runner = new NhBackgroundOperationRunner(
+            serviceProvider,
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            persistence,
+            registry,
+            fanOutCoordinator,
+            options,
+            NullLogger<NhBackgroundOperationRunner>.Instance);
+        await runner.RunAsync(operationId, 1);
+
+        await using (var suspendedScope = serviceProvider.CreateAsyncScope())
+        {
+            var context = suspendedScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            var suspended = await context.BackgroundOperations
+                .AsNoTracking()
+                .SingleAsync(operation => operation.Id == operationId);
+            suspended.Status.Should().Be(NhBackgroundOperationStatus.WaitingForSignal);
+            suspended.CurrentAttemptId.Should().BeNull();
+            (await context.BackgroundOperationAttempts
+                    .AsNoTracking()
+                    .SingleAsync(attempt => attempt.OperationId == operationId))
+                .Status.Should().Be(NhBackgroundOperationAttemptStatus.Suspended);
+        }
+
+        var signalService = new NhBackgroundOperationSignalService(persistence);
+        var actorId = Guid.NewGuid();
+        var signal = new ProviderApprovalSignal(true, "approved-1");
+        var accepted = await signalService.SignalForOwnerAsync(
+            operationId,
+            ownerId,
+            actorId,
+            "provider-approval",
+            signal);
+        var duplicate = await signalService.SignalForOwnerAsync(
+            operationId,
+            ownerId,
+            actorId,
+            "provider-approval",
+            signal);
+        var conflicting = await signalService.SignalForOwnerAsync(
+            operationId,
+            ownerId,
+            actorId,
+            "provider-approval",
+            signal with { DecisionId = "approved-2" });
+        accepted.Success.Should().BeTrue();
+        accepted.Data!.Status.Should().Be(NhBackgroundOperationSignalWriteStatus.Accepted);
+        duplicate.Success.Should().BeTrue();
+        duplicate.Data!.Status.Should().Be(NhBackgroundOperationSignalWriteStatus.Duplicate);
+        conflicting.Success.Should().BeFalse();
+
+        var dispatcher = new NhBackgroundOperationDispatchService(
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            options,
+            new NoOpLiveUpdatePublisher(),
+            new NoOpNotificationProjector(),
+            fanOutCoordinator,
+            NullLogger<NhBackgroundOperationDispatchService>.Instance);
+        (await dispatcher.DispatchAvailableAsync(CancellationToken.None)).Should().BeGreaterThanOrEqualTo(1);
+        await using (var dispatchedScope = serviceProvider.CreateAsyncScope())
+        {
+            var context = dispatchedScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            var dispatched = await context.BackgroundOperations
+                .AsNoTracking()
+                .SingleAsync(operation => operation.Id == operationId);
+            dispatched.Status.Should().Be(NhBackgroundOperationStatus.Queued);
+            dispatched.DispatchGeneration.Should().Be(2);
+        }
+        await runner.RunAsync(operationId, 2);
+
+        await using var verificationScope = serviceProvider.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider
+            .GetRequiredService<BackgroundOperationDbContext>();
+        var completed = await verificationContext.BackgroundOperations
+            .AsNoTracking()
+            .SingleAsync(operation => operation.Id == operationId);
+        completed.Status.Should().Be(NhBackgroundOperationStatus.Succeeded);
+        (await verificationContext.BackgroundOperationAttempts
+                .AsNoTracking()
+                .Where(attempt => attempt.OperationId == operationId)
+                .OrderBy(attempt => attempt.AttemptNumber)
+                .Select(attempt => attempt.Status)
+                .ToListAsync())
+            .Should().Equal(
+                NhBackgroundOperationAttemptStatus.Suspended,
+                NhBackgroundOperationAttemptStatus.Succeeded);
+        var state = serviceProvider.GetRequiredService<ProviderSignalState>();
+        state.PreparedCount.Should().Be(1);
+        state.ConsumedCount.Should().Be(1);
     }
 
     private static async Task VerifyPromptFanInWakeAfterContentionAsync(
@@ -1253,6 +1377,10 @@ public sealed class NhBackgroundOperationProviderTests
 
     private sealed record ProviderFanInChildRequest(int Index);
 
+    private sealed record ProviderSignalRequest(DateTimeOffset ExpiresAt);
+
+    private sealed record ProviderApprovalSignal(bool Approved, string DecisionId);
+
     private sealed record ProviderParentRequest;
 
     private sealed class ProviderParentHandler : INhBackgroundOperationHandler<ProviderParentRequest>
@@ -1321,6 +1449,55 @@ public sealed class NhBackgroundOperationProviderTests
             CancellationToken cancellationToken)
         {
             return Task.FromResult(TaskResult.Succeeded());
+        }
+    }
+
+    private sealed class ProviderSignalState
+    {
+        public int PreparedCount;
+        public int ConsumedCount;
+    }
+
+    private sealed class ProviderSignalHandler(ProviderSignalState state) :
+        INhBackgroundOperationHandler<ProviderSignalRequest>
+    {
+        public async Task<TaskResult> ExecuteAsync(
+            ProviderSignalRequest request,
+            INhBackgroundOperationContext context,
+            CancellationToken cancellationToken)
+        {
+            var preparation = await context.Idempotency.BeginStepAsync(
+                "prepare",
+                cancellationToken: cancellationToken);
+            if (!preparation.AlreadyCompleted)
+            {
+                Interlocked.Increment(ref state.PreparedCount);
+                var completion = await preparation.CompleteAsync(cancellationToken);
+                if (!completion.Success)
+                {
+                    return completion;
+                }
+            }
+
+            var wait = await context.Suspension.WaitForSignalAsync<ProviderApprovalSignal>(
+                "provider-approval",
+                request.ExpiresAt,
+                cancellationToken: cancellationToken);
+            if (wait.Status == NhBackgroundOperationSignalWaitStatus.Expired)
+            {
+                return TaskResult.Failed(
+                    "approval-expired",
+                    "background-operation.approval-expired");
+            }
+            if (wait.Signal is not { Approved: true })
+            {
+                return TaskResult.Failed(
+                    "approval-rejected",
+                    "background-operation.approval-rejected");
+            }
+
+            Interlocked.Increment(ref state.ConsumedCount);
+            return TaskResult.Succeeded();
         }
     }
 

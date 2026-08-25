@@ -45,3 +45,26 @@ public sealed class ProjectPortfolioAnalysisMutateModel
 
     public bool FailFirstAttempt { get; set; }
 }
+
+public sealed class ProjectAiPortfolioReportMutateModel
+{
+    [Required, StringLength(100), RegularExpression("^[A-Za-z0-9._:-]+$")]
+    public string IdempotencyKey { get; set; } = "";
+
+    public DateTimeOffset ApprovalExpiresAt { get; set; }
+}
+
+public sealed class ProjectAiPortfolioReportApprovalMutateModel
+{
+    public Guid ApprovalId { get; set; }
+
+    public Guid ProposalId { get; set; }
+
+    [Required, RegularExpression("^[a-fA-F0-9]{64}$")]
+    public string ProposalHash { get; set; } = "";
+
+    public bool Approved { get; set; }
+
+    [Required, StringLength(100), RegularExpression("^[a-z0-9]+(?:-[a-z0-9]+)*$")]
+    public string DecisionCode { get; set; } = "";
+}

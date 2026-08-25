@@ -6,6 +6,54 @@ This catalog centralizes the release-pinned source links used by the bundled con
 
 Source release: `newheap-platform-plugin-v1.13.3`
 
+## Ai Agent Framework
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/ai-agent-framework.md)
+
+## Ai Aspnet Context
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/ai-aspnet-context.md)
+
+## Ai Assets
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/ai-assets.md)
+
+## Ai Context Retrieval
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/ai-context-retrieval.md)
+
+## Ai Durable Runs
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/ai-durable-runs.md)
+
+## Ai Ingestion
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/ai-ingestion.md)
+
+## Ai Local Tools
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/ai-local-tools.md)
+
+## Ai Mcp Imports
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/ai-mcp-imports.md)
+
+## Ai Mcp Tools
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/ai-mcp-tools.md)
+
+## Ai Model Profiles
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/ai-model-profiles.md)
+
+## Ai Observability Evaluation
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/ai-observability-evaluation.md)
+
+## Ai Protected Actions
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/ai-protected-actions.md)
+
 ## Authentication Overrides
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/authentication-overrides.md)
@@ -37,6 +85,10 @@ Source release: `newheap-platform-plugin-v1.13.3`
 ## Backend Unit Of Work
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/backend-unit-of-work.md)
+
+## Background Operation Suspension
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.3/docs/consumer-guide/background-operation-suspension.md)
 
 ## Background Processing
 

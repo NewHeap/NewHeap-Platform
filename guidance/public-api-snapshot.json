@@ -2,9 +2,2545 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.3",
   "backEnd": {
-    "hash": "1ea108c9a90d643efa558b4ac4e91a43d39116dc533010916d80ce0d8cf1c81a",
-    "declarationCount": 2940,
+    "hash": "071e08f59b3c7479b28f1dfc1246986381dbfd4db704b966819081a68a80ee3e",
+    "declarationCount": 3583,
     "declarations": [
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public sealed record NhAiAgentCreateRequest( NhAiAgentDescriptor Descriptor, NhAiInvocationContext Context, string Instructions, string ExecutionRegion = \"local\")"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public NhAiDataClassification DataClassification { get; init; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public sealed record NhAiAgentInstance( AIAgent Agent, NhAiAgentDescriptor Descriptor, IReadOnlyList<NhAiToolDescriptor> Tools, IReadOnlyList<string> ModelDecisionTrace);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public interface INhAiAgentFrameworkAdapter {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public static class NhAiAgentFrameworkServiceCollectionExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public static IServiceCollection AddNewHeapPlatformAIAgentFramework( this IServiceCollection services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public interface INhAiAgentFrameworkWorkflowCheckpointAdapter {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public NhAiRunCheckpointReference CreateReference( string workflowId, int workflowVersion, CheckpointInfo checkpoint, int checkpointSchemaVersion, string stateHash, DateTimeOffset createdAt) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public bool IsCompatible( NhAiRunCheckpointReference reference, string workflowId, int workflowVersion, CheckpointInfo checkpoint, string stateHash) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public async Task<TaskResult<NhAiAgentInstance>> CreateAsync( NhAiAgentCreateRequest request, IServiceProvider services, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public async Task<ChatResponse> GetResponseAsync( IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync( IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public object? GetService(Type serviceType, object? serviceKey = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public sealed record NhAiAspNetScopeAuthorizationResource( string ScopeType, string ScopeId, string Purpose);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public static class NhAiAspNetServiceCollectionExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public static IServiceCollection AddNewHeapPlatformAIAspNet( this IServiceCollection services, Action<NhAiAspNetBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public sealed class NhAiAspNetBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public NhAiAspNetBuilder AddActiveDivisionScope( string authorizationPolicy, string scopeKey = \"division-id\", string scopeType = \"division\")"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public NhAiAspNetBuilder AddCapabilityGrant( string capability, string authorizationPolicy) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public NhAiAspNetBuilder UseToolInvocationPurpose(string purpose) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public async ValueTask<TaskResult<NhAiInvocationContext>> AuthorizeAsync( NhAiToolDescriptor descriptor, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public int Order => 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public async ValueTask ContributeAsync( NhAiInvocationContextBuilder builder, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public NhAiAspNetActiveDivisionRegistration? ActiveDivision { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public IReadOnlyDictionary<string, string> Capabilities => _capabilities;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public string ToolInvocationPurpose { get; private set; } = \"tool-invocation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public void SetActiveDivision(NhAiAspNetActiveDivisionRegistration registration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public void AddCapability(string capability, string authorizationPolicy) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public void SetToolInvocationPurpose(string purpose) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public static void ValidateSegment(string value, string parameterName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationIngestionAdapter.cs",
+        "declaration": "public sealed record NhAiDurableIngestionCheckpoint( string SourceId, string DocumentId, int DocumentVersion, int ChunkCount, string DocumentHash, string BatchHash, string VectorCollectionName, string IdempotencyHash, string RequestHash, int? ReplacedDocumentVersion, int DeletedRecordCount, DateTimeOffset CompletedAt);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationIngestionAdapter.cs",
+        "declaration": "public interface INhAiBackgroundOperationIngestionAdapter {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationIngestionAdapter.cs",
+        "declaration": "public async Task<TaskResult<NhAiIngestionResult>> IngestAsync( INhBackgroundOperationContext operation, NhAiIngestionRequest request, DateTimeOffset? deadline = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationRunAdapter.cs",
+        "declaration": "public sealed record NhAiBackgroundApprovalSignal( Guid ApprovalId, Guid ProposalId, string ProposalHash, bool Approved, string DecisionCode);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationRunAdapter.cs",
+        "declaration": "public interface INhAiBackgroundOperationRunAdapter {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationRunAdapter.cs",
+        "declaration": "public NhAiInvocationContext BindInvocation( NhAiInvocationContext context, INhBackgroundOperationContext operation, DateTimeOffset? deadline = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationRunAdapter.cs",
+        "declaration": "public async Task<NhAiRunCheckpointReference?> GetCheckpointAsync( INhBackgroundOperationContext operation, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationRunAdapter.cs",
+        "declaration": "public Task<TaskResult> SetCheckpointAsync( INhBackgroundOperationContext operation, NhAiRunCheckpointReference checkpoint, long? expectedVersion = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiBackgroundOperationRunAdapter.cs",
+        "declaration": "public Task<NhBackgroundOperationSignalWaitResult<NhAiBackgroundApprovalSignal>> WaitForApprovalAsync( INhBackgroundOperationContext operation, string waitKey, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentContracts.cs",
+        "declaration": "public enum NhAiAutonomyLevel {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentContracts.cs",
+        "declaration": "public sealed record NhAiAgentDescriptor( string Id, int Version, string Name, string Description, string ModelProfileName, NhAiModelCapability RequiredModelCapabilities, IReadOnlyList<string> AllowedToolSelectors, NhAiAutonomyLevel MaximumAutonomy, NhAiModelBudget Budget, string EvaluationBaselineId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentContracts.cs",
+        "declaration": "public string? PromptVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentContracts.cs",
+        "declaration": "public string? PromptHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentContracts.cs",
+        "declaration": "public string? ContextPolicyId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentContracts.cs",
+        "declaration": "public string? ApprovalPolicyId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAssets.cs",
+        "declaration": "public enum NhAiAssetRole {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAssets.cs",
+        "declaration": "public sealed record NhAiAssetManifest( string Id, int Version, string ContentHash, string SourceProvenance, NhAiAssetRole Role, NhAiContextTrust Trust, NhAiModelCapability RequiredModelCapabilities, IReadOnlyList<string> RequiredToolContracts, string ContextPolicyId, NhAiDataClassification DataClassification, NhAiRetentionCategory RetentionCategory, string EvaluationBaselineId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAssets.cs",
+        "declaration": "public string? ReplacedByAssetId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAssets.cs",
+        "declaration": "public DateTimeOffset? DeprecatedAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAssets.cs",
+        "declaration": "public sealed record NhAiTextAsset( NhAiAssetManifest Manifest, string Content);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAssets.cs",
+        "declaration": "public static class NhAiTextAssetFactory {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAssets.cs",
+        "declaration": "public static NhAiTextAsset Create( string id, int version, string content, string sourceProvenance, NhAiAssetRole role, NhAiContextTrust trust, NhAiModelCapability requiredModelCapabilities, IReadOnlyList<string> requiredToolContracts, string contextPolicyId, NhAiDataClassification dataClassification, NhAiRetentionCategory retentionCategory, string evaluationBaselineId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiCapabilities.cs",
+        "declaration": "public sealed record NhAiCapabilityGrant( string GrantId, string SubjectId, string Capability, string ToolSelector, string Purpose, string Issuer, DateTimeOffset IssuedAt, DateTimeOffset ExpiresAt, IReadOnlyList<NhAiExecutionScopeEntry> ExecutionScopes) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiCapabilities.cs",
+        "declaration": "public NhAiActionBudget? Budget { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiCapabilities.cs",
+        "declaration": "public string? RevocationReference { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiCapabilities.cs",
+        "declaration": "public DateTimeOffset? RevokedAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiCapabilities.cs",
+        "declaration": "public sealed record NhAiCapabilityResolution( bool Succeeded, string Code, IReadOnlyList<NhAiCapabilityGrant> Grants);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiCapabilities.cs",
+        "declaration": "public interface INhAiCapabilityResolver {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiCapabilities.cs",
+        "declaration": "public ValueTask<NhAiCapabilityResolution> ResolveAsync( NhAiToolDescriptor descriptor, NhAiInvocationContext context, DateTimeOffset now, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public sealed record NhAiChatRequest( NhAiInvocationContext InvocationContext, string ProfileName, NhAiModelCapability RequiredCapabilities, NhAiDataClassification DataClassification, IReadOnlyList<ChatMessage> Messages) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public ChatOptions? Options { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public int EstimatedInputTokens { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public int RequestedOutputTokens { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public decimal? EstimatedCost { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public string? ExecutionRegion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public string? AgentId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public sealed record NhAiChatResult( ChatResponse Response, string ProfileName, int ProfileVersion, IReadOnlyList<string> DecisionTrace);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public sealed record NhAiChatStreamCompletion( NhAiOutcomeKind Outcome, string? FinishReason);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public sealed class NhAiChatStream {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public IAsyncEnumerable<ChatResponseUpdate> Updates { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public Task<TaskResult<NhAiChatStreamCompletion>> Completion { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public string ProfileName { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public int ProfileVersion { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public IReadOnlyList<string> DecisionTrace { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public interface INhAiChatExecutor {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public async Task<TaskResult<NhAiChatResult>> GetResponseAsync( NhAiChatRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiChatExecution.cs",
+        "declaration": "public async Task<TaskResult<NhAiChatStream>> StartStreamingAsync( NhAiChatRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public sealed record NhAiConcurrencyDecision( bool Acquired, string Code, IAsyncDisposable? Lease = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public interface INhAiToolConcurrencyLimiter {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public async ValueTask<NhAiConcurrencyDecision> TryAcquireAsync( NhAiToolDescriptor descriptor, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public int Limit { get; } = limit;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public SemaphoreSlim Semaphore { get; } = new(limit, limit);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public ValueTask DisposeAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public enum NhAiContextTrust {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public sealed record NhAiContextSourceDescriptor( string Id, string Description, NhAiDataClassification MaximumClassification, int MaxItems, int MaxContentCharacters);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public sealed record NhAiContextRequest( NhAiInvocationContext InvocationContext, string Query, NhAiDataClassification MaximumClassification, int MaxItems, int MaxCharacters, int MaxEstimatedTokens) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public DateTimeOffset Now { get; init; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public sealed record NhAiContextItem( string Id, string LogicalKey, string SourceId, string ContentType, string Content, NhAiDataClassification Classification, NhAiContextTrust Trust, IReadOnlyList<NhAiExecutionScopeEntry> ExecutionScopes, DateTimeOffset CreatedAt) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public int Version { get; init; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public NhAiExecutionScopeEntry? OwnerScope { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public IReadOnlyList<NhAiExecutionScopeEntry> AllowedDescendantScopes { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public DateTimeOffset? EffectiveAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public DateTimeOffset? ExpiresAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public DateTimeOffset? ObservedAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public string? ReplacesItemId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public string? ConflictGroup { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public string? AuthorReference { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public string? VerifierReference { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public decimal? Confidence { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public int Priority { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public string? Residency { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public string? Purpose { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.Operational;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public string? ContentReference { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public string? ContentHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public string? AuditCorrelationId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public IReadOnlyList<string> ProvenanceReferences { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public sealed record NhAiContextRankedItem( NhAiContextItem Item, decimal Score, string ReasonCode);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public sealed record NhAiContextTraceEntry( string SourceId, string OutcomeCode, int ItemCount = 0);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public sealed record NhAiContextResolution( IReadOnlyList<NhAiContextRankedItem> Items, IReadOnlyList<NhAiContextTraceEntry> Trace, int TotalCharacters, int EstimatedTokens, string ContextHash);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public sealed record NhAiContextResolutionTrace( Guid InvocationId, string Purpose, IReadOnlyList<NhAiContextTraceEntry> Entries, int SelectedItems, int TotalCharacters, int EstimatedTokens, string ContextHash);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public enum NhAiPromptBlockRole {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public sealed record NhAiPromptBlock( NhAiPromptBlockRole Role, NhAiContextTrust Trust, bool InstructionAuthority, string Content, string ContentHash);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public interface INhAiContextSource {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public interface INhAiContextAuthorizationPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public interface INhAiContextRanker {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public interface INhAiContextConflictResolver {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public interface INhAiContextTraceSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public interface INhAiContextResolver {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public interface INhAiContextFormatter {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public interface INhAiPromptAssembler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public ValueTask<bool> CanAccessSourceAsync( NhAiContextSourceDescriptor source, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public ValueTask<IReadOnlyList<NhAiContextRankedItem>> RankAsync( NhAiContextRequest request, IReadOnlyList<NhAiContextItem> items, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public ValueTask<IReadOnlyList<NhAiContextItem>> ResolveAsync( NhAiContextRequest request, IReadOnlyList<NhAiContextItem> items, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public ValueTask WriteAsync( NhAiContextResolutionTrace trace, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public string FormatAsData(NhAiContextResolution resolution) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextContracts.cs",
+        "declaration": "public IReadOnlyList<NhAiPromptBlock> Assemble( string systemInstructions, string trustedPolicyMetadata, NhAiContextResolution resolution) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiContextResolver.cs",
+        "declaration": "public async ValueTask<NhAiContextResolution> ResolveAsync( NhAiContextRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiDurableRuns.cs",
+        "declaration": "public sealed record NhAiRunCheckpointReference( string AdapterId, string WorkflowId, int WorkflowVersion, string CheckpointId, int CheckpointSchemaVersion, string StateHash, DateTimeOffset CreatedAt, string? SessionId = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiDurableRuns.cs",
+        "declaration": "public static class NhAiRunCheckpointReferenceFactory {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiDurableRuns.cs",
+        "declaration": "public static NhAiRunCheckpointReference Create( string adapterId, string workflowId, int workflowVersion, string checkpointId, int checkpointSchemaVersion, string stateHash, DateTimeOffset createdAt, string? sessionId = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiEffectPolicies.cs",
+        "declaration": "public enum NhAiEffectDecisionKind {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiEffectPolicies.cs",
+        "declaration": "public sealed record NhAiEffectDecision( NhAiEffectDecisionKind Kind, string Code);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiEffectPolicies.cs",
+        "declaration": "public interface INhAiEffectPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiEffectPolicies.cs",
+        "declaration": "public ValueTask<NhAiEffectDecision> EvaluateAsync( NhAiToolDescriptor descriptor, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiExecutionGuards.cs",
+        "declaration": "public enum NhAiIdempotencyDecisionKind {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiExecutionGuards.cs",
+        "declaration": "public sealed record NhAiIdempotencyRequest( Guid InvocationId, string ToolId, int ToolVersion, string ActorId, string IdempotencyKey, string ArgumentHash, string? FencingToken);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiExecutionGuards.cs",
+        "declaration": "public sealed record NhAiIdempotencyLease( NhAiIdempotencyDecisionKind Decision, string Code, string? LeaseId = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiExecutionGuards.cs",
+        "declaration": "public interface INhAiIdempotencyManager {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiExecutionGuards.cs",
+        "declaration": "public sealed record NhAiVerificationResult( bool Succeeded, string Code, string? EvidenceReference = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiExecutionGuards.cs",
+        "declaration": "public interface INhAiToolVerifier {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiExecutionGuards.cs",
+        "declaration": "public ValueTask<NhAiIdempotencyLease> AcquireAsync( NhAiIdempotencyRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiExecutionGuards.cs",
+        "declaration": "public ValueTask CompleteAsync( NhAiIdempotencyLease lease, NhAiOutcomeKind outcome, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiExecutionGuards.cs",
+        "declaration": "public static class NhAiCanonicalJson {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiExecutionGuards.cs",
+        "declaration": "public static string ComputeHash(object value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed record NhAiIngestionDocument( string Id, int Version, string SourceId, string ContentType, string Content, string ContentHash, NhAiDataClassification Classification, NhAiContextTrust Trust, IReadOnlyList<NhAiExecutionScopeEntry> ExecutionScopes, IReadOnlyList<string> ProvenanceReferences, DateTimeOffset ObservedAt);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed record NhAiIngestionRequest( NhAiInvocationContext InvocationContext, string SourceId, string DocumentId, string EmbeddingProfileName, string VectorStoreKey, string VectorCollectionName, int EmbeddingDimensions, string IdempotencyKey) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public int MaxDocumentCharacters { get; init; } = 1_000_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public int MaxChunks { get; init; } = 1_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public int MaxChunkCharacters { get; init; } = 2_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public NhAiIngestionReplacement? Replaces { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed record NhAiIngestionReplacement( int DocumentVersion, int ChunkCount, string DocumentHash);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed record NhAiIngestionBatchRequest( IReadOnlyList<NhAiIngestionRequest> Documents);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed record NhAiIngestionDeletionRequest( NhAiInvocationContext InvocationContext, string SourceId, string DocumentId, int DocumentVersion, int ChunkCount, string DocumentHash, string VectorStoreKey, string VectorCollectionName, int EmbeddingDimensions, string IdempotencyKey);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed record NhAiIngestionChunk( string Id, int Index, string Content, string ContentHash, IReadOnlyList<string> ProvenanceReferences);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed class NhAiVectorRecord {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public required string Id { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public required string SourceId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public required string DocumentId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public required int DocumentVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public required string DocumentHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public int? ReplacesDocumentVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public string? ReplacesDocumentHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public required string Content { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public required string ContentHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public required string IdempotencyKey { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public required ReadOnlyMemory<float> Vector { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public required int Classification { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public required int Trust { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public required IReadOnlyList<string> ExecutionScopeKeys { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public required IReadOnlyList<string> ProvenanceReferences { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed record NhAiIngestionResult( string SourceId, string DocumentId, int DocumentVersion, int ChunkCount, string DocumentHash, string BatchHash, string VectorCollectionName, int? ReplacedDocumentVersion, int DeletedRecordCount);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed record NhAiIngestionBatchItemResult( string SourceId, string DocumentId, TaskResult<NhAiIngestionResult> Result);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed record NhAiIngestionBatchResult( int Succeeded, int Failed, IReadOnlyList<NhAiIngestionBatchItemResult> Documents);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed record NhAiIngestionDeletionResult( string SourceId, string DocumentId, int DocumentVersion, int DeletedRecordCount, string DocumentHash, string DeletionHash, string VectorCollectionName);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed record NhAiIngestionCheckpoint( string SourceId, string DocumentId, int DocumentVersion, string DocumentHash, string BatchHash, DateTimeOffset CompletedAt);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public enum NhAiIngestionVersionDecisionKind {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed record NhAiIngestionVersionRequest( string SourceId, string DocumentId, int DocumentVersion, string DocumentHash, string IdempotencyKey);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public sealed record NhAiIngestionVersionLease( NhAiIngestionVersionDecisionKind Decision, string Code, string? LeaseId = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public interface INhAiIngestionSource {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public interface INhAiIngestionAuthorizationPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public interface INhAiIngestionVersionManager {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public interface INhAiDocumentChunker {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public interface INhAiIngestionPipeline {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public ValueTask<bool> CanReadAsync( string sourceId, string documentId, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public ValueTask<NhAiIngestionVersionLease> AcquireAsync( NhAiIngestionVersionRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public ValueTask CompleteAsync( NhAiIngestionVersionLease lease, NhAiOutcomeKind outcome, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public IReadOnlyList<NhAiIngestionChunk> Chunk( NhAiIngestionDocument document, int maxChunks, int maxChunkCharacters) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public async Task<TaskResult<NhAiIngestionBatchResult>> IngestBatchAsync( NhAiIngestionBatchRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public async Task<TaskResult<NhAiIngestionResult>> IngestAsync( NhAiIngestionRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public void MarkSucceeded() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public async ValueTask DisposeAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
+        "declaration": "public async Task<TaskResult<NhAiIngestionDeletionResult>> DeleteAsync( NhAiIngestionDeletionRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public sealed record NhAiInvocationContextSeed( string ActorId, string Purpose, string? AccountableOwnerId = null, IReadOnlyDictionary<string, string>? Scope = null, NhAiActorKind ActorKind = NhAiActorKind.Human);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public interface INhAiInvocationContextContributor {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public interface INhAiInvocationContextFactory {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public sealed class NhAiInvocationContextBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string ActorId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public NhAiActorKind ActorKind { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string Purpose { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? AccountableOwnerId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? RunId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? CorrelationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? ModelProfileName { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? PromptVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? PromptHash { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? AgentVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? CatalogVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? CatalogHash { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? ContextHash { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? ContextPolicyId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? ProposalId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? ApprovalId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? IdempotencyKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public string? FencingToken { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public DateTimeOffset? Deadline { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public NhAiModelBudget? RemainingBudget { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public NhAiInvocationContextBuilder SetScopeValue(string key, string value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public NhAiInvocationContextBuilder AddExecutionScope( string type, string id, string? displayName = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public NhAiInvocationContextBuilder GrantCapability(string capability) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInvocationContexts.cs",
+        "declaration": "public async ValueTask<NhAiInvocationContext> CreateAsync( NhAiInvocationContextSeed seed, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public sealed class NhAiModelProfileBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder WithVersion(int version) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder UseKeyedClient(object key) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder RequireCapabilities(params NhAiModelCapability[] capabilities) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder PermitDataClassifications(params NhAiDataClassification[] classifications) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder PermitExecutionRegions(params string[] regions) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder WithBudget( int maxInputTokens, int maxOutputTokens, int maxCalls, decimal? maxEstimatedCost = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder WithStreaming(NhAiStreamingPolicy policy) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder WithTimeout(TimeSpan timeout) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder AllowSafeRetry(bool retryEligible = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder WithFallbackProfiles(params string[] profileNames) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder WithEvaluationBaseline(string baselineId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public NhAiModelProfileBuilder WithRoutingTags(params string[] tags) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public static bool IsSegment(string? value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileBuilder.cs",
+        "declaration": "public static void ValidateSegment(string value, string parameterName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs",
+        "declaration": "public IReadOnlyCollection<NhAiModelProfile> Profiles => state.Profiles;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs",
+        "declaration": "public bool TryGet(string name, out NhAiModelProfile profile) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs",
+        "declaration": "public Task<TaskResult<NhAiResolvedChatProfile>> ResolveChatAsync( NhAiModelResolutionRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs",
+        "declaration": "public Task<TaskResult<NhAiResolvedEmbeddingProfile>> ResolveEmbeddingsAsync( NhAiModelResolutionRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs",
+        "declaration": "public Task StartAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs",
+        "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "[Flags] public enum NhAiModelCapability {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public enum NhAiDataClassification {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public enum NhAiStreamingPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public sealed record NhAiModelBudget( int MaxInputTokens, int MaxOutputTokens, int MaxCalls, decimal? MaxEstimatedCost);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public sealed class NhAiModelProfile {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public string Name { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public int Version { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public object KeyedClientKey { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public NhAiModelCapability Capabilities { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public IReadOnlySet<NhAiDataClassification> PermittedDataClassifications { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public IReadOnlySet<string> PermittedExecutionRegions { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public NhAiModelBudget Budget { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public NhAiStreamingPolicy StreamingPolicy { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public bool RetryEligible { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public TimeSpan Timeout { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public IReadOnlyList<string> FallbackProfileNames { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public string? EvaluationBaselineId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public IReadOnlySet<string> RoutingTags { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public sealed record NhAiModelResolutionRequest( string ProfileName, NhAiModelCapability RequiredCapabilities, NhAiDataClassification DataClassification, string Purpose, string? ExecutionRegion = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public sealed record NhAiResolvedChatProfile( NhAiModelProfile Profile, IChatClient Client, IReadOnlyList<string> DecisionTrace);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public sealed record NhAiResolvedEmbeddingProfile( NhAiModelProfile Profile, IEmbeddingGenerator<string, Embedding<float>> Generator, IReadOnlyList<string> DecisionTrace);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public interface INhAiModelProfileRegistry {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfiles.cs",
+        "declaration": "public interface INhAiModelProfileResolver {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public enum NhAiOutcomeKind {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public sealed record NhAiOutcomeClassification( NhAiOutcomeKind Kind, string Code, bool Retryable = false);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public sealed record NhAiSafeOutcome( NhAiOutcomeKind Kind, string Code, bool Retryable, int ErrorCount);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public interface INhAiTaskResultMapper {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public sealed class NhAiTaskResultMapper : INhAiTaskResultMapper {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public NhAiSafeOutcome Map( TaskResult result, NhAiOutcomeClassification? failureClassification = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public enum NhAiRetentionCategory {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public sealed record NhAiAuditRecord( Guid InvocationId, string ToolId, int ToolVersion, string? ActorId, string? Purpose, NhAiOutcomeKind Outcome, DateTimeOffset Timestamp) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? RunId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? CorrelationId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? ApprovalId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? IdempotencyCode { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? VerificationCode { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? VerificationEvidenceReference { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.ToolActionAudit;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public interface INhAiAuditSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public sealed record NhAiUsageRecord( Guid InvocationId, string ProfileName, int ProfileVersion, int InputTokens, int OutputTokens, decimal? EstimatedCost, TimeSpan Duration, DateTimeOffset Timestamp) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? RunId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? AgentId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? ToolId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? CorrelationId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? Purpose { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? FinishReason { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? ModelIdHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? PromptVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? PromptHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? AgentVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? CatalogVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? CatalogHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? ContextHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public long? CachedInputTokens { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public TimeSpan? TimeToFirstToken { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public int InputCharacters { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public int OutputCharacters { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public NhAiOutcomeKind Outcome { get; init; } = NhAiOutcomeKind.Succeeded;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public IReadOnlyList<NhAiUsageScope> ExecutionScopes { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.UsageAggregate;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public sealed record NhAiUsageScope( string Type, string Id);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public interface INhAiUsageSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public sealed record NhAiBudgetRequest( Guid InvocationId, string ProfileName, int RequestedCalls, int RequestedInputTokens, int RequestedOutputTokens, decimal? RequestedEstimatedCost);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public sealed record NhAiBudgetReservation( string ReservationId, NhAiModelBudget Remaining, DateTimeOffset ExpiresAt);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public interface INhAiBudgetManager {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public ValueTask<TaskResult<NhAiBudgetReservation>> ReserveAsync( NhAiBudgetRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public enum NhAiActorKind {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public sealed record NhAiProposalTarget( string Type, string Id);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public sealed record NhAiActionBudget( int MaxCalls, decimal? MaxEstimatedCost = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public sealed record NhAiProposalCreateRequest( Guid ProposalId, string RunId, NhAiActorKind ActorKind, string ActorId, string AccountableOwnerId, NhAiToolDescriptor Tool, object Arguments, IReadOnlyList<NhAiProposalTarget> Targets, string Intent, IReadOnlyList<string> ExpectedEffects, IReadOnlyDictionary<string, string> Constraints, NhAiActionBudget EstimatedBudget, DateTimeOffset GeneratedAt, DateTimeOffset ExpiresAt) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public string? ModelProfileName { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public string? PromptVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public string? PromptHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public string? CatalogHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public string? ContextHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public sealed record NhAiProposal( Guid ProposalId, string RunId, NhAiActorKind ActorKind, string ActorId, string AccountableOwnerId, string ToolId, int ToolVersion, string ToolContractHash, JsonElement Arguments, IReadOnlyList<NhAiProposalTarget> Targets, string Intent, IReadOnlyList<string> ExpectedEffects, IReadOnlyDictionary<string, string> Constraints, NhAiActionBudget EstimatedBudget, DateTimeOffset GeneratedAt, DateTimeOffset ExpiresAt, string? ModelProfileName, string? PromptVersion, string? CatalogHash, string? ContextHash, string ProposalHash) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public string? PromptHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public sealed record NhAiApproval( Guid ApprovalId, Guid ProposalId, string ProposalHash, string ApprovingActorId, IReadOnlyList<NhAiProposalTarget> AllowedTargets, IReadOnlyDictionary<string, string> Constraints, DateTimeOffset ApprovedAt, DateTimeOffset ExpiresAt, NhAiActionBudget? MaximumBudget = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public sealed record NhAiApprovalEvidence( NhAiProposal Proposal, NhAiApproval Approval);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public sealed record NhAiApprovalValidationResult( bool Succeeded, string Code);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public interface INhAiProposalFactory {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public interface INhAiApprovalValidator {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public interface INhAiApprovalEvidenceProvider {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public sealed class NhAiProposalFactory : INhAiProposalFactory {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public NhAiProposal Create(NhAiProposalCreateRequest request) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public string ComputeHash(NhAiProposal proposal) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public sealed class NhAiApprovalValidator( INhAiProposalFactory proposalFactory) : INhAiApprovalValidator {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public NhAiApprovalValidationResult Validate( NhAiToolDescriptor descriptor, NhAiInvocationContext context, object arguments, NhAiApprovalEvidence evidence, DateTimeOffset now) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public ValueTask<NhAiApprovalEvidence?> GetAsync( NhAiToolDescriptor descriptor, NhAiInvocationContext context, object arguments, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public static class NhAiServiceCollectionExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public static IServiceCollection AddNewHeapPlatformAI( this IServiceCollection services, Action<NhAiBuilder>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public sealed class NhAiBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder AddChatProfile( string name, Action<NhAiModelProfileBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder AddEmbeddingProfile( string name, Action<NhAiModelProfileBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder AddGeneratedToolCatalog< [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TCatalog>() where TCatalog : class, INhAiToolCatalog {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder RequireProfile( string profileName, params NhAiModelCapability[] requiredCapabilities) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseInvocationGate<TGate>() where TGate : class, INhAiToolInvocationGate {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseDiscoveryPolicy<TPolicy>() where TPolicy : class, INhAiToolDiscoveryPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseEffectPolicy<TPolicy>() where TPolicy : class, INhAiEffectPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseCapabilityResolver<TResolver>() where TResolver : class, INhAiCapabilityResolver {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseApprovalEvidenceProvider<TProvider>() where TProvider : class, INhAiApprovalEvidenceProvider {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseIdempotencyManager<TManager>( ServiceLifetime lifetime = ServiceLifetime.Scoped)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder AddVerifier<TVerifier>() where TVerifier : class, INhAiToolVerifier {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder AddContextContributor<TContributor>() where TContributor : class, INhAiInvocationContextContributor {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder AddAuditSink<TSink>() where TSink : class, INhAiAuditSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder AddUsageSink<TSink>() where TSink : class, INhAiUsageSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder AddContextSource<TSource>() where TSource : class, INhAiContextSource {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseContextAuthorizationPolicy<TPolicy>() where TPolicy : class, INhAiContextAuthorizationPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseContextRanker<TRanker>() where TRanker : class, INhAiContextRanker {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseContextConflictResolver<TResolver>() where TResolver : class, INhAiContextConflictResolver {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder AddContextTraceSink<TSink>() where TSink : class, INhAiContextTraceSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UsePromptAssembler<TAssembler>() where TAssembler : class, INhAiPromptAssembler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder AddIngestionSource<TSource>() where TSource : class, INhAiIngestionSource {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseIngestionAuthorizationPolicy<TPolicy>() where TPolicy : class, INhAiIngestionAuthorizationPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseIngestionVersionManager<TManager>( ServiceLifetime lifetime = ServiceLifetime.Scoped)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseDocumentChunker<TChunker>() where TChunker : class, INhAiDocumentChunker {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseBudgetManager<TManager>( ServiceLifetime lifetime = ServiceLifetime.Scoped)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseConcurrencyLimiter<TLimiter>( ServiceLifetime lifetime = ServiceLifetime.Singleton)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public IReadOnlyCollection<NhAiModelProfile> Profiles => _profiles.Values;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public IReadOnlyDictionary<string, NhAiModelCapability> StartupRequirements =>"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public void AddProfile(NhAiModelProfile profile) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public void AddStartupRequirement( string profileName, NhAiModelCapability requiredCapabilities) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public enum NhAiToolEffect {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public enum NhAiApprovalRequirement {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public enum NhAiIdempotencySupport {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public enum NhAiToolCatalogGovernance {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "[Flags] public enum NhAiToolExposure {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)] public sealed class NhAiToolSetAttribute(string id) : Attribute {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string Id { get; } = id;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public Type? JsonSerializerContextType { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "[AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)] public sealed class NhAiToolAttribute( string id, int version, NhAiToolEffect effect, NhAiToolExposure exposure) : Attribute {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string Id { get; } = id;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public int Version { get; } = version;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolEffect Effect { get; } = effect;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolExposure Exposure { get; } = exposure;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiApprovalRequirement Approval { get; set; } = NhAiApprovalRequirement.PolicyControlled;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiIdempotencySupport Idempotency { get; set; } = NhAiIdempotencySupport.None;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? VerifierId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public int TimeoutSeconds { get; set; } = 60;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public int MaxConcurrency { get; set; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public int MaxInputBytes { get; set; } = 65_536;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public int MaxResultBytes { get; set; } = 65_536;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiDataClassification DataClassification { get; set; } = NhAiDataClassification.Internal;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiRetentionCategory RetentionCategory { get; set; } = NhAiRetentionCategory.Operational;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string[] RequiredCapabilities { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public sealed record NhAiToolDescriptor( string Id, int Version, string Description, Type InputType, Type OutputType, NhAiToolEffect Effect, NhAiToolExposure Exposure, bool RequiresAuthorization, IReadOnlyList<string> AuthorizationPolicies) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string CatalogId { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public int CatalogVersion { get; init; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string DeclaringAssembly { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string InputSchemaJson { get; init; } = \"{}\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string OutputSchemaJson { get; init; } = \"{}\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string SchemaHash { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string ContractHash { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiApprovalRequirement Approval { get; init; } = NhAiApprovalRequirement.PolicyControlled;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiIdempotencySupport Idempotency { get; init; } = NhAiIdempotencySupport.None;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? VerifierId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(60);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public int MaxConcurrency { get; init; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public int MaxInputBytes { get; init; } = 65_536;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public int MaxResultBytes { get; init; } = 65_536;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiDataClassification DataClassification { get; init; } = NhAiDataClassification.Internal;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.Operational;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public IReadOnlyList<string> RequiredCapabilities { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public sealed record NhAiToolManifestEntry( string Id, int Version, string SchemaHash, string ContractHash);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public sealed record NhAiToolCatalogManifest( string CatalogId, int Version, string SchemaHash, IReadOnlyList<NhAiToolManifestEntry> Tools);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public sealed record NhAiInvocationContext( string ActorId, string Purpose, IReadOnlyDictionary<string, string> Scope) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public Guid InvocationId { get; init; } = Guid.NewGuid();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiActorKind ActorKind { get; init; } = NhAiActorKind.Human;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? RunId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public int? RunAttemptNumber { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? CorrelationId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? AccountableOwnerId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public IReadOnlyList<NhAiExecutionScopeEntry> ExecutionScopes { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public IReadOnlySet<string> CapabilityGrants { get; init; } = new HashSet<string>(StringComparer.Ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? ModelProfileName { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? PromptVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? PromptHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? AgentVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? CatalogVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? CatalogHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? ContextHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? ContextPolicyId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? ProposalId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? ApprovalId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? IdempotencyKey { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public string? FencingToken { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public DateTimeOffset? Deadline { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiModelBudget? RemainingBudget { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public bool TryGetScopeValue(string key, out string value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public sealed record NhAiExecutionScopeEntry( string Type, string Id, string? DisplayName = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public interface INhAiToolCatalog {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public interface INhAiGovernedAIFunction {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public sealed class NhAiGovernedAIFunction : AIFunction, INhAiGovernedAIFunction {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolDescriptor Descriptor { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public override string Name => _inner.Name;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public override string Description => _inner.Description;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public override JsonElement JsonSchema => _inner.JsonSchema;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public override JsonElement? ReturnJsonSchema => _inner.ReturnJsonSchema;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public override JsonSerializerOptions JsonSerializerOptions => _inner.JsonSerializerOptions;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public static AIFunction Create( NhAiToolDescriptor descriptor, AIFunction governedFunction) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "protected override ValueTask<object?> InvokeCoreAsync( AIFunctionArguments arguments, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public interface INhAiToolInvocationGate {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public interface INhAiToolInvoker {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolDiscovery.cs",
+        "declaration": "public sealed record NhAiToolDiscoveryRequest( NhAiInvocationContext Context, NhAiToolExposure Exposure);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolDiscovery.cs",
+        "declaration": "public interface INhAiToolDiscoveryPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolDiscovery.cs",
+        "declaration": "public interface INhAiToolDiscoveryService {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolDiscovery.cs",
+        "declaration": "public ValueTask<bool> CanDiscoverAsync( NhAiToolDescriptor descriptor, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolDiscovery.cs",
+        "declaration": "public async ValueTask<IReadOnlyList<NhAiToolDescriptor>> DiscoverAsync( NhAiToolDiscoveryRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public sealed class NhAiToolInvoker : INhAiToolInvoker {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public const string ActivitySourceName = \"NewHeap.Platform.AI\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public NhAiToolInvoker(INhAiToolInvocationGate invocationGate) : this( invocationGate, [], new NhAiDefaultEffectPolicy(), new NhAiDenyApprovalEvidenceProvider(), new NhAiApprovalValidator(new NhAiProposalFactory()), new NhAiDenyIdempotencyManager(), [], new NhAiInvocationContextCapabilityResolver(), new NhAiDenyBudgetManager(), new NhAiInProcessToolConcurrencyLimiter()) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public NhAiToolInvoker( INhAiToolInvocationGate invocationGate, INhAiBudgetManager budgetManager) : this( invocationGate, [], new NhAiDefaultEffectPolicy(), new NhAiDenyApprovalEvidenceProvider(), new NhAiApprovalValidator(new NhAiProposalFactory()), new NhAiDenyIdempotencyManager(), [], new NhAiInvocationContextCapabilityResolver(), budgetManager, new NhAiInProcessToolConcurrencyLimiter()) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public NhAiToolInvoker( INhAiToolInvocationGate invocationGate, IEnumerable<INhAiAuditSink> auditSinks) : this( invocationGate, auditSinks, new NhAiDefaultEffectPolicy(), new NhAiDenyApprovalEvidenceProvider(), new NhAiApprovalValidator(new NhAiProposalFactory()), new NhAiDenyIdempotencyManager(), [], new NhAiInvocationContextCapabilityResolver(), new NhAiDenyBudgetManager(), new NhAiInProcessToolConcurrencyLimiter()) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public NhAiToolInvoker( INhAiToolInvocationGate invocationGate, IEnumerable<INhAiAuditSink> auditSinks, INhAiBudgetManager budgetManager) : this( invocationGate, auditSinks, new NhAiDefaultEffectPolicy(), new NhAiDenyApprovalEvidenceProvider(), new NhAiApprovalValidator(new NhAiProposalFactory()), new NhAiDenyIdempotencyManager(), [], new NhAiInvocationContextCapabilityResolver(), budgetManager, new NhAiInProcessToolConcurrencyLimiter()) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public NhAiToolInvoker( INhAiToolInvocationGate invocationGate, IEnumerable<INhAiAuditSink> auditSinks, INhAiEffectPolicy effectPolicy, INhAiApprovalEvidenceProvider approvalEvidenceProvider, INhAiApprovalValidator approvalValidator) : this( invocationGate, auditSinks, effectPolicy, approvalEvidenceProvider, approvalValidator, new NhAiDenyIdempotencyManager(), [], new NhAiInvocationContextCapabilityResolver(), new NhAiDenyBudgetManager(), new NhAiInProcessToolConcurrencyLimiter()) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public NhAiToolInvoker( INhAiToolInvocationGate invocationGate, IEnumerable<INhAiAuditSink> auditSinks, INhAiEffectPolicy effectPolicy, INhAiApprovalEvidenceProvider approvalEvidenceProvider, INhAiApprovalValidator approvalValidator, INhAiIdempotencyManager idempotencyManager, IEnumerable<INhAiToolVerifier> verifiers) : this( invocationGate, auditSinks, effectPolicy, approvalEvidenceProvider, approvalValidator, idempotencyManager, verifiers, new NhAiInvocationContextCapabilityResolver(), new NhAiDenyBudgetManager(), new NhAiInProcessToolConcurrencyLimiter()) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public NhAiToolInvoker( INhAiToolInvocationGate invocationGate, IEnumerable<INhAiAuditSink> auditSinks, INhAiEffectPolicy effectPolicy, INhAiApprovalEvidenceProvider approvalEvidenceProvider, INhAiApprovalValidator approvalValidator, INhAiIdempotencyManager idempotencyManager, IEnumerable<INhAiToolVerifier> verifiers, INhAiBudgetManager budgetManager) : this( invocationGate, auditSinks, effectPolicy, approvalEvidenceProvider, approvalValidator, idempotencyManager, verifiers, new NhAiInvocationContextCapabilityResolver(), budgetManager, new NhAiInProcessToolConcurrencyLimiter()) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public NhAiToolInvoker( INhAiToolInvocationGate invocationGate, IEnumerable<INhAiAuditSink> auditSinks, INhAiEffectPolicy effectPolicy, INhAiApprovalEvidenceProvider approvalEvidenceProvider, INhAiApprovalValidator approvalValidator, INhAiIdempotencyManager idempotencyManager, IEnumerable<INhAiToolVerifier> verifiers, INhAiCapabilityResolver capabilityResolver) : this( invocationGate, auditSinks, effectPolicy, approvalEvidenceProvider, approvalValidator, idempotencyManager, verifiers, capabilityResolver, new NhAiDenyBudgetManager(), new NhAiInProcessToolConcurrencyLimiter()) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public NhAiToolInvoker( INhAiToolInvocationGate invocationGate, IEnumerable<INhAiAuditSink> auditSinks, INhAiEffectPolicy effectPolicy, INhAiApprovalEvidenceProvider approvalEvidenceProvider, INhAiApprovalValidator approvalValidator, INhAiIdempotencyManager idempotencyManager, IEnumerable<INhAiToolVerifier> verifiers, INhAiCapabilityResolver capabilityResolver, INhAiBudgetManager budgetManager) : this( invocationGate, auditSinks, effectPolicy, approvalEvidenceProvider, approvalValidator, idempotencyManager, verifiers, capabilityResolver, budgetManager, new NhAiInProcessToolConcurrencyLimiter()) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public NhAiToolInvoker( INhAiToolInvocationGate invocationGate, IEnumerable<INhAiAuditSink> auditSinks, INhAiEffectPolicy effectPolicy, INhAiApprovalEvidenceProvider approvalEvidenceProvider, INhAiApprovalValidator approvalValidator, INhAiIdempotencyManager idempotencyManager, IEnumerable<INhAiToolVerifier> verifiers, INhAiCapabilityResolver capabilityResolver, INhAiBudgetManager budgetManager, INhAiToolConcurrencyLimiter concurrencyLimiter) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public async Task<TaskResult<T>> InvokeAsync<T>( NhAiToolDescriptor descriptor, Func<NhAiInvocationContext, CancellationToken, Task<TaskResult<T>>> invocation, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public async Task<TaskResult<T>> InvokeAsync<T>( NhAiToolDescriptor descriptor, object arguments, Func<NhAiInvocationContext, CancellationToken, Task<TaskResult<T>>> invocation, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public override bool CanRead => false;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public override bool CanSeek => false;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public override bool CanWrite => true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public override long Length => _length;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public override long Position {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public override void Flush() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public override int Read(byte[] buffer, int offset, int count) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public override long Seek(long offset, SeekOrigin origin) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public override void SetLength(long value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public override void Write(byte[] buffer, int offset, int count) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public override void Write(ReadOnlySpan<byte> buffer) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public static readonly NhAiNoArguments Instance = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public static TaskResult<T> WithExecutionData<T>(this TaskResult<T> result, T? data) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "[Generator(LanguageNames.CSharp)] public sealed class NhAiToolGenerator : IIncrementalGenerator {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public void Initialize(IncrementalGeneratorInitializationContext context) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public static string Create(ITypeSymbol type) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public ToolModel( IMethodSymbol method, string setId, string toolId, int version, int effect, int exposure, string description, string inputType, string outputType, string? jsonSerializerContextType, string inputSchema, string outputSchema, string schemaHash, string contractHash, int approval, int idempotency, string? verifierId, int timeoutSeconds, int maxConcurrency, int maxInputBytes, int maxResultBytes, int dataClassification, int retentionCategory, ImmutableArray<string> requiredCapabilities, bool requiresAuthorization, ImmutableArray<string?> authorizationPolicies) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public IMethodSymbol Method { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string SetId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string ToolId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string LogicalId => SetId + \".\" + ToolId;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int Version { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int Effect { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int Exposure { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string Description { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string InputType { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string OutputType { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string? JsonSerializerContextType { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string InputSchema { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string OutputSchema { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string SchemaHash { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string ContractHash { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int Approval { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int Idempotency { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public string? VerifierId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int TimeoutSeconds { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int MaxConcurrency { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int MaxInputBytes { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int MaxResultBytes { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int DataClassification { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int RetentionCategory { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public ImmutableArray<string> RequiredCapabilities { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public bool RequiresAuthorization { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public ImmutableArray<string?> AuthorizationPolicies { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public sealed record NhAiMcpImportedToolPolicy( string RemoteName, string Id, string Description, NhAiToolEffect Effect, NhAiToolExposure Exposure, IReadOnlyList<string> AuthorizationPolicies) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public int Version { get; init; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public NhAiApprovalRequirement Approval { get; init; } = NhAiApprovalRequirement.Required;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public NhAiIdempotencySupport Idempotency { get; init; } = NhAiIdempotencySupport.None;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public string? VerifierId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(30);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public int MaxConcurrency { get; init; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public int MaxInputBytes { get; init; } = 65_536;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public int MaxResultBytes { get; init; } = 65_536;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public NhAiDataClassification DataClassification { get; init; } = NhAiDataClassification.Internal;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.Operational;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public IReadOnlyList<string> RequiredCapabilities { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public sealed record NhAiMcpImportOptions( string ServerId, string Namespace, IReadOnlyList<NhAiMcpImportedToolPolicy> Tools) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public int MaxInputSchemaBytes { get; init; } = 65_536;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public int MaxOutputSchemaBytes { get; init; } = 65_536;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public interface INhAiMcpClientToolImporter {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public INhAiToolCatalog Import( IEnumerable<McpClientTool> remoteTools, NhAiMcpImportOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public NhAiImportedMcpCatalog( string serverId, string toolNamespace, IReadOnlyList<NhAiImportedMcpTool> tools) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public IReadOnlyList<NhAiToolDescriptor> Descriptors { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public NhAiToolCatalogGovernance Governance => NhAiToolCatalogGovernance.SharedInvoker;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public NhAiToolCatalogManifest Manifest { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public IReadOnlyList<AIFunction> CreateFunctions(IServiceProvider services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public NhAiToolDescriptor Descriptor { get; } = CreateDescriptor( ServerId, Namespace, Policy, InputSchema, OutputSchema);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public override string Name => $\"mcp_{imported.Namespace}_{imported.Policy.Id}\".Replace('-', '_');"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public NhAiToolDescriptor Descriptor => imported.Descriptor;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public override string Description => imported.Policy.Description;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public override JsonElement JsonSchema => _inputSchema;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public override JsonElement? ReturnJsonSchema => _outputSchema;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "public override JsonSerializerOptions JsonSerializerOptions => imported.Remote.JsonSerializerOptions;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
+        "declaration": "protected override async ValueTask<object?> InvokeCoreAsync( AIFunctionArguments arguments, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public interface INhAiMcpToolAdapter {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public static class NhAiMcpServiceCollectionExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public static IServiceCollection AddNewHeapPlatformAIMcp( this IServiceCollection services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public async ValueTask<IReadOnlyList<McpServerTool>> CreateToolsAsync( IServiceProvider services, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public override Tool ProtocolTool => inner.ProtocolTool;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public override IReadOnlyList<object> Metadata => _metadata;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public override async ValueTask<CallToolResult> InvokeAsync( RequestContext<CallToolRequestParams> request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiCapturedSinks.cs",
+        "declaration": "public sealed class NhAiCapturedAuditSink : INhAiAuditSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiCapturedSinks.cs",
+        "declaration": "public IReadOnlyList<NhAiAuditRecord> Records {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiCapturedSinks.cs",
+        "declaration": "public ValueTask WriteAsync( NhAiAuditRecord record, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiCapturedSinks.cs",
+        "declaration": "public sealed class NhAiCapturedUsageSink : INhAiUsageSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiCapturedSinks.cs",
+        "declaration": "public IReadOnlyList<NhAiUsageRecord> Records {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiCapturedSinks.cs",
+        "declaration": "public ValueTask WriteAsync( NhAiUsageRecord record, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public sealed record NhAiRecordedChatRequest( IReadOnlyList<ChatMessage> Messages, ChatOptions? Options);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public sealed class NhAiDeterministicChatClient : IChatClient {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public NhAiDeterministicChatClient(params string[] responses) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public IReadOnlyList<NhAiRecordedChatRequest> Requests {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public void EnqueueResponse(string response) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public void EnqueueResponse(ChatResponse response) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public Task<ChatResponse> GetResponseAsync( IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync( IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public object? GetService(Type serviceType, object? serviceKey = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public sealed class NhAiDeterministicEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<float>> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public NhAiDeterministicEmbeddingGenerator( Func<string, ReadOnlyMemory<float>>? createVector = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public IReadOnlyList<string> Inputs {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public Task<GeneratedEmbeddings<Embedding<float>>> GenerateAsync( IEnumerable<string> values, EmbeddingGenerationOptions? options = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public object? GetService(Type serviceType, object? serviceKey = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public sealed class NhAiEvaluationCase {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public NhAiEvaluationCase( string id, IReadOnlyList<ChatMessage> messages, ChatResponse modelResponse, string expectedOutcomeCode, NhAiDataClassification classification, NhAiContextTrust trust, IReadOnlyList<string> executionScopeKeys, IReadOnlyList<string> provenanceReferences, IReadOnlyList<EvaluationContext>? contexts = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public string Id { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public IReadOnlyList<ChatMessage> Messages { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public ChatResponse ModelResponse { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public string ExpectedOutcomeCode { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public NhAiDataClassification Classification { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public NhAiContextTrust Trust { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public IReadOnlyList<string> ExecutionScopeKeys { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public IReadOnlyList<string> ProvenanceReferences { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public IReadOnlyList<EvaluationContext> Contexts { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public string ContentHash { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public sealed class NhAiEvaluationDataset {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public NhAiEvaluationDataset( string id, int version, string baselineId, int baselineVersion, IReadOnlyList<NhAiEvaluationCase> cases) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public string Id { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public int Version { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public string BaselineId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public int BaselineVersion { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public IReadOnlyList<NhAiEvaluationCase> Cases { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public string DatasetHash { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public sealed record NhAiEvaluationMetricSummary( string Name, string MetricType, string Rating, bool Failed, IReadOnlyDictionary<string, int> DiagnosticCounts);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public sealed record NhAiEvaluationCaseResult( string CaseId, string CaseContentHash, bool Passed, TimeSpan Duration, IReadOnlyList<NhAiEvaluationMetricSummary> Metrics);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public sealed record NhAiEvaluationReport( string DatasetId, int DatasetVersion, string DatasetHash, string BaselineId, int BaselineVersion, IReadOnlyList<string> MetricNames, IReadOnlyList<NhAiEvaluationCaseResult> Cases, bool Passed, DateTimeOffset StartedAt, DateTimeOffset CompletedAt) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public NhAiRetentionCategory RetentionCategory { get; init; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public interface INhAiEvaluationReportSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public sealed class NhAiEvaluationRunner( IEnumerable<INhAiEvaluationReportSink>? reportSinks = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public async Task<NhAiEvaluationReport> RunAsync( NhAiEvaluationDataset dataset, IEvaluator evaluator, ChatConfiguration? chatConfiguration = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public sealed class NhAiCapturedEvaluationReportSink : INhAiEvaluationReportSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public IReadOnlyList<NhAiEvaluationReport> Reports {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiEvaluationFixtures.cs",
+        "declaration": "public ValueTask WriteAsync( NhAiEvaluationReport report, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestContext.cs",
+        "declaration": "public sealed class NhAiTestContextSource : INhAiContextSource {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestContext.cs",
+        "declaration": "public NhAiTestContextSource( NhAiContextSourceDescriptor descriptor, Func<NhAiContextRequest, CancellationToken, ValueTask<IReadOnlyList<NhAiContextItem>>> retrieve) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestContext.cs",
+        "declaration": "public NhAiContextSourceDescriptor Descriptor { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestContext.cs",
+        "declaration": "public int Calls { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestContext.cs",
+        "declaration": "public async ValueTask<IReadOnlyList<NhAiContextItem>> RetrieveAsync( NhAiContextRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestContext.cs",
+        "declaration": "public static NhAiTestContextSource FromItems( string sourceId, params NhAiContextItem[] items) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestContext.cs",
+        "declaration": "public sealed class NhAiTestContextAuthorizationPolicy( Func<NhAiContextSourceDescriptor, NhAiInvocationContext, bool> authorize) : INhAiContextAuthorizationPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestContext.cs",
+        "declaration": "public ValueTask<bool> CanAccessSourceAsync( NhAiContextSourceDescriptor source, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestContext.cs",
+        "declaration": "public static NhAiTestContextAuthorizationPolicy Allowed() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestContext.cs",
+        "declaration": "public static NhAiTestContextAuthorizationPolicy Denied() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestDiscoveryPolicy.cs",
+        "declaration": "public sealed class NhAiTestDiscoveryPolicy : INhAiToolDiscoveryPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestDiscoveryPolicy.cs",
+        "declaration": "public NhAiTestDiscoveryPolicy( Func<NhAiToolDescriptor, NhAiInvocationContext, bool> decision) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestDiscoveryPolicy.cs",
+        "declaration": "public static NhAiTestDiscoveryPolicy Allowed() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestDiscoveryPolicy.cs",
+        "declaration": "public static NhAiTestDiscoveryPolicy Denied() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestDiscoveryPolicy.cs",
+        "declaration": "public ValueTask<bool> CanDiscoverAsync( NhAiToolDescriptor descriptor, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestExecutionGuards.cs",
+        "declaration": "public sealed class NhAiTestBudgetManager : INhAiBudgetManager {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestExecutionGuards.cs",
+        "declaration": "public NhAiTestBudgetManager(bool allow = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestExecutionGuards.cs",
+        "declaration": "public IReadOnlyList<NhAiBudgetRequest> Requests => _requests.ToArray();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestExecutionGuards.cs",
+        "declaration": "public ValueTask<TaskResult<NhAiBudgetReservation>> ReserveAsync( NhAiBudgetRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestExecutionGuards.cs",
+        "declaration": "public sealed class NhAiTestCapabilityResolver : INhAiCapabilityResolver {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestExecutionGuards.cs",
+        "declaration": "public ValueTask<NhAiCapabilityResolution> ResolveAsync( NhAiToolDescriptor descriptor, NhAiInvocationContext context, DateTimeOffset now, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestIngestion.cs",
+        "declaration": "public sealed class NhAiTestIngestionSource( string id, IEnumerable<NhAiIngestionDocument> documents) : INhAiIngestionSource {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestIngestion.cs",
+        "declaration": "public string Id { get; } = id;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestIngestion.cs",
+        "declaration": "public int Calls { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestIngestion.cs",
+        "declaration": "public ValueTask<NhAiIngestionDocument?> GetDocumentAsync( string documentId, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestIngestion.cs",
+        "declaration": "public sealed class NhAiTestIngestionAuthorizationPolicy( bool allowed, bool deleteAllowed = false) :"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestIngestion.cs",
+        "declaration": "public ValueTask<bool> CanReadAsync( string sourceId, string documentId, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestIngestion.cs",
+        "declaration": "public ValueTask<bool> CanDeleteAsync( string sourceId, string documentId, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestIngestion.cs",
+        "declaration": "public sealed class NhAiTestIngestionVersionManager : INhAiIngestionVersionManager {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestIngestion.cs",
+        "declaration": "public ValueTask<NhAiIngestionVersionLease> AcquireAsync( NhAiIngestionVersionRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestIngestion.cs",
+        "declaration": "public ValueTask CompleteAsync( NhAiIngestionVersionLease lease, NhAiOutcomeKind outcome, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestInvocationGate.cs",
+        "declaration": "public sealed class NhAiTestInvocationGate : INhAiToolInvocationGate {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestInvocationGate.cs",
+        "declaration": "public NhAiTestInvocationGate( Func<NhAiToolDescriptor, CancellationToken, ValueTask<TaskResult<NhAiInvocationContext>>> authorize) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestInvocationGate.cs",
+        "declaration": "public ValueTask<TaskResult<NhAiInvocationContext>> AuthorizeAsync( NhAiToolDescriptor descriptor, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestInvocationGate.cs",
+        "declaration": "public static NhAiTestInvocationGate Authorized(NhAiInvocationContext context) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiTestInvocationGate.cs",
+        "declaration": "public static NhAiTestInvocationGate Denied(string error) {"
+      },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Caching/Extensions.cs",
         "declaration": "public static class Extensions {"
@@ -5015,6 +7551,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationSuspensionContext {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationSignalService {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
         "declaration": "public interface INhBackgroundOperationProgressContext {"
       },
       {
@@ -5096,6 +7640,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
         "declaration": "public sealed record NhBackgroundOperationCheckpointValue<T>( T Value, int SchemaVersion, long Version);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public enum NhBackgroundOperationSignalWaitStatus {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationSignalWaitResult<TSignal>( NhBackgroundOperationSignalWaitStatus Status, TSignal? Signal, Guid? SignaledByUserId, DateTimeOffset? SignaledAt, DateTimeOffset ExpiresAt);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public enum NhBackgroundOperationSignalWriteStatus {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationSignalWriteResult( NhBackgroundOperationSignalWriteStatus Status, Guid OperationId, string WaitKey, DateTimeOffset SignaledAt);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
@@ -5583,6 +8143,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public INhBackgroundOperationSuspensionContext Suspension { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
         "declaration": "public async Task ThrowIfCancellationRequestedAsync(CancellationToken cancellationToken = default)"
       },
       {
@@ -5876,6 +8440,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationStartupValidator.cs",
         "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSuspension.cs",
+        "declaration": "public async Task<NhBackgroundOperationSignalWaitResult<TSignal>> WaitForSignalAsync<TSignal>( string waitKey, DateTimeOffset expiresAt, int signalSchemaVersion = 1, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSuspension.cs",
+        "declaration": "public Task<TaskResult<NhBackgroundOperationSignalWriteResult>> SignalForOwnerAsync<TSignal>( Guid operationId, Guid ownerUserId, Guid signaledByUserId, string waitKey, TSignal signal, int signalSchemaVersion = 1, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhHangfireBackgroundOperationScheduler.cs",
@@ -14846,6 +17418,122 @@
     ]
   },
   "guidedSymbols": {
+    "nh-ai-agent-framework": [
+      "INhAiAgentFrameworkAdapter",
+      "INhAiAgentFrameworkWorkflowCheckpointAdapter",
+      "NhAiAgentCreateRequest",
+      "NhAiAgentDescriptor",
+      "NhAiAgentFrameworkServiceCollectionExtensions",
+      "NhAiAgentInstance",
+      "NhAiAutonomyLevel"
+    ],
+    "nh-ai-aspnet-context": [
+      "NhAiAspNetBuilder",
+      "NhAiAspNetScopeAuthorizationResource",
+      "NhAiAspNetServiceCollectionExtensions"
+    ],
+    "nh-ai-assets": [
+      "NhAiAssetManifest",
+      "NhAiAssetRole",
+      "NhAiTextAsset",
+      "NhAiTextAssetFactory"
+    ],
+    "nh-ai-context-retrieval": [
+      "INhAiContextAuthorizationPolicy",
+      "INhAiContextFormatter",
+      "INhAiContextRanker",
+      "INhAiContextResolver",
+      "INhAiContextSource",
+      "NhAiContextItem",
+      "NhAiContextRankedItem",
+      "NhAiContextRequest",
+      "NhAiContextResolution",
+      "NhAiContextSourceDescriptor",
+      "NhAiContextTraceEntry",
+      "NhAiContextTrust",
+      "NhAiTestContextAuthorizationPolicy",
+      "NhAiTestContextSource"
+    ],
+    "nh-ai-durable-runs": [
+      "INhAiBackgroundOperationRunAdapter",
+      "NhAiRunCheckpointReference",
+      "NhAiRunCheckpointReferenceFactory",
+      "NhAiBackgroundApprovalSignal"
+    ],
+    "nh-ai-ingestion": [
+      "INhAiIngestionPipeline",
+      "INhAiIngestionSource",
+      "INhAiIngestionAuthorizationPolicy",
+      "INhAiIngestionVersionManager",
+      "NhAiIngestionVersionDecisionKind",
+      "NhAiIngestionVersionLease",
+      "NhAiIngestionVersionRequest",
+      "NhAiIngestionRequest",
+      "NhAiIngestionBatchRequest",
+      "NhAiIngestionDeletionRequest",
+      "NhAiTestIngestionVersionManager",
+      "NhAiVectorRecord",
+      "INhAiBackgroundOperationIngestionAdapter",
+      "NhAiDurableIngestionCheckpoint"
+    ],
+    "nh-ai-mcp-imports": [
+      "INhAiMcpClientToolImporter",
+      "NhAiMcpImportOptions",
+      "NhAiMcpImportedToolPolicy"
+    ],
+    "nh-ai-mcp-tools": [
+      "INhAiMcpToolAdapter",
+      "NhAiMcpServiceCollectionExtensions"
+    ],
+    "nh-ai-model-profiles": [
+      "INhAiModelProfileRegistry",
+      "INhAiModelProfileResolver",
+      "NhAiBuilder",
+      "NhAiDataClassification",
+      "NhAiDeterministicChatClient",
+      "NhAiDeterministicEmbeddingGenerator",
+      "NhAiModelBudget",
+      "NhAiModelCapability",
+      "NhAiModelProfile",
+      "NhAiModelProfileBuilder",
+      "NhAiModelResolutionRequest",
+      "NhAiResolvedChatProfile",
+      "NhAiServiceCollectionExtensions",
+      "NhAiStreamingPolicy"
+    ],
+    "nh-ai-observability-evaluation": [
+      "INhAiChatExecutor",
+      "NhAiChatRequest",
+      "NhAiChatResult",
+      "NhAiChatStream",
+      "NhAiChatStreamCompletion",
+      "INhAiUsageSink",
+      "NhAiUsageRecord",
+      "NhAiEvaluationDataset",
+      "NhAiEvaluationRunner",
+      "NhAiEvaluationReport"
+    ],
+    "nh-ai-protected-actions": [
+      "INhAiApprovalEvidenceProvider",
+      "INhAiApprovalValidator",
+      "INhAiBudgetManager",
+      "INhAiCapabilityResolver",
+      "INhAiEffectPolicy",
+      "INhAiIdempotencyManager",
+      "INhAiProposalFactory",
+      "INhAiToolConcurrencyLimiter",
+      "INhAiToolVerifier",
+      "NhAiActionBudget",
+      "NhAiApproval",
+      "NhAiApprovalEvidence",
+      "NhAiCapabilityGrant",
+      "NhAiCapabilityResolution",
+      "NhAiIdempotencyRequest",
+      "NhAiProposal",
+      "NhAiProposalCreateRequest",
+      "NhAiToolEffect",
+      "NhAiVerificationResult"
+    ],
     "nh-auth-override-hydration": [
       "NhAuthenticationService",
       "INhAuthenticationService",
@@ -14856,6 +17544,29 @@
       "ProtectedNhBaseController",
       "NhDivisionRoleClaim",
       "NhUserManager"
+    ],
+    "nh-ai-local-tool-contract": [
+      "INhAiGovernedAIFunction",
+      "INhAiToolCatalog",
+      "INhAiToolDiscoveryPolicy",
+      "INhAiToolDiscoveryService",
+      "INhAiToolInvocationGate",
+      "INhAiToolInvoker",
+      "NhAiGovernedAIFunction",
+      "NhAiInvocationContext",
+      "NhAiTestBudgetManager",
+      "NhAiTestDiscoveryPolicy",
+      "NhAiTestInvocationGate",
+      "NhAiToolAttribute",
+      "NhAiToolCatalogGovernance",
+      "NhAiToolCatalogManifest",
+      "NhAiToolDescriptor",
+      "NhAiToolDiscoveryRequest",
+      "NhAiToolEffect",
+      "NhAiToolExposure",
+      "NhAiToolInvoker",
+      "NhAiToolManifestEntry",
+      "NhAiToolSetAttribute"
     ],
     "nh-backend-controller-contracts": [
       "ProtectedNhBaseController",
@@ -14946,6 +17657,12 @@
       "NhCommonModule",
       "NhHttpNhCommonModuleConfig",
       "NhFormDropDownNhCommonModuleConfig"
+    ],
+    "nh-background-operation-suspension": [
+      "INhBackgroundOperationSuspensionContext",
+      "INhBackgroundOperationSignalService",
+      "NhBackgroundOperationSignalWaitResult",
+      "NhBackgroundOperationSignalWriteResult"
     ],
     "nh-configuration-overrides": [
       "ConfigureNhCommonConfiguration",

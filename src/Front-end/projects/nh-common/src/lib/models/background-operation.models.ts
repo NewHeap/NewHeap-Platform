@@ -5,6 +5,7 @@ export type NhBackgroundOperationStatus =
   | 'Queued'
   | 'Running'
   | 'WaitingForChildren'
+  | 'WaitingForSignal'
   | 'CancelRequested'
   | 'RetryScheduled'
   | 'Succeeded'
@@ -54,6 +55,8 @@ export type NhBackgroundOperationEventType =
   | 'ResultAvailable'
   | 'ChildrenCreated'
   | 'ChildrenCompleted'
+  | 'SignalWaitStarted'
+  | 'SignalReceived'
   | number;
 
 export type NhBackgroundOperationMessageSeverity =
@@ -206,6 +209,7 @@ export function nhBackgroundOperationStatusName(status: NhBackgroundOperationSta
     10: 'Queued',
     20: 'Running',
     25: 'WaitingForChildren',
+    27: 'WaitingForSignal',
     30: 'CancelRequested',
     40: 'RetryScheduled',
     100: 'Succeeded',

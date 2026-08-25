@@ -25,6 +25,7 @@ internal sealed class NhBackgroundOperationContext : INhBackgroundOperationConte
         Leases = leases;
         Idempotency = new NhBackgroundOperationIdempotencyManager(claim, Checkpoints);
         FanOut = new NhBackgroundOperationFanOutContext(claim, fanOutCoordinator);
+        Suspension = new NhBackgroundOperationSuspensionContext(claim, persistence);
     }
 
     public Guid OperationId => _claim.OperationId;
@@ -38,6 +39,7 @@ internal sealed class NhBackgroundOperationContext : INhBackgroundOperationConte
     public INhBackgroundOperationLeaseManager Leases { get; }
     public INhBackgroundOperationIdempotencyManager Idempotency { get; }
     public INhBackgroundOperationFanOutContext FanOut { get; }
+    public INhBackgroundOperationSuspensionContext Suspension { get; }
 
     public async Task ThrowIfCancellationRequestedAsync(CancellationToken cancellationToken = default)
     {

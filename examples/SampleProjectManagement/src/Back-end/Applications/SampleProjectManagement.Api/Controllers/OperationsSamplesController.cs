@@ -139,4 +139,98 @@ public sealed class OperationsSamplesController : ControllerBase
 
         return Accepted(result.Data);
     }
+
+    [HttpPost("background-operations/project-ai-portfolio-report")]
+    [EndpointSummary("Start an approval-gated durable AI portfolio report")]
+    [EndpointDescription("Captures an application-owned project snapshot, stores a versioned AI checkpoint reference, releases the worker while awaiting approval, and resumes without using chat history as authoritative state.")]
+    [ProducesResponseType<NhBackgroundOperationViewModel>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> EnqueueProjectAiPortfolioReport(
+        [FromBody] ProjectAiPortfolioReportMutateModel model,
+        CancellationToken cancellationToken)
+    {
+        if (model.ApprovalExpiresAt <= DateTimeOffset.UtcNow
+            || model.ApprovalExpiresAt > DateTimeOffset.UtcNow.AddDays(7))
+        {
+            ModelState.AddModelError(
+                nameof(model.ApprovalExpiresAt),
+                "Approval expiry must be in the future and no more than seven days away.");
+        }
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var userId = HttpContext.GetUserId();
+        var divisionId = HttpContext.GetActiveDivisionId();
+        if (!userId.HasValue || !divisionId.HasValue)
+        {
+            ModelState.AddModelError(string.Empty, "An authenticated user and active division are required.");
+            return BadRequest(ModelState);
+        }
+        if (!await HttpContext.HasDivisionAccessAsync(
+                divisionId,
+                cancellationToken: cancellationToken))
+        {
+            return Forbid();
+        }
+
+        var result = await _operationsService.EnqueueAiPortfolioReportAsync(
+            model,
+            userId.Value,
+            divisionId.Value,
+            cancellationToken);
+        if (!result.Success)
+        {
+            result.ApplyToModelState(ModelState);
+            return BadRequest(ModelState);
+        }
+        return Accepted(result.Data);
+    }
+
+    [HttpPost("background-operations/{operationId:guid}/project-ai-portfolio-report-approval")]
+    [EndpointSummary("Signal approval for a durable AI portfolio report")]
+    [EndpointDescription("Persists an exact proposal-bound approval signal and wakes the caller-owned operation. Duplicate identical signals are idempotent and conflicting signals are rejected.")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ApproveProjectAiPortfolioReport(
+        Guid operationId,
+        [FromBody] ProjectAiPortfolioReportApprovalMutateModel model,
+        CancellationToken cancellationToken)
+    {
+        if (model.ApprovalId == Guid.Empty)
+        {
+            ModelState.AddModelError(nameof(model.ApprovalId), "Approval ID is required.");
+        }
+        if (model.ProposalId == Guid.Empty)
+        {
+            ModelState.AddModelError(nameof(model.ProposalId), "Proposal ID is required.");
+        }
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+        var userId = HttpContext.GetUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _operationsService.ApproveAiPortfolioReportAsync(
+            operationId,
+            model,
+            userId.Value,
+            userId.Value,
+            cancellationToken);
+        if (!result.Success)
+        {
+            result.ApplyToModelState(ModelState);
+            return BadRequest(ModelState);
+        }
+        return Accepted(result.Data);
+    }
 }

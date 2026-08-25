@@ -71,10 +71,43 @@ public interface INhBackgroundOperationContext
     INhBackgroundOperationLeaseManager Leases { get; }
     INhBackgroundOperationIdempotencyManager Idempotency { get; }
     INhBackgroundOperationFanOutContext FanOut { get; }
+    INhBackgroundOperationSuspensionContext Suspension { get; }
 
     Task ThrowIfCancellationRequestedAsync(CancellationToken cancellationToken = default);
     Task SetResultAsync(
         NhBackgroundOperationResultReference result,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Durably suspends an operation until an authorized application service
+/// supplies a typed signal or the wait expires. The handler is re-entered from
+/// its beginning after wake-up, so work before this call must be repeatable or
+/// protected by checkpoints and idempotency.
+/// </summary>
+public interface INhBackgroundOperationSuspensionContext
+{
+    Task<NhBackgroundOperationSignalWaitResult<TSignal>> WaitForSignalAsync<TSignal>(
+        string waitKey,
+        DateTimeOffset expiresAt,
+        int signalSchemaVersion = 1,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Persists a signal and wakes a suspended operation. Application code must
+/// authorize the signaling actor before calling this service; the owner ID is
+/// matched again at the persistence boundary.
+/// </summary>
+public interface INhBackgroundOperationSignalService
+{
+    Task<TaskResult<NhBackgroundOperationSignalWriteResult>> SignalForOwnerAsync<TSignal>(
+        Guid operationId,
+        Guid ownerUserId,
+        Guid signaledByUserId,
+        string waitKey,
+        TSignal signal,
+        int signalSchemaVersion = 1,
         CancellationToken cancellationToken = default);
 }
 
@@ -329,6 +362,31 @@ public sealed record NhBackgroundOperationCheckpointValue<T>(
     T Value,
     int SchemaVersion,
     long Version);
+
+public enum NhBackgroundOperationSignalWaitStatus
+{
+    Signaled = 0,
+    Expired = 10
+}
+
+public sealed record NhBackgroundOperationSignalWaitResult<TSignal>(
+    NhBackgroundOperationSignalWaitStatus Status,
+    TSignal? Signal,
+    Guid? SignaledByUserId,
+    DateTimeOffset? SignaledAt,
+    DateTimeOffset ExpiresAt);
+
+public enum NhBackgroundOperationSignalWriteStatus
+{
+    Accepted = 0,
+    Duplicate = 10
+}
+
+public sealed record NhBackgroundOperationSignalWriteResult(
+    NhBackgroundOperationSignalWriteStatus Status,
+    Guid OperationId,
+    string WaitKey,
+    DateTimeOffset SignaledAt);
 
 public sealed record NhBackgroundOperationBatchSnapshot(
     long Discovered,

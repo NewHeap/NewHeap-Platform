@@ -207,6 +207,12 @@ public sealed class NhBackgroundOperationRunner
                 // final child wakes the parent without consuming a retry or a
                 // worker slot while child operations are active.
             }
+            catch (NhBackgroundOperationSignalPendingException)
+            {
+                // The suspension context atomically closed this attempt and
+                // released the worker. A signal or durable expiry wakes a new
+                // attempt without consuming retry budget.
+            }
             catch (Exception exception)
             {
                 await CompleteUnexpectedFailureAsync(

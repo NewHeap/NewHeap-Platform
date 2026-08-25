@@ -97,7 +97,10 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
             .Where(x => x.ProcessorKey == _options.ProcessorKey)
             .Where(x => (x.Status == NhBackgroundOperationStatus.PendingDispatch
                          || x.Status == NhBackgroundOperationStatus.RetryScheduled
-                         || x.Status == NhBackgroundOperationStatus.WaitingForChildren)
+                         || x.Status == NhBackgroundOperationStatus.WaitingForChildren
+                         || x.Status == NhBackgroundOperationStatus.WaitingForSignal
+                         || (x.Status == NhBackgroundOperationStatus.CancelRequested
+                             && x.CurrentAttemptId == null))
                         && (x.NextDispatchAt == null || x.NextDispatchAt <= now))
             .OrderByDescending(x => x.Priority)
             .ThenBy(x => x.CreationDateTime)

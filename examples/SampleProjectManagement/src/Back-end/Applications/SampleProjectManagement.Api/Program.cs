@@ -12,6 +12,7 @@ using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.OpenApiSchemaTransformers;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
+using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Events.Cap;
@@ -22,6 +23,7 @@ using SampleProjectManagement.Api.Services;
 using SampleProjectManagement.Api.Jobs;
 using SampleProjectManagement.Api.Events;
 using SampleProjectManagement.Core;
+using SampleProjectManagement.Core.Services;
 using SampleProjectManagement.Core.Events;
 using SampleProjectManagement.Core.Utilities;
 using SampleProjectManagement.DAL;
@@ -76,6 +78,12 @@ var platformOptions = NewHeapAspNetCommonOptions
             policy => policy.RequireActiveDivisionAccess(
                 null,
                 new Claim(NhPlatformClaimTypes.DivisionPermission, "project.view")));
+
+        options.AddPolicy(
+            "app.active-division.project.manage",
+            policy => policy.RequireActiveDivisionAccess(
+                null,
+                new Claim(NhPlatformClaimTypes.DivisionPermission, "project.manage")));
 
         options.AddPolicy(
             SampleAuthorizationPolicies.ProjectConfidentialView,
@@ -187,6 +195,16 @@ builder.Services
         // owner/division/priority/correlation and uses its normal handler queue.
         operations.Add<ProjectAnalysisChildRequest, ProjectAnalysisChildOperation>(
             "sample-project-analysis-child");
+        operations.Add<ProjectAiPortfolioReportRequest, ProjectAiPortfolioReportOperation>(
+            "sample-project-ai-portfolio-report",
+            operation => operation
+                .WithSoftTimeout(TimeSpan.FromMinutes(5))
+                .ExclusivePer(
+                    request => NhBackgroundOperationResourceKey.ForDivisionAction(
+                        "generate-ai-portfolio-report",
+                        request.DivisionId),
+                    NhBackgroundOperationConflictBehavior.ReturnExisting)
+                .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
     })
     .WithNotifications(NotificationProcessingSample.Configure)
     .ConfigureEmailNotificationSettings(options =>
@@ -197,6 +215,16 @@ builder.Services
     });
 
 builder.Services.AddSampleProjectManagementCore();
+builder.Services.AddSampleProjectManagementAi();
+builder.Services.AddNewHeapPlatformAIAspNet(ai => ai
+    .UseToolInvocationPurpose("project-assistance")
+    .AddActiveDivisionScope("app.active-division.project.view")
+    .AddCapabilityGrant(
+        ProjectAiTools.ReadCapability,
+        "app.active-division.project.view")
+    .AddCapabilityGrant(
+        ProjectAiTools.ManageCapability,
+        "app.active-division.project.manage"));
 builder.Services.AddScoped<IClaimsTransformation, SampleRuntimeClaimsTransformation>();
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectAccessHandler>();
 builder.Services.AddSingleton<SampleEventLog>();

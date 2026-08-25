@@ -120,6 +120,12 @@ The complete public-surface mapping and intended sample entry points are documen
 |---|---|---|---|
 <!-- SAMPLE_CASES:17 -->
 
+## 18. AI tools and generated catalogs
+
+| ID | Case | Library surface | Verifiable outcome |
+|---|---|---|---|
+<!-- SAMPLE_CASES:18 -->
+
 ## Coverage matrix
 
 | Library area | Cases | Count |
@@ -127,9 +133,9 @@ The complete public-surface mapping and intended sample entry points are documen
 | CRUD, controllers, services, and models | SPM-001–015 | 15 |
 | Collections, filters, expressions, and projections | SPM-016–035 | 20 |
 | Full, partial, and bulk mutations and validation | SPM-036–050 | 15 |
-| DAL, repositories, SQL, EF, and transactions | SPM-051–060 | 10 |
+| DAL, repositories, SQL, EF, and transactions | SPM-051–060, SPM-218 | 11 |
 | Authentication, identity, claims, and policies | SPM-061–075 | 15 |
-| Events, Hangfire, email, and notifications | SPM-076–090 | 15 |
+| Events, Hangfire, email, and notifications | SPM-076–090, SPM-229 | 16 |
 | Localization, options, middleware, and OpenAPI | SPM-091–105 | 15 |
 | Frontend HTTP, forms, and modals | SPM-106–125, SPM-215 | 21 |
 | Frontend collections, routing, authentication, and interaction | SPM-126–140 | 15 |
@@ -141,7 +147,8 @@ The complete public-surface mapping and intended sample entry points are documen
 | Helpers, extensions, and transactional boundaries | SPM-201–209 | 9 |
 | Authorization implementation patterns | SPM-210–214 | 5 |
 | Consumer repository foundation | SPM-216–217 | 2 |
-| **Total** | **217 cases** | **217** |
+| AI tools and generated catalogs | SPM-219–228, SPM-230–236 | 17 |
+| **Total** | **236 cases** | **236** |
 
 ## Identified gaps and risks
 
@@ -156,6 +163,24 @@ The complete public-surface mapping and intended sample entry points are documen
 9. SPM-112 and SPM-215 show the recommended opt-ins explicitly in the sample configuration. The library defaults deliberately remain disabled for backward compatibility with existing applications.
 10. SPM-216 keeps shared .NET build settings and direct NuGet versions centralized inside `src/Back-end` so generated consumer projects start from the same backend-wide contract.
 11. SPM-217 proves that the versioned consumer bootstrap creates the standard layout and that post-bootstrap inspection rejects root-level workspace drift before feature work continues.
+12. SPM-219 proves the first provider-neutral AI seam: generated local functions, stable descriptors, fail-closed authorization, explicit division scope, and content-safe telemetry.
+13. SPM-220 keeps model-provider selection consumer-owned while proving stable named profiles, keyed Microsoft clients, declared capability and data policy, deterministic fakes, and fail-fast startup validation.
+14. SPM-221 proves tool discovery is separately authorized and default-deny: a generated tool without both authorized division scope and its narrow capability grant is absent rather than merely failing after model selection.
+15. SPM-222 invokes that same generated function through the official MCP in-memory server/client transport; the adapter adds protocol metadata but cannot bypass NewHeap discovery or invocation authorization.
+16. SPM-223 derives AI division scope and its narrow read grant through the existing ASP.NET authorization policy; request headers and model input remain data rather than authorization evidence.
+17. SPM-224 protects a generated status mutation with exact proposal approval, scoped manage capability, idempotency and fencing, bounded execution, and an independent status re-read before success.
+18. SPM-225 creates a stable non-human Microsoft Agent Framework agent from a named model profile and only the generated tools that survive Agent discovery, allow-listing, and its autonomy ceiling.
+19. SPM-226 authorizes project context before retrieval, filters it to the active division, preserves provenance and untrusted-data classification, and applies deterministic conflict and content budgets.
+20. SPM-227 keeps project-agent instructions application-owned while a content-free version/hash manifest binds required capabilities, tools, context policy, retention, evaluation, agent creation, and approvals.
+21. SPM-228 imports only an explicitly allowlisted external MCP tool under a local namespace, discards remote authority claims, and executes the wrapper through the same NewHeap authorization and runtime guards.
+22. SPM-229 supplies the missing general suspension boundary: a background-operation attempt is atomically released until one typed, owner-bound signal or its durable expiry wakes a new fenced attempt.
+23. SPM-230 maps that durable boundary to a non-human AI report run with application-owned snapshot state, a versioned content-free checkpoint reference, exact approval, and idempotent artifact publication.
+24. SPM-231 uses the standard VectorData abstractions behind an authorization-first, scope-filterable ingestion path with deterministic chunks, provenance, classification, embedding policy and idempotency metadata.
+25. SPM-232 wraps direct and streaming Microsoft AI calls with profile/run budgets, deadlines, content-free usage and telemetry, and cancellation cleanup without replacing the standard response types.
+26. SPM-233 makes model-facing changes evaluable through versioned Microsoft AI Evaluation datasets, deterministic injection and scope fixtures, fail-closed interpretations and content-free baseline reports.
+27. SPM-234 publishes a generated local tool catalog as a trimmed Native AOT executable so descriptors, schema manifests and functions remain rooted without runtime discovery.
+28. SPM-235 completes ingestion lifecycle behavior with durable content-free replay, exact replacement lineage, authorized deletion and per-document partial batch outcomes.
+29. SPM-236 binds official Agent Framework workflow checkpoint identity to a versioned NewHeap durable reference and rejects changed workflow or state lineage.
 
 ## Follow-up for library gaps
 

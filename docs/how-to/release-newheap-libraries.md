@@ -14,25 +14,36 @@ The release pipeline publishes NuGet packages to nuget.org, scoped npm packages 
 
 | Unit | Contents | Example tag |
 |---|---|---|
-| `nuget-common` | Common, Common.Test, AspNet.Common, AspNet.Common.Test, and Events.Cap | `nuget-common-v<version>` |
+| `nuget-common` | Mapping, Common and ASP.NET foundations, AI packages and test helpers, Events.Cap, and DatabaseRead.Tool | `nuget-common-v<version>` |
 | `nuget-caching` | AspNet.Caching | `nuget-caching-v<version>` |
 | `nuget-media` | Core, SQL Server, PostgreSQL, HTTP, file system, S3, and the bundle | `nuget-media-v<version>` |
 | `npm-platform-common` | `@newheap/platform-common` | `npm-platform-common-v<version>` |
 | `npm-nh-toastr` | `@newheap/nh-toastr` | `npm-nh-toastr-v<version>` |
-| `newheap-platform-plugin` | Installable AI plugin and consumer skill | `newheap-platform-plugin-v<version>` |
+| `newheap-platform-plugin` | Installable NewHeap Platform plugin and consumer skill suite | `newheap-platform-plugin-v<version>` |
 
 Versions remain independent. The `all` option applies the selected SemVer bump to every unit but preserves separate versions, tags, artifacts, and GitHub Releases. In an all-unit release, Common is packed first and exposed as a temporary local NuGet source for dependent Media packages.
 
-## One-time public registry setup
+## Established release configuration
 
-1. Recreate `NewHeap/NewHeap-Platform` as a public repository and protect `main` against deletion and non-fast-forward changes while allowing the release workflow to fast-forward its validated commit.
-2. Create or verify the `@newheap` npm organization/scope and the NuGet.org `NewHeap` owner. Confirm every package ID and npm name is controlled by NewHeap before the first push.
-3. Bootstrap the first version of a new npm package only if npm requires an existing package before trusted publishing can be configured. Use a reviewed, temporary main-only workflow and a short-lived granular token that is limited to the required public package names, enables bypass 2FA only for the bootstrap, and expires as soon as practical. The workflow must refuse existing package names, package through the normal artifact validator, publish with public access, and verify the exact version anonymously. Immediately configure the package's trusted publisher for the public repository and the top-level calling workflow `prepare-release.yml`, delete the repository secret, revoke the npm token, and remove the temporary workflow in the next cleanup commit. No bootstrap token or workflow may remain in the established repository.
-4. On nuget.org, add a trusted publishing policy for the NewHeap owner, repository, and publishing workflow `publish-release.yml`. Set repository variable `NUGET_USER` to the NuGet.org profile name, not an email address.
-5. For optional preview publication, create a separate nuget.org policy for `publish-preview.yml`, create the protected `public-package-preview` environment, and bind the policy to that environment.
-6. Give the relevant jobs `id-token: write`. Keep external Actions pinned to full commit SHAs and enable GitHub Release immutability.
+The public repository, `@newheap` npm scope, NuGet.org `NewHeap` owner, branch protection, immutable GitHub Releases, and trusted-publisher identities are already established. They are release infrastructure, not steps to repeat before an ordinary release.
 
-npm validates the top-level calling workflow for this reusable-workflow chain, so its trusted publisher uses `prepare-release.yml`. NuGet validates the reusable publishing workflow identity, so its policy uses `publish-release.yml`. Perform a one-package smoke release before selecting `all`; if a registry does not accept the configured workflow identity, stop and adjust the policy/workflow boundary without falling back to a permanent token.
+- npm trusted publishers are configured per package for `NewHeap/NewHeap-Platform` and the top-level calling workflow `prepare-release.yml`. Existing packages should disallow traditional publication tokens after OIDC has been verified.
+- The NuGet.org owner policy trusts `NewHeap/NewHeap-Platform` and `publish-release.yml`; repository variable `NUGET_USER` contains the NuGet.org profile name, not an email address.
+- Optional public previews use the separate `publish-preview.yml` policy and protected `public-package-preview` environment.
+- Publication jobs require `id-token: write`; external Actions remain pinned to full commit SHAs.
+
+Treat changes to these identities, policies, or protections as security-sensitive administration. If authentication fails, stop and repair the workflow-policy match. Never bypass it with a permanent registry token.
+
+## Add a new package name
+
+This section applies only when `release/manifest.json` gains a NuGet ID or npm name that has never been published. It does not apply to a new version of an existing package.
+
+1. Verify the exact public name is available or already controlled by NewHeap before merging the manifest change. Keep package metadata, repository URLs, licensing, and release-unit membership reviewable as normal source changes.
+2. Confirm the established owner or trusted-publisher policy covers the new target. npm trusted publishing is package-specific, while the NuGet policy is owned by the `NewHeap` account.
+3. A brand-new npm package may need one exceptional bootstrap publication because its package settings do not exist yet. If so, use a reviewed, temporary main-only workflow and a short-lived granular token scoped to that single public package. Package and verify it through the normal tooling, then immediately configure its trusted publisher for `prepare-release.yml`, disallow traditional publication tokens, delete the secret and workflow, and revoke the token.
+4. Release the owning unit with **Prepare release** and an appropriate SemVer bump. Adding a new package name does not by itself require a major bump: use patch or minor during rapid development when the existing packages remain compatible, and reserve major for an actual breaking contract. Never add new package membership to a unit version that has already been published, and never use `all` merely to test a new registry identity.
+
+No bootstrap credential or temporary publication workflow may remain in the established repository.
 
 ## Preview packages
 
@@ -50,15 +61,6 @@ Do not edit unit version fields in `release/manifest.json`, `guidance/version.js
 6. After a successful individual NuGet or npm release, the top-level workflow queues a separate plugin patch release so its immutable artifact records the new `compatiblePackages`. A plugin release never queues itself, and `all` already includes the plugin.
 
 If registry publication succeeds but finalization is interrupted, run **Finalize pending release** for the current unit or `all`. Recovery never bumps or republishes; it verifies the current public versions, commit, artifacts, and checksums before publishing drafts.
-
-## First public release order
-
-1. Verify all names are available or already owned and complete the trusted-publisher setup.
-2. Publish `nuget-common` first.
-3. Publish `nuget-caching` and `nuget-media`; Media restores the just-published Common version or the locally packed Common artifact in an all-unit release.
-4. Publish both npm units and verify their repository metadata and provenance.
-5. Publish the AI plugin and test a clean consumer bootstrap using only public registries.
-6. Revoke migration/bootstrap tokens and remove any remaining private-feed configuration.
 
 ## Local verification
 

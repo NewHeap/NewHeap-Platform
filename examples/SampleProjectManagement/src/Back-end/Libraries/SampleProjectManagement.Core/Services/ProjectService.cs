@@ -10,6 +10,7 @@ using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 using NewHeap.Platform.Common.Utilities;
 using SampleProjectManagement.Core.Events;
+using SampleProjectManagement.Core.Models.AI;
 using SampleProjectManagement.Core.Models.Mutate;
 using SampleProjectManagement.Core.Models.View;
 using SampleProjectManagement.DAL.Entities;
@@ -17,7 +18,10 @@ using System.Linq.Expressions;
 
 namespace SampleProjectManagement.Core.Services;
 
-public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, ProjectService>
+public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, ProjectService>,
+    IProjectAiReadService,
+    IProjectAiMutationService,
+    IProjectAiContextService
 {
     private static readonly NhProjectionDefinition<Project, ProjectProjectionViewModel> ProjectProjection =
         NhProjection
@@ -107,6 +111,29 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
         return _repository.GetAll()
             .Select(ProjectProjection)
             .OrderBy(item => item.Name)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ProjectAiSearchItem>> SearchForAiAsync(
+        Guid divisionId,
+        string? query,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedQuery = query?.Trim();
+        var projects = _repository.GetAll()
+            .Where(project => project.DivisionId == divisionId);
+
+        if (!string.IsNullOrWhiteSpace(normalizedQuery))
+        {
+            projects = projects.Where(project =>
+                project.Key.Contains(normalizedQuery) || project.Name.Contains(normalizedQuery));
+        }
+
+        return await projects
+            .OrderBy(project => project.Key)
+            .Select(project => new ProjectAiSearchItem(project.Id, project.Key, project.Name))
+            .Take(Math.Clamp(limit, 1, 50))
             .ToListAsync(cancellationToken);
     }
 
@@ -321,6 +348,79 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
                 Description = project.Description
             })
             .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<ProjectStatus?> GetStatusForAiAsync(
+        Guid divisionId,
+        Guid projectId,
+        CancellationToken cancellationToken = default)
+    {
+        return _repository.GetAll()
+            .AsNoTracking()
+            .Where(project => project.DivisionId == divisionId && project.Id == projectId)
+            .Select(project => (ProjectStatus?)project.Status)
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ProjectAiContextDocument>> SearchContextForAiAsync(
+        Guid divisionId,
+        string query,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        var boundedLimit = Math.Clamp(limit, 1, 25);
+        var normalizedQuery = query.Trim();
+        return await _repository.GetAll()
+            .AsNoTracking()
+            .Where(project => project.DivisionId == divisionId)
+            .Where(project => normalizedQuery == string.Empty
+                || project.Key.Contains(normalizedQuery)
+                || project.Name.Contains(normalizedQuery)
+                || (project.Description != null
+                    && project.Description.Contains(normalizedQuery)))
+            .OrderByDescending(project => project.LastModifiedDateTime)
+            .ThenBy(project => project.Id)
+            .Take(boundedLimit)
+            .Select(project => new ProjectAiContextDocument(
+                project.Id,
+                project.Key,
+                project.Name,
+                project.Description,
+                project.LastModifiedDateTime))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<TaskResult<ProjectAiStatusChangeReport>> ChangeStatusForAiAsync(
+        Guid divisionId,
+        Guid projectId,
+        ProjectStatus status,
+        CancellationToken cancellationToken = default)
+    {
+        var previousStatus = await GetStatusForAiAsync(
+            divisionId,
+            projectId,
+            cancellationToken);
+        if (previousStatus is null)
+        {
+            return TaskResult<ProjectAiStatusChangeReport>.Failed(
+                "The project is unavailable in the authorized division scope.");
+        }
+
+        var update = await UpdateStatusAsync(
+            projectId,
+            new ProjectStatusMutateModel { Status = status },
+            cancellationToken: cancellationToken);
+        if (!update.Success)
+        {
+            return TaskResult<ProjectAiStatusChangeReport>.Failed(update);
+        }
+
+        return TaskResult<ProjectAiStatusChangeReport>.Succeeded(
+            new ProjectAiStatusChangeReport(
+                projectId,
+                previousStatus.Value,
+                update.Data.Status,
+                true));
     }
 
     public async Task<TaskResult<Project?>> UpdateStatusAsync(

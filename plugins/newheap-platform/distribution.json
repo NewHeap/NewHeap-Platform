@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.3",
   "guidanceVersion": "1.13.3",
-  "skillContentHash": "409806a393c4bcd4fdcda9a87efa704005aed19ddcb7fa4fadd0e0f9a0ec6f0c",
+  "skillContentHash": "451e605ded213db083c5d61eb34922a9b520587834a4bb57fe320abd48ffd471",
   "skills": [
     "newheap-platform-development"
   ],
@@ -31,6 +31,12 @@
   "compatiblePackages": {
     "@newheap/nh-toastr": "0.0.6",
     "@newheap/platform-common": "1.0.0",
+    "NewHeap.Platform.AI.AgentFramework": "3.0.0",
+    "NewHeap.Platform.AI.AspNet.Common": "3.0.0",
+    "NewHeap.Platform.AI.Common": "3.0.0",
+    "NewHeap.Platform.AI.Generators": "3.0.0",
+    "NewHeap.Platform.AI.Mcp": "3.0.0",
+    "NewHeap.Platform.AI.Test": "3.0.0",
     "NewHeap.Platform.AspNet.Caching": "0.1.4",
     "NewHeap.Platform.AspNet.Common": "3.0.0",
     "NewHeap.Platform.AspNet.Common.Test": "3.0.0",

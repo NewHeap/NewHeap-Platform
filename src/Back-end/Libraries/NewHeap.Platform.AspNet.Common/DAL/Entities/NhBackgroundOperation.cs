@@ -9,6 +9,7 @@ public enum NhBackgroundOperationStatus
     Queued = 10,
     Running = 20,
     WaitingForChildren = 25,
+    WaitingForSignal = 27,
     CancelRequested = 30,
     RetryScheduled = 40,
     Succeeded = 100,
@@ -61,7 +62,9 @@ public enum NhBackgroundOperationEventType
     CheckpointChanged = 80,
     ResultAvailable = 90,
     ChildrenCreated = 100,
-    ChildrenCompleted = 110
+    ChildrenCompleted = 110,
+    SignalWaitStarted = 120,
+    SignalReceived = 130
 }
 
 public enum NhBackgroundOperationMessageSeverity

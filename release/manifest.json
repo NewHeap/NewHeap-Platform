@@ -28,6 +28,30 @@
           "path": "src/Back-end/Libraries/NewHeap.Platform.Common/NewHeap.Platform.Common.csproj"
         },
         {
+          "packageId": "NewHeap.Platform.AI.Generators",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NewHeap.Platform.AI.Generators.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.Common",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NewHeap.Platform.AI.Common.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.AspNet.Common",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NewHeap.Platform.AI.AspNet.Common.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.Mcp",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NewHeap.Platform.AI.Mcp.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.AgentFramework",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NewHeap.Platform.AI.AgentFramework.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.Test",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NewHeap.Platform.AI.Test.csproj"
+        },
+        {
           "packageId": "NewHeap.Platform.Common.Test",
           "path": "src/Back-end/Libraries/NewHeap.Platform.Common.Test/NewHeap.Platform.Common.Test.csproj"
         },
