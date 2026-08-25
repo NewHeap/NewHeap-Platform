@@ -15,3 +15,4 @@ export * from './lib/sample-profile.component';
 export * from './lib/sample-project-management.providers';
 export * from './lib/sample-user-menu.component';
 export * from './lib/sample-cases';
+export * from './lib/background-operations-page.component';

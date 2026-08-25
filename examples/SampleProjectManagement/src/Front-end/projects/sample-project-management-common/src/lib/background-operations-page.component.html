@@ -1,0 +1,66 @@
+<section class="operations-page">
+  <header class="page-heading">
+    <div>
+      <p>{{ 'sample-project-management.background-operations.label' | translate }}</p>
+      <h2>{{ 'sample-project-management.background-operations.title' | translate }}</h2>
+      <span>{{ 'sample-project-management.background-operations.description' | translate }}</span>
+    </div>
+    <span class="live-state" role="status">
+      {{ 'sample-project-management.background-operations.connection.' + ((connectionState$ | async) ?? 'disconnected') | translate }}
+    </span>
+  </header>
+
+  @if (actionFailed()) {
+    <p class="action-error" role="alert">{{ 'sample-project-management.background-operations.action-failed' | translate }}</p>
+  }
+
+  @if (hasSelectedOperation$ | async) {
+    <a class="back-link" routerLink="..">{{ 'sample-project-management.background-operations.back-to-list' | translate }}</a>
+    @if (selectedOperation$ | async; as operation) {
+      <nh-background-operation-progress
+        [operation]="operation"
+        [showActions]="!actionPending()"
+        (cancelRequested)="cancel($event)"
+        (retryRequested)="retry($event)" />
+    } @else {
+      <div class="loading-state" aria-live="polite">{{ 'sample-project-management.background-operations.loading' | translate }}</div>
+    }
+  } @else {
+    <section class="start-card">
+      <div>
+        <h3>{{ 'sample-project-management.background-operations.start-title' | translate }}</h3>
+        <p>{{ 'sample-project-management.background-operations.start-description' | translate }}</p>
+        <label>
+          <input type="checkbox" [ngModel]="failFirstAttempt()" (ngModelChange)="failFirstAttempt.set($event)" />
+          {{ 'sample-project-management.background-operations.fail-first-attempt' | translate }}
+        </label>
+      </div>
+      <button type="button" (click)="startAnalysis()" [disabled]="starting()">
+        {{ (starting() ? 'sample-project-management.background-operations.starting' : 'sample-project-management.background-operations.start') | translate }}
+      </button>
+    </section>
+
+    <section class="operation-list" aria-live="polite">
+      <h3>{{ 'sample-project-management.background-operations.recent' | translate }}</h3>
+      @if (operations$ | async; as operations) {
+        @for (operation of operations; track operation.id) {
+          <a class="operation-row" [routerLink]="[operation.id]">
+            <div>
+              <strong>{{ operation.operationType }}</strong>
+              <span>{{ operation.lastModifiedDateTime | date:'medium' }}</span>
+            </div>
+            <div class="row-progress">
+              <span><i [style.width.%]="percentage(operation.progressPercentage)"></i></span>
+              <small>{{ percentage(operation.progressPercentage) | number:'1.0-1' }}%</small>
+            </div>
+            <em>{{ statusKey(operation.status) | translate }}</em>
+          </a>
+        } @empty {
+          <div class="empty-state">{{ 'sample-project-management.background-operations.empty' | translate }}</div>
+        }
+      } @else {
+        <div class="loading-state">{{ 'sample-project-management.background-operations.loading' | translate }}</div>
+      }
+    </section>
+  }
+</section>

@@ -10,6 +10,7 @@ using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
 using NewHeap.Platform.Common;
 
@@ -186,6 +187,28 @@ public interface INewHeapPlatformAspNetCommonConfigurator
             TDivisionUserMutateModel
         >
         WithSignalR(Action<HubOptions>? hubOptionsAction = null);
+
+    INewHeapPlatformAspNetCommonConfigurator<
+            TUser,
+            TUserRole,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim,
+            TLog,
+            TLogMessageArgument,
+            TLogFile,
+            TLogMessageTranslated,
+            TDbLogService,
+            TDbContext,
+            TUserManager,
+            TDivisionService,
+            TDivisionMutateModel,
+            TDivisionUserService,
+            TDivisionUserMutateModel
+        >
+        WithBackgroundOperations(Action<NhBackgroundOperationBuilder> configure);
 
     INewHeapPlatformAspNetCommonConfigurator<
             TUser,

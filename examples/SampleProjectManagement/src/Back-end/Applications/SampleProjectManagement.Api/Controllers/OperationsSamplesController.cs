@@ -1,6 +1,9 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.Models.ResponseTypes;
+using NewHeap.Platform.AspNet.Common.Models.View;
 using SampleProjectManagement.Api.Models;
 using SampleProjectManagement.Api.Services;
 
@@ -8,7 +11,7 @@ namespace SampleProjectManagement.Api.Controllers;
 
 [ApiController]
 [Route("operations-samples")]
-[Authorize(Policy = "app.project.manage")]
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = "app.project.manage")]
 public sealed class OperationsSamplesController : ControllerBase
 {
     private readonly OperationsSampleService _operationsService;
@@ -90,5 +93,50 @@ public sealed class OperationsSamplesController : ControllerBase
         return Accepted(new NotificationCreatedSampleResult(
             result.Data.Id,
             result.Data.Deliveries.Count));
+    }
+
+    [HttpPost("background-operations/project-portfolio-analysis")]
+    [EndpointSummary("Start the project portfolio background operation")]
+    [EndpointDescription("Enqueues a durable, idempotent and division-exclusive operation that demonstrates weighted phases, nested steps, batch counters, checkpoints, retries, cancellation, notifications, polling and SignalR updates.")]
+    [ProducesResponseType<NhBackgroundOperationViewModel>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> EnqueueProjectPortfolioAnalysis(
+        [FromBody] ProjectPortfolioAnalysisMutateModel model,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var userId = HttpContext.GetUserId();
+        var divisionId = HttpContext.GetActiveDivisionId();
+        if (!userId.HasValue || !divisionId.HasValue)
+        {
+            ModelState.AddModelError(string.Empty, "An authenticated user and active division are required.");
+            return BadRequest(ModelState);
+        }
+
+        if (!await HttpContext.HasDivisionAccessAsync(
+                divisionId,
+                cancellationToken: cancellationToken))
+        {
+            return Forbid();
+        }
+
+        var result = await _operationsService.EnqueuePortfolioAnalysisAsync(
+            model,
+            userId.Value,
+            divisionId.Value,
+            cancellationToken);
+        if (!result.Success)
+        {
+            result.ApplyToModelState(ModelState);
+            return BadRequest(ModelState);
+        }
+
+        return Accepted(result.Data);
     }
 }

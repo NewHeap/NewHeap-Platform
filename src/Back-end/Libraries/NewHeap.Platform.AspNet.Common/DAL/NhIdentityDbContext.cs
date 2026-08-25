@@ -84,6 +84,13 @@ public abstract partial class NhIdentityDbContext<
     public DbSet<NhNotificationDelivery> NotificationDeliveries { get; set; }
     public DbSet<NhUserNotification> UserNotifications { get; set; }
     public DbSet<NhUserNotificationMessage> UserNotificationMessages { get; set; }
+    public DbSet<NhBackgroundOperation> BackgroundOperations { get; set; }
+    public DbSet<NhBackgroundOperationAttempt> BackgroundOperationAttempts { get; set; }
+    public DbSet<NhBackgroundOperationStep> BackgroundOperationSteps { get; set; }
+    public DbSet<NhBackgroundOperationEvent> BackgroundOperationEvents { get; set; }
+    public DbSet<NhBackgroundOperationCheckpoint> BackgroundOperationCheckpoints { get; set; }
+    public DbSet<NhBackgroundOperationIdempotencyRecord> BackgroundOperationIdempotencyRecords { get; set; }
+    public DbSet<NhBackgroundOperationLease> BackgroundOperationLeases { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -323,6 +330,134 @@ public abstract partial class NhIdentityDbContext<
                 .IsRequired(true)
                 .OnDelete(DeleteBehavior.Cascade)
             ;
+        });
+
+        #endregion
+
+        #region Background Operations
+
+        builder.Entity<NhBackgroundOperation>(entity =>
+        {
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.Version).IsConcurrencyToken();
+            entity.Property(x => x.ProgressCurrent).HasPrecision(18, 4);
+            entity.Property(x => x.ProgressTotal).HasPrecision(18, 4);
+            entity.Property(x => x.ProgressPercentage).HasPrecision(18, 4);
+            entity.HasIndex(x => new { x.ProcessorKey, x.Status, x.NextDispatchAt, x.Priority, x.CreationDateTime });
+            entity.HasIndex(x => new { x.OwnerUserId, x.Status, x.LastModifiedDateTime });
+            entity.HasIndex(x => new { x.DivisionId, x.Status, x.LastModifiedDateTime });
+            entity.HasIndex(x => new { x.Status, x.HeartbeatAt });
+            entity.HasIndex(x => new { x.Status, x.CompletedAt });
+            entity.HasIndex(x => x.SchedulerJobId);
+            entity.HasIndex(x => x.ParentOperationId);
+            entity.HasIndex(x => x.RootOperationId);
+            entity.HasIndex(x => new { x.ParentOperationId, x.FanOutKey, x.FanOutItemKey }).IsUnique();
+
+            entity.HasOne<TUser>()
+                .WithMany()
+                .HasForeignKey(x => x.OwnerUserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
+
+            entity.HasOne<TDivision>()
+                .WithMany()
+                .HasForeignKey(x => x.DivisionId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
+
+            entity.HasOne<NhUserNotification>()
+                .WithMany()
+                .HasForeignKey(x => x.UserNotificationId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
+
+            entity.HasOne(x => x.ParentOperation)
+                .WithMany(x => x.ChildOperations)
+                .HasForeignKey(x => x.ParentOperationId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
+
+        });
+
+        builder.Entity<NhBackgroundOperationAttempt>(entity =>
+        {
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.Version).IsConcurrencyToken();
+            entity.HasIndex(x => new { x.OperationId, x.AttemptNumber }).IsUnique();
+            entity.HasIndex(x => new { x.OperationId, x.StartedAt });
+            entity.HasOne(x => x.Operation)
+                .WithMany(x => x.Attempts)
+                .HasForeignKey(x => x.OperationId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
+        });
+
+        builder.Entity<NhBackgroundOperationStep>(entity =>
+        {
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.Version).IsConcurrencyToken();
+            entity.Property(x => x.Weight).HasPrecision(18, 4);
+            entity.Property(x => x.Current).HasPrecision(18, 4);
+            entity.Property(x => x.Total).HasPrecision(18, 4);
+            entity.Property(x => x.Percentage).HasPrecision(18, 4);
+            entity.HasIndex(x => new { x.OperationId, x.ParentStepId, x.StepKey }).IsUnique();
+            entity.HasIndex(x => new { x.OperationId, x.DisplayOrder, x.Status });
+            entity.HasOne(x => x.Operation)
+                .WithMany(x => x.Steps)
+                .HasForeignKey(x => x.OperationId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
+            entity.HasOne(x => x.ParentStep)
+                .WithMany(x => x.Children)
+                .HasForeignKey(x => x.ParentStepId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
+        });
+
+        builder.Entity<NhBackgroundOperationEvent>(entity =>
+        {
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.HasIndex(x => new { x.OperationId, x.Sequence }).IsUnique();
+            entity.HasIndex(x => new { x.OperationId, x.CreationDateTime });
+            entity.HasOne(x => x.Operation)
+                .WithMany(x => x.Events)
+                .HasForeignKey(x => x.OperationId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
+        });
+
+        builder.Entity<NhBackgroundOperationCheckpoint>(entity =>
+        {
+            entity.HasKey(x => new { x.OperationId, x.CheckpointKey });
+            entity.Property(x => x.Version).IsConcurrencyToken();
+            entity.HasOne(x => x.Operation)
+                .WithMany(x => x.Checkpoints)
+                .HasForeignKey(x => x.OperationId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
+        });
+
+        builder.Entity<NhBackgroundOperationIdempotencyRecord>(entity =>
+        {
+            entity.HasKey(x => new { x.Scope, x.KeyHash });
+            entity.HasIndex(x => x.ExpiresAt);
+            entity.HasOne(x => x.Operation)
+                .WithMany()
+                .HasForeignKey(x => x.OperationId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
+        });
+
+        builder.Entity<NhBackgroundOperationLease>(entity =>
+        {
+            entity.HasKey(x => new { x.ResourceKey, x.Slot });
+            entity.Property(x => x.Version).IsConcurrencyToken();
+            entity.HasIndex(x => x.ExpiresAt);
+            entity.HasOne(x => x.Operation)
+                .WithMany()
+                .HasForeignKey(x => x.OperationId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false);
         });
 
         #endregion

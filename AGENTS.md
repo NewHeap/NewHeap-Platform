@@ -5,6 +5,44 @@ files may add rules for a subtree, but may not weaken the requirements below.
 
 ## Primary rule: library changes and samples stay in sync
 
+## Library design philosophy
+
+NewHeap libraries make expected outcomes explicit and reserve exceptions for
+genuinely exceptional conditions. Apply that distinction consistently across
+public APIs, internal orchestration, executable samples and tests.
+
+- Return `TaskResult` or `TaskResult<T>` for expected validation, conflict,
+  concurrency, business-rule and recoverable workflow outcomes. A caller must
+  be able to handle these outcomes without catching an exception.
+- Propagate failed results through handlers and nested helpers. Never discard a
+  failed `TaskResult`, convert it into a generic exception, or mark an enclosing
+  step successful after a nested result failed.
+- Represent a known transient outcome with an explicit retry result or policy
+  signal when the API supports one. Do not throw merely to activate retry
+  behavior.
+- Use exceptions for cancellation, invalid programmer input or configuration,
+  corrupt or impossible persisted state, lost fencing or ownership guarantees,
+  and unexpected infrastructure or implementation failures. Do not use
+  `TaskResult` to hide bugs that operators need to diagnose.
+- Keep internal orchestration signals internal. Scheduler unwinding, durable
+  suspension and automatic rescheduling must not become public business
+  exceptions that consumers need to understand.
+- Preserve safe failure codes and localization keys in consumer-visible results.
+  Keep stack traces and diagnostic correlation details in operational logging,
+  not in API responses or user notifications.
+- Prefer APIs with explicit optional and required semantics. For example,
+  expected lock contention may return no lease, while a clearly named required
+  helper may trigger internal rescheduling.
+
+Code should look deliberately maintained and match the surrounding library.
+Use braces for every `if`, `else`, loop and other control-flow block, including
+single-line bodies. Put semantic phases on separate lines with blank lines where
+they improve scanning. Avoid compressed one-line methods, dense call chains and
+expression-bodied members when they conceal control flow or error propagation;
+simple properties and obvious pure helpers may remain expression-bodied. Do not
+accept generated-looking code merely because it compiles: public APIs must
+express NewHeap conventions, ownership and operational behavior clearly.
+
 ## Repository language
 
 - Write all documentation, coding-agent instructions, skills, guidance rules,

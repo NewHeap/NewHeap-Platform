@@ -47,7 +47,7 @@ public static class NhHangfireUtil
 
         public static string Enqueue(Expression<Func<Task>> methodCall)
         {
-            return Enqueue(methodCall);
+            return Enqueue(GetQueueName(), methodCall);
         }
 
         public static string Enqueue(string queue, Expression<Func<Task>> methodCall)
@@ -58,7 +58,7 @@ public static class NhHangfireUtil
 
         public static string Enqueue<T>(Expression<Action<T>> methodCall)
         {
-            return Enqueue(methodCall);
+            return Enqueue(GetQueueName(), methodCall);
         }
 
         public static string Enqueue<T>(string queue, Expression<Action<T>> methodCall)

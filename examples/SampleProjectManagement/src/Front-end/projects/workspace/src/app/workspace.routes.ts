@@ -25,8 +25,24 @@ export const WORKSPACE_ROUTES: Routes = [
     canActivateChild: [sampleIsAuthenticatedGuard],
     children: [
       { path: '', pathMatch: 'full', title: 'Werkruimte', component: AppComponent },
+      {
+        path: 'background-operations',
+        title: 'Background operations',
+        loadComponent: () => import('sample-project-management-common')
+          .then(module => module.BackgroundOperationsPageComponent)
+      },
+      {
+        path: 'background-operations/:id',
+        title: 'Background operation progress',
+        loadComponent: () => import('sample-project-management-common')
+          .then(module => module.BackgroundOperationsPageComponent)
+      },
       { path: 'profile', title: 'Edit profile', component: SampleProfileComponent }
     ]
+  },
+  {
+    path: 'background-operations/:id',
+    redirectTo: 'workspace/background-operations/:id'
   },
   {
     path: '**',

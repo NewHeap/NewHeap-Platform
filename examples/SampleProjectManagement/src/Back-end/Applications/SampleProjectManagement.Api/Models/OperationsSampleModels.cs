@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace SampleProjectManagement.Api.Models;
 
 public sealed class SendSampleMailMutateModel
@@ -29,3 +31,17 @@ public sealed class CreateSampleNotificationMutateModel
 }
 
 public sealed record JobSampleResult(string JobId, string Queue, DateTimeOffset? Cutoff = null);
+
+public sealed class ProjectPortfolioAnalysisMutateModel
+{
+    [Required, StringLength(100)]
+    public string IdempotencyKey { get; set; } = "";
+
+    [Range(1, 50)]
+    public int Passes { get; set; } = 10;
+
+    [Range(0, 1000)]
+    public int DelayPerItemMilliseconds { get; set; } = 50;
+
+    public bool FailFirstAttempt { get; set; }
+}

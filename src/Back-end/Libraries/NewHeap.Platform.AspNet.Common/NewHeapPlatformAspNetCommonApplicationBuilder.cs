@@ -12,6 +12,7 @@ using NewHeap.Platform.AspNet.Common.Middlewares;
 using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.AspNet.Common.Utilities;
 
 namespace NewHeap.Platform.AspNet.Common;
@@ -173,6 +174,13 @@ public class NewHeapPlatformAspNetCommonApplicationBuilder
         _applicationBuilder.UseEndpoints(endpoints =>
         {
             endpoints.MapControllers();
+
+            var backgroundOperationMarker = _services.GetService<NhBackgroundOperationSignalRMarker>();
+            if (backgroundOperationMarker is not null)
+            {
+                var backgroundOperationOptions = _services.GetRequiredService<NhBackgroundOperationsOptions>();
+                endpoints.MapHub<NhBackgroundOperationHub>(backgroundOperationOptions.HubPath);
+            }
 
             _options.EndpointRouteConfigureAction?.Invoke(endpoints);
         });

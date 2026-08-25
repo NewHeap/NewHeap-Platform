@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.12.0",
   "backEnd": {
-    "hash": "d0d13443a58132c216c168afd3bacb5c2f16983510d6f4db81bd899fe131d0aa",
-    "declarationCount": 2394,
+    "hash": "d51c0816f885bf5583c5133c1795cdf71e48ab389235fe5b8f23877365b4bc8c",
+    "declarationCount": 2921,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Caching/Extensions.cs",
@@ -730,6 +730,30 @@
         "declaration": "[NonAction] protected virtual async Task<IActionResult> DoDelete([FromRoute] Guid id, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationController.cs",
+        "declaration": "[ApiController] [Route(\"background-operations\")] [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme + \",Identity.Application\")] public sealed class NhBackgroundOperationController : ProtectedNhBaseController {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationController.cs",
+        "declaration": "public NhBackgroundOperationController( IConfiguration configuration, IMapper mapper, ILogger<NhBackgroundOperationController> logger, IStringLocalizer<NhBackgroundOperationController> localizer, IHttpCollectionProcessingService collectionProcessing, INhBackgroundOperationService operations) : base(mapper, logger, configuration, localizer, collectionProcessing) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationController.cs",
+        "declaration": "[HttpGet] [EndpointSummary(\"List the current user's background operations\")] [EndpointDescription(\"Returns filtered and paged operation summaries for the authenticated user and active division. The response is the canonical polling fallback for live updates.\")] [ProducesResponseType<CollectionResultModel<NhBackgroundOperationViewModel>>(StatusCodes.Status200OK)] [ProducesResponseType(StatusCodes.Status401Unauthorized)] [ProducesResponseType(StatusCodes.Status403Forbidden)] public async Task<IActionResult> Get( [FromQuery] NhBackgroundOperationCollectionRequestModel request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationController.cs",
+        "declaration": "[HttpGet(\"{id:guid}\")] [EndpointSummary(\"Get a background operation\")] [EndpointDescription(\"Returns the durable operation snapshot, nested progress tree, fan-out child hierarchy, attempts, and user-visible events after an optional event sequence.\")] [ProducesResponseType<NhBackgroundOperationViewModel>(StatusCodes.Status200OK)] [ProducesResponseType(StatusCodes.Status401Unauthorized)] [ProducesResponseType(StatusCodes.Status404NotFound)] public async Task<IActionResult> GetById( [FromRoute] Guid id, [FromQuery] long? eventsAfterSequence = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationController.cs",
+        "declaration": "[HttpPost(\"{id:guid}/cancel\")] [EndpointSummary(\"Request background operation cancellation\")] [EndpointDescription(\"Durably requests cooperative cancellation for the operation and its child hierarchy. Running handlers observe the request through their context and heartbeat cancellation token.\")] [ProducesResponseType<NhBackgroundOperationViewModel>(StatusCodes.Status202Accepted)] [ProducesResponseType<TaskResult<NhBackgroundOperationViewModel>>(StatusCodes.Status400BadRequest)] [ProducesResponseType(StatusCodes.Status401Unauthorized)] [ProducesResponseType(StatusCodes.Status404NotFound)] public async Task<IActionResult> Cancel([FromRoute] Guid id, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationController.cs",
+        "declaration": "[HttpPost(\"{id:guid}/retry\")] [EndpointSummary(\"Retry an unsuccessful background operation\")] [EndpointDescription(\"Queues a new fenced attempt for an unsuccessful terminal operation and its unsuccessful descendants when their registered idempotency policies permit retry.\")] [ProducesResponseType<NhBackgroundOperationViewModel>(StatusCodes.Status202Accepted)] [ProducesResponseType<TaskResult<NhBackgroundOperationViewModel>>(StatusCodes.Status400BadRequest)] [ProducesResponseType(StatusCodes.Status401Unauthorized)] [ProducesResponseType(StatusCodes.Status404NotFound)] public async Task<IActionResult> Retry([FromRoute] Guid id, CancellationToken cancellationToken = default)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBaseController.PartialUpdate.cs",
         "declaration": "public abstract partial class NhBaseController {"
       },
@@ -1392,6 +1416,654 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/DatabaseProviderConfigurationExtensions.cs",
         "declaration": "public static void ValidatePostgreSqlColumnTypes(this ModelBuilder modelBuilder, string? providerName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public enum NhBackgroundOperationStatus {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public enum NhBackgroundOperationAttemptStatus {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public enum NhBackgroundOperationStepStatus {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public enum NhBackgroundOperationAggregationMode {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public enum NhBackgroundOperationEventType {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public enum NhBackgroundOperationMessageSeverity {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public sealed class NhBackgroundOperation : IdDbEntity {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Key] public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset CreationDateTime { get; set; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset LastModifiedDateTime { get; set; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Required, StringLength(200)] public string OperationType { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public int PayloadSchemaVersion { get; set; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Required] public string PayloadJson { get; set; } = \"{}\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid OwnerUserId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid? DivisionId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid? ParentOperationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperation? ParentOperation { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public List<NhBackgroundOperation> ChildOperations { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid? RootOperationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(200)] public string? FanOutKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(200)] public string? FanOutItemKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Required, StringLength(50)] public string ProcessorKey { get; set; } = \"default\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Required, StringLength(50)] public string Queue { get; set; } = \"default\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public int Priority { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperationStatus Status { get; set; } = NhBackgroundOperationStatus.PendingDispatch;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public int DispatchGeneration { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(100)] public string? SchedulerJobId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public int CurrentAttemptNumber { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid? CurrentAttemptId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(450)] public string? ConcurrencyKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(100)] public string? DomainObjectType { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(200)] public string? DomainObjectId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(100)] public string? CorrelationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public decimal? ProgressCurrent { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public decimal? ProgressTotal { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public decimal? ProgressPercentage { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(200)] public string? ProgressPhaseKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(300)] public string? ProgressMessageKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public string? ProgressMessageArgumentsJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? CancelRequestedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid? CancelRequestedByUserId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? StartedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? HeartbeatAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? NextDispatchAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? SensitiveDataRedactedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(100)] public string? ResultReferenceType { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(200)] public string? ResultReferenceId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(1000)] public string? ResultUrl { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(100)] public string? FailureCode { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(300)] public string? FailureMessageKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(100)] public string? DiagnosticCorrelationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long Version { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long LatestEventSequence { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid? UserNotificationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long LastProjectedNotificationEventSequence { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public List<NhBackgroundOperationAttempt> Attempts { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public List<NhBackgroundOperationStep> Steps { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public List<NhBackgroundOperationEvent> Events { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public List<NhBackgroundOperationCheckpoint> Checkpoints { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public sealed class NhBackgroundOperationAttempt : IdDbEntity {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Key] public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset CreationDateTime { get; set; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset LastModifiedDateTime { get; set; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid OperationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperation? Operation { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public int AttemptNumber { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public int DispatchGeneration { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(100)] public string? SchedulerJobId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperationAttemptStatus Status { get; set; } = NhBackgroundOperationAttemptStatus.Queued;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(200)] public string? WorkerId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? StartedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? HeartbeatAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(100)] public string? FailureCode { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(100)] public string? DiagnosticCorrelationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(300)] public string? RecoveryReason { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long Version { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public sealed class NhBackgroundOperationStep : IdDbEntity {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Key] public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset CreationDateTime { get; set; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset LastModifiedDateTime { get; set; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid OperationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperation? Operation { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid? ParentStepId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperationStep? ParentStep { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public List<NhBackgroundOperationStep> Children { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Required, StringLength(200)] public string StepKey { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(300)] public string? TitleKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public string? TitleArgumentsJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(300)] public string? MessageKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public string? MessageArgumentsJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperationStepStatus Status { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperationAggregationMode AggregationMode { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public decimal Weight { get; set; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public decimal? Current { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public decimal? Total { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public decimal? Percentage { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long DiscoveredItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long ProcessedItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long SucceededItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long FailedItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long SkippedItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long RetriedItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long ActiveItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public bool ContinueOnChildFailure { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public int DisplayOrder { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public int Depth { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? StartedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? HeartbeatAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid? CurrentAttemptId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long FencingVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long Version { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public sealed class NhBackgroundOperationEvent : IdDbEntity {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Key] public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid OperationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperation? Operation { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long Sequence { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid? StepId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(200)] public string? StepKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperationEventType EventType { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperationMessageSeverity Severity { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(300)] public string? MessageKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public string? MessageArgumentsJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long SnapshotVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset CreationDateTime { get; set; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset LastModifiedDateTime { get; set; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(100)] public string? ResultReferenceType { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(200)] public string? ResultReferenceId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[StringLength(1000)] public string? ResultUrl { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid? AttemptId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public bool IsMilestone { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public bool IsOperatorOnly { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public sealed class NhBackgroundOperationCheckpoint {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid OperationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperation? Operation { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Required, StringLength(200)] public string CheckpointKey { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public int SchemaVersion { get; set; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Required] public string ValueJson { get; set; } = \"{}\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid? AttemptId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset CreationDateTime { get; set; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset LastModifiedDateTime { get; set; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long Version { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public sealed class NhBackgroundOperationIdempotencyRecord {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Required, StringLength(100)] public string Scope { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Required, StringLength(64)] public string KeyHash { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid OperationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperation? Operation { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset CreationDateTime { get; set; } = DateTimeOffset.UtcNow;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? ExpiresAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public sealed class NhBackgroundOperationLease {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "[Required, StringLength(450)] public string ResourceKey { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public int Slot { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid? OperationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public NhBackgroundOperation? Operation { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public Guid? AttemptId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? AcquiredAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? HeartbeatAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public DateTimeOffset? ExpiresAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long FencingToken { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+        "declaration": "public long Version { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhDivision.cs",
@@ -2171,6 +2843,34 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhIdentityDbContext.cs",
+        "declaration": "public DbSet<NhBackgroundOperation> BackgroundOperations { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhIdentityDbContext.cs",
+        "declaration": "public DbSet<NhBackgroundOperationAttempt> BackgroundOperationAttempts { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhIdentityDbContext.cs",
+        "declaration": "public DbSet<NhBackgroundOperationStep> BackgroundOperationSteps { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhIdentityDbContext.cs",
+        "declaration": "public DbSet<NhBackgroundOperationEvent> BackgroundOperationEvents { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhIdentityDbContext.cs",
+        "declaration": "public DbSet<NhBackgroundOperationCheckpoint> BackgroundOperationCheckpoints { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhIdentityDbContext.cs",
+        "declaration": "public DbSet<NhBackgroundOperationIdempotencyRecord> BackgroundOperationIdempotencyRecords { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhIdentityDbContext.cs",
+        "declaration": "public DbSet<NhBackgroundOperationLease> BackgroundOperationLeases { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhIdentityDbContext.cs",
         "declaration": "protected override void OnModelCreating(ModelBuilder builder) {"
       },
       {
@@ -2906,6 +3606,62 @@
         "declaration": "public DateTimeOffset? LockOutEndDateTime { get; set; }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public sealed class NhBackgroundOperationMutateModel {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public string OperationType { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public int PayloadSchemaVersion { get; set; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public string PayloadJson { get; set; } = \"{}\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public Guid OwnerUserId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public Guid? DivisionId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public string ProcessorKey { get; set; } = \"default\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public string Queue { get; set; } = \"default\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public int Priority { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public NhBackgroundOperationStatus Status { get; set; } = NhBackgroundOperationStatus.PendingDispatch;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public string? ConcurrencyKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public string? DomainObjectType { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public string? DomainObjectId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhBackgroundOperationMutateModel.cs",
+        "declaration": "public string? CorrelationId { get; set; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhUserNotificationMutateModels.cs",
         "declaration": "public class NhUserNotificationMutateModel {"
       },
@@ -3314,6 +4070,442 @@
         "declaration": "[Searchable] [Filterable] [Orderable] public string Name { get; set; } = null!;"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public sealed class NhBackgroundOperationViewModel {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "[Filterable, Orderable] public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "[Filterable, Orderable] public DateTimeOffset CreationDateTime { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "[Filterable, Orderable] public DateTimeOffset LastModifiedDateTime { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "[Filterable, Orderable, Searchable] public string OperationType { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public int PayloadSchemaVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "[Filterable] public Guid OwnerUserId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "[Filterable] public Guid? DivisionId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public Guid? ParentOperationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public Guid? RootOperationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? FanOutKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? FanOutItemKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "[Filterable, Orderable] public NhBackgroundOperationStatus Status { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string Queue { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public int Priority { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public int CurrentAttemptNumber { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? DomainObjectType { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? DomainObjectId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? CorrelationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public decimal? ProgressCurrent { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public decimal? ProgressTotal { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public decimal? ProgressPercentage { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? ProgressPhaseKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? ProgressMessageKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? ProgressMessageArgumentsJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset? CancelRequestedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset? StartedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset? HeartbeatAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset? SensitiveDataRedactedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? ResultReferenceType { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? ResultReferenceId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? ResultUrl { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? FailureCode { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? FailureMessageKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public long Version { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public long LatestEventSequence { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public List<NhBackgroundOperationAttemptViewModel> Attempts { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public List<NhBackgroundOperationStepViewModel> Steps { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public List<NhBackgroundOperationEventViewModel> Events { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public List<NhBackgroundOperationChildViewModel> Children { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public sealed class NhBackgroundOperationChildViewModel {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "[Filterable] public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public Guid? ParentOperationId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string OperationType { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? FanOutKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? FanOutItemKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public NhBackgroundOperationStatus Status { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public decimal? ProgressPercentage { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset CreationDateTime { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset LastModifiedDateTime { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? ResultReferenceType { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? ResultReferenceId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? ResultUrl { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? FailureCode { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public List<NhBackgroundOperationChildViewModel> Children { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public sealed class NhBackgroundOperationAttemptViewModel {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "[Filterable] public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public int AttemptNumber { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public NhBackgroundOperationAttemptStatus Status { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset? StartedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset? HeartbeatAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? FailureCode { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? RecoveryReason { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public sealed class NhBackgroundOperationStepViewModel {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "[Filterable] public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public Guid? ParentStepId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string StepKey { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? TitleKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? TitleArgumentsJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? MessageKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? MessageArgumentsJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public NhBackgroundOperationStepStatus Status { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public NhBackgroundOperationAggregationMode AggregationMode { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public decimal Weight { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public decimal? Current { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public decimal? Total { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public decimal? Percentage { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public long DiscoveredItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public long ProcessedItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public long SucceededItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public long FailedItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public long SkippedItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public long RetriedItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public long ActiveItems { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public bool ContinueOnChildFailure { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public int DisplayOrder { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public int Depth { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset? StartedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset? CompletedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public List<NhBackgroundOperationStepViewModel> Children { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public sealed class NhBackgroundOperationEventViewModel {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "[Filterable] public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public long Sequence { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public Guid? StepId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? StepKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public NhBackgroundOperationEventType EventType { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public NhBackgroundOperationMessageSeverity Severity { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? MessageKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? MessageArgumentsJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public long SnapshotVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset CreationDateTime { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? ResultReferenceType { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? ResultReferenceId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? ResultUrl { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public bool IsMilestone { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public sealed class NhBackgroundOperationCollectionRequestModel : CollectionRequestModel {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhUserNotificationViewModels.cs",
         "declaration": "public class NhOverviewUserNotificationViewModel {"
       },
@@ -3607,6 +4799,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeapPlatformAspNetCommonConfigurator.cs",
+        "declaration": "public INewHeapPlatformAspNetCommonConfigurator< TUser, TUserRole, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TLog, TLogMessageArgument, TLogFile, TLogMessageTranslated, TDbLogService, TDbContext, TUserManager, TDivisionService, TDivisionMutateModel, TDivisionUserService, TDivisionUserMutateModel > WithBackgroundOperations(Action<NhBackgroundOperationBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeapPlatformAspNetCommonConfigurator.cs",
         "declaration": "public INewHeapPlatformAspNetCommonConfigurator< TUser, TUserRole, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TLog, TLogMessageArgument, TLogFile, TLogMessageTranslated, TDbLogService, TDbContext, TUserManager, TDivisionService, TDivisionMutateModel, TDivisionUserService, TDivisionUserMutateModel > WithHangfire( string nameOrConnectionString, Action<IGlobalConfiguration>? hangfireOptionsAction = null, Action<ConsoleOptions>? consoleOptionsAction = null, Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null, DatabaseProvider databaseProvider = DatabaseProvider.SqlServer ) {"
       },
       {
@@ -3788,6 +4984,906 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/AbstractBaseDbEntityService.cs",
         "declaration": "protected static TaskResult<string> GetPropertyNameFromExpression<T>(Expression<Func<T, object>> expression) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationHandler<in TRequest> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed class NhBackgroundOperationRetryResult : TaskResult {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public TimeSpan? RetryAfter { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public static NhBackgroundOperationRetryResult Retry( string failureCode, string messageKey, TimeSpan? retryAfter = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationContext {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationProgressContext {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationStepContext {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationBatchContext : IAsyncDisposable {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationFanOutContext {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationMessageSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationCheckpointStore {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationLeaseManager {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationLeaseHandle : IAsyncDisposable {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationLeaseSet : IAsyncDisposable {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationIdempotencyManager {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationService {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationScheduler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationLiveUpdatePublisher {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationNotificationProjector {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationNotificationFormatter {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationScheduleResult(string SchedulerJobId);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationExecutionState(string Name, bool IsTerminal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationChangedMessage( Guid OperationId, long Version, long LatestEventSequence, NhBackgroundOperationStatus Status, Guid? DivisionId = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationNotificationContent(string Title, string Message);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationResultReference( string Type, string Id, string? Url = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationCheckpointValue<T>( T Value, int SchemaVersion, long Version);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationBatchSnapshot( long Discovered, long Processed, long Succeeded, long Failed, long Skipped, long Retried, long Active, long? Total);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationFanOutItem<TRequest>( string ItemKey, TRequest Request);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public static class NhBackgroundOperationFanOut {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public static NhBackgroundOperationFanOutItem<TRequest> Item<TRequest>( string itemKey, TRequest request) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public enum NhBackgroundOperationFanOutFailureMode {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed class NhBackgroundOperationFanOutOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public string? TitleKey { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public NhBackgroundOperationFanOutFailureMode FailureMode { get; init; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationFanOutChildResult( Guid OperationId, string ItemKey, NhBackgroundOperationStatus Status, decimal? ProgressPercentage, NhBackgroundOperationResultReference? Result, string? FailureCode);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationFanOutResult( int Total, int Succeeded, int Failed, int Cancelled, IReadOnlyList<NhBackgroundOperationFanOutChildResult> Children) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public bool HasFailures => Failed > 0 || Cancelled > 0;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed class NhBackgroundOperationIdempotentStep {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public string StepKey { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public string ExternalIdempotencyKey { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public bool AlreadyCompleted { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public Task<TaskResult> CompleteAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationMessage( NhBackgroundOperationMessageSeverity Severity, string MessageKey, object? Arguments = null, bool IsMilestone = false, bool IsOperatorOnly = false, NhBackgroundOperationResultReference? Result = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public static NhBackgroundOperationMessage Info(string key, object? arguments = null, bool milestone = false)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public static NhBackgroundOperationMessage Success(string key, object? arguments = null, bool milestone = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public static NhBackgroundOperationMessage Warning(string key, object? arguments = null, bool milestone = false)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public static NhBackgroundOperationMessage Error(string key, object? arguments = null, bool milestone = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationCleanupService.cs",
+        "declaration": "public NhBackgroundOperationCleanupService( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, ILogger<NhBackgroundOperationCleanupService> logger) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationCleanupService.cs",
+        "declaration": "protected override async Task ExecuteAsync(CancellationToken stoppingToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public enum NhBackgroundOperationConflictBehavior {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public enum NhBackgroundOperationIdempotency {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public sealed class NhBackgroundOperationsOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public string ProcessorKey { get; set; } = \"default\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public bool DispatchWorkersEnabled { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public bool ReconciliationEnabled { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public bool CleanupEnabled { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public bool LiveUpdatesEnabled { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public string HubPath { get; set; } = \"/hub/background-operations\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public bool UserNotificationProjectionEnabled { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public string OperationUrlPrefix { get; set; } = \"/background-operations\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan DispatchInterval { get; set; } = TimeSpan.FromSeconds(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan ReconciliationInterval { get; set; } = TimeSpan.FromSeconds(30);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan CleanupInterval { get; set; } = TimeSpan.FromHours(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan HeartbeatInterval { get; set; } = TimeSpan.FromSeconds(10);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan StaleAttemptTimeout { get; set; } = TimeSpan.FromMinutes(2);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan DefaultSoftTimeout { get; set; } = TimeSpan.FromHours(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan DefaultLeaseDuration { get; set; } = TimeSpan.FromMinutes(2);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan ProgressFlushInterval { get; set; } = TimeSpan.FromSeconds(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan PayloadRetentionPeriod { get; set; } = TimeSpan.FromDays(7);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan EventRetentionPeriod { get; set; } = TimeSpan.FromDays(7);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan SucceededRetentionPeriod { get; set; } = TimeSpan.FromDays(30);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan CancelledRetentionPeriod { get; set; } = TimeSpan.FromDays(30);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan FailedRetentionPeriod { get; set; } = TimeSpan.FromDays(90);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int TransactionLockTimeoutMilliseconds { get; set; } = 5_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int DispatchBatchSize { get; set; } = 25;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int ReconciliationBatchSize { get; set; } = 50;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int MaxConcurrentOperations { get; set; } = int.MaxValue;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public IDictionary<string, int> QueueConcurrencyLimits { get; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int MaxPayloadBytes { get; set; } = 64 * 1024;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int MaxCheckpointBytes { get; set; } = 16 * 1024;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int MaxMessageArgumentsBytes { get; set; } = 8 * 1024;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int MaxEventsPerOperation { get; set; } = 500;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int MaxFanOutChildren { get; set; } = 1_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int CleanupBatchSize { get; set; } = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int DefaultRetryCount { get; set; } = 3;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public sealed class NhBackgroundOperationEnqueueOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public required Guid OwnerUserId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public Guid? DivisionId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public string? IdempotencyKey { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public string? IdempotencyScope { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public string? ConcurrencyKey { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationConflictBehavior? ConflictBehavior { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int Priority { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public string? DomainObjectType { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public string? DomainObjectId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public string? CorrelationId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public sealed class NhBackgroundOperationLeaseOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int Slots { get; init; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan? LeaseDuration { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan WaitTimeout { get; init; } = TimeSpan.Zero;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public sealed class NhBackgroundOperationBatchOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int FlushEveryItems { get; init; } = 25;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan FlushInterval { get; init; } = TimeSpan.FromSeconds(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public bool ContinueOnItemFailure { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int MaximumToleratedFailures { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public sealed class NhBackgroundOperationDescriptor {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public required string OperationType { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int PayloadSchemaVersion { get; internal set; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public string? Queue { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int RetryCount { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan? SoftTimeout { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int MaxConcurrency { get; internal set; } = int.MaxValue;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationIdempotency Idempotency { get; internal set; } = NhBackgroundOperationIdempotency.NaturallyIdempotent;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationConflictBehavior ConflictBehavior { get; internal set; } = NhBackgroundOperationConflictBehavior.Queue;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public sealed class NhBackgroundOperationDefinitionBuilder<TRequest> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationDefinitionBuilder<TRequest> UseQueue(string queue) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationDefinitionBuilder<TRequest> WithRetry(int retryCount) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationDefinitionBuilder<TRequest> WithPayloadSchemaVersion(int schemaVersion) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationDefinitionBuilder<TRequest> WithSoftTimeout(TimeSpan timeout) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationDefinitionBuilder<TRequest> WithTypeConcurrency(int maxConcurrency) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationDefinitionBuilder<TRequest> ExclusivePer( Func<TRequest, string> resourceKey, NhBackgroundOperationConflictBehavior conflictBehavior = NhBackgroundOperationConflictBehavior.ReturnExisting)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationDefinitionBuilder<TRequest> RequireIdempotency(NhBackgroundOperationIdempotency idempotency) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public sealed class NhBackgroundOperationRegistry {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public IReadOnlyCollection<NhBackgroundOperationDescriptor> Descriptors => _byRequestType.Values.ToArray();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public bool TryGetForRequest(Type requestType, out NhBackgroundOperationDescriptor descriptor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationDescriptor GetForRequest(Type requestType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public bool TryGetForOperationType( string operationType, out NhBackgroundOperationDescriptor descriptor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationDescriptor GetForOperationType(string operationType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public sealed class NhBackgroundOperationBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationsOptions Options => _options;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationBuilder WithGlobalConcurrency(int maxConcurrentOperations) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationBuilder WithQueueConcurrency(string queue, int maxConcurrentOperations) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationBuilder WithDefaultQueueConcurrency(int maxConcurrentOperations) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationBuilder Add<TRequest, THandler>( string operationType, Action<NhBackgroundOperationDefinitionBuilder<TRequest>>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public sealed class NhBackgroundOperationProgressPlanBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationProgressPlanBuilder Step(string key, decimal weight, string titleKey) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public Guid OperationId => _claim.OperationId;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public Guid AttemptId => _claim.AttemptId;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public int AttemptNumber => _claim.AttemptNumber;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public long FencingToken => _claim.FencingToken;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public string IdempotencyKey => $\"nh-operation-{_claim.OperationId:N}\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public INhBackgroundOperationProgressContext Progress { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public INhBackgroundOperationMessageSink Messages { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public INhBackgroundOperationCheckpointStore Checkpoints { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public INhBackgroundOperationLeaseManager Leases { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public INhBackgroundOperationIdempotencyManager Idempotency { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public INhBackgroundOperationFanOutContext FanOut { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public async Task ThrowIfCancellationRequestedAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public Task SetResultAsync( NhBackgroundOperationResultReference result, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public async Task ReportAsync( decimal current, decimal total, string? messageKey = null, object? messageArguments = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public async Task DefineAsync(Action<NhBackgroundOperationProgressPlanBuilder> define, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public async Task<TaskResult> RunStepAsync( string stepKey, Func<INhBackgroundOperationStepContext, CancellationToken, Task<TaskResult>> action, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public Guid StepId { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public string StepKey { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public async Task ReportAsync( decimal current, decimal total, string? messageKey = null, object? messageArguments = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public Task<TaskResult> RunStepAsync( string stepKey, decimal weight, Func<INhBackgroundOperationStepContext, CancellationToken, Task<TaskResult>> action, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public Task<TaskResult> RunStepAsync( string stepKey, decimal weight, string titleKey, Func<INhBackgroundOperationStepContext, CancellationToken, Task<TaskResult>> action, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public Task<INhBackgroundOperationBatchContext> BeginBatchAsync( long? totalItems, NhBackgroundOperationBatchOptions? options = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public NhBackgroundOperationBatchSnapshot Snapshot => new( Interlocked.Read(ref _discovered), Interlocked.Read(ref _processed), Interlocked.Read(ref _succeeded), Interlocked.Read(ref _failed), Interlocked.Read(ref _skipped), Interlocked.Read(ref _retried), Interlocked.Read(ref _active), _total);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public Task ItemStartedAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public async Task ItemSucceededAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public async Task<TaskResult> ItemFailedAsync( string? safeFailureCode = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public async Task ItemSkippedAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public Task ItemRetriedAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public async Task FlushAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public async ValueTask DisposeAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public Task PublishAsync( NhBackgroundOperationMessage message, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public Task<NhBackgroundOperationCheckpointValue<T>?> GetAsync<T>( string checkpointKey, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public Task<TaskResult> SetAsync<T>( string checkpointKey, T value, int schemaVersion = 1, long? expectedVersion = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public string GetExternalKey(string stepKey, string? itemKey = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationContext.cs",
+        "declaration": "public async Task<NhBackgroundOperationIdempotentStep> BeginStepAsync( string stepKey, string? itemKey = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationDispatchService.cs",
+        "declaration": "public NhBackgroundOperationDispatchService( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, NhBackgroundOperationFanOutCoordinator fanOutCoordinator, ILogger<NhBackgroundOperationDispatchService> logger) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationDispatchService.cs",
+        "declaration": "protected override async Task ExecuteAsync(CancellationToken stoppingToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationFanOutCoordinator.cs",
+        "declaration": "public NhBackgroundOperationFanOutContext( NhBackgroundOperationAttemptClaim claim, NhBackgroundOperationFanOutCoordinator coordinator) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationFanOutCoordinator.cs",
+        "declaration": "public Task<TaskResult<NhBackgroundOperationFanOutResult>> RunAsync<TRequest>( string fanOutKey, IEnumerable<NhBackgroundOperationFanOutItem<TRequest>> items, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationFanOutCoordinator.cs",
+        "declaration": "public Task<TaskResult<NhBackgroundOperationFanOutResult>> RunAsync<TRequest>( string fanOutKey, IEnumerable<NhBackgroundOperationFanOutItem<TRequest>> items, NhBackgroundOperationFanOutOptions options, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationFanOutCoordinator.cs",
+        "declaration": "public NhBackgroundOperationFanOutCoordinator( IServiceScopeFactory scopeFactory, NhBackgroundOperationRegistry registry, NhBackgroundOperationsOptions options, INhHangfireQueueNameResolver queueNameResolver, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, ILogger<NhBackgroundOperationFanOutCoordinator> logger) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHealthCheck.cs",
+        "declaration": "public NhBackgroundOperationHealthCheck( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHealthCheck.cs",
+        "declaration": "public async Task<HealthCheckResult> CheckHealthAsync( HealthCheckContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHub.cs",
+        "declaration": "public interface INhBackgroundOperationHubClient {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHub.cs",
+        "declaration": "[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme + \",Identity.Application\")] public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClient> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHub.cs",
+        "declaration": "public override async Task OnConnectedAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHub.cs",
+        "declaration": "public NhSignalRBackgroundOperationLiveUpdatePublisher( IHubContext<NhBackgroundOperationHub, INhBackgroundOperationHubClient> hubContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHub.cs",
+        "declaration": "public Task PublishChangedAsync( Guid ownerUserId, NhBackgroundOperationChangedMessage message, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationKeys.cs",
+        "declaration": "public static partial class NhBackgroundOperationResourceKey {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationKeys.cs",
+        "declaration": "public static string ForAction(string action, string resourceType, params object?[] resourceIds) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationKeys.cs",
+        "declaration": "public static string ForUserAction(string action, Guid userId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationKeys.cs",
+        "declaration": "public static string ForDivisionAction(string action, Guid divisionId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationKeys.cs",
+        "declaration": "public static string ForResourceAction(string action, string resourceType, Guid resourceId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationLeaseManager.cs",
+        "declaration": "public async Task<INhBackgroundOperationLeaseHandle?> AcquireAsync( string resourceKey, NhBackgroundOperationLeaseOptions? options = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationLeaseManager.cs",
+        "declaration": "public async Task<INhBackgroundOperationLeaseSet?> AcquireManyAsync( IEnumerable<string> resourceKeys, NhBackgroundOperationLeaseOptions? options = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationLeaseManager.cs",
+        "declaration": "public async Task<INhBackgroundOperationLeaseHandle> AcquireRequiredAsync( string resourceKey, NhBackgroundOperationLeaseOptions? options = null, TimeSpan? rescheduleDelay = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationLeaseManager.cs",
+        "declaration": "public async Task<INhBackgroundOperationLeaseSet> AcquireManyRequiredAsync( IEnumerable<string> resourceKeys, NhBackgroundOperationLeaseOptions? options = null, TimeSpan? rescheduleDelay = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationLeaseManager.cs",
+        "declaration": "public string ResourceKey { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationLeaseManager.cs",
+        "declaration": "public int Slot { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationLeaseManager.cs",
+        "declaration": "public long FencingToken { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationLeaseManager.cs",
+        "declaration": "public DateTimeOffset ExpiresAt { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationLeaseManager.cs",
+        "declaration": "public async Task RenewAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationLeaseManager.cs",
+        "declaration": "public async ValueTask DisposeAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationLeaseManager.cs",
+        "declaration": "public IReadOnlyList<INhBackgroundOperationLeaseHandle> Leases => _leases;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationLeaseManager.cs",
+        "declaration": "public async ValueTask DisposeAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
+        "declaration": "public NhBackgroundOperationNotificationProjector( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
+        "declaration": "public async Task<TaskResult> ProjectAsync( Guid operationId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
+        "declaration": "public Task<NhBackgroundOperationNotificationContent> FormatAsync( NhBackgroundOperation operation, NhBackgroundOperationEvent milestone, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
+        "declaration": "public Task<TaskResult> ProjectAsync( Guid operationId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationPersistence.cs",
+        "declaration": "public NhBackgroundOperationPersistence( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, NhBackgroundOperationFanOutCoordinator fanOutCoordinator, ILogger<NhBackgroundOperationPersistence> logger) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationReconciliationService.cs",
+        "declaration": "public NhBackgroundOperationReconciliationService( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, NhBackgroundOperationRegistry registry, NhBackgroundOperationFanOutCoordinator fanOutCoordinator, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, ILogger<NhBackgroundOperationReconciliationService> logger) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationReconciliationService.cs",
+        "declaration": "protected override async Task ExecuteAsync(CancellationToken stoppingToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationRunner.cs",
+        "declaration": "public sealed class NhBackgroundOperationRunner {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationRunner.cs",
+        "declaration": "public async Task RunAsync(Guid operationId, int dispatchGeneration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+        "declaration": "public sealed class NhBackgroundOperationService : INhBackgroundOperationService {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+        "declaration": "public NhBackgroundOperationService( IRepository<NhBackgroundOperation> repository, NhBackgroundOperationRegistry registry, NhBackgroundOperationsOptions options, INhHangfireQueueNameResolver queueNameResolver, INhBackgroundOperationScheduler scheduler, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, IMapper mapper, ILogger<NhBackgroundOperationService> logger) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+        "declaration": "public async Task<TaskResult<NhBackgroundOperationViewModel>> EnqueueAsync<TRequest>( TRequest request, NhBackgroundOperationEnqueueOptions options, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+        "declaration": "public IQueryable<NhBackgroundOperation> QueryForOwner(Guid ownerUserId, Guid? divisionId = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+        "declaration": "public Task<NhBackgroundOperationViewModel?> GetAsync( Guid operationId, Guid ownerUserId, long? eventsAfterSequence = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+        "declaration": "public async Task<TaskResult<NhBackgroundOperationViewModel>> RequestCancellationAsync( Guid operationId, Guid ownerUserId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+        "declaration": "public async Task<TaskResult<NhBackgroundOperationViewModel>> RetryAsync( Guid operationId, Guid ownerUserId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+        "declaration": "public Task PublishChangedAsync( Guid ownerUserId, NhBackgroundOperationChangedMessage message, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationStartupValidator.cs",
+        "declaration": "public NhBackgroundOperationStartupValidator(IServiceProvider serviceProvider, NhBackgroundOperationsOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationStartupValidator.cs",
+        "declaration": "public async Task StartAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationStartupValidator.cs",
+        "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhHangfireBackgroundOperationScheduler.cs",
+        "declaration": "public NhHangfireBackgroundOperationScheduler(IBackgroundJobClient client, JobStorage storage) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhHangfireBackgroundOperationScheduler.cs",
+        "declaration": "public Task<NhBackgroundOperationScheduleResult> EnqueueAsync( Guid operationId, int dispatchGeneration, string queue, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhHangfireBackgroundOperationScheduler.cs",
+        "declaration": "public Task<bool> DeleteAsync(string schedulerJobId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhHangfireBackgroundOperationScheduler.cs",
+        "declaration": "public Task<NhBackgroundOperationExecutionState?> GetStateAsync( string schedulerJobId, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BaseDbEntityService.cs",
@@ -7766,6 +9862,18 @@
         "declaration": "public static IDisposable Lock(T key, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Utilities/NhHangfireQueueNameResolver.cs",
+        "declaration": "public interface INhHangfireQueueNameResolver {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Utilities/NhHangfireQueueNameResolver.cs",
+        "declaration": "public sealed class NhHangfireQueueNameResolver : INhHangfireQueueNameResolver {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Utilities/NhHangfireQueueNameResolver.cs",
+        "declaration": "public string GetQueueName(string? queue = null)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Utilities/NhSetPropertyCalls.cs",
         "declaration": "public sealed class NhSetPropertyCalls<T> {"
       },
@@ -9584,8 +11692,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "d1a100afb5b31b92d569de7447283f6eb4d73016b705cbc8993e7ccf1eb0cbbd",
-    "declarationCount": 755,
+    "hash": "b80172d13274d7588f9637cdd3ab83af8d7c98f9b28341552373fc7f193bef3c",
+    "declarationCount": 793,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
@@ -9594,6 +11702,34 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
         "declaration": "export function MakeProvider(type: any) {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-background-operation-progress/component.ts",
+        "declaration": "@Component({"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-background-operation-progress/component.ts",
+        "declaration": "export class NhBackgroundOperationProgressComponent {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-background-operation-progress/component.ts",
+        "declaration": "@Input({ required: true }) operation!: NhBackgroundOperation;"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-background-operation-progress/component.ts",
+        "declaration": "@Input() showEvents = true;"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-background-operation-progress/component.ts",
+        "declaration": "@Input() showActions = false;"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-background-operation-progress/component.ts",
+        "declaration": "@Output() cancelRequested = new EventEmitter<string>();"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-background-operation-progress/component.ts",
+        "declaration": "@Output() retryRequested = new EventEmitter<string>();"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-collection-base-component/component.ts",
@@ -10169,7 +12305,7 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-user-notifications-component/abstract.component.ts",
-        "declaration": "export abstract class NhUserNotificationsAbstractComponent extends NhCollectionBaseComponent<NhUserNotification> implements OnInit, OnDestroy {"
+        "declaration": "export abstract class NhUserNotificationsAbstractComponent extends NhCollectionBaseComponent<NhUserNotification> {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-user-notifications-component/abstract.component.ts",
@@ -10536,6 +12672,74 @@
         "declaration": "export type AuthenticationFlow = 'password' | 'microsoft-oauth' | string;"
       },
       {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export type NhBackgroundOperationStatus ="
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export type NhBackgroundOperationAttemptStatus ="
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export type NhBackgroundOperationStepStatus ="
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export type NhBackgroundOperationAggregationMode ="
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export type NhBackgroundOperationEventType ="
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export type NhBackgroundOperationMessageSeverity ="
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export interface NhBackgroundOperationAttempt {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export interface NhBackgroundOperationStep {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export interface NhBackgroundOperationEvent {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export interface NhBackgroundOperation {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export interface NhBackgroundOperationChild {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export interface NhBackgroundOperationChanged {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export class NhBackgroundOperationCollectionHttpRequestOptions extends CollectionHttpRequestOptions {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "public constructor(init?: Partial<NhBackgroundOperationCollectionHttpRequestOptions>) {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export function nhBackgroundOperationStatusName(status: NhBackgroundOperationStatus): string {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export function nhBackgroundOperationStepStatusName(status: NhBackgroundOperationStepStatus): string {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export function nhBackgroundOperationTranslationSegment(value: string): string {"
+      },
+      {
         "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
         "declaration": "export class EndpointsAuthenticationNhCommonModuleConfig {"
       },
@@ -10558,6 +12762,14 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
         "declaration": "public constructor(init?: Partial<UserNotificationNhCommonModuleConfig>) {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
+        "declaration": "export class BackgroundOperationsNhCommonModuleConfig {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
+        "declaration": "public constructor(init?: Partial<BackgroundOperationsNhCommonModuleConfig>) {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
@@ -11346,6 +13558,34 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
         "declaration": "protected initEmptyAuthorization(): NhAuthorization {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-live-update.service.ts",
+        "declaration": "export type NhBackgroundOperationConnectionState ="
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-live-update.service.ts",
+        "declaration": "@Injectable({ providedIn: 'root' })"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-live-update.service.ts",
+        "declaration": "export class NhBackgroundOperationLiveUpdateService implements OnDestroy {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-background-operation.service.ts",
+        "declaration": "@Injectable({ providedIn: 'root' })"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-background-operation.service.ts",
+        "declaration": "export class NhBackgroundOperationService {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-background-operation.store.ts",
+        "declaration": "@Injectable({ providedIn: 'root' })"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-background-operation.store.ts",
+        "declaration": "export class NhBackgroundOperationStore implements OnDestroy {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-base-api.service.ts",
@@ -12345,6 +14585,10 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export * from './lib/models/background-operation.models';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
         "declaration": "export * from './lib/util/nh-common-util';"
       },
       {
@@ -12485,6 +14729,18 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export * from './lib/services/nh-background-operation.service';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export * from './lib/services/nh-background-operation-live-update.service';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export * from './lib/services/nh-background-operation.store';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
         "declaration": "export * from './lib/services/nh-context-menu.service';"
       },
       {
@@ -12578,6 +14834,10 @@
       {
         "path": "src/Front-end/projects/nh-common/src/public-api.ts",
         "declaration": "export * from './lib/components/nh-user-notifications-component/abstract.component';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export * from './lib/components/nh-background-operation-progress/component';"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/public-api.ts",
@@ -12720,10 +14980,23 @@
     ],
     "nh-operations-events-jobs-notifications": [
       "CapTransactionScope",
+      "INhBackgroundOperationContext",
+      "INhBackgroundOperationFanOutContext",
+      "INhBackgroundOperationHandler<TRequest>",
+      "INhBackgroundOperationLeaseManager",
+      "INhBackgroundOperationNotificationFormatter",
       "INhNotificationDispatcher",
+      "NhBackgroundOperationBuilder",
+      "NhBackgroundOperationChangedMessage",
+      "NhBackgroundOperationFanOut",
+      "NhBackgroundOperationResourceKey",
+      "NhBackgroundOperationRetryResult",
+      "NhBackgroundOperationStore",
+      "NhBackgroundOperationsOptions",
       "NhHangfireUtil",
       "NhMailService",
-      "NhNotificationSettings"
+      "NhNotificationSettings",
+      "TaskResult"
     ],
     "nh-reusable-test-helper-boundaries": [
       "NhTestingContext",

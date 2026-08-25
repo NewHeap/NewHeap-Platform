@@ -1,7 +1,6 @@
 ﻿import {inject, Injectable, OnDestroy} from '@angular/core';
 
-import {BehaviorSubject, EMPTY, from, Observable, Subscription, switchMap, tap, timer} from "rxjs";
-import {takeUntil} from "rxjs/operators";
+import {BehaviorSubject, EMPTY, exhaustMap, from, Observable, Subscription, switchMap, timer} from "rxjs";
 import { NhAuthService } from './nh-auth.service';
 import {NhCommonModuleConfig} from "../models/config.models";
 import { NhApiService } from './nh-api.service';
@@ -26,8 +25,9 @@ export class NhUserNotificationService implements OnDestroy {
   protected runningSubject = new BehaviorSubject<boolean>(false);
   public readonly isRunning$: Observable<boolean> = this.runningSubject.asObservable();
 
-  private task$: Observable<number>|undefined;
+  private task$: Observable<void>|undefined;
   private taskSub: Subscription|undefined;
+  private runningConsumers = 0;
 
   private userNotificationState: NhUserNotificationState = new NhUserNotificationState();
   private readonly userNotificationStateSubject = new BehaviorSubject<NhUserNotificationState>(this.userNotificationState);
@@ -53,7 +53,7 @@ export class NhUserNotificationService implements OnDestroy {
   ngOnDestroy(): void {
     this.taskSub?.unsubscribe();
     this.runningSubject.complete();
-    this.userNotificationStateSubject?.unsubscribe();
+    this.userNotificationStateSubject.complete();
   }
 
   protected constructor(
@@ -64,8 +64,7 @@ export class NhUserNotificationService implements OnDestroy {
         switchMap(isRunning =>
           isRunning
             ? timer(0, this.moduleConfig.userNotification.pollingInterval).pipe(
-              tap(() => from(this.doWork())),
-              takeUntil(this.runningSubject.pipe(switchMap(r => r ? EMPTY : EMPTY)))
+              exhaustMap(() => from(this.doWork()))
             )
             : EMPTY
         )
@@ -77,8 +76,23 @@ export class NhUserNotificationService implements OnDestroy {
     this.baseUrl = this.moduleConfig.apiBaseUrl + this.urlSuffix;
   }
 
-  start() { if(this.isRunning()) { return; } this.runningSubject.next(true); }
-  stop()  { if(!this.isRunning()) { return; } this.runningSubject.next(false); }
+  start(): void {
+    this.runningConsumers++;
+    if(this.runningConsumers === 1) {
+      this.runningSubject.next(true);
+    }
+  }
+
+  stop(): void {
+    if(this.runningConsumers === 0) {
+      return;
+    }
+
+    this.runningConsumers--;
+    if(this.runningConsumers === 0) {
+      this.runningSubject.next(false);
+    }
+  }
 
   protected async doWork() {
     if (!this.isRunning()) {

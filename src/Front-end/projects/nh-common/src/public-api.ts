@@ -7,6 +7,7 @@ export * from './lib/models/misc.models';
 export * from './lib/models/http.models';
 export * from './lib/models/auth.models';
 export * from './lib/models/user-notification.models';
+export * from './lib/models/background-operation.models';
 
 export * from './lib/util/nh-common-util';
 export * from './lib/util/nh-string-util';
@@ -46,6 +47,9 @@ export * from './lib/services/nh-server.service';
 export * from './lib/services/nh-server-side-form-validator.service';
 export * from './lib/services/nh-base-api.service';
 export * from './lib/services/nh-user-notification.service';
+export * from './lib/services/nh-background-operation.service';
+export * from './lib/services/nh-background-operation-live-update.service';
+export * from './lib/services/nh-background-operation.store';
 export * from './lib/services/nh-context-menu.service';
 
 export * from './lib/guards/nh-auth.guards';
@@ -74,6 +78,7 @@ export * from './lib/components/nh-mutate-base-component/component';
 export * from './lib/components/nh-modal-mutate-base-component/component';
 export * from './lib/components/nh-error/component';
 export * from './lib/components/nh-user-notifications-component/abstract.component';
+export * from './lib/components/nh-background-operation-progress/component';
 export * from './lib/components/nh-search-input/search-input.component';
 export * from './lib/components/nh-page-size/page-size.component';
 

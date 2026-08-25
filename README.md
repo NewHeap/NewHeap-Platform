@@ -14,6 +14,24 @@ application in `examples/SampleProjectManagement`.
 - `guidance` and `skills`: generated, versioned consumer guidance backed by the sample.
 - `release` and `tools/release`: release definitions and local validation tooling.
 
+## Design philosophy
+
+NewHeap APIs distinguish expected outcomes from exceptional failures. Expected
+validation, conflict, concurrency and business outcomes use `TaskResult` or
+`TaskResult<T>` and are propagated through every layer. Known transient outcomes
+request retry explicitly; exceptions are reserved for cancellation, invalid
+programmer configuration, corrupt state, lost ownership guarantees and
+unexpected implementation or infrastructure failures. Consumer-visible results
+contain safe failure codes and localization keys, while diagnostics remain in
+operational logs.
+
+Readability is part of the contract. Control flow uses explicit braces, related
+operations are separated into scannable phases, and public behavior is not hidden
+inside compressed one-line methods or dense chains. New code should look and
+behave like the surrounding NewHeap library rather than like unreviewed generated
+output. The authoritative rules and examples are in
+[AGENTS.md](AGENTS.md#library-design-philosophy).
+
 ## Getting started
 
 Install .NET 10, Node.js 22 or later, and npm. NewHeap package configuration

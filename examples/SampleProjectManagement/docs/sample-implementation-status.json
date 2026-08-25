@@ -676,9 +676,28 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
     ],
     "SPM-083": [
-      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationFanOutCoordinator.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationLeaseManager.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationEventRetention.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHub.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationController.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationCleanupService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHealthCheck.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationProviderTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation.store.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation.store.spec.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-background-operation-progress/component.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectPortfolioAnalysisOperation.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/OperationsSamplesController.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
-      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260824214941_AddNhBackgroundOperations.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260825072017_HardenBackgroundOperationDivisionScope.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/background-operations-page.component.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/background-operations-page.component.html"
     ],
     "SPM-084": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",

@@ -14,6 +14,7 @@ import { provideRouter, Routes, withInMemoryScrolling } from '@angular/router';
 import {
   NhAuthorization,
   AuthenticationNhCommonModuleConfig,
+  BackgroundOperationsNhCommonModuleConfig,
   NhCommonModule,
   NhCommonModuleConfig,
   NhErrorLoggingNhCommonModuleConfig,
@@ -76,6 +77,14 @@ export function provideSampleProjectManagement(routes: Routes = []) {
     userNotification: new UserNotificationNhCommonModuleConfig({
       urlSuffix: '/project-user-notifications',
       pollingInterval: 5000
+    }),
+    backgroundOperations: new BackgroundOperationsNhCommonModuleConfig({
+      urlSuffix: '/background-operations',
+      hubBaseUrl: '/api',
+      hubUrlSuffix: '/hub/background-operations',
+      pollingInterval: 5000,
+      liveUpdatesEnabled: true,
+      listPageSize: 100
     })
   });
 

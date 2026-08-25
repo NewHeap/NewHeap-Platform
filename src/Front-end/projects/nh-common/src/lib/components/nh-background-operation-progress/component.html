@@ -1,0 +1,136 @@
+<section class="nh-operation" [attr.data-status]="statusKey(operation.status)">
+  <header class="nh-operation__header">
+    <div>
+      <p class="nh-operation__eyebrow">{{ 'nh-background-operations.operation' | translate }}</p>
+      <h2>{{ operation.operationType }}</h2>
+    </div>
+    <span class="nh-operation__status">{{ statusKey(operation.status) | translate }}</span>
+  </header>
+
+  <div class="nh-operation__overall">
+    <div class="nh-operation__progress-label">
+      <span>{{ operation.progressMessageKey ? (operation.progressMessageKey | translate: arguments(operation.progressMessageArgumentsJson)) : ('nh-background-operations.progress' | translate) }}</span>
+      <strong>{{ percentage(operation.progressPercentage) | number:'1.0-1' }}%</strong>
+    </div>
+    <div class="nh-operation__progress" role="progressbar"
+         [attr.aria-label]="'nh-background-operations.overall-progress' | translate"
+         aria-valuemin="0" aria-valuemax="100"
+         [attr.aria-valuenow]="percentage(operation.progressPercentage)">
+      <span [style.width.%]="percentage(operation.progressPercentage)"></span>
+    </div>
+  </div>
+
+  @if (showActions && (canCancel(operation.status) || canRetry(operation))) {
+    <div class="nh-operation__actions">
+      @if (canCancel(operation.status)) {
+        <button type="button" (click)="cancelRequested.emit(operation.id)">
+          {{ 'nh-background-operations.cancel' | translate }}
+        </button>
+      }
+      @if (canRetry(operation)) {
+        <button type="button" (click)="retryRequested.emit(operation.id)">
+          {{ 'nh-background-operations.retry' | translate }}
+        </button>
+      }
+    </div>
+  }
+
+  <div class="nh-operation__steps" role="list" [attr.aria-label]="'nh-background-operations.steps' | translate">
+    <ng-template #renderStep let-step let-depth="depth">
+      <article class="nh-step" role="listitem" [style.--nh-step-depth]="depth">
+        <div class="nh-step__heading">
+          <div>
+            <strong>{{ stepTitle(step) | translate: arguments(step.titleArgumentsJson) }}</strong>
+            @if (step.messageKey) {
+              <span>{{ step.messageKey | translate: arguments(step.messageArgumentsJson) }}</span>
+            }
+          </div>
+          <span class="nh-step__status">{{ stepStatusKey(step.status) | translate }}</span>
+        </div>
+        <div class="nh-step__progress" role="progressbar"
+             [attr.aria-label]="stepTitle(step) | translate: arguments(step.titleArgumentsJson)"
+             aria-valuemin="0" aria-valuemax="100"
+             [attr.aria-valuenow]="percentage(step.percentage)">
+          <span [style.width.%]="percentage(step.percentage)"></span>
+        </div>
+        @if (hasBatch(step)) {
+          <dl class="nh-step__batch">
+            <div><dt>{{ 'nh-background-operations.batch.processed' | translate }}</dt><dd>{{ step.processedItems }} / {{ step.discoveredItems }}</dd></div>
+            <div><dt>{{ 'nh-background-operations.batch.succeeded' | translate }}</dt><dd>{{ step.succeededItems }}</dd></div>
+            <div><dt>{{ 'nh-background-operations.batch.failed' | translate }}</dt><dd>{{ step.failedItems }}</dd></div>
+            <div><dt>{{ 'nh-background-operations.batch.skipped' | translate }}</dt><dd>{{ step.skippedItems }}</dd></div>
+            @if (step.retriedItems > 0) {
+              <div><dt>{{ 'nh-background-operations.batch.retried' | translate }}</dt><dd>{{ step.retriedItems }}</dd></div>
+            }
+            @if (step.activeItems > 0) {
+              <div><dt>{{ 'nh-background-operations.batch.active' | translate }}</dt><dd>{{ step.activeItems }}</dd></div>
+            }
+          </dl>
+        }
+      </article>
+      @for (child of step.children; track child.id) {
+        <ng-container *ngTemplateOutlet="renderStep; context: {$implicit: child, depth: depth + 1}"></ng-container>
+      }
+    </ng-template>
+
+    @for (step of operation.steps; track step.id) {
+      <ng-container *ngTemplateOutlet="renderStep; context: {$implicit: step, depth: 0}"></ng-container>
+    } @empty {
+      <p class="nh-operation__empty">{{ 'nh-background-operations.no-steps' | translate }}</p>
+    }
+  </div>
+
+  @if (operation.children.length > 0) {
+    <section class="nh-operation__children">
+      <h3>{{ 'nh-background-operations.children' | translate }}</h3>
+      <div role="list" [attr.aria-label]="'nh-background-operations.children' | translate">
+        <ng-template #renderChild let-child let-depth="depth">
+          <article class="nh-child" role="listitem" [style.--nh-child-depth]="depth">
+            <div class="nh-child__heading">
+              <div>
+                <strong>{{ childLabel(child) }}</strong>
+                <span>{{ child.operationType }}</span>
+              </div>
+              <span class="nh-child__status">{{ statusKey(child.status) | translate }}</span>
+            </div>
+            <div class="nh-step__progress" role="progressbar"
+                 [attr.aria-label]="childLabel(child)"
+                 aria-valuemin="0" aria-valuemax="100"
+                 [attr.aria-valuenow]="percentage(child.progressPercentage)">
+              <span [style.width.%]="percentage(child.progressPercentage)"></span>
+            </div>
+            @if (child.resultUrl) {
+              <a [href]="child.resultUrl">{{ 'nh-background-operations.open-result' | translate }}</a>
+            }
+          </article>
+          @for (nestedChild of child.children; track nestedChild.id) {
+            <ng-container *ngTemplateOutlet="renderChild; context: {$implicit: nestedChild, depth: depth + 1}"></ng-container>
+          }
+        </ng-template>
+
+        @for (child of operation.children; track child.id) {
+          <ng-container *ngTemplateOutlet="renderChild; context: {$implicit: child, depth: 0}"></ng-container>
+        }
+      </div>
+    </section>
+  }
+
+  @if (showEvents && operation.events.length > 0) {
+    <section class="nh-operation__events">
+      <h3>{{ 'nh-background-operations.activity' | translate }}</h3>
+      <ol>
+        @for (event of operation.events; track event.id) {
+          @if (event.messageKey) {
+            <li>
+              <time [attr.datetime]="event.creationDateTime">{{ event.creationDateTime | date:'short' }}</time>
+              <span>{{ event.messageKey | translate: arguments(event.messageArgumentsJson) }}</span>
+              @if (event.resultUrl) {
+                <a [href]="event.resultUrl">{{ 'nh-background-operations.open-result' | translate }}</a>
+              }
+            </li>
+          }
+        }
+      </ol>
+    </section>
+  }
+</section>

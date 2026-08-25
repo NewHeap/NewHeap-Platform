@@ -25,6 +25,7 @@
     "@angular/platform-browser": "20.3.28",
     "@angular/platform-browser-dynamic": "20.3.28",
     "@angular/router": "20.3.28",
+    "@microsoft/signalr": "^10.0.11",
     "@msgpack/msgpack": "^2.8.0",
     "@newheap/platform-common": "file:../../../../src/Front-end/projects/nh-common",
     "@ngx-translate/core": "^17.0.0",

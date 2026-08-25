@@ -39,6 +39,19 @@ export class UserNotificationNhCommonModuleConfig {
   }
 }
 
+export class BackgroundOperationsNhCommonModuleConfig {
+  urlSuffix: string = '/background-operations';
+  hubBaseUrl?: string;
+  hubUrlSuffix: string = '/hub/background-operations';
+  pollingInterval: number = 5000;
+  liveUpdatesEnabled: boolean = true;
+  listPageSize: number = 100;
+
+  public constructor(init?: Partial<BackgroundOperationsNhCommonModuleConfig>) {
+    Object.assign(this, init);
+  }
+}
+
 export class NhSentryErrorLoggingNhCommonModuleConfig {
   errorLoggingEnabled: boolean = false;
   tracingEnabled: boolean = false;
@@ -110,6 +123,7 @@ export class NhCommonModuleConfig {
   defaultDateTimeFormat: string = 'dd-MM-yyyy HH:mm:ss';
   authentication: AuthenticationNhCommonModuleConfig = new AuthenticationNhCommonModuleConfig();
   userNotification: UserNotificationNhCommonModuleConfig = new UserNotificationNhCommonModuleConfig();
+  backgroundOperations: BackgroundOperationsNhCommonModuleConfig = new BackgroundOperationsNhCommonModuleConfig();
   errorLogging: NhErrorLoggingNhCommonModuleConfig = new NhErrorLoggingNhCommonModuleConfig();
   translation: NhTranslationNhCommonModuleConfig = new NhTranslationNhCommonModuleConfig();
   formDropdown: NhFormDropDownNhCommonModuleConfig = new NhFormDropDownNhCommonModuleConfig();

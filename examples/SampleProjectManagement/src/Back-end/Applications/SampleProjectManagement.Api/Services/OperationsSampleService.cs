@@ -3,6 +3,7 @@ using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
+using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 using NewHeap.Platform.Common.Utilities;
@@ -17,15 +18,18 @@ public sealed class OperationsSampleService
     private readonly NhMailService _mailService;
     private readonly INhNotificationService _notificationService;
     private readonly RazorViewService _razorViewService;
+    private readonly INhBackgroundOperationService _backgroundOperations;
 
     public OperationsSampleService(
         NhMailService mailService,
         INhNotificationService notificationService,
-        RazorViewService razorViewService)
+        RazorViewService razorViewService,
+        INhBackgroundOperationService backgroundOperations)
     {
         _mailService = mailService;
         _notificationService = notificationService;
         _razorViewService = razorViewService;
+        _backgroundOperations = backgroundOperations;
     }
 
     public JobSampleResult EnqueueOverdueJob()
@@ -107,5 +111,29 @@ public sealed class OperationsSampleService
             .Build();
 
         return _notificationService.CreateAsync(notification, cancellationToken);
+    }
+
+    public Task<TaskResult<NewHeap.Platform.AspNet.Common.Models.View.NhBackgroundOperationViewModel>>
+        EnqueuePortfolioAnalysisAsync(
+            ProjectPortfolioAnalysisMutateModel model,
+            Guid ownerUserId,
+            Guid divisionId,
+            CancellationToken cancellationToken = default)
+    {
+        return _backgroundOperations.EnqueueAsync(
+            new ProjectPortfolioAnalysisRequest(
+                divisionId,
+                model.Passes,
+                model.DelayPerItemMilliseconds,
+                model.FailFirstAttempt),
+            new NhBackgroundOperationEnqueueOptions
+            {
+                OwnerUserId = ownerUserId,
+                DivisionId = divisionId,
+                IdempotencyKey = model.IdempotencyKey,
+                DomainObjectType = "division",
+                DomainObjectId = divisionId.ToString("N")
+            },
+            cancellationToken);
     }
 }

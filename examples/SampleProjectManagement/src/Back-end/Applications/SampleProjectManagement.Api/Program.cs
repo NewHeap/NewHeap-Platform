@@ -11,6 +11,7 @@ using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.OpenApiSchemaTransformers;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Events.Cap;
@@ -163,6 +164,30 @@ builder.Services
             .Bind(options);
     })
     .WithHangfire(connectionString, databaseProvider: databaseProvider)
+    .WithBackgroundOperations(operations =>
+    {
+        operations.Options.OperationUrlPrefix = "/background-operations";
+        operations.Options.ProgressFlushInterval = TimeSpan.FromMilliseconds(250);
+        operations
+            .WithGlobalConcurrency(8)
+            .WithDefaultQueueConcurrency(6);
+        operations.Add<ProjectPortfolioAnalysisRequest, ProjectPortfolioAnalysisOperation>(
+            "sample-project-portfolio-analysis",
+            operation => operation
+                .WithRetry(2)
+                .WithSoftTimeout(TimeSpan.FromMinutes(5))
+                .WithTypeConcurrency(4)
+                .ExclusivePer(
+                    request => NhBackgroundOperationResourceKey.ForDivisionAction(
+                        "analyze-project-portfolio",
+                        request.DivisionId),
+                    NhBackgroundOperationConflictBehavior.ReturnExisting)
+                .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
+        // No fan-out-specific registration is needed. The child inherits
+        // owner/division/priority/correlation and uses its normal handler queue.
+        operations.Add<ProjectAnalysisChildRequest, ProjectAnalysisChildOperation>(
+            "sample-project-analysis-child");
+    })
     .WithNotifications(NotificationProcessingSample.Configure)
     .ConfigureEmailNotificationSettings(options =>
     {

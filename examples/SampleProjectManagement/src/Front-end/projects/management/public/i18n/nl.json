@@ -270,6 +270,108 @@
       "save-failed": "Opslaan is niet gelukt. Controleer de invoer en probeer opnieuw."
     }
   },
+  "nh-background-operations": {
+    "operation": "Achtergrondtaak",
+    "progress": "Voortgang",
+    "overall-progress": "Totale voortgang",
+    "steps": "Voortgangsstappen",
+    "children": "Onderliggende taken",
+    "no-steps": "De taak heeft nog geen stappen gepubliceerd.",
+    "activity": "Activiteit",
+    "open-result": "Resultaat openen",
+    "cancel": "Taak annuleren",
+    "retry": "Taak opnieuw proberen",
+    "status": {
+      "pending-dispatch": "Wacht op verzending",
+      "queued": "In wachtrij",
+      "running": "Bezig",
+      "waiting-for-children": "Wacht op onderliggende taken",
+      "cancel-requested": "Wordt geannuleerd",
+      "retry-scheduled": "Nieuwe poging gepland",
+      "succeeded": "Geslaagd",
+      "failed": "Mislukt",
+      "cancelled": "Geannuleerd",
+      "timed-out": "Tijdslimiet bereikt",
+      "unknown": "Onbekend"
+    },
+    "step-status": {
+      "pending": "Wachtend",
+      "running": "Bezig",
+      "succeeded": "Geslaagd",
+      "failed": "Mislukt",
+      "skipped": "Overgeslagen",
+      "cancelled": "Geannuleerd",
+      "indeterminate": "Bezig",
+      "unknown": "Onbekend"
+    },
+    "batch": {
+      "processed": "Verwerkt",
+      "succeeded": "Geslaagd",
+      "failed": "Mislukt",
+      "skipped": "Overgeslagen",
+      "retried": "Opnieuw geprobeerd",
+      "active": "Actief"
+    }
+  },
+  "background-operation": {
+    "queued": "De taak is in de wachtrij geplaatst.",
+    "started": "De verwerking is gestart.",
+    "succeeded": "De taak is succesvol afgerond.",
+    "failed": "De taak is veilig mislukt.",
+    "cancelled": "De taak is geannuleerd.",
+    "timed-out": "De tijdslimiet van de taak is bereikt.",
+    "cancellation-requested": "Annulering is aangevraagd.",
+    "retry-requested": "Een nieuwe poging is aangevraagd.",
+    "retry-scheduled": "Een nieuwe poging is gepland.",
+    "waiting-for-resource": "Wachten op een exclusieve resource-lock.",
+    "checkpoint-saved": "Een herstelcheckpoint is opgeslagen.",
+    "result-available": "Het resultaat is beschikbaar.",
+    "children-created": "Onderliggende taken zijn aangemaakt.",
+    "children-completed": "Alle onderliggende taken hebben een eindstatus bereikt.",
+    "child-operation-failed": "Een of meer onderliggende taken zijn mislukt.",
+    "dispatch-recovered": "De verzending is door reconciliatie hersteld.",
+    "stale-attempt-recovered": "Een vastgelopen poging is hersteld.",
+    "operator-recovery-required": "Herstel door een beheerder is vereist.",
+    "unsupported-payload-schema": "Deze versie van de operatielading wordt niet meer ondersteund."
+  },
+  "sample-project-management": {
+    "background-operations": {
+      "navigation": "Achtergrondtaken",
+      "label": "Duurzaam werk",
+      "title": "Achtergrondtaken",
+      "description": "Volg duurzaam werk via fan-out taken, gewogen fasen, geneste voortgang, batchtellers, retries, annulering, polling en live updates.",
+      "action-failed": "De actie kon niet worden uitgevoerd. De duurzame taak is lokaal niet gewijzigd.",
+      "back-to-list": "Terug naar achtergrondtaken",
+      "loading": "De duurzame taak wordt geladen…",
+      "start-title": "Analyseer de portfolio van de actieve divisie",
+      "start-description": "Start een idempotente, divisie-exclusieve sample. Twee keer starten geeft dezelfde actieve taak terug en voert het werk niet dubbel uit.",
+      "fail-first-attempt": "Laat de eerste poging mislukken om duurzame retry te tonen",
+      "start": "Analyse starten",
+      "starting": "Wordt gestart…",
+      "recent": "Recente taken",
+      "empty": "Voor deze gebruiker en divisie zijn nog geen achtergrondtaken gestart.",
+      "connection": {
+        "disabled": "Alleen polling",
+        "disconnected": "Polling als fallback",
+        "connecting": "Live updates worden verbonden",
+        "connected": "Live updates verbonden",
+        "reconnecting": "Opnieuw verbinden; polling blijft actief"
+      },
+      "steps": {
+        "discover-projects": "Projecten vinden",
+        "analyze-portfolio": "Portfolio analyseren",
+        "load-checkpoint": "Herstelcheckpoint laden",
+        "process-projects": "Projectrondes verwerken",
+        "process-project-passes": "Projectrondes verwerken",
+        "publish-summary": "Samenvatting publiceren"
+      },
+      "messages": {
+        "projects-discovered": "{{count}} projecten gevonden.",
+        "checkpoint-loaded": "Hervatten bij batchitem {{nextItem}}.",
+        "analysis-completed": "Analyse afgerond met {{childCount}} onderliggende taken voor {{projectCount}} projecten in {{passes}} rondes."
+      }
+    }
+  },
   "general": {
     "search": "Zoeken"
   },

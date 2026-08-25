@@ -1,4 +1,4 @@
-import {Component, inject, Input, input, OnDestroy, OnInit} from '@angular/core'
+import {Component, inject, Input, input} from '@angular/core'
 import { TaskResult } from '../../models/misc.models';
 
 import {Observable} from 'rxjs';
@@ -16,7 +16,7 @@ import {CollectionHttpResponse} from "../../models/http.models";
   template: ``,
   standalone: false
 })
-export abstract class NhUserNotificationsAbstractComponent extends NhCollectionBaseComponent<NhUserNotification> implements OnInit, OnDestroy {
+export abstract class NhUserNotificationsAbstractComponent extends NhCollectionBaseComponent<NhUserNotification> {
   @Input() allowStart: boolean = true;
   @Input() allowStop: boolean = true;
   @Input() itemsPerPage: number = 999;
@@ -32,9 +32,9 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
   protected userNotificationSubscription = this.userNotificationService.userNotificationState$.subscribe(async (state) => {
     this.userNotificationState = state;
 
-    const hasNewNotifications = this.lastNotificationDate && this.lastNotificationDate != this.userNotificationState.overview.lastNotificationDate;
-    const countChanged = this.lastNotificationCount && this.lastNotificationCount != this.userNotificationState.overview.totalCount;
-    const unreadCountChanged = this.lastUnreadNotificationCount && this.lastUnreadNotificationCount != this.userNotificationState.overview.unreadCount;
+    const hasNewNotifications = this.lastNotificationDate !== this.userNotificationState.overview.lastNotificationDate;
+    const countChanged = this.lastNotificationCount !== this.userNotificationState.overview.totalCount;
+    const unreadCountChanged = this.lastUnreadNotificationCount !== this.userNotificationState.overview.unreadCount;
 
     if(hasNewNotifications || countChanged || unreadCountChanged) {
       if(this.autoLoadNotificationChanges) {
@@ -48,6 +48,8 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
       this.onNewNotificationsAvailable(state).catch((error) => {
         console.error('Error handling user notification state change:', error);
       });
+
+      this.captureOverview(state);
     }
   });
 
@@ -59,20 +61,20 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
     return Promise.resolve();
   }
 
-  override ngOnInit() {
-    super.ngOnInit();
+  override async appOnInit(): Promise<void> {
+    await super.appOnInit();
     if(this.allowStart) {
       this.userNotificationService.start();
     }
   }
 
-  override ngOnDestroy() {
-    super.ngOnDestroy();
+  override async appOnDestroy(): Promise<void> {
     if(this.allowStop) {
       this.userNotificationService.stop();
     }
 
     this.userNotificationSubscription?.unsubscribe();
+    await super.appOnDestroy();
   }
 
   getInitialRequestOptions() {
@@ -90,9 +92,7 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
   }
 
   override async afterLoad() {
-    this.lastNotificationDate = this.userNotificationState.overview.lastNotificationDate;
-    this.lastNotificationCount = this.userNotificationState.overview.totalCount;
-    this.lastUnreadNotificationCount = this.userNotificationState.overview.unreadCount;
+    this.captureOverview(this.userNotificationState);
   }
 
   async reload() {
@@ -176,5 +176,11 @@ export abstract class NhUserNotificationsAbstractComponent extends NhCollectionB
     await this.firstPage();
 
     return taskResult;
+  }
+
+  private captureOverview(state: NhUserNotificationState): void {
+    this.lastNotificationDate = state.overview.lastNotificationDate;
+    this.lastNotificationCount = state.overview.totalCount;
+    this.lastUnreadNotificationCount = state.overview.unreadCount;
   }
 }
