@@ -19,7 +19,7 @@ when it:
 | Operations API | CAP, Hangfire, email, and notification delivery | event configurator, `NhHangfireUtil`, `NhMailService`, notification builder |
 | Notification playground | polling, badge, mark-as-read, and archive | abstract notification component, service, and controller |
 | Platform playground | text, binary, download, modal, multi-select, custom control, head, and JSON-LD | HTTP options, modal, form, head, and configuration services |
-| Utility playground | strings, arrays, encoding, mutex, cookies, safe and date pipes, and Sentry hooks | concrete utilities, components, and hooks |
+| Utility playground | strings, arrays, encoding, mutex, cookies, safe and date pipes | concrete utilities and components |
 | EF Core chunks | ordered project query in bounded asynchronous batches | `IQueryable.ChunkAsync` with cancellation |
 | Executable tests | collection expressions, projection, validation, SQL, and translation parity | library-only contracts without a UI abstraction |
 

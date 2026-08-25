@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
 
 namespace NewHeap.Platform.Common.Localization;
@@ -6,10 +7,14 @@ namespace NewHeap.Platform.Common.Localization;
 public class NhCompositeStringLocalizer : IStringLocalizer
 {
     private readonly IReadOnlyList<IStringLocalizer> _localizers;
+    private readonly ILogger<NhCompositeStringLocalizer> _logger;
 
-    public NhCompositeStringLocalizer(IEnumerable<IStringLocalizer> localizers)
+    public NhCompositeStringLocalizer(
+        IEnumerable<IStringLocalizer> localizers,
+        ILogger<NhCompositeStringLocalizer> logger)
     {
         _localizers = localizers.ToList();
+        _logger = logger;
     }
 
     public LocalizedString this[string name]
@@ -24,7 +29,14 @@ public class NhCompositeStringLocalizer : IStringLocalizer
                     if (!str.ResourceNotFound)
                         return str;
                 }
-                catch { }
+                catch (Exception exception)
+                {
+                    _logger.LogDebug(
+                        exception,
+                        "Localization provider {LocalizationProvider} failed to resolve resource {ResourceName}",
+                        loc.GetType().Name,
+                        name);
+                }
             }
             return new LocalizedString(name, name, true);
         }
@@ -42,7 +54,14 @@ public class NhCompositeStringLocalizer : IStringLocalizer
                     if (!str.ResourceNotFound)
                         return str;
                 }
-                catch { }
+                catch (Exception exception)
+                {
+                    _logger.LogDebug(
+                        exception,
+                        "Localization provider {LocalizationProvider} failed to format resource {ResourceName}",
+                        loc.GetType().Name,
+                        name);
+                }
             }
 
             var value = SafeFormat(name, arguments);

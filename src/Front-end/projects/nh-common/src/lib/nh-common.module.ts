@@ -8,7 +8,6 @@ import {
   SkipSelf,
   Type
 } from "@angular/core";
-import * as Sentry from "@sentry/angular";
 import {CommonModule} from "@angular/common";
 import {
   HTTP_INTERCEPTORS,
@@ -58,9 +57,6 @@ import {NhErrorComponent} from "./components/nh-error/component";
 import {BaseNhAuthService, NhAuthService} from "./services/nh-auth.service";
 import {INhAuthorization} from "./models/auth.models";
 import {NH_ERROR_HANDLERS, NhErrorHandlerService} from "./services/nh-error-handler.service";
-import {NhErrorHandlerSentryService} from "./services/nh-error-handler-sentry.service";
-import {Router} from "@angular/router";
-import {NhSentryTraceService} from "./services/nh-sentry-trace.service";
 import {NhPageSizeComponent} from "./components/nh-page-size/page-size.component";
 import {NhSearchInputComponent} from "./components/nh-search-input/search-input.component";
 
@@ -153,7 +149,6 @@ import {NhSearchInputComponent} from "./components/nh-search-input/search-input.
   providers: [
     provideAppInitializer(() => {
       const configService = inject(NhConfigCommonService);
-      const nhSentryTraceService = inject(NhSentryTraceService);
       return new Observable<unknown>((observer) => {
         //
         // We use APP_INITIALIZER to load the configuration before the application starts. (Cuz DEPS calls for AppConfigService it is loaded soon in the lifecycle of the app.)
@@ -193,14 +188,6 @@ import {NhSearchInputComponent} from "./components/nh-search-input/search-input.
       useClass: NhDeduplicateGetRequestsInterceptor,
       multi: true
     },
-    // Tracing
-    {
-      provide: Sentry.TraceService,
-      useFactory: (nhSentryTraceService: NhSentryTraceService) => {
-        return nhSentryTraceService.sentryTraceService;
-      },
-      deps: [NhSentryTraceService]
-    },
     //Error handlers
     {
       provide: ErrorHandler, // Make support for multiple error handlers
@@ -209,11 +196,6 @@ import {NhSearchInputComponent} from "./components/nh-search-input/search-input.
     {
       provide: NH_ERROR_HANDLERS, // Register the default
       useClass: ErrorHandler,
-      multi: true,
-    },
-    {
-      provide: NH_ERROR_HANDLERS, // Register Sentry error handler
-      useClass: NhErrorHandlerSentryService,
       multi: true,
     },
     provideHttpClient(withInterceptorsFromDi(), withFetch()),

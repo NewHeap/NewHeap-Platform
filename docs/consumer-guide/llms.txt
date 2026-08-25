@@ -19,6 +19,7 @@
 - frontend-lifecycle-modals: ./frontend-lifecycle-modals.md
 - frontend-root-configuration: ./frontend-root-configuration.md
 - media: ./media.md
+- observability-logging: ./observability-logging.md
 - runtime-configuration: ./runtime-configuration.md
 - testing: ./testing.md
 - consumer router skill: ../../skills/newheap-platform-development/SKILL.md

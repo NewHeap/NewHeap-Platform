@@ -4,6 +4,7 @@ using NewHeap.Media.Modules;
 using NewHeap.Platform.Common.Models;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 
 namespace NewHeap.Media;
 
@@ -16,13 +17,15 @@ public class MediaLibraryService : IMediaLibraryService
     private readonly IFileStructureStorage _fileStructureStorage;
     private readonly IMediaStorage _fileStorage;
     private readonly IAuthorizationModule _authorizationModule;
+    private readonly ILogger<MediaLibraryService> _logger;
 
     public MediaLibraryService(
         [Optional] IEnumerable<IHandleMediaLibraryEvent> eventHandlers,
         IThumbnailService thumbnailService,
         IFileStructureStorage fileStructureStorage,
         IMediaStorage fileStorage,
-        IAuthorizationModule authorizationModule
+        IAuthorizationModule authorizationModule,
+        ILogger<MediaLibraryService> logger
     )
     {
         _eventHandlers = eventHandlers;
@@ -30,6 +33,7 @@ public class MediaLibraryService : IMediaLibraryService
         _fileStructureStorage = fileStructureStorage;
         _fileStorage = fileStorage;
         _authorizationModule = authorizationModule;
+        _logger = logger;
     }
 
     public virtual Task<TaskResult> LocalizeFieldAsync(Guid fileReferenceId, string propertyName, string language,
@@ -205,9 +209,10 @@ public class MediaLibraryService : IMediaLibraryService
             await TriggerEvents(null, fileRef.Data, MediaLibraryFileEventType.Added);
             return fileRef;
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            return TaskResult<FileReference>.Failed(e.ToString());
+            _logger.LogError(exception, "Failed to create a media file.");
+            return TaskResult<FileReference>.Failed("media.file.create-failed");
         }
     }
 

@@ -21,7 +21,6 @@ import {
   NhCommonModule,
   NhCommonModuleConfig,
   NhMutex,
-  NhSentryInitializerService,
   TaskResult,
   enumIntValuesToArray,
   enumKeysToArray,
@@ -55,7 +54,6 @@ export class UtilityPlaygroundComponent {
   private readonly translateService = inject(TranslateService);
   private readonly cookieService = inject(NhCookieService);
   private readonly connectionService = inject(NhInternetConnectionService);
-  private readonly sentry = inject(NhSentryInitializerService);
   private readonly moduleConfig = inject(NhCommonModuleConfig);
 
   readonly internetConnected = toSignal(
@@ -66,7 +64,6 @@ export class UtilityPlaygroundComponent {
   readonly encodedBlob = signal('');
   readonly observableResult = signal('');
   readonly cookieResult = signal('');
-  readonly sentryResult = signal('');
   readonly utilityMatrixResult = signal('');
   readonly debouncedButtonRuns = signal(0);
   readonly presentationError = new TaskResult().withError('', 'The API could not load the project list.');
@@ -191,14 +188,6 @@ export class UtilityPlaygroundComponent {
   async runObservable(): Promise<void> {
     const result = await of({ id: 42, state: 'completed' }).typedResultLastValueFrom();
     this.observableResult.set(JSON.stringify(result, null, 2));
-  }
-
-  runSentryDryRun(): void {
-    this.sentry.registerHookBeforeSend(event => {
-      event.tags = { ...event.tags, sample: 'SPM-159' };
-      return event;
-    });
-    this.sentryResult.set(`Hook registered; outbound logging is ${this.sentry.isEnabled ? 'active' : 'safely disabled'}.`);
   }
 
   private createStatusDropDownSettings(selectionLimit: number): NhFormDropDownSettings {

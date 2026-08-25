@@ -1,7 +1,9 @@
+using System.Collections.Concurrent;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
@@ -162,13 +164,14 @@ public sealed class NhBackgroundOperationProviderTests
             new NoOpNotificationProjector(),
             NullLogger<NhBackgroundOperationFanOutCoordinator>.Instance);
 
+        var persistenceLogger = new ListLogger<NhBackgroundOperationPersistence>();
         var persistence = new NhBackgroundOperationPersistence(
             serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             options,
             new NoOpLiveUpdatePublisher(),
             new NoOpNotificationProjector(),
             fanOutCoordinator,
-            NullLogger<NhBackgroundOperationPersistence>.Instance);
+            persistenceLogger);
         await VerifyOperationLockContentionAsync(
             serviceProvider,
             persistence,
@@ -358,6 +361,17 @@ public sealed class NhBackgroundOperationProviderTests
             fanOutCoordinator,
             registry,
             ownerId);
+
+        persistenceLogger.Entries.Should().Contain(entry =>
+            entry.Level == LogLevel.Information
+            && entry.Template == "Background operation {OperationId} attempt {AttemptNumber} started for {OperationType} on queue {Queue}."
+            && entry.Properties.ContainsKey("OperationId")
+            && entry.Properties.ContainsKey("AttemptNumber")
+            && entry.Properties.ContainsKey("OperationType")
+            && entry.Properties.ContainsKey("Queue"));
+        persistenceLogger.Entries.Should().Contain(entry =>
+            entry.Template == "Background operation {OperationId} attempt {AttemptNumber} completed with status {Status}."
+            && entry.Properties.ContainsKey("Status"));
     }
 
     private static async Task VerifyOperationLockContentionAsync(
@@ -1384,6 +1398,53 @@ public sealed class NhBackgroundOperationProviderTests
             return Task.FromResult<NhBackgroundOperationExecutionState?>(null);
         }
     }
+
+    private sealed class ListLogger<T> : ILogger<T>
+    {
+        private readonly ConcurrentQueue<LogEntry> _entries = new();
+
+        public IReadOnlyCollection<LogEntry> Entries => _entries.ToArray();
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+        {
+            return NoopDisposable.Instance;
+        }
+
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true;
+        }
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            var properties = state as IEnumerable<KeyValuePair<string, object?>>;
+            var propertyDictionary = properties?.ToDictionary(x => x.Key, x => x.Value)
+                ?? new Dictionary<string, object?>();
+            var template = propertyDictionary.TryGetValue("{OriginalFormat}", out var originalFormat)
+                ? originalFormat?.ToString() ?? formatter(state, exception)
+                : formatter(state, exception);
+            _entries.Enqueue(new LogEntry(logLevel, template, propertyDictionary));
+        }
+    }
+
+    private sealed class NoopDisposable : IDisposable
+    {
+        internal static NoopDisposable Instance { get; } = new();
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed record LogEntry(
+        LogLevel Level,
+        string Template,
+        IReadOnlyDictionary<string, object?> Properties);
 
     private sealed class BackgroundOperationDbContext(DbContextOptions<BackgroundOperationDbContext> options)
         : NhIdentityDbContext(options);

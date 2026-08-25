@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.12.1",
   "backEnd": {
-    "hash": "5839200cc9dd91ac03aac2be1c49efd09ec099f47ba9491fc75b5b3b88b2ed5c",
-    "declarationCount": 2921,
+    "hash": "1ea108c9a90d643efa558b4ac4e91a43d39116dc533010916d80ce0d8cf1c81a",
+    "declarationCount": 2940,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Caching/Extensions.cs",
@@ -3274,16 +3274,16 @@
         "declaration": "public static ModelStateDictionary WithResultErrors<T>(this ModelStateDictionary modelState, TaskResult<T> result) {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/SentryExtensions.cs",
-        "declaration": "public static class NhSentryExtensions {"
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NewHeapAspNetObservabilityExtensions.cs",
+        "declaration": "public static class NewHeapAspNetObservabilityExtensions {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/SentryExtensions.cs",
-        "declaration": "public static IWebHostBuilder UseNewHeapSentry(this IWebHostBuilder builder, Action<SentryAspNetCoreOptions>? optionsAction = null)"
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NewHeapAspNetObservabilityExtensions.cs",
+        "declaration": "public static TBuilder AddNewHeapAspNetObservability<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/SentryExtensions.cs",
-        "declaration": "public static IHostApplicationBuilder UseNewHeapSentry(this WebApplicationBuilder builder, Action<SentryAspNetCoreOptions>? optionsAction = null)"
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/NewHeapAspNetObservabilityExtensions.cs",
+        "declaration": "public static IHostBuilder AddNewHeapAspNetObservability(this IHostBuilder builder) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Extensions/ServiceCollectionExtensions.cs",
@@ -3436,6 +3436,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Middlewares/TraceIdentifierMiddleware.cs",
         "declaration": "public const string CorrelationIdHeaderName = \"X-Correlation-ID\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Middlewares/TraceIdentifierMiddleware.cs",
+        "declaration": "public const string CorrelationIdScopeName = \"correlation_id\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Middlewares/TraceIdentifierMiddleware.cs",
+        "declaration": "public const int MaximumCorrelationIdLength = 128;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Middlewares/TraceIdentifierMiddleware.cs",
@@ -5859,7 +5867,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationStartupValidator.cs",
-        "declaration": "public NhBackgroundOperationStartupValidator(IServiceProvider serviceProvider, NhBackgroundOperationsOptions options) {"
+        "declaration": "public NhBackgroundOperationStartupValidator( IServiceProvider serviceProvider, NhBackgroundOperationsOptions options, ILogger<NhBackgroundOperationStartupValidator> logger) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationStartupValidator.cs",
@@ -6187,7 +6195,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/HttpCollectionProcessingService.cs",
-        "declaration": "public HttpCollectionProcessingService( IMapper mapper, IHttpContextAccessor httpContextAccessor ) : base(mapper) {"
+        "declaration": "protected readonly ILogger<HttpCollectionProcessingService> _logger;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/HttpCollectionProcessingService.cs",
+        "declaration": "public HttpCollectionProcessingService( IMapper mapper, IHttpContextAccessor httpContextAccessor, ILogger<HttpCollectionProcessingService> logger ) : base(mapper) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/HttpCollectionProcessingService.cs",
@@ -6391,7 +6403,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhDbLogService.cs",
-        "declaration": "public NhDbLogService( IOptions<DbLogServiceSettings> logSettings, IRepository<NhLog> logRepository, IHttpContextAccessor httpContextAccessor, IStringLocalizer<NhDbLogService> logLocalizer, IOptions<NewHeapAspNetCommonSettings> settings ) : base(logSettings, logRepository, httpContextAccessor, logLocalizer, settings) {"
+        "declaration": "public NhDbLogService( IOptions<DbLogServiceSettings> logSettings, IRepository<NhLog> logRepository, IHttpContextAccessor httpContextAccessor, IStringLocalizer<NhDbLogService> logLocalizer, IOptions<NewHeapAspNetCommonSettings> settings, ILogger<NhDbLogService> logger ) : base(logSettings, logRepository, httpContextAccessor, logLocalizer, settings, logger) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhDbLogService.cs",
@@ -6423,7 +6435,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhDbLogService.cs",
-        "declaration": "public NhDbLogService( IOptions<DbLogServiceSettings> logSettings, IRepository<TLog> logRepository, IHttpContextAccessor httpContextAccessor, IStringLocalizer<NhDbLogService> logLocalizer, IOptions<NewHeapAspNetCommonSettings> settings ) {"
+        "declaration": "protected readonly ILogger _logger;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhDbLogService.cs",
+        "declaration": "public NhDbLogService( IOptions<DbLogServiceSettings> logSettings, IRepository<TLog> logRepository, IHttpContextAccessor httpContextAccessor, IStringLocalizer<NhDbLogService> logLocalizer, IOptions<NewHeapAspNetCommonSettings> settings, ILogger logger ) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhDbLogService.cs",
@@ -7603,7 +7619,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/HostBuilderExtensions.cs",
-        "declaration": "public static ILoggingBuilder ConfigureNhCommonLogging(this ILoggingBuilder builder) {"
+        "declaration": "public static ILoggingBuilder ConfigureNhCommonLogging( this ILoggingBuilder builder, Models.Options.NewHeapObservabilityOptions? options = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/IModelExtensions.cs",
@@ -7734,6 +7750,18 @@
         "declaration": "public static void Log<T>(this ILogger logger, LogLevel logLevel, EventId eventId, TaskResult<T>? taskResult, string? message, params object?[] args) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/NewHeapObservabilityExtensions.cs",
+        "declaration": "public static class NewHeapObservabilityExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/NewHeapObservabilityExtensions.cs",
+        "declaration": "public static TBuilder AddNewHeapObservability<TBuilder>( this TBuilder builder, Action<NewHeapObservabilityOptions>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/NewHeapObservabilityExtensions.cs",
+        "declaration": "public static IHostBuilder AddNewHeapObservability( this IHostBuilder builder, Action<NewHeapObservabilityOptions>? configure = null)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Extensions/NhApiClientServiceCollectionExtensions.cs",
         "declaration": "public static partial class ServiceCollectionExtensions {"
       },
@@ -7855,7 +7883,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Localization/NhCompositeStringLocalizer.cs",
-        "declaration": "public NhCompositeStringLocalizer(IEnumerable<IStringLocalizer> localizers) {"
+        "declaration": "public NhCompositeStringLocalizer( IEnumerable<IStringLocalizer> localizers, ILogger<NhCompositeStringLocalizer> logger) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Localization/NhCompositeStringLocalizer.cs",
@@ -8759,11 +8787,59 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapCommonSettings.cs",
-        "declaration": "public NewHeapCommonOptionsBuilder UseOtlpUseExporter(bool use = true)"
+        "declaration": "public NewHeapCommonOptionsBuilder UseOtlpExporter(bool use = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapCommonSettings.cs",
+        "declaration": "[Obsolete($\"Use {nameof(UseOtlpExporter)} instead. Standard OTEL_* environment variables are preferred.\")] public NewHeapCommonOptionsBuilder UseOtlpUseExporter(bool use = true) => UseOtlpExporter(use);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapCommonSettings.cs",
         "declaration": "public NewHeapCommonOptions Build() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapObservabilityOptions.cs",
+        "declaration": "public enum NewHeapOtlpExporterMode {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapObservabilityOptions.cs",
+        "declaration": "public sealed class NewHeapObservabilityOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapObservabilityOptions.cs",
+        "declaration": "public NewHeapOtlpExporterMode OtlpExporterMode { get; set; } = NewHeapOtlpExporterMode.Auto;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapObservabilityOptions.cs",
+        "declaration": "public string? ServiceName { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapObservabilityOptions.cs",
+        "declaration": "public bool IncludeFormattedMessage { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapObservabilityOptions.cs",
+        "declaration": "public bool IncludeScopes { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapObservabilityOptions.cs",
+        "declaration": "public bool ParseStateValues { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapObservabilityOptions.cs",
+        "declaration": "public Action<OpenTelemetryLoggerOptions>? ConfigureLogging { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapObservabilityOptions.cs",
+        "declaration": "public Action<MeterProviderBuilder>? ConfigureMetrics { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapObservabilityOptions.cs",
+        "declaration": "public Action<TracerProviderBuilder>? ConfigureTracing { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapObservabilityOptions.cs",
+        "declaration": "public Action<ResourceBuilder>? ConfigureResource { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NhApiClientOptions.cs",
@@ -8824,10 +8900,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/NewHeapPlatformCommonConfigurator.cs",
         "declaration": "public NewHeapPlatformCommonConfigurator WithMail(Action<MailServiceSettings> mailServiceSettingsAction) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/NewHeapPlatformCommonConfigurator.cs",
-        "declaration": "public NewHeapPlatformCommonConfigurator WithSentry(Action<SentryOptions> optionsAction) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/Api/BaseNhApiService.cs",
@@ -9415,7 +9487,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/LogHelperService.cs",
-        "declaration": "public LogHelperService(IStringLocalizer<SharedDataAnnotationRecources> localizer) {"
+        "declaration": "public LogHelperService( IStringLocalizer<SharedDataAnnotationRecources> localizer, ILogger<LogHelperService> logger) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/LogHelperService.cs",
@@ -9487,15 +9559,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/MicrosoftAuthService.cs",
-        "declaration": "public MicrosoftAuthService(IOptions<MicrosoftAuthSettings> options) {"
+        "declaration": "public MicrosoftAuthService( IOptions<MicrosoftAuthSettings> options, HttpClient httpClient, ILogger<MicrosoftAuthService> logger) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/MicrosoftAuthService.cs",
-        "declaration": "public async Task<MicrosoftAuthUser?> GetProfile(string token) {"
+        "declaration": "public async Task<MicrosoftAuthUser?> GetProfile( string token, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/MicrosoftAuthService.cs",
-        "declaration": "public async Task<MicosoftAuthTokenSuccessResponse?> GetToken(string code, string? state = null)"
+        "declaration": "public async Task<MicosoftAuthTokenSuccessResponse?> GetToken( string code, string? state = null, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/MicrosoftAuthService.cs",
@@ -9511,7 +9583,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhMailService.cs",
-        "declaration": "public NhMailService(IOptions<MailServiceSettings> emailSettings) {"
+        "declaration": "protected readonly ILogger<NhMailService> _logger;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhMailService.cs",
+        "declaration": "public NhMailService( IOptions<MailServiceSettings> emailSettings, ILogger<NhMailService> logger) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhMailService.cs",
@@ -10691,7 +10767,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/MediaLibraryService.cs",
-        "declaration": "public MediaLibraryService( [Optional] IEnumerable<IHandleMediaLibraryEvent> eventHandlers, IThumbnailService thumbnailService, IFileStructureStorage fileStructureStorage, IMediaStorage fileStorage, IAuthorizationModule authorizationModule ) {"
+        "declaration": "public MediaLibraryService( [Optional] IEnumerable<IHandleMediaLibraryEvent> eventHandlers, IThumbnailService thumbnailService, IFileStructureStorage fileStructureStorage, IMediaStorage fileStorage, IAuthorizationModule authorizationModule, ILogger<MediaLibraryService> logger ) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/MediaLibraryService.cs",
@@ -11651,7 +11727,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.MediaStorage.S3Bucket/S3BucketStorage.cs",
-        "declaration": "public S3BucketStorage(IOptionsSnapshot<S3MediaStorageSettings> options) {"
+        "declaration": "public S3BucketStorage( IOptionsSnapshot<S3MediaStorageSettings> options, ILogger<S3BucketStorage> logger) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.MediaStorage.S3Bucket/S3BucketStorage.cs",
@@ -11692,8 +11768,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "b80172d13274d7588f9637cdd3ab83af8d7c98f9b28341552373fc7f193bef3c",
-    "declarationCount": 793,
+    "hash": "e026704f99a647475bc82d4f436ae07768619fffae5c1c297a90b18afe73f743",
+    "declarationCount": 768,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
@@ -12773,22 +12849,6 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
-        "declaration": "export class NhSentryErrorLoggingNhCommonModuleConfig {"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
-        "declaration": "public constructor(init?: Partial<NhSentryErrorLoggingNhCommonModuleConfig>) {"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
-        "declaration": "export class NhErrorLoggingNhCommonModuleConfig {"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
-        "declaration": "public constructor(init?: Partial<NhErrorLoggingNhCommonModuleConfig>) {"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
         "declaration": "export class NhTranslationNhCommonModuleConfig {"
       },
       {
@@ -13752,14 +13812,6 @@
         "declaration": "public setServerCookies(cookies: Cookie[]) {"
       },
       {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-error-handler-sentry.service.ts",
-        "declaration": "@Injectable({"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-error-handler-sentry.service.ts",
-        "declaration": "export class NhErrorHandlerSentryService implements ErrorHandler, OnDestroy {"
-      },
-      {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-error-handler.service.ts",
         "declaration": "export const NH_ERROR_HANDLERS = new InjectionToken<ErrorHandler[]>('NH_ERROR_HANDLERS');"
       },
@@ -14066,70 +14118,6 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-router.service.ts",
         "declaration": "public reloadRoutes(){"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry-trace.service.ts",
-        "declaration": "@Injectable({"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry-trace.service.ts",
-        "declaration": "export class NhSentryTraceService implements OnDestroy {"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "export type NhSentryBeforeSendHook = (event: Sentry.ErrorEvent, hint: Sentry.EventHint) => Sentry.ErrorEvent | null | PromiseLike<Sentry.ErrorEvent | null>;"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "export type NhSentryBeforeSendLogHook = (event: SentryCore.Log) => SentryCore.Log | null;"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "export type NhSentryBeforeSendSpanHook = (span: SentryCore.SpanJSON) => SentryCore.SpanJSON;"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "export type NhSentryBeforeSendTransactionHook = (span: SentryCore.TransactionEvent, hint: Sentry.EventHint) => SentryCore.TransactionEvent | null | PromiseLike<SentryCore.TransactionEvent | null>;"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "export type NhSentryBeforeBreadcrumbHook = (span: Sentry.Breadcrumb, hint?: Sentry.BreadcrumbHint) => Sentry.Breadcrumb | null;"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "export const NH_SENTRY_BEFORE_SEND_HOOKS = new InjectionToken<NhSentryBeforeSendHook[]>(\"NH_SENTRY_BEFORE_SEND_HOOKS\");"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "export const NH_SENTRY_BEFORE_SEND_LOG_HOOKS = new InjectionToken<NhSentryBeforeSendLogHook[]>(\"NH_SENTRY_BEFORE_SEND_LOG_HOOKS\");"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "export const NH_SENTRY_BEFORE_SEND_SPAN_HOOKS = new InjectionToken<NhSentryBeforeSendSpanHook[]>(\"NH_SENTRY_BEFORE_SEND_SPAN_HOOKS\");"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "export const NH_SENTRY_BEFORE_SEND_TRANSACTION_HOOKS = new InjectionToken<NhSentryBeforeSendTransactionHook[]>(\"NH_SENTRY_BEFORE_SEND_TRANSACTION_HOOKS\");"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "export const NH_SENTRY_BEFORE_BREADCRUMB_HOOKS = new InjectionToken<NhSentryBeforeBreadcrumbHook[]>(\"NH_SENTRY_BEFORE_BREADCRUMB_HOOKS\");"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "@Injectable({"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "export class NhSentryInitializerService implements OnDestroy {"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "@Injectable({"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-sentry.service.ts",
-        "declaration": "export class NhSentryService implements OnDestroy {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-server-side-form-validator.service.ts",
@@ -14641,18 +14629,6 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/public-api.ts",
-        "declaration": "export * from './lib/services/nh-error-handler-sentry.service';"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
-        "declaration": "export * from './lib/services/nh-sentry-trace.service';"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
-        "declaration": "export * from './lib/services/nh-sentry.service';"
-      },
-      {
-        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
         "declaration": "export * from './lib/services/nh-app.service';"
       },
       {
@@ -14977,6 +14953,17 @@
       "UseFileSystemMediaStorage",
       "NhMediaServiceConfigurationContext",
       "IAuthorizationModule"
+    ],
+    "nh-observability-logging": [
+      "AddNewHeapObservability",
+      "AddNewHeapAspNetObservability",
+      "NewHeapObservabilityOptions",
+      "NewHeapOtlpExporterMode",
+      "UseNhCommonConfiguration",
+      "UseNewHeapAspnetCommonConfiguration",
+      "UseNewHeapTraceIdentifier",
+      "NH_ERROR_HANDLERS",
+      "NhErrorHandlerService"
     ],
     "nh-operations-events-jobs-notifications": [
       "CapTransactionScope",

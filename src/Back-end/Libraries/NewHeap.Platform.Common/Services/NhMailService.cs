@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 using NewHeap.Platform.Common.Models.Options;
+using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Net.Mail;
 using System.Text;
@@ -9,10 +10,14 @@ namespace NewHeap.Platform.Common.Services;
 public partial class NhMailService
 {
     protected readonly MailServiceSettings _emailSettings;
+    protected readonly ILogger<NhMailService> _logger;
 
-    public NhMailService(IOptions<MailServiceSettings> emailSettings)
+    public NhMailService(
+        IOptions<MailServiceSettings> emailSettings,
+        ILogger<NhMailService> logger)
     {
         _emailSettings = emailSettings.Value;
+        _logger = logger;
     }
 
     public virtual async Task SendAsync(
@@ -24,7 +29,7 @@ public partial class NhMailService
     {
         if (mailMessage == null)
         {
-            throw new ArgumentNullException();
+            throw new ArgumentNullException(nameof(mailMessage));
         }
 
         formDisplayName ??= _emailSettings.FromDisplayName;
@@ -62,6 +67,7 @@ public partial class NhMailService
 
             if (!mailMessage.To.Any())
             {
+                _logger.LogDebug("Skipped mail delivery because recipient restrictions removed every recipient.");
                 return;
             }
         }
@@ -70,7 +76,10 @@ public partial class NhMailService
         {
             smtp.Credentials = new NetworkCredential(_emailSettings.User, _emailSettings.Password);
             smtp.EnableSsl = _emailSettings.EnableSsl;
-            await smtp.SendMailAsync(mailMessage);
+            await smtp.SendMailAsync(mailMessage, cancellationToken);
+            _logger.LogDebug(
+                "Mail delivery completed for {RecipientCount} recipient(s).",
+                mailMessage.To.Count + mailMessage.CC.Count + mailMessage.Bcc.Count);
         }
     }
 }

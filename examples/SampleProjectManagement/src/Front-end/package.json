@@ -31,7 +31,6 @@
     "@ngx-translate/core": "^17.0.0",
     "@ngx-translate/http-loader": "^17.0.0",
     "@phosphor-icons/web": "^2.1.2",
-    "@sentry/angular": "^10.53.1",
     "@swimlane/ngx-datatable": "^23.0.1",
     "bootstrap": "^5.3.8",
     "js-base64": "^3.7.8",

@@ -1429,13 +1429,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-105",
     "title": "Backend observability",
     "category": "Localization, configuration, and HTTP infrastructure",
-    "surface": "logger/Sentry/stopwatch",
-    "outcome": "Timing, tags, and trace context are present.",
+    "surface": "ILogger/OpenTelemetry/activity scope",
+    "outcome": "Structured completion and handled-failure logs share timing, sample context, and trace context.",
     "implementation": "implemented",
     "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ObservabilitySampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
-      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
-      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts"
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ObservabilitySampleServiceTests.cs",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
     ]
   },
   {
@@ -2132,12 +2134,13 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
   },
   {
     "id": "SPM-159",
-    "title": "Frontend Sentry",
+    "title": "Provider-neutral frontend error handling",
     "category": "Utilities, SEO, SSR, and observability",
-    "surface": "handlers/trace/hooks/config",
-    "outcome": "The error or span includes release, user, and trace information.",
+    "surface": "NH_ERROR_HANDLERS/ErrorHandler provider chain",
+    "outcome": "Application errors reach registered providers without requiring a vendor SDK or storing raw messages.",
     "implementation": "implemented",
     "evidence": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-frontend-error-handler.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"

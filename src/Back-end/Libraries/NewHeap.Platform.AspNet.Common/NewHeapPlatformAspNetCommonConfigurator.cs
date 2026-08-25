@@ -37,8 +37,6 @@ using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Localization;
 using NewHeap.Platform.Common.Translations;
 using NewHeap.Platform.Common.Utilities;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Trace;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
@@ -143,8 +141,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         AddLocalization();
         AddHttpRelated();
         AddRequestLocalization();
-        AddOpenTelementry();
-
         _serviceCollection.AddHealthChecks();
 
         #region Services
@@ -153,24 +149,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection.AddSingleton<IHttpCollectionProcessingService, HttpCollectionProcessingService>();
 
         #endregion
-    }
-
-    private void AddOpenTelementry()
-    {
-        _serviceCollection.AddOpenTelemetry()
-            .WithMetrics(metrics =>
-            {
-                metrics.AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation()
-                    .AddMeter(NhBackgroundOperationMetrics.MeterName);
-            })
-            .WithTracing(tracing =>
-            {
-                tracing.AddAspNetCoreInstrumentation()
-                    // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
-                    //.AddGrpcClientInstrumentation()
-                    .AddHttpClientInstrumentation();
-            });
     }
 
     private void AddHttpRelated()

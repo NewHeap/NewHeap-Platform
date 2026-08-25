@@ -31,9 +31,6 @@
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
     <PackageVersion Include="Savorboard.CAP.InMemoryMessageQueue" Version="8.2.1" />
-    <PackageVersion Include="Sentry" Version="[5.14.1,7.0.0)" />
-    <PackageVersion Include="Sentry.AspNetCore" Version="[5.14.1,7.0.0)" />
-    <PackageVersion Include="Sentry.Extensions.Logging" Version="[5.14.1,7.0.0)" />
     <PackageVersion Include="StackExchange.Utils.Configuration" Version="0.1.12" />
     <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerGen" Version="8.1.0" />
     <PackageVersion Include="System.Linq.Dynamic.Core" Version="1.7.2" />

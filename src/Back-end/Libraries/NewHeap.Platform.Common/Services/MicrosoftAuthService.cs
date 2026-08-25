@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Options;
 using NewHeap.Platform.Common.Models.MicrosoftAuth;
 using NewHeap.Platform.Common.Models.Options;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Net.Http.Headers;
 using System.Text;
@@ -10,31 +11,44 @@ namespace NewHeap.Platform.Common.Services;
 
 public class MicrosoftAuthService
 {
-    private static readonly HttpClient _httpClient = new();
+    private readonly HttpClient _httpClient;
+    private readonly ILogger<MicrosoftAuthService> _logger;
     private readonly MicrosoftAuthSettings _settings;
 
-    public MicrosoftAuthService(IOptions<MicrosoftAuthSettings> options)
+    public MicrosoftAuthService(
+        IOptions<MicrosoftAuthSettings> options,
+        HttpClient httpClient,
+        ILogger<MicrosoftAuthService> logger)
     {
         _settings = options.Value;
+        _httpClient = httpClient;
+        _logger = logger;
     }
 
-    public async Task<MicrosoftAuthUser?> GetProfile(string token)
+    public async Task<MicrosoftAuthUser?> GetProfile(
+        string token,
+        CancellationToken cancellationToken = default)
     {
         using HttpRequestMessage requestMessage = new(HttpMethod.Get, _settings.ProfileEndpoint);
 
         requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var result = await _httpClient.SendAsync(requestMessage);
+        using var result = await _httpClient.SendAsync(requestMessage, cancellationToken);
         if (result.IsSuccessStatusCode)
         {
             var user =
-                JsonConvert.DeserializeObject<MicrosoftAuthUser>(await result.Content.ReadAsStringAsync());
+                JsonConvert.DeserializeObject<MicrosoftAuthUser>(
+                    await result.Content.ReadAsStringAsync(cancellationToken));
             return user;
         }
 
+        LogFailedRequest("profile", result.StatusCode);
         return null;
     }
 
-    public async Task<MicosoftAuthTokenSuccessResponse?> GetToken(string code, string? state = null)
+    public async Task<MicosoftAuthTokenSuccessResponse?> GetToken(
+        string code,
+        string? state = null,
+        CancellationToken cancellationToken = default)
     {
         var url = $"https://login.microsoftonline.com/{_settings.TenantId}/oauth2/v2.0/token";
 
@@ -46,22 +60,21 @@ public class MicrosoftAuthService
         query.Add("grant_type", "authorization_code");
         query.Add("client_secret", _settings.ClientSecret);
 
-        var result =
-            await _httpClient.PostAsync(url, new ReadOnlyMemoryContent(Encoding.UTF8.GetBytes(query.ToString()!)));
+        using var result = await _httpClient.PostAsync(
+            url,
+            new ReadOnlyMemoryContent(Encoding.UTF8.GetBytes(query.ToString()!)),
+            cancellationToken);
 
         if (result.IsSuccessStatusCode)
         {
             var response =
                 JsonConvert.DeserializeObject<MicosoftAuthTokenSuccessResponse>(
-                    await result.Content.ReadAsStringAsync());
+                    await result.Content.ReadAsStringAsync(cancellationToken));
             return response!;
         }
-        else
-        {
-            var response = await result.Content.ReadAsStringAsync();
-            var resonseStatus = result.StatusCode;
-            return null;
-        }
+
+        LogFailedRequest("token", result.StatusCode);
+        return null;
     }
 
     public string GetLoginUrl(string? state = null)
@@ -82,5 +95,22 @@ public class MicrosoftAuthService
 
         var url = $"https://login.microsoftonline.com/{_settings.TenantId}/oauth2/v2.0/authorize?{query}";
         return url;
+    }
+
+    private void LogFailedRequest(string operation, System.Net.HttpStatusCode statusCode)
+    {
+        if ((int)statusCode >= 500)
+        {
+            _logger.LogWarning(
+                "Microsoft authentication {Operation} request failed with status code {StatusCode}.",
+                operation,
+                (int)statusCode);
+            return;
+        }
+
+        _logger.LogDebug(
+            "Microsoft authentication {Operation} request was rejected with status code {StatusCode}.",
+            operation,
+            (int)statusCode);
     }
 }

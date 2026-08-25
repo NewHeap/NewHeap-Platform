@@ -19,16 +19,4 @@
           PackagePath="README.md"
           Visible="false" />
   </ItemGroup>
-
-  <!-- Sentry's build-transitive target writes the absolute build directory into every
-       consuming assembly. It is not needed by the runtime SDK and makes public packages
-       machine-specific, so remove only that generated assembly metadata source. -->
-  <Target Name="RemoveSentryProjectDirectoryMetadata"
-          AfterTargets="WriteSentryAttributes"
-          BeforeTargets="CoreCompile"
-          Condition="'$(SentryAttributesFilePath)' != ''">
-    <ItemGroup>
-      <Compile Remove="$(SentryAttributesFilePath)" />
-    </ItemGroup>
-  </Target>
 </Project>

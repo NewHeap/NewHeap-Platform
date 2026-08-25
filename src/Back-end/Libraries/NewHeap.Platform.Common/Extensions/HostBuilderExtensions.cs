@@ -42,10 +42,7 @@ public static partial class HostBuilderExtensions
             );
         });
 
-        builder.ConfigureLogging(logging =>
-        {
-            logging.ConfigureNhCommonLogging();
-        });
+        builder.AddNewHeapObservability();
 
         return builder;
     }
@@ -79,7 +76,7 @@ public static partial class HostBuilderExtensions
             secretsFileName: "secrets",
             environmentFileIsOptional: environmentFileIsOptional
         );
-        builder.Logging.ConfigureNhCommonLogging();
+        builder.AddNewHeapObservability();
 
         return builder;
     }
@@ -227,12 +224,17 @@ public static partial class HostBuilderExtensions
             ?? Environments.Production;
     }
 
-    public static ILoggingBuilder ConfigureNhCommonLogging(this ILoggingBuilder builder)
+    public static ILoggingBuilder ConfigureNhCommonLogging(
+        this ILoggingBuilder builder,
+        Models.Options.NewHeapObservabilityOptions? options = null)
     {
+        options ??= new Models.Options.NewHeapObservabilityOptions();
         builder.AddOpenTelemetry(logging =>
         {
-            logging.IncludeFormattedMessage = true;
-            logging.IncludeScopes = true;
+            logging.IncludeFormattedMessage = options.IncludeFormattedMessage;
+            logging.IncludeScopes = options.IncludeScopes;
+            logging.ParseStateValues = options.ParseStateValues;
+            options.ConfigureLogging?.Invoke(logging);
         });
 
         return builder;

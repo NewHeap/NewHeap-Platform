@@ -35,9 +35,10 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 - [frontend-lifecycle-modals](./frontend-lifecycle-modals.md) — 1 rule
 - [frontend-root-configuration](./frontend-root-configuration.md) — 1 rule
 - [media](./media.md) — 1 rule
+- [observability-logging](./observability-logging.md) — 1 rule
 - [runtime-configuration](./runtime-configuration.md) — 1 rule
 - [testing](./testing.md) — 1 rule
 
 ## Maintenance
 
-Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 21 validated rules.
+Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 22 validated rules.

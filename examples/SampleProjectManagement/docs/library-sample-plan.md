@@ -156,7 +156,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-102 | OneOf OpenAPI | schema transformer | Swagger displays both variants. |
 | SPM-103 | JSON query binding | binder/provider | A complex filter binds from the query string. |
 | SPM-104 | Invariant form values | value-provider factory | Decimal and date values behave the same in English and Dutch. |
-| SPM-105 | Backend observability | logger/Sentry/stopwatch | Timing, tags, and trace context are present. |
+| SPM-105 | Backend observability | ILogger/OpenTelemetry/activity scope | Structured completion and handled-failure logs share timing, sample context, and trace context. |
 
 ## 8. Frontend HTTP, forms, and modals
 
@@ -226,7 +226,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-156 | Date and primitive pipes | date/boolean pipes | Timezone, null, and boolean values are localized. |
 | SPM-157 | Debounced events | input/click directives | Timing and teardown are visible. |
 | SPM-158 | Application and page state | app/page/config services | Runtime configuration changes without a reload. |
-| SPM-159 | Frontend Sentry | handlers/trace/hooks/config | The error or span includes release, user, and trace information. |
+| SPM-159 | Provider-neutral frontend error handling | NH_ERROR_HANDLERS/ErrorHandler provider chain | Application errors reach registered providers without requiring a vendor SDK or storing raw messages. |
 | SPM-160 | SSR stack | server/node-fetch/translate loaders | SSR is localized and makes no browser-only call. |
 | SPM-161 | EF Core chunks | `IQueryable.ChunkAsync` | An ordered query returns bounded asynchronous batches. |
 

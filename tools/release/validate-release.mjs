@@ -34,6 +34,11 @@ if (!packageVerifier.includes('NPM_REGISTRY_URL')
 }
 const rootPackage = await readJson(resolveRepositoryPath('package.json'));
 const frontEndWorkspacePackage = await readJson(resolveRepositoryPath('src/Front-end/package.json'));
+const forbiddenBrowserTelemetryPackages = [
+  '@sentry/angular',
+  '@sentry/browser',
+  '@sentry/core'
+];
 for (const legacyScript of ['nh-common:publish', 'nh-toastr:publish']) {
   if (frontEndWorkspacePackage.scripts?.[legacyScript]) {
     failures.push(`src/Front-end/package.json must not expose legacy local publication script '${legacyScript}'.`);
@@ -48,9 +53,6 @@ const requiredNpmPeers = {
     '@angular/router',
     '@msgpack/msgpack',
     '@ngx-translate/core',
-    '@sentry/angular',
-    '@sentry/browser',
-    '@sentry/core',
     '@swimlane/ngx-datatable',
     'js-base64',
     'luxon',
@@ -118,6 +120,13 @@ for (const [id, unit] of Object.entries(manifest.units)) {
         failures.push(`${unit.packageJson}: peer dependency ${dependency} ${declaredRange} must match the tested workspace range ${workspaceRange}.`);
       }
     }
+    for (const dependency of forbiddenBrowserTelemetryPackages) {
+      if (packageJson.dependencies?.[dependency]
+        || packageJson.peerDependencies?.[dependency]
+        || packageJson.optionalDependencies?.[dependency]) {
+        failures.push(`${unit.packageJson}: reusable packages must not depend on browser telemetry provider ${dependency}.`);
+      }
+    }
   }
 }
 
@@ -128,10 +137,15 @@ if (!manifest.units['nuget-common'].includeSymbols || !manifest.units['nuget-cac
 if (!packageReleaseTool.includes('validatePackageArtifacts')) {
   failures.push('NuGet packaging must validate produced artifacts before checksums and publication.');
 }
-const [centralBuildProperties, centralBuildTargets] = await Promise.all([
-  readFile(resolveRepositoryPath('src/Back-end/Directory.Build.props'), 'utf8'),
-  readFile(resolveRepositoryPath('src/Back-end/Directory.Build.targets'), 'utf8')
-]);
+const centralBuildProperties = await readFile(
+  resolveRepositoryPath('src/Back-end/Directory.Build.props'),
+  'utf8');
+const centralPackageVersions = await readFile(
+  resolveRepositoryPath('src/Back-end/Directory.Packages.props'),
+  'utf8');
+if (/<PackageVersion\s+Include="Sentry(?:\.[^"]+)?"/i.test(centralPackageVersions)) {
+  failures.push('NewHeap backend packages must not depend on a vendor-specific telemetry SDK.');
+}
 for (const [property, value] of [
   ['DebugType', 'portable'],
   ['EmbedAllSources', 'false'],
@@ -142,11 +156,6 @@ for (const [property, value] of [
   if (!centralBuildProperties.includes(`<${property}>${value}</${property}>`)) {
     failures.push(`Packable NuGet projects must centrally set ${property}=${value}.`);
   }
-}
-if (!centralBuildTargets.includes('RemoveSentryProjectDirectoryMetadata')
-  || !centralBuildTargets.includes('$(SentryAttributesFilePath)')
-  || !centralBuildTargets.includes('<Compile Remove="$(SentryAttributesFilePath)"')) {
-  failures.push('Packable NuGet projects must exclude Sentry.ProjectDirectory source generation before compilation.');
 }
 for (const [id, unit] of Object.entries(manifest.units)) {
   if (unit.kind !== 'nuget') continue;
@@ -166,10 +175,9 @@ for (const [id, unit] of Object.entries(manifest.units)) {
 }
 const commonProject = manifest.units['nuget-common'].projects.find(project => project.packageId === 'NewHeap.Platform.Common');
 const mediaCoreProject = media.projects.find(project => project.packageId === 'NewHeap.Platform.Media.Core');
-const [commonProjectSource, mediaCoreProjectSource, centralPackageVersions] = await Promise.all([
+const [commonProjectSource, mediaCoreProjectSource] = await Promise.all([
   readFile(resolveRepositoryPath(commonProject.path), 'utf8'),
-  readFile(resolveRepositoryPath(mediaCoreProject.path), 'utf8'),
-  readFile(resolveRepositoryPath('src/Back-end/Directory.Packages.props'), 'utf8')
+  readFile(resolveRepositoryPath(mediaCoreProject.path), 'utf8')
 ]);
 const commonVersionMatch = centralPackageVersions.match(/<PackageVersion Include="NewHeap\.Platform\.Common" Version="([^"]+)"\s*\/?>/);
 if (commonVersionMatch?.[1] !== manifest.units['nuget-common'].version) {

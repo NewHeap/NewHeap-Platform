@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, ErrorHandler, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRouteSnapshot, Router } from '@angular/router';
 import {
@@ -30,8 +30,6 @@ import {
   NhPageService,
   NhPageSettings,
   NhRouterService,
-  NhSentryService,
-  NhSentryTraceService,
   NhTitleService,
   PreConnectUrlItem,
   PreLoadUrlItem,
@@ -41,6 +39,7 @@ import {
 import { TranslateModule } from '@ngx-translate/core';
 import { forkJoin, map, of, switchMap } from 'rxjs';
 import { ProjectCodeInputComponent } from '../project-code-input/project-code-input.component';
+import { SampleFrontendErrorState } from 'sample-project-management-common';
 
 @Component({
   selector: 'app-platform-playground',
@@ -63,13 +62,12 @@ export class PlatformPlaygroundComponent {
   private readonly pageService = inject(NhPageService);
   private readonly routerService = inject(NhRouterService);
   private readonly router = inject(Router);
-  private readonly sentryService = inject(NhSentryService);
-  private readonly sentryTraceService = inject(NhSentryTraceService);
+  private readonly errorHandler = inject(ErrorHandler);
+  private readonly frontendErrorState = inject(SampleFrontendErrorState);
   private readonly moduleConfig = inject(NhCommonModuleConfig);
   private readonly endpoint = '/api/library-samples/http';
   private readonly cacheDivisionId = '11111111-1111-1111-1111-111111111111';
   private readonly cacheEndpoint = `/api/library-samples/cache/project-summary/${this.cacheDivisionId}`;
-  private sentryHooksRegistered = false;
 
   readonly projectCode = new FormControl('NHP', { nonNullable: true });
   readonly projectForm = new FormGroup({ projectCode: this.projectCode });
@@ -115,7 +113,7 @@ export class PlatformPlaygroundComponent {
   readonly inFlightDeduplicationEnabled = this.moduleConfig.http.deduplicateGetRequests;
   readonly navigationPreview = signal('{}');
   readonly pageStatePreview = signal('{}');
-  readonly sentryPreview = signal('{}');
+  readonly frontendErrorPreview = signal('{}');
 
   loadCachedProjectSummary(): void {
     const options = new HttpRequestOptions();
@@ -384,41 +382,13 @@ export class PlatformPlaygroundComponent {
     }, null, 2));
   }
 
-  demonstrateSentry(): void {
-    if (!this.sentryHooksRegistered) {
-      this.sentryService.registerHookBeforeSend(event => ({ ...event, tags: { ...event.tags, sample: 'project-management' } }));
-      this.sentryService.registerHookBeforeSendLog(log => log);
-      this.sentryService.registerHookBeforeSendSpan(span => ({ ...span, data: { ...span.data, sample_case: 'SPM-159' } }));
-      this.sentryService.registerHookBeforeSendTransaction(event => event);
-      this.sentryService.registerHookBeforeBreadcrumb(breadcrumb => ({ ...breadcrumb, category: 'sample-project-management' }));
-      this.sentryHooksRegistered = true;
-    }
-
-    this.sentryService.sentry.addBreadcrumb({
-      category: 'sample-project-management',
-      message: 'Frontend observability sample executed',
-      level: 'info'
-    });
-    this.sentryService.sentry.startSpan(
-      { name: 'platform-playground.sentry', op: 'ui.sample', attributes: { 'sample.case': 'SPM-159' } },
-      () => undefined
-    );
-    const capturedEventId = this.sentryService.sentry.captureException(
-      new Error('Intentional local SampleProjectManagement observability error'),
-      { tags: { sample_case: 'SPM-159' } }
-    );
-
-    const sentryConfig = this.moduleConfig.errorLogging.sentry;
-    this.sentryPreview.set(JSON.stringify({
+  demonstrateFrontendErrorHandling(): void {
+    this.errorHandler.handleError(new Error('Intentional provider-neutral sample error'));
+    this.frontendErrorPreview.set(JSON.stringify({
       errorHandlerRegisteredByNhCommonModule: true,
-      hooksRegistered: 5,
-      traceServiceActive: !!this.sentryTraceService.sentryTraceService,
-      release: sentryConfig.options.release,
-      environment: sentryConfig.options.environment,
-      transportEnabled: sentryConfig.options.enabled,
-      capturedEventId,
-      authEnrichmentConfigured: sentryConfig.beforeSendAddAuthServiceInformation,
-      note: 'Transport is deliberately disabled in the sample; hooks, user enrichment, and spans still use the same configuration.'
+      consumerHandlerRegisteredThroughMultiProvider: true,
+      observation: this.frontendErrorState.observation(),
+      remoteVendorRequired: false
     }, null, 2));
   }
 

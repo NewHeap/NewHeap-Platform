@@ -292,12 +292,14 @@ public sealed class BackendLibraryPartialSamplesTests
             Substitute.For<IRepository<NhLog>>(),
             Substitute.For<IHttpContextAccessor>(),
             Substitute.For<IStringLocalizer<NhDbLogService>>(),
-            Options.Create(new NewHeapAspNetCommonSettings()));
+            Options.Create(new NewHeapAspNetCommonSettings()),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<NhDbLogService>.Instance);
     }
 
     private static LogHelperService CreateLogHelper()
     {
         return new LogHelperService(
-            Substitute.For<IStringLocalizer<SharedDataAnnotationRecources>>());
+            Substitute.For<IStringLocalizer<SharedDataAnnotationRecources>>(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<LogHelperService>.Instance);
     }
 }

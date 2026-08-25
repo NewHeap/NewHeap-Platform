@@ -198,9 +198,12 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
                 {
                     disposable.Dispose();
                 }
-                catch
+                catch (Exception exception)
                 {
-                    // F in chat
+                    _logger.LogDebug(
+                        exception,
+                        "Failed to dispose notification resource {ResourceType}",
+                        disposable.GetType().Name);
                 }
             }
         }
