@@ -59,7 +59,8 @@
         }
       },
       "references": [
-        "references/immutable-evidence.md"
+        "references/immutable-evidence.md",
+        "references/platform-fit.md"
       ],
       "modules": [
         "newheap-consumer-development",

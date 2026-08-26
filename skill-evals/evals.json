@@ -170,6 +170,20 @@
       "expectedOutcome": "Versioned datasets and baselines use the Microsoft evaluator contract, unknown and inconclusive results fail closed, deterministic fakes cover failure paths, and telemetry records bounded identifiers and counts without prompts or model content."
     },
     {
+      "id": "consumer-current-newheap-ai-fit",
+      "skill": "newheap-platform-development",
+      "prompt": "Add application-question answering to an existing consumer. Before coding, check the current NewHeap checkout and this consumer's pinned packages for Agent Framework, MCP, ASP.NET context, governed tools, usage/audit and read-only database support. Use what fits, keep application policy local, and identify any reusable Platform gap without changing the Platform as part of this task.",
+      "expectedRules": ["nh-ai-agent-framework", "nh-ai-aspnet-context", "nh-ai-local-tool-contract", "nh-ai-mcp-tools", "nh-ai-observability-evaluation", "nh-read-only-database-diagnostics"],
+      "expectedOutcome": "The router loads only the relevant modules plus the Platform fit reference, verifies released capabilities and consumer pins instead of relying on memory, adopts the smallest compatible public seams, keeps server-resolved application scope and policy consumer-owned, and records any credible NewHeap library suggestion separately without expanding task scope."
+    },
+    {
+      "id": "consumer-deliberate-non-adoption",
+      "skill": "newheap-platform-development",
+      "prompt": "Review a small, correct consumer-specific workflow and see whether a current NewHeap package should replace it. Do not add a dependency merely because a similarly named capability exists, but tell us if the review exposes a reusable library opportunity.",
+      "expectedRules": ["nh-backend-module-composition"],
+      "expectedOutcome": "The agent checks current package and source evidence, compares behavior and ownership boundaries, and deliberately keeps the workflow consumer-owned when it is application policy or the existing code is simpler. It avoids speculative refactoring while still recording a concrete upstream suggestion when evidence supports one."
+    },
+    {
       "id": "maintainer-public-change",
       "skill": "newheap-library-maintenance",
       "prompt": "Change a public NewHeap option and deliver the library change ready for release.",

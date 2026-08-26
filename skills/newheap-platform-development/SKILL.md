@@ -19,6 +19,8 @@ Route the current consumer task to the smallest applicable internal module. Read
 
 Read multiple modules only when the requested work genuinely crosses their boundaries. Keep the router itself free of domain instructions; the focused modules and their references are the authoritative guidance.
 
+For a non-trivial consumer change, read [platform fit](references/platform-fit.md) before implementing when a reusable or cross-cutting NewHeap capability could plausibly apply, when package or guidance versions may affect the design, or when existing consumer code may duplicate Platform behavior. This check is a decision aid, not a requirement to introduce a NewHeap dependency.
+
 For a debugging request about unexpected persisted state, missing or incorrect records, an API/database discrepancy, or unexplained staging or production behavior, load the database module even when the user does not name a database tool. Also load runtime configuration when the diagnostic profile, target environment, configuration path or secrets resolution is relevant. Do not route unrelated code, UI or infrastructure bugs to database diagnostics merely because they occur in staging or production.
 
 For changes to the reusable NewHeap libraries, use the separate `newheap-library-maintenance` skill instead.

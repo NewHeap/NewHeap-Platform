@@ -1,4 +1,4 @@
 interface:
   display_name: "NewHeap Platform Development"
-  short_description: "Build and debug NewHeap consumer apps"
-  default_prompt: "Use $newheap-platform-development to build, debug, or review this NewHeap consumer application with the smallest relevant module."
+  short_description: "Build consumers with deliberate NewHeap fit"
+  default_prompt: "Use $newheap-platform-development to route the smallest relevant module, verify current Platform capabilities when applicable, and deliberately choose reuse, consumer ownership, or a separate upstream suggestion."

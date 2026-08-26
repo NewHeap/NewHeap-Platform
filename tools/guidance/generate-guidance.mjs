@@ -169,7 +169,7 @@ const manifest = {
       path: `skills/${consumerSkillBundleName}`,
       audience: 'consumer-applications',
       distribution,
-      references: ['references/immutable-evidence.md'],
+      references: ['references/immutable-evidence.md', 'references/platform-fit.md'],
       modules: consumerSkillNames
     },
     ...consumerSkillManifestEntries,
