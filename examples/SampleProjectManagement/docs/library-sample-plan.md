@@ -252,7 +252,7 @@ The complete public-surface mapping and intended sample entry points are documen
 
 | ID | Case | Library surface | Verifiable outcome |
 |---|---|---|---|
-| SPM-173 | Test service context | `NhTestingContext` | A consumer test uses the packable NH helper for a validated DI provider, scopes, and asynchronous disposal; library regression tests remain in a separate non-packable test project. |
+| SPM-173 | Test service context | `NhTestingContext` | A consumer test uses the packable, xUnit-version-neutral NH helper for a validated DI provider, scopes, and asynchronous disposal under a consumer-owned xUnit version; library regression tests remain in a separate non-packable test project. |
 | SPM-174 | DbContext test context | `NhDbContextTestingContext` | A consumer test uses the ASP.NET NH helper to register an in-memory DbContext and repositories automatically without publishing library-owned tests. |
 | SPM-175 | TaskResult assertions | test assertion extensions | A consumer test reads success and error results through the reusable NH assertion extensions. |
 | SPM-176 | Predicate substitutes | NSubstitute test extensions | A consumer test uses the reusable NH NSubstitute extensions to evaluate real expressions against sample data. |

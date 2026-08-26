@@ -2296,7 +2296,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Test service context",
     "category": "Test helpers",
     "surface": "NhTestingContext",
-    "outcome": "A consumer test uses the packable NH helper for a validated DI provider, scopes, and asynchronous disposal; library regression tests remain in a separate non-packable test project.",
+    "outcome": "A consumer test uses the packable, xUnit-version-neutral NH helper for a validated DI provider, scopes, and asynchronous disposal under a consumer-owned xUnit version; library regression tests remain in a separate non-packable test project.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapTestHelperSamplesTests.cs"

@@ -19,7 +19,6 @@
     <PackageReference Include="AwesomeAssertions" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
     <PackageReference Include="NSubstitute" />
-    <PackageReference Include="xunit" />
   </ItemGroup>
 	
    <ItemGroup>
