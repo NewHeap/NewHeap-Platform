@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "guidanceVersion": "1.13.4",
+  "guidanceVersion": "1.13.5",
   "backEnd": {
     "hash": "a969ca48718f8868554cd629ab483c1936198c97d77b97a3dac73945fcd0a7f3",
     "declarationCount": 3583,
