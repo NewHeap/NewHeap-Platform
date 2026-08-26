@@ -17616,7 +17616,8 @@
     "nh-consumer-management-portal": [
       "DbEntityProtectedNhBaseController",
       "NhBaseApiService",
-      "NhModalMutateBaseComponent"
+      "NhModalMutateBaseComponent",
+      "NhModalConfirmComponent"
     ],
     "nh-consumer-optional-infrastructure": [
       "ConfigureNhCommonConfiguration",

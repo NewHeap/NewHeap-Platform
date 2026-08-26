@@ -2875,7 +2875,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Scope-driven consumer bootstrap",
     "category": "Consumer repository foundation",
     "surface": "plain-language scope gate, versioned profile bootstrap and post-bootstrap inspector",
-    "outcome": "An empty repository receives only the confirmed service, API or management capabilities, retains extension seams for deferred work, restores the profile-relevant NewHeap packages before feature work, and fails validation when structure or integration patterns drift.",
+    "outcome": "An empty repository receives only the confirmed service, API or management capabilities, retains extension seams for deferred work, restores the profile-relevant NewHeap packages before feature work, supports explicit external identity ownership for federated BFF portals, and fails validation when structure or integration patterns drift.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs"

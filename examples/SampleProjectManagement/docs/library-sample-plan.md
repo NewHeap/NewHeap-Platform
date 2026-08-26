@@ -320,7 +320,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | ID | Case | Library surface | Verifiable outcome |
 |---|---|---|---|
 | SPM-216 | Shared .NET build and package policy | `Directory.Build.props` and `Directory.Packages.props` | Every backend project inherits one build baseline and resolves versionless package references from one central catalog. |
-| SPM-217 | Scope-driven consumer bootstrap | plain-language scope gate, versioned profile bootstrap and post-bootstrap inspector | An empty repository receives only the confirmed service, API or management capabilities, retains extension seams for deferred work, restores the profile-relevant NewHeap packages before feature work, and fails validation when structure or integration patterns drift. |
+| SPM-217 | Scope-driven consumer bootstrap | plain-language scope gate, versioned profile bootstrap and post-bootstrap inspector | An empty repository receives only the confirmed service, API or management capabilities, retains extension seams for deferred work, restores the profile-relevant NewHeap packages before feature work, supports explicit external identity ownership for federated BFF portals, and fails validation when structure or integration patterns drift. |
 
 ## 18. AI tools and generated catalogs
 
