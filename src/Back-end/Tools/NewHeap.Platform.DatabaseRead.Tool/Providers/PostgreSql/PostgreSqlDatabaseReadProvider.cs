@@ -290,6 +290,12 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
             descriptor.ObjectId,
             limits,
             cancellationToken);
+        var relationships = await ReadRelationshipsAsync(
+            connection,
+            transaction,
+            descriptor.ObjectId,
+            limits,
+            cancellationToken);
 
         return new DatabaseSchemaResultResponse
         {
@@ -301,7 +307,8 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
                 Kind = descriptor.Kind,
                 SqlIdentifier = Quote(descriptor.Schema, descriptor.Name),
                 Columns = columns,
-                Indexes = indexes
+                Indexes = indexes,
+                Relationships = relationships
             }
         };
     }
@@ -470,39 +477,67 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
         command.CommandText =
             """
             SELECT index_object.relname,
+                   access_method.amname,
                    candidate.indisunique,
                    candidate.indisprimary,
                    candidate.indpred IS NOT NULL,
+                   CASE
+                       WHEN has_table_privilege(current_user, candidate.indrelid, 'SELECT')
+                       THEN pg_catalog.pg_get_expr(candidate.indpred, candidate.indrelid, false)
+                       ELSE NULL
+                   END,
                    index_column.position,
-                   indexed_column.attname,
                    index_column.position > candidate.indnkeyatts,
                    CASE
                        WHEN index_column.position > candidate.indnkeyatts THEN NULL
+                       WHEN access_method.amname <> 'btree' THEN 'unspecified'
                        WHEN (candidate.indoption[index_column.position - 1] & 1) = 1 THEN 'descending'
                        ELSE 'ascending'
+                   END,
+                   indexed_column.attname,
+                   CASE
+                       WHEN candidate.indkey[index_column.position - 1] = 0
+                            AND has_table_privilege(current_user, candidate.indrelid, 'SELECT')
+                       THEN pg_catalog.pg_get_indexdef(
+                           candidate.indexrelid,
+                           index_column.position,
+                           false)
+                       ELSE NULL
                    END
             FROM pg_catalog.pg_index AS candidate
             INNER JOIN pg_catalog.pg_class AS index_object
                 ON index_object.oid = candidate.indexrelid
+            INNER JOIN pg_catalog.pg_am AS access_method
+                ON access_method.oid = index_object.relam
             CROSS JOIN LATERAL generate_series(1, candidate.indnatts)
                 AS index_column(position)
-            INNER JOIN pg_catalog.pg_attribute AS indexed_column
-                ON indexed_column.attrelid = candidate.indexrelid
-               AND indexed_column.attnum = index_column.position
+            LEFT JOIN pg_catalog.pg_attribute AS indexed_column
+                ON indexed_column.attrelid = candidate.indrelid
+               AND indexed_column.attnum = candidate.indkey[index_column.position - 1]
             WHERE candidate.indrelid = @objectId
-              AND candidate.indexprs IS NULL
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM generate_series(1, candidate.indnatts)
-                      AS denied_index_column(position)
-                  INNER JOIN pg_catalog.pg_attribute AS denied_column
-                      ON denied_column.attrelid = candidate.indexrelid
-                     AND denied_column.attnum = denied_index_column.position
-                  WHERE NOT has_column_privilege(
-                        current_user,
-                        candidate.indrelid,
-                        denied_column.attname,
-                        'SELECT')
+              AND candidate.indisvalid
+              AND candidate.indisready
+              AND candidate.indislive
+              AND (
+                  has_table_privilege(current_user, candidate.indrelid, 'SELECT') OR
+                  (
+                      candidate.indexprs IS NULL AND
+                      NOT EXISTS (
+                          SELECT 1
+                          FROM generate_series(1, candidate.indnatts)
+                              AS denied_index_column(position)
+                          LEFT JOIN pg_catalog.pg_attribute AS denied_column
+                              ON denied_column.attrelid = candidate.indrelid
+                             AND denied_column.attnum =
+                                 candidate.indkey[denied_index_column.position - 1]
+                          WHERE denied_column.attname IS NULL OR
+                                NOT has_column_privilege(
+                                    current_user,
+                                    candidate.indrelid,
+                                    denied_column.attname,
+                                    'SELECT')
+                      )
+                  )
               )
             ORDER BY candidate.indisprimary DESC, index_object.relname, index_column.position;
             """;
@@ -518,24 +553,34 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
             {
                 builder = new PostgreSqlIndexBuilder(
                     name,
-                    reader.GetBoolean(1),
+                    reader.GetString(1),
                     reader.GetBoolean(2),
-                    reader.GetBoolean(3));
+                    reader.GetBoolean(3),
+                    reader.GetBoolean(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5));
                 byName.Add(name, builder);
                 builders.Add(builder);
             }
 
-            var columnName = reader.GetString(5);
-            if (reader.GetBoolean(6))
+            var position = reader.GetInt32(6);
+            var columnName = reader.IsDBNull(9) ? null : reader.GetString(9);
+            if (reader.GetBoolean(7))
             {
-                builder.IncludedColumns.Add(columnName);
+                if (columnName is not null)
+                {
+                    builder.IncludedColumns.Add(columnName);
+                }
             }
             else
             {
+                var expression = reader.IsDBNull(10) ? null : reader.GetString(10);
                 builder.KeyColumns.Add(new DatabaseSchemaIndexColumnResponse
                 {
+                    Position = position,
+                    Kind = expression is null ? "column" : "expression",
                     Name = columnName,
-                    Direction = reader.GetString(7)
+                    Expression = expression,
+                    Direction = reader.GetString(8)
                 });
             }
         }
@@ -544,14 +589,145 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
             .Select(builder => new DatabaseSchemaIndexResponse
             {
                 Name = builder.Name,
+                AccessMethod = builder.AccessMethod,
                 IsUnique = builder.IsUnique,
                 IsPrimaryKey = builder.IsPrimaryKey,
                 IsPartial = builder.IsPartial,
-                Columns = builder.KeyColumns.Select(column => column.Name).ToArray(),
+                Predicate = builder.Predicate,
+                Columns = builder.KeyColumns
+                    .Where(column => column.Name is not null)
+                    .Select(column => column.Name!)
+                    .ToArray(),
                 KeyColumns = builder.KeyColumns,
                 IncludedColumns = builder.IncludedColumns
             })
             .ToArray();
+    }
+
+    private static async Task<DatabaseSchemaRelationshipsResponse> ReadRelationshipsAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        uint objectId,
+        DatabaseReadLimits limits,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandTimeout = limits.TimeoutSeconds;
+        command.CommandText =
+            """
+            SELECT candidate.oid,
+                   candidate.conname,
+                   candidate.convalidated,
+                   source_object.oid,
+                   source_schema.nspname,
+                   source_object.relname,
+                   target_object.oid,
+                   target_schema.nspname,
+                   target_object.relname,
+                   source_key.position,
+                   source_column.attname,
+                   target_column.attname
+            FROM pg_catalog.pg_constraint AS candidate
+            INNER JOIN pg_catalog.pg_class AS source_object
+                ON source_object.oid = candidate.conrelid
+            INNER JOIN pg_catalog.pg_namespace AS source_schema
+                ON source_schema.oid = source_object.relnamespace
+            INNER JOIN pg_catalog.pg_class AS target_object
+                ON target_object.oid = candidate.confrelid
+            INNER JOIN pg_catalog.pg_namespace AS target_schema
+                ON target_schema.oid = target_object.relnamespace
+            CROSS JOIN LATERAL unnest(candidate.conkey) WITH ORDINALITY
+                AS source_key(attribute_number, position)
+            INNER JOIN LATERAL unnest(candidate.confkey) WITH ORDINALITY
+                AS target_key(attribute_number, position)
+                ON target_key.position = source_key.position
+            INNER JOIN pg_catalog.pg_attribute AS source_column
+                ON source_column.attrelid = source_object.oid
+               AND source_column.attnum = source_key.attribute_number
+            INNER JOIN pg_catalog.pg_attribute AS target_column
+                ON target_column.attrelid = target_object.oid
+               AND target_column.attnum = target_key.attribute_number
+            WHERE candidate.contype = 'f'
+              AND (candidate.conrelid = @objectId OR candidate.confrelid = @objectId)
+              AND has_schema_privilege(current_user, source_schema.oid, 'USAGE')
+              AND has_schema_privilege(current_user, target_schema.oid, 'USAGE')
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM unnest(candidate.conkey) WITH ORDINALITY
+                      AS denied_source_key(attribute_number, position)
+                  INNER JOIN LATERAL unnest(candidate.confkey) WITH ORDINALITY
+                      AS denied_target_key(attribute_number, position)
+                      ON denied_target_key.position = denied_source_key.position
+                  INNER JOIN pg_catalog.pg_attribute AS denied_source_column
+                      ON denied_source_column.attrelid = source_object.oid
+                     AND denied_source_column.attnum = denied_source_key.attribute_number
+                  INNER JOIN pg_catalog.pg_attribute AS denied_target_column
+                      ON denied_target_column.attrelid = target_object.oid
+                     AND denied_target_column.attnum = denied_target_key.attribute_number
+                  WHERE NOT has_column_privilege(
+                            current_user,
+                            source_object.oid,
+                            denied_source_column.attname,
+                            'SELECT') OR
+                        NOT has_column_privilege(
+                            current_user,
+                            target_object.oid,
+                            denied_target_column.attname,
+                            'SELECT')
+              )
+            ORDER BY candidate.oid, source_key.position;
+            """;
+        AddParameter(command, "@objectId", objectId);
+
+        var builders = new List<PostgreSqlRelationshipBuilder>();
+        var byId = new Dictionary<uint, PostgreSqlRelationshipBuilder>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var relationshipId = reader.GetFieldValue<uint>(0);
+            if (!byId.TryGetValue(relationshipId, out var builder))
+            {
+                builder = new PostgreSqlRelationshipBuilder(
+                    reader.GetString(1),
+                    reader.GetBoolean(2),
+                    reader.GetFieldValue<uint>(3),
+                    new DatabaseSchemaRelationshipObjectResponse
+                    {
+                        Schema = reader.GetString(4),
+                        Name = reader.GetString(5),
+                        SqlIdentifier = Quote(reader.GetString(4), reader.GetString(5))
+                    },
+                    reader.GetFieldValue<uint>(6),
+                    new DatabaseSchemaRelationshipObjectResponse
+                    {
+                        Schema = reader.GetString(7),
+                        Name = reader.GetString(8),
+                        SqlIdentifier = Quote(reader.GetString(7), reader.GetString(8))
+                    });
+                byId.Add(relationshipId, builder);
+                builders.Add(builder);
+            }
+
+            builder.ColumnPairs.Add(new DatabaseSchemaRelationshipColumnPairResponse
+            {
+                Position = checked((int)reader.GetInt64(9)),
+                SourceColumn = reader.GetString(10),
+                TargetColumn = reader.GetString(11)
+            });
+        }
+
+        return new DatabaseSchemaRelationshipsResponse
+        {
+            Outgoing = builders
+                .Where(builder => builder.SourceObjectId == objectId)
+                .Select(builder => builder.Build())
+                .ToArray(),
+            Incoming = builders
+                .Where(builder => builder.TargetObjectId == objectId)
+                .Select(builder => builder.Build())
+                .ToArray()
+        };
     }
 
     private static void AddParameter(DbCommand command, string name, object? value)
@@ -586,11 +762,15 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
 
     private sealed class PostgreSqlIndexBuilder(
         string name,
+        string accessMethod,
         bool isUnique,
         bool isPrimaryKey,
-        bool isPartial)
+        bool isPartial,
+        string? predicate)
     {
         public string Name { get; } = name;
+
+        public string AccessMethod { get; } = accessMethod;
 
         public bool IsUnique { get; } = isUnique;
 
@@ -598,8 +778,38 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
 
         public bool IsPartial { get; } = isPartial;
 
+        public string? Predicate { get; } = predicate;
+
         public List<DatabaseSchemaIndexColumnResponse> KeyColumns { get; } = [];
 
         public List<string> IncludedColumns { get; } = [];
+    }
+
+    private sealed class PostgreSqlRelationshipBuilder(
+        string name,
+        bool isValidated,
+        uint sourceObjectId,
+        DatabaseSchemaRelationshipObjectResponse source,
+        uint targetObjectId,
+        DatabaseSchemaRelationshipObjectResponse target)
+    {
+        public string Name { get; } = name;
+
+        public bool IsValidated { get; } = isValidated;
+
+        public uint SourceObjectId { get; } = sourceObjectId;
+
+        public uint TargetObjectId { get; } = targetObjectId;
+
+        public List<DatabaseSchemaRelationshipColumnPairResponse> ColumnPairs { get; } = [];
+
+        public DatabaseSchemaRelationshipResponse Build() => new()
+        {
+            Name = Name,
+            IsValidated = IsValidated,
+            Source = source,
+            Target = target,
+            ColumnPairs = ColumnPairs
+        };
     }
 }

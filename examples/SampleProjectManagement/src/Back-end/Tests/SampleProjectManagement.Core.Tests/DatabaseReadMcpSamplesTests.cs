@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using NewHeap.Platform.AI;
 using Npgsql;
 using SampleProjectManagement.DatabaseRead.Mcp;
 using Testcontainers.PostgreSql;
@@ -61,6 +62,21 @@ public sealed class DatabaseReadMcpSamplesTests
         Assert.Equal(
             SampleDatabaseReadMcpServer.ToolNames.Order(StringComparer.Ordinal),
             tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
+        Assert.Contains(
+            "relationships",
+            tools.Single(tool => tool.Name == SampleDatabaseReadMcpServer.SchemaToolName).Description
+            ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "expression",
+            tools.Single(tool => tool.Name == SampleDatabaseReadMcpServer.IndexesToolName).Description
+            ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "schema description",
+            tools.Single(tool => tool.Name == SampleDatabaseReadMcpServer.QueryToolName).Description
+            ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase);
 
         var schemaResult = await tools
             .Single(tool => tool.Name == SampleDatabaseReadMcpServer.SchemaToolName)
@@ -82,6 +98,41 @@ public sealed class DatabaseReadMcpSamplesTests
         Assert.Contains(
             describedObject.GetProperty("columns").EnumerateArray(),
             column => column.GetProperty("name").GetString() == "Name");
+        var relationships = describedObject.GetProperty("relationships");
+        var organizationRelationship = Assert.Single(
+            relationships.GetProperty("outgoing").EnumerateArray(),
+            relationship => relationship.GetProperty("name").GetString()
+                            == "FK_Projects_Organizations_Organization");
+        Assert.Equal(
+            "\"public\".\"Projects\"",
+            organizationRelationship.GetProperty("source").GetProperty("sqlIdentifier").GetString());
+        Assert.Equal(
+            "\"public\".\"Organizations\"",
+            organizationRelationship.GetProperty("target").GetProperty("sqlIdentifier").GetString());
+        Assert.True(organizationRelationship.GetProperty("isValidated").GetBoolean());
+        Assert.Equal(
+            [1, 2],
+            organizationRelationship.GetProperty("columnPairs").EnumerateArray()
+                .Select(pair => pair.GetProperty("position").GetInt32()));
+        Assert.Equal(
+            ["OrganizationTenantId", "OrganizationId"],
+            organizationRelationship.GetProperty("columnPairs").EnumerateArray()
+                .Select(pair => pair.GetProperty("sourceColumn").GetString()));
+        Assert.Equal(
+            ["TenantId", "Id"],
+            organizationRelationship.GetProperty("columnPairs").EnumerateArray()
+                .Select(pair => pair.GetProperty("targetColumn").GetString()));
+        var taskRelationship = Assert.Single(
+            relationships.GetProperty("incoming").EnumerateArray(),
+            relationship => relationship.GetProperty("name").GetString()
+                            == "FK_ProjectTasks_Projects_ProjectId");
+        Assert.Equal(
+            "Projects",
+            taskRelationship.GetProperty("target").GetProperty("name").GetString());
+        Assert.Equal(
+            "ProjectTasks",
+            taskRelationship.GetProperty("source").GetProperty("name").GetString());
+        Assert.True(taskRelationship.GetProperty("isValidated").GetBoolean());
 
         var indexesResult = await tools
             .Single(tool => tool.Name == SampleDatabaseReadMcpServer.IndexesToolName)
@@ -109,6 +160,38 @@ public sealed class DatabaseReadMcpSamplesTests
             ["ascending", "descending"],
             projectIndex.GetProperty("keyColumns").EnumerateArray()
                 .Select(column => column.GetProperty("direction").GetString()));
+        Assert.Equal(
+            [1, 2],
+            projectIndex.GetProperty("keyColumns").EnumerateArray()
+                .Select(column => column.GetProperty("position").GetInt32()));
+        Assert.All(
+            projectIndex.GetProperty("keyColumns").EnumerateArray(),
+            column => Assert.Equal("column", column.GetProperty("kind").GetString()));
+
+        var partialIndex = Assert.Single(
+            indexSet.GetProperty("items").EnumerateArray(),
+            index => index.GetProperty("name").GetString() == "IX_Projects_Name_Partial");
+        Assert.Contains(
+            "Name",
+            partialIndex.GetProperty("predicate").GetString(),
+            StringComparison.Ordinal);
+
+        var expressionIndex = Assert.Single(
+            indexSet.GetProperty("items").EnumerateArray(),
+            index => index.GetProperty("name").GetString() == "IX_Projects_Lower_Name_Id");
+        var expressionKeys = expressionIndex.GetProperty("keyColumns").EnumerateArray().ToArray();
+        Assert.Equal(2, expressionKeys.Length);
+        Assert.Equal(1, expressionKeys[0].GetProperty("position").GetInt32());
+        Assert.Equal("expression", expressionKeys[0].GetProperty("kind").GetString());
+        Assert.Contains(
+            "lower",
+            expressionKeys[0].GetProperty("expression").GetString(),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("ascending", expressionKeys[0].GetProperty("direction").GetString());
+        Assert.Equal(2, expressionKeys[1].GetProperty("position").GetInt32());
+        Assert.Equal("column", expressionKeys[1].GetProperty("kind").GetString());
+        Assert.Equal("Id", expressionKeys[1].GetProperty("name").GetString());
+        Assert.Equal("descending", expressionKeys[1].GetProperty("direction").GetString());
 
         var queryResult = await tools
             .Single(tool => tool.Name == SampleDatabaseReadMcpServer.QueryToolName)
@@ -173,6 +256,32 @@ public sealed class DatabaseReadMcpSamplesTests
         AssertMcpFailure(overflowingResult);
     }
 
+    [Fact]
+    public async Task SampleBudgetAllowsSixteenCallsPerInvocation()
+    {
+        var manager = new SampleDatabaseReadMcpBudgetManager();
+        var invocationId = Guid.NewGuid();
+
+        for (var call = 1; call <= SampleDatabaseReadLimits.ToolCallBudget; call++)
+        {
+            var reservation = await manager.ReserveAsync(
+                new NhAiBudgetRequest(invocationId, "sample-live", 1, 0, 0, null),
+                TestContext.Current.CancellationToken);
+
+            Assert.True(reservation.Success);
+        }
+
+        var exhausted = await manager.ReserveAsync(
+            new NhAiBudgetRequest(invocationId, "sample-live", 1, 0, 0, null),
+            TestContext.Current.CancellationToken);
+        Assert.False(exhausted.Success);
+
+        var nextInvocation = await manager.ReserveAsync(
+            new NhAiBudgetRequest(Guid.NewGuid(), "sample-live", 1, 0, 0, null),
+            TestContext.Current.CancellationToken);
+        Assert.True(nextInvocation.Success);
+    }
+
     private static JsonElement SuccessfulData(JsonElement? structuredContent)
     {
         Assert.True(structuredContent.HasValue);
@@ -221,20 +330,65 @@ public sealed class DatabaseReadMcpSamplesTests
                 await ExecuteAsync(
                     admin,
                     """
+                    CREATE TABLE public."Organizations" (
+                        "TenantId" uuid NOT NULL,
+                        "Id" uuid NOT NULL,
+                        "Name" text NOT NULL,
+                        CONSTRAINT "PK_Organizations" PRIMARY KEY ("TenantId", "Id")
+                    );
+                    INSERT INTO public."Organizations" ("TenantId", "Id", "Name")
+                    VALUES (
+                        '7ad83719-0d1d-4f2c-9986-7ad19ff96492',
+                        'fe17651d-947a-40fc-bf56-a36448f6ec6a',
+                        'MCP sample organization');
                     CREATE TABLE public."Projects" (
                         "Id" uuid PRIMARY KEY,
-                        "Name" text NOT NULL
+                        "OrganizationTenantId" uuid NOT NULL,
+                        "OrganizationId" uuid NOT NULL,
+                        "Name" text NOT NULL,
+                        CONSTRAINT "FK_Projects_Organizations_Organization"
+                            FOREIGN KEY ("OrganizationTenantId", "OrganizationId")
+                            REFERENCES public."Organizations" ("TenantId", "Id")
                     );
-                    INSERT INTO public."Projects" ("Id", "Name")
+                    INSERT INTO public."Projects" (
+                        "Id",
+                        "OrganizationTenantId",
+                        "OrganizationId",
+                        "Name")
                     VALUES
-                        ('f12ea625-3b2f-4417-9691-832017358d83', 'MCP sample project'),
-                        ('48c9480a-f86c-4436-ae21-84a743cc36aa', 'MCP overflow sentinel');
+                        (
+                            'f12ea625-3b2f-4417-9691-832017358d83',
+                            '7ad83719-0d1d-4f2c-9986-7ad19ff96492',
+                            'fe17651d-947a-40fc-bf56-a36448f6ec6a',
+                            'MCP sample project'),
+                        (
+                            '48c9480a-f86c-4436-ae21-84a743cc36aa',
+                            '7ad83719-0d1d-4f2c-9986-7ad19ff96492',
+                            'fe17651d-947a-40fc-bf56-a36448f6ec6a',
+                            'MCP overflow sentinel');
+                    CREATE TABLE public."ProjectTasks" (
+                        "Id" uuid PRIMARY KEY,
+                        "ProjectId" uuid NOT NULL,
+                        "Title" text NOT NULL,
+                        CONSTRAINT "FK_ProjectTasks_Projects_ProjectId"
+                            FOREIGN KEY ("ProjectId")
+                            REFERENCES public."Projects" ("Id")
+                    );
                     CREATE INDEX "IX_Projects_Name_Id"
                         ON public."Projects" ("Name" ASC, "Id" DESC);
+                    CREATE INDEX "IX_Projects_Name_Partial"
+                        ON public."Projects" ("Name" ASC)
+                        WHERE "Name" IS NOT NULL;
+                    CREATE INDEX "IX_Projects_Lower_Name_Id"
+                        ON public."Projects" ((lower("Name")) ASC, "Id" DESC);
                     CREATE ROLE sample_database_reader LOGIN PASSWORD 'Sample-reader-password-42';
                     GRANT CONNECT ON DATABASE postgres TO sample_database_reader;
                     GRANT USAGE ON SCHEMA public TO sample_database_reader;
-                    GRANT SELECT ON TABLE public."Projects" TO sample_database_reader;
+                    GRANT SELECT ON TABLE
+                        public."Organizations",
+                        public."Projects",
+                        public."ProjectTasks"
+                        TO sample_database_reader;
                     """,
                     cancellationToken);
 

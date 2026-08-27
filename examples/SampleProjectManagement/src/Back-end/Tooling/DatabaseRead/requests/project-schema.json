@@ -10,5 +10,5 @@
     "maximumRows": 100,
     "timeoutSeconds": 10
   },
-  "reason": "Confirm the deployed project columns and indexes before constructing a diagnostic query"
+  "reason": "Confirm the deployed project columns, indexes and permission-filtered relationships before constructing joins or a diagnostic query"
 }

@@ -4,12 +4,15 @@
 for exposing `newheap-db` to an agent. It publishes exactly three stdio MCP tools:
 
 - `sample_database_schema_v1` searches or describes selectable live schema;
-- `sample_database_indexes_v1` returns selectable index keys, direction,
-  included columns and uniqueness for one confirmed object;
+  an exact description includes permission-filtered named outgoing and incoming
+  relationships with ordered source/target column pairs and validation status;
+- `sample_database_indexes_v1` returns positioned column or expression keys,
+  direction, optional partial predicates, included columns and uniqueness for one
+  confirmed object;
 - `sample_database_query_v1` validates and executes parameterized read-only SQL.
 
 The server, not the MCP caller, selects the checked-in profile and fixes the
-authorization capability, eight-call budget, 1,000-row ceiling and 30-second
+authorization capability, sixteen-call budget, 1,000-row ceiling and 30-second
 database timeout. Each query call must state `requestedRows` between 1 and 1,000.
 An excessive request fails before execution, and an actual result above that
 requested limit fails without returning partial data. The database credential
@@ -27,11 +30,17 @@ dotnet run --project Applications/SampleProjectManagement.DatabaseRead.Mcp -- `
 
 Configure an MCP client with that command and arguments. Inspect the repository
 first to establish domain meaning and expected EF mappings. Call the schema tool
-when physical identifiers are not already proven. When table size, predicate
-selectivity or ordering cost is uncertain, call the indexes tool for the relevant
-object and design the query around a suitable leading key order. Included columns
-are projection coverage, not predicate keys. Then construct a query with typed
-parameters, only the required columns and a PostgreSQL `LIMIT`. The model may
+when physical identifiers are not already proven, and use the exact description's
+named relationships and ordered column pairs rather than guessing join columns.
+Treat a relationship whose `isValidated` value is `false` as metadata without an
+integrity guarantee; do not assume every existing row satisfies it.
+When table size, predicate selectivity or ordering cost is uncertain, call the
+indexes tool for the relevant object and design the query around a suitable leading
+key order. A partial index is usable only when the query predicate demonstrably
+implies its reported predicate. An expression key helps only when the query uses a
+compatible expression and ordering. Included columns are projection coverage, not
+predicate keys. Then construct a query with typed parameters, only the required
+columns and a PostgreSQL `LIMIT`. The model may
 request a row count within the server-owned ceiling, but cannot choose the profile,
 credential, timeout, authorization scope or a higher ceiling.
 
@@ -42,7 +51,8 @@ connecting to a database.
 
 `DatabaseReadMcpSamplesTests` is the reproducible smoke test. It starts a real
 PostgreSQL container, creates a SELECT-only login, lists the three MCP tools
-through the official in-memory transport, describes `public."Projects"`, inspects
-its live composite-index key order, executes a typed UUID query, rejects a
-5,000-row request before execution, and rejects an actual result above
+through the official in-memory transport, describes `public."Projects"` and its
+incoming/outgoing relationships, inspects its live composite, partial and expression
+indexes, executes a typed UUID query, proves the sixteen-call per-invocation budget,
+rejects a 5,000-row request before execution, and rejects an actual result above
 `requestedRows` without exposing partial rows.

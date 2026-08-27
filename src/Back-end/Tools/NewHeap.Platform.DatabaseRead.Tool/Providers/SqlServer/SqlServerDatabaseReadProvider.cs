@@ -237,11 +237,11 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                       FROM sys.columns AS selectable_column
                       WHERE selectable_column.object_id = candidate.object_id
                         AND HAS_PERMS_BY_NAME(
-                            QUOTENAME(candidate_schema.name) + '.' +
-                            QUOTENAME(candidate.name) + '.' +
-                            QUOTENAME(selectable_column.name),
-                            'COLUMN',
-                            'SELECT') = 1
+                            QUOTENAME(candidate_schema.name) + '.' + QUOTENAME(candidate.name),
+                            'OBJECT',
+                            'SELECT',
+                            selectable_column.name,
+                            'COLUMN') = 1
                   )
               )
               AND (@schemaName IS NULL OR candidate_schema.name = @schemaName)
@@ -311,6 +311,12 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
             descriptor.Name,
             limits,
             cancellationToken);
+        var relationships = await ReadRelationshipsAsync(
+            connection,
+            transaction,
+            descriptor.ObjectId,
+            limits,
+            cancellationToken);
 
         return new DatabaseSchemaResultResponse
         {
@@ -322,7 +328,8 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                 Kind = descriptor.Kind,
                 SqlIdentifier = Quote(descriptor.Schema, descriptor.Name),
                 Columns = columns,
-                Indexes = indexes
+                Indexes = indexes,
+                Relationships = relationships
             }
         };
     }
@@ -403,11 +410,11 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                       FROM sys.columns AS selectable_column
                       WHERE selectable_column.object_id = candidate.object_id
                         AND HAS_PERMS_BY_NAME(
-                            QUOTENAME(candidate_schema.name) + '.' +
-                            QUOTENAME(candidate.name) + '.' +
-                            QUOTENAME(selectable_column.name),
-                            'COLUMN',
-                            'SELECT') = 1
+                            QUOTENAME(candidate_schema.name) + '.' + QUOTENAME(candidate.name),
+                            'OBJECT',
+                            'SELECT',
+                            selectable_column.name,
+                            'COLUMN') = 1
                   )
               );
             """;
@@ -465,9 +472,11 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
               AND (
                   HAS_PERMS_BY_NAME(@qualifiedObjectName, 'OBJECT', 'SELECT') = 1 OR
                   HAS_PERMS_BY_NAME(
-                      @qualifiedObjectName + '.' + QUOTENAME(candidate.name),
-                      'COLUMN',
-                      'SELECT') = 1
+                      @qualifiedObjectName,
+                      'OBJECT',
+                      'SELECT',
+                      candidate.name,
+                      'COLUMN') = 1
               )
             ORDER BY candidate.column_id;
             """;
@@ -506,14 +515,25 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
         command.CommandText =
             """
             SELECT candidate.name,
+                   LOWER(REPLACE(candidate.type_desc, '_', '-')),
                    candidate.is_unique,
                    candidate.is_primary_key,
                    candidate.has_filter,
+                   CASE
+                       WHEN HAS_PERMS_BY_NAME(@qualifiedObjectName, 'OBJECT', 'SELECT') = 1
+                       THEN candidate.filter_definition
+                       ELSE NULL
+                   END,
                    indexed_column.key_ordinal,
                    indexed_column.index_column_id,
                    indexed_column.is_included_column,
                    indexed_column.is_descending_key,
-                   schema_column.name
+                   schema_column.name,
+                   CASE
+                       WHEN HAS_PERMS_BY_NAME(@qualifiedObjectName, 'OBJECT', 'SELECT') = 1
+                       THEN computed_column.definition
+                       ELSE NULL
+                   END
             FROM sys.indexes AS candidate
             INNER JOIN sys.index_columns AS indexed_column
                 ON indexed_column.object_id = candidate.object_id
@@ -521,10 +541,28 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
             INNER JOIN sys.columns AS schema_column
                 ON schema_column.object_id = indexed_column.object_id
                AND schema_column.column_id = indexed_column.column_id
+            LEFT JOIN sys.computed_columns AS computed_column
+                ON computed_column.object_id = schema_column.object_id
+               AND computed_column.column_id = schema_column.column_id
             WHERE candidate.object_id = @objectId
               AND candidate.name IS NOT NULL
+              AND candidate.type IN (1, 2)
               AND candidate.is_hypothetical = 0
+              AND candidate.is_disabled = 0
               AND indexed_column.column_id > 0
+              AND (
+                  HAS_PERMS_BY_NAME(@qualifiedObjectName, 'OBJECT', 'SELECT') = 1 OR
+                  NOT EXISTS (
+                      SELECT 1
+                      FROM sys.index_columns AS computed_indexed_column
+                      INNER JOIN sys.computed_columns AS indexed_computed_column
+                          ON indexed_computed_column.object_id = computed_indexed_column.object_id
+                         AND indexed_computed_column.column_id = computed_indexed_column.column_id
+                      WHERE computed_indexed_column.object_id = candidate.object_id
+                        AND computed_indexed_column.index_id = candidate.index_id
+                        AND computed_indexed_column.is_included_column = 0
+                  )
+              )
               AND NOT EXISTS (
                   SELECT 1
                   FROM sys.index_columns AS denied_indexed_column
@@ -536,16 +574,20 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                     AND denied_indexed_column.column_id > 0
                     AND HAS_PERMS_BY_NAME(@qualifiedObjectName, 'OBJECT', 'SELECT') <> 1
                     AND HAS_PERMS_BY_NAME(
-                        @qualifiedObjectName + '.' + QUOTENAME(denied_schema_column.name),
-                        'COLUMN',
-                        'SELECT') <> 1
+                        @qualifiedObjectName,
+                        'OBJECT',
+                        'SELECT',
+                        denied_schema_column.name,
+                        'COLUMN') <> 1
               )
               AND (
                   HAS_PERMS_BY_NAME(@qualifiedObjectName, 'OBJECT', 'SELECT') = 1 OR
                   HAS_PERMS_BY_NAME(
-                      @qualifiedObjectName + '.' + QUOTENAME(schema_column.name),
-                      'COLUMN',
-                      'SELECT') = 1
+                      @qualifiedObjectName,
+                      'OBJECT',
+                      'SELECT',
+                      schema_column.name,
+                      'COLUMN') = 1
               )
             ORDER BY candidate.is_primary_key DESC,
                      candidate.name,
@@ -569,24 +611,30 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
             {
                 builder = new SqlServerIndexBuilder(
                     name,
-                    reader.GetBoolean(1),
+                    reader.GetString(1),
                     reader.GetBoolean(2),
-                    reader.GetBoolean(3));
+                    reader.GetBoolean(3),
+                    reader.GetBoolean(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5));
                 byName.Add(name, builder);
                 builders.Add(builder);
             }
 
-            var columnName = reader.GetString(8);
-            if (reader.GetBoolean(6))
+            var columnName = reader.GetString(10);
+            if (reader.GetBoolean(8))
             {
                 builder.IncludedColumns.Add(columnName);
             }
             else
             {
+                var expression = reader.IsDBNull(11) ? null : reader.GetString(11);
                 builder.KeyColumns.Add(new DatabaseSchemaIndexColumnResponse
                 {
+                    Position = Convert.ToInt32(reader.GetValue(6), CultureInfo.InvariantCulture),
+                    Kind = expression is null ? "column" : "expression",
                     Name = columnName,
-                    Direction = reader.GetBoolean(7) ? "descending" : "ascending"
+                    Expression = expression,
+                    Direction = reader.GetBoolean(9) ? "descending" : "ascending"
                 });
             }
         }
@@ -595,14 +643,168 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
             .Select(builder => new DatabaseSchemaIndexResponse
             {
                 Name = builder.Name,
+                AccessMethod = builder.AccessMethod,
                 IsUnique = builder.IsUnique,
                 IsPrimaryKey = builder.IsPrimaryKey,
                 IsPartial = builder.IsPartial,
-                Columns = builder.KeyColumns.Select(column => column.Name).ToArray(),
+                Predicate = builder.Predicate,
+                Columns = builder.KeyColumns
+                    .Where(column => column.Kind == "column" && column.Name is not null)
+                    .Select(column => column.Name!)
+                    .ToArray(),
                 KeyColumns = builder.KeyColumns,
                 IncludedColumns = builder.IncludedColumns
             })
             .ToArray();
+    }
+
+    private static async Task<DatabaseSchemaRelationshipsResponse> ReadRelationshipsAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        int objectId,
+        DatabaseReadLimits limits,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandTimeout = limits.TimeoutSeconds;
+        command.CommandText =
+            """
+            SELECT candidate.object_id,
+                   candidate.name,
+                   CONVERT(bit, CASE
+                       WHEN candidate.is_not_trusted = 0 AND candidate.is_disabled = 0 THEN 1
+                       ELSE 0
+                   END),
+                   source_object.object_id,
+                   source_schema.name,
+                   source_object.name,
+                   target_object.object_id,
+                   target_schema.name,
+                   target_object.name,
+                   column_pair.constraint_column_id,
+                   source_column.name,
+                   target_column.name
+            FROM sys.foreign_keys AS candidate
+            INNER JOIN sys.foreign_key_columns AS column_pair
+                ON column_pair.constraint_object_id = candidate.object_id
+            INNER JOIN sys.tables AS source_object
+                ON source_object.object_id = candidate.parent_object_id
+            INNER JOIN sys.schemas AS source_schema
+                ON source_schema.schema_id = source_object.schema_id
+            INNER JOIN sys.columns AS source_column
+                ON source_column.object_id = source_object.object_id
+               AND source_column.column_id = column_pair.parent_column_id
+            INNER JOIN sys.tables AS target_object
+                ON target_object.object_id = candidate.referenced_object_id
+            INNER JOIN sys.schemas AS target_schema
+                ON target_schema.schema_id = target_object.schema_id
+            INNER JOIN sys.columns AS target_column
+                ON target_column.object_id = target_object.object_id
+               AND target_column.column_id = column_pair.referenced_column_id
+            WHERE (candidate.parent_object_id = @objectId OR
+                   candidate.referenced_object_id = @objectId)
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM sys.foreign_key_columns AS denied_pair
+                  INNER JOIN sys.tables AS denied_source_object
+                      ON denied_source_object.object_id = candidate.parent_object_id
+                  INNER JOIN sys.schemas AS denied_source_schema
+                      ON denied_source_schema.schema_id = denied_source_object.schema_id
+                  INNER JOIN sys.columns AS denied_source_column
+                      ON denied_source_column.object_id = denied_source_object.object_id
+                     AND denied_source_column.column_id = denied_pair.parent_column_id
+                  INNER JOIN sys.tables AS denied_target_object
+                      ON denied_target_object.object_id = candidate.referenced_object_id
+                  INNER JOIN sys.schemas AS denied_target_schema
+                      ON denied_target_schema.schema_id = denied_target_object.schema_id
+                  INNER JOIN sys.columns AS denied_target_column
+                      ON denied_target_column.object_id = denied_target_object.object_id
+                     AND denied_target_column.column_id = denied_pair.referenced_column_id
+                  WHERE denied_pair.constraint_object_id = candidate.object_id
+                    AND (
+                        (
+                            HAS_PERMS_BY_NAME(
+                                QUOTENAME(denied_source_schema.name) + '.' +
+                                QUOTENAME(denied_source_object.name),
+                                'OBJECT',
+                                'SELECT') <> 1 AND
+                            HAS_PERMS_BY_NAME(
+                                QUOTENAME(denied_source_schema.name) + '.' +
+                                QUOTENAME(denied_source_object.name),
+                                'OBJECT',
+                                'SELECT',
+                                denied_source_column.name,
+                                'COLUMN') <> 1
+                        ) OR
+                        (
+                            HAS_PERMS_BY_NAME(
+                                QUOTENAME(denied_target_schema.name) + '.' +
+                                QUOTENAME(denied_target_object.name),
+                                'OBJECT',
+                                'SELECT') <> 1 AND
+                            HAS_PERMS_BY_NAME(
+                                QUOTENAME(denied_target_schema.name) + '.' +
+                                QUOTENAME(denied_target_object.name),
+                                'OBJECT',
+                                'SELECT',
+                                denied_target_column.name,
+                                'COLUMN') <> 1
+                        )
+                    )
+              )
+            ORDER BY candidate.object_id, column_pair.constraint_column_id;
+            """;
+        AddParameter(command, "@objectId", objectId);
+
+        var builders = new List<SqlServerRelationshipBuilder>();
+        var byId = new Dictionary<int, SqlServerRelationshipBuilder>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var relationshipId = reader.GetInt32(0);
+            if (!byId.TryGetValue(relationshipId, out var builder))
+            {
+                builder = new SqlServerRelationshipBuilder(
+                    reader.GetString(1),
+                    reader.GetBoolean(2),
+                    reader.GetInt32(3),
+                    new DatabaseSchemaRelationshipObjectResponse
+                    {
+                        Schema = reader.GetString(4),
+                        Name = reader.GetString(5),
+                        SqlIdentifier = Quote(reader.GetString(4), reader.GetString(5))
+                    },
+                    reader.GetInt32(6),
+                    new DatabaseSchemaRelationshipObjectResponse
+                    {
+                        Schema = reader.GetString(7),
+                        Name = reader.GetString(8),
+                        SqlIdentifier = Quote(reader.GetString(7), reader.GetString(8))
+                    });
+                byId.Add(relationshipId, builder);
+                builders.Add(builder);
+            }
+
+            builder.ColumnPairs.Add(new DatabaseSchemaRelationshipColumnPairResponse
+            {
+                Position = reader.GetInt32(9),
+                SourceColumn = reader.GetString(10),
+                TargetColumn = reader.GetString(11)
+            });
+        }
+
+        return new DatabaseSchemaRelationshipsResponse
+        {
+            Outgoing = builders
+                .Where(builder => builder.SourceObjectId == objectId)
+                .Select(builder => builder.Build())
+                .ToArray(),
+            Incoming = builders
+                .Where(builder => builder.TargetObjectId == objectId)
+                .Select(builder => builder.Build())
+                .ToArray()
+        };
     }
 
     private static void AddParameter(DbCommand command, string name, object? value)
@@ -632,11 +834,15 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
 
     private sealed class SqlServerIndexBuilder(
         string name,
+        string accessMethod,
         bool isUnique,
         bool isPrimaryKey,
-        bool isPartial)
+        bool isPartial,
+        string? predicate)
     {
         public string Name { get; } = name;
+
+        public string AccessMethod { get; } = accessMethod;
 
         public bool IsUnique { get; } = isUnique;
 
@@ -644,8 +850,34 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
 
         public bool IsPartial { get; } = isPartial;
 
+        public string? Predicate { get; } = predicate;
+
         public List<DatabaseSchemaIndexColumnResponse> KeyColumns { get; } = [];
 
         public List<string> IncludedColumns { get; } = [];
+    }
+
+    private sealed class SqlServerRelationshipBuilder(
+        string name,
+        bool isValidated,
+        int sourceObjectId,
+        DatabaseSchemaRelationshipObjectResponse source,
+        int targetObjectId,
+        DatabaseSchemaRelationshipObjectResponse target)
+    {
+        public int SourceObjectId { get; } = sourceObjectId;
+
+        public int TargetObjectId { get; } = targetObjectId;
+
+        public List<DatabaseSchemaRelationshipColumnPairResponse> ColumnPairs { get; } = [];
+
+        public DatabaseSchemaRelationshipResponse Build() => new()
+        {
+            Name = name,
+            IsValidated = isValidated,
+            Source = source,
+            Target = target,
+            ColumnPairs = ColumnPairs
+        };
     }
 }

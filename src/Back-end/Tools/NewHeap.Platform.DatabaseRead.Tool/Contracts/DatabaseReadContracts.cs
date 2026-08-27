@@ -210,6 +210,46 @@ internal sealed class DatabaseSchemaObjectResponse
     public required IReadOnlyList<DatabaseSchemaColumnResponse> Columns { get; init; }
 
     public required IReadOnlyList<DatabaseSchemaIndexResponse> Indexes { get; init; }
+
+    public required DatabaseSchemaRelationshipsResponse Relationships { get; init; }
+}
+
+internal sealed class DatabaseSchemaRelationshipsResponse
+{
+    public required IReadOnlyList<DatabaseSchemaRelationshipResponse> Outgoing { get; init; }
+
+    public required IReadOnlyList<DatabaseSchemaRelationshipResponse> Incoming { get; init; }
+}
+
+internal sealed class DatabaseSchemaRelationshipResponse
+{
+    public required string Name { get; init; }
+
+    public bool IsValidated { get; init; }
+
+    public required DatabaseSchemaRelationshipObjectResponse Source { get; init; }
+
+    public required DatabaseSchemaRelationshipObjectResponse Target { get; init; }
+
+    public required IReadOnlyList<DatabaseSchemaRelationshipColumnPairResponse> ColumnPairs { get; init; }
+}
+
+internal sealed class DatabaseSchemaRelationshipObjectResponse
+{
+    public required string Schema { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string SqlIdentifier { get; init; }
+}
+
+internal sealed class DatabaseSchemaRelationshipColumnPairResponse
+{
+    public int Position { get; init; }
+
+    public required string SourceColumn { get; init; }
+
+    public required string TargetColumn { get; init; }
 }
 
 internal sealed class DatabaseSchemaIndexesResponse
@@ -242,11 +282,16 @@ internal sealed class DatabaseSchemaIndexResponse
 {
     public required string Name { get; init; }
 
+    public required string AccessMethod { get; init; }
+
     public bool IsUnique { get; init; }
 
     public bool IsPrimaryKey { get; init; }
 
     public bool IsPartial { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Predicate { get; init; }
 
     public required IReadOnlyList<string> Columns { get; init; }
 
@@ -257,7 +302,15 @@ internal sealed class DatabaseSchemaIndexResponse
 
 internal sealed class DatabaseSchemaIndexColumnResponse
 {
-    public required string Name { get; init; }
+    public int Position { get; init; }
+
+    public required string Kind { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Expression { get; init; }
 
     public required string Direction { get; init; }
 }

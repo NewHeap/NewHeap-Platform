@@ -17,7 +17,7 @@ public static class SampleDatabaseReadLimits
     public const int MaximumOutputBytes = 4 * 1024 * 1024;
     public const int MaximumSqlBytes = 64 * 1024;
     public const int ToolTimeoutSeconds = 45;
-    public const int ToolCallBudget = 8;
+    public const int ToolCallBudget = 16;
 }
 
 [NhAiToolSet("sample-database")]
@@ -36,7 +36,7 @@ public sealed class SampleDatabaseReadAiTools(
         TimeoutSeconds = SampleDatabaseReadLimits.ToolTimeoutSeconds,
         MaxConcurrency = 1,
         RequiredCapabilities = [SampleDatabaseReadMcpContext.Capability])]
-    [Description("Run a parameterized read-only SELECT through the server-selected sample database profile after identifiers have been confirmed by repository and live-schema evidence. RequestedRows is required and requests above 1,000 fail instead of being silently reduced.")]
+    [Description("Run a parameterized read-only SELECT through the server-selected sample database profile after repository evidence and an exact schema description have confirmed identifiers and relationships, and after relevant index metadata has guided predicates and ordering. RequestedRows is required and requests above 1,000 fail instead of being silently reduced.")]
     public Task<TaskResult<JsonElement>> QueryAsync(
         SampleDatabaseQueryInput input,
         NhAiInvocationContext context,
@@ -63,7 +63,7 @@ public sealed class SampleDatabaseReadAiTools(
         TimeoutSeconds = SampleDatabaseReadLimits.ToolTimeoutSeconds,
         MaxConcurrency = 1,
         RequiredCapabilities = [SampleDatabaseReadMcpContext.Capability])]
-    [Description("Search or describe the selectable live sample database schema before constructing SQL; returns safe identifiers, columns, keys, indexes and an evidence hash.")]
+    [Description("Search or describe the selectable live sample database schema before constructing SQL. An exact description returns safe identifiers, columns, keys, indexes, permission-filtered named outgoing and incoming relationships with ordered column pairs and validation status, and an evidence hash.")]
     public Task<TaskResult<JsonElement>> SchemaAsync(
         SampleDatabaseSchemaInput input,
         NhAiInvocationContext context,
@@ -90,7 +90,7 @@ public sealed class SampleDatabaseReadAiTools(
         TimeoutSeconds = SampleDatabaseReadLimits.ToolTimeoutSeconds,
         MaxConcurrency = 1,
         RequiredCapabilities = [SampleDatabaseReadMcpContext.Capability])]
-    [Description("Inspect selectable indexes for one confirmed live database object before designing a query whose predicate, ordering or expected table size is uncertain. Returns ordered key columns with direction, included columns and uniqueness/primary-key markers.")]
+    [Description("Inspect selectable indexes for one confirmed live database object before designing a query whose predicate, ordering or expected table size is uncertain. Returns positioned column or expression keys with direction, included columns, an optional partial predicate and uniqueness/primary-key markers. Use a partial index only when the query predicate demonstrably implies its predicate, and an expression key only with a compatible query expression and ordering.")]
     public Task<TaskResult<JsonElement>> IndexesAsync(
         SampleDatabaseIndexesInput input,
         NhAiInvocationContext context,

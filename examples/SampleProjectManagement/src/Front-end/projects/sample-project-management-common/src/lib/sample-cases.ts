@@ -2887,7 +2887,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Read-only database diagnostics",
     "category": "DAL, repositories, and transactions",
     "surface": "newheap-db JSON contract plus consumer-owned governed schema, indexes and query MCP tools",
-    "outcome": "Developers and agents inspect selectable live schema and permission-filtered index key order, direction and included columns before validating and executing efficient parameterized diagnostics; the executable sample MCP fixes profile, capability, budget and ceilings server-side, requires an explicit requested row count, rejects excessive requests before execution, and fails without partial data when actual results exceed the accepted limit, while SQL Server and PostgreSQL enforce dedicated read-only credentials and return only allowlisted provider failure classifications.",
+    "outcome": "Developers and agents inspect selectable live schema, permission-filtered named outgoing and incoming relationships with ordered column pairs and validation status, and positioned column or expression index keys with direction, included columns and optional partial predicates before validating and executing efficient parameterized diagnostics; the executable sample MCP fixes profile, capability, a sixteen-call budget and ceilings server-side, requires an explicit requested row count, rejects excessive requests before execution, and fails without partial data when actual results exceed the accepted limit, while SQL Server and PostgreSQL enforce dedicated read-only credentials and return only allowlisted provider failure classifications.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/.newheap/database-read.json",

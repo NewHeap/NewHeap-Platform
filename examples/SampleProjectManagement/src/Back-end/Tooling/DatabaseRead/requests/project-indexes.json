@@ -10,5 +10,5 @@
     "maximumRows": 100,
     "timeoutSeconds": 10
   },
-  "reason": "Inspect the deployed project index keys before designing a diagnostic query"
+  "reason": "Inspect positioned column and expression keys plus any partial predicate before designing a compatible diagnostic query"
 }
