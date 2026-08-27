@@ -259,6 +259,133 @@ public sealed class MapperCompatibilityTests
         Assert.Equal(100, results.Select(result => result.Name).Distinct().Count());
     }
 
+    [Fact]
+    public void IgnoreExcludesAMemberWithoutReadingSourceOrDestinationGetters()
+    {
+        var configuration = new MapperConfiguration(expression =>
+            expression.CreateMap<DangerousSource, DangerousDestination>()
+                .ForMember(destination => destination.Dangerous, member => member.Ignore()));
+        configuration.AssertConfigurationIsValid();
+        var destination = new DangerousDestination { Safe = "before" };
+
+        var result = configuration.CreateMapper().Map(
+            new DangerousSource { Safe = "after" },
+            destination);
+
+        Assert.Same(destination, result);
+        Assert.Equal("after", result.Safe);
+        Assert.Equal(0, destination.DangerousGetterCalls);
+    }
+
+    [Fact]
+    public void ConditionFalseStillReadsMembersBeforeEvaluatingTheCondition()
+    {
+        var mapper = CreateMapper(configuration =>
+            configuration.CreateMap<CountingSource, CountingDestination>()
+                .ForMember(
+                    destination => destination.Value,
+                    member => member.Condition((_, _, _, _) => false)));
+        var source = new CountingSource();
+        var destination = new CountingDestination();
+
+        mapper.Map(source, destination);
+
+        Assert.Equal(1, source.GetterCalls);
+        Assert.Equal(1, destination.GetterCalls);
+        Assert.Equal(0, destination.SetterCalls);
+    }
+
+    [Fact]
+    public void DependencyInjectionResolvesMemberResolversConvertersAndMappingActions()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(new MappingPrefix("resolved"));
+        services.AddTransient<DisplayNameResolver>();
+        services.AddTransient<StrongValueConverter>();
+        services.AddTransient<EnrichmentAction>();
+        services.AddAutoMapper(configuration =>
+        {
+            configuration.CreateMap<ResolverSource, ResolverDestination>()
+                .ForMember(
+                    destination => destination.DisplayName,
+                    member => member.MapFrom<DisplayNameResolver>())
+                .ForMember(
+                    destination => destination.EnrichedBy,
+                    member => member.Ignore())
+                .AfterMap<EnrichmentAction>();
+            configuration.CreateMap<string, StrongValue>()
+                .ConvertUsing<StrongValueConverter>();
+        });
+
+        using var provider = services.BuildServiceProvider();
+        var configuration = provider.GetRequiredService<IConfigurationProvider>();
+        configuration.AssertConfigurationIsValid();
+        var mapper = provider.GetRequiredService<IMapper>();
+
+        var destination = mapper.Map<ResolverDestination>(new ResolverSource { Name = "project" });
+        var strongValue = mapper.Map<StrongValue>("identifier");
+
+        Assert.Equal("resolved:project", destination.DisplayName);
+        Assert.Equal("resolved", destination.EnrichedBy);
+        Assert.Equal("resolved:identifier", strongValue.Value);
+    }
+
+    [Fact]
+    public void ConstructUsingCreatesDestinationsWithoutAParameterlessConstructor()
+    {
+        var configuration = new MapperConfiguration(expression =>
+            expression.CreateMap<ConstructionSource, ConstructedDestination>()
+                .ConstructUsing(source => new ConstructedDestination(source.Id))
+                .ForMember(destination => destination.WasMapped, member => member.Ignore())
+                .AfterMap((source, destination) => destination.WasMapped = source.Name.Length > 0));
+        configuration.AssertConfigurationIsValid();
+
+        var result = configuration.CreateMapper().Map<ConstructedDestination>(
+            new ConstructionSource { Id = 42, Name = "constructed" });
+
+        Assert.Equal(42, result.Id);
+        Assert.Equal("constructed", result.Name);
+        Assert.True(result.WasMapped);
+    }
+
+    [Fact]
+    public void ConvertUsingReplacesMemberMappingForValueObjects()
+    {
+        var configuration = new MapperConfiguration(expression =>
+            expression.CreateMap<string, StrongValue>()
+                .ConvertUsing(value => new StrongValue(value.ToUpperInvariant())));
+        configuration.AssertConfigurationIsValid();
+
+        var result = configuration.CreateMapper().Map<StrongValue>("value-object");
+
+        Assert.Equal("VALUE-OBJECT", result.Value);
+    }
+
+    [Fact]
+    public void ConfigurationValidationReportsUnmappedAndIncompatibleMembers()
+    {
+        var configuration = new MapperConfiguration(expression =>
+            expression.CreateMap<InvalidConfigurationSource, InvalidConfigurationDestination>());
+
+        var exception = Assert.Throws<MappingConfigurationException>(
+            configuration.AssertConfigurationIsValid);
+
+        Assert.Contains(nameof(InvalidConfigurationDestination.Unmapped), exception.Message);
+        Assert.Contains(nameof(InvalidConfigurationDestination.Incompatible), exception.Message);
+        Assert.Contains("cannot map", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ConfigurationValidationAcceptsExplicitlyIgnoredMembers()
+    {
+        var configuration = new MapperConfiguration(expression =>
+            expression.CreateMap<InvalidConfigurationSource, InvalidConfigurationDestination>()
+                .ForMember(destination => destination.Unmapped, member => member.Ignore())
+                .ForMember(destination => destination.Incompatible, member => member.Ignore()));
+
+        configuration.AssertConfigurationIsValid();
+    }
+
     private static IMapper CreateMapper(Action<IMapperConfigurationExpression> configure)
         => new Mapper(new MapperConfiguration(configure));
 
@@ -441,5 +568,154 @@ public sealed class MapperCompatibilityTests
     private sealed class ScannedDestination
     {
         public string Value { get; set; } = string.Empty;
+    }
+
+    private sealed class DangerousSource
+    {
+        public string Safe { get; set; } = string.Empty;
+
+        public string Dangerous =>
+            throw new InvalidOperationException("The ignored source getter must not be evaluated.");
+    }
+
+    private sealed class DangerousDestination
+    {
+        private int _dangerousGetterCalls;
+
+        public string Safe { get; set; } = string.Empty;
+
+        public string Dangerous
+        {
+            get
+            {
+                _dangerousGetterCalls++;
+                throw new InvalidOperationException("The ignored destination getter must not be evaluated.");
+            }
+            set => throw new InvalidOperationException("The ignored destination setter must not be evaluated.");
+        }
+
+        public int DangerousGetterCalls => _dangerousGetterCalls;
+    }
+
+    private sealed class CountingSource
+    {
+        private int _getterCalls;
+
+        public string Value
+        {
+            get
+            {
+                _getterCalls++;
+                return "source";
+            }
+        }
+
+        public int GetterCalls => _getterCalls;
+    }
+
+    private sealed class CountingDestination
+    {
+        private int _getterCalls;
+        private int _setterCalls;
+
+        public string Value
+        {
+            get
+            {
+                _getterCalls++;
+                return "destination";
+            }
+            set => _setterCalls++;
+        }
+
+        public int GetterCalls => _getterCalls;
+        public int SetterCalls => _setterCalls;
+    }
+
+    private sealed record MappingPrefix(string Value);
+
+    private sealed class ResolverSource
+    {
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private sealed class ResolverDestination
+    {
+        public string DisplayName { get; set; } = string.Empty;
+        public string EnrichedBy { get; set; } = string.Empty;
+    }
+
+    private sealed class DisplayNameResolver(MappingPrefix prefix) :
+        IValueResolver<ResolverSource, ResolverDestination, string>
+    {
+        public string Resolve(
+            ResolverSource source,
+            ResolverDestination destination,
+            string destinationMember,
+            ResolutionContext context)
+            => $"{prefix.Value}:{source.Name}";
+    }
+
+    private sealed class StrongValueConverter(MappingPrefix prefix) :
+        ITypeConverter<string, StrongValue>
+    {
+        public StrongValue Convert(
+            string source,
+            StrongValue destination,
+            ResolutionContext context)
+            => new($"{prefix.Value}:{source}");
+    }
+
+    private sealed class EnrichmentAction(MappingPrefix prefix) :
+        IMappingAction<ResolverSource, ResolverDestination>
+    {
+        public void Process(
+            ResolverSource source,
+            ResolverDestination destination,
+            ResolutionContext context)
+        {
+            destination.EnrichedBy = prefix.Value;
+        }
+    }
+
+    private sealed class StrongValue
+    {
+        public StrongValue(string value)
+        {
+            Value = value;
+        }
+
+        public string Value { get; }
+    }
+
+    private sealed class ConstructionSource
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private sealed class ConstructedDestination
+    {
+        public ConstructedDestination(int id)
+        {
+            Id = id;
+        }
+
+        public int Id { get; }
+        public string Name { get; set; } = string.Empty;
+        public bool WasMapped { get; set; }
+    }
+
+    private sealed class InvalidConfigurationSource
+    {
+        public string Compatible { get; set; } = string.Empty;
+        public string Incompatible { get; set; } = string.Empty;
+    }
+
+    private sealed class InvalidConfigurationDestination
+    {
+        public string Compatible { get; set; } = string.Empty;
+        public Guid Incompatible { get; set; }
+        public string Unmapped { get; set; } = string.Empty;
     }
 }

@@ -18,7 +18,13 @@ Start from the consumer's existing pattern and deliver the module as one complet
 
 A mutate model does not contain `CreationDateTime` or `LastModifiedDateTime`. Database entities and migrations remain owned by the consumer implementation. For a schema change, verify that the migration is generated in that consumer's database project.
 
-Reference `NewHeap.Platform.Mapping`, import `NewHeap.Platform.Mapping`, and register consumer `Profile` classes through `NewHeapAspNetCommonOptionsBuilder.ConfigureAutoMapper`. The familiar profile, `CreateMap`, `ForMember`, `MapFrom`, `MaxDepth`, `IMapper`, and `AddAutoMapper` syntax is provided by NewHeap without an AutoMapper package dependency. Every map receives a default maximum depth of 64, including maps created through an independent `MapperConfiguration`; an explicit `MaxDepth` remains authoritative.
+Reference `NewHeap.Platform.Mapping`, import `NewHeap.Platform.Mapping`, and register consumer `Profile` classes through `NewHeapAspNetCommonOptionsBuilder.ConfigureAutoMapper`. The familiar profile, `CreateMap`, `ForMember`, `MapFrom`, `Ignore`, `ConvertUsing`, `ConstructUsing`, `AfterMap`, `MaxDepth`, `IMapper`, and `AddAutoMapper` syntax is provided by NewHeap without an AutoMapper package dependency. Every map receives a default maximum depth of 64, including maps created through an independent `MapperConfiguration`; an explicit `MaxDepth` remains authoritative.
+
+Use `ForMember(..., options => options.Ignore())` for destination members that must stay completely outside the type map, especially entity navigations, secrets and computed getters. An ignored member is not read from either source or destination. `Condition` is only a write condition: source and destination member getters are evaluated before the condition runs, so `Condition((...) => false)` is not equivalent to `Ignore()`.
+
+Use `MapFrom<TResolver>()` with `IValueResolver<TSource, TDestination, TDestinationMember>` when member resolution needs services. Register the resolver and its dependencies with the appropriate DI lifetime; the mapper resolves it through the mapper's existing service factory for each mapping operation. Use `ConvertUsing` for whole-object conversions such as value objects, dictionaries or JSON representations, and `ConstructUsing` when the destination cannot or should not be created through a parameterless constructor. Use `AfterMap` or `IMappingAction<TSource, TDestination>` for deterministic enrichment that belongs to the mapping contract; keep persistence, remote calls and business workflow side effects outside mapping actions.
+
+Call `IConfigurationProvider.AssertConfigurationIsValid()` during application startup or in a composition test after every profile is registered. Validation reports unmapped writable destination members, destinations that cannot be constructed, and member type pairs that have neither a supported conversion nor a configured type map. Mark intentionally external or action-populated members with `Ignore()` so the configuration documents that choice.
 
 Use `MapOnlyIfChanged` for mutate-to-entity maps. It compares each resolved source member with the current destination member through `Equals`: equal scalar values are not assigned, a null source clears a non-null destination, and nested objects or collections retain their normal reference-equality and mapping behavior. Mapping into an existing object reuses compatible nested destination objects and collection instances; collections are cleared and repopulated. A destination navigation with no matching source member is not mapped.
 
@@ -29,11 +35,14 @@ Use `MapOnlyIfChanged` for mutate-to-entity maps. It compares each resolved sour
 - Consumer entities or consumer migrations in a reusable NewHeap library.
 - Assuming a repository or mapping exists without proving its registration.
 - Treating `MapOnlyIfChanged` as structural or deep equality for objects or collections.
-- Adding unsupported AutoMapper APIs such as `ProjectTo`, `ReverseMap`, converters, or `AutoMapper.Collection`; use the focused NewHeap mapping surface or an explicit application-owned alternative.
+- Using `Condition(false)` as a substitute for `Ignore()`; conditions still evaluate source and destination getters.
+- Resolving scoped services from a singleton mapper instance outside a valid service scope.
+- Putting persistence, remote calls or business workflow side effects in mapping actions.
+- Adding unsupported AutoMapper APIs such as `ProjectTo`, `ReverseMap`, or `AutoMapper.Collection`; use the focused NewHeap mapping surface or an explicit application-owned alternative.
 
 ## Verification
 
-Build the backend, run the mapping, service, and controller tests, and inspect the OpenAPI output. Verify nested object reuse, collection reuse and replacement contents, null handling, the 64-level default recursion guard, explicit `MaxDepth`, and `MapOnlyIfChanged` setter behavior. For a schema change, verify the real relational providers, not only EF Core InMemory.
+Build the backend, call `AssertConfigurationIsValid`, run the mapping, service, and controller tests, and inspect the OpenAPI output. Verify that ignored throwing getters are never evaluated, a false condition still evaluates getters, DI resolvers/converters/actions use the active service scope, `ConstructUsing` supports destinations without parameterless constructors, converter output replaces member mapping, invalid configuration reports both unmapped and incompatible members, nested object and collection instances are reused, null handling remains stable, the 64-level default recursion guard and explicit `MaxDepth` remain authoritative, and `MapOnlyIfChanged` preserves its setter behavior. For a schema change, verify the real relational providers, not only EF Core InMemory.
 
 ## Optional source evidence
 

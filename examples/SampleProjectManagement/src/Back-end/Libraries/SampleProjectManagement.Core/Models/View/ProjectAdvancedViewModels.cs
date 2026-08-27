@@ -50,6 +50,26 @@ public sealed class ProjectBulkMutationResultViewModel
     public int Failed { get; set; }
 }
 
+public sealed class ProjectMappingSummaryViewModel
+{
+    public ProjectMappingSummaryViewModel(string key)
+    {
+        Key = key;
+    }
+
+    public string Key { get; }
+
+    public string DisplayName { get; set; } = string.Empty;
+
+    public string? Description { get; set; }
+
+    public string? OwnerUser { get; set; }
+
+    public string EnrichedBy { get; set; } = string.Empty;
+}
+
+public sealed record ProjectReferenceValue(string Value);
+
 public sealed class CollectionExpressionSampleViewModel
 {
     public string InputKey { get; set; } = "";

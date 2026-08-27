@@ -70,6 +70,35 @@ public sealed class BackendLibraryPartialSamplesTests
     }
 
     [Fact]
+    public void AdvancedMappingUsesValidationIgnoreDependencyInjectionConstructionAndActions()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ProjectMappingLabelFormatter>();
+        services.AddTransient<ProjectDisplayNameResolver>();
+        services.AddTransient<ProjectReferenceConverter>();
+        services.AddTransient<ProjectMappingEnrichmentAction>();
+        services.AddAutoMapper(configuration =>
+            configuration.AddProfile<ProjectMappingFeatureProfile>());
+
+        using var provider = services.BuildServiceProvider();
+        var configuration = provider.GetRequiredService<IConfigurationProvider>();
+        configuration.AssertConfigurationIsValid();
+        var mapper = provider.GetRequiredService<IMapper>();
+        var project = NewProject();
+        project.Description = "Mapped through the NewHeap profile";
+
+        var summary = mapper.Map<ProjectMappingSummaryViewModel>(project);
+        var reference = mapper.Map<ProjectReferenceValue>(project);
+
+        Assert.Equal(project.Key, summary.Key);
+        Assert.Equal($"{project.Key} · {project.Name}", summary.DisplayName);
+        Assert.Equal(project.Description, summary.Description);
+        Assert.Null(summary.OwnerUser);
+        Assert.Equal(nameof(ProjectMappingEnrichmentAction), summary.EnrichedBy);
+        Assert.Equal($"{project.Key}:{project.Id:N}", reference.Value);
+    }
+
+    [Fact]
     public void ChangeAwareMappingUpdatesScalarsWithoutReplacingNavigationProperties()
     {
         var mapper = new Mapper(new MapperConfiguration(configuration =>

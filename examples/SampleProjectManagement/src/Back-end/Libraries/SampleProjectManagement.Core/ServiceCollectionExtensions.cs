@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI;
 using NewHeap.Platform.AspNet.Common;
 using SampleProjectManagement.Core.Services;
+using SampleProjectManagement.Core.Utilities;
 using SampleProjectManagement.DAL.Entities;
 
 namespace SampleProjectManagement.Core;
@@ -24,6 +25,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ProjectCollectionSampleService>();
         services.AddScoped<ProjectSetupService>();
         services.AddScoped<ProjectAuthorizationSampleService>();
+        services.AddScoped<ProjectMappingLabelFormatter>();
+        services.AddScoped<ProjectDisplayNameResolver>();
+        services.AddScoped<ProjectReferenceConverter>();
+        services.AddScoped<ProjectMappingEnrichmentAction>();
 
         return services;
     }

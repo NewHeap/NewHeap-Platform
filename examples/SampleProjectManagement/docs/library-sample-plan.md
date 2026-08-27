@@ -32,7 +32,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-008 | Composite detail | composite controller/service | Project, members, and labels are returned in one response. |
 | SPM-009 | View model contract | `[Filterable]` on `Id`, audit fields | ID filtering works and the OpenAPI contract is correct. |
 | SPM-010 | Mutate model contract | create/update mutate model | The contract contains no audit fields and prevents overposting. |
-| SPM-011 | NewHeap mapping | profile, nested and collection mapping, `MapOnlyIfChanged` | Entity, view, mutate, nested, and collection mappings use `NewHeap.Platform.Mapping`, preserve existing navigation references during mutate mapping, and enforce a tested recursion-depth guard. |
+| SPM-011 | NewHeap mapping | profile, nested and collection mapping, ignored members, DI resolvers, converters, construction, mapping actions, configuration validation, `MapOnlyIfChanged` | Entity, view, mutate, nested, collection and value-object mappings use `NewHeap.Platform.Mapping`; explicit ignores avoid reading excluded navigation members, DI-backed resolvers and actions enrich results, construction and conversion remain centralized, configuration validation fails on unmapped or incompatible members, existing navigation references remain stable during mutate mapping, and recursion depth is bounded. |
 | SPM-012 | Changed properties | `OnUpdateGetChangedProperties` | The log contains only actual changes. |
 | SPM-013 | Module wiring | DbSet, relationships, repository, DI | The module starts and its relationships load. |
 | SPM-014 | Audit fields | base entity timestamps | Create and update timestamps are correct. |

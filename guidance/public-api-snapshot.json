@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.5",
   "backEnd": {
-    "hash": "a969ca48718f8868554cd629ab483c1936198c97d77b97a3dac73945fcd0a7f3",
-    "declarationCount": 3583,
+    "hash": "ebb84320d12483e06adaf4e44811330b0575f9e87b1b7fbad55de4dd8f97f48f",
+    "declarationCount": 3609,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -12763,15 +12763,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
-        "declaration": "public TDestination Map<TDestination>(object? source) => (TDestination)MapCore( source, source?.GetType() ?? typeof(object), typeof(TDestination), destination: null, new MappingContext())!;"
+        "declaration": "public TDestination Map<TDestination>(object? source) => (TDestination)MapCore( source, source?.GetType() ?? typeof(object), typeof(TDestination), destination: null, CreateMappingContext())!;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
-        "declaration": "public TDestination Map<TSource, TDestination>(TSource source) => (TDestination)MapCore( source, typeof(TSource), typeof(TDestination), destination: null, new MappingContext())!;"
+        "declaration": "public TDestination Map<TSource, TDestination>(TSource source) => (TDestination)MapCore( source, typeof(TSource), typeof(TDestination), destination: null, CreateMappingContext())!;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
-        "declaration": "public TDestination Map<TSource, TDestination>(TSource source, TDestination destination) => (TDestination)MapCore( source, typeof(TSource), typeof(TDestination), destination, new MappingContext())!;"
+        "declaration": "public TDestination Map<TSource, TDestination>(TSource source, TDestination destination) => (TDestination)MapCore( source, typeof(TSource), typeof(TDestination), destination, CreateMappingContext())!;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
@@ -12780,6 +12780,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
         "declaration": "public object? Map(object? source, object? destination, Type sourceType, Type destinationType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public MappingContext(MappingOperationContext operationContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public MappingOperationContext OperationContext { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
@@ -12808,6 +12816,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
         "declaration": "public interface IMemberConfigurationExpression<TSource, TDestination, TDestinationMember> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public interface IValueResolver<in TSource, in TDestination, TDestinationMember> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public interface ITypeConverter<in TSource, TDestination> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public interface IMappingAction<in TSource, in TDestination> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public sealed class ResolutionContext {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
+        "declaration": "public IMapper Mapper { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingAbstractions.cs",
@@ -12867,6 +12895,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public void AssertConfigurationIsValid() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
         "declaration": "public IMappingExpression<TSource, TDestination> CreateMap<TSource, TDestination>() {"
       },
       {
@@ -12911,11 +12943,39 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IReadOnlyList<string> UnmappedDestinationMembers { get; private set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public bool UsesTypeConverter => TypeConverter is not null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public bool HasDestinationConstructor => DestinationConstructor is not null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public MappingTypeConverter? TypeConverter { get; protected set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public MappingDestinationConstructor? DestinationConstructor { get; protected set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IReadOnlyList<MappingAfterAction> AfterMapActions { get; protected set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
         "declaration": "protected Dictionary<string, ConfiguredMemberMap> ConfiguredMembers { get; } ="
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
         "declaration": "protected Func<object, object, object?, object?, bool>? AllMembersCondition { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "protected bool AllMembersIgnored { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
@@ -12939,7 +12999,31 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IMappingExpression<TSource, TDestination> ConvertUsing( Func<TSource, TDestination> converter) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IMappingExpression<TSource, TDestination> ConvertUsing<TConverter>() where TConverter : ITypeConverter<TSource, TDestination> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IMappingExpression<TSource, TDestination> ConstructUsing( Func<TSource, TDestination> constructor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IMappingExpression<TSource, TDestination> AfterMap( Action<TSource, TDestination> action) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IMappingExpression<TSource, TDestination> AfterMap<TAction>() where TAction : IMappingAction<TSource, TDestination> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
         "declaration": "public MemberConfigurationExpression(ConfiguredMemberMap configuredMember) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public void Ignore() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
@@ -12947,11 +13031,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public void MapFrom<TResolver>() where TResolver : IValueResolver<TSource, TDestination, TDestinationMember> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
         "declaration": "public void Condition(Func<TSource, TDestination, object?, object?, bool> condition) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
-        "declaration": "public Func<object, object?>? SourceResolver { get; set; }"
+        "declaration": "public bool IsIgnored { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public MappingMemberResolver? SourceResolver { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
@@ -12960,6 +13052,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
         "declaration": "public Func<object, object, object?, object?, bool>? Condition { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public MappingOperationContext(IMapper mapper, Func<Type, object?> serviceFactory) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public ResolutionContext ResolutionContext { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public object GetRequiredService(Type serviceType) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/ServiceCollectionExtensions.cs",
@@ -17583,8 +17687,15 @@
       "FilterableAttribute",
       "NewHeapAspNetCommonOptionsBuilder",
       "IMapper",
+      "IConfigurationProvider",
       "Profile",
       "MapperConfiguration",
+      "IMappingExpression",
+      "IMemberConfigurationExpression",
+      "IValueResolver",
+      "ITypeConverter",
+      "IMappingAction",
+      "ResolutionContext",
       "AutomapperExtensions"
     ],
     "nh-backend-partial-update": [

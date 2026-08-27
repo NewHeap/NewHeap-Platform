@@ -34,7 +34,7 @@ public sealed class Mapper : IMapper
             source?.GetType() ?? typeof(object),
             typeof(TDestination),
             destination: null,
-            new MappingContext())!;
+            CreateMappingContext())!;
 
     public TDestination Map<TSource, TDestination>(TSource source)
         => (TDestination)MapCore(
@@ -42,7 +42,7 @@ public sealed class Mapper : IMapper
             typeof(TSource),
             typeof(TDestination),
             destination: null,
-            new MappingContext())!;
+            CreateMappingContext())!;
 
     public TDestination Map<TSource, TDestination>(TSource source, TDestination destination)
         => (TDestination)MapCore(
@@ -50,21 +50,24 @@ public sealed class Mapper : IMapper
             typeof(TSource),
             typeof(TDestination),
             destination,
-            new MappingContext())!;
+            CreateMappingContext())!;
 
     public object? Map(object? source, Type sourceType, Type destinationType)
     {
         ArgumentNullException.ThrowIfNull(sourceType);
         ArgumentNullException.ThrowIfNull(destinationType);
-        return MapCore(source, sourceType, destinationType, destination: null, new MappingContext());
+        return MapCore(source, sourceType, destinationType, destination: null, CreateMappingContext());
     }
 
     public object? Map(object? source, object? destination, Type sourceType, Type destinationType)
     {
         ArgumentNullException.ThrowIfNull(sourceType);
         ArgumentNullException.ThrowIfNull(destinationType);
-        return MapCore(source, sourceType, destinationType, destination, new MappingContext());
+        return MapCore(source, sourceType, destinationType, destination, CreateMappingContext());
     }
+
+    private MappingContext CreateMappingContext()
+        => new(new MappingOperationContext(this, _serviceFactory));
 
     private object? MapCore(
         object? source,
@@ -109,7 +112,58 @@ public sealed class Mapper : IMapper
 
         try
         {
-            destination ??= CreateDestination(destinationType);
+            if (typeMap.TypeConverter is not null)
+            {
+                object? convertedDestination;
+                try
+                {
+                    convertedDestination = typeMap.TypeConverter(source, destination, context.OperationContext);
+                }
+                catch (MappingException)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    throw new MappingException(
+                        $"Converting '{typeMap.SourceType.FullName}' to " +
+                        $"'{typeMap.DestinationType.FullName}' failed.",
+                        exception);
+                }
+
+                if (convertedDestination is not null)
+                {
+                    RunAfterMapActions(typeMap, source, convertedDestination, context.OperationContext);
+                }
+
+                return convertedDestination;
+            }
+
+            if (destination is null)
+            {
+                try
+                {
+                    destination = typeMap.DestinationConstructor is null
+                        ? CreateDestination(destinationType)
+                        : typeMap.DestinationConstructor(source, context.OperationContext);
+                }
+                catch (MappingException)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    throw new MappingException(
+                        $"Constructing destination '{typeMap.DestinationType.FullName}' failed.",
+                        exception);
+                }
+
+                if (destination is null)
+                {
+                    throw new MappingException(
+                        $"Constructing destination '{typeMap.DestinationType.FullName}' returned null.");
+                }
+            }
 
             foreach (var memberMap in typeMap.MemberMaps)
             {
@@ -118,8 +172,12 @@ public sealed class Mapper : IMapper
 
                 try
                 {
-                    sourceValue = memberMap.SourceResolver(source);
                     destinationValue = memberMap.DestinationProperty.GetValue(destination);
+                    sourceValue = memberMap.SourceResolver(
+                        source,
+                        destination,
+                        destinationValue,
+                        context.OperationContext);
                 }
                 catch (Exception exception)
                 {
@@ -166,6 +224,8 @@ public sealed class Mapper : IMapper
                 }
             }
 
+            RunAfterMapActions(typeMap, source, destination, context.OperationContext);
+
             return destination;
         }
         catch (MappingException)
@@ -181,6 +241,32 @@ public sealed class Mapper : IMapper
         finally
         {
             context.Exit(typePair);
+        }
+    }
+
+    private static void RunAfterMapActions(
+        TypeMapDefinition typeMap,
+        object source,
+        object destination,
+        MappingOperationContext context)
+    {
+        foreach (var action in typeMap.AfterMapActions)
+        {
+            try
+            {
+                action(source, destination, context);
+            }
+            catch (MappingException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                throw new MappingException(
+                    $"AfterMap action failed while mapping '{typeMap.SourceType.FullName}' to " +
+                    $"'{typeMap.DestinationType.FullName}'.",
+                    exception);
+            }
         }
     }
 
@@ -385,6 +471,13 @@ public sealed class Mapper : IMapper
     private sealed class MappingContext
     {
         private readonly Dictionary<TypePair, int> _depths = [];
+
+        public MappingContext(MappingOperationContext operationContext)
+        {
+            OperationContext = operationContext;
+        }
+
+        public MappingOperationContext OperationContext { get; }
 
         public bool TryEnter(TypePair typePair, int maximumDepth)
         {
