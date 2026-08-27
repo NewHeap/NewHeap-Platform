@@ -97,7 +97,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-058 | EF bulk delete | EF batch extensions | Drafts are deleted with a set-based operation that returns a count. |
 | SPM-059 | Query expressions | expression extensions/utils | Optional predicates remain server-side. |
 | SPM-060 | Database log data | log additional-data processor | The audit log contains relational context. |
-| SPM-218 | Read-only database diagnostics | `newheap-db` JSON contract plus consumer-owned governed schema and query MCP tools | Developers and agents inspect selectable live schema before validating and executing parameterized, consumer-bounded diagnostics; the executable sample MCP fixes profile, capability, budget and limits server-side, while SQL Server and PostgreSQL enforce dedicated read-only credentials and return only allowlisted provider failure classifications. |
+| SPM-218 | Read-only database diagnostics | `newheap-db` JSON contract plus consumer-owned governed schema, indexes and query MCP tools | Developers and agents inspect selectable live schema and permission-filtered index key order, direction and included columns before validating and executing efficient parameterized diagnostics; the executable sample MCP fixes profile, capability, budget and ceilings server-side, requires an explicit requested row count, rejects excessive requests before execution, and fails without partial data when actual results exceed the accepted limit, while SQL Server and PostgreSQL enforce dedicated read-only credentials and return only allowlisted provider failure classifications. |
 
 ## 5. Authentication, identity, and authorization
 

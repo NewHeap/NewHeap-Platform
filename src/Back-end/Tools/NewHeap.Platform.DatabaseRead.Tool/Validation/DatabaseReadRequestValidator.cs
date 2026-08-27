@@ -127,20 +127,22 @@ internal static partial class DatabaseReadRequestValidator
         {
             "search" => DatabaseSchemaOperation.Search,
             "describe" => DatabaseSchemaOperation.Describe,
+            "indexes" => DatabaseSchemaOperation.Indexes,
             _ => throw Invalid(
                 "invalid-schema-operation",
-                "Schema operation must be 'search' or 'describe'.")
+                "Schema operation must be 'search', 'describe' or 'indexes'.")
         };
 
-        ValidateSchemaValue(schema.SchemaName, "schemaName", required: operation == DatabaseSchemaOperation.Describe);
-        ValidateSchemaValue(schema.ObjectName, "objectName", required: operation == DatabaseSchemaOperation.Describe);
+        var requiresObject = operation is DatabaseSchemaOperation.Describe or DatabaseSchemaOperation.Indexes;
+        ValidateSchemaValue(schema.SchemaName, "schemaName", required: requiresObject);
+        ValidateSchemaValue(schema.ObjectName, "objectName", required: requiresObject);
         ValidateSchemaValue(schema.SearchTerm, "searchTerm", required: false);
 
         if (operation == DatabaseSchemaOperation.Search && !string.IsNullOrWhiteSpace(schema.ObjectName))
         {
             throw Invalid(
                 "invalid-schema-search",
-                "objectName is only accepted for the describe schema operation.");
+                "objectName is only accepted for the describe or indexes schema operation.");
         }
 
         return new ResolvedDatabaseSchemaRequest(

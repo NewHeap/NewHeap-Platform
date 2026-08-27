@@ -36,7 +36,7 @@ public sealed class SampleDatabaseReadAiTools(
         TimeoutSeconds = SampleDatabaseReadLimits.ToolTimeoutSeconds,
         MaxConcurrency = 1,
         RequiredCapabilities = [SampleDatabaseReadMcpContext.Capability])]
-    [Description("Run a parameterized read-only SELECT through the server-selected sample database profile after identifiers have been confirmed by repository and live-schema evidence.")]
+    [Description("Run a parameterized read-only SELECT through the server-selected sample database profile after identifiers have been confirmed by repository and live-schema evidence. RequestedRows is required and requests above 1,000 fail instead of being silently reduced.")]
     public Task<TaskResult<JsonElement>> QueryAsync(
         SampleDatabaseQueryInput input,
         NhAiInvocationContext context,
@@ -79,6 +79,33 @@ public sealed class SampleDatabaseReadAiTools(
         return executor.SchemaAsync(input, cancellationToken);
     }
 
+    [Authorize(Policy = "sample.database-diagnostics.read")]
+    [NhAiTool(
+        "indexes",
+        1,
+        NhAiToolEffect.ReadOnly,
+        NhAiToolExposure.Mcp,
+        MaxInputBytes = SampleDatabaseReadLimits.MaximumInputBytes,
+        MaxResultBytes = SampleDatabaseReadLimits.MaximumOutputBytes,
+        TimeoutSeconds = SampleDatabaseReadLimits.ToolTimeoutSeconds,
+        MaxConcurrency = 1,
+        RequiredCapabilities = [SampleDatabaseReadMcpContext.Capability])]
+    [Description("Inspect selectable indexes for one confirmed live database object before designing a query whose predicate, ordering or expected table size is uncertain. Returns ordered key columns with direction, included columns and uniqueness/primary-key markers.")]
+    public Task<TaskResult<JsonElement>> IndexesAsync(
+        SampleDatabaseIndexesInput input,
+        NhAiInvocationContext context,
+        CancellationToken cancellationToken)
+    {
+        if (!HasExpectedProfile(context, serverContext.Profile))
+        {
+            return Task.FromResult(TaskResult<JsonElement>.Failed(
+                "sample-database-scope-invalid",
+                "The governed sample database profile scope is invalid."));
+        }
+
+        return executor.IndexesAsync(input, cancellationToken);
+    }
+
     private static bool HasExpectedProfile(NhAiInvocationContext context, string expectedProfile) =>
         context.TryGetScopeValue("database-profile", out var profile)
         && string.Equals(profile, expectedProfile, StringComparison.Ordinal);
@@ -87,6 +114,7 @@ public sealed class SampleDatabaseReadAiTools(
 public sealed record SampleDatabaseQueryInput(
     string Sql,
     IReadOnlyList<SampleDatabaseParameterInput>? Parameters,
+    int RequestedRows,
     string Reason);
 
 public sealed record SampleDatabaseSchemaInput(
@@ -94,6 +122,11 @@ public sealed record SampleDatabaseSchemaInput(
     string? SchemaName,
     string? ObjectName,
     string? SearchTerm,
+    string Reason);
+
+public sealed record SampleDatabaseIndexesInput(
+    string SchemaName,
+    string ObjectName,
     string Reason);
 
 public sealed record SampleDatabaseParameterInput(
@@ -110,6 +143,10 @@ public interface ISampleDatabaseReadExecutor
     Task<TaskResult<JsonElement>> SchemaAsync(
         SampleDatabaseSchemaInput input,
         CancellationToken cancellationToken);
+
+    Task<TaskResult<JsonElement>> IndexesAsync(
+        SampleDatabaseIndexesInput input,
+        CancellationToken cancellationToken);
 }
 
 public sealed class NewHeapSampleDatabaseReadExecutor(
@@ -124,6 +161,14 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
         SampleDatabaseQueryInput input,
         CancellationToken cancellationToken)
     {
+        if (input.RequestedRows <= 0
+            || input.RequestedRows > SampleDatabaseReadLimits.MaximumRows)
+        {
+            return TaskResult<JsonElement>.Failed(
+                "sample-database-row-limit-exceeded",
+                $"RequestedRows must be between 1 and {SampleDatabaseReadLimits.MaximumRows}. The query was not executed.");
+        }
+
         if (string.IsNullOrWhiteSpace(input.Sql)
             || Encoding.UTF8.GetByteCount(input.Sql) > SampleDatabaseReadLimits.MaximumSqlBytes
             || string.IsNullOrWhiteSpace(input.Reason)
@@ -143,7 +188,7 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
             parameters = input.Parameters ?? [],
             limits = new
             {
-                maximumRows = SampleDatabaseReadLimits.MaximumRows,
+                maximumRows = input.RequestedRows,
                 timeoutSeconds = SampleDatabaseReadLimits.TimeoutSeconds
             },
             reason = input.Reason.Trim()
@@ -183,6 +228,42 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
                 schemaName = Normalize(input.SchemaName),
                 objectName = Normalize(input.ObjectName),
                 searchTerm = Normalize(input.SearchTerm)
+            },
+            limits = new
+            {
+                maximumRows = SampleDatabaseReadLimits.MaximumRows,
+                timeoutSeconds = SampleDatabaseReadLimits.TimeoutSeconds
+            },
+            reason = input.Reason.Trim()
+        }, RequestJsonOptions);
+        return await ExecuteRequestAsync("schema", request, cancellationToken);
+    }
+
+    public async Task<TaskResult<JsonElement>> IndexesAsync(
+        SampleDatabaseIndexesInput input,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(input.Reason)
+            || input.Reason.Length > 2_000
+            || string.IsNullOrWhiteSpace(input.SchemaName)
+            || string.IsNullOrWhiteSpace(input.ObjectName)
+            || !IsValidSchemaValue(input.SchemaName)
+            || !IsValidSchemaValue(input.ObjectName))
+        {
+            return TaskResult<JsonElement>.Failed(
+                "sample-database-indexes-request-invalid",
+                "The bounded sample database indexes request is invalid.");
+        }
+
+        var request = JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1,
+            profile = serverContext.Profile,
+            schema = new
+            {
+                operation = "indexes",
+                schemaName = input.SchemaName.Trim(),
+                objectName = input.ObjectName.Trim()
             },
             limits = new
             {

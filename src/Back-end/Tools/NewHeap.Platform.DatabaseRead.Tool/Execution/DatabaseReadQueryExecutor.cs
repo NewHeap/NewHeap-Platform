@@ -59,7 +59,6 @@ internal static class DatabaseReadQueryExecutor
                 })
                 .ToArray();
             var rows = new List<IReadOnlyList<object?>>();
-            var truncated = false;
             var truncatedCellCount = 0;
             var approximateOutputBytes = 0;
 
@@ -67,8 +66,10 @@ internal static class DatabaseReadQueryExecutor
             {
                 if (rows.Count >= limits.MaximumRows)
                 {
-                    truncated = true;
-                    break;
+                    throw new DatabaseReadExpectedException(
+                        "result-row-limit-exceeded",
+                        $"The query returned more than the requested maximum of {limits.MaximumRows} rows. No partial result was returned. Narrow the query or request a permitted higher limit.",
+                        DatabaseReadExitCode.PolicyRejected);
                 }
 
                 var row = new object?[reader.FieldCount];
@@ -91,8 +92,10 @@ internal static class DatabaseReadQueryExecutor
                 var rowBytes = DatabaseReadJson.Serialize(row).Length;
                 if (approximateOutputBytes + rowBytes > limits.MaximumOutputBytes - 4096)
                 {
-                    truncated = true;
-                    break;
+                    throw new DatabaseReadExpectedException(
+                        "result-output-limit-exceeded",
+                        $"The query result exceeded the requested maximum output size of {limits.MaximumOutputBytes} bytes. No partial result was returned. Narrow the query or request a permitted higher limit.",
+                        DatabaseReadExitCode.PolicyRejected);
                 }
 
                 approximateOutputBytes += rowBytes;
@@ -103,7 +106,7 @@ internal static class DatabaseReadQueryExecutor
             {
                 Columns = columns,
                 Rows = rows,
-                Truncated = truncated,
+                Truncated = false,
                 TruncatedCellCount = truncatedCellCount
             };
         }

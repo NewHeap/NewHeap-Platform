@@ -64,7 +64,7 @@ internal sealed record CliOptions(
         Commands:
           validate  Validate a query or schema request and its profile without connecting.
           query     Verify the database principal is read-only and execute the diagnostic query.
-          schema    Verify the principal and inspect only database objects it can select.
+          schema    Verify the principal and inspect selectable objects, columns and indexes.
 
         Profile discovery:
           Without --profiles, the tool searches upward from the current directory for

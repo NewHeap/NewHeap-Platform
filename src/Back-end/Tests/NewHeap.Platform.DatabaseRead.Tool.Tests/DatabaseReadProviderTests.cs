@@ -33,13 +33,18 @@ public sealed class DatabaseReadProviderTests
             $"""
             CREATE TABLE dbo.DiagnosticProjects (
                 Id uniqueidentifier NOT NULL PRIMARY KEY,
-                Name nvarchar(100) NOT NULL
+                Name nvarchar(100) NOT NULL,
+                Status nvarchar(32) NOT NULL
             );
             CREATE TABLE dbo.RestrictedProjects (
                 Id uniqueidentifier NOT NULL PRIMARY KEY,
                 Secret nvarchar(100) NOT NULL
             );
-            INSERT INTO dbo.DiagnosticProjects (Id, Name) VALUES ('{ProjectId}', N'Diagnostic project');
+            CREATE INDEX IX_DiagnosticProjects_Name_Id
+                ON dbo.DiagnosticProjects (Name ASC, Id DESC)
+                INCLUDE (Status);
+            INSERT INTO dbo.DiagnosticProjects (Id, Name, Status)
+            VALUES ('{ProjectId}', N'Diagnostic project', N'active');
             CREATE USER [{username}] FOR LOGIN [{username}];
             CREATE ROLE [newheap_database_readonly];
             ALTER ROLE [newheap_database_readonly] ADD MEMBER [{username}];
@@ -92,7 +97,13 @@ public sealed class DatabaseReadProviderTests
             readerBuilder.ConnectionString,
             "dbo",
             "DiagnosticProjects",
-            "[dbo].[DiagnosticProjects]");
+            "[dbo].[DiagnosticProjects]",
+            "IX_DiagnosticProjects_Name_Id");
+        await AssertIndexesRejectedForUnselectableObjectAsync(
+            "sql-server",
+            readerBuilder.ConnectionString,
+            "dbo",
+            "RestrictedProjects");
         await AssertClassifiedFailureAsync(
             "sql-server",
             readerBuilder.ConnectionString,
@@ -111,6 +122,9 @@ public sealed class DatabaseReadProviderTests
             "SELECT TOP (1) Id FROM dbo.RestrictedProjects",
             "permission-denied",
             "229");
+        await AssertRowLimitOverflowFailsWithoutReturningPartialDataAsync(
+            "sql-server",
+            readerBuilder.ConnectionString);
         await AssertElevatedPrincipalIsRejectedAsync("sql-server", adminBuilder.ConnectionString);
 
         await using var readerConnection = new SqlConnection(readerBuilder.ConnectionString);
@@ -140,13 +154,18 @@ public sealed class DatabaseReadProviderTests
             setup.CommandText = $"""
                 CREATE TABLE diagnostic_projects (
                     id uuid NOT NULL PRIMARY KEY,
-                    name varchar(100) NOT NULL
+                    name varchar(100) NOT NULL,
+                    status varchar(32) NOT NULL
                 );
                 CREATE TABLE restricted_projects (
                     id uuid NOT NULL PRIMARY KEY,
                     secret varchar(100) NOT NULL
                 );
-                INSERT INTO diagnostic_projects (id, name) VALUES ('{ProjectId}', 'Diagnostic project');
+                CREATE INDEX ix_diagnostic_projects_name_id
+                    ON diagnostic_projects (name ASC, id DESC)
+                    INCLUDE (status);
+                INSERT INTO diagnostic_projects (id, name, status)
+                VALUES ('{ProjectId}', 'Diagnostic project', 'active');
                 CREATE ROLE {username} LOGIN PASSWORD '{password}';
                 GRANT CONNECT ON DATABASE {quotedDatabaseName} TO {username};
                 GRANT USAGE ON SCHEMA public TO {username};
@@ -180,7 +199,13 @@ public sealed class DatabaseReadProviderTests
             readerBuilder.ConnectionString,
             "public",
             "diagnostic_projects",
-            "\"public\".\"diagnostic_projects\"");
+            "\"public\".\"diagnostic_projects\"",
+            "ix_diagnostic_projects_name_id");
+        await AssertIndexesRejectedForUnselectableObjectAsync(
+            "postgresql",
+            readerBuilder.ConnectionString,
+            "public",
+            "restricted_projects");
         await AssertClassifiedFailureAsync(
             "postgresql",
             readerBuilder.ConnectionString,
@@ -199,6 +224,9 @@ public sealed class DatabaseReadProviderTests
             "SELECT id FROM restricted_projects LIMIT 1",
             "permission-denied",
             "42501");
+        await AssertRowLimitOverflowFailsWithoutReturningPartialDataAsync(
+            "postgresql",
+            readerBuilder.ConnectionString);
         await AssertElevatedPrincipalIsRejectedAsync("postgresql", adminBuilder.ConnectionString);
 
         await using var readerConnection = new NpgsqlConnection(readerBuilder.ConnectionString);
@@ -244,7 +272,8 @@ public sealed class DatabaseReadProviderTests
         string connectionString,
         string schemaName,
         string objectName,
-        string expectedSqlIdentifier)
+        string expectedSqlIdentifier,
+        string expectedIndexName)
     {
         using var workspace = new DatabaseReadTestWorkspace(provider, connectionString);
         using (var searchInput = DatabaseReadTestWorkspace.SchemaRequest(
@@ -289,9 +318,81 @@ public sealed class DatabaseReadProviderTests
             .GetProperty("schema")
             .GetProperty("object");
         describedObject.GetProperty("sqlIdentifier").GetString().Should().Be(expectedSqlIdentifier);
-        describedObject.GetProperty("columns").GetArrayLength().Should().Be(2);
-        describedObject.GetProperty("indexes").EnumerateArray()
-            .Should().Contain(index => index.GetProperty("isPrimaryKey").GetBoolean());
+        describedObject.GetProperty("columns").GetArrayLength().Should().Be(3);
+        var describedIndexes = describedObject.GetProperty("indexes").EnumerateArray().ToArray();
+        describedIndexes.Should().Contain(index => index.GetProperty("isPrimaryKey").GetBoolean());
+        AssertIndexMetadata(describedIndexes, expectedIndexName);
+
+        using var indexesInput = DatabaseReadTestWorkspace.SchemaRequest(
+            "indexes",
+            schemaName,
+            objectName);
+        using var indexesOutput = new MemoryStream();
+        var indexesExitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["schema", "--profiles", workspace.ProfileCatalogPath],
+            indexesInput,
+            indexesOutput);
+
+        indexesExitCode.Should().Be(
+            0,
+            "schema indexes returned {0}",
+            System.Text.Encoding.UTF8.GetString(indexesOutput.ToArray()));
+        using var indexesResponse = DatabaseReadTestWorkspace.ParseOutput(indexesOutput);
+        var schemaIndexes = indexesResponse.RootElement.GetProperty("schema");
+        schemaIndexes.GetProperty("operation").GetString().Should().Be("indexes");
+        schemaIndexes.GetProperty("evidenceHash").GetString().Should().HaveLength(64);
+        var indexSet = schemaIndexes.GetProperty("indexes");
+        indexSet.GetProperty("sqlIdentifier").GetString().Should().Be(expectedSqlIdentifier);
+        AssertIndexMetadata(
+            indexSet.GetProperty("items").EnumerateArray().ToArray(),
+            expectedIndexName);
+    }
+
+    private static void AssertIndexMetadata(
+        IReadOnlyList<JsonElement> indexes,
+        string expectedIndexName)
+    {
+        var index = indexes.Single(item => item.GetProperty("name").GetString() == expectedIndexName);
+        index.GetProperty("isPartial").GetBoolean().Should().BeFalse();
+        index.GetProperty("columns").EnumerateArray()
+            .Select(column => column.GetString()!.ToLowerInvariant())
+            .Should().Equal("name", "id");
+        index.GetProperty("keyColumns").EnumerateArray()
+            .Select(column => column.GetProperty("direction").GetString())
+            .Should().Equal("ascending", "descending");
+        index.GetProperty("includedColumns").EnumerateArray()
+            .Select(column => column.GetString())
+            .Should().ContainSingle(column => string.Equals(
+                column,
+                "Status",
+                StringComparison.OrdinalIgnoreCase),
+                "the provider response was {0}",
+                index.GetRawText());
+    }
+
+    private static async Task AssertIndexesRejectedForUnselectableObjectAsync(
+        string provider,
+        string connectionString,
+        string schemaName,
+        string objectName)
+    {
+        using var workspace = new DatabaseReadTestWorkspace(provider, connectionString);
+        using var input = DatabaseReadTestWorkspace.SchemaRequest(
+            "indexes",
+            schemaName,
+            objectName);
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["schema", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output);
+
+        exitCode.Should().Be(5);
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        response.RootElement.TryGetProperty("schema", out _).Should().BeFalse();
+        response.RootElement.GetProperty("error").GetProperty("code").GetString()
+            .Should().Be("schema-object-not-found");
     }
 
     private static async Task AssertClassifiedFailureAsync(
@@ -317,6 +418,30 @@ public sealed class DatabaseReadProviderTests
         error.GetProperty("classification").GetString().Should().Be(classification);
         error.GetProperty("provider").GetString().Should().Be(provider);
         error.GetProperty("providerCode").GetString().Should().Be(providerCode);
+    }
+
+    private static async Task AssertRowLimitOverflowFailsWithoutReturningPartialDataAsync(
+        string provider,
+        string connectionString)
+    {
+        using var workspace = new DatabaseReadTestWorkspace(provider, connectionString);
+        using var input = DatabaseReadTestWorkspace.Request(
+            "SELECT 1 AS value_number UNION ALL SELECT 2 AS value_number",
+            maximumRows: 1);
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["query", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output);
+
+        exitCode.Should().Be(4);
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        response.RootElement.GetProperty("ok").GetBoolean().Should().BeFalse();
+        response.RootElement.TryGetProperty("result", out _).Should().BeFalse();
+        var error = response.RootElement.GetProperty("error");
+        error.GetProperty("code").GetString().Should().Be("result-row-limit-exceeded");
+        error.GetProperty("message").GetString().Should().Contain("No partial result was returned");
     }
 
     private static void AssertSuccessfulProjectResult(JsonDocument response, string provider)

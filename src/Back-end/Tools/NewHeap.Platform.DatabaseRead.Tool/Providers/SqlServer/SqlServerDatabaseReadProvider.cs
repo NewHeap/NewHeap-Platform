@@ -139,6 +139,12 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                 request,
                 limits,
                 cancellationToken),
+            DatabaseSchemaOperation.Indexes => ReadIndexesSchemaAsync(
+                connection,
+                transaction,
+                request,
+                limits,
+                cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Operation, null)
         };
     }
@@ -321,6 +327,43 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
         };
     }
 
+    private static async Task<DatabaseSchemaResultResponse> ReadIndexesSchemaAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        ResolvedDatabaseSchemaRequest request,
+        DatabaseReadLimits limits,
+        CancellationToken cancellationToken)
+    {
+        var descriptor = await ReadObjectDescriptorAsync(
+            connection,
+            transaction,
+            request.SchemaName!,
+            request.ObjectName!,
+            limits,
+            cancellationToken);
+        var indexes = await ReadIndexesAsync(
+            connection,
+            transaction,
+            descriptor.ObjectId,
+            descriptor.Schema,
+            descriptor.Name,
+            limits,
+            cancellationToken);
+
+        return new DatabaseSchemaResultResponse
+        {
+            Operation = "indexes",
+            Indexes = new DatabaseSchemaIndexesResponse
+            {
+                Schema = descriptor.Schema,
+                Name = descriptor.Name,
+                Kind = descriptor.Kind,
+                SqlIdentifier = Quote(descriptor.Schema, descriptor.Name),
+                Items = indexes
+            }
+        };
+    }
+
     private static async Task<SqlServerObjectDescriptor> ReadObjectDescriptorAsync(
         DbConnection connection,
         DbTransaction transaction,
@@ -465,7 +508,11 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
             SELECT candidate.name,
                    candidate.is_unique,
                    candidate.is_primary_key,
+                   candidate.has_filter,
                    indexed_column.key_ordinal,
+                   indexed_column.index_column_id,
+                   indexed_column.is_included_column,
+                   indexed_column.is_descending_key,
                    schema_column.name
             FROM sys.indexes AS candidate
             INNER JOIN sys.index_columns AS indexed_column
@@ -477,8 +524,7 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
             WHERE candidate.object_id = @objectId
               AND candidate.name IS NOT NULL
               AND candidate.is_hypothetical = 0
-              AND indexed_column.is_included_column = 0
-              AND indexed_column.key_ordinal > 0
+              AND indexed_column.column_id > 0
               AND NOT EXISTS (
                   SELECT 1
                   FROM sys.index_columns AS denied_indexed_column
@@ -487,8 +533,7 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                      AND denied_schema_column.column_id = denied_indexed_column.column_id
                   WHERE denied_indexed_column.object_id = candidate.object_id
                     AND denied_indexed_column.index_id = candidate.index_id
-                    AND denied_indexed_column.is_included_column = 0
-                    AND denied_indexed_column.key_ordinal > 0
+                    AND denied_indexed_column.column_id > 0
                     AND HAS_PERMS_BY_NAME(@qualifiedObjectName, 'OBJECT', 'SELECT') <> 1
                     AND HAS_PERMS_BY_NAME(
                         @qualifiedObjectName + '.' + QUOTENAME(denied_schema_column.name),
@@ -502,7 +547,14 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                       'COLUMN',
                       'SELECT') = 1
               )
-            ORDER BY candidate.is_primary_key DESC, candidate.name, indexed_column.key_ordinal;
+            ORDER BY candidate.is_primary_key DESC,
+                     candidate.name,
+                     indexed_column.is_included_column,
+                     CASE
+                         WHEN indexed_column.is_included_column = 0
+                         THEN indexed_column.key_ordinal
+                         ELSE indexed_column.index_column_id
+                     END;
             """;
         AddParameter(command, "@objectId", objectId);
         AddParameter(command, "@qualifiedObjectName", Quote(schemaName, objectName));
@@ -515,12 +567,28 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
             var name = reader.GetString(0);
             if (!byName.TryGetValue(name, out var builder))
             {
-                builder = new SqlServerIndexBuilder(name, reader.GetBoolean(1), reader.GetBoolean(2));
+                builder = new SqlServerIndexBuilder(
+                    name,
+                    reader.GetBoolean(1),
+                    reader.GetBoolean(2),
+                    reader.GetBoolean(3));
                 byName.Add(name, builder);
                 builders.Add(builder);
             }
 
-            builder.Columns.Add(reader.GetString(4));
+            var columnName = reader.GetString(8);
+            if (reader.GetBoolean(6))
+            {
+                builder.IncludedColumns.Add(columnName);
+            }
+            else
+            {
+                builder.KeyColumns.Add(new DatabaseSchemaIndexColumnResponse
+                {
+                    Name = columnName,
+                    Direction = reader.GetBoolean(7) ? "descending" : "ascending"
+                });
+            }
         }
 
         return builders
@@ -529,7 +597,10 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                 Name = builder.Name,
                 IsUnique = builder.IsUnique,
                 IsPrimaryKey = builder.IsPrimaryKey,
-                Columns = builder.Columns
+                IsPartial = builder.IsPartial,
+                Columns = builder.KeyColumns.Select(column => column.Name).ToArray(),
+                KeyColumns = builder.KeyColumns,
+                IncludedColumns = builder.IncludedColumns
             })
             .ToArray();
     }
@@ -562,7 +633,8 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
     private sealed class SqlServerIndexBuilder(
         string name,
         bool isUnique,
-        bool isPrimaryKey)
+        bool isPrimaryKey,
+        bool isPartial)
     {
         public string Name { get; } = name;
 
@@ -570,6 +642,10 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
 
         public bool IsPrimaryKey { get; } = isPrimaryKey;
 
-        public List<string> Columns { get; } = [];
+        public bool IsPartial { get; } = isPartial;
+
+        public List<DatabaseSchemaIndexColumnResponse> KeyColumns { get; } = [];
+
+        public List<string> IncludedColumns { get; } = [];
     }
 }

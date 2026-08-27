@@ -12,11 +12,13 @@ public static class SampleDatabaseReadMcpServer
 {
     public const string QueryToolName = "sample_database_query_v1";
     public const string SchemaToolName = "sample_database_schema_v1";
+    public const string IndexesToolName = "sample_database_indexes_v1";
 
     public static IReadOnlySet<string> ToolNames { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
         QueryToolName,
-        SchemaToolName
+        SchemaToolName,
+        IndexesToolName
     };
 
     public static async Task<int> RunAsync(
@@ -203,7 +205,7 @@ public sealed class SampleDatabaseReadMcpInvocationGate(
     }
 
     internal static bool IsSampleDatabaseTool(string id) =>
-        id is "sample-database.query" or "sample-database.schema";
+        id is "sample-database.query" or "sample-database.schema" or "sample-database.indexes";
 }
 
 public sealed class SampleDatabaseReadMcpDiscoveryPolicy : INhAiToolDiscoveryPolicy

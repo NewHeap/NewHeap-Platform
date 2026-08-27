@@ -57,7 +57,7 @@ public sealed class DatabaseReadMcpSamplesTests
 
         var tools = await client.ListToolsAsync(
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.Equal(2, tools.Count);
+        Assert.Equal(3, tools.Count);
         Assert.Equal(
             SampleDatabaseReadMcpServer.ToolNames.Order(StringComparer.Ordinal),
             tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
@@ -83,6 +83,33 @@ public sealed class DatabaseReadMcpSamplesTests
             describedObject.GetProperty("columns").EnumerateArray(),
             column => column.GetProperty("name").GetString() == "Name");
 
+        var indexesResult = await tools
+            .Single(tool => tool.Name == SampleDatabaseReadMcpServer.IndexesToolName)
+            .CallAsync(
+                new Dictionary<string, object?>
+                {
+                    ["input"] = new SampleDatabaseIndexesInput(
+                        "public",
+                        "Projects",
+                        "Choose an indexed predicate and ordering before querying")
+                },
+                cancellationToken: TestContext.Current.CancellationToken);
+        Assert.NotEqual(true, indexesResult.IsError);
+        var indexesData = SuccessfulData(indexesResult.StructuredContent);
+        var indexSet = indexesData.GetProperty("schema").GetProperty("indexes");
+        Assert.Equal("\"public\".\"Projects\"", indexSet.GetProperty("sqlIdentifier").GetString());
+        var projectIndex = Assert.Single(
+            indexSet.GetProperty("items").EnumerateArray(),
+            index => index.GetProperty("name").GetString() == "IX_Projects_Name_Id");
+        Assert.Equal(
+            ["Name", "Id"],
+            projectIndex.GetProperty("keyColumns").EnumerateArray()
+                .Select(column => column.GetProperty("name").GetString()));
+        Assert.Equal(
+            ["ascending", "descending"],
+            projectIndex.GetProperty("keyColumns").EnumerateArray()
+                .Select(column => column.GetProperty("direction").GetString()));
+
         var queryResult = await tools
             .Single(tool => tool.Name == SampleDatabaseReadMcpServer.QueryToolName)
             .CallAsync(
@@ -97,6 +124,7 @@ public sealed class DatabaseReadMcpSamplesTests
                                 JsonSerializer.SerializeToElement(
                                     "f12ea625-3b2f-4417-9691-832017358d83"))
                         ],
+                        10,
                         "Read the seeded project through the governed MCP tool")
                 },
                 cancellationToken: TestContext.Current.CancellationToken);
@@ -106,6 +134,43 @@ public sealed class DatabaseReadMcpSamplesTests
         Assert.Equal(1, result.GetProperty("rowCount").GetInt32());
         Assert.Equal("MCP sample project", result.GetProperty("rows")[0][1].GetString());
         Assert.False(result.GetProperty("truncated").GetBoolean());
+
+        var excessiveInput = new SampleDatabaseQueryInput(
+            "SELECT definitely_missing_column FROM public.\"Projects\" LIMIT 5000",
+            null,
+            5_000,
+            "Prove an excessive request fails before query execution");
+        var directExcessiveResult = await scope.ServiceProvider
+            .GetRequiredService<ISampleDatabaseReadExecutor>()
+            .QueryAsync(excessiveInput, TestContext.Current.CancellationToken);
+        Assert.False(directExcessiveResult.Success);
+        Assert.Contains(
+            directExcessiveResult.AllErrorMessages,
+            error => error.ToString().Contains("query was not executed", StringComparison.OrdinalIgnoreCase));
+
+        var excessiveRequest = await tools
+            .Single(tool => tool.Name == SampleDatabaseReadMcpServer.QueryToolName)
+            .CallAsync(
+                new Dictionary<string, object?>
+                {
+                    ["input"] = excessiveInput
+                },
+                cancellationToken: TestContext.Current.CancellationToken);
+        AssertMcpFailure(excessiveRequest);
+
+        var overflowingResult = await tools
+            .Single(tool => tool.Name == SampleDatabaseReadMcpServer.QueryToolName)
+            .CallAsync(
+                new Dictionary<string, object?>
+                {
+                    ["input"] = new SampleDatabaseQueryInput(
+                        "SELECT \"Id\", \"Name\" FROM public.\"Projects\" ORDER BY \"Id\" LIMIT 2",
+                        null,
+                        1,
+                        "Prove a result above the requested limit fails without partial data")
+                },
+                cancellationToken: TestContext.Current.CancellationToken);
+        AssertMcpFailure(overflowingResult);
     }
 
     private static JsonElement SuccessfulData(JsonElement? structuredContent)
@@ -114,6 +179,13 @@ public sealed class DatabaseReadMcpSamplesTests
         var content = structuredContent.Value;
         Assert.True(content.GetProperty("success").GetBoolean());
         return content.GetProperty("data");
+    }
+
+    private static void AssertMcpFailure(CallToolResult result)
+    {
+        var serialized = JsonSerializer.Serialize(result);
+        Assert.True(result.IsError, serialized);
+        Assert.False(result.StructuredContent.HasValue);
     }
 
     private sealed class LiveDatabaseReadWorkspace : IAsyncDisposable
@@ -154,7 +226,11 @@ public sealed class DatabaseReadMcpSamplesTests
                         "Name" text NOT NULL
                     );
                     INSERT INTO public."Projects" ("Id", "Name")
-                    VALUES ('f12ea625-3b2f-4417-9691-832017358d83', 'MCP sample project');
+                    VALUES
+                        ('f12ea625-3b2f-4417-9691-832017358d83', 'MCP sample project'),
+                        ('48c9480a-f86c-4436-ae21-84a743cc36aa', 'MCP overflow sentinel');
+                    CREATE INDEX "IX_Projects_Name_Id"
+                        ON public."Projects" ("Name" ASC, "Id" DESC);
                     CREATE ROLE sample_database_reader LOGIN PASSWORD 'Sample-reader-password-42';
                     GRANT CONNECT ON DATABASE postgres TO sample_database_reader;
                     GRANT USAGE ON SCHEMA public TO sample_database_reader;

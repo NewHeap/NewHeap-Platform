@@ -131,6 +131,12 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
                 request,
                 limits,
                 cancellationToken),
+            DatabaseSchemaOperation.Indexes => ReadIndexesSchemaAsync(
+                connection,
+                transaction,
+                request,
+                limits,
+                cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Operation, null)
         };
     }
@@ -300,6 +306,41 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
         };
     }
 
+    private static async Task<DatabaseSchemaResultResponse> ReadIndexesSchemaAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        ResolvedDatabaseSchemaRequest request,
+        DatabaseReadLimits limits,
+        CancellationToken cancellationToken)
+    {
+        var descriptor = await ReadObjectDescriptorAsync(
+            connection,
+            transaction,
+            request.SchemaName!,
+            request.ObjectName!,
+            limits,
+            cancellationToken);
+        var indexes = await ReadIndexesAsync(
+            connection,
+            transaction,
+            descriptor.ObjectId,
+            limits,
+            cancellationToken);
+
+        return new DatabaseSchemaResultResponse
+        {
+            Operation = "indexes",
+            Indexes = new DatabaseSchemaIndexesResponse
+            {
+                Schema = descriptor.Schema,
+                Name = descriptor.Name,
+                Kind = descriptor.Kind,
+                SqlIdentifier = Quote(descriptor.Schema, descriptor.Name),
+                Items = indexes
+            }
+        };
+    }
+
     private static async Task<PostgreSqlObjectDescriptor> ReadObjectDescriptorAsync(
         DbConnection connection,
         DbTransaction transaction,
@@ -431,48 +472,86 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
             SELECT index_object.relname,
                    candidate.indisunique,
                    candidate.indisprimary,
-                   array_agg(indexed_column.attname ORDER BY index_key.ordinality)
+                   candidate.indpred IS NOT NULL,
+                   index_column.position,
+                   indexed_column.attname,
+                   index_column.position > candidate.indnkeyatts,
+                   CASE
+                       WHEN index_column.position > candidate.indnkeyatts THEN NULL
+                       WHEN (candidate.indoption[index_column.position - 1] & 1) = 1 THEN 'descending'
+                       ELSE 'ascending'
+                   END
             FROM pg_catalog.pg_index AS candidate
             INNER JOIN pg_catalog.pg_class AS index_object
                 ON index_object.oid = candidate.indexrelid
-            CROSS JOIN LATERAL unnest(candidate.indkey)
-                WITH ORDINALITY AS index_key(attnum, ordinality)
+            CROSS JOIN LATERAL generate_series(1, candidate.indnatts)
+                AS index_column(position)
             INNER JOIN pg_catalog.pg_attribute AS indexed_column
-                ON indexed_column.attrelid = candidate.indrelid
-               AND indexed_column.attnum = index_key.attnum
+                ON indexed_column.attrelid = candidate.indexrelid
+               AND indexed_column.attnum = index_column.position
             WHERE candidate.indrelid = @objectId
-              AND index_key.ordinality <= candidate.indnkeyatts
+              AND candidate.indexprs IS NULL
               AND NOT EXISTS (
                   SELECT 1
-                  FROM unnest(candidate.indkey)
-                      WITH ORDINALITY AS expression_key(attnum, ordinality)
-                  WHERE expression_key.ordinality <= candidate.indnkeyatts
-                    AND expression_key.attnum = 0
+                  FROM generate_series(1, candidate.indnatts)
+                      AS denied_index_column(position)
+                  INNER JOIN pg_catalog.pg_attribute AS denied_column
+                      ON denied_column.attrelid = candidate.indexrelid
+                     AND denied_column.attnum = denied_index_column.position
+                  WHERE NOT has_column_privilege(
+                        current_user,
+                        candidate.indrelid,
+                        denied_column.attname,
+                        'SELECT')
               )
-            GROUP BY index_object.relname, candidate.indisunique, candidate.indisprimary
-            HAVING bool_and(has_column_privilege(
-                current_user,
-                candidate.indrelid,
-                indexed_column.attname,
-                'SELECT'))
-            ORDER BY candidate.indisprimary DESC, index_object.relname;
+            ORDER BY candidate.indisprimary DESC, index_object.relname, index_column.position;
             """;
         AddParameter(command, "@objectId", objectId);
 
-        var indexes = new List<DatabaseSchemaIndexResponse>();
+        var builders = new List<PostgreSqlIndexBuilder>();
+        var byName = new Dictionary<string, PostgreSqlIndexBuilder>(StringComparer.Ordinal);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            indexes.Add(new DatabaseSchemaIndexResponse
+            var name = reader.GetString(0);
+            if (!byName.TryGetValue(name, out var builder))
             {
-                Name = reader.GetString(0),
-                IsUnique = reader.GetBoolean(1),
-                IsPrimaryKey = reader.GetBoolean(2),
-                Columns = reader.GetFieldValue<string[]>(3)
-            });
+                builder = new PostgreSqlIndexBuilder(
+                    name,
+                    reader.GetBoolean(1),
+                    reader.GetBoolean(2),
+                    reader.GetBoolean(3));
+                byName.Add(name, builder);
+                builders.Add(builder);
+            }
+
+            var columnName = reader.GetString(5);
+            if (reader.GetBoolean(6))
+            {
+                builder.IncludedColumns.Add(columnName);
+            }
+            else
+            {
+                builder.KeyColumns.Add(new DatabaseSchemaIndexColumnResponse
+                {
+                    Name = columnName,
+                    Direction = reader.GetString(7)
+                });
+            }
         }
 
-        return indexes;
+        return builders
+            .Select(builder => new DatabaseSchemaIndexResponse
+            {
+                Name = builder.Name,
+                IsUnique = builder.IsUnique,
+                IsPrimaryKey = builder.IsPrimaryKey,
+                IsPartial = builder.IsPartial,
+                Columns = builder.KeyColumns.Select(column => column.Name).ToArray(),
+                KeyColumns = builder.KeyColumns,
+                IncludedColumns = builder.IncludedColumns
+            })
+            .ToArray();
     }
 
     private static void AddParameter(DbCommand command, string name, object? value)
@@ -504,4 +583,23 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
         string Schema,
         string Name,
         string Kind);
+
+    private sealed class PostgreSqlIndexBuilder(
+        string name,
+        bool isUnique,
+        bool isPrimaryKey,
+        bool isPartial)
+    {
+        public string Name { get; } = name;
+
+        public bool IsUnique { get; } = isUnique;
+
+        public bool IsPrimaryKey { get; } = isPrimaryKey;
+
+        public bool IsPartial { get; } = isPartial;
+
+        public List<DatabaseSchemaIndexColumnResponse> KeyColumns { get; } = [];
+
+        public List<string> IncludedColumns { get; } = [];
+    }
 }

@@ -1370,6 +1370,7 @@
       "src/Back-end/.newheap/database-read.json",
       "src/Back-end/Tooling/DatabaseRead/requests/project-by-id.json",
       "src/Back-end/Tooling/DatabaseRead/requests/project-schema.json",
+      "src/Back-end/Tooling/DatabaseRead/requests/project-indexes.json",
       "src/Back-end/Tooling/DatabaseRead/README.md",
       "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadMcpServer.cs",
       "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadAiTools.cs",

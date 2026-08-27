@@ -133,16 +133,31 @@ agent to author provider catalog SQL:
 ```
 
 Use `operation: "describe"` with exact `schemaName` and `objectName` values to
-receive selectable columns, primary-key markers, ordinary index columns, a
-provider-quoted SQL identifier and an evidence hash. Execute either request with:
+receive selectable columns, primary-key markers, indexes, a provider-quoted SQL
+identifier and an evidence hash. Use `operation: "indexes"` with those same
+exact identifiers for a smaller, focused response containing index uniqueness,
+primary-key and partial-index markers, ordered key columns with
+ascending/descending direction and included columns. Filter predicates themselves
+remain hidden. This metadata is returned only when the configured read-only
+principal can select the object and every reported index column. Execute any
+schema request with:
 
 ```text
 newheap-db schema < schema-request.json
 ```
 
-Schema search and description return only objects and columns visible to the
-configured principal. They never return view definitions, default expressions,
-stored routines or provider exception text.
+Schema search, description and index inspection return only objects and columns
+visible to the configured principal. They never return view definitions, default
+expressions, index filter predicates, stored routines or provider exception text.
+
+Inspect indexes before designing a data query when table size, predicate
+selectivity or ordering cost is uncertain. Prefer predicates whose leading
+columns match the index key order, and prefer ordering compatible with the
+reported directions. Included columns can indicate that the selected projection
+is covered, but are not predicate keys. A partial index cannot be assumed useful
+unless its predicate is already established by trusted repository evidence. If
+no suitable selectable index is reported, narrow the diagnostic another way or
+stop; do not compensate with a broader scan, larger row limit or longer timeout.
 
 Standard output contains exactly one JSON response. Long and decimal values are
 encoded as invariant strings to preserve precision. Rows are arrays paired with
@@ -197,4 +212,6 @@ cancellation. Exit code `1` is reserved for an unexpected tool failure.
   agents that will consume the output.
 - Treat query results as potentially sensitive data even though configuration
   secrets are not displayed.
+- Treat index metadata as query-design evidence, not as permission to run an
+  otherwise broad scan or `EXPLAIN ANALYZE`.
 - Do not use the tool for bulk exports, automated jobs or data repair.

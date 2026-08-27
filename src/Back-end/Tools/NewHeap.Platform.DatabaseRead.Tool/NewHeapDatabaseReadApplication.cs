@@ -201,14 +201,13 @@ public static class NewHeapDatabaseReadApplication
         DatabaseReadSuccessResponse response,
         int maximumOutputBytes)
     {
-        if (response.Result is not null)
+        if (response.Result is not null &&
+            DatabaseReadJson.Serialize(response).Length > maximumOutputBytes)
         {
-            while (DatabaseReadJson.Serialize(response).Length > maximumOutputBytes &&
-                   response.Result.Rows.Count > 0)
-            {
-                response.Result.Rows.RemoveAt(response.Result.Rows.Count - 1);
-                response.Result.Truncated = true;
-            }
+            throw new DatabaseReadExpectedException(
+                "result-output-limit-exceeded",
+                $"The query result exceeded the requested maximum output size of {maximumOutputBytes} bytes. No partial result was returned. Narrow the query or request a permitted higher limit.",
+                DatabaseReadExitCode.PolicyRejected);
         }
 
         if (response.Schema?.Objects is List<DatabaseSchemaObjectSummaryResponse> objects)

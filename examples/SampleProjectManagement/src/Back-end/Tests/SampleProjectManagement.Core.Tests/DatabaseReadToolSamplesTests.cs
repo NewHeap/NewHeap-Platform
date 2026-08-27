@@ -87,6 +87,38 @@ public sealed class DatabaseReadToolSamplesTests
                 .GetProperty("maximumRows").GetInt32());
     }
 
+    [Fact]
+    public async Task CheckedInIndexesRequestMatchesTheDevelopmentProfile()
+    {
+        var backendRoot = FindBackendRoot();
+        var profileCatalogPath = Path.Combine(backendRoot, ".newheap", "database-read.json");
+        var requestPath = Path.Combine(
+            backendRoot,
+            "Tooling",
+            "DatabaseRead",
+            "requests",
+            "project-indexes.json");
+        await using var input = File.OpenRead(requestPath);
+        await using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["validate", "--profiles", profileCatalogPath],
+            input,
+            output,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, exitCode);
+        output.Position = 0;
+        using var response = await JsonDocument.ParseAsync(
+            output,
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(response.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal("validate", response.RootElement.GetProperty("operation").GetString());
+        Assert.Equal(
+            "postgresql",
+            response.RootElement.GetProperty("target").GetProperty("provider").GetString());
+    }
+
     private static string FindBackendRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

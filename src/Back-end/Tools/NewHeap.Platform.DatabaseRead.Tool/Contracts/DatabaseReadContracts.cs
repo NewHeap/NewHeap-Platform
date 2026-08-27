@@ -109,7 +109,8 @@ internal enum DatabaseReadRequestKind
 internal enum DatabaseSchemaOperation
 {
     Search,
-    Describe
+    Describe,
+    Indexes
 }
 
 internal sealed record ResolvedDatabaseSchemaRequest(
@@ -176,6 +177,9 @@ internal sealed class DatabaseSchemaResultResponse
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DatabaseSchemaObjectResponse? Object { get; init; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DatabaseSchemaIndexesResponse? Indexes { get; init; }
+
     public bool Truncated { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -208,6 +212,19 @@ internal sealed class DatabaseSchemaObjectResponse
     public required IReadOnlyList<DatabaseSchemaIndexResponse> Indexes { get; init; }
 }
 
+internal sealed class DatabaseSchemaIndexesResponse
+{
+    public required string Schema { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string Kind { get; init; }
+
+    public required string SqlIdentifier { get; init; }
+
+    public required IReadOnlyList<DatabaseSchemaIndexResponse> Items { get; init; }
+}
+
 internal sealed class DatabaseSchemaColumnResponse
 {
     public int Ordinal { get; init; }
@@ -229,7 +246,20 @@ internal sealed class DatabaseSchemaIndexResponse
 
     public bool IsPrimaryKey { get; init; }
 
+    public bool IsPartial { get; init; }
+
     public required IReadOnlyList<string> Columns { get; init; }
+
+    public required IReadOnlyList<DatabaseSchemaIndexColumnResponse> KeyColumns { get; init; }
+
+    public required IReadOnlyList<string> IncludedColumns { get; init; }
+}
+
+internal sealed class DatabaseSchemaIndexColumnResponse
+{
+    public required string Name { get; init; }
+
+    public required string Direction { get; init; }
 }
 
 internal sealed class DatabaseQueryResultResponse
