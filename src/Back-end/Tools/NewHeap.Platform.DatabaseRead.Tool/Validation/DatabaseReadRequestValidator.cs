@@ -7,9 +7,10 @@ internal static partial class DatabaseReadRequestValidator
 {
     private const int MaximumParameterCount = 128;
 
-    public static DatabaseReadLimits Validate(
+    public static ValidatedDatabaseReadRequest Validate(
         DatabaseReadRequest request,
-        ResolvedDatabaseReadProfile profile)
+        ResolvedDatabaseReadProfile profile,
+        DatabaseReadCommand command)
     {
         if (request.SchemaVersion != 1)
         {
@@ -21,25 +22,20 @@ internal static partial class DatabaseReadRequestValidator
             throw Invalid("profile-mismatch", "The request profile does not match the selected profile.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > 256)
+        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length > 2_000)
         {
-            throw Invalid("invalid-reason", "Reason is required and may contain at most 256 characters.");
+            throw Invalid("invalid-reason", "Reason is required and may contain at most 2000 characters.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Sql))
-        {
-            throw Invalid("empty-sql", "The SQL query is required.");
-        }
+        var kind = ResolveRequestKind(request, command);
+        var schema = kind == DatabaseReadRequestKind.Schema
+            ? ValidateSchema(request)
+            : null;
 
-        var sqlBytes = Encoding.UTF8.GetByteCount(request.Sql);
-        if (sqlBytes > profile.MaximumLimits.MaximumSqlBytes)
+        if (kind == DatabaseReadRequestKind.Query)
         {
-            throw Invalid(
-                "sql-too-large",
-                $"The SQL query exceeds the profile limit of {profile.MaximumLimits.MaximumSqlBytes} bytes.");
+            ValidateQuery(request, profile);
         }
-
-        ValidateParameters(request.Parameters ?? []);
 
         var requestedMaximumRows = request.Limits?.MaximumRows ?? profile.MaximumLimits.MaximumRows;
         var requestedTimeout = request.Limits?.TimeoutSeconds ?? profile.MaximumLimits.TimeoutSeconds;
@@ -58,14 +54,126 @@ internal static partial class DatabaseReadRequestValidator
                 $"timeoutSeconds must be between 1 and the profile maximum of {profile.MaximumLimits.TimeoutSeconds}.");
         }
 
-        SqlReadOnlyPolicy.Validate(request.Sql, profile.Provider);
-
-        return profile.MaximumLimits with
+        var limits = profile.MaximumLimits with
         {
             MaximumRows = requestedMaximumRows,
             TimeoutSeconds = requestedTimeout
         };
+
+        return new ValidatedDatabaseReadRequest(kind, limits, schema);
     }
+
+    private static DatabaseReadRequestKind ResolveRequestKind(
+        DatabaseReadRequest request,
+        DatabaseReadCommand command)
+    {
+        var hasSql = !string.IsNullOrWhiteSpace(request.Sql);
+        var hasSchema = request.Schema is not null;
+
+        if (!hasSql && !hasSchema)
+        {
+            throw command == DatabaseReadCommand.Schema
+                ? Invalid("schema-payload-required", "The schema command requires a schema request.")
+                : Invalid("empty-sql", "The SQL query is required.");
+        }
+
+        if (hasSql && hasSchema)
+        {
+            throw Invalid(
+                "invalid-operation-payload",
+                "Supply exactly one SQL query or schema request.");
+        }
+
+        if (command == DatabaseReadCommand.Query && !hasSql)
+        {
+            throw Invalid("query-payload-required", "The query command requires a SQL query request.");
+        }
+
+        if (command == DatabaseReadCommand.Schema && !hasSchema)
+        {
+            throw Invalid("schema-payload-required", "The schema command requires a schema request.");
+        }
+
+        return hasSchema ? DatabaseReadRequestKind.Schema : DatabaseReadRequestKind.Query;
+    }
+
+    private static void ValidateQuery(
+        DatabaseReadRequest request,
+        ResolvedDatabaseReadProfile profile)
+    {
+        var sqlBytes = Encoding.UTF8.GetByteCount(request.Sql!);
+        if (sqlBytes > profile.MaximumLimits.MaximumSqlBytes)
+        {
+            throw Invalid(
+                "sql-too-large",
+                $"The SQL query exceeds the profile limit of {profile.MaximumLimits.MaximumSqlBytes} bytes.");
+        }
+
+        ValidateParameters(request.Parameters ?? []);
+        SqlReadOnlyPolicy.Validate(request.Sql!, profile.Provider);
+    }
+
+    private static ResolvedDatabaseSchemaRequest ValidateSchema(DatabaseReadRequest request)
+    {
+        if ((request.Parameters?.Count ?? 0) > 0)
+        {
+            throw Invalid(
+                "schema-parameters-not-supported",
+                "Schema requests do not accept SQL parameters.");
+        }
+
+        var schema = request.Schema!;
+        var operation = schema.Operation?.Trim().ToLowerInvariant() switch
+        {
+            "search" => DatabaseSchemaOperation.Search,
+            "describe" => DatabaseSchemaOperation.Describe,
+            _ => throw Invalid(
+                "invalid-schema-operation",
+                "Schema operation must be 'search' or 'describe'.")
+        };
+
+        ValidateSchemaValue(schema.SchemaName, "schemaName", required: operation == DatabaseSchemaOperation.Describe);
+        ValidateSchemaValue(schema.ObjectName, "objectName", required: operation == DatabaseSchemaOperation.Describe);
+        ValidateSchemaValue(schema.SearchTerm, "searchTerm", required: false);
+
+        if (operation == DatabaseSchemaOperation.Search && !string.IsNullOrWhiteSpace(schema.ObjectName))
+        {
+            throw Invalid(
+                "invalid-schema-search",
+                "objectName is only accepted for the describe schema operation.");
+        }
+
+        return new ResolvedDatabaseSchemaRequest(
+            operation,
+            Normalize(schema.SchemaName),
+            Normalize(schema.ObjectName),
+            Normalize(schema.SearchTerm));
+    }
+
+    private static void ValidateSchemaValue(string? value, string propertyName, bool required)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            if (required)
+            {
+                throw Invalid(
+                    "missing-schema-value",
+                    $"Schema property '{propertyName}' is required for this operation.");
+            }
+
+            return;
+        }
+
+        if (value.Length > 256 || value.Any(char.IsControl))
+        {
+            throw Invalid(
+                "invalid-schema-value",
+                $"Schema property '{propertyName}' may contain at most 256 non-control characters.");
+        }
+    }
+
+    private static string? Normalize(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static void ValidateParameters(IReadOnlyList<DatabaseReadParameterRequest> parameters)
     {

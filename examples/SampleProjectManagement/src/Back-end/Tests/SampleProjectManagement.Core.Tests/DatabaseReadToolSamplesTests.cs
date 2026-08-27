@@ -5,8 +5,8 @@ using Xunit;
 namespace SampleProjectManagement.Core.Tests;
 
 /// <summary>
-/// SPM-218: consumers can validate a parameterized database diagnostic request
-/// against a checked-in profile without opening the database or handling secrets.
+/// SPM-218: consumers can validate parameterized data and typed schema diagnostic
+/// requests against a checked-in profile without opening the database or handling secrets.
 /// </summary>
 public sealed class DatabaseReadToolSamplesTests
 {
@@ -27,11 +27,14 @@ public sealed class DatabaseReadToolSamplesTests
         var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
             ["validate", "--profiles", profileCatalogPath],
             input,
-            output);
+            output,
+            TestContext.Current.CancellationToken);
 
         Assert.Equal(0, exitCode);
         output.Position = 0;
-        using var response = await JsonDocument.ParseAsync(output);
+        using var response = await JsonDocument.ParseAsync(
+            output,
+            cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(response.RootElement.GetProperty("ok").GetBoolean());
         Assert.Equal("validate", response.RootElement.GetProperty("operation").GetString());
         Assert.Equal(
@@ -44,6 +47,42 @@ public sealed class DatabaseReadToolSamplesTests
             response.RootElement.GetProperty("target").TryGetProperty("readOnlyVerified", out _));
         Assert.Equal(
             10,
+            response.RootElement.GetProperty("validation").GetProperty("effectiveLimits")
+                .GetProperty("maximumRows").GetInt32());
+    }
+
+    [Fact]
+    public async Task CheckedInSchemaRequestMatchesTheDevelopmentProfile()
+    {
+        var backendRoot = FindBackendRoot();
+        var profileCatalogPath = Path.Combine(backendRoot, ".newheap", "database-read.json");
+        var requestPath = Path.Combine(
+            backendRoot,
+            "Tooling",
+            "DatabaseRead",
+            "requests",
+            "project-schema.json");
+        await using var input = File.OpenRead(requestPath);
+        await using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["validate", "--profiles", profileCatalogPath],
+            input,
+            output,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, exitCode);
+        output.Position = 0;
+        using var response = await JsonDocument.ParseAsync(
+            output,
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(response.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal("validate", response.RootElement.GetProperty("operation").GetString());
+        Assert.Equal(
+            "postgresql",
+            response.RootElement.GetProperty("target").GetProperty("provider").GetString());
+        Assert.Equal(
+            100,
             response.RootElement.GetProperty("validation").GetProperty("effectiveLimits")
                 .GetProperty("maximumRows").GetInt32());
     }

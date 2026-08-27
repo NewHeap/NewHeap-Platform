@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <PackageId>NewHeap.Platform.DatabaseRead.Tool</PackageId>
     <Title>NewHeap Platform Database Read Tool</Title>
-    <PackageDescription>Run bounded, read-only SQL Server and PostgreSQL diagnostic queries through NewHeap configuration profiles, typed JSON input and strict JSON output.</PackageDescription>
+    <PackageDescription>Inspect selectable SQL Server and PostgreSQL schema and run bounded, read-only diagnostic queries through NewHeap configuration profiles, typed JSON input and strict JSON output.</PackageDescription>
     <PackageTags>newheap platform dotnet tool database diagnostics sql-server postgresql json</PackageTags>
     <Copyright>NewHeap B.V.</Copyright>
     <PackAsTool>true</PackAsTool>

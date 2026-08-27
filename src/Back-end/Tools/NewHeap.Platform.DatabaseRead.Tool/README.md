@@ -1,7 +1,8 @@
 # NewHeap database read tool
 
-`newheap-db` executes small, parameterized diagnostic queries through the same
-appsettings, environment and secret-substitution flow as a NewHeap application.
+`newheap-db` inspects selectable database schema and executes parameterized
+diagnostic queries through the same appsettings, environment and
+secret-substitution flow as a NewHeap application.
 The connection string is selected by a checked-in profile and is never accepted
 in the JSON request, command-line arguments or output.
 
@@ -48,6 +49,10 @@ The selected connection string must use a dedicated read-only database
 principal. `ApplicationIntent=ReadOnly`, SQL validation and transaction rollback
 are only additional safeguards. The `query` command refuses principals with
 detected write, DDL or elevated permissions.
+
+The profile owns the operational limits for its consumer. NewHeap supplies
+defaults and a generous hard safety ceiling, while each application selects the
+row, timeout, output, cell and SQL bounds appropriate for its environment.
 
 Keep the connection string in the normal substitution path. For example, the
 application appsettings can contain:
@@ -107,6 +112,38 @@ Execute after verifying the database principal:
 newheap-db query < request.json
 ```
 
+Inspect the schema visible to the same read-only principal without asking an
+agent to author provider catalog SQL:
+
+```json
+{
+  "schemaVersion": 1,
+  "profile": "staging",
+  "schema": {
+    "operation": "search",
+    "schemaName": "public",
+    "searchTerm": "project"
+  },
+  "limits": {
+    "maximumRows": 100,
+    "timeoutSeconds": 15
+  },
+  "reason": "Find the deployed project objects before constructing a data query"
+}
+```
+
+Use `operation: "describe"` with exact `schemaName` and `objectName` values to
+receive selectable columns, primary-key markers, ordinary index columns, a
+provider-quoted SQL identifier and an evidence hash. Execute either request with:
+
+```text
+newheap-db schema < schema-request.json
+```
+
+Schema search and description return only objects and columns visible to the
+configured principal. They never return view definitions, default expressions,
+stored routines or provider exception text.
+
 Standard output contains exactly one JSON response. Long and decimal values are
 encoded as invariant strings to preserve precision. Rows are arrays paired with
 column metadata, so duplicate column names remain unambiguous. Errors use stable
@@ -139,6 +176,13 @@ codes and never include provider exception text or a connection string.
   "timing": { "elapsedMilliseconds": 18 }
 }
 ```
+
+Database failures retain the stable `database-query-failed` code and may add an
+allowlisted `classification`, `provider`, `providerCode` and `transient` value.
+For example, PostgreSQL SQLSTATE `42P01` is returned as `object-not-found`, while
+SQL Server error `207` is returned as `column-not-found`. Raw provider messages,
+object names, connection values and stack traces are never copied into the error
+contract.
 
 Exit codes are `0` for success, `2` for an invalid request, `3` for an invalid
 profile, `4` for a policy rejection, `5` for a database failure, and `130` for

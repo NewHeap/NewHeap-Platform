@@ -35,6 +35,54 @@ public sealed class DatabaseReadApplicationTests
     }
 
     [Fact]
+    public async Task ValidateAcceptsSchemaInspectionWithoutOpeningTheDatabase()
+    {
+        using var workspace = new DatabaseReadTestWorkspace(
+            "postgresql",
+            "Host=example.invalid;Database=example;Username=test;Password=test");
+        using var input = DatabaseReadTestWorkspace.SchemaRequest(
+            "describe",
+            "public",
+            "diagnostic_projects");
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["validate", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output);
+
+        exitCode.Should().Be(0);
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        response.RootElement.GetProperty("ok").GetBoolean().Should().BeTrue();
+        response.RootElement.GetProperty("operation").GetString().Should().Be("validate");
+        response.RootElement.GetProperty("target").GetProperty("provider").GetString()
+            .Should().Be("postgresql");
+    }
+
+    [Fact]
+    public async Task ConsumerProfileCanDeliberatelyPermitOneThousandRows()
+    {
+        using var workspace = new DatabaseReadTestWorkspace(
+            "postgresql",
+            "Host=example.invalid;Database=example;Username=test;Password=test",
+            maximumRows: 1_000);
+        using var input = DatabaseReadTestWorkspace.Request(
+            "SELECT 1 LIMIT 1000",
+            maximumRows: 1_000);
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["validate", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output);
+
+        exitCode.Should().Be(0);
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        response.RootElement.GetProperty("validation").GetProperty("effectiveLimits")
+            .GetProperty("maximumRows").GetInt32().Should().Be(1_000);
+    }
+
+    [Fact]
     public async Task UnknownRequestPropertiesAreRejected()
     {
         using var workspace = new DatabaseReadTestWorkspace("sql-server", "unused");
@@ -92,6 +140,10 @@ public sealed class DatabaseReadApplicationTests
         using var response = JsonDocument.Parse(outputText);
         response.RootElement.GetProperty("error").GetProperty("code").GetString()
             .Should().Be("database-query-failed");
+        response.RootElement.GetProperty("error").GetProperty("classification").GetString()
+            .Should().Be("connection-failed");
+        response.RootElement.GetProperty("error").GetProperty("provider").GetString()
+            .Should().Be("postgresql");
     }
 
     [Fact]

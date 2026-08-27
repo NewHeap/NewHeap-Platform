@@ -9,7 +9,10 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
 
     private readonly string _root;
 
-    public DatabaseReadTestWorkspace(string provider, string connectionString)
+    public DatabaseReadTestWorkspace(
+        string provider,
+        string connectionString,
+        int maximumRows = 20)
     {
         _root = Path.Combine(
             Path.GetTempPath(),
@@ -32,7 +35,7 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
                         configurationPath = "src/Example.Api",
                         environment = "Development",
                         connectionStringName = ConnectionStringName,
-                        maximumRows = 20,
+                        maximumRows,
                         maximumTimeoutSeconds = 15,
                         maximumLockTimeoutMilliseconds = 2_000,
                         maximumOutputBytes = 65_536,
@@ -70,7 +73,11 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
 
     public string ProfileCatalogPath { get; }
 
-    public static MemoryStream Request(string sql, object[]? parameters = null)
+    public static MemoryStream Request(
+        string sql,
+        object[]? parameters = null,
+        int maximumRows = 10,
+        int timeoutSeconds = 10)
     {
         var json = JsonSerializer.Serialize(
             new
@@ -81,10 +88,39 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
                 parameters = parameters ?? [],
                 limits = new
                 {
+                    maximumRows,
+                    timeoutSeconds
+                },
+                reason = "Automated database diagnostics test"
+            });
+
+        return new MemoryStream(Encoding.UTF8.GetBytes(json));
+    }
+
+    public static MemoryStream SchemaRequest(
+        string operation,
+        string? schemaName = null,
+        string? objectName = null,
+        string? searchTerm = null)
+    {
+        var json = JsonSerializer.Serialize(
+            new
+            {
+                schemaVersion = 1,
+                profile = "test",
+                schema = new
+                {
+                    operation,
+                    schemaName,
+                    objectName,
+                    searchTerm
+                },
+                limits = new
+                {
                     maximumRows = 10,
                     timeoutSeconds = 10
                 },
-                reason = "Automated database diagnostics test"
+                reason = "Automated database schema diagnostics test"
             });
 
         return new MemoryStream(Encoding.UTF8.GetBytes(json));

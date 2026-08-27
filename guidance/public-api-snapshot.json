@@ -17751,6 +17751,7 @@
     ],
     "nh-read-only-database-diagnostics": [
       "NewHeapDatabaseReadApplication",
+      "INhAiMcpToolAdapter",
       "UseNhCommonConfiguration"
     ],
     "nh-frontend-collection-query": [

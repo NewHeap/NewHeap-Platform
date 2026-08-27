@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -19,6 +20,7 @@ public static class NewHeapDatabaseReadApplication
 
         var requestId = Guid.NewGuid().ToString("N");
         var stopwatch = Stopwatch.StartNew();
+        IDatabaseReadProvider? provider = null;
 
         try
         {
@@ -43,38 +45,65 @@ public static class NewHeapDatabaseReadApplication
                 request.Profile,
                 options.ProfilesPath,
                 cancellationToken);
-            var effectiveLimits = DatabaseReadRequestValidator.Validate(request, profile);
-            var provider = DatabaseReadProviderFactory.Create(profile.Provider);
+            var validation = DatabaseReadRequestValidator.Validate(request, profile, options.Command);
+            provider = DatabaseReadProviderFactory.Create(profile.Provider);
 
             if (options.Command == DatabaseReadCommand.Validate)
             {
                 stopwatch.Stop();
                 await DatabaseReadJson.WriteAsync(
                     output,
-                    CreateValidationResponse(requestId, stopwatch, profile, provider, effectiveLimits),
+                    CreateValidationResponse(requestId, stopwatch, profile, provider, validation.Limits),
                     cancellationToken);
                 return (int)DatabaseReadExitCode.Success;
             }
 
             var connectionString = NewHeapConnectionStringResolver.Resolve(profile);
-            var result = await DatabaseReadQueryExecutor.ExecuteAsync(
-                provider,
-                connectionString,
-                requestId,
-                request,
-                effectiveLimits,
-                cancellationToken);
+            DatabaseQueryResultResponse? queryResult = null;
+            DatabaseSchemaResultResponse? schemaResult = null;
+            if (validation.Kind == DatabaseReadRequestKind.Query)
+            {
+                queryResult = await DatabaseReadQueryExecutor.ExecuteAsync(
+                    provider,
+                    connectionString,
+                    requestId,
+                    request,
+                    validation.Limits,
+                    cancellationToken);
+            }
+            else
+            {
+                schemaResult = await DatabaseSchemaReader.ExecuteAsync(
+                    provider,
+                    connectionString,
+                    requestId,
+                    validation.Schema!,
+                    validation.Limits,
+                    cancellationToken);
+            }
             stopwatch.Stop();
 
             var response = new DatabaseReadSuccessResponse
             {
-                Operation = "query",
+                Operation = validation.Kind == DatabaseReadRequestKind.Query ? "query" : "schema",
                 RequestId = requestId,
                 Target = CreateTarget(profile, provider, true),
-                Result = result,
+                Result = queryResult,
+                Schema = schemaResult,
                 Timing = new DatabaseReadTimingResponse { ElapsedMilliseconds = stopwatch.ElapsedMilliseconds }
             };
-            TrimRowsToOutputLimit(response, effectiveLimits.MaximumOutputBytes);
+            if (response.Schema is not null)
+            {
+                response.Schema.EvidenceHash = new string('0', 64);
+            }
+            TrimToOutputLimit(response, validation.Limits.MaximumOutputBytes);
+            if (response.Schema is not null)
+            {
+                response.Schema.EvidenceHash = null;
+                response.Schema.EvidenceHash = Convert.ToHexString(
+                        SHA256.HashData(DatabaseReadJson.Serialize(response.Schema)))
+                    .ToLowerInvariant();
+            }
             await DatabaseReadJson.WriteAsync(output, response, cancellationToken);
 
             return (int)DatabaseReadExitCode.Success;
@@ -104,13 +133,15 @@ public static class NewHeapDatabaseReadApplication
             await WriteErrorAsync(output, requestId, exception.Code, exception.Message, cancellationToken);
             return (int)exception.ExitCode;
         }
-        catch (DbException)
+        catch (DbException exception)
         {
+            var failure = provider?.ClassifyException(exception);
             await WriteErrorAsync(
                 output,
                 requestId,
                 "database-query-failed",
-                "The database rejected or could not complete the diagnostic query.",
+                failure?.Message ?? "The database rejected or could not complete the diagnostic operation.",
+                failure,
                 cancellationToken);
             return (int)DatabaseReadExitCode.DatabaseFailure;
         }
@@ -166,29 +197,40 @@ public static class NewHeapDatabaseReadApplication
         };
     }
 
-    private static void TrimRowsToOutputLimit(
+    private static void TrimToOutputLimit(
         DatabaseReadSuccessResponse response,
         int maximumOutputBytes)
     {
-        if (response.Result is null)
+        if (response.Result is not null)
+        {
+            while (DatabaseReadJson.Serialize(response).Length > maximumOutputBytes &&
+                   response.Result.Rows.Count > 0)
+            {
+                response.Result.Rows.RemoveAt(response.Result.Rows.Count - 1);
+                response.Result.Truncated = true;
+            }
+        }
+
+        if (response.Schema?.Objects is List<DatabaseSchemaObjectSummaryResponse> objects)
+        {
+            while (DatabaseReadJson.Serialize(response).Length > maximumOutputBytes && objects.Count > 0)
+            {
+                objects.RemoveAt(objects.Count - 1);
+                response.Schema.Truncated = true;
+            }
+        }
+
+        if (DatabaseReadJson.Serialize(response).Length <= maximumOutputBytes)
         {
             return;
         }
 
-        while (DatabaseReadJson.Serialize(response).Length > maximumOutputBytes &&
-               response.Result.Rows.Count > 0)
-        {
-            response.Result.Rows.RemoveAt(response.Result.Rows.Count - 1);
-            response.Result.Truncated = true;
-        }
-
-        if (DatabaseReadJson.Serialize(response).Length > maximumOutputBytes)
-        {
-            throw new DatabaseReadExpectedException(
-                "output-limit-too-small",
-                "The profile output limit is too small for the response metadata.",
-                DatabaseReadExitCode.InvalidProfile);
-        }
+        throw new DatabaseReadExpectedException(
+            response.Schema is null ? "output-limit-too-small" : "schema-output-too-large",
+            response.Schema is null
+                ? "The profile output limit is too small for the response metadata."
+                : "The described schema object exceeds the profile output limit.",
+            DatabaseReadExitCode.InvalidProfile);
     }
 
     private static Task WriteErrorAsync(
@@ -196,6 +238,17 @@ public static class NewHeapDatabaseReadApplication
         string requestId,
         string code,
         string message,
+        CancellationToken cancellationToken)
+    {
+        return WriteErrorAsync(output, requestId, code, message, null, cancellationToken);
+    }
+
+    private static Task WriteErrorAsync(
+        Stream output,
+        string requestId,
+        string code,
+        string message,
+        DatabaseReadProviderFailure? providerFailure,
         CancellationToken cancellationToken)
     {
         return DatabaseReadJson.WriteAsync(
@@ -206,7 +259,11 @@ public static class NewHeapDatabaseReadApplication
                 Error = new DatabaseReadError
                 {
                     Code = code,
-                    Message = message
+                    Message = message,
+                    Classification = providerFailure?.Classification,
+                    Provider = providerFailure?.Provider,
+                    ProviderCode = providerFailure?.ProviderCode,
+                    Transient = providerFailure?.Transient
                 }
             },
             cancellationToken);

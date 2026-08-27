@@ -2947,13 +2947,18 @@
       "id": "SPM-218",
       "categoryId": "4",
       "title": "Read-only database diagnostics",
-      "surface": "`newheap-db` JSON request and response contract",
-      "outcome": "Developers and agents validate and execute small parameterized and SQL-bounded diagnostics through NewHeap configuration profiles while SQL Server and PostgreSQL enforce dedicated read-only credentials.",
+      "surface": "`newheap-db` JSON contract plus consumer-owned governed schema and query MCP tools",
+      "outcome": "Developers and agents inspect selectable live schema before validating and executing parameterized, consumer-bounded diagnostics; the executable sample MCP fixes profile, capability, budget and limits server-side, while SQL Server and PostgreSQL enforce dedicated read-only credentials and return only allowlisted provider failure classifications.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/.newheap/database-read.json",
         "src/Back-end/Tooling/DatabaseRead/requests/project-by-id.json",
+        "src/Back-end/Tooling/DatabaseRead/requests/project-schema.json",
+        "src/Back-end/Tooling/DatabaseRead/README.md",
+        "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadMcpServer.cs",
+        "src/Back-end/Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleDatabaseReadAiTools.cs",
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadToolSamplesTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseReadMcpSamplesTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadProviderTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs"
       ]

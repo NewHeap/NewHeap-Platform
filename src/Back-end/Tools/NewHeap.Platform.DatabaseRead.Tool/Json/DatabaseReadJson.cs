@@ -5,7 +5,7 @@ namespace NewHeap.Platform.DatabaseRead;
 
 internal static class DatabaseReadJson
 {
-    public const int MaximumRequestBytes = 128 * 1024;
+    public const int MaximumRequestBytes = 2 * 1024 * 1024;
 
     public static JsonSerializerOptions Options { get; } = new()
     {

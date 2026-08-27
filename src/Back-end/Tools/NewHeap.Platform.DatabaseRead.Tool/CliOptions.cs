@@ -15,6 +15,7 @@ internal sealed record CliOptions(
         var command = args[0].ToLowerInvariant() switch
         {
             "query" => DatabaseReadCommand.Query,
+            "schema" => DatabaseReadCommand.Schema,
             "validate" => DatabaseReadCommand.Validate,
             _ => throw new DatabaseReadExpectedException(
                 "unknown-command",
@@ -58,10 +59,12 @@ internal sealed record CliOptions(
         Usage:
           newheap-db validate [--profiles <path>] < request.json
           newheap-db query [--profiles <path>] < request.json
+          newheap-db schema [--profiles <path>] < request.json
 
         Commands:
-          validate  Validate the JSON request, profile and read-only SQL policy without connecting.
+          validate  Validate a query or schema request and its profile without connecting.
           query     Verify the database principal is read-only and execute the diagnostic query.
+          schema    Verify the principal and inspect only database objects it can select.
 
         Profile discovery:
           Without --profiles, the tool searches upward from the current directory for
@@ -90,5 +93,6 @@ internal sealed record CliOptions(
 internal enum DatabaseReadCommand
 {
     Validate,
-    Query
+    Query,
+    Schema
 }

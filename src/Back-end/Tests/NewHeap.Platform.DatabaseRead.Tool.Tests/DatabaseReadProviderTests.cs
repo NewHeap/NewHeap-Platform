@@ -35,6 +35,10 @@ public sealed class DatabaseReadProviderTests
                 Id uniqueidentifier NOT NULL PRIMARY KEY,
                 Name nvarchar(100) NOT NULL
             );
+            CREATE TABLE dbo.RestrictedProjects (
+                Id uniqueidentifier NOT NULL PRIMARY KEY,
+                Secret nvarchar(100) NOT NULL
+            );
             INSERT INTO dbo.DiagnosticProjects (Id, Name) VALUES ('{ProjectId}', N'Diagnostic project');
             CREATE USER [{username}] FOR LOGIN [{username}];
             CREATE ROLE [newheap_database_readonly];
@@ -83,6 +87,30 @@ public sealed class DatabaseReadProviderTests
         exitCode.Should().Be(0);
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
         AssertSuccessfulProjectResult(response, "sql-server");
+        await AssertSchemaInspectionAsync(
+            "sql-server",
+            readerBuilder.ConnectionString,
+            "dbo",
+            "DiagnosticProjects",
+            "[dbo].[DiagnosticProjects]");
+        await AssertClassifiedFailureAsync(
+            "sql-server",
+            readerBuilder.ConnectionString,
+            "SELECT TOP (1) MissingColumn FROM dbo.DiagnosticProjects",
+            "column-not-found",
+            "207");
+        await AssertClassifiedFailureAsync(
+            "sql-server",
+            readerBuilder.ConnectionString,
+            "SELECT TOP (1) Id FROM dbo.MissingProjects",
+            "object-not-found",
+            "208");
+        await AssertClassifiedFailureAsync(
+            "sql-server",
+            readerBuilder.ConnectionString,
+            "SELECT TOP (1) Id FROM dbo.RestrictedProjects",
+            "permission-denied",
+            "229");
         await AssertElevatedPrincipalIsRejectedAsync("sql-server", adminBuilder.ConnectionString);
 
         await using var readerConnection = new SqlConnection(readerBuilder.ConnectionString);
@@ -114,6 +142,10 @@ public sealed class DatabaseReadProviderTests
                     id uuid NOT NULL PRIMARY KEY,
                     name varchar(100) NOT NULL
                 );
+                CREATE TABLE restricted_projects (
+                    id uuid NOT NULL PRIMARY KEY,
+                    secret varchar(100) NOT NULL
+                );
                 INSERT INTO diagnostic_projects (id, name) VALUES ('{ProjectId}', 'Diagnostic project');
                 CREATE ROLE {username} LOGIN PASSWORD '{password}';
                 GRANT CONNECT ON DATABASE {quotedDatabaseName} TO {username};
@@ -143,6 +175,30 @@ public sealed class DatabaseReadProviderTests
         exitCode.Should().Be(0);
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
         AssertSuccessfulProjectResult(response, "postgresql");
+        await AssertSchemaInspectionAsync(
+            "postgresql",
+            readerBuilder.ConnectionString,
+            "public",
+            "diagnostic_projects",
+            "\"public\".\"diagnostic_projects\"");
+        await AssertClassifiedFailureAsync(
+            "postgresql",
+            readerBuilder.ConnectionString,
+            "SELECT missing_column FROM diagnostic_projects LIMIT 1",
+            "column-not-found",
+            "42703");
+        await AssertClassifiedFailureAsync(
+            "postgresql",
+            readerBuilder.ConnectionString,
+            "SELECT id FROM missing_projects LIMIT 1",
+            "object-not-found",
+            "42P01");
+        await AssertClassifiedFailureAsync(
+            "postgresql",
+            readerBuilder.ConnectionString,
+            "SELECT id FROM restricted_projects LIMIT 1",
+            "permission-denied",
+            "42501");
         await AssertElevatedPrincipalIsRejectedAsync("postgresql", adminBuilder.ConnectionString);
 
         await using var readerConnection = new NpgsqlConnection(readerBuilder.ConnectionString);
@@ -181,6 +237,86 @@ public sealed class DatabaseReadProviderTests
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
         response.RootElement.GetProperty("error").GetProperty("code").GetString()
             .Should().Be("read-only-principal-not-verified");
+    }
+
+    private static async Task AssertSchemaInspectionAsync(
+        string provider,
+        string connectionString,
+        string schemaName,
+        string objectName,
+        string expectedSqlIdentifier)
+    {
+        using var workspace = new DatabaseReadTestWorkspace(provider, connectionString);
+        using (var searchInput = DatabaseReadTestWorkspace.SchemaRequest(
+                   "search",
+                   schemaName,
+                   searchTerm: "projects"))
+        using (var searchOutput = new MemoryStream())
+        {
+            var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+                ["schema", "--profiles", workspace.ProfileCatalogPath],
+                searchInput,
+                searchOutput);
+
+            exitCode.Should().Be(0);
+            using var response = DatabaseReadTestWorkspace.ParseOutput(searchOutput);
+            var schema = response.RootElement.GetProperty("schema");
+            schema.GetProperty("operation").GetString().Should().Be("search");
+            schema.GetProperty("evidenceHash").GetString().Should().HaveLength(64);
+            var objects = schema.GetProperty("objects").EnumerateArray().ToArray();
+            objects.Should().ContainSingle(item => item.GetProperty("name").GetString() == objectName);
+            objects.Should().NotContain(item =>
+                item.GetProperty("name").GetString()!.Contains("Restricted", StringComparison.OrdinalIgnoreCase)
+                || item.GetProperty("name").GetString()!.Contains("restricted", StringComparison.Ordinal));
+        }
+
+        using var describeInput = DatabaseReadTestWorkspace.SchemaRequest(
+            "describe",
+            schemaName,
+            objectName);
+        using var describeOutput = new MemoryStream();
+        var describeExitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["schema", "--profiles", workspace.ProfileCatalogPath],
+            describeInput,
+            describeOutput);
+
+        describeExitCode.Should().Be(
+            0,
+            "schema describe returned {0}",
+            System.Text.Encoding.UTF8.GetString(describeOutput.ToArray()));
+        using var describeResponse = DatabaseReadTestWorkspace.ParseOutput(describeOutput);
+        var describedObject = describeResponse.RootElement
+            .GetProperty("schema")
+            .GetProperty("object");
+        describedObject.GetProperty("sqlIdentifier").GetString().Should().Be(expectedSqlIdentifier);
+        describedObject.GetProperty("columns").GetArrayLength().Should().Be(2);
+        describedObject.GetProperty("indexes").EnumerateArray()
+            .Should().Contain(index => index.GetProperty("isPrimaryKey").GetBoolean());
+    }
+
+    private static async Task AssertClassifiedFailureAsync(
+        string provider,
+        string connectionString,
+        string sql,
+        string classification,
+        string providerCode)
+    {
+        using var workspace = new DatabaseReadTestWorkspace(provider, connectionString);
+        using var input = DatabaseReadTestWorkspace.Request(sql);
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["query", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output);
+
+        exitCode.Should().Be(5);
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        var error = response.RootElement.GetProperty("error");
+        error.GetProperty("code").GetString().Should().Be("database-query-failed");
+        error.GetProperty("classification").GetString().Should().Be(classification);
+        error.GetProperty("provider").GetString().Should().Be(provider);
+        error.GetProperty("providerCode").GetString().Should().Be(providerCode);
     }
 
     private static void AssertSuccessfulProjectResult(JsonDocument response, string provider)

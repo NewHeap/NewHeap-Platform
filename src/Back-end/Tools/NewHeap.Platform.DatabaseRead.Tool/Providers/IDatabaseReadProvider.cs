@@ -21,6 +21,15 @@ internal interface IDatabaseReadProvider
         DbTransaction transaction,
         DatabaseReadLimits limits,
         CancellationToken cancellationToken);
+
+    Task<DatabaseSchemaResultResponse> ReadSchemaAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        ResolvedDatabaseSchemaRequest request,
+        DatabaseReadLimits limits,
+        CancellationToken cancellationToken);
+
+    DatabaseReadProviderFailure ClassifyException(DbException exception);
 }
 
 internal static class DatabaseReadProviderFactory

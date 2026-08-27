@@ -10,12 +10,12 @@ internal static partial class DatabaseReadProfileLoader
     private const int MaximumProfileCount = 64;
 
     private static readonly DatabaseReadLimits HardLimits = new(
-        MaximumRows: 1_000,
-        TimeoutSeconds: 120,
-        LockTimeoutMilliseconds: 10_000,
-        MaximumOutputBytes: 4 * 1024 * 1024,
-        MaximumCellBytes: 64 * 1024,
-        MaximumSqlBytes: 64 * 1024);
+        MaximumRows: 100_000,
+        TimeoutSeconds: 600,
+        LockTimeoutMilliseconds: 60_000,
+        MaximumOutputBytes: 64 * 1024 * 1024,
+        MaximumCellBytes: 1024 * 1024,
+        MaximumSqlBytes: 1024 * 1024);
 
     private static readonly DatabaseReadLimits DefaultLimits = new(
         MaximumRows: 200,
