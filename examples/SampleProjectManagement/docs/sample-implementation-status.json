@@ -706,7 +706,9 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationController.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationCleanupService.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHealthCheck.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationStartupValidator.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEfWarningCompatibilityProviderTests.cs",
       "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation.store.ts",
       "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation.store.spec.ts",
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-background-operation-progress/component.ts",
@@ -732,7 +734,9 @@
     "SPM-086": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
-      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhUserNotificationService.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEfWarningCompatibilityProviderTests.cs"
     ],
     "SPM-087": [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhNotificationProcessingService.cs",

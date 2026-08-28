@@ -40,19 +40,50 @@ internal sealed class NhBackgroundOperationStartupValidator : IHostedService
             // Validate the deployed schema, not only the in-memory EF model. A
             // consumer migration must be deployed before workers are enabled.
             await repository.GetDbSet<NhBackgroundOperation>()
-                .AsNoTracking().Select(x => x.Id).Take(1).ToListAsync(cancellationToken);
+                .AsNoTracking()
+                .OrderBy(x => x.Id)
+                .Select(x => x.Id)
+                .Take(1)
+                .ToListAsync(cancellationToken);
             await repository.GetDbSet<NhBackgroundOperationAttempt>()
-                .AsNoTracking().Select(x => x.Id).Take(1).ToListAsync(cancellationToken);
+                .AsNoTracking()
+                .OrderBy(x => x.Id)
+                .Select(x => x.Id)
+                .Take(1)
+                .ToListAsync(cancellationToken);
             await repository.GetDbSet<NhBackgroundOperationStep>()
-                .AsNoTracking().Select(x => x.Id).Take(1).ToListAsync(cancellationToken);
+                .AsNoTracking()
+                .OrderBy(x => x.Id)
+                .Select(x => x.Id)
+                .Take(1)
+                .ToListAsync(cancellationToken);
             await repository.GetDbSet<NhBackgroundOperationEvent>()
-                .AsNoTracking().Select(x => x.Id).Take(1).ToListAsync(cancellationToken);
+                .AsNoTracking()
+                .OrderBy(x => x.Id)
+                .Select(x => x.Id)
+                .Take(1)
+                .ToListAsync(cancellationToken);
             await repository.GetDbSet<NhBackgroundOperationCheckpoint>()
-                .AsNoTracking().Select(x => x.OperationId).Take(1).ToListAsync(cancellationToken);
+                .AsNoTracking()
+                .OrderBy(x => x.OperationId)
+                .ThenBy(x => x.CheckpointKey)
+                .Select(x => x.OperationId)
+                .Take(1)
+                .ToListAsync(cancellationToken);
             await repository.GetDbSet<NhBackgroundOperationIdempotencyRecord>()
-                .AsNoTracking().Select(x => x.OperationId).Take(1).ToListAsync(cancellationToken);
+                .AsNoTracking()
+                .OrderBy(x => x.Scope)
+                .ThenBy(x => x.KeyHash)
+                .Select(x => x.OperationId)
+                .Take(1)
+                .ToListAsync(cancellationToken);
             await repository.GetDbSet<NhBackgroundOperationLease>()
-                .AsNoTracking().Select(x => x.ResourceKey).Take(1).ToListAsync(cancellationToken);
+                .AsNoTracking()
+                .OrderBy(x => x.ResourceKey)
+                .ThenBy(x => x.Slot)
+                .Select(x => x.ResourceKey)
+                .Take(1)
+                .ToListAsync(cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

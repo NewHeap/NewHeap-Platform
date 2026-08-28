@@ -335,7 +335,7 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
 
     public async Task<NhOverviewUserNotificationViewModel> GetOverviewByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var overviewInfo = await _repository
+        var overviewRows = await _repository
             .GetAll()
             .Where(x => x.UserId == userId)
             .GroupBy(_ => 1)
@@ -345,7 +345,9 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
                 UnreadCount = notifications.Count(x => !x.IsLastRead),
                 LastNotificationDate = notifications.Max(x => x.LastModifiedDateTime)
             })
-            .FirstOrDefaultAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
+
+        var overviewInfo = overviewRows.SingleOrDefault();
 
         return overviewInfo ?? new NhOverviewUserNotificationViewModel();
     }

@@ -18,6 +18,8 @@ Publish CAP events inside the service-owned transactional scope and configure th
 
 Model notification creation, the delivery channel, and email dispatch as separate steps. Use typed events and templates, and store read and unread state in the consumer-owned database with appropriate migrations.
 
+Keep strict EF Core warning policies enabled when they are part of the consumer's operational baseline. The built-in user-notification overview and background-operation startup schema probes are deterministic and support promoting unordered first-row and row-limiting warnings to exceptions; consumers do not need replacement service registrations for those queries.
+
 Use `NhHangfireUtil` for small, naturally repeatable fire-and-forget work. Use `WithBackgroundOperations` plus a typed `INhBackgroundOperationHandler<TRequest>` when work needs durable ownership, cancellation, progress, retries, a result, or user-visible notification milestones. Register every payload type explicitly; payloads never carry CLR type metadata. Deploy the consumer DbContext migration before enabling enqueueing or workers.
 
 Treat the registered payload schema version as durable data. Keep request changes backward compatible at the current version or introduce an explicit migration/upcaster before incrementing it. A queued row whose schema version no longer matches its handler fails terminally with a safe code instead of entering a retry loop.
@@ -63,10 +65,11 @@ Notification dispatcher channels are serial by default. Opt a channel into paral
 - Deleting unprojected milestone events merely to meet the ordinary event-retention target.
 - Allowing a browser or enqueue call to choose an unregistered Hangfire queue.
 - Retrying an operation after its retained payload has been redacted.
+- Replacing the NewHeap notification or background-operation startup services solely to suppress unordered EF Core query warnings.
 
 ## Verification
 
-Test successful processing, retry, duplicate delivery, publication failure, rollback, job deduplication, and notification state. For notification dispatchers, block one attempt deliberately and verify queued deliveries remain queued until worker capacity exists, attempts are recorded before dispatch, configured concurrency removes head-of-line blocking, and stale results cannot overwrite newer attempts. Run claim and transaction-lock tests on SQL Server and PostgreSQL, and verify scoped DI validation at host startup.
+Test successful processing, retry, duplicate delivery, publication failure, rollback, job deduplication, and notification state. Promote `FirstWithoutOrderByAndFilterWarning` and `RowLimitingOperationWithoutOrderByWarning` to exceptions, then verify the user-notification overview and background-operation startup validation on SQL Server and PostgreSQL. For notification dispatchers, block one attempt deliberately and verify queued deliveries remain queued until worker capacity exists, attempts are recorded before dispatch, configured concurrency removes head-of-line blocking, and stale results cannot overwrite newer attempts. Run claim and transaction-lock tests on SQL Server and PostgreSQL, and verify scoped DI validation at host startup.
 
 For background operations, also test enqueue idempotency, conflict behavior, global/queue/type/resource concurrency, mixed single/multi-resource acquisition, lease expiry and monotonically increasing fencing tokens, required-lease and transaction-lock rescheduling, stale-attempt reconciliation, cancellation before and during execution, retry exhaustion, checkpoint compare-and-swap, weighted nested progress, batch counters, fan-out idempotency, parent suspension without worker starvation, child progress aggregation, a contended final-child wake-up through dispatcher redispatch into the next parent step, fan-in failure policy, hierarchy cancellation/retry, leaf-first retention, event ordering and milestone protection, notification projection retry, reconnect resync, polling recovery, user/division scope changes with late responses, retention/redaction, readiness health, and authorization isolation. Exercise persistence and translated queries on both SQL Server and PostgreSQL; EF Core InMemory is not relational evidence.
 

@@ -1130,7 +1130,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Durable background operation with fan-out and nested progress",
     "category": "Events, jobs, email, and notifications",
     "surface": "WithBackgroundOperations, INhBackgroundOperationHandler<T>, TaskResult, NhBackgroundOperationRetryResult, fan-out/fan-in, durable leases, scoped polling, and scoped SignalR",
-    "outcome": "A division-exclusive parent durably fans out project work, releases its worker while children execute concurrently, propagates expected batch, checkpoint, step, and fan-in outcomes through TaskResult, reschedules internal lock contention without consuming handler retries, advances a contended final-child wake-up to the next dispatcher interval, aggregates nested progress, protects unprojected notification milestones during event retention, and remains isolated to the authenticated user and accessible active division through notifications, SignalR, and polling.",
+    "outcome": "A division-exclusive parent durably fans out project work, releases its worker while children execute concurrently, propagates expected batch, checkpoint, step, and fan-in outcomes through TaskResult, reschedules internal lock contention without consuming handler retries, advances a contended final-child wake-up to the next dispatcher interval, aggregates nested progress, protects unprojected notification milestones during event retention, starts under strict EF Core warning policies, and remains isolated to the authenticated user and accessible active division through notifications, SignalR, and polling.",
     "implementation": "implemented",
     "evidence": [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1143,7 +1143,9 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationController.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationCleanupService.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHealthCheck.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationStartupValidator.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEfWarningCompatibilityProviderTests.cs",
       "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation.store.ts",
       "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation.store.spec.ts",
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-background-operation-progress/component.ts",
@@ -1185,15 +1187,17 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
   },
   {
     "id": "SPM-086",
-    "title": "Create a user notification",
+    "title": "Create and summarize user notifications",
     "category": "Events, jobs, email, and notifications",
-    "surface": "notification service",
-    "outcome": "Assignment creates the correct message.",
+    "surface": "INhUserNotificationService and NhUserNotificationService",
+    "outcome": "Assignment creates the correct message, and the overview remains query-safe under strict EF Core warning policies on SQL Server and PostgreSQL.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
-      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhUserNotificationService.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEfWarningCompatibilityProviderTests.cs"
     ]
   },
   {

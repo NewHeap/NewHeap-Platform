@@ -17807,6 +17807,7 @@
       "INhBackgroundOperationLeaseManager",
       "INhBackgroundOperationNotificationFormatter",
       "INhNotificationDispatcher",
+      "INhUserNotificationService",
       "NhBackgroundOperationBuilder",
       "NhBackgroundOperationChangedMessage",
       "NhBackgroundOperationFanOut",
@@ -17817,6 +17818,7 @@
       "NhHangfireUtil",
       "NhMailService",
       "NhNotificationSettings",
+      "NhUserNotificationService",
       "TaskResult"
     ],
     "nh-reusable-test-helper-boundaries": [
