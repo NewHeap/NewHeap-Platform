@@ -34,13 +34,15 @@ when physical identifiers are not already proven, and use the exact description'
 named relationships and ordered column pairs rather than guessing join columns.
 Treat a relationship whose `isValidated` value is `false` as metadata without an
 integrity guarantee; do not assume every existing row satisfies it.
-When table size, predicate selectivity or ordering cost is uncertain, call the
-indexes tool for the relevant object and design the query around a suitable leading
-key order. A partial index is usable only when the query predicate demonstrably
-implies its reported predicate. An expression key helps only when the query uses a
-compatible expression and ordering. Included columns are projection coverage, not
-predicate keys. Then construct a query with typed parameters, only the required
-columns and a PostgreSQL `LIMIT`. The model may
+When table size, predicate selectivity or ordering cost is uncertain, optionally
+make at most one focused indexes call for the relevant already-confirmed object.
+Use a suitable leading key or compatible ordering when it is immediately clear;
+otherwise continue without spending more calls comparing indexes. A partial index
+is usable only when the query predicate demonstrably implies its reported
+predicate. An expression key helps only when the query uses a compatible
+expression and ordering. Included columns are projection coverage, not predicate
+keys. Then construct a query with typed parameters, only the required columns and
+a PostgreSQL `LIMIT`. The model may
 request a row count within the server-owned ceiling, but cannot choose the profile,
 credential, timeout, authorization scope or a higher ceiling.
 

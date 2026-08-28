@@ -36,7 +36,7 @@ public sealed class SampleDatabaseReadAiTools(
         TimeoutSeconds = SampleDatabaseReadLimits.ToolTimeoutSeconds,
         MaxConcurrency = 1,
         RequiredCapabilities = [SampleDatabaseReadMcpContext.Capability])]
-    [Description("Run a parameterized read-only SELECT through the server-selected sample database profile after repository evidence and an exact schema description have confirmed identifiers and relationships, and after relevant index metadata has guided predicates and ordering. RequestedRows is required and requests above 1,000 fail instead of being silently reduced.")]
+    [Description("Run a parameterized read-only SELECT through the server-selected sample database profile after repository evidence and an exact schema description have confirmed identifiers and relationships. When table size, predicate selectivity or ordering cost is uncertain, make at most one focused index lookup; use it when immediately helpful, otherwise continue with the bounded query. RequestedRows is required and requests above 1,000 fail instead of being silently reduced.")]
     public Task<TaskResult<JsonElement>> QueryAsync(
         SampleDatabaseQueryInput input,
         NhAiInvocationContext context,
@@ -90,7 +90,7 @@ public sealed class SampleDatabaseReadAiTools(
         TimeoutSeconds = SampleDatabaseReadLimits.ToolTimeoutSeconds,
         MaxConcurrency = 1,
         RequiredCapabilities = [SampleDatabaseReadMcpContext.Capability])]
-    [Description("Inspect selectable indexes for one confirmed live database object before designing a query whose predicate, ordering or expected table size is uncertain. Returns positioned column or expression keys with direction, included columns, an optional partial predicate and uniqueness/primary-key markers. Use a partial index only when the query predicate demonstrably implies its predicate, and an expression key only with a compatible query expression and ordering.")]
+    [Description("Optionally inspect selectable indexes for one confirmed live database object as a quick query-design hint when predicate selectivity, ordering or expected table size is uncertain. Make at most one focused lookup and continue with a bounded query when no suitable key is immediately clear. Returns positioned column or expression keys with direction, included columns, an optional partial predicate and uniqueness/primary-key markers. Use a partial index only when the query predicate demonstrably implies its predicate, and an expression key only with a compatible query expression and ordering.")]
     public Task<TaskResult<JsonElement>> IndexesAsync(
         SampleDatabaseIndexesInput input,
         NhAiInvocationContext context,

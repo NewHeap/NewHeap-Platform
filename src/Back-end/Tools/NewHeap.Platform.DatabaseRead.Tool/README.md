@@ -150,14 +150,15 @@ Schema search, description and index inspection return only objects and columns
 visible to the configured principal. They never return view definitions, default
 expressions, index filter predicates, stored routines or provider exception text.
 
-Inspect indexes before designing a data query when table size, predicate
-selectivity or ordering cost is uncertain. Prefer predicates whose leading
-columns match the index key order, and prefer ordering compatible with the
-reported directions. Included columns can indicate that the selected projection
-is covered, but are not predicate keys. A partial index cannot be assumed useful
-unless its predicate is already established by trusted repository evidence. If
-no suitable selectable index is reported, narrow the diagnostic another way or
-stop; do not compensate with a broader scan, larger row limit or longer timeout.
+When table size, predicate selectivity or ordering cost is uncertain, optionally
+make at most one focused index request for the already-confirmed object. Use a
+suitable leading key or compatible ordering when it is immediately clear.
+Included columns can indicate projection coverage, but are not predicate keys. A
+partial index is useful only when its predicate is already established by trusted
+repository evidence. Do not spend follow-up calls comparing ambiguous indexes.
+If no directly useful index is reported, continue with a parameterized,
+provider-capped and timeout-bounded query; do not compensate with a broader scan,
+larger row limit or longer timeout.
 
 Standard output contains exactly one JSON response. Long and decimal values are
 encoded as invariant strings to preserve precision. Rows are arrays paired with

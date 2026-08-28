@@ -73,7 +73,17 @@ public sealed class DatabaseReadMcpSamplesTests
             ?? string.Empty,
             StringComparison.OrdinalIgnoreCase);
         Assert.Contains(
+            "at most one",
+            tools.Single(tool => tool.Name == SampleDatabaseReadMcpServer.IndexesToolName).Description
+            ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
             "schema description",
+            tools.Single(tool => tool.Name == SampleDatabaseReadMcpServer.QueryToolName).Description
+            ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "otherwise continue",
             tools.Single(tool => tool.Name == SampleDatabaseReadMcpServer.QueryToolName).Description
             ?? string.Empty,
             StringComparison.OrdinalIgnoreCase);
