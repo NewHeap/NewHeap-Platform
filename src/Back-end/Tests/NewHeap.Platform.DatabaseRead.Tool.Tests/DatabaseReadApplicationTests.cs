@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using AwesomeAssertions;
@@ -7,6 +8,80 @@ namespace NewHeap.Platform.DatabaseRead.Tool.Tests;
 
 public sealed class DatabaseReadApplicationTests
 {
+    [Fact]
+    public async Task RequestFileKeepsLargeJsonOutOfWindowsProcessArguments()
+    {
+        using var workspace = new DatabaseReadTestWorkspace(
+            "postgresql",
+            "Host=example.invalid;Database=example;Username=test;Password=test");
+        var parameters = Enumerable.Range(0, 128)
+            .Select(index => (object)new
+            {
+                name = $"value{index}",
+                type = "string",
+                value = new string('x', 300)
+            })
+            .ToArray();
+        using var request = DatabaseReadTestWorkspace.Request("SELECT 1", parameters);
+        request.Length.Should().BeGreaterThan(32_767);
+        var requestPath = workspace.WriteRequestFile(request, "large-request.json");
+        var toolAssemblyPath = typeof(NewHeapDatabaseReadApplication).Assembly.Location;
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = Path.GetDirectoryName(toolAssemblyPath)!
+        };
+        startInfo.ArgumentList.Add(toolAssemblyPath);
+        startInfo.ArgumentList.Add("validate");
+        startInfo.ArgumentList.Add("--profiles");
+        startInfo.ArgumentList.Add(workspace.ProfileCatalogPath);
+        startInfo.ArgumentList.Add("--request-file");
+        startInfo.ArgumentList.Add(requestPath);
+        startInfo.ArgumentList.Sum(argument => argument.Length).Should().BeLessThan(8_192);
+
+        using var process = Process.Start(startInfo);
+        process.Should().NotBeNull();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var standardOutput = process!.StandardOutput.ReadToEndAsync(
+            cancellation.Token);
+        var standardError = process.StandardError.ReadToEndAsync(
+            cancellation.Token);
+
+        await process.WaitForExitAsync(cancellation.Token);
+
+        var outputText = await standardOutput;
+        var errorText = await standardError;
+        process.ExitCode.Should().Be(0, errorText);
+        using var response = JsonDocument.Parse(outputText);
+        response.RootElement.GetProperty("ok").GetBoolean().Should().BeTrue();
+        response.RootElement.GetProperty("operation").GetString().Should().Be("validate");
+    }
+
+    [Fact]
+    public async Task MissingRequestFileReturnsASafeStableError()
+    {
+        using var workspace = new DatabaseReadTestWorkspace("postgresql", "unused");
+        var missingPath = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.json");
+        using var input = new MemoryStream();
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["validate", "--profiles", workspace.ProfileCatalogPath, "--request-file", missingPath],
+            input,
+            output);
+
+        var outputText = Encoding.UTF8.GetString(output.ToArray());
+        exitCode.Should().Be(2, outputText);
+        outputText.Should().NotContain(missingPath);
+        using var response = JsonDocument.Parse(outputText);
+        response.RootElement.GetProperty("error").GetProperty("code").GetString()
+            .Should().Be("request-file-unavailable");
+    }
+
     [Fact]
     public async Task ValidateAcceptsTypedJsonWithoutOpeningTheDatabase()
     {

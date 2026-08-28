@@ -70,8 +70,9 @@ the profile catalog.
 
 ## JSON request
 
-Send one request through standard input. Data values are separate parameters;
-do not concatenate them into SQL.
+Send one request through standard input or pass a request file with
+`--request-file <path>`. Data values are separate parameters; do not concatenate
+them into SQL.
 
 ```json
 {
@@ -103,14 +104,21 @@ in reviewed request files.
 Validate without a database connection:
 
 ```text
-newheap-db validate < request.json
+newheap-db validate --request-file request.json
 ```
 
 Execute after verifying the database principal:
 
 ```text
-newheap-db query < request.json
+newheap-db query --request-file request.json
 ```
+
+Standard input remains available for streaming callers. `--request-file` is the
+portable CLI choice when a request is already on disk or when a shell wrapper
+would otherwise put serialized JSON inside a Windows process argument. Pass only
+the path on the command line. Never inline the JSON in `powershell -Command`,
+`cmd /c`, `dotnet run` arguments or another process-launch string. Transport size
+must not change the diagnostic predicate or candidate set.
 
 Inspect the schema visible to the same read-only principal without asking an
 agent to author provider catalog SQL:
@@ -143,7 +151,7 @@ principal can select the object and every reported index column. Execute any
 schema request with:
 
 ```text
-newheap-db schema < schema-request.json
+newheap-db schema --request-file schema-request.json
 ```
 
 Schema search, description and index inspection return only objects and columns

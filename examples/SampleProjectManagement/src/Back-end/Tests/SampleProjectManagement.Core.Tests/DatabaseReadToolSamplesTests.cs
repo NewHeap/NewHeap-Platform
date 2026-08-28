@@ -21,11 +21,11 @@ public sealed class DatabaseReadToolSamplesTests
             "DatabaseRead",
             "requests",
             "project-by-id.json");
-        await using var input = File.OpenRead(requestPath);
+        await using var input = new MemoryStream();
         await using var output = new MemoryStream();
 
         var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
-            ["validate", "--profiles", profileCatalogPath],
+            ["validate", "--profiles", profileCatalogPath, "--request-file", requestPath],
             input,
             output,
             TestContext.Current.CancellationToken);

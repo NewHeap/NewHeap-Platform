@@ -45,7 +45,7 @@ internal static class DatabaseReadJson
         {
             throw new DatabaseReadExpectedException(
                 "empty-request",
-                "The JSON request on stdin is empty.",
+                "The JSON request input is empty.",
                 DatabaseReadExitCode.InvalidRequest);
         }
 

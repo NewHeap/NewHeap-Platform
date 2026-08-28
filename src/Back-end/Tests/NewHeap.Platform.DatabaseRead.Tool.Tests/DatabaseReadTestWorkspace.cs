@@ -73,6 +73,15 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
 
     public string ProfileCatalogPath { get; }
 
+    public string WriteRequestFile(MemoryStream request, string fileName = "request.json")
+    {
+        var path = Path.Combine(_root, fileName);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, request.ToArray());
+
+        return path;
+    }
+
     public static MemoryStream Request(
         string sql,
         object[]? parameters = null,

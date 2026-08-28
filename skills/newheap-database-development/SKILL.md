@@ -9,6 +9,8 @@ Read [database providers](references/database-providers.md) for every query, sch
 
 Read [database diagnostics](references/database-diagnostics.md) when a task investigates unexpected persisted state, missing or incorrect records, an API/database discrepancy, or unexplained staging or production behavior for which database evidence could answer the question. Do not wait for the user to name `newheap-db`: briefly offer to investigate with the supported read-only tool without requiring them to share secrets. Use it only within the requested diagnostic scope, and do not suggest it for a bug that database evidence cannot materially clarify.
 
+Prefer a structured MCP call for agent diagnostics. For direct CLI use, stream JSON through stdin or pass only a request path with `--request-file`; never inline serialized JSON in a shell or process-launch argument. Do not narrow a correct candidate set merely to fit a Windows command-line limit.
+
 Treat staging and production as live, potentially large databases. Every diagnostic data query needs a provider-native SQL row cap as well as bounded request limits. When table size or predicate selectivity is uncertain, make at most one focused index-metadata check for the already-confirmed object. Use it when a suitable leading key is immediately clear; otherwise continue with a tightly bounded query. Do not spend additional calls tuning or resolving index ambiguity, and never compensate by broadening the query or automatically increasing timeouts.
 
 Prefer provider-translatable LINQ and keep filtering, ordering and paging server-side. Provider choice belongs in the composition layer. Raw SQL is provider-specific until proven otherwise and every data value is parameterized.

@@ -32,7 +32,10 @@ public static class NewHeapDatabaseReadApplication
                 return (int)DatabaseReadExitCode.Success;
             }
 
-            var request = await DatabaseReadJson.ReadRequestAsync(input, cancellationToken);
+            await using var requestFileInput = OpenRequestFile(options.RequestFilePath);
+            var request = await DatabaseReadJson.ReadRequestAsync(
+                requestFileInput ?? input,
+                cancellationToken);
             if (string.IsNullOrWhiteSpace(request.Profile))
             {
                 throw new DatabaseReadExpectedException(
@@ -154,6 +157,33 @@ public static class NewHeapDatabaseReadApplication
                 "The database read tool failed unexpectedly.",
                 cancellationToken);
             return (int)DatabaseReadExitCode.UnexpectedFailure;
+        }
+    }
+
+    private static FileStream? OpenRequestFile(string? requestFilePath)
+    {
+        if (requestFilePath is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return new FileStream(
+                requestFilePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 8192,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            throw new DatabaseReadExpectedException(
+                "request-file-unavailable",
+                "The database read request file is unavailable.",
+                DatabaseReadExitCode.InvalidRequest);
         }
     }
 

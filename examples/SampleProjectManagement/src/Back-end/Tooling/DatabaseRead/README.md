@@ -48,8 +48,11 @@ credential, timeout, authorization scope or a higher ceiling.
 
 The checked-in `requests/project-schema.json`, `requests/project-indexes.json`
 and `requests/project-by-id.json` files demonstrate the corresponding direct
-`newheap-db` contracts and can all be checked with `newheap-db validate` before
-connecting to a database.
+`newheap-db` contracts and can all be checked with `newheap-db validate
+--request-file <path>` before connecting to a database. The MCP route sends
+structured input in memory. For direct CLI use, pass only a request-file path or
+stream JSON through stdin; never place serialized JSON in a Windows process
+argument or reduce the diagnostic candidate set merely to fit that limit.
 
 `DatabaseReadMcpSamplesTests` is the reproducible smoke test. It starts a real
 PostgreSQL container, creates a SELECT-only login, lists the three MCP tools
