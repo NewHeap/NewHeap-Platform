@@ -70,6 +70,21 @@ public sealed class ProjectMappingSummaryViewModel
 
 public sealed record ProjectReferenceValue(string Value);
 
+public class ProjectMappingBaseViewModel
+{
+    public string Key { get; set; } = string.Empty;
+
+    public string DisplayName { get; set; } = string.Empty;
+
+    public IReadOnlyDictionary<string, string> Metadata { get; set; } =
+        new Dictionary<string, string>();
+}
+
+public sealed class ProjectMappingDetailViewModel : ProjectMappingBaseViewModel
+{
+    public string? Description { get; set; }
+}
+
 public sealed class CollectionExpressionSampleViewModel
 {
     public string InputKey { get; set; } = "";

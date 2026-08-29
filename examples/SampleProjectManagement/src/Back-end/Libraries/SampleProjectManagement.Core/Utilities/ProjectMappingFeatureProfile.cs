@@ -13,12 +13,36 @@ public sealed class ProjectMappingFeatureProfile : Profile
             .ForMember(
                 destination => destination.DisplayName,
                 options => options.MapFrom<ProjectDisplayNameResolver>())
-            .ForMember(destination => destination.OwnerUser, options => options.Ignore())
+            .ForMember(
+                destination => destination.OwnerUser,
+                options => options.MapFrom(source => source.OwnerUser!.UserName))
             .ForMember(destination => destination.EnrichedBy, options => options.Ignore())
             .AfterMap<ProjectMappingEnrichmentAction>();
 
         CreateMap<Project, ProjectReferenceValue>()
             .ConvertUsing<ProjectReferenceConverter>();
+
+        CreateMap<Project, ProjectMappingBaseViewModel>()
+            .ForMember(
+                destination => destination.DisplayName,
+                options => options.MapFrom(source => $"{source.Key} · {source.Name}"))
+            .ForMember(
+                destination => destination.Metadata,
+                options => options.MapFrom(source => ProjectMappingMetadata.Create(source)));
+
+        CreateMap<Project, ProjectMappingDetailViewModel>()
+            .IncludeBase<Project, ProjectMappingBaseViewModel>();
+    }
+}
+
+public static class ProjectMappingMetadata
+{
+    public static Dictionary<string, string> Create(Project project)
+    {
+        return new Dictionary<string, string>
+        {
+            ["status"] = project.Status.ToString()
+        };
     }
 }
 

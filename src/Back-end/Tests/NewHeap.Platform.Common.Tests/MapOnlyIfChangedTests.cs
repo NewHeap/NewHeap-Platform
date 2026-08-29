@@ -57,8 +57,8 @@ public sealed class MapOnlyIfChangedTests
         Assert.Equal("new", destination.Child!.Value);
         Assert.Same(children, destination.Children);
         Assert.Equal(["new-list"], destination.Children.Select(item => item.Value));
-        Assert.Equal(1, destination.ChildSetCount);
-        Assert.Equal(1, destination.ChildrenSetCount);
+        Assert.Equal(0, destination.ChildSetCount);
+        Assert.Equal(0, destination.ChildrenSetCount);
         Assert.Same(navigation, destination.Navigation);
         Assert.Equal(0, destination.NavigationSetCount);
     }

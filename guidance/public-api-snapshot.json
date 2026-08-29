@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.12",
   "backEnd": {
-    "hash": "ebb84320d12483e06adaf4e44811330b0575f9e87b1b7fbad55de4dd8f97f48f",
-    "declarationCount": 3609,
+    "hash": "369b83ae99563f2d49c76533048e2587b4ca9def5c2f954dc98b8a06f86a3f9c",
+    "declarationCount": 3612,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -12947,6 +12947,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IReadOnlySet<string> IgnoredDestinationMembers { get; private set; } = new HashSet<string>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
         "declaration": "public bool UsesTypeConverter => TypeConverter is not null;"
       },
       {
@@ -12964,6 +12968,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
         "declaration": "public IReadOnlyList<MappingAfterAction> AfterMapActions { get; protected set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "protected TypePair? IncludedBaseTypePair { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
@@ -12996,6 +13004,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
         "declaration": "public IMappingExpression<TSource, TDestination> MaxDepth(int depth) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
+        "declaration": "public IMappingExpression<TSource, TDestination> IncludeBase<TSourceBase, TDestinationBase>() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",

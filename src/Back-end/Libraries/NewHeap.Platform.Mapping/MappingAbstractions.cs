@@ -49,6 +49,8 @@ public interface IMappingExpression<TSource, TDestination>
 
     IMappingExpression<TSource, TDestination> MaxDepth(int depth);
 
+    IMappingExpression<TSource, TDestination> IncludeBase<TSourceBase, TDestinationBase>();
+
     IMappingExpression<TSource, TDestination> ConvertUsing(
         Func<TSource, TDestination> converter);
 

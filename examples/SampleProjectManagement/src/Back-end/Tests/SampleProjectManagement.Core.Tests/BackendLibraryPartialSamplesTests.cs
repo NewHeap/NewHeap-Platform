@@ -70,7 +70,7 @@ public sealed class BackendLibraryPartialSamplesTests
     }
 
     [Fact]
-    public void AdvancedMappingUsesValidationIgnoreDependencyInjectionConstructionAndActions()
+    public void AdvancedMappingUsesNullSafeMapFromValidationDependencyInjectionConstructionAndActions()
     {
         var services = new ServiceCollection();
         services.AddSingleton<ProjectMappingLabelFormatter>();
@@ -89,6 +89,7 @@ public sealed class BackendLibraryPartialSamplesTests
 
         var summary = mapper.Map<ProjectMappingSummaryViewModel>(project);
         var reference = mapper.Map<ProjectReferenceValue>(project);
+        var detail = mapper.Map<ProjectMappingDetailViewModel>(project);
 
         Assert.Equal(project.Key, summary.Key);
         Assert.Equal($"{project.Key} · {project.Name}", summary.DisplayName);
@@ -96,6 +97,10 @@ public sealed class BackendLibraryPartialSamplesTests
         Assert.Null(summary.OwnerUser);
         Assert.Equal(nameof(ProjectMappingEnrichmentAction), summary.EnrichedBy);
         Assert.Equal($"{project.Key}:{project.Id:N}", reference.Value);
+        Assert.Equal($"{project.Key} · {project.Name}", detail.DisplayName);
+        Assert.Equal(project.Description, detail.Description);
+        Assert.Equal(project.Status.ToString(), detail.Metadata["status"]);
+        Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(detail.Metadata);
     }
 
     [Fact]

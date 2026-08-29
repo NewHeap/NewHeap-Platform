@@ -150,8 +150,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-011",
     "title": "NewHeap mapping",
     "category": "Domain, CRUD, and models",
-    "surface": "profile, nested and collection mapping, ignored members, DI resolvers, converters, construction, mapping actions, configuration validation, MapOnlyIfChanged",
-    "outcome": "Entity, view, mutate, nested, collection and value-object mappings use `NewHeap.Platform.Mapping`; explicit ignores avoid reading excluded navigation members, DI-backed resolvers and actions enrich results, construction and conversion remain centralized, configuration validation fails on unmapped or incompatible members, existing navigation references remain stable during mutate mapping, and recursion depth is bounded.",
+    "surface": "profile, null-safe MapFrom, nested, collection and dictionary mapping, inherited base maps, ignored members, DI resolvers, converters, construction, mapping actions, configuration validation, MapOnlyIfChanged",
+    "outcome": "Entity, view, mutate, nested, collection, dictionary and value-object mappings use `NewHeap.Platform.Mapping`; `IncludeBase` reuses base member configuration and mapping actions for derived destinations while allowing explicit derived overrides; read-only dictionaries are materialized with converted keys and values; explicit `MapFrom` expressions tolerate unloaded nullable navigations like AutoMapper 14; ignored members are not read; DI-backed resolvers and actions enrich results; construction and conversion remain centralized; configuration validation fails on unmapped or incompatible members; existing navigation references remain stable during mutate mapping; and recursion depth is bounded.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
@@ -161,6 +161,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/AutoMapper14ParityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/MapperCompatibilityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/MapOnlyIfChangedTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/MappingProfileCompatibilityTests.cs"

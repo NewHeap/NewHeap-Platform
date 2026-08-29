@@ -144,7 +144,10 @@ The sample registers its profile through the source-compatible
 `ConfigureAutoMapper` entry point. `NewHeap.Platform.Mapping` applies its
 recursion-depth guard to both platform and consumer mappings, maps nested task
 collections, and keeps entity navigation references intact when a mutate model
-does not expose those members.
+does not expose those members. `ProjectMappingFeatureProfile` also uses
+`IncludeBase` to inherit a configured base view into a derived detail view and
+maps status metadata into an `IReadOnlyDictionary`, providing executable
+evidence for base-map and dictionary compatibility.
 
 `GET /projects/short` executes the real short-projection extension with an
 explicit `Project -> ProjectShortViewModel` expression. The source query defines

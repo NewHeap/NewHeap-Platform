@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Reflection;
 
@@ -67,7 +68,12 @@ public sealed class Mapper : IMapper
     }
 
     private MappingContext CreateMappingContext()
-        => new(new MappingOperationContext(this, _serviceFactory));
+    {
+        var contextualMapper = new ContextualMapper(this);
+        var context = new MappingContext(new MappingOperationContext(contextualMapper, _serviceFactory));
+        contextualMapper.Attach(context);
+        return context;
+    }
 
     private object? MapCore(
         object? source,
@@ -78,10 +84,62 @@ public sealed class Mapper : IMapper
     {
         if (source is null)
         {
+            if (TryGetDictionaryTypes(destinationType, out var nullDestinationKeyType, out var nullDestinationValueType))
+            {
+                return MapDictionary(
+                    Array.Empty<object>(),
+                    declaredSourceType,
+                    destinationType,
+                    nullDestinationKeyType,
+                    nullDestinationValueType,
+                    destination,
+                    context);
+            }
+
+            if (TryGetCollectionElementType(destinationType, out var nullDestinationElementType))
+            {
+                return MapCollection(
+                    Array.Empty<object>(),
+                    declaredSourceType,
+                    destinationType,
+                    nullDestinationElementType,
+                    destination,
+                    context);
+            }
+
+            if (destination is not null)
+            {
+                return destination;
+            }
+
             return CreateNullValue(destinationType);
         }
 
         var runtimeSourceType = source.GetType();
+        var runtimeDestinationType = destination?.GetType() ?? destinationType;
+
+        var typeMap = _configuration.FindTypeMap(runtimeSourceType, runtimeDestinationType)
+            ?? _configuration.FindTypeMap(declaredSourceType, runtimeDestinationType)
+            ?? _configuration.FindTypeMap(runtimeSourceType, destinationType)
+            ?? _configuration.FindTypeMap(declaredSourceType, destinationType);
+
+        if (typeMap is not null)
+        {
+            return MapWithTypeMap(source, destinationType, destination, context, typeMap);
+        }
+
+        if (TryGetDictionaryTypes(destinationType, out var destinationKeyType, out var destinationValueType) &&
+            source is IEnumerable sourceDictionary)
+        {
+            return MapDictionary(
+                sourceDictionary,
+                declaredSourceType,
+                destinationType,
+                destinationKeyType,
+                destinationValueType,
+                destination,
+                context);
+        }
 
         if (TryGetCollectionElementType(destinationType, out var destinationElementType) &&
             source is IEnumerable sourceEnumerable &&
@@ -96,14 +154,16 @@ public sealed class Mapper : IMapper
                 context);
         }
 
-        var typeMap = _configuration.FindTypeMap(runtimeSourceType, destinationType)
-            ?? _configuration.FindTypeMap(declaredSourceType, destinationType);
+        return ConvertWithoutTypeMap(source, destinationType, context);
+    }
 
-        if (typeMap is null)
-        {
-            return ConvertWithoutTypeMap(source, destinationType, context);
-        }
-
+    private object? MapWithTypeMap(
+        object source,
+        Type destinationType,
+        object? destination,
+        MappingContext context,
+        TypeMapDefinition typeMap)
+    {
         var typePair = new TypePair(typeMap.SourceType, typeMap.DestinationType);
         if (!context.TryEnter(typePair, typeMap.MaximumDepth))
         {
@@ -187,12 +247,6 @@ public sealed class Mapper : IMapper
                         exception);
                 }
 
-                if (memberMap.Condition is not null &&
-                    !memberMap.Condition(source, destination, sourceValue, destinationValue))
-                {
-                    continue;
-                }
-
                 object? mappedValue;
                 try
                 {
@@ -209,6 +263,17 @@ public sealed class Mapper : IMapper
                         $"Mapping member '{memberMap.DestinationProperty.Name}' while mapping " +
                         $"'{typeMap.SourceType.FullName}' to '{typeMap.DestinationType.FullName}' failed.",
                         exception);
+                }
+
+                if (memberMap.Condition is not null &&
+                    !memberMap.Condition(source, destination, mappedValue, destinationValue))
+                {
+                    continue;
+                }
+
+                if (memberMap.DestinationProperty.SetMethod?.IsPublic != true)
+                {
+                    continue;
                 }
 
                 try
@@ -279,6 +344,18 @@ public sealed class Mapper : IMapper
     {
         if (sourceValue is null)
         {
+            if (TryGetDictionaryTypes(destinationType, out var destinationKeyType, out var destinationValueType))
+            {
+                return MapDictionary(
+                    Array.Empty<object>(),
+                    declaredSourceType,
+                    destinationType,
+                    destinationKeyType,
+                    destinationValueType,
+                    destinationValue,
+                    context);
+            }
+
             if (TryGetCollectionElementType(destinationType, out var destinationElementType))
             {
                 return MapCollection(
@@ -330,6 +407,109 @@ public sealed class Mapper : IMapper
             $"No map is configured from '{sourceType.FullName}' to '{destinationType.FullName}'.");
     }
 
+    private object MapDictionary(
+        IEnumerable source,
+        Type declaredSourceType,
+        Type destinationType,
+        Type destinationKeyType,
+        Type destinationValueType,
+        object? destination,
+        MappingContext context)
+    {
+        var isReadOnlyDestination = IsReadOnlyDictionaryType(destinationType);
+        var keyValuePairType = typeof(KeyValuePair<,>).MakeGenericType(destinationKeyType, destinationValueType);
+        var collectionInterface = typeof(ICollection<>).MakeGenericType(keyValuePairType);
+
+        if (isReadOnlyDestination ||
+            destination is not null &&
+            (!collectionInterface.IsInstanceOfType(destination) ||
+             (bool)collectionInterface.GetProperty(nameof(ICollection<object>.IsReadOnly))!
+                 .GetValue(destination)!))
+        {
+            destination = null;
+        }
+
+        var dictionary = destination ?? CreateDictionary(destinationType, destinationKeyType, destinationValueType);
+        if (!collectionInterface.IsInstanceOfType(dictionary))
+        {
+            throw new MappingException(
+                $"Destination dictionary type '{destinationType.FullName}' does not implement " +
+                $"ICollection<{keyValuePairType.Name}>.");
+        }
+
+        collectionInterface.GetMethod(nameof(ICollection<object>.Clear))!.Invoke(dictionary, null);
+        var addMethod = collectionInterface.GetMethod(nameof(ICollection<object>.Add))!;
+        var hasDeclaredSourceTypes = TryGetDictionaryTypes(
+            declaredSourceType,
+            out var declaredSourceKeyType,
+            out var declaredSourceValueType);
+
+        foreach (var sourceItem in source.Cast<object?>())
+        {
+            if (sourceItem is null)
+            {
+                continue;
+            }
+
+            var sourceItemType = sourceItem.GetType();
+            var keyProperty = sourceItemType.GetProperty("Key", BindingFlags.Instance | BindingFlags.Public);
+            var valueProperty = sourceItemType.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public);
+            if (keyProperty is null || valueProperty is null)
+            {
+                throw new MappingException(
+                    $"Source dictionary item type '{sourceItemType.FullName}' does not expose Key and Value properties.");
+            }
+
+            var sourceKey = keyProperty.GetValue(sourceItem);
+            var sourceValue = valueProperty.GetValue(sourceItem);
+            var mappedKey = MapCore(
+                sourceKey,
+                hasDeclaredSourceTypes ? declaredSourceKeyType : keyProperty.PropertyType,
+                destinationKeyType,
+                destination: null,
+                context);
+            var mappedValue = MapCore(
+                sourceValue,
+                hasDeclaredSourceTypes ? declaredSourceValueType : valueProperty.PropertyType,
+                destinationValueType,
+                destination: null,
+                context);
+            var mappedPair = Activator.CreateInstance(keyValuePairType, mappedKey, mappedValue)!;
+            addMethod.Invoke(dictionary, [mappedPair]);
+        }
+
+        if (!isReadOnlyDestination)
+        {
+            return dictionary;
+        }
+
+        var readOnlyDictionaryType = typeof(ReadOnlyDictionary<,>)
+            .MakeGenericType(destinationKeyType, destinationValueType);
+        return Activator.CreateInstance(readOnlyDictionaryType, dictionary)!;
+    }
+
+    private static object CreateDictionary(Type destinationType, Type keyType, Type valueType)
+    {
+        if (IsReadOnlyDictionaryType(destinationType) || destinationType.IsInterface || destinationType.IsAbstract)
+        {
+            return Activator.CreateInstance(typeof(Dictionary<,>).MakeGenericType(keyType, valueType))!;
+        }
+
+        return CreateDestination(destinationType);
+    }
+
+    private static bool IsReadOnlyDictionaryType(Type type)
+    {
+        if (!type.IsGenericType)
+        {
+            return false;
+        }
+
+        var typeDefinition = type.GetGenericTypeDefinition();
+        return typeDefinition == typeof(IReadOnlyDictionary<,>) ||
+               typeDefinition == typeof(ReadOnlyDictionary<,>);
+    }
+
     private object MapCollection(
         IEnumerable source,
         Type declaredSourceType,
@@ -356,8 +536,16 @@ public sealed class Mapper : IMapper
             return array;
         }
 
-        var collection = destination ?? CreateCollection(destinationType, destinationElementType);
         var collectionInterface = typeof(ICollection<>).MakeGenericType(destinationElementType);
+        if (destination is not null &&
+            collectionInterface.IsInstanceOfType(destination) &&
+            (bool)collectionInterface.GetProperty(nameof(ICollection<object>.IsReadOnly))!
+                .GetValue(destination)!)
+        {
+            destination = null;
+        }
+
+        var collection = destination ?? CreateCollection(destinationType, destinationElementType);
         if (!collectionInterface.IsInstanceOfType(collection))
         {
             throw new MappingException(
@@ -468,6 +656,29 @@ public sealed class Mapper : IMapper
         return true;
     }
 
+    private static bool TryGetDictionaryTypes(Type type, out Type keyType, out Type valueType)
+    {
+        var dictionaryType = type
+            .GetInterfaces()
+            .Append(type)
+            .FirstOrDefault(candidate =>
+                candidate.IsGenericType &&
+                (candidate.GetGenericTypeDefinition() == typeof(IDictionary<,>) ||
+                 candidate.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>)));
+
+        if (dictionaryType is null)
+        {
+            keyType = null!;
+            valueType = null!;
+            return false;
+        }
+
+        var arguments = dictionaryType.GetGenericArguments();
+        keyType = arguments[0];
+        valueType = arguments[1];
+        return true;
+    }
+
     private sealed class MappingContext
     {
         private readonly Dictionary<TypePair, int> _depths = [];
@@ -503,5 +714,71 @@ public sealed class Mapper : IMapper
 
             _depths[typePair] = currentDepth - 1;
         }
+    }
+
+    private sealed class ContextualMapper : IMapper
+    {
+        private readonly Mapper _mapper;
+        private MappingContext? _context;
+
+        private MappingContext Context => _context
+            ?? throw new InvalidOperationException("The mapping context has not been attached.");
+
+        internal ContextualMapper(Mapper mapper)
+        {
+            _mapper = mapper;
+        }
+
+        internal void Attach(MappingContext context)
+        {
+            if (_context is not null)
+            {
+                throw new InvalidOperationException("The mapping context is already attached.");
+            }
+
+            _context = context;
+        }
+
+        IConfigurationProvider IMapper.ConfigurationProvider => _mapper.ConfigurationProvider;
+
+        TDestination IMapper.Map<TDestination>(object? source)
+            => (TDestination)_mapper.MapCore(
+                source,
+                source?.GetType() ?? typeof(object),
+                typeof(TDestination),
+                destination: null,
+                Context)!;
+
+        TDestination IMapper.Map<TSource, TDestination>(TSource source)
+            => (TDestination)_mapper.MapCore(
+                source,
+                typeof(TSource),
+                typeof(TDestination),
+                destination: null,
+                Context)!;
+
+        TDestination IMapper.Map<TSource, TDestination>(TSource source, TDestination destination)
+            => (TDestination)_mapper.MapCore(
+                source,
+                typeof(TSource),
+                typeof(TDestination),
+                destination,
+                Context)!;
+
+        object? IMapper.Map(object? source, Type sourceType, Type destinationType)
+            => _mapper.MapCore(
+                source,
+                sourceType,
+                destinationType,
+                destination: null,
+                Context);
+
+        object? IMapper.Map(object? source, object? destination, Type sourceType, Type destinationType)
+            => _mapper.MapCore(
+                source,
+                sourceType,
+                destinationType,
+                destination,
+                Context);
     }
 }
