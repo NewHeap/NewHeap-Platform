@@ -2,12 +2,66 @@ extern alias AutoMapper14;
 
 using NewHeap.Platform.Mapping;
 using AutoMapper14Configuration = AutoMapper14::AutoMapper.MapperConfiguration;
+using AutoMapper14DuplicateTypeMapConfigurationException =
+    AutoMapper14::AutoMapper.DuplicateTypeMapConfigurationException;
 using Xunit;
 
 namespace NewHeap.Platform.Mapping.Tests;
 
 public sealed class AutoMapper14ParityTests
 {
+    [Fact]
+    public void DuplicateMapsUseTheLastRegisteredProfileLikeAutoMapper14()
+    {
+        var newHeapConfiguration = new MapperConfiguration(configuration =>
+        {
+            configuration.AddProfile<NewHeapFirstDuplicateProfile>();
+            configuration.AddProfile<NewHeapLastDuplicateProfile>();
+        });
+        var autoMapperConfiguration = new AutoMapper14Configuration(configuration =>
+        {
+            configuration.AddProfile<AutoMapperFirstDuplicateProfile>();
+            configuration.AddProfile<AutoMapperLastDuplicateProfile>();
+        });
+        var source = new DuplicateSource
+        {
+            FirstValue = "first",
+            LastValue = "last"
+        };
+
+        var expected = autoMapperConfiguration.CreateMapper().Map<DuplicateDestination>(source);
+        var actual = newHeapConfiguration.CreateMapper().Map<DuplicateDestination>(source);
+
+        Assert.Equal(expected.Value, actual.Value);
+        Assert.Equal("last", actual.Value);
+    }
+
+    [Fact]
+    public void DuplicateMapsAreReportedDuringValidationLikeAutoMapper14()
+    {
+        var newHeapConfiguration = new MapperConfiguration(configuration =>
+        {
+            configuration.AddProfile<NewHeapFirstDuplicateProfile>();
+            configuration.AddProfile<NewHeapLastDuplicateProfile>();
+        });
+        var autoMapperConfiguration = new AutoMapper14Configuration(configuration =>
+        {
+            configuration.AddProfile<AutoMapperFirstDuplicateProfile>();
+            configuration.AddProfile<AutoMapperLastDuplicateProfile>();
+        });
+
+        Assert.Throws<AutoMapper14DuplicateTypeMapConfigurationException>(
+            autoMapperConfiguration.AssertConfigurationIsValid);
+        var exception = Assert.Throws<MappingConfigurationException>(
+            newHeapConfiguration.AssertConfigurationIsValid);
+
+        Assert.Contains("duplicate maps", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(nameof(DuplicateSource), exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(DuplicateDestination), exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(NewHeapFirstDuplicateProfile), exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(NewHeapLastDuplicateProfile), exception.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void ExplicitMapFromOverANullNavigationMatchesAutoMapper14()
     {
@@ -495,6 +549,61 @@ public sealed class AutoMapper14ParityTests
     private sealed class ProductSource
     {
         public List<ProductCategoryLink>? ProductCategories { get; set; }
+    }
+
+    private sealed class DuplicateSource
+    {
+        public string FirstValue { get; set; } = string.Empty;
+        public string LastValue { get; set; } = string.Empty;
+    }
+
+    private sealed class DuplicateDestination
+    {
+        public string Value { get; set; } = string.Empty;
+    }
+
+    private sealed class NewHeapFirstDuplicateProfile : Profile
+    {
+        public NewHeapFirstDuplicateProfile()
+        {
+            CreateMap<DuplicateSource, DuplicateDestination>()
+                .ForMember(
+                    destination => destination.Value,
+                    member => member.MapFrom(source => source.FirstValue));
+        }
+    }
+
+    private sealed class NewHeapLastDuplicateProfile : Profile
+    {
+        public NewHeapLastDuplicateProfile()
+        {
+            CreateMap<DuplicateSource, DuplicateDestination>()
+                .ForMember(
+                    destination => destination.Value,
+                    member => member.MapFrom(source => source.LastValue));
+        }
+    }
+
+    private sealed class AutoMapperFirstDuplicateProfile : AutoMapper14::AutoMapper.Profile
+    {
+        public AutoMapperFirstDuplicateProfile()
+        {
+            CreateMap<DuplicateSource, DuplicateDestination>()
+                .ForMember(
+                    destination => destination.Value,
+                    member => member.MapFrom(source => source.FirstValue));
+        }
+    }
+
+    private sealed class AutoMapperLastDuplicateProfile : AutoMapper14::AutoMapper.Profile
+    {
+        public AutoMapperLastDuplicateProfile()
+        {
+            CreateMap<DuplicateSource, DuplicateDestination>()
+                .ForMember(
+                    destination => destination.Value,
+                    member => member.MapFrom(source => source.LastValue));
+        }
     }
 
     private sealed class ProductCategoryLink

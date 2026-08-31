@@ -36,6 +36,7 @@ public sealed class MapperConfiguration : IConfigurationProvider
     internal const int DefaultMaxDepth = 64;
 
     private readonly IReadOnlyDictionary<TypePair, TypeMapDefinition> _typeMaps;
+    private readonly IReadOnlyList<DuplicateTypeMapDefinition> _duplicateTypeMaps;
 
     public MapperConfiguration(Action<IMapperConfigurationExpression> configure)
     {
@@ -43,7 +44,9 @@ public sealed class MapperConfiguration : IConfigurationProvider
 
         var expression = new MapperConfigurationExpression();
         configure(expression);
-        _typeMaps = expression.Build();
+        var buildResult = expression.Build();
+        _typeMaps = buildResult.TypeMaps;
+        _duplicateTypeMaps = buildResult.DuplicateTypeMaps;
     }
 
     public IMapper CreateMapper() => new Mapper(this);
@@ -56,6 +59,23 @@ public sealed class MapperConfiguration : IConfigurationProvider
 
     public void AssertConfigurationIsValid()
     {
+        if (_duplicateTypeMaps.Count > 0)
+        {
+            var duplicateErrors = _duplicateTypeMaps
+                .OrderBy(duplicate => duplicate.Types.SourceType.FullName, StringComparer.Ordinal)
+                .ThenBy(duplicate => duplicate.Types.DestinationType.FullName, StringComparer.Ordinal)
+                .Select(duplicate =>
+                    $"Map from '{duplicate.Types.SourceType.FullName}' to " +
+                    $"'{duplicate.Types.DestinationType.FullName}' is registered by profiles: " +
+                    string.Join(", ", duplicate.ProfileNames.Select(profileName => $"'{profileName}'")) +
+                    ". Use a single CreateMap call per source and destination type pair.")
+                .ToArray();
+
+            throw new MappingConfigurationException(
+                "Mapping configuration contains duplicate maps:" + Environment.NewLine +
+                string.Join(Environment.NewLine, duplicateErrors.Select(error => $"- {error}")));
+        }
+
         var errors = new List<string>();
 
         foreach (var typeMap in _typeMaps.Values
@@ -304,28 +324,30 @@ internal sealed class MapperConfigurationExpression : IMapperConfigurationExpres
         AddMaps(markerTypes.Select(type => type.Assembly).Distinct().ToArray());
     }
 
-    internal IReadOnlyDictionary<TypePair, TypeMapDefinition> Build()
+    internal MappingConfigurationBuildResult Build()
     {
         var result = new Dictionary<TypePair, TypeMapDefinition>();
 
         foreach (var typeMap in _typeMaps)
         {
             var key = new TypePair(typeMap.SourceType, typeMap.DestinationType);
-
-            if (!result.TryAdd(key, typeMap))
-            {
-                throw new MappingConfigurationException(
-                    $"A map from '{typeMap.SourceType.FullName}' to " +
-                    $"'{typeMap.DestinationType.FullName}' is registered more than once.");
-            }
+            result[key] = typeMap;
         }
+
+        var duplicateTypeMaps = _typeMaps
+            .GroupBy(typeMap => new TypePair(typeMap.SourceType, typeMap.DestinationType))
+            .Where(group => group.Skip(1).Any())
+            .Select(group => new DuplicateTypeMapDefinition(
+                group.Key,
+                group.Select(typeMap => typeMap.ProfileName).ToArray()))
+            .ToArray();
 
         foreach (var typeMap in result.Values)
         {
             typeMap.Seal(result);
         }
 
-        return result;
+        return new MappingConfigurationBuildResult(result, duplicateTypeMaps);
     }
 
     private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
@@ -342,6 +364,14 @@ internal sealed class MapperConfigurationExpression : IMapperConfigurationExpres
 }
 
 internal readonly record struct TypePair(Type SourceType, Type DestinationType);
+
+internal sealed record MappingConfigurationBuildResult(
+    IReadOnlyDictionary<TypePair, TypeMapDefinition> TypeMaps,
+    IReadOnlyList<DuplicateTypeMapDefinition> DuplicateTypeMaps);
+
+internal sealed record DuplicateTypeMapDefinition(
+    TypePair Types,
+    IReadOnlyList<string> ProfileNames);
 
 internal abstract class TypeMapDefinition
 {

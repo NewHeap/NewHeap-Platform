@@ -104,6 +104,25 @@ public sealed class BackendLibraryPartialSamplesTests
     }
 
     [Fact]
+    public void DuplicateProfileCompositionUsesTheLastMapAndReportsBothProfilesDuringValidation()
+    {
+        var configuration = new MapperConfiguration(options =>
+        {
+            options.AddProfile<FirstProjectSummaryProfile>();
+            options.AddProfile<LastProjectSummaryProfile>();
+        });
+        var project = NewProject();
+
+        var result = configuration.CreateMapper().Map<ProjectMappingSummaryViewModel>(project);
+        var exception = Assert.Throws<MappingConfigurationException>(
+            configuration.AssertConfigurationIsValid);
+
+        Assert.Equal($"last:{project.Name}", result.DisplayName);
+        Assert.Contains(nameof(FirstProjectSummaryProfile), exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(LastProjectSummaryProfile), exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ChangeAwareMappingUpdatesScalarsWithoutReplacingNavigationProperties()
     {
         var mapper = new Mapper(new MapperConfiguration(configuration =>
@@ -335,5 +354,33 @@ public sealed class BackendLibraryPartialSamplesTests
         return new LogHelperService(
             Substitute.For<IStringLocalizer<SharedDataAnnotationRecources>>(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<LogHelperService>.Instance);
+    }
+
+    private sealed class FirstProjectSummaryProfile : Profile
+    {
+        public FirstProjectSummaryProfile()
+        {
+            CreateMap<Project, ProjectMappingSummaryViewModel>()
+                .ConstructUsing(project => new ProjectMappingSummaryViewModel(project.Key))
+                .ForMember(
+                    destination => destination.DisplayName,
+                    options => options.MapFrom(project => $"first:{project.Name}"))
+                .ForMember(destination => destination.OwnerUser, options => options.Ignore())
+                .ForMember(destination => destination.EnrichedBy, options => options.Ignore());
+        }
+    }
+
+    private sealed class LastProjectSummaryProfile : Profile
+    {
+        public LastProjectSummaryProfile()
+        {
+            CreateMap<Project, ProjectMappingSummaryViewModel>()
+                .ConstructUsing(project => new ProjectMappingSummaryViewModel(project.Key))
+                .ForMember(
+                    destination => destination.DisplayName,
+                    options => options.MapFrom(project => $"last:{project.Name}"))
+                .ForMember(destination => destination.OwnerUser, options => options.Ignore())
+                .ForMember(destination => destination.EnrichedBy, options => options.Ignore());
+        }
     }
 }
