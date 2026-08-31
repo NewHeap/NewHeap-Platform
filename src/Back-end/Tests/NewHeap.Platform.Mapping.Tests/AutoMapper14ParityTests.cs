@@ -425,6 +425,33 @@ public sealed class AutoMapper14ParityTests
     }
 
     [Fact]
+    public void InheritedInterfaceMembersMapByConventionLikeAutoMapper14()
+    {
+        var newHeapConfiguration = new MapperConfiguration(configuration =>
+            configuration.CreateMap<IStoreContract, StoreContractDestination>());
+        var autoMapperConfiguration = new AutoMapper14Configuration(configuration =>
+            configuration.CreateMap<IStoreContract, StoreContractDestination>());
+        IStoreContract source = new StoreContract
+        {
+            Id = Guid.NewGuid(),
+            StoreKey = "sample-store",
+            DisplayName = "Sample store"
+        };
+
+        newHeapConfiguration.AssertConfigurationIsValid();
+        autoMapperConfiguration.AssertConfigurationIsValid();
+        var expected = autoMapperConfiguration.CreateMapper().Map<StoreContractDestination>(source);
+        var actual = newHeapConfiguration.CreateMapper().Map<StoreContractDestination>(source);
+
+        Assert.Equal(expected.Id, actual.Id);
+        Assert.Equal(expected.StoreKey, actual.StoreKey);
+        Assert.Equal(expected.DisplayName, actual.DisplayName);
+        Assert.Equal(source.Id, actual.Id);
+        Assert.Equal(source.StoreKey, actual.StoreKey);
+        Assert.Equal(source.DisplayName, actual.DisplayName);
+    }
+
+    [Fact]
     public void IncludeBaseAppliesBaseMembersAndActionsLikeAutoMapper14()
     {
         var newHeapConfiguration = new MapperConfiguration(configuration =>
@@ -775,6 +802,39 @@ public sealed class AutoMapper14ParityTests
     private sealed class DerivedRuntimeDestination : BaseRuntimeDestination
     {
         public string Detail { get; set; } = string.Empty;
+    }
+
+    private interface IEntityContract
+    {
+        Guid Id { get; }
+    }
+
+    private interface IStoreEntityContract : IEntityContract
+    {
+        string StoreKey { get; }
+    }
+
+    private interface IStoreContract : IStoreEntityContract
+    {
+        string DisplayName { get; }
+    }
+
+    private sealed class StoreContract : IStoreContract
+    {
+        public Guid Id { get; init; }
+        public string StoreKey { get; init; } = string.Empty;
+        public string DisplayName { get; init; } = string.Empty;
+    }
+
+    private class StoreContractDestinationBase
+    {
+        public Guid Id { get; set; }
+        public string StoreKey { get; set; } = string.Empty;
+    }
+
+    private sealed class StoreContractDestination : StoreContractDestinationBase
+    {
+        public string DisplayName { get; set; } = string.Empty;
     }
 
     private sealed class NewHeapRecursiveConverter(ICollection<object> contexts) :

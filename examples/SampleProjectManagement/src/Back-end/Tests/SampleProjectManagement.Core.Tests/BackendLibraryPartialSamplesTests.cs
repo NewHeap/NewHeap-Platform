@@ -107,6 +107,25 @@ public sealed class BackendLibraryPartialSamplesTests
     }
 
     [Fact]
+    public void InheritedInterfaceMembersMapByConvention()
+    {
+        var configuration = new MapperConfiguration(options =>
+            options.AddProfile<ProjectMappingFeatureProfile>());
+        configuration.AssertConfigurationIsValid();
+        var mapper = configuration.CreateMapper();
+        IProjectMappingContract source = new ProjectMappingContract(
+            Guid.NewGuid(),
+            "SPM-INTERFACE",
+            "Inherited interface mapping");
+
+        var result = mapper.Map<ProjectMappingContractViewModel>(source);
+
+        Assert.Equal(source.Id, result.Id);
+        Assert.Equal(source.Key, result.Key);
+        Assert.Equal(source.Name, result.Name);
+    }
+
+    [Fact]
     public void DictionaryLikeJsonObjectsUseTheirGenericDictionaryEntries()
     {
         var mapper = new MapperConfiguration(_ => { }).CreateMapper();

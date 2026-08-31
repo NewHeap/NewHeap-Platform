@@ -32,7 +32,37 @@ public sealed class ProjectMappingFeatureProfile : Profile
 
         CreateMap<Project, ProjectMappingDetailViewModel>()
             .IncludeBase<Project, ProjectMappingBaseViewModel>();
+
+        CreateMap<IProjectMappingContract, ProjectMappingContractViewModel>();
     }
+}
+
+public interface IProjectMappingIdentity
+{
+    Guid Id { get; }
+}
+
+public interface IProjectMappingReference : IProjectMappingIdentity
+{
+    string Key { get; }
+}
+
+public interface IProjectMappingContract : IProjectMappingReference
+{
+    string Name { get; }
+}
+
+public sealed record ProjectMappingContract(Guid Id, string Key, string Name) : IProjectMappingContract;
+
+public class ProjectMappingContractViewModelBase
+{
+    public Guid Id { get; set; }
+    public string Key { get; set; } = string.Empty;
+}
+
+public sealed class ProjectMappingContractViewModel : ProjectMappingContractViewModelBase
+{
+    public string Name { get; set; } = string.Empty;
 }
 
 public static class ProjectMappingMetadata

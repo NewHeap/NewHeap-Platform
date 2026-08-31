@@ -550,16 +550,14 @@ internal abstract class TypeMapDefinition
                 includedBaseMap.Seal(typeMaps);
             }
 
-            var sourceProperties = SourceType
-                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            var sourceProperties = GetPublicInstanceProperties(SourceType)
                 .Where(property =>
                     property.GetMethod?.IsPublic == true &&
                     property.GetIndexParameters().Length == 0)
                 .GroupBy(property => property.Name, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
-            var destinationProperties = DestinationType
-                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            var destinationProperties = GetPublicInstanceProperties(DestinationType)
                 .Where(property =>
                     property.GetMethod?.IsPublic == true &&
                     (property.SetMethod?.IsPublic == true || IsMutableCollection(property.PropertyType)) &&
@@ -642,6 +640,16 @@ internal abstract class TypeMapDefinition
         {
             _isSealing = false;
         }
+    }
+
+    private static IEnumerable<PropertyInfo> GetPublicInstanceProperties(Type type)
+    {
+        var propertyDeclaringTypes = type.IsInterface
+            ? new[] { type }.Concat(type.GetInterfaces())
+            : new[] { type };
+
+        return propertyDeclaringTypes.SelectMany(propertyDeclaringType =>
+            propertyDeclaringType.GetProperties(BindingFlags.Instance | BindingFlags.Public));
     }
 
     private static bool IsMutableCollection(Type type)
