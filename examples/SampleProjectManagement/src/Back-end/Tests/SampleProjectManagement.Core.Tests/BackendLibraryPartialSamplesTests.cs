@@ -14,6 +14,7 @@ using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 using NewHeap.Platform.Common.Translations;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using SampleProjectManagement.Api.Controllers;
 using SampleProjectManagement.Core.Models.Mutate;
@@ -22,6 +23,8 @@ using SampleProjectManagement.Core.Services;
 using SampleProjectManagement.Core.Utilities;
 using SampleProjectManagement.DAL;
 using SampleProjectManagement.DAL.Entities;
+using System.Collections;
+using System.Collections.ObjectModel;
 using System.Security.Claims;
 using Xunit;
 
@@ -101,6 +104,41 @@ public sealed class BackendLibraryPartialSamplesTests
         Assert.Equal(project.Description, detail.Description);
         Assert.Equal(project.Status.ToString(), detail.Metadata["status"]);
         Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(detail.Metadata);
+    }
+
+    [Fact]
+    public void DictionaryLikeJsonObjectsUseTheirGenericDictionaryEntries()
+    {
+        var mapper = new MapperConfiguration(_ => { }).CreateMapper();
+        var source = JObject.Parse("""
+            {
+              "name": "sample project",
+              "enabled": true
+            }
+            """);
+
+        var result = mapper.Map<JObject>(source);
+
+        Assert.True(JToken.DeepEquals(source, result));
+        Assert.Equal("sample project", result.Value<string>("name"));
+        Assert.True(result.Value<bool>("enabled"));
+    }
+
+    [Fact]
+    public void GenericCollectionsMaterializeCompatibleListAndSetDestinations()
+    {
+        var mapper = new MapperConfiguration(_ => { }).CreateMapper();
+
+        var list = mapper.Map<ArrayList>(new[] { 1, 2 });
+        var set = mapper.Map<IReadOnlySet<int>>(new[] { 1, 1, 2 });
+        var readOnlyList = mapper.Map<ReadOnlyCollection<int>>(new[] { 1, 2 });
+        var keyValue = mapper.Map<KeyValuePair<string, int>>(
+            new KeyValuePair<int, string>(1, "42"));
+
+        Assert.Equal([1, 2], list.Cast<int>());
+        Assert.Equal([1, 2], set.Order());
+        Assert.Equal([1, 2], readOnlyList);
+        Assert.Equal(new KeyValuePair<string, int>("1", 42), keyValue);
     }
 
     [Fact]

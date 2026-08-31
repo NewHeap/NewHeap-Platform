@@ -8,6 +8,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="SSH.NET" PrivateAssets="all" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit.v3" />

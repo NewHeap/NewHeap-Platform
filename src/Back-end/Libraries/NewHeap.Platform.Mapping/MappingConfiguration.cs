@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -175,6 +176,29 @@ public sealed class MapperConfiguration : IConfigurationProvider
             return true;
         }
 
+        if (TryGetKeyValuePairTypes(sourceType, out var sourcePairKeyType, out var sourcePairValueType) &&
+            TryGetKeyValuePairTypes(
+                destinationType,
+                out var destinationPairKeyType,
+                out var destinationPairValueType))
+        {
+            return CanMapType(sourcePairKeyType, destinationPairKeyType, visited) &&
+                   CanMapType(sourcePairValueType, destinationPairValueType, visited);
+        }
+
+        if (TryGetDictionaryItemTypes(sourceType, out var sourceKeyType, out var sourceValueType) &&
+            TryGetDictionaryTypes(destinationType, out var destinationKeyType, out var destinationValueType))
+        {
+            return CanMapType(sourceKeyType, destinationKeyType, visited) &&
+                   CanMapType(sourceValueType, destinationValueType, visited);
+        }
+
+        if (typeof(IEnumerable).IsAssignableFrom(sourceType) &&
+            IsNonGenericListDestination(destinationType))
+        {
+            return true;
+        }
+
         if (TryGetCollectionElementType(sourceType, out var sourceElementType) &&
             TryGetCollectionElementType(destinationType, out var destinationElementType))
         {
@@ -242,6 +266,71 @@ public sealed class MapperConfiguration : IConfigurationProvider
         return true;
     }
 
+    private static bool TryGetDictionaryTypes(Type type, out Type keyType, out Type valueType)
+    {
+        var dictionaryType = type
+            .GetInterfaces()
+            .Append(type)
+            .FirstOrDefault(candidate =>
+                candidate.IsGenericType &&
+                (candidate.GetGenericTypeDefinition() == typeof(IDictionary<,>) ||
+                 candidate.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>)));
+        if (dictionaryType is null)
+        {
+            keyType = typeof(object);
+            valueType = typeof(object);
+            return false;
+        }
+
+        var arguments = dictionaryType.GetGenericArguments();
+        keyType = arguments[0];
+        valueType = arguments[1];
+        return true;
+    }
+
+    private static bool TryGetDictionaryItemTypes(Type type, out Type keyType, out Type valueType)
+    {
+        if (TryGetDictionaryTypes(type, out keyType, out valueType))
+        {
+            return true;
+        }
+
+        var enumerableType = type
+            .GetInterfaces()
+            .Append(type)
+            .FirstOrDefault(candidate =>
+                candidate.IsGenericType &&
+                candidate.GetGenericTypeDefinition() == typeof(IEnumerable<>) &&
+                candidate.GetGenericArguments()[0].IsGenericType &&
+                candidate.GetGenericArguments()[0].GetGenericTypeDefinition() == typeof(KeyValuePair<,>));
+        if (enumerableType is null)
+        {
+            keyType = typeof(object);
+            valueType = typeof(object);
+            return false;
+        }
+
+        var arguments = enumerableType.GetGenericArguments()[0].GetGenericArguments();
+        keyType = arguments[0];
+        valueType = arguments[1];
+        return true;
+    }
+
+    private static bool TryGetKeyValuePairTypes(Type type, out Type keyType, out Type valueType)
+    {
+        if (!type.IsGenericType || type.GetGenericTypeDefinition() != typeof(KeyValuePair<,>))
+        {
+            keyType = typeof(object);
+            valueType = typeof(object);
+            return false;
+        }
+
+        var arguments = type.GetGenericArguments();
+        keyType = arguments[0];
+        valueType = arguments[1];
+        return true;
+    }
+
     private static bool IsNumeric(Type type)
     {
         type = Nullable.GetUnderlyingType(type) ?? type;
@@ -254,6 +343,12 @@ public sealed class MapperConfiguration : IConfigurationProvider
                type == typeof(long) ||
                type == typeof(ulong);
     }
+
+    private static bool IsNonGenericListDestination(Type type)
+        => type == typeof(IEnumerable) ||
+           type == typeof(ICollection) ||
+           type == typeof(IList) ||
+           typeof(IList).IsAssignableFrom(type);
 }
 
 internal sealed class MapperConfigurationExpression : IMapperConfigurationExpression

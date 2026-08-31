@@ -11,6 +11,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Newtonsoft.Json" />
     <!-- AutoMapper 14 is isolated to this non-packable differential test project and never ships to consumers. -->
     <PackageReference Include="AutoMapper" Aliases="AutoMapper14" PrivateAssets="all" />
     <PackageReference Include="xunit" />

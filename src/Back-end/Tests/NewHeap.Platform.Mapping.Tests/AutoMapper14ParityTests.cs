@@ -1,6 +1,7 @@
 extern alias AutoMapper14;
 
 using NewHeap.Platform.Mapping;
+using Newtonsoft.Json.Linq;
 using AutoMapper14Configuration = AutoMapper14::AutoMapper.MapperConfiguration;
 using AutoMapper14DuplicateTypeMapConfigurationException =
     AutoMapper14::AutoMapper.DuplicateTypeMapConfigurationException;
@@ -309,6 +310,26 @@ public sealed class AutoMapper14ParityTests
 
         Assert.Equal(expected.Values, actual.Values);
         Assert.Equal(42, actual.Values!["1"]);
+    }
+
+    [Fact]
+    public void JObjectDictionaryEnumerationMatchesAutoMapper14()
+    {
+        var newHeap = new MapperConfiguration(_ => { }).CreateMapper();
+        var autoMapper = new AutoMapper14Configuration(_ => { }).CreateMapper();
+        var source = JObject.Parse("""
+            {
+              "name": "mapped",
+              "enabled": true
+            }
+            """);
+
+        var expected = autoMapper.Map<JObject>(source);
+        var actual = newHeap.Map<JObject>(source);
+
+        Assert.True(JToken.DeepEquals(expected, actual));
+        Assert.Equal("mapped", actual.Value<string>("name"));
+        Assert.True(actual.Value<bool>("enabled"));
     }
 
     [Fact]

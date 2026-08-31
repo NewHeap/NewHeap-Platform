@@ -107,6 +107,15 @@ public sealed class Mapper : IMapper
                     context);
             }
 
+            if (IsNonGenericListDestination(destinationType))
+            {
+                return MapNonGenericList(
+                    Array.Empty<object>(),
+                    declaredSourceType,
+                    destinationType,
+                    destination);
+            }
+
             if (destination is not null)
             {
                 return destination;
@@ -126,6 +135,32 @@ public sealed class Mapper : IMapper
         if (typeMap is not null)
         {
             return MapWithTypeMap(source, destinationType, destination, context, typeMap);
+        }
+
+        if (destinationType.IsAssignableFrom(runtimeSourceType) &&
+            !TryGetDictionaryTypes(destinationType, out _, out _) &&
+            !IsSupportedCollectionDestination(destinationType))
+        {
+            return source;
+        }
+
+        if (TryGetKeyValuePairTypes(
+                runtimeSourceType,
+                out var sourceKeyType,
+                out var sourceValueType) &&
+            TryGetKeyValuePairTypes(
+                destinationType,
+                out var destinationPairKeyType,
+                out var destinationPairValueType))
+        {
+            return MapKeyValuePair(
+                source,
+                sourceKeyType,
+                sourceValueType,
+                destinationType,
+                destinationPairKeyType,
+                destinationPairValueType,
+                context);
         }
 
         if (TryGetDictionaryTypes(destinationType, out var destinationKeyType, out var destinationValueType) &&
@@ -152,6 +187,17 @@ public sealed class Mapper : IMapper
                 destinationElementType,
                 destination,
                 context);
+        }
+
+        if (IsNonGenericListDestination(destinationType) &&
+            source is IEnumerable nonGenericSourceEnumerable &&
+            source is not string)
+        {
+            return MapNonGenericList(
+                nonGenericSourceEnumerable,
+                declaredSourceType,
+                destinationType,
+                destination);
         }
 
         return ConvertWithoutTypeMap(source, destinationType, context);
@@ -367,6 +413,15 @@ public sealed class Mapper : IMapper
                     context);
             }
 
+            if (IsNonGenericListDestination(destinationType))
+            {
+                return MapNonGenericList(
+                    Array.Empty<object>(),
+                    declaredSourceType,
+                    destinationType,
+                    destinationValue);
+            }
+
             return CreateNullValue(destinationType);
         }
 
@@ -439,12 +494,23 @@ public sealed class Mapper : IMapper
 
         collectionInterface.GetMethod(nameof(ICollection<object>.Clear))!.Invoke(dictionary, null);
         var addMethod = collectionInterface.GetMethod(nameof(ICollection<object>.Add))!;
-        var hasDeclaredSourceTypes = TryGetDictionaryTypes(
+        var keyValuePairConstructor = keyValuePairType.GetConstructor(
+            [destinationKeyType, destinationValueType])!;
+        var hasDeclaredSourceTypes = TryGetDictionaryItemTypes(
             declaredSourceType,
             out var declaredSourceKeyType,
             out var declaredSourceValueType);
+        var hasRuntimeSourceTypes = TryGetDictionaryItemTypes(
+            source.GetType(),
+            out var runtimeSourceKeyType,
+            out var runtimeSourceValueType);
+        var sourceItems = hasRuntimeSourceTypes
+            ? EnumerateGenericItems(
+                source,
+                typeof(KeyValuePair<,>).MakeGenericType(runtimeSourceKeyType, runtimeSourceValueType))
+            : source.Cast<object?>();
 
-        foreach (var sourceItem in source.Cast<object?>())
+        foreach (var sourceItem in sourceItems)
         {
             if (sourceItem is null)
             {
@@ -464,17 +530,25 @@ public sealed class Mapper : IMapper
             var sourceValue = valueProperty.GetValue(sourceItem);
             var mappedKey = MapCore(
                 sourceKey,
-                hasDeclaredSourceTypes ? declaredSourceKeyType : keyProperty.PropertyType,
+                hasDeclaredSourceTypes
+                    ? declaredSourceKeyType
+                    : hasRuntimeSourceTypes
+                        ? runtimeSourceKeyType
+                        : keyProperty.PropertyType,
                 destinationKeyType,
                 destination: null,
                 context);
             var mappedValue = MapCore(
                 sourceValue,
-                hasDeclaredSourceTypes ? declaredSourceValueType : valueProperty.PropertyType,
+                hasDeclaredSourceTypes
+                    ? declaredSourceValueType
+                    : hasRuntimeSourceTypes
+                        ? runtimeSourceValueType
+                        : valueProperty.PropertyType,
                 destinationValueType,
                 destination: null,
                 context);
-            var mappedPair = Activator.CreateInstance(keyValuePairType, mappedKey, mappedValue)!;
+            var mappedPair = keyValuePairConstructor.Invoke([mappedKey, mappedValue]);
             addMethod.Invoke(dictionary, [mappedPair]);
         }
 
@@ -486,6 +560,62 @@ public sealed class Mapper : IMapper
         var readOnlyDictionaryType = typeof(ReadOnlyDictionary<,>)
             .MakeGenericType(destinationKeyType, destinationValueType);
         return Activator.CreateInstance(readOnlyDictionaryType, dictionary)!;
+    }
+
+    private object MapKeyValuePair(
+        object source,
+        Type sourceKeyType,
+        Type sourceValueType,
+        Type destinationType,
+        Type destinationKeyType,
+        Type destinationValueType,
+        MappingContext context)
+    {
+        var sourceType = source.GetType();
+        var sourceKey = sourceType.GetProperty("Key")!.GetValue(source);
+        var sourceValue = sourceType.GetProperty("Value")!.GetValue(source);
+        var mappedKey = MapCore(
+            sourceKey,
+            sourceKeyType,
+            destinationKeyType,
+            destination: null,
+            context);
+        var mappedValue = MapCore(
+            sourceValue,
+            sourceValueType,
+            destinationValueType,
+            destination: null,
+            context);
+        var constructor = destinationType.GetConstructor([destinationKeyType, destinationValueType])!;
+        return constructor.Invoke([mappedKey, mappedValue]);
+    }
+
+    private static IEnumerable<object?> EnumerateGenericItems(IEnumerable source, Type itemType)
+    {
+        var enumerableType = typeof(IEnumerable<>).MakeGenericType(itemType);
+        if (!enumerableType.IsInstanceOfType(source))
+        {
+            foreach (var sourceItem in source)
+            {
+                yield return sourceItem;
+            }
+
+            yield break;
+        }
+
+        var getEnumeratorMethod = enumerableType.GetMethod(nameof(IEnumerable.GetEnumerator))!;
+        var enumerator = (IEnumerator)getEnumeratorMethod.Invoke(source, null)!;
+        try
+        {
+            while (enumerator.MoveNext())
+            {
+                yield return enumerator.Current;
+            }
+        }
+        finally
+        {
+            (enumerator as IDisposable)?.Dispose();
+        }
     }
 
     private static object CreateDictionary(Type destinationType, Type keyType, Type valueType)
@@ -510,6 +640,72 @@ public sealed class Mapper : IMapper
                typeDefinition == typeof(ReadOnlyDictionary<,>);
     }
 
+    private static bool IsSupportedCollectionDestination(Type type)
+    {
+        if (type.IsArray || type.IsInterface || typeof(IList).IsAssignableFrom(type))
+        {
+            return true;
+        }
+
+        return type
+            .GetInterfaces()
+            .Append(type)
+            .Any(candidate =>
+                candidate.IsGenericType &&
+                candidate.GetGenericTypeDefinition() == typeof(ICollection<>));
+    }
+
+    private static bool IsNonGenericListDestination(Type type)
+        => type == typeof(IEnumerable) ||
+           type == typeof(ICollection) ||
+           type == typeof(IList) ||
+           typeof(IList).IsAssignableFrom(type);
+
+    private static object MapNonGenericList(
+        IEnumerable source,
+        Type declaredSourceType,
+        Type destinationType,
+        object? destination)
+    {
+        if (destination is IList existingList &&
+            (existingList.IsReadOnly || existingList.IsFixedSize))
+        {
+            destination = null;
+        }
+
+        var list = destination as IList ?? CreateNonGenericList(destinationType);
+        if (list.IsReadOnly || list.IsFixedSize)
+        {
+            throw new MappingException(
+                $"Destination collection type '{destinationType.FullName}' does not expose a mutable IList.");
+        }
+
+        list.Clear();
+        var sourceElementType = TryGetCollectionElementType(declaredSourceType, out var declaredElementType)
+            ? declaredElementType
+            : TryGetCollectionElementType(source.GetType(), out var runtimeElementType)
+                ? runtimeElementType
+                : typeof(object);
+        foreach (var sourceItem in EnumerateGenericItems(source, sourceElementType))
+        {
+            list.Add(sourceItem);
+        }
+
+        return list;
+    }
+
+    private static IList CreateNonGenericList(Type destinationType)
+    {
+        if (destinationType.IsInterface || destinationType.IsAbstract)
+        {
+            return new List<object?>();
+        }
+
+        return CreateDestination(destinationType) as IList
+            ?? throw new MappingException(
+                $"Destination collection type '{destinationType.FullName}' does not implement IList.");
+    }
+
     private object MapCollection(
         IEnumerable source,
         Type declaredSourceType,
@@ -518,10 +714,13 @@ public sealed class Mapper : IMapper
         object? destination,
         MappingContext context)
     {
-        var sourceItems = source.Cast<object?>().ToList();
+        var isReadOnlyDestination = IsReadOnlyCollectionType(destinationType);
         var sourceElementType = TryGetCollectionElementType(declaredSourceType, out var declaredElementType)
             ? declaredElementType
-            : typeof(object);
+            : TryGetCollectionElementType(source.GetType(), out var runtimeElementType)
+                ? runtimeElementType
+                : typeof(object);
+        var sourceItems = EnumerateGenericItems(source, sourceElementType).ToList();
 
         if (destinationType.IsArray)
         {
@@ -537,10 +736,11 @@ public sealed class Mapper : IMapper
         }
 
         var collectionInterface = typeof(ICollection<>).MakeGenericType(destinationElementType);
-        if (destination is not null &&
-            collectionInterface.IsInstanceOfType(destination) &&
-            (bool)collectionInterface.GetProperty(nameof(ICollection<object>.IsReadOnly))!
-                .GetValue(destination)!)
+        if (isReadOnlyDestination ||
+            destination is not null &&
+            (!collectionInterface.IsInstanceOfType(destination) ||
+             (bool)collectionInterface.GetProperty(nameof(ICollection<object>.IsReadOnly))!
+                 .GetValue(destination)!))
         {
             destination = null;
         }
@@ -563,7 +763,12 @@ public sealed class Mapper : IMapper
                 [MapElement(sourceItem, sourceElementType, destinationElementType, context)]);
         }
 
-        return collection;
+        if (!isReadOnlyDestination)
+        {
+            return collection;
+        }
+
+        return Activator.CreateInstance(destinationType, collection)!;
     }
 
     private object? MapElement(
@@ -587,13 +792,26 @@ public sealed class Mapper : IMapper
 
     private static object CreateCollection(Type destinationType, Type elementType)
     {
-        if (!destinationType.IsInterface && !destinationType.IsAbstract)
+        if (!destinationType.IsInterface &&
+            !destinationType.IsAbstract &&
+            !IsReadOnlyCollectionType(destinationType))
         {
             return CreateDestination(destinationType);
         }
 
+        if (destinationType.IsGenericType &&
+            (destinationType.GetGenericTypeDefinition() == typeof(ISet<>) ||
+             destinationType.GetGenericTypeDefinition() == typeof(IReadOnlySet<>)))
+        {
+            return Activator.CreateInstance(typeof(HashSet<>).MakeGenericType(elementType))!;
+        }
+
         return Activator.CreateInstance(typeof(List<>).MakeGenericType(elementType))!;
     }
+
+    private static bool IsReadOnlyCollectionType(Type type)
+        => type.IsGenericType &&
+           type.GetGenericTypeDefinition() == typeof(ReadOnlyCollection<>);
 
     private static object CreateDestination(Type destinationType)
     {
@@ -674,6 +892,49 @@ public sealed class Mapper : IMapper
         }
 
         var arguments = dictionaryType.GetGenericArguments();
+        keyType = arguments[0];
+        valueType = arguments[1];
+        return true;
+    }
+
+    private static bool TryGetDictionaryItemTypes(Type type, out Type keyType, out Type valueType)
+    {
+        if (TryGetDictionaryTypes(type, out keyType, out valueType))
+        {
+            return true;
+        }
+
+        var enumerableType = type
+            .GetInterfaces()
+            .Append(type)
+            .FirstOrDefault(candidate =>
+                candidate.IsGenericType &&
+                candidate.GetGenericTypeDefinition() == typeof(IEnumerable<>) &&
+                candidate.GetGenericArguments()[0].IsGenericType &&
+                candidate.GetGenericArguments()[0].GetGenericTypeDefinition() == typeof(KeyValuePair<,>));
+        if (enumerableType is null)
+        {
+            keyType = typeof(object);
+            valueType = typeof(object);
+            return false;
+        }
+
+        var arguments = enumerableType.GetGenericArguments()[0].GetGenericArguments();
+        keyType = arguments[0];
+        valueType = arguments[1];
+        return true;
+    }
+
+    private static bool TryGetKeyValuePairTypes(Type type, out Type keyType, out Type valueType)
+    {
+        if (!type.IsGenericType || type.GetGenericTypeDefinition() != typeof(KeyValuePair<,>))
+        {
+            keyType = typeof(object);
+            valueType = typeof(object);
+            return false;
+        }
+
+        var arguments = type.GetGenericArguments();
         keyType = arguments[0];
         valueType = arguments[1];
         return true;
