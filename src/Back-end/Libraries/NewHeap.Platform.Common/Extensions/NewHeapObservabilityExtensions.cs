@@ -13,6 +13,9 @@ namespace NewHeap.Platform.Common;
 
 public static class NewHeapObservabilityExtensions
 {
+    private const string LegacyDeploymentEnvironmentAttributeName = "deployment.environment";
+    private const string DeploymentEnvironmentNameAttributeName = "deployment.environment.name";
+    private const string TestEnvironmentName = "Test";
     private static readonly object HostBuilderRegistrationKey = new();
 
     public static TBuilder AddNewHeapObservability<TBuilder>(
@@ -28,6 +31,7 @@ public static class NewHeapObservabilityExtensions
             builder.Services.AddNewHeapObservabilityCore(
                 builder.Configuration,
                 builder.Environment.ApplicationName,
+                builder.Environment.EnvironmentName,
                 options);
         }
 
@@ -54,6 +58,7 @@ public static class NewHeapObservabilityExtensions
                 services.AddNewHeapObservabilityCore(
                     context.Configuration,
                     context.HostingEnvironment.ApplicationName,
+                    context.HostingEnvironment.EnvironmentName,
                     options);
             }
         });
@@ -81,6 +86,7 @@ public static class NewHeapObservabilityExtensions
         this IServiceCollection services,
         IConfiguration configuration,
         string applicationName,
+        string environmentName,
         NewHeapObservabilityOptions options)
     {
         services.AddSingleton<NewHeapObservabilityRegistrationMarker>();
@@ -95,6 +101,7 @@ public static class NewHeapObservabilityExtensions
             .ConfigureResource(resource =>
             {
                 resource.AddService(serviceName, serviceVersion: serviceVersion);
+                AddDeploymentEnvironmentAttributes(resource, environmentName);
                 options.ConfigureResource?.Invoke(resource);
             })
             .WithMetrics(metrics =>
@@ -128,6 +135,58 @@ public static class NewHeapObservabilityExtensions
             NewHeapOtlpExporterMode.Disabled => false,
             _ => !string.IsNullOrWhiteSpace(configuration["OTEL_EXPORTER_OTLP_ENDPOINT"])
         };
+
+    private static void AddDeploymentEnvironmentAttributes(
+        ResourceBuilder resource,
+        string environmentName)
+    {
+        var existingAttributeNames = resource
+            .Build()
+            .Attributes
+            .Select(attribute => attribute.Key)
+            .ToHashSet(StringComparer.Ordinal);
+
+        AddResourceAttributeIfMissing(
+            resource,
+            existingAttributeNames,
+            LegacyDeploymentEnvironmentAttributeName,
+            environmentName);
+        AddResourceAttributeIfMissing(
+            resource,
+            existingAttributeNames,
+            DeploymentEnvironmentNameAttributeName,
+            NormalizeDeploymentEnvironmentName(environmentName));
+    }
+
+    private static void AddResourceAttributeIfMissing(
+        ResourceBuilder resource,
+        ISet<string> existingAttributeNames,
+        string attributeName,
+        string value)
+    {
+        if (!existingAttributeNames.Add(attributeName))
+        {
+            return;
+        }
+
+        resource.AddAttributes(
+        [
+            new KeyValuePair<string, object>(attributeName, value)
+        ]);
+    }
+
+    private static string NormalizeDeploymentEnvironmentName(string environmentName)
+    {
+        if (environmentName.Equals(Environments.Development, StringComparison.OrdinalIgnoreCase)
+            || environmentName.Equals(Environments.Staging, StringComparison.OrdinalIgnoreCase)
+            || environmentName.Equals(Environments.Production, StringComparison.OrdinalIgnoreCase)
+            || environmentName.Equals(TestEnvironmentName, StringComparison.OrdinalIgnoreCase))
+        {
+            return environmentName.ToLowerInvariant();
+        }
+
+        return environmentName;
+    }
 
     private sealed class NewHeapObservabilityRegistrationMarker;
 

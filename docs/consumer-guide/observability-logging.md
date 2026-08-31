@@ -18,6 +18,8 @@ Use `UseNhCommonConfiguration(args)` for workers and `UseNewHeapAspnetCommonConf
 
 The OTLP exporter is enabled automatically only when `OTEL_EXPORTER_OTLP_ENDPOINT` is present. Use standard `OTEL_*` environment variables for deployment configuration. When code-level customization is necessary, call `AddNewHeapObservability` before the normal NewHeap configuration entry point and configure `NewHeapObservabilityOptions`; keep vendor-specific exporters and credentials in the consumer composition root.
 
+Use `deployment.environment.name` as the stable deployment-environment resource attribute in queries, alerts and dashboards. NewHeap derives it from the host environment name and normalizes the well-known `Development`, `Staging`, `Production` and `Test` names to lowercase. NewHeap also emits the exact host environment name as `deployment.environment` temporarily for compatibility with existing dashboards. Values supplied through `OTEL_RESOURCE_ATTRIBUTES`, earlier resource configuration or `NewHeapObservabilityOptions.ConfigureResource` remain consumer-owned; the consumer callback runs last and can deliberately override either default.
+
 Inject `ILogger<T>` into services, workers, middleware and external I/O adapters. Use stable message templates and named properties. Add an operation scope when several log entries belong to the same domain action. Log an exception once where it is handled, translated into a safe result, or abandoned after retries; let exceptions that are rethrown reach the outer boundary without duplicate logging.
 
 Use `Information` for meaningful state transitions, `Warning` for recoverable degraded outcomes, `Error` for failed operations requiring attention, and `Debug` for bounded diagnostics. Do not log access tokens, passwords, connection strings, cookies, authorization headers, complete request or response bodies, email content, raw AI prompts, personal data, or exception text returned to an API client. Prefer opaque identifiers and counts over names and payloads.
@@ -37,7 +39,7 @@ On Angular, register provider-neutral implementations under the multi-provider `
 
 ## Verification
 
-Test registration idempotency with and without `OTEL_EXPORTER_OTLP_ENDPOINT`. Verify one server span, one client span and one structured completion log for an executable operation. Exercise valid, invalid and oversized correlation identifiers. Capture logs in tests and assert property names, levels and scopes without asserting sensitive values. Trigger one handled failure and prove it is logged once with its exception. For Angular, register two error handlers, make the first throw, and verify that the second still receives the original error.
+Test registration idempotency with and without `OTEL_EXPORTER_OTLP_ENDPOINT`. Verify that logs, traces and metrics carry `deployment.environment.name`, that the temporary `deployment.environment` compatibility value retains the host's original casing, and that preconfigured values are preserved. Verify one server span, one client span and one structured completion log for an executable operation. Exercise valid, invalid and oversized correlation identifiers. Capture logs in tests and assert property names, levels and scopes without asserting sensitive values. Trigger one handled failure and prove it is logged once with its exception. For Angular, register two error handlers, make the first throw, and verify that the second still receives the original error.
 
 ## Executable evidence
 

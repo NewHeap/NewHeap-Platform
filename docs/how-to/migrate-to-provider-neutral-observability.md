@@ -24,6 +24,8 @@ builder.AddNewHeapObservability(options =>
 builder.UseNewHeapAspnetCommonConfiguration(args);
 ```
 
+NewHeap adds `deployment.environment.name` to log, trace and metric resources from `IHostEnvironment.EnvironmentName`; use this stable semantic-convention attribute for new dashboards. Well-known environment names are normalized to lowercase. The legacy `deployment.environment` attribute is also emitted with the host's exact casing for temporary compatibility with existing Grafana dashboards. Existing values from `OTEL_RESOURCE_ATTRIBUTES` or earlier resource configuration are preserved, and `NewHeapObservabilityOptions.ConfigureResource` remains the final deliberate override point.
+
 Remove calls to `WithSentry` and `UseNewHeapSentry`. Replace vendor scope tags with structured `ILogger.BeginScope` properties or `Activity` tags. Do not return exception messages to clients.
 
 `UseOtlpUseExporter` remains temporarily as an obsolete spelling alias; migrate it to `UseOtlpExporter` or standard environment configuration.

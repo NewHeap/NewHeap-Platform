@@ -1,6 +1,13 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NewHeap.Platform.Common;
+using NewHeap.Platform.Common.Models.Options;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using SampleProjectManagement.Api.Services;
 using Xunit;
 
@@ -8,6 +15,34 @@ namespace SampleProjectManagement.Core.Tests;
 
 public sealed class ObservabilitySampleServiceTests
 {
+    [Fact]
+    public void AddNewHeapObservability_EmitsStableAndLegacyDeploymentEnvironmentAttributes()
+    {
+        var capturedResources = new ConcurrentBag<IReadOnlyDictionary<string, object>>();
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            EnvironmentName = Environments.Staging
+        });
+        builder.AddNewHeapObservability(options =>
+        {
+            options.OtlpExporterMode = NewHeapOtlpExporterMode.Disabled;
+            options.ConfigureResource = resource =>
+                capturedResources.Add(resource.Build().Attributes.ToDictionary());
+        });
+
+        using var host = builder.Build();
+        host.Start();
+        _ = host.Services.GetRequiredService<TracerProvider>();
+        _ = host.Services.GetRequiredService<MeterProvider>();
+
+        Assert.Equal(3, capturedResources.Count);
+        Assert.All(capturedResources, resource =>
+        {
+            Assert.Equal("Staging", resource["deployment.environment"]);
+            Assert.Equal("staging", resource["deployment.environment.name"]);
+        });
+    }
+
     [Fact]
     public async Task RunAsync_EmitsStructuredLogsScopeAndActivityEvidence()
     {

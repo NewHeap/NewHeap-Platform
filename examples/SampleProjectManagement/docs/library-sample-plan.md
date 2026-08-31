@@ -158,7 +158,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-102 | OneOf OpenAPI | schema transformer | Swagger displays both variants. |
 | SPM-103 | JSON query binding | binder/provider | A complex filter binds from the query string. |
 | SPM-104 | Invariant form values | value-provider factory | Decimal and date values behave the same in English and Dutch. |
-| SPM-105 | Backend observability | ILogger/OpenTelemetry/activity scope | Structured completion and handled-failure logs share timing, sample context, and trace context. |
+| SPM-105 | Backend observability | ILogger/OpenTelemetry/resource and activity scope | Logs, traces, and metrics carry stable and legacy deployment-environment resource attributes while structured operation logs share sample and trace context. |
 
 ## 8. Frontend HTTP, forms, and modals
 

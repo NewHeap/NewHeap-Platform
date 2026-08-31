@@ -1436,8 +1436,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-105",
     "title": "Backend observability",
     "category": "Localization, configuration, and HTTP infrastructure",
-    "surface": "ILogger/OpenTelemetry/activity scope",
-    "outcome": "Structured completion and handled-failure logs share timing, sample context, and trace context.",
+    "surface": "ILogger/OpenTelemetry/resource and activity scope",
+    "outcome": "Logs, traces, and metrics carry stable and legacy deployment-environment resource attributes while structured operation logs share sample and trace context.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/ObservabilitySampleService.cs",
