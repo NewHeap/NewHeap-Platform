@@ -14,7 +14,7 @@
     "nuget-common": {
       "displayName": "NewHeap common NuGet packages",
       "kind": "nuget",
-      "version": "4.3.6",
+      "version": "4.4.0",
       "tagPrefix": "nuget-common-v",
       "includeSymbols": true,
       "replaces": "src/Back-end/publish-common.ps1",
