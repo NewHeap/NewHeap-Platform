@@ -248,6 +248,105 @@ public sealed class DatabaseReadApplicationTests
             .Should().Be("invalid-profile-value");
     }
 
+    [Theory]
+    [InlineData("sql-server", "schema")]
+    [InlineData("sql-server", "query")]
+    [InlineData("postgresql", "schema")]
+    [InlineData("postgresql", "query")]
+    public async Task InvalidResolvedConnectionConfigurationReturnsASafeStableError(
+        string provider,
+        string command)
+    {
+        const string canary = "CANARY-CONNECTION-CONFIGURATION-MUST-NOT-LEAK";
+        using var workspace = new DatabaseReadTestWorkspace(
+            provider,
+            $"DefinitelyNotAProviderKeyword={canary}");
+        using var input = command == "schema"
+            ? new MemoryStream()
+            : DatabaseReadTestWorkspace.Request("SELECT 1");
+        using var output = new MemoryStream();
+        var args = command == "schema"
+            ? new[]
+            {
+                "schema",
+                "--profiles",
+                workspace.ProfileCatalogPath,
+                "--search",
+                "project"
+            }
+            : new[]
+            {
+                "query",
+                "--profiles",
+                workspace.ProfileCatalogPath
+            };
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            args,
+            input,
+            output);
+
+        var outputText = Encoding.UTF8.GetString(output.ToArray());
+        exitCode.Should().Be(3, outputText);
+        outputText.Should().NotContain(canary);
+        outputText.Should().NotContain("DefinitelyNotAProviderKeyword");
+        using var response = JsonDocument.Parse(outputText);
+        response.RootElement.GetProperty("error").GetProperty("code").GetString()
+            .Should().Be("connection-configuration-invalid");
+        response.RootElement.GetProperty("error").GetProperty("message").GetString()
+            .Should().Be(
+                "The selected environment's resolved connection string is not valid for the configured provider.");
+        response.RootElement.TryGetProperty("schema", out _).Should().BeFalse();
+        response.RootElement.TryGetProperty("result", out _).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("schema")]
+    [InlineData("query")]
+    public async Task UnresolvedConnectionSecretReturnsTheProcessLocalRemediation(
+        string command)
+    {
+        const string missingSecretName = "MISSING-PRODUCTION-SECRET-MUST-NOT-LEAK";
+        using var workspace = new DatabaseReadTestWorkspace(
+            "sql-server",
+            $"${{Secrets:ConnectionStrings:{missingSecretName}}}");
+        using var input = command == "schema"
+            ? new MemoryStream()
+            : DatabaseReadTestWorkspace.Request("SELECT 1");
+        using var output = new MemoryStream();
+        var args = command == "schema"
+            ? new[]
+            {
+                "schema",
+                "--profiles",
+                workspace.ProfileCatalogPath,
+                "--search",
+                "project"
+            }
+            : new[]
+            {
+                "query",
+                "--profiles",
+                workspace.ProfileCatalogPath
+            };
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            args,
+            input,
+            output);
+
+        var outputText = Encoding.UTF8.GetString(output.ToArray());
+        exitCode.Should().Be(3, outputText);
+        outputText.Should().NotContain(missingSecretName);
+        using var response = JsonDocument.Parse(outputText);
+        var error = response.RootElement.GetProperty("error");
+        error.GetProperty("code").GetString().Should().Be("connection-string-unresolved");
+        error.GetProperty("message").GetString().Should().Contain(
+            "NewHeap__PlatformCommon__AppSecretsDirectoryPath");
+        response.RootElement.TryGetProperty("schema", out _).Should().BeFalse();
+        response.RootElement.TryGetProperty("result", out _).Should().BeFalse();
+    }
+
     [Fact]
     public async Task MultipleCatalogProfilesRequireAnExplicitSelection()
     {

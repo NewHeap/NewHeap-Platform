@@ -26,6 +26,16 @@ internal static class NewHeapConnectionStringResolver
                     DatabaseReadExitCode.InvalidProfile);
             }
 
+            if (connectionString.Contains("${Secrets:", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new DatabaseReadExpectedException(
+                    "connection-string-unresolved",
+                    "The selected environment did not resolve the configured connection-string secret. " +
+                    "Set NewHeap__PlatformCommon__AppSecretsDirectoryPath for this process to the existing " +
+                    "local secrets directory.",
+                    DatabaseReadExitCode.InvalidProfile);
+            }
+
             return connectionString;
         }
         catch (DatabaseReadExpectedException)

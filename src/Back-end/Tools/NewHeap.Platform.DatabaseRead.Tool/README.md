@@ -256,6 +256,17 @@ SQL Server error `207` is returned as `column-not-found`. Raw provider messages,
 object names, connection values and stack traces are never copied into the error
 contract.
 
+If the selected environment resolves the governed connection-string name to a
+value that the configured provider cannot parse, the tool returns
+`connection-configuration-invalid` with exit code `3`. It does not expose the
+resolved value or continue to schema or query execution.
+
+An unresolved `${Secrets:...}` reference returns `connection-string-unresolved`
+with exit code `3` and names the process-local
+`NewHeap__PlatformCommon__AppSecretsDirectoryPath` remediation. This supports a
+Windows diagnostic against Production configuration that intentionally contains
+a Linux secrets path without requiring a permanent application-settings change.
+
 Exit codes are `0` for success, `2` for an invalid request, `3` for an invalid
 profile, `4` for a policy rejection, `5` for a database failure, and `130` for
 cancellation. Exit code `1` is reserved for an unexpected tool failure.

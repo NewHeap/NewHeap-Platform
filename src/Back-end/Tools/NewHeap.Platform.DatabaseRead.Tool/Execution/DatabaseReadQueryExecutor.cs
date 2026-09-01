@@ -14,7 +14,11 @@ internal static class DatabaseReadQueryExecutor
         DatabaseReadLimits limits,
         CancellationToken cancellationToken)
     {
-        await using var connection = provider.CreateConnection(connectionString, requestId, limits);
+        await using var connection = DatabaseReadConnectionFactory.Create(
+            provider,
+            connectionString,
+            requestId,
+            limits);
         await connection.OpenAsync(cancellationToken);
 
         if (!await provider.VerifyReadOnlyPrincipalAsync(connection, limits, cancellationToken))

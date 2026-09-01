@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using NewHeap.Platform.DatabaseRead;
 using Xunit;
@@ -138,6 +140,152 @@ public sealed class DatabaseReadToolSamplesTests
             response.RootElement.GetProperty("target").GetProperty("provider").GetString());
     }
 
+    [Fact]
+    public async Task UnresolvedProductionSecretReturnsTheProcessLocalPathRemediation()
+    {
+        const string connectionStringName = "NewHeapDiagnosticsReadOnly";
+        const string canary = "CANARY-SAMPLE-CONNECTION-CONFIGURATION-MUST-NOT-LEAK";
+        var root = Path.Combine(
+            Path.GetTempPath(),
+            "SampleProjectManagement.DatabaseRead.Tool.Tests",
+            Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            var configurationPath = Path.Combine(root, "src", "Sample.Api");
+            var secretsPath = Path.Combine(root, "secrets");
+            var profileCatalogPath = Path.Combine(root, ".newheap", "database-read.json");
+            WriteJson(profileCatalogPath, new
+            {
+                schemaVersion = 1,
+                profiles = new Dictionary<string, object>
+                {
+                    ["sample-development"] = new
+                    {
+                        provider = "postgresql",
+                        configurationPath = "src/Sample.Api",
+                        environment = "Development",
+                        connectionStringName,
+                        maximumRows = 10,
+                        maximumTimeoutSeconds = 10,
+                        maximumLockTimeoutMilliseconds = 2_000,
+                        maximumOutputBytes = 65_536,
+                        maximumCellBytes = 4_096,
+                        maximumSqlBytes = 8_192
+                    }
+                }
+            });
+            WriteJson(Path.Combine(configurationPath, "appsettings.json"), new
+            {
+                NewHeap = new
+                {
+                    PlatformCommon = new
+                    {
+                        AppSecretsDirectoryPath = secretsPath
+                    }
+                },
+                ConnectionStrings = new Dictionary<string, string>
+                {
+                    [connectionStringName] = $"${{Secrets:ConnectionStrings:{connectionStringName}}}"
+                }
+            });
+            WriteJson(Path.Combine(configurationPath, "appsettings.Production.json"), new
+            {
+                NewHeap = new
+                {
+                    PlatformCommon = new
+                    {
+                        AppSecretsDirectoryPath = "/var/run/secrets/SampleProjectManagement.Api"
+                    }
+                }
+            });
+            WriteJson(Path.Combine(secretsPath, "secrets.json"), new
+            {
+                ConnectionStrings = new Dictionary<string, string>
+                {
+                    [connectionStringName] = $"DefinitelyNotAProviderKeyword={canary}"
+                }
+            });
+            await using var input = new MemoryStream();
+            await using var output = new MemoryStream();
+
+            var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+                [
+                    "schema",
+                    "--profiles",
+                    profileCatalogPath,
+                    "--environment",
+                    "Production",
+                    "--search",
+                    "Projects",
+                    "--describe-if-single"
+                ],
+                input,
+                output,
+                TestContext.Current.CancellationToken);
+
+            var outputText = Encoding.UTF8.GetString(output.ToArray());
+            Assert.Equal(3, exitCode);
+            Assert.DoesNotContain(canary, outputText, StringComparison.Ordinal);
+            using var response = JsonDocument.Parse(outputText);
+            Assert.Equal(
+                "connection-string-unresolved",
+                response.RootElement.GetProperty("error").GetProperty("code").GetString());
+            Assert.Contains(
+                "NewHeap__PlatformCommon__AppSecretsDirectoryPath",
+                response.RootElement.GetProperty("error").GetProperty("message").GetString(),
+                StringComparison.Ordinal);
+            Assert.False(response.RootElement.TryGetProperty("schema", out _));
+            Assert.False(response.RootElement.TryGetProperty("result", out _));
+
+            var toolAssemblyPath = typeof(NewHeapDatabaseReadApplication).Assembly.Location;
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = Path.GetDirectoryName(toolAssemblyPath)!
+            };
+            startInfo.Environment["NewHeap__PlatformCommon__AppSecretsDirectoryPath"] = secretsPath;
+            startInfo.ArgumentList.Add(toolAssemblyPath);
+            startInfo.ArgumentList.Add("schema");
+            startInfo.ArgumentList.Add("--profiles");
+            startInfo.ArgumentList.Add(profileCatalogPath);
+            startInfo.ArgumentList.Add("--environment");
+            startInfo.ArgumentList.Add("Production");
+            startInfo.ArgumentList.Add("--search");
+            startInfo.ArgumentList.Add("Projects");
+            startInfo.ArgumentList.Add("--describe-if-single");
+
+            using var process = Process.Start(startInfo);
+            Assert.NotNull(process);
+            var retryOutput = process!.StandardOutput.ReadToEndAsync(
+                TestContext.Current.CancellationToken);
+            var retryError = process.StandardError.ReadToEndAsync(
+                TestContext.Current.CancellationToken);
+            await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+            var retryOutputText = await retryOutput;
+            var retryErrorText = await retryError;
+
+            Assert.Equal(3, process.ExitCode);
+            Assert.DoesNotContain(canary, retryOutputText, StringComparison.Ordinal);
+            Assert.DoesNotContain(canary, retryErrorText, StringComparison.Ordinal);
+            using var retryResponse = JsonDocument.Parse(retryOutputText);
+            Assert.Equal(
+                "connection-configuration-invalid",
+                retryResponse.RootElement.GetProperty("error").GetProperty("code").GetString());
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static string FindBackendRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -154,5 +302,11 @@ public sealed class DatabaseReadToolSamplesTests
 
         throw new DirectoryNotFoundException(
             "Could not locate the SampleProjectManagement backend database-read profile.");
+    }
+
+    private static void WriteJson(string path, object value)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, JsonSerializer.Serialize(value));
     }
 }
