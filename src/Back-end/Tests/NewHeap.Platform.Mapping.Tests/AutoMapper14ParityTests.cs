@@ -2,6 +2,7 @@ extern alias AutoMapper14;
 
 using NewHeap.Platform.Mapping;
 using Newtonsoft.Json.Linq;
+using System.Runtime.Serialization;
 using AutoMapper14Configuration = AutoMapper14::AutoMapper.MapperConfiguration;
 using AutoMapper14DuplicateTypeMapConfigurationException =
     AutoMapper14::AutoMapper.DuplicateTypeMapConfigurationException;
@@ -177,6 +178,56 @@ public sealed class AutoMapper14ParityTests
         Assert.Equal(expected.Value, actual.Value);
         Assert.Equal(expectedConditionMember, actualConditionMember);
         Assert.IsType<int>(actualConditionMember);
+    }
+
+    [Fact]
+    public void DestinationStringsUseToStringLikeAutoMapper14()
+    {
+        var newHeapConfiguration = new MapperConfiguration(configuration =>
+            configuration.CreateMap<StringConversionSource, StringConversionDestination>());
+        var autoMapperConfiguration = new AutoMapper14Configuration(configuration =>
+            configuration.CreateMap<StringConversionSource, StringConversionDestination>());
+
+        newHeapConfiguration.AssertConfigurationIsValid();
+        autoMapperConfiguration.AssertConfigurationIsValid();
+
+        var source = new StringConversionSource
+        {
+            Value = new StringConversionValue("content-type"),
+            Status = StringConversionStatus.Ready
+        };
+        var expected = autoMapperConfiguration.CreateMapper().Map<StringConversionDestination>(source);
+        var actual = newHeapConfiguration.CreateMapper().Map<StringConversionDestination>(source);
+        var json = JObject.Parse("""{"name":"sample"}""");
+
+        Assert.Equal(expected.Value, actual.Value);
+        Assert.Equal("content-type", actual.Value);
+        Assert.Equal(expected.Status, actual.Status);
+        Assert.Equal("ready", actual.Status);
+        Assert.Equal(
+            autoMapperConfiguration.CreateMapper().Map<string>(json),
+            newHeapConfiguration.CreateMapper().Map<string>(json));
+    }
+
+    [Fact]
+    public void ConstructUsingMayReturnANullStringLikeAutoMapper14()
+    {
+        var newHeapConfiguration = new MapperConfiguration(configuration =>
+            configuration.CreateMap<NullableStringSource, string?>()
+                .ConstructUsing(source => source.Value));
+        var autoMapperConfiguration = new AutoMapper14Configuration(configuration =>
+            configuration.CreateMap<NullableStringSource, string?>()
+                .ConstructUsing(source => source.Value));
+
+        newHeapConfiguration.AssertConfigurationIsValid();
+        autoMapperConfiguration.AssertConfigurationIsValid();
+
+        var source = new NullableStringSource();
+        var expected = autoMapperConfiguration.CreateMapper().Map<string?>(source);
+        var actual = newHeapConfiguration.CreateMapper().Map<string?>(source);
+
+        Assert.Null(expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -723,6 +774,34 @@ public sealed class AutoMapper14ParityTests
     private sealed class ConversionDestination
     {
         public int Value { get; set; }
+    }
+
+    private sealed class StringConversionSource
+    {
+        public StringConversionValue Value { get; set; } = new(string.Empty);
+        public StringConversionStatus Status { get; set; }
+    }
+
+    private sealed class StringConversionDestination
+    {
+        public string Value { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+    }
+
+    private sealed record StringConversionValue(string Value)
+    {
+        public override string ToString() => Value;
+    }
+
+    private enum StringConversionStatus
+    {
+        [EnumMember(Value = "ready")]
+        Ready
+    }
+
+    private sealed class NullableStringSource
+    {
+        public string? Value { get; set; }
     }
 
     private sealed class ReadOnlyAggregateMutate

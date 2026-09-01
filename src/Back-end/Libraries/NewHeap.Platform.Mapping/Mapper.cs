@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.Serialization;
 
 namespace NewHeap.Platform.Mapping;
 
@@ -266,8 +267,7 @@ public sealed class Mapper : IMapper
 
                 if (destination is null)
                 {
-                    throw new MappingException(
-                        $"Constructing destination '{typeMap.DestinationType.FullName}' returned null.");
+                    return CreateNullValue(destinationType);
                 }
             }
 
@@ -437,6 +437,11 @@ public sealed class Mapper : IMapper
             return source;
         }
 
+        if (destinationType == typeof(string))
+        {
+            return ConvertToString(source);
+        }
+
         var nullableDestinationType = Nullable.GetUnderlyingType(destinationType);
         if (nullableDestinationType is not null)
         {
@@ -460,6 +465,25 @@ public sealed class Mapper : IMapper
 
         throw new MappingException(
             $"No map is configured from '{sourceType.FullName}' to '{destinationType.FullName}'.");
+    }
+
+    private static string? ConvertToString(object source)
+    {
+        if (source is not Enum)
+        {
+            return source.ToString();
+        }
+
+        var sourceType = source.GetType();
+        var memberName = Enum.GetName(sourceType, source);
+        var enumMemberValue = memberName is null
+            ? null
+            : sourceType
+                .GetField(memberName, BindingFlags.Public | BindingFlags.Static)
+                ?.GetCustomAttribute<EnumMemberAttribute>()
+                ?.Value;
+
+        return enumMemberValue ?? source.ToString();
     }
 
     private object MapDictionary(

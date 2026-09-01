@@ -164,6 +164,11 @@ public sealed class MapperConfiguration : IConfigurationProvider
             return true;
         }
 
+        if (destinationType == typeof(string))
+        {
+            return true;
+        }
+
         var nullableSourceType = Nullable.GetUnderlyingType(sourceType);
         if (nullableSourceType is not null && CanMapType(nullableSourceType, destinationType, visited))
         {

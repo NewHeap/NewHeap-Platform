@@ -34,6 +34,8 @@ public sealed class ProjectMappingFeatureProfile : Profile
             .IncludeBase<Project, ProjectMappingBaseViewModel>();
 
         CreateMap<IProjectMappingContract, ProjectMappingContractViewModel>();
+
+        CreateMap<ProjectMappingStringSource, ProjectMappingStringViewModel>();
     }
 }
 
@@ -53,6 +55,13 @@ public interface IProjectMappingContract : IProjectMappingReference
 }
 
 public sealed record ProjectMappingContract(Guid Id, string Key, string Name) : IProjectMappingContract;
+
+public sealed record ProjectMappingStringSource(ProjectReferenceValue Reference);
+
+public sealed class ProjectMappingStringViewModel
+{
+    public string Reference { get; set; } = string.Empty;
+}
 
 public class ProjectMappingContractViewModelBase
 {

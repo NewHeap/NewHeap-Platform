@@ -93,6 +93,8 @@ public sealed class BackendLibraryPartialSamplesTests
         var summary = mapper.Map<ProjectMappingSummaryViewModel>(project);
         var reference = mapper.Map<ProjectReferenceValue>(project);
         var detail = mapper.Map<ProjectMappingDetailViewModel>(project);
+        var stringSource = new ProjectMappingStringSource(reference);
+        var stringResult = mapper.Map<ProjectMappingStringViewModel>(stringSource);
 
         Assert.Equal(project.Key, summary.Key);
         Assert.Equal($"{project.Key} · {project.Name}", summary.DisplayName);
@@ -104,6 +106,7 @@ public sealed class BackendLibraryPartialSamplesTests
         Assert.Equal(project.Description, detail.Description);
         Assert.Equal(project.Status.ToString(), detail.Metadata["status"]);
         Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(detail.Metadata);
+        Assert.Equal(reference.ToString(), stringResult.Reference);
     }
 
     [Fact]
