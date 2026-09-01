@@ -12,7 +12,8 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
     public DatabaseReadTestWorkspace(
         string provider,
         string connectionString,
-        int maximumRows = 20)
+        int maximumRows = 20,
+        int profileCount = 1)
     {
         _root = Path.Combine(
             Path.GetTempPath(),
@@ -22,27 +23,28 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
         var secretsPath = Path.Combine(_root, "secrets");
         ProfileCatalogPath = Path.Combine(_root, ".newheap", "database-read.json");
 
+        var profiles = Enumerable.Range(1, profileCount)
+            .ToDictionary(
+                index => index == 1 ? "test" : $"test-{index}",
+                _ => (object)new
+                {
+                    provider,
+                    configurationPath = "src/Example.Api",
+                    environment = "Development",
+                    connectionStringName = ConnectionStringName,
+                    maximumRows,
+                    maximumTimeoutSeconds = 15,
+                    maximumLockTimeoutMilliseconds = 2_000,
+                    maximumOutputBytes = 65_536,
+                    maximumCellBytes = 4_096,
+                    maximumSqlBytes = 8_192
+                });
         WriteJson(
             ProfileCatalogPath,
             new
             {
                 schemaVersion = 1,
-                profiles = new Dictionary<string, object>
-                {
-                    ["test"] = new
-                    {
-                        provider,
-                        configurationPath = "src/Example.Api",
-                        environment = "Development",
-                        connectionStringName = ConnectionStringName,
-                        maximumRows,
-                        maximumTimeoutSeconds = 15,
-                        maximumLockTimeoutMilliseconds = 2_000,
-                        maximumOutputBytes = 65_536,
-                        maximumCellBytes = 4_096,
-                        maximumSqlBytes = 8_192
-                    }
-                }
+                profiles
             });
         WriteJson(
             Path.Combine(configurationPath, "appsettings.json"),
@@ -86,13 +88,14 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
         string sql,
         object[]? parameters = null,
         int maximumRows = 10,
-        int timeoutSeconds = 10)
+        int timeoutSeconds = 10,
+        string? profile = "test")
     {
         var json = JsonSerializer.Serialize(
             new
             {
                 schemaVersion = 1,
-                profile = "test",
+                profile,
                 sql,
                 parameters = parameters ?? [],
                 limits = new

@@ -454,6 +454,65 @@ public sealed class DatabaseReadProviderTests
                 || item.GetProperty("name").GetString()!.Contains("restricted", StringComparison.Ordinal));
         }
 
+        using (var directInput = new MemoryStream())
+        using (var directOutput = new MemoryStream())
+        {
+            var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+                [
+                    "schema",
+                    "--profiles",
+                    workspace.ProfileCatalogPath,
+                    "--search",
+                    objectName,
+                    "--schema-name",
+                    schemaName,
+                    "--describe-if-single",
+                    "--maximum-rows",
+                    "10",
+                    "--timeout-seconds",
+                    "10"
+                ],
+                directInput,
+                directOutput);
+
+            exitCode.Should().Be(
+                0,
+                "direct schema discovery returned {0}",
+                System.Text.Encoding.UTF8.GetString(directOutput.ToArray()));
+            using var response = DatabaseReadTestWorkspace.ParseOutput(directOutput);
+            var schema = response.RootElement.GetProperty("schema");
+            schema.GetProperty("operation").GetString().Should().Be("search-and-describe");
+            schema.GetProperty("objects").GetArrayLength().Should().Be(1);
+            schema.GetProperty("object").GetProperty("sqlIdentifier").GetString()
+                .Should().Be(expectedSqlIdentifier);
+            schema.GetProperty("evidenceHash").GetString().Should().HaveLength(64);
+        }
+
+        using (var ambiguousInput = new MemoryStream())
+        using (var ambiguousOutput = new MemoryStream())
+        {
+            var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+                [
+                    "schema",
+                    "--profiles",
+                    workspace.ProfileCatalogPath,
+                    "--search",
+                    "diagnostic",
+                    "--schema-name",
+                    schemaName,
+                    "--describe-if-single"
+                ],
+                ambiguousInput,
+                ambiguousOutput);
+
+            exitCode.Should().Be(0);
+            using var response = DatabaseReadTestWorkspace.ParseOutput(ambiguousOutput);
+            var schema = response.RootElement.GetProperty("schema");
+            schema.GetProperty("operation").GetString().Should().Be("search-and-describe");
+            schema.GetProperty("objects").GetArrayLength().Should().BeGreaterThan(1);
+            schema.TryGetProperty("object", out _).Should().BeFalse();
+        }
+
         using var describeInput = DatabaseReadTestWorkspace.SchemaRequest(
             "describe",
             schemaName,

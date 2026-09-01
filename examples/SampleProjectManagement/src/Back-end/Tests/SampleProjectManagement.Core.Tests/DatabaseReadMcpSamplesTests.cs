@@ -5,6 +5,7 @@ using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using NewHeap.Platform.AI;
+using NewHeap.Platform.DatabaseRead;
 using Npgsql;
 using SampleProjectManagement.DatabaseRead.Mcp;
 using Testcontainers.PostgreSql;
@@ -23,6 +24,8 @@ public sealed class DatabaseReadMcpSamplesTests
     {
         await using var workspace = await LiveDatabaseReadWorkspace.CreateAsync(
             TestContext.Current.CancellationToken);
+        await AssertDirectPromptRouteAsync(workspace);
+
         var context = SampleDatabaseReadMcpContext.Create(
             workspace.ProfileCatalogPath,
             "sample-live",
@@ -292,6 +295,77 @@ public sealed class DatabaseReadMcpSamplesTests
         Assert.True(nextInvocation.Success);
     }
 
+    private static async Task AssertDirectPromptRouteAsync(LiveDatabaseReadWorkspace workspace)
+    {
+        await using var schemaInput = new MemoryStream();
+        await using var schemaOutput = new MemoryStream();
+        var schemaExitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            [
+                "schema",
+                "--profiles",
+                workspace.ProfileCatalogPath,
+                "--search",
+                "Projects",
+                "--schema-name",
+                "public",
+                "--describe-if-single",
+                "--maximum-rows",
+                "10",
+                "--timeout-seconds",
+                "10"
+            ],
+            schemaInput,
+            schemaOutput,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, schemaExitCode);
+        schemaOutput.Position = 0;
+        using var schemaResponse = await JsonDocument.ParseAsync(
+            schemaOutput,
+            cancellationToken: TestContext.Current.CancellationToken);
+        var schema = schemaResponse.RootElement.GetProperty("schema");
+        Assert.Equal("search-and-describe", schema.GetProperty("operation").GetString());
+        Assert.Single(schema.GetProperty("objects").EnumerateArray());
+        var describedObject = schema.GetProperty("object");
+        Assert.Equal("Projects", describedObject.GetProperty("name").GetString());
+        Assert.Contains(
+            describedObject.GetProperty("columns").EnumerateArray(),
+            column => column.GetProperty("name").GetString() == "CreationDateTime");
+
+        var queryBytes = JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            schemaVersion = 1,
+            sql =
+                "SELECT COUNT(*) OVER () AS \"TotalProjects\", \"Id\", \"Name\", \"CreationDateTime\" " +
+                "FROM public.\"Projects\" ORDER BY \"CreationDateTime\" DESC LIMIT 1",
+            parameters = Array.Empty<object>(),
+            limits = new
+            {
+                maximumRows = 1,
+                timeoutSeconds = 10
+            },
+            reason = "Count projects and return the project most recently added by CreationDateTime"
+        });
+        await using var queryInput = new MemoryStream(queryBytes);
+        await using var queryOutput = new MemoryStream();
+        var queryExitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["query", "--profiles", workspace.ProfileCatalogPath],
+            queryInput,
+            queryOutput,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, queryExitCode);
+        queryOutput.Position = 0;
+        using var queryResponse = await JsonDocument.ParseAsync(
+            queryOutput,
+            cancellationToken: TestContext.Current.CancellationToken);
+        var result = queryResponse.RootElement.GetProperty("result");
+        Assert.Equal(1, result.GetProperty("rowCount").GetInt32());
+        var newestProject = result.GetProperty("rows")[0];
+        Assert.Equal("2", newestProject[0].GetString());
+        Assert.Equal("MCP overflow sentinel", newestProject[2].GetString());
+    }
+
     private static JsonElement SuccessfulData(JsonElement? structuredContent)
     {
         Assert.True(structuredContent.HasValue);
@@ -356,6 +430,7 @@ public sealed class DatabaseReadMcpSamplesTests
                         "OrganizationTenantId" uuid NOT NULL,
                         "OrganizationId" uuid NOT NULL,
                         "Name" text NOT NULL,
+                        "CreationDateTime" timestamp with time zone NOT NULL,
                         CONSTRAINT "FK_Projects_Organizations_Organization"
                             FOREIGN KEY ("OrganizationTenantId", "OrganizationId")
                             REFERENCES public."Organizations" ("TenantId", "Id")
@@ -364,18 +439,21 @@ public sealed class DatabaseReadMcpSamplesTests
                         "Id",
                         "OrganizationTenantId",
                         "OrganizationId",
-                        "Name")
+                        "Name",
+                        "CreationDateTime")
                     VALUES
                         (
                             'f12ea625-3b2f-4417-9691-832017358d83',
                             '7ad83719-0d1d-4f2c-9986-7ad19ff96492',
                             'fe17651d-947a-40fc-bf56-a36448f6ec6a',
-                            'MCP sample project'),
+                            'MCP sample project',
+                            '2026-01-01T10:00:00Z'),
                         (
                             '48c9480a-f86c-4436-ae21-84a743cc36aa',
                             '7ad83719-0d1d-4f2c-9986-7ad19ff96492',
                             'fe17651d-947a-40fc-bf56-a36448f6ec6a',
-                            'MCP overflow sentinel');
+                            'MCP overflow sentinel',
+                            '2026-02-01T10:00:00Z');
                     CREATE TABLE public."ProjectTasks" (
                         "Id" uuid PRIMARY KEY,
                         "ProjectId" uuid NOT NULL,

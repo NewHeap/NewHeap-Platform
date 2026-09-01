@@ -109,6 +109,7 @@ internal enum DatabaseReadRequestKind
 internal enum DatabaseSchemaOperation
 {
     Search,
+    SearchAndDescribe,
     Describe,
     Indexes
 }

@@ -26,7 +26,7 @@ internal static partial class DatabaseReadProfileLoader
         MaximumSqlBytes: 32 * 1024);
 
     public static async Task<ResolvedDatabaseReadProfile> LoadAsync(
-        string profileName,
+        string? profileName,
         string? explicitCatalogPath,
         CancellationToken cancellationToken)
     {
@@ -65,6 +65,19 @@ internal static partial class DatabaseReadProfileLoader
         }
 
         ValidateProfileNames(catalog.Profiles);
+
+        if (string.IsNullOrWhiteSpace(profileName))
+        {
+            if (catalog.Profiles.Count != 1)
+            {
+                throw new DatabaseReadExpectedException(
+                    "missing-profile",
+                    "The profile is required when the database read catalog contains multiple profiles.",
+                    DatabaseReadExitCode.InvalidRequest);
+            }
+
+            profileName = catalog.Profiles.Single().Key;
+        }
 
         var matchingProfile = catalog.Profiles.FirstOrDefault(
             item => string.Equals(item.Key, profileName, StringComparison.OrdinalIgnoreCase));

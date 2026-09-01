@@ -35,12 +35,50 @@ internal static class DatabaseSchemaReader
                 limits,
                 cancellationToken);
 
-            return await provider.ReadSchemaAsync(
+            if (request.Operation != DatabaseSchemaOperation.SearchAndDescribe)
+            {
+                return await provider.ReadSchemaAsync(
+                    connection,
+                    transaction,
+                    request,
+                    limits,
+                    cancellationToken);
+            }
+
+            var searchResult = await provider.ReadSchemaAsync(
                 connection,
                 transaction,
-                request,
+                request with { Operation = DatabaseSchemaOperation.Search },
                 limits,
                 cancellationToken);
+            if (searchResult.Truncated || searchResult.Objects is not [var singleObject])
+            {
+                return new DatabaseSchemaResultResponse
+                {
+                    Operation = "search-and-describe",
+                    Objects = searchResult.Objects,
+                    Truncated = searchResult.Truncated
+                };
+            }
+
+            var describeResult = await provider.ReadSchemaAsync(
+                connection,
+                transaction,
+                new ResolvedDatabaseSchemaRequest(
+                    DatabaseSchemaOperation.Describe,
+                    singleObject.Schema,
+                    singleObject.Name,
+                    null),
+                limits,
+                cancellationToken);
+
+            return new DatabaseSchemaResultResponse
+            {
+                Operation = "search-and-describe",
+                Objects = searchResult.Objects,
+                Object = describeResult.Object,
+                Truncated = false
+            };
         }
         finally
         {

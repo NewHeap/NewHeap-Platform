@@ -40,18 +40,22 @@ configuration path. Let `newheap-db` resolve `NewHeapDiagnosticsReadOnly` throug
 the normal NewHeap configuration and secrets flow; do not read or print the
 resolved connection string.
 
-When deployed identifiers are not yet proven, use the checked-in schema request.
-Then validate and execute the bounded parameterized query:
+When deployed identifiers are not yet proven, use the direct schema route. It
+needs no schema request file and automatically selects this catalog's only
+profile. If the search has exactly one untruncated result,
+`--describe-if-single` returns its columns, indexes and relationships in the
+same connection and read-only transaction. Then execute the bounded query:
 
 ```powershell
-dotnet tool run newheap-db schema --request-file Tooling/DatabaseRead/requests/project-schema.json
-dotnet tool run newheap-db validate --request-file Tooling/DatabaseRead/requests/project-by-id.json
+dotnet tool run newheap-db schema --search Projects --schema-name public --describe-if-single
 dotnet tool run newheap-db query --request-file Tooling/DatabaseRead/requests/project-by-id.json
 ```
 
-Copy the schema request to a temporary untracked file only when another exact
-schema or object must be described. Use the minimum schema calls needed to
-confirm identifiers and stop as soon as the requested evidence is available.
+Both execution commands validate internally. Do not run `validate` immediately
+before either command; reserve it for CI or an intentional dry run. Refine the
+schema search once only when it returns zero or multiple matches. Use no more
+than one schema invocation and one query invocation for a simple count/latest
+prompt, and stop as soon as the requested evidence is available.
 `dotnet tool list --local` lists the manifest entry but does not prove the tool
 was restored; run `dotnet tool restore` only when `newheap-db` reports that the
 local command is unavailable.
@@ -84,15 +88,17 @@ request a row count within the server-owned ceiling, but cannot choose the profi
 credential, timeout, authorization scope or a higher ceiling.
 
 The checked-in `requests/project-schema.json`, `requests/project-indexes.json`
-and `requests/project-by-id.json` files demonstrate the corresponding direct
-`newheap-db` contracts and can all be checked with `newheap-db validate
---request-file <path>` before connecting to a database. The MCP route sends
+and `requests/project-by-id.json` files demonstrate repeatable JSON contracts
+and can all be checked with `newheap-db validate --request-file <path>` in CI
+without connecting to a database. The MCP route sends
 structured input in memory. For direct CLI use, pass only a request-file path or
 stream JSON through stdin; never place serialized JSON in a Windows process
 argument or reduce the diagnostic candidate set merely to fit that limit.
 
 `DatabaseReadMcpSamplesTests` is the reproducible smoke test. It starts a real
-PostgreSQL container, creates a SELECT-only login, lists the three MCP tools
+PostgreSQL container, creates a SELECT-only login, proves the prompt “count the
+projects and return the latest by `CreationDateTime`” with exactly one direct
+schema invocation and one query invocation, lists the three MCP tools
 through the official in-memory transport, describes `public."Projects"` and its
 incoming/outgoing relationships, inspects its live composite, partial and expression
 indexes, executes a typed UUID query, proves the sixteen-call per-invocation budget,

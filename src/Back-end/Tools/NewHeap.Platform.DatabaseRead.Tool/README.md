@@ -45,10 +45,12 @@ that root and may not escape it.
 }
 ```
 
-The selected connection string must use a dedicated read-only database
+When the catalog contains exactly one profile, `newheap-db` selects it
+automatically. Use `--profile <name>` or the JSON `profile` property when a
+catalog contains multiple profiles. The selected connection string must use a dedicated read-only database
 principal. `ApplicationIntent=ReadOnly`, SQL validation and transaction rollback
-are only additional safeguards. The `query` command refuses principals with
-detected write, DDL or elevated permissions.
+are only additional safeguards. The `query` and `schema` commands refuse
+principals with detected write, DDL or elevated permissions.
 
 The profile owns the operational limits for its consumer. NewHeap supplies
 defaults and a generous hard safety ceiling, while each application selects the
@@ -101,13 +103,15 @@ JSON number precision would be unsafe. A JSON `null` is accepted for every
 type. SQL identifiers are not data parameters; keep table and column names fixed
 in reviewed request files.
 
-Validate without a database connection:
+Use `validate` only for CI, request-template checks or another deliberate dry
+run without a database connection:
 
 ```text
 newheap-db validate --request-file request.json
 ```
 
-Execute after verifying the database principal:
+For an interactive diagnostic, call `query` directly. It performs the same
+request validation before it verifies the database principal and executes:
 
 ```text
 newheap-db query --request-file request.json
@@ -120,8 +124,22 @@ the path on the command line. Never inline the JSON in `powershell -Command`,
 `cmd /c`, `dotnet run` arguments or another process-launch string. Transport size
 must not change the diagnostic predicate or candidate set.
 
-Inspect the schema visible to the same read-only principal without asking an
-agent to author provider catalog SQL:
+For interactive discovery, inspect the schema visible to the same read-only
+principal without a JSON schema request:
+
+```text
+newheap-db schema --search project --schema-name public --describe-if-single
+```
+
+The command selects the catalog's only profile automatically. If the bounded
+search has exactly one untruncated match, `--describe-if-single` returns the
+matching summary and its columns, indexes and relationships through the same
+connection and read-only transaction. If zero or multiple objects match, the
+response contains only the bounded summaries so the caller can refine once.
+Do not run `validate` immediately before `schema` or `query`; both execution
+commands validate internally.
+
+Checked-in schema requests remain useful for CI and repeatable diagnostics:
 
 ```json
 {
@@ -140,7 +158,9 @@ agent to author provider catalog SQL:
 }
 ```
 
-Use `operation: "describe"` with exact `schemaName` and `objectName` values to
+Use `operation: "search-and-describe"` to perform the same conditional exact
+description as `--describe-if-single`. Use `operation: "describe"` with exact
+`schemaName` and `objectName` values to
 receive selectable columns, primary-key markers, indexes, a provider-quoted SQL
 identifier and an evidence hash. Use `operation: "indexes"` with those same
 exact identifiers for a smaller, focused response containing index uniqueness,

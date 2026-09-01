@@ -33,19 +33,13 @@ public static class NewHeapDatabaseReadApplication
             }
 
             await using var requestFileInput = OpenRequestFile(options.RequestFilePath);
-            var request = await DatabaseReadJson.ReadRequestAsync(
-                requestFileInput ?? input,
-                cancellationToken);
-            if (string.IsNullOrWhiteSpace(request.Profile))
-            {
-                throw new DatabaseReadExpectedException(
-                    "missing-profile",
-                    "The request profile is required.",
-                    DatabaseReadExitCode.InvalidRequest);
-            }
+            var request = options.DirectSchema?.CreateRequest(options.ProfileName) ??
+                          await DatabaseReadJson.ReadRequestAsync(
+                              requestFileInput ?? input,
+                              cancellationToken);
 
             var profile = await DatabaseReadProfileLoader.LoadAsync(
-                request.Profile,
+                options.ProfileName ?? request.Profile,
                 options.ProfilesPath,
                 cancellationToken);
             var validation = DatabaseReadRequestValidator.Validate(request, profile, options.Command);

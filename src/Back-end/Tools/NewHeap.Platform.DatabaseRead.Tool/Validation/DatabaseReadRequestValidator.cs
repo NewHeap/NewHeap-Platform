@@ -17,7 +17,8 @@ internal static partial class DatabaseReadRequestValidator
             throw Invalid("unsupported-schema-version", "The request must use schemaVersion 1.");
         }
 
-        if (!string.Equals(request.Profile, profile.Name, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(request.Profile) &&
+            !string.Equals(request.Profile, profile.Name, StringComparison.OrdinalIgnoreCase))
         {
             throw Invalid("profile-mismatch", "The request profile does not match the selected profile.");
         }
@@ -126,11 +127,12 @@ internal static partial class DatabaseReadRequestValidator
         var operation = schema.Operation?.Trim().ToLowerInvariant() switch
         {
             "search" => DatabaseSchemaOperation.Search,
+            "search-and-describe" => DatabaseSchemaOperation.SearchAndDescribe,
             "describe" => DatabaseSchemaOperation.Describe,
             "indexes" => DatabaseSchemaOperation.Indexes,
             _ => throw Invalid(
                 "invalid-schema-operation",
-                "Schema operation must be 'search', 'describe' or 'indexes'.")
+                "Schema operation must be 'search', 'search-and-describe', 'describe' or 'indexes'.")
         };
 
         var requiresObject = operation is DatabaseSchemaOperation.Describe or DatabaseSchemaOperation.Indexes;
@@ -138,7 +140,8 @@ internal static partial class DatabaseReadRequestValidator
         ValidateSchemaValue(schema.ObjectName, "objectName", required: requiresObject);
         ValidateSchemaValue(schema.SearchTerm, "searchTerm", required: false);
 
-        if (operation == DatabaseSchemaOperation.Search && !string.IsNullOrWhiteSpace(schema.ObjectName))
+        if (operation is DatabaseSchemaOperation.Search or DatabaseSchemaOperation.SearchAndDescribe &&
+            !string.IsNullOrWhiteSpace(schema.ObjectName))
         {
             throw Invalid(
                 "invalid-schema-search",

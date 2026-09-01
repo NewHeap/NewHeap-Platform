@@ -89,15 +89,16 @@ After installing `NewHeap.Platform.DatabaseRead.Tool` in a local .NET tool
 manifest, run this from `src/Back-end` in PowerShell:
 
 ```powershell
-dotnet tool run newheap-db schema --request-file Tooling/DatabaseRead/requests/project-schema.json
-dotnet tool run newheap-db validate --request-file Tooling/DatabaseRead/requests/project-by-id.json
+dotnet tool run newheap-db schema --search Projects --schema-name public --describe-if-single
 dotnet tool run newheap-db query --request-file Tooling/DatabaseRead/requests/project-by-id.json
 ```
 
 The commands return one JSON document on standard output and also retain standard
-input as a supported request transport. `validate` does not load the connection
-string or open the database. `query` additionally refuses a principal when write,
-DDL, or elevated permissions are detected.
+input as a supported request transport. The only profile is selected automatically.
+Both execution commands validate internally and refuse a principal when write,
+DDL, or elevated permissions are detected; do not add a separate `validate` call
+to an interactive diagnostic. `validate` remains available for CI and dry-run
+request checks without opening the database.
 
 ## Maintain the samples
 

@@ -9,6 +9,58 @@ namespace NewHeap.Platform.DatabaseRead.Tool.Tests;
 public sealed class DatabaseReadApplicationTests
 {
     [Fact]
+    public void DirectSchemaArgumentsCreateTheCompleteRequestWithoutJsonInput()
+    {
+        var options = CliOptions.Parse(
+        [
+            "schema",
+            "--profiles",
+            "catalog.json",
+            "--profile",
+            "commerce-development",
+            "--search",
+            "customer",
+            "--schema-name",
+            "commerce",
+            "--describe-if-single",
+            "--maximum-rows",
+            "25",
+            "--timeout-seconds",
+            "8"
+        ]);
+
+        options.Command.Should().Be(DatabaseReadCommand.Schema);
+        options.ProfileName.Should().Be("commerce-development");
+        options.RequestFilePath.Should().BeNull();
+        options.DirectSchema.Should().NotBeNull();
+
+        var request = options.DirectSchema!.CreateRequest(options.ProfileName);
+        request.Profile.Should().Be("commerce-development");
+        request.Schema!.Operation.Should().Be("search-and-describe");
+        request.Schema.SearchTerm.Should().Be("customer");
+        request.Schema.SchemaName.Should().Be("commerce");
+        request.Limits!.MaximumRows.Should().Be(25);
+        request.Limits.TimeoutSeconds.Should().Be(8);
+        request.Reason.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public void DirectSchemaArgumentsRejectASecondJsonInputRoute()
+    {
+        var parse = () => CliOptions.Parse(
+        [
+            "schema",
+            "--search",
+            "customer",
+            "--request-file",
+            "request.json"
+        ]);
+
+        parse.Should().Throw<DatabaseReadExpectedException>()
+            .Where(exception => exception.Code == "conflicting-schema-input");
+    }
+
+    [Fact]
     public async Task RequestFileKeepsLargeJsonOutOfWindowsProcessArguments()
     {
         using var workspace = new DatabaseReadTestWorkspace(
@@ -107,6 +159,66 @@ public sealed class DatabaseReadApplicationTests
         response.RootElement.GetProperty("target").TryGetProperty("readOnlyVerified", out _).Should().BeFalse();
         response.RootElement.GetProperty("validation").GetProperty("effectiveLimits")
             .GetProperty("maximumRows").GetInt32().Should().Be(10);
+    }
+
+    [Fact]
+    public async Task OnlyCatalogProfileIsSelectedWhenTheRequestOmitsIt()
+    {
+        using var workspace = new DatabaseReadTestWorkspace("postgresql", "unused");
+        using var input = DatabaseReadTestWorkspace.Request("SELECT 1", profile: null);
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["validate", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output);
+
+        exitCode.Should().Be(0);
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        response.RootElement.GetProperty("target").GetProperty("profile").GetString()
+            .Should().Be("test");
+    }
+
+    [Fact]
+    public async Task MultipleCatalogProfilesRequireAnExplicitSelection()
+    {
+        using var workspace = new DatabaseReadTestWorkspace(
+            "postgresql",
+            "unused",
+            profileCount: 2);
+        using var input = DatabaseReadTestWorkspace.Request("SELECT 1", profile: null);
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["validate", "--profiles", workspace.ProfileCatalogPath],
+            input,
+            output);
+
+        exitCode.Should().Be(2);
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        response.RootElement.GetProperty("error").GetProperty("code").GetString()
+            .Should().Be("missing-profile");
+    }
+
+    [Fact]
+    public async Task CliProfileSelectsFromAMultiProfileCatalogForAReusableRequest()
+    {
+        using var workspace = new DatabaseReadTestWorkspace(
+            "postgresql",
+            "unused",
+            profileCount: 2);
+        using var input = DatabaseReadTestWorkspace.Request("SELECT 1", profile: null);
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            ["validate", "--profiles", workspace.ProfileCatalogPath, "--profile", "test-2"],
+            input,
+            output);
+
+        exitCode.Should().Be(0);
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        response.RootElement.GetProperty("target").GetProperty("profile").GetString()
+            .Should().Be("test-2");
     }
 
     [Fact]
