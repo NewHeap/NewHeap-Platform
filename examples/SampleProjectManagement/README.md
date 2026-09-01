@@ -85,10 +85,11 @@ approved diagnostic tables or views. Put that login's connection string in
 `ConnectionStrings.NewHeapDiagnosticsReadOnly` in the local `secrets.json`.
 Never reuse the application owner credential.
 
-After installing `NewHeap.Platform.DatabaseRead.Tool` in a local .NET tool
-manifest, run this from `src/Back-end` in PowerShell:
+Restore the repository-pinned `NewHeap.Platform.DatabaseRead.Tool`, then run
+this from `src/Back-end` in PowerShell:
 
 ```powershell
+dotnet tool restore
 dotnet tool run newheap-db schema --search Projects --schema-name public --describe-if-single
 dotnet tool run newheap-db query --request-file Tooling/DatabaseRead/requests/project-by-id.json
 ```
