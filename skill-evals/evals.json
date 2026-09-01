@@ -83,14 +83,14 @@
       "skill": "newheap-database-development",
       "prompt": "Give Codex read-only staging and production database diagnostics without passing connection strings or query values through command-line arguments.",
       "expectedRules": ["nh-read-only-database-diagnostics"],
-      "expectedOutcome": "The consumer pins newheap-db, checks in bounded provider profiles and typed JSON stdin requests, resolves a dedicated read-only credential through NewHeap secrets, returns strict JSON stdout, and proves both successful reads and rejected writes on SQL Server and PostgreSQL."
+      "expectedOutcome": "The consumer pins newheap-db and checks in bounded provider profiles, local database-read instructions, and typed JSON request files as the execution contract. The agent uses --request-file instead of serialized command arguments, resolves a dedicated read-only credential through NewHeap secrets, returns strict JSON stdout, and proves both successful reads and rejected writes on SQL Server and PostgreSQL."
     },
     {
       "id": "consumer-debug-persisted-state-diagnostics",
       "skill": "newheap-platform-development",
       "prompt": "An order is shown as paid in the staging UI, but the API still returns pending. Can you find out why?",
       "expectedRules": ["nh-read-only-database-diagnostics"],
-      "expectedOutcome": "The router recognizes that persisted-state evidence could clarify the discrepancy, loads the database diagnostics guidance without requiring the user to name a database tool, and offers to investigate through newheap-db with selective parameters, a provider-native SQL row cap, small request limits, and no exposed secrets."
+      "expectedOutcome": "The router recognizes that persisted-state evidence could clarify the discrepancy, loads the database diagnostics guidance without requiring the user to name a tool, and directly uses the repository-pinned newheap-db profile and checked-in request contract. It does not inspect application code, appsettings, secrets or package internals merely to reconstruct routing or JSON fields; it makes only the required schema calls, validates and executes a bounded parameterized query, reports the selected profile and provider with the requested evidence, and stops."
     },
     {
       "id": "consumer-large-table-database-diagnostics",

@@ -71,7 +71,10 @@ the RabbitMQ values and
 
 The backend contains a checked-in
 `.newheap/database-read.json` profile and a parameterized
-`Tooling/DatabaseRead/requests/project-by-id.json` request. Create a dedicated
+`Tooling/DatabaseRead/requests/project-by-id.json` request. For direct agent
+diagnostics, the profile, `Tooling/DatabaseRead/README.md`, and checked-in request
+files are the routing and JSON contract; application code and package internals
+are not discovery prerequisites. Create a dedicated
 PostgreSQL login that has only `CONNECT`, schema `USAGE`, and `SELECT` on the
 approved diagnostic tables or views. Put that login's connection string in
 `ConnectionStrings.NewHeapDiagnosticsReadOnly` in the local `secrets.json`.
@@ -81,17 +84,15 @@ After installing `NewHeap.Platform.DatabaseRead.Tool` in a local .NET tool
 manifest, run this from `src/Back-end` in PowerShell:
 
 ```powershell
-Get-Content -Raw Tooling/DatabaseRead/requests/project-by-id.json |
-  dotnet tool run newheap-db validate
-
-Get-Content -Raw Tooling/DatabaseRead/requests/project-by-id.json |
-  dotnet tool run newheap-db query
+dotnet tool run newheap-db schema --request-file Tooling/DatabaseRead/requests/project-schema.json
+dotnet tool run newheap-db validate --request-file Tooling/DatabaseRead/requests/project-by-id.json
+dotnet tool run newheap-db query --request-file Tooling/DatabaseRead/requests/project-by-id.json
 ```
 
-Both commands accept JSON on standard input and return one JSON document on
-standard output. `validate` does not load the connection string or open the
-database. `query` additionally refuses a principal when write, DDL, or elevated
-permissions are detected.
+The commands return one JSON document on standard output and also retain standard
+input as a supported request transport. `validate` does not load the connection
+string or open the database. `query` additionally refuses a principal when write,
+DDL, or elevated permissions are detected.
 
 ## Maintain the samples
 

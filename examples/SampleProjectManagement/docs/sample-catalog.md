@@ -104,6 +104,14 @@ and timeout limits. Standard input carries the request and standard output
 contains one schema-versioned JSON result, which makes the contract suitable
 for developers, Codex, and other agent environments.
 
+For an agent investigating persisted sample data, the repository profile, local
+database-read README and checked-in request files form a direct fast path. The
+agent uses `sample-development`, makes only the schema calls needed to confirm
+deployed identifiers, validates the bounded query request, executes it and stops
+when the requested evidence is available. It does not inspect controllers,
+entities, EF configuration, appsettings, secrets or package internals merely to
+reconstruct routing or JSON fields that the repository already declares.
+
 The profile selects the existing NewHeap application configuration and the
 `NewHeapDiagnosticsReadOnly` connection-string name. The actual connection
 string remains in the normal secrets file and must use a separate login with

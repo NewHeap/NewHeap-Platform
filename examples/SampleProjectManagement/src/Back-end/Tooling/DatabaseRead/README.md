@@ -19,6 +19,30 @@ requested limit fails without returning partial data. The database credential
 still provides the security boundary and must be a dedicated principal with only
 the required `CONNECT`, schema usage and `SELECT` grants.
 
+## Direct fast path for agents
+
+For a question about persisted sample data, start in `src/Back-end` with the
+repository-declared `sample-development` profile and the checked-in requests in
+this directory. Those files are the routing and JSON contract. Do not inspect
+controllers, entities, EF configuration, appsettings, secrets or the tool's NuGet
+package merely to rediscover the profile, provider, ceilings or request shape.
+
+When deployed identifiers are not yet proven, use the checked-in schema request.
+Then validate and execute the bounded parameterized query:
+
+```powershell
+dotnet tool run newheap-db schema --request-file Tooling/DatabaseRead/requests/project-schema.json
+dotnet tool run newheap-db validate --request-file Tooling/DatabaseRead/requests/project-by-id.json
+dotnet tool run newheap-db query --request-file Tooling/DatabaseRead/requests/project-by-id.json
+```
+
+Copy the schema request to a temporary untracked file only when another exact
+schema or object must be described. Use the minimum schema calls needed to
+confirm identifiers and stop as soon as the requested evidence is available.
+`dotnet tool list --local` lists the manifest entry but does not prove the tool
+was restored; run `dotnet tool restore` only when `newheap-db` reports that the
+local command is unavailable.
+
 From `src/Back-end`, after providing the `NewHeapDiagnosticsReadOnly` secret for
 the running sample database, start the stdio server with:
 
