@@ -148,13 +148,19 @@ public sealed class DatabaseReadProviderTests
         using var output = new MemoryStream();
 
         var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
-            ["query", "--profiles", workspace.ProfileCatalogPath],
+            [
+                "query",
+                "--profiles",
+                workspace.ProfileCatalogPath,
+                "--environment",
+                "Production"
+            ],
             input,
             output);
 
         exitCode.Should().Be(0);
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
-        AssertSuccessfulProjectResult(response, "sql-server");
+        AssertSuccessfulProjectResult(response, "sql-server", "Production");
         await AssertSchemaInspectionAsync(
             "sql-server",
             readerBuilder.ConnectionString,
@@ -321,13 +327,19 @@ public sealed class DatabaseReadProviderTests
         using var output = new MemoryStream();
 
         var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
-            ["query", "--profiles", workspace.ProfileCatalogPath],
+            [
+                "query",
+                "--profiles",
+                workspace.ProfileCatalogPath,
+                "--environment",
+                "Production"
+            ],
             input,
             output);
 
         exitCode.Should().Be(0);
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
-        AssertSuccessfulProjectResult(response, "postgresql");
+        AssertSuccessfulProjectResult(response, "postgresql", "Production");
         await AssertSchemaInspectionAsync(
             "postgresql",
             readerBuilder.ConnectionString,
@@ -777,11 +789,15 @@ public sealed class DatabaseReadProviderTests
         error.GetProperty("message").GetString().Should().Contain("No partial result was returned");
     }
 
-    private static void AssertSuccessfulProjectResult(JsonDocument response, string provider)
+    private static void AssertSuccessfulProjectResult(
+        JsonDocument response,
+        string provider,
+        string environment)
     {
         var root = response.RootElement;
         root.GetProperty("ok").GetBoolean().Should().BeTrue();
         root.GetProperty("target").GetProperty("provider").GetString().Should().Be(provider);
+        root.GetProperty("target").GetProperty("environment").GetString().Should().Be(environment);
         root.GetProperty("target").GetProperty("readOnlyVerified").GetBoolean().Should().BeTrue();
         var result = root.GetProperty("result");
         result.GetProperty("rowCount").GetInt32().Should().Be(1);

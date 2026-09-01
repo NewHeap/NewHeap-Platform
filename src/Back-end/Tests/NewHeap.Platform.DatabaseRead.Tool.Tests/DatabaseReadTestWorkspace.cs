@@ -8,6 +8,7 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
     private const string ConnectionStringName = "NewHeapDiagnosticsReadOnly";
 
     private readonly string _root;
+    private readonly string _secretsPath;
 
     public DatabaseReadTestWorkspace(
         string provider,
@@ -20,7 +21,7 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
             "NewHeap.Platform.DatabaseRead.Tool.Tests",
             Guid.NewGuid().ToString("N"));
         var configurationPath = Path.Combine(_root, "src", "Example.Api");
-        var secretsPath = Path.Combine(_root, "secrets");
+        _secretsPath = Path.Combine(_root, "secrets");
         ProfileCatalogPath = Path.Combine(_root, ".newheap", "database-read.json");
 
         var profiles = Enumerable.Range(1, profileCount)
@@ -54,7 +55,7 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
                 {
                     PlatformCommon = new
                     {
-                        AppSecretsDirectoryPath = secretsPath
+                        AppSecretsDirectoryPath = _secretsPath
                     }
                 },
                 ConnectionStrings = new Dictionary<string, string>
@@ -63,7 +64,7 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
                 }
             });
         WriteJson(
-            Path.Combine(secretsPath, "secrets.json"),
+            Path.Combine(_secretsPath, "secrets.json"),
             new
             {
                 ConnectionStrings = new Dictionary<string, string>
@@ -74,6 +75,19 @@ internal sealed class DatabaseReadTestWorkspace : IDisposable
     }
 
     public string ProfileCatalogPath { get; }
+
+    public void WriteEnvironmentConnectionString(string environment, string connectionString)
+    {
+        WriteJson(
+            Path.Combine(_secretsPath, $"secrets.{environment}.json"),
+            new
+            {
+                ConnectionStrings = new Dictionary<string, string>
+                {
+                    [ConnectionStringName] = connectionString
+                }
+            });
+    }
 
     public string WriteRequestFile(MemoryStream request, string fileName = "request.json")
     {

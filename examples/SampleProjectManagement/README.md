@@ -77,9 +77,12 @@ files are the routing and JSON contract; application code and package internals
 are not discovery prerequisites. From the sample root, one bounded tracked-file
 search finds the nested catalog under `src/Back-end`; that catalog root, not an
 ancestor tool-manifest directory, becomes the diagnostic working directory. Its
-only `sample-development` profile is the environment selection, so an agent uses
-it without asking the user to choose Development, Staging or Production and lets
-`newheap-db` resolve its configured connection-string name. Create a dedicated
+only `sample-development` profile governs provider, configuration path,
+connection-string name and ceilings; Development is its default runtime
+environment. If the user explicitly requests Staging or Production, pass that
+value with `--environment` to schema and query instead of requiring another
+profile solely for the environment. Let `newheap-db` resolve the governed
+connection-string name. Create a dedicated
 PostgreSQL login that has only `CONNECT`, schema `USAGE`, and `SELECT` on the
 approved diagnostic tables or views. Put that login's connection string in
 `ConnectionStrings.NewHeapDiagnosticsReadOnly` in the local `secrets.json`.
@@ -93,6 +96,11 @@ dotnet tool restore
 dotnet tool run newheap-db schema --search Projects --schema-name public --describe-if-single
 dotnet tool run newheap-db query --request-file Tooling/DatabaseRead/requests/project-by-id.json
 ```
+
+For an explicitly requested Production diagnostic, use the same profile with
+`--environment Production` on both execution commands. The tool resolves the
+environment-specific configuration and still refuses any principal with write,
+DDL or elevated permissions.
 
 The commands return one JSON document on standard output and also retain standard
 input as a supported request transport. The only profile is selected automatically.

@@ -304,6 +304,8 @@ public sealed class DatabaseReadMcpSamplesTests
                 "schema",
                 "--profiles",
                 workspace.ProfileCatalogPath,
+                "--environment",
+                "Production",
                 "--search",
                 "Projects",
                 "--schema-name",
@@ -323,6 +325,9 @@ public sealed class DatabaseReadMcpSamplesTests
         using var schemaResponse = await JsonDocument.ParseAsync(
             schemaOutput,
             cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal(
+            "Production",
+            schemaResponse.RootElement.GetProperty("target").GetProperty("environment").GetString());
         var schema = schemaResponse.RootElement.GetProperty("schema");
         Assert.Equal("search-and-describe", schema.GetProperty("operation").GetString());
         Assert.Single(schema.GetProperty("objects").EnumerateArray());
@@ -349,7 +354,13 @@ public sealed class DatabaseReadMcpSamplesTests
         await using var queryInput = new MemoryStream(queryBytes);
         await using var queryOutput = new MemoryStream();
         var queryExitCode = await NewHeapDatabaseReadApplication.RunAsync(
-            ["query", "--profiles", workspace.ProfileCatalogPath],
+            [
+                "query",
+                "--profiles",
+                workspace.ProfileCatalogPath,
+                "--environment",
+                "Production"
+            ],
             queryInput,
             queryOutput,
             TestContext.Current.CancellationToken);
@@ -359,6 +370,9 @@ public sealed class DatabaseReadMcpSamplesTests
         using var queryResponse = await JsonDocument.ParseAsync(
             queryOutput,
             cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal(
+            "Production",
+            queryResponse.RootElement.GetProperty("target").GetProperty("environment").GetString());
         var result = queryResponse.RootElement.GetProperty("result");
         Assert.Equal(1, result.GetProperty("rowCount").GetInt32());
         var newestProject = result.GetProperty("rows")[0];

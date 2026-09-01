@@ -5,6 +5,7 @@ internal sealed record CliOptions(
     string? ProfilesPath,
     string? RequestFilePath,
     string? ProfileName,
+    string? EnvironmentName,
     CliDirectSchemaOptions? DirectSchema,
     bool ShowHelp)
 {
@@ -12,7 +13,7 @@ internal sealed record CliOptions(
     {
         if (args.Length == 0 || args[0] is "--help" or "-h")
         {
-            return new CliOptions(DatabaseReadCommand.Validate, null, null, null, null, true);
+            return new CliOptions(DatabaseReadCommand.Validate, null, null, null, null, null, true);
         }
 
         var command = args[0].ToLowerInvariant() switch
@@ -29,6 +30,7 @@ internal sealed record CliOptions(
         string? profilesPath = null;
         string? requestFilePath = null;
         string? profileName = null;
+        string? environmentName = null;
         string? schemaSearchTerm = null;
         string? schemaName = null;
         int? maximumRows = null;
@@ -48,6 +50,9 @@ internal sealed record CliOptions(
                 case "--profile":
                     profileName = ReadValue(args, ref index, "--profile");
                     break;
+                case "--environment":
+                    environmentName = ReadValue(args, ref index, "--environment");
+                    break;
                 case "--search":
                     schemaSearchTerm = ReadValue(args, ref index, "--search");
                     break;
@@ -64,7 +69,14 @@ internal sealed record CliOptions(
                     timeoutSeconds = ReadPositiveInteger(args, ref index, "--timeout-seconds");
                     break;
                 case "--help" or "-h":
-                    return new CliOptions(command, profilesPath, requestFilePath, profileName, null, true);
+                    return new CliOptions(
+                        command,
+                        profilesPath,
+                        requestFilePath,
+                        profileName,
+                        environmentName,
+                        null,
+                        true);
                 default:
                     throw new DatabaseReadExpectedException(
                         "unknown-argument",
@@ -116,6 +128,7 @@ internal sealed record CliOptions(
             profilesPath is null ? null : Path.GetFullPath(profilesPath),
             requestFilePath is null ? null : ResolveRequestFilePath(requestFilePath),
             profileName,
+            environmentName,
             directSchema,
             false);
     }
@@ -130,10 +143,14 @@ internal sealed record CliOptions(
         NewHeap appsettings/secrets substitution flow. They are never accepted as arguments.
 
         Usage:
-          newheap-db validate [--profiles <path>] [--profile <name>] [--request-file <path>]
-          newheap-db query [--profiles <path>] [--profile <name>] [--request-file <path>]
-          newheap-db schema [--profiles <path>] [--profile <name>] [--request-file <path>]
-          newheap-db schema [--profiles <path>] [--profile <name>] --search <term>
+          newheap-db validate [--profiles <path>] [--profile <name>]
+                              [--environment <name>] [--request-file <path>]
+          newheap-db query [--profiles <path>] [--profile <name>]
+                           [--environment <name>] [--request-file <path>]
+          newheap-db schema [--profiles <path>] [--profile <name>]
+                            [--environment <name>] [--request-file <path>]
+          newheap-db schema [--profiles <path>] [--profile <name>]
+                            [--environment <name>] --search <term>
                             [--schema-name <name>] [--describe-if-single]
                             [--maximum-rows <count>] [--timeout-seconds <seconds>]
 
@@ -147,6 +164,10 @@ internal sealed record CliOptions(
           .newheap/database-read.json.
           Without --profile, the catalog's only profile is selected automatically. A catalog
           with multiple profiles requires --profile or a profile in the JSON request.
+          Without --environment, the selected profile's environment is used. Use an explicit
+          --environment only when the requested diagnostic scope names another runtime
+          environment. The profile still governs provider, configuration path,
+          connection-string name and operational ceilings.
 
         Direct schema discovery:
           --search filters selectable table and view names without requiring JSON input.

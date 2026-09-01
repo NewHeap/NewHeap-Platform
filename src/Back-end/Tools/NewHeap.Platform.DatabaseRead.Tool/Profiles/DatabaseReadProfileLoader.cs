@@ -27,6 +27,7 @@ internal static partial class DatabaseReadProfileLoader
 
     public static async Task<ResolvedDatabaseReadProfile> LoadAsync(
         string? profileName,
+        string? environmentName,
         string? explicitCatalogPath,
         CancellationToken cancellationToken)
     {
@@ -88,7 +89,10 @@ internal static partial class DatabaseReadProfileLoader
 
         var profile = matchingProfile.Value;
         var provider = ParseProvider(profile.Provider);
-        var environment = RequireSafeName(profile.Environment, "environment");
+        var profileEnvironment = RequireSafeName(profile.Environment, "environment");
+        var environment = environmentName is null
+            ? profileEnvironment
+            : RequireSafeName(environmentName, "environment override");
         var connectionStringName = RequireSafeName(profile.ConnectionStringName, "connectionStringName");
         var configurationPath = ResolveConfigurationPath(catalogPath, profile.ConfigurationPath);
         var limits = ResolveProfileLimits(profile);

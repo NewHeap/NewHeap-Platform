@@ -18,6 +18,8 @@ public sealed class DatabaseReadApplicationTests
             "catalog.json",
             "--profile",
             "commerce-development",
+            "--environment",
+            "Production",
             "--search",
             "customer",
             "--schema-name",
@@ -31,6 +33,7 @@ public sealed class DatabaseReadApplicationTests
 
         options.Command.Should().Be(DatabaseReadCommand.Schema);
         options.ProfileName.Should().Be("commerce-development");
+        options.EnvironmentName.Should().Be("Production");
         options.RequestFilePath.Should().BeNull();
         options.DirectSchema.Should().NotBeNull();
 
@@ -177,6 +180,72 @@ public sealed class DatabaseReadApplicationTests
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
         response.RootElement.GetProperty("target").GetProperty("profile").GetString()
             .Should().Be("test");
+    }
+
+    [Fact]
+    public async Task ExplicitEnvironmentOverridesOnlyTheProfilesRuntimeEnvironment()
+    {
+        const string developmentConnectionString =
+            "Host=development.example.invalid;Database=example;Username=test;Password=test";
+        const string productionConnectionString =
+            "Host=production.example.invalid;Database=example;Username=test;Password=test";
+        using var workspace = new DatabaseReadTestWorkspace(
+            "postgresql",
+            developmentConnectionString);
+        workspace.WriteEnvironmentConnectionString("Production", productionConnectionString);
+        using var input = DatabaseReadTestWorkspace.Request("SELECT 1", profile: null);
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            [
+                "validate",
+                "--profiles",
+                workspace.ProfileCatalogPath,
+                "--environment",
+                "Production"
+            ],
+            input,
+            output);
+
+        exitCode.Should().Be(0);
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        var target = response.RootElement.GetProperty("target");
+        target.GetProperty("profile").GetString().Should().Be("test");
+        target.GetProperty("provider").GetString().Should().Be("postgresql");
+        target.GetProperty("environment").GetString().Should().Be("Production");
+
+        var profile = await DatabaseReadProfileLoader.LoadAsync(
+            null,
+            "Production",
+            workspace.ProfileCatalogPath,
+            CancellationToken.None);
+        profile.ConnectionStringName.Should().Be("NewHeapDiagnosticsReadOnly");
+        profile.MaximumLimits.MaximumRows.Should().Be(20);
+        NewHeapConnectionStringResolver.Resolve(profile).Should().Be(productionConnectionString);
+    }
+
+    [Fact]
+    public async Task UnsafeEnvironmentOverrideIsRejectedBeforeConfigurationIsLoaded()
+    {
+        using var workspace = new DatabaseReadTestWorkspace("postgresql", "unused");
+        using var input = DatabaseReadTestWorkspace.Request("SELECT 1");
+        using var output = new MemoryStream();
+
+        var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+            [
+                "validate",
+                "--profiles",
+                workspace.ProfileCatalogPath,
+                "--environment",
+                "../Production"
+            ],
+            input,
+            output);
+
+        exitCode.Should().Be(3);
+        using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+        response.RootElement.GetProperty("error").GetProperty("code").GetString()
+            .Should().Be("invalid-profile-value");
     }
 
     [Fact]

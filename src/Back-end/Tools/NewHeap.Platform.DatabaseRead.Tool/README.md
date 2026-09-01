@@ -3,8 +3,10 @@
 `newheap-db` inspects selectable database schema and executes parameterized
 diagnostic queries through the same appsettings, environment and
 secret-substitution flow as a NewHeap application.
-The connection string is selected by a checked-in profile and is never accepted
-in the JSON request, command-line arguments or output.
+The connection-string name is selected by a checked-in profile and the value is
+never accepted in the JSON request, command-line arguments or output. The
+profile's environment is the default runtime environment; an explicitly requested
+diagnostic scope can override only that environment with `--environment`.
 
 The tool is intended for incident investigation and application debugging. It
 is not a reporting, migration, repair or administration tool.
@@ -47,10 +49,18 @@ that root and may not escape it.
 
 When the catalog contains exactly one profile, `newheap-db` selects it
 automatically. Use `--profile <name>` or the JSON `profile` property when a
-catalog contains multiple profiles. The selected connection string must use a dedicated read-only database
+catalog contains multiple profiles. The profile environment is a default, not an
+environment allowlist. When the user explicitly requests another runtime
+environment, pass `--environment <name>` to both schema and query commands. The
+selected profile still governs the provider, configuration path,
+connection-string name and operational ceilings, so the override cannot select
+an arbitrary credential or configuration location.
+
+The resolved connection string must use a dedicated read-only database
 principal. `ApplicationIntent=ReadOnly`, SQL validation and transaction rollback
 are only additional safeguards. The `query` and `schema` commands refuse
-principals with detected write, DDL or elevated permissions.
+principals with detected write, DDL or elevated permissions, including in
+Production.
 
 The profile owns the operational limits for its consumer. NewHeap supplies
 defaults and a generous hard safety ceiling, while each application selects the
@@ -117,6 +127,18 @@ request validation before it verifies the database principal and executes:
 newheap-db query --request-file request.json
 ```
 
+For an explicitly requested Production diagnostic, retain the governed profile
+and select the corresponding runtime configuration without adding a second
+profile solely for the environment:
+
+```text
+newheap-db query --environment Production --request-file request.json
+```
+
+If the environment-specific configuration does not resolve the profile's
+connection-string name, or if its principal is not read-only, the command fails
+without executing the diagnostic query.
+
 Standard input remains available for streaming callers. `--request-file` is the
 portable CLI choice when a request is already on disk or when a shell wrapper
 would otherwise put serialized JSON inside a Windows process argument. Pass only
@@ -129,6 +151,12 @@ principal without a JSON schema request:
 
 ```text
 newheap-db schema --search project --schema-name public --describe-if-single
+```
+
+Pass the same explicit environment to schema discovery and the subsequent query:
+
+```text
+newheap-db schema --environment Production --search project --schema-name public --describe-if-single
 ```
 
 The command selects the catalog's only profile automatically. If the bounded

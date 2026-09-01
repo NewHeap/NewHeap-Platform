@@ -34,11 +34,14 @@ entities, EF configuration, appsettings, secrets or the tool's NuGet package
 merely to rediscover the profile, provider, ceilings or request shape.
 
 This catalog contains exactly one profile, so use `sample-development` without
-asking whether the user means Development, Staging or Production. Its
-`environment` and `connectionStringName` fields select the existing
-configuration path. Let `newheap-db` resolve `NewHeapDiagnosticsReadOnly` through
-the normal NewHeap configuration and secrets flow; do not read or print the
-resolved connection string.
+asking for a profile selection. Its provider, configuration path,
+`connectionStringName` and ceilings remain governed, while its `environment`
+field is the default runtime environment. When the user explicitly requests
+another environment, pass `--environment <name>` to both schema and query; do
+not require a duplicate profile solely for Production or Staging. Let
+`newheap-db` resolve `NewHeapDiagnosticsReadOnly` through the selected
+environment's normal NewHeap configuration and secrets flow; do not read or
+print the resolved connection string.
 
 When deployed identifiers are not yet proven, use the direct schema route. It
 needs no schema request file and automatically selects this catalog's only
@@ -50,6 +53,17 @@ same connection and read-only transaction. Then execute the bounded query:
 dotnet tool run newheap-db schema --search Projects --schema-name public --describe-if-single
 dotnet tool run newheap-db query --request-file Tooling/DatabaseRead/requests/project-by-id.json
 ```
+
+For an explicitly requested Production diagnostic, use the same governed
+profile and pass the runtime environment consistently:
+
+```powershell
+dotnet tool run newheap-db schema --environment Production --search Projects --schema-name public --describe-if-single
+dotnet tool run newheap-db query --environment Production --request-file Tooling/DatabaseRead/requests/project-by-id.json
+```
+
+The tool still rejects the operation before reading data when the resolved
+principal has write, DDL or elevated permissions.
 
 Both execution commands validate internally. Do not run `validate` immediately
 before either command; reserve it for CI or an intentional dry run. Refine the
@@ -96,9 +110,10 @@ stream JSON through stdin; never place serialized JSON in a Windows process
 argument or reduce the diagnostic candidate set merely to fit that limit.
 
 `DatabaseReadMcpSamplesTests` is the reproducible smoke test. It starts a real
-PostgreSQL container, creates a SELECT-only login, proves the prompt “count the
-projects and return the latest by `CreationDateTime`” with exactly one direct
-schema invocation and one query invocation, lists the three MCP tools
+PostgreSQL container, creates a SELECT-only login, proves the Production prompt
+“count the projects and return the latest by `CreationDateTime`” from a catalog
+whose only profile defaults to Development with exactly one direct schema
+invocation and one query invocation, lists the three MCP tools
 through the official in-memory transport, describes `public."Projects"` and its
 incoming/outgoing relationships, inspects its live composite, partial and expression
 indexes, executes a typed UUID query, proves the sixteen-call per-invocation budget,

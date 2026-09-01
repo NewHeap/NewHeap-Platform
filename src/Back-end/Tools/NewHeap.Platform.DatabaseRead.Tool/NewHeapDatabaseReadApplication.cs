@@ -40,6 +40,7 @@ public static class NewHeapDatabaseReadApplication
 
             var profile = await DatabaseReadProfileLoader.LoadAsync(
                 options.ProfileName ?? request.Profile,
+                options.EnvironmentName,
                 options.ProfilesPath,
                 cancellationToken);
             var validation = DatabaseReadRequestValidator.Validate(request, profile, options.Command);
