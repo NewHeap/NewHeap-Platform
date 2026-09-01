@@ -4,148 +4,148 @@
 
 This catalog centralizes the release-pinned source links used by the bundled consumer skills. Feature changes keep these links on the last published plugin release; the protected Prepare release workflow updates the catalog exactly once when it creates the next immutable plugin release.
 
-Source release: `newheap-platform-plugin-v1.13.21`
+Source release: `newheap-platform-plugin-v1.13.22`
 
 ## Ai Agent Framework
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/ai-agent-framework.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/ai-agent-framework.md)
 
 ## Ai Aspnet Context
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/ai-aspnet-context.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/ai-aspnet-context.md)
 
 ## Ai Assets
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/ai-assets.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/ai-assets.md)
 
 ## Ai Context Retrieval
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/ai-context-retrieval.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/ai-context-retrieval.md)
 
 ## Ai Durable Runs
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/ai-durable-runs.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/ai-durable-runs.md)
 
 ## Ai Ingestion
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/ai-ingestion.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/ai-ingestion.md)
 
 ## Ai Local Tools
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/ai-local-tools.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/ai-local-tools.md)
 
 ## Ai Mcp Imports
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/ai-mcp-imports.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/ai-mcp-imports.md)
 
 ## Ai Mcp Tools
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/ai-mcp-tools.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/ai-mcp-tools.md)
 
 ## Ai Model Profiles
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/ai-model-profiles.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/ai-model-profiles.md)
 
 ## Ai Observability Evaluation
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/ai-observability-evaluation.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/ai-observability-evaluation.md)
 
 ## Ai Protected Actions
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/ai-protected-actions.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/ai-protected-actions.md)
 
 ## Authentication Overrides
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/authentication-overrides.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/authentication-overrides.md)
 
 ## Authorization Permissions
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/authorization-permissions.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/authorization-permissions.md)
 
 ## Backend Controller Contracts
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/backend-controller-contracts.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/backend-controller-contracts.md)
 
 ## Backend Models Localization
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/backend-models-localization.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/backend-models-localization.md)
 
 ## Backend Module Composition
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/backend-module-composition.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/backend-module-composition.md)
 
 ## Backend Partial Update
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/backend-partial-update.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/backend-partial-update.md)
 
 ## Backend Project Foundation
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/backend-project-foundation.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/backend-project-foundation.md)
 
 ## Backend Unit Of Work
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/backend-unit-of-work.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/backend-unit-of-work.md)
 
 ## Background Operation Suspension
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/background-operation-suspension.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/background-operation-suspension.md)
 
 ## Background Processing
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/background-processing.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/background-processing.md)
 
 ## Consumer Bootstrap Sequence
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/consumer-bootstrap-sequence.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/consumer-bootstrap-sequence.md)
 
 ## Consumer Management Portal
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/consumer-management-portal.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/consumer-management-portal.md)
 
 ## Consumer Optional Infrastructure
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/consumer-optional-infrastructure.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/consumer-optional-infrastructure.md)
 
 ## Consumer Scope Gate
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/consumer-scope-gate.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/consumer-scope-gate.md)
 
 ## Database Bulk Upsert
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/database-bulk-upsert.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/database-bulk-upsert.md)
 
 ## Database Diagnostics
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/database-diagnostics.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/database-diagnostics.md)
 
 ## Database Providers
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/database-providers.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/database-providers.md)
 
 ## Frontend Collection Query
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/frontend-collection-query.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/frontend-collection-query.md)
 
 ## Frontend Lifecycle Modals
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/frontend-lifecycle-modals.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/frontend-lifecycle-modals.md)
 
 ## Frontend Root Configuration
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/frontend-root-configuration.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/frontend-root-configuration.md)
 
 ## Media
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/media.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/media.md)
 
 ## Observability Logging
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/observability-logging.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/observability-logging.md)
 
 ## Runtime Configuration
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/runtime-configuration.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/runtime-configuration.md)
 
 ## Testing
 
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.21/docs/consumer-guide/testing.md)
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/testing.md)
