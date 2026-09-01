@@ -93,6 +93,13 @@
       "expectedOutcome": "The router recognizes that persisted-state evidence could clarify the discrepancy, loads the database diagnostics guidance without requiring the user to name a tool, and directly uses the repository-pinned newheap-db profile and checked-in request contract. It does not inspect application code, appsettings, secrets or package internals merely to reconstruct routing or JSON fields; it makes only the required schema calls, validates and executes a bounded parameterized query, reports the selected profile and provider with the requested evidence, and stops."
     },
     {
+      "id": "consumer-nested-single-profile-diagnostics",
+      "skill": "newheap-platform-development",
+      "prompt": "From this monorepo root, count the customer records and return the newest customer by CreationDateTime. The local .NET tool manifest is at the repository root, while the database-read contract is somewhere below it.",
+      "expectedRules": ["nh-read-only-database-diagnostics"],
+      "expectedOutcome": "The router makes one bounded tracked-file search for the profile catalog, local database-read README and request files before declaring the contract missing. When it finds exactly one nested catalog, it uses the directory containing .newheap as the diagnostic working directory and selects the catalog's only profile without asking whether the user means Development, Staging or Production. The profile's provider, environment, connection-string name and ceilings are authoritative; newheap-db resolves the configured name through the existing NewHeap configuration and secrets flow without the agent reading or exposing the connection string. The agent uses the checked-in typed request contract, validates and executes the bounded read-only diagnostics, and stops with the requested evidence."
+    },
+    {
       "id": "consumer-large-table-database-diagnostics",
       "skill": "newheap-database-development",
       "prompt": "Investigate on production why a customer event was not processed. The event table may be very large, and this must not put avoidable load on the database.",

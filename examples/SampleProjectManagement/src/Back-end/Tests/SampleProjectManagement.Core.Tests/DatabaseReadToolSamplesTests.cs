@@ -11,6 +11,25 @@ namespace SampleProjectManagement.Core.Tests;
 public sealed class DatabaseReadToolSamplesTests
 {
     [Fact]
+    public void CheckedInCatalogProvidesOneAuthoritativeDiagnosticRoute()
+    {
+        var backendRoot = FindBackendRoot();
+        var profileCatalogPath = Path.Combine(backendRoot, ".newheap", "database-read.json");
+        using var catalog = JsonDocument.Parse(File.ReadAllText(profileCatalogPath));
+        var profiles = catalog.RootElement.GetProperty("profiles");
+
+        var profile = Assert.Single(profiles.EnumerateObject());
+
+        Assert.Equal("sample-development", profile.Name);
+        Assert.Equal("postgresql", profile.Value.GetProperty("provider").GetString());
+        Assert.Equal("Development", profile.Value.GetProperty("environment").GetString());
+        Assert.Equal(
+            "NewHeapDiagnosticsReadOnly",
+            profile.Value.GetProperty("connectionStringName").GetString());
+        Assert.False(profile.Value.TryGetProperty("connectionString", out _));
+    }
+
+    [Fact]
     public async Task CheckedInDiagnosticRequestMatchesTheDevelopmentProfile()
     {
         var backendRoot = FindBackendRoot();

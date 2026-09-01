@@ -23,9 +23,22 @@ the required `CONNECT`, schema usage and `SELECT` grants.
 
 For a question about persisted sample data, start in `src/Back-end` with the
 repository-declared `sample-development` profile and the checked-in requests in
-this directory. Those files are the routing and JSON contract. Do not inspect
-controllers, entities, EF configuration, appsettings, secrets or the tool's NuGet
-package merely to rediscover the profile, provider, ceilings or request shape.
+this directory. If the agent starts at the sample repository root, it first makes
+one bounded tracked-file search for `**/.newheap/database-read.json`,
+`**/Tooling/DatabaseRead/README.md`, and
+`**/Tooling/DatabaseRead/requests/*.json`, then uses the directory containing the
+only `.newheap` catalog as its working directory. The .NET tool manifest may be
+in that directory or an ancestor; its location does not replace the catalog root.
+Those files are the routing and JSON contract. Do not inspect controllers,
+entities, EF configuration, appsettings, secrets or the tool's NuGet package
+merely to rediscover the profile, provider, ceilings or request shape.
+
+This catalog contains exactly one profile, so use `sample-development` without
+asking whether the user means Development, Staging or Production. Its
+`environment` and `connectionStringName` fields select the existing
+configuration path. Let `newheap-db` resolve `NewHeapDiagnosticsReadOnly` through
+the normal NewHeap configuration and secrets flow; do not read or print the
+resolved connection string.
 
 When deployed identifiers are not yet proven, use the checked-in schema request.
 Then validate and execute the bounded parameterized query:

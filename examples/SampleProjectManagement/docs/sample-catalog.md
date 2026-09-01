@@ -106,7 +106,10 @@ for developers, Codex, and other agent environments.
 
 For an agent investigating persisted sample data, the repository profile, local
 database-read README and checked-in request files form a direct fast path. The
-agent uses `sample-development`, makes only the schema calls needed to confirm
+agent makes one bounded tracked-file search when it starts above the backend,
+uses the directory containing the only nested catalog as its diagnostic working
+directory, and selects the catalog's only `sample-development` profile without
+asking for an environment. It makes only the schema calls needed to confirm
 deployed identifiers, validates the bounded query request, executes it and stops
 when the requested evidence is available. It does not inspect controllers,
 entities, EF configuration, appsettings, secrets or package internals merely to
@@ -114,8 +117,9 @@ reconstruct routing or JSON fields that the repository already declares.
 
 The profile selects the existing NewHeap application configuration and the
 `NewHeapDiagnosticsReadOnly` connection-string name. The actual connection
-string remains in the normal secrets file and must use a separate login with
-only the approved `SELECT` permissions. The parser, transaction rollback,
+string is resolved by `newheap-db`, remains in the normal secrets file and must
+use a separate login with only the approved `SELECT` permissions. The parser,
+transaction rollback,
 timeouts, and row/output limits are additional safeguards; the database login
 is the security boundary. Platform integration tests prove that the same login
 can read but cannot update on real SQL Server and PostgreSQL instances while

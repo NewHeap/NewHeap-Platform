@@ -74,7 +74,12 @@ The backend contains a checked-in
 `Tooling/DatabaseRead/requests/project-by-id.json` request. For direct agent
 diagnostics, the profile, `Tooling/DatabaseRead/README.md`, and checked-in request
 files are the routing and JSON contract; application code and package internals
-are not discovery prerequisites. Create a dedicated
+are not discovery prerequisites. From the sample root, one bounded tracked-file
+search finds the nested catalog under `src/Back-end`; that catalog root, not an
+ancestor tool-manifest directory, becomes the diagnostic working directory. Its
+only `sample-development` profile is the environment selection, so an agent uses
+it without asking the user to choose Development, Staging or Production and lets
+`newheap-db` resolve its configured connection-string name. Create a dedicated
 PostgreSQL login that has only `CONNECT`, schema `USAGE`, and `SELECT` on the
 approved diagnostic tables or views. Put that login's connection string in
 `ConnectionStrings.NewHeapDiagnosticsReadOnly` in the local `secrets.json`.
