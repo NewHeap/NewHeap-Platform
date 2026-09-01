@@ -29,7 +29,7 @@
     <PackageVersion Include="Microsoft.Agents.AI" Version="1.19.0" />
     <PackageVersion Include="Microsoft.Agents.AI.Workflows" Version="1.19.0" />
     <PackageVersion Include="Microsoft.Playwright.Xunit" Version="1.61.0" />
-    <PackageVersion Include="NewHeap.Platform.Common" Version="4.4.3" />
+    <PackageVersion Include="NewHeap.Platform.Common" Version="4.4.4" />
     <PackageVersion Include="NewHeap.Platform.AspNet.Common" Version="3.0.0" />
     <PackageVersion Include="NewHeap.Platform.AI.Common" Version="3.0.0" />
     <PackageVersion Include="NewHeap.Platform.AI.AspNet.Common" Version="3.0.0" />
