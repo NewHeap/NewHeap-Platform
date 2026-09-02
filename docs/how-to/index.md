@@ -4,3 +4,4 @@ These how-to guides describe operational processes for the NewHeap libraries. Th
 
 - [Release libraries through GitHub](release-newheap-libraries.md)
 - [Consume public packages](consume-public-packages.md)
+- [Migrate to provider-neutral observability](migrate-to-provider-neutral-observability.md)

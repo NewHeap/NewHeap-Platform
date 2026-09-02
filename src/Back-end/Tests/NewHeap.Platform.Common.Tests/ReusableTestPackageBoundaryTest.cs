@@ -17,4 +17,19 @@ public sealed class ReusableTestPackageBoundaryTest
 
         Assert.Empty(testMethods);
     }
+
+    [Fact]
+    public void ReusableTestPackageDoesNotReferenceAnXunitRuntime()
+    {
+        var assemblyReferences = typeof(NhTestingContext).Assembly.GetReferencedAssemblies();
+
+        Assert.DoesNotContain(
+            assemblyReferences,
+            reference => reference.Name?.StartsWith("xunit", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.DoesNotContain(
+            typeof(NhTestingContextFixture<TestContext>).GetInterfaces(),
+            contract => contract.FullName == "Xunit.IAsyncLifetime");
+    }
+
+    private sealed class TestContext : NhTestingContext;
 }

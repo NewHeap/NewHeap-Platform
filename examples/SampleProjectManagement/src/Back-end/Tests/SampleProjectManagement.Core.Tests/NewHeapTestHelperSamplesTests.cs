@@ -32,6 +32,17 @@ public class NewHeapTestHelperSamplesTests
     }
 
     [Fact]
+    public async Task TestingContextFixtureWorksWithTheConsumerOwnedXunitVersion()
+    {
+        var fixture = new ProjectTestingContextFixture();
+
+        await ((IAsyncLifetime)fixture).InitializeAsync();
+
+        Assert.NotNull(fixture.Context.GetRequiredService<SampleClock>());
+        await ((IAsyncDisposable)fixture).DisposeAsync();
+    }
+
+    [Fact]
     public async Task DbContextTestingContextAutoRegistersRepositoriesForDbSets()
     {
         await using var context = new NhDbContextTestingContext<SampleProjectManagementDbContext>();
@@ -90,12 +101,24 @@ public class NewHeapTestHelperSamplesTests
 
     private sealed class ProjectTestingContext : NhTestingContext
     {
+        public ProjectTestingContext()
+        {
+        }
+
         protected override void ConfigureServices(IServiceCollection services)
         {
             services.AddSingleton(new SampleClock(
                 new DateTimeOffset(2026, 7, 24, 10, 0, 0, TimeSpan.Zero)));
             services.AddScoped<ScopedSample>();
         }
+    }
+
+    private sealed class ProjectTestingContextFixture
+        : NhTestingContextFixture<ProjectTestingContext>, IAsyncLifetime
+    {
+        async ValueTask IAsyncLifetime.InitializeAsync() => await base.InitializeAsync();
+
+        async ValueTask IAsyncDisposable.DisposeAsync() => await base.DisposeAsync();
     }
 
     private sealed record SampleClock(DateTimeOffset UtcNow);

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>NewHeap.Platform.AI.AspNet.Common</PackageId>
+    <Copyright>NewHeap B.V.</Copyright>
+    <Title>NewHeap AI ASP.NET Common</Title>
+    <PackageDescription>ASP.NET Core actor, authorization, active-division, and capability context integration for NewHeap AI.</PackageDescription>
+    <PackageTags>newheap platform ai aspnetcore authorization context divisions capabilities</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NewHeap.Platform.AI.Common\NewHeap.Platform.AI.Common.csproj" />
+    <ProjectReference Include="..\NewHeap.Platform.AspNet.Common\NewHeap.Platform.AspNet.Common.csproj" />
+  </ItemGroup>
+</Project>

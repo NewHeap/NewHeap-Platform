@@ -206,7 +206,7 @@ internal class NhDbLogAdditionalDataHostedService<
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Exception occured during db log additional data processing");
+                _logger.LogError(ex, "Database log additional-data processing failed");
             }
 
             await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, _settings.AdditionalDataProcessingIntervalInSeconds)), stoppingToken);

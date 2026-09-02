@@ -7,7 +7,6 @@ using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.AspNet.Common.DAL;
 using SampleProjectManagement.DAL;
 using OneOf;
-using System.Diagnostics;
 using System.Globalization;
 using NewHeap.Platform.Common.Events;
 using NewHeap.Platform.Common.Extensions;
@@ -25,23 +24,22 @@ namespace SampleProjectManagement.Api.Controllers;
 public class LibrarySamplesController : ControllerBase
 {
     private readonly INhEventPublisher _eventPublisher;
-    private static readonly ActivitySource ActivitySource = new("SampleProjectManagement.Api");
     private readonly SampleEventLog _eventLog;
-    private readonly ILogger<LibrarySamplesController> _logger;
     private readonly IStringLocalizer<LibrarySamplesController> _localizer;
+    private readonly ObservabilitySampleService _observabilitySampleService;
     private readonly SampleStartupState _startupState;
 
     public LibrarySamplesController(
         INhEventPublisher eventPublisher,
         SampleEventLog eventLog,
-        ILogger<LibrarySamplesController> logger,
         IStringLocalizer<LibrarySamplesController> localizer,
+        ObservabilitySampleService observabilitySampleService,
         SampleStartupState startupState)
     {
         _eventPublisher = eventPublisher;
         _eventLog = eventLog;
-        _logger = logger;
         _localizer = localizer;
+        _observabilitySampleService = observabilitySampleService;
         _startupState = startupState;
     }
 
@@ -266,41 +264,12 @@ public class LibrarySamplesController : ControllerBase
     [HttpGet("observability")]
     [AllowAnonymous]
     [EndpointSummary("Run the observability sample")]
-    [EndpointDescription("Creates an activity, records timing and demonstrates structured logging overloads for successful and failed TaskResults.")]
+    [EndpointDescription("Runs a traced operation with structured logging. Optionally records a handled failure without exposing sensitive exception details in the response.")]
     [ProducesResponseType<ObservabilityResponse>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> Observability(CancellationToken cancellationToken)
-    {
-        using var activity = ActivitySource.StartActivity("library-sample.observability");
-        activity?.SetTag("sample.case", "SPM-105");
-        var stopwatch = Stopwatch.StartNew();
-        await Task.Delay(15, cancellationToken);
-        stopwatch.Stop();
-
-        var successfulResult = TaskResult.Succeeded();
-        var failedResult = TaskResult.Failed("project.name", "Project name is required");
-        var observation = new ObservabilitySample(
-            Activity.Current?.TraceId.ToString() ?? string.Empty,
-            stopwatch.ElapsedMilliseconds);
-        var timedResult = TaskResult<ObservabilitySample>.Succeeded(observation);
-
-        // These NewHeap overloads automatically add a TaskResultException for a failed
-        // TaskResult so structured loggers and Sentry preserve the result items.
-        _logger.LogInformation(successfulResult,
-            "Observability sample completed in {ElapsedMilliseconds} ms", stopwatch.ElapsedMilliseconds);
-        _logger.LogWarning(new EventId(105, "TaskResultValidation"), failedResult,
-            "Validation outcome for observability sample");
-        _logger.LogInformation(timedResult, "Typed observability result recorded");
-
-        return Ok(new ObservabilityResponse(
-            observation.TraceId,
-            observation.ElapsedMilliseconds,
-            successfulResult.Success,
-            !failedResult.Success,
-            failedResult.GetResultItems().Select(item => new ObservabilityFailureItem(
-                item.Name,
-                item.ErrorMessages.Select(error => error.ToString()).ToArray()))
-                .ToArray()));
-    }
+    public async Task<IActionResult> Observability(
+        [FromQuery] bool includeHandledFailure = false,
+        CancellationToken cancellationToken = default) =>
+        Ok(await _observabilitySampleService.RunAsync(includeHandledFailure, cancellationToken));
 
     [HttpPost("events/project-created")]
     [Authorize(Policy = "app.project.manage")]
@@ -376,5 +345,3 @@ public sealed record ProjectChunksSampleResponse(
     int ChunkSize,
     int TotalCount,
     IReadOnlyList<ProjectChunkSample> Chunks);
-
-public sealed record ObservabilitySample(string TraceId, long ElapsedMilliseconds);

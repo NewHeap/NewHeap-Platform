@@ -7,6 +7,7 @@
     </a>
     <div class="heading"><span>{{ 'project.workspace-label' | translate }}</span><h1>{{ 'project.workspace-title' | translate }}</h1></div>
     <div class="header-actions">
+      <a routerLink="/workspace/background-operations">{{ 'sample-project-management.background-operations.navigation' | translate }}</a>
       <div class="status" [attr.data-mode]="connectionState.mode()" role="status" aria-live="polite"><i></i>{{ connectionState.labelKey() | translate }}</div>
       <app-sample-user-menu profileRoute="/workspace/profile" />
     </div>

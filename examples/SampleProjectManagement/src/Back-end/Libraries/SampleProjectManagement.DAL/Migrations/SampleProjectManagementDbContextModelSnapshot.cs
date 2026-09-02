@@ -125,6 +125,559 @@ namespace SampleProjectManagement.DAL.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CancelRequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CancelRequestedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ConcurrencyKey")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("CorrelationId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("CreationDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CurrentAttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("CurrentAttemptNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DiagnosticCorrelationId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("DispatchGeneration")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("DivisionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DomainObjectId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("DomainObjectType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("FailureMessageKey")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("FanOutItemKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("FanOutKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("HeartbeatAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("LastModifiedDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("LastProjectedNotificationEventSequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("LatestEventSequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("NextDispatchAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("OperationType")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ParentOperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("PayloadSchemaVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProcessorKey")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<decimal?>("ProgressCurrent")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("ProgressMessageArgumentsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProgressMessageKey")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<decimal?>("ProgressPercentage")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("ProgressPhaseKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal?>("ProgressTotal")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("Queue")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ResultReferenceId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ResultReferenceType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ResultUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid?>("RootOperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SchedulerJobId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset?>("SensitiveDataRedactedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("UserNotificationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentOperationId");
+
+                    b.HasIndex("RootOperationId");
+
+                    b.HasIndex("SchedulerJobId");
+
+                    b.HasIndex("UserNotificationId");
+
+                    b.HasIndex("Status", "CompletedAt");
+
+                    b.HasIndex("Status", "HeartbeatAt");
+
+                    b.HasIndex("DivisionId", "Status", "LastModifiedDateTime");
+
+                    b.HasIndex("OwnerUserId", "Status", "LastModifiedDateTime");
+
+                    b.HasIndex("ParentOperationId", "FanOutKey", "FanOutItemKey")
+                        .IsUnique();
+
+                    b.HasIndex("ProcessorKey", "Status", "NextDispatchAt", "Priority", "CreationDateTime");
+
+                    b.ToTable("BackgroundOperations");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreationDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DiagnosticCorrelationId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("DispatchGeneration")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset?>("HeartbeatAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("LastModifiedDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RecoveryReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("SchedulerJobId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("WorkerId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperationId", "AttemptNumber")
+                        .IsUnique();
+
+                    b.HasIndex("OperationId", "StartedAt");
+
+                    b.ToTable("BackgroundOperationAttempts");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationCheckpoint", b =>
+                {
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CheckpointKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("AttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreationDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("LastModifiedDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ValueJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("OperationId", "CheckpointKey");
+
+                    b.ToTable("BackgroundOperationCheckpoints");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreationDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsMilestone")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsOperatorOnly")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("LastModifiedDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MessageArgumentsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MessageKey")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResultReferenceId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ResultReferenceType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ResultUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Severity")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SnapshotVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("StepId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("StepKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperationId", "CreationDateTime");
+
+                    b.HasIndex("OperationId", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("BackgroundOperationEvents");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationIdempotencyRecord", b =>
+                {
+                    b.Property<string>("Scope")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("KeyHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("CreationDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Scope", "KeyHash");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("OperationId");
+
+                    b.ToTable("BackgroundOperationIdempotencyRecords");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationLease", b =>
+                {
+                    b.Property<string>("ResourceKey")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<int>("Slot")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("AcquiredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("FencingToken")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("HeartbeatAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("ResourceKey", "Slot");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("OperationId");
+
+                    b.ToTable("BackgroundOperationLeases");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationStep", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("ActiveItems")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("AggregationMode")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("ContinueOnChildFailure")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("CreationDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("Current")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid?>("CurrentAttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Depth")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("DiscoveredItems")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("FailedItems")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("FencingVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("HeartbeatAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("LastModifiedDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MessageArgumentsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MessageKey")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ParentStepId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Percentage")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<long>("ProcessedItems")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("RetriedItems")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SkippedItems")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StepKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<long>("SucceededItems")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("TitleArgumentsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TitleKey")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<decimal?>("Total")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("Weight")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentStepId");
+
+                    b.HasIndex("OperationId", "DisplayOrder", "Status");
+
+                    b.HasIndex("OperationId", "ParentStepId", "StepKey")
+                        .IsUnique();
+
+                    b.ToTable("BackgroundOperationSteps");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhDivision", b =>
                 {
                     b.Property<Guid>("Id")
@@ -827,6 +1380,104 @@ namespace SampleProjectManagement.DAL.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperation", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhDivision", null)
+                        .WithMany()
+                        .HasForeignKey("DivisionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperation", "ParentOperation")
+                        .WithMany("ChildOperations")
+                        .HasForeignKey("ParentOperationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserNotification", null)
+                        .WithMany()
+                        .HasForeignKey("UserNotificationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ParentOperation");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationAttempt", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperation", "Operation")
+                        .WithMany("Attempts")
+                        .HasForeignKey("OperationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Operation");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationCheckpoint", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperation", "Operation")
+                        .WithMany("Checkpoints")
+                        .HasForeignKey("OperationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Operation");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationEvent", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperation", "Operation")
+                        .WithMany("Events")
+                        .HasForeignKey("OperationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Operation");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationIdempotencyRecord", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperation", "Operation")
+                        .WithMany()
+                        .HasForeignKey("OperationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Operation");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationLease", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperation", "Operation")
+                        .WithMany()
+                        .HasForeignKey("OperationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Operation");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationStep", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperation", "Operation")
+                        .WithMany("Steps")
+                        .HasForeignKey("OperationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationStep", "ParentStep")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentStepId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Operation");
+
+                    b.Navigation("ParentStep");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhDivisionRoleClaim", b =>
                 {
                     b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhDivisionRole", null)
@@ -1003,6 +1654,24 @@ namespace SampleProjectManagement.DAL.Migrations
                         .IsRequired();
 
                     b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperation", b =>
+                {
+                    b.Navigation("Attempts");
+
+                    b.Navigation("Checkpoints");
+
+                    b.Navigation("ChildOperations");
+
+                    b.Navigation("Events");
+
+                    b.Navigation("Steps");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationStep", b =>
+                {
+                    b.Navigation("Children");
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhDivision", b =>

@@ -1,5 +1,17 @@
 # NewHeap consumer guidance
 
+- ai-agent-framework: ./ai-agent-framework.md
+- ai-aspnet-context: ./ai-aspnet-context.md
+- ai-assets: ./ai-assets.md
+- ai-context-retrieval: ./ai-context-retrieval.md
+- ai-durable-runs: ./ai-durable-runs.md
+- ai-ingestion: ./ai-ingestion.md
+- ai-local-tools: ./ai-local-tools.md
+- ai-mcp-imports: ./ai-mcp-imports.md
+- ai-mcp-tools: ./ai-mcp-tools.md
+- ai-model-profiles: ./ai-model-profiles.md
+- ai-observability-evaluation: ./ai-observability-evaluation.md
+- ai-protected-actions: ./ai-protected-actions.md
 - authentication-overrides: ./authentication-overrides.md
 - authorization-permissions: ./authorization-permissions.md
 - backend-controller-contracts: ./backend-controller-contracts.md
@@ -8,18 +20,21 @@
 - backend-partial-update: ./backend-partial-update.md
 - backend-project-foundation: ./backend-project-foundation.md
 - backend-unit-of-work: ./backend-unit-of-work.md
+- background-operation-suspension: ./background-operation-suspension.md
 - background-processing: ./background-processing.md
 - consumer-bootstrap-sequence: ./consumer-bootstrap-sequence.md
 - consumer-management-portal: ./consumer-management-portal.md
 - consumer-optional-infrastructure: ./consumer-optional-infrastructure.md
 - consumer-scope-gate: ./consumer-scope-gate.md
 - database-bulk-upsert: ./database-bulk-upsert.md
+- database-diagnostics: ./database-diagnostics.md
 - database-providers: ./database-providers.md
 - frontend-collection-query: ./frontend-collection-query.md
 - frontend-lifecycle-modals: ./frontend-lifecycle-modals.md
 - frontend-root-configuration: ./frontend-root-configuration.md
 - frontend-toast-notifications: ./frontend-toast-notifications.md
 - media: ./media.md
+- observability-logging: ./observability-logging.md
 - runtime-configuration: ./runtime-configuration.md
 - testing: ./testing.md
 - consumer router skill: ../../skills/newheap-platform-development/SKILL.md

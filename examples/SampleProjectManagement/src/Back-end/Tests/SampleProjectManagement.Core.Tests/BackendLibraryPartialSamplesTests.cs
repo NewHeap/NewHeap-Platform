@@ -1,4 +1,4 @@
-using AutoMapper;
+using NewHeap.Platform.Mapping;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +14,7 @@ using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 using NewHeap.Platform.Common.Translations;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using SampleProjectManagement.Api.Controllers;
 using SampleProjectManagement.Core.Models.Mutate;
@@ -22,6 +23,8 @@ using SampleProjectManagement.Core.Services;
 using SampleProjectManagement.Core.Utilities;
 using SampleProjectManagement.DAL;
 using SampleProjectManagement.DAL.Entities;
+using System.Collections;
+using System.Collections.ObjectModel;
 using System.Security.Claims;
 using Xunit;
 
@@ -67,6 +70,153 @@ public sealed class BackendLibraryPartialSamplesTests
 
         Assert.Equal(project.Id, result.Project.Id);
         Assert.Equal("Composite task", Assert.Single(result.Tasks).Title);
+    }
+
+    [Fact]
+    public void AdvancedMappingUsesNullSafeMapFromValidationDependencyInjectionConstructionAndActions()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ProjectMappingLabelFormatter>();
+        services.AddTransient<ProjectDisplayNameResolver>();
+        services.AddTransient<ProjectReferenceConverter>();
+        services.AddTransient<ProjectMappingEnrichmentAction>();
+        services.AddAutoMapper(configuration =>
+            configuration.AddProfile<ProjectMappingFeatureProfile>());
+
+        using var provider = services.BuildServiceProvider();
+        var configuration = provider.GetRequiredService<IConfigurationProvider>();
+        configuration.AssertConfigurationIsValid();
+        var mapper = provider.GetRequiredService<IMapper>();
+        var project = NewProject();
+        project.Description = "Mapped through the NewHeap profile";
+
+        var summary = mapper.Map<ProjectMappingSummaryViewModel>(project);
+        var reference = mapper.Map<ProjectReferenceValue>(project);
+        var detail = mapper.Map<ProjectMappingDetailViewModel>(project);
+        var stringSource = new ProjectMappingStringSource(reference);
+        var stringResult = mapper.Map<ProjectMappingStringViewModel>(stringSource);
+
+        Assert.Equal(project.Key, summary.Key);
+        Assert.Equal($"{project.Key} · {project.Name}", summary.DisplayName);
+        Assert.Equal(project.Description, summary.Description);
+        Assert.Null(summary.OwnerUser);
+        Assert.Equal(nameof(ProjectMappingEnrichmentAction), summary.EnrichedBy);
+        Assert.Equal($"{project.Key}:{project.Id:N}", reference.Value);
+        Assert.Equal($"{project.Key} · {project.Name}", detail.DisplayName);
+        Assert.Equal(project.Description, detail.Description);
+        Assert.Equal(project.Status.ToString(), detail.Metadata["status"]);
+        Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(detail.Metadata);
+        Assert.Equal(reference.ToString(), stringResult.Reference);
+    }
+
+    [Fact]
+    public void InheritedInterfaceMembersMapByConvention()
+    {
+        var configuration = new MapperConfiguration(options =>
+            options.AddProfile<ProjectMappingFeatureProfile>());
+        configuration.AssertConfigurationIsValid();
+        var mapper = configuration.CreateMapper();
+        IProjectMappingContract source = new ProjectMappingContract(
+            Guid.NewGuid(),
+            "SPM-INTERFACE",
+            "Inherited interface mapping");
+
+        var result = mapper.Map<ProjectMappingContractViewModel>(source);
+
+        Assert.Equal(source.Id, result.Id);
+        Assert.Equal(source.Key, result.Key);
+        Assert.Equal(source.Name, result.Name);
+    }
+
+    [Fact]
+    public void DictionaryLikeJsonObjectsUseTheirGenericDictionaryEntries()
+    {
+        var mapper = new MapperConfiguration(_ => { }).CreateMapper();
+        var source = JObject.Parse("""
+            {
+              "name": "sample project",
+              "enabled": true
+            }
+            """);
+
+        var result = mapper.Map<JObject>(source);
+
+        Assert.True(JToken.DeepEquals(source, result));
+        Assert.Equal("sample project", result.Value<string>("name"));
+        Assert.True(result.Value<bool>("enabled"));
+    }
+
+    [Fact]
+    public void GenericCollectionsMaterializeCompatibleListAndSetDestinations()
+    {
+        var mapper = new MapperConfiguration(_ => { }).CreateMapper();
+
+        var list = mapper.Map<ArrayList>(new[] { 1, 2 });
+        var set = mapper.Map<IReadOnlySet<int>>(new[] { 1, 1, 2 });
+        var readOnlyList = mapper.Map<ReadOnlyCollection<int>>(new[] { 1, 2 });
+        var keyValue = mapper.Map<KeyValuePair<string, int>>(
+            new KeyValuePair<int, string>(1, "42"));
+
+        Assert.Equal([1, 2], list.Cast<int>());
+        Assert.Equal([1, 2], set.Order());
+        Assert.Equal([1, 2], readOnlyList);
+        Assert.Equal(new KeyValuePair<string, int>("1", 42), keyValue);
+    }
+
+    [Fact]
+    public void DuplicateProfileCompositionUsesTheLastMapAndReportsBothProfilesDuringValidation()
+    {
+        var configuration = new MapperConfiguration(options =>
+        {
+            options.AddProfile<FirstProjectSummaryProfile>();
+            options.AddProfile<LastProjectSummaryProfile>();
+        });
+        var project = NewProject();
+
+        var result = configuration.CreateMapper().Map<ProjectMappingSummaryViewModel>(project);
+        var exception = Assert.Throws<MappingConfigurationException>(
+            configuration.AssertConfigurationIsValid);
+
+        Assert.Equal($"last:{project.Name}", result.DisplayName);
+        Assert.Contains(nameof(FirstProjectSummaryProfile), exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(LastProjectSummaryProfile), exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ChangeAwareMappingUpdatesScalarsWithoutReplacingNavigationProperties()
+    {
+        var mapper = new Mapper(new MapperConfiguration(configuration =>
+            configuration.AddProfile<AutomapperProfileConfiguration>()));
+        var project = NewProject();
+        var division = new NhDivision { Id = project.DivisionId, Name = "Delivery" };
+        var tasks = project.Tasks;
+        tasks.Add(new ProjectTask
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Title = "Retained navigation"
+        });
+        project.Division = division;
+        project.Description = "Before mapping";
+
+        var result = mapper.Map(
+            new ProjectMutateModel
+            {
+                DivisionId = project.DivisionId,
+                OwnerUserId = project.OwnerUserId,
+                Key = project.Key,
+                Name = project.Name,
+                Description = "After mapping",
+                Status = project.Status,
+                Deadline = project.Deadline
+            },
+            project);
+
+        Assert.Same(project, result);
+        Assert.Equal("After mapping", result.Description);
+        Assert.Same(division, result.Division);
+        Assert.Same(tasks, result.Tasks);
+        Assert.Equal("Retained navigation", Assert.Single(result.Tasks).Title);
     }
 
     [Fact]
@@ -255,12 +405,42 @@ public sealed class BackendLibraryPartialSamplesTests
             Substitute.For<IRepository<NhLog>>(),
             Substitute.For<IHttpContextAccessor>(),
             Substitute.For<IStringLocalizer<NhDbLogService>>(),
-            Options.Create(new NewHeapAspNetCommonSettings()));
+            Options.Create(new NewHeapAspNetCommonSettings()),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<NhDbLogService>.Instance);
     }
 
     private static LogHelperService CreateLogHelper()
     {
         return new LogHelperService(
-            Substitute.For<IStringLocalizer<SharedDataAnnotationRecources>>());
+            Substitute.For<IStringLocalizer<SharedDataAnnotationRecources>>(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<LogHelperService>.Instance);
+    }
+
+    private sealed class FirstProjectSummaryProfile : Profile
+    {
+        public FirstProjectSummaryProfile()
+        {
+            CreateMap<Project, ProjectMappingSummaryViewModel>()
+                .ConstructUsing(project => new ProjectMappingSummaryViewModel(project.Key))
+                .ForMember(
+                    destination => destination.DisplayName,
+                    options => options.MapFrom(project => $"first:{project.Name}"))
+                .ForMember(destination => destination.OwnerUser, options => options.Ignore())
+                .ForMember(destination => destination.EnrichedBy, options => options.Ignore());
+        }
+    }
+
+    private sealed class LastProjectSummaryProfile : Profile
+    {
+        public LastProjectSummaryProfile()
+        {
+            CreateMap<Project, ProjectMappingSummaryViewModel>()
+                .ConstructUsing(project => new ProjectMappingSummaryViewModel(project.Key))
+                .ForMember(
+                    destination => destination.DisplayName,
+                    options => options.MapFrom(project => $"last:{project.Name}"))
+                .ForMember(destination => destination.OwnerUser, options => options.Ignore())
+                .ForMember(destination => destination.EnrichedBy, options => options.Ignore());
+        }
     }
 }

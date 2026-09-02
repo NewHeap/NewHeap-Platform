@@ -18,5 +18,6 @@
     <ProjectReference Include="../../Orchestration/SampleProjectManagement.ServiceDefaults/SampleProjectManagement.ServiceDefaults.csproj" />
     <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Caching/NewHeap.Platform.AspNet.Caching.csproj" />
     <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeap.Platform.AspNet.Common.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NewHeap.Platform.AI.AspNet.Common.csproj" />
   </ItemGroup>
 </Project>

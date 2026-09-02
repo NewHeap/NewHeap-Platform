@@ -1,4 +1,4 @@
-using AutoMapper;
+using NewHeap.Platform.Mapping;
 using NewHeap.Platform.Common;
 using SampleProjectManagement.Core.Models.Mutate;
 using SampleProjectManagement.Core.Models.View;

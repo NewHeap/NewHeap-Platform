@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using NewHeap.Platform.Mapping;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.Common.Models;
@@ -68,14 +68,17 @@ public interface IHttpCollectionProcessingService : ICollectionProcessingService
 public partial class HttpCollectionProcessingService : CollectionProcessingService, IHttpCollectionProcessingService
 {
     protected readonly IHttpContextAccessor _httpContextAccessor;
+    protected readonly ILogger<HttpCollectionProcessingService> _logger;
 
     public HttpCollectionProcessingService(
         IMapper mapper,
-        IHttpContextAccessor httpContextAccessor
+        IHttpContextAccessor httpContextAccessor,
+        ILogger<HttpCollectionProcessingService> logger
         )
         : base(mapper)
     {
         _httpContextAccessor = httpContextAccessor;
+        _logger = logger;
     }
 
     public virtual ICollectionRequestModel GetCollectionRequestModel(int? maxItemsPerPage = null)
@@ -84,7 +87,7 @@ public partial class HttpCollectionProcessingService : CollectionProcessingServi
 
         if (request == null)
         {
-            throw new Exception("HttpContext is null");
+            throw new InvalidOperationException("HttpContext is not available.");
         }
 
         maxItemsPerPage ??= GetDefaultMaxItemsPerPage();
@@ -125,9 +128,11 @@ public partial class HttpCollectionProcessingService : CollectionProcessingServi
                 filter = JsonConvert.DeserializeObject<List<FilterCollectionRequestModel>>(qFilter);
             }
         }
-        catch
+        catch (JsonException exception)
         {
-            //Ignore
+            _logger.LogDebug(
+                exception,
+                "Ignored malformed collection ordering or filter input.");
         }
 
         return new CollectionRequestModel

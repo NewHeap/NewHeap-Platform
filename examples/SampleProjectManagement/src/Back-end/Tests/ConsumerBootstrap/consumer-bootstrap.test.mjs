@@ -107,6 +107,45 @@ try {
   ]);
   assert.equal(repeat.status, 0, repeat.stderr || repeat.stdout);
 
+  manifest.capabilities.identityOwnership = 'external';
+  await writeFile(
+    resolve(consumerRoot, 'newheap-consumer.json'),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+    'utf8'
+  );
+  const controllerDirectory = resolve(
+    consumerRoot,
+    'src/Back-end/Applications/Example.Portal.Api/Controllers'
+  );
+  await mkdir(controllerDirectory, { recursive: true });
+  await writeFile(
+    resolve(controllerDirectory, 'ExternalIdentityController.cs'),
+    'using Microsoft.AspNetCore.Authorization;\nusing Microsoft.AspNetCore.Mvc;\n\n[ApiController]\n[Route("external-identity")]\npublic sealed class ExternalIdentityController : ControllerBase\n{\n    [HttpGet]\n    [Authorize]\n    public IActionResult Get() => Ok();\n}\n',
+    'utf8'
+  );
+  const portalSourceDirectory = resolve(consumerRoot, 'src/Front-end/projects/portal/src/app');
+  await mkdir(portalSourceDirectory, { recursive: true });
+  await writeFile(
+    resolve(portalSourceDirectory, 'external-confirmation.ts'),
+    'import { NhModalConfirmComponent, NhModalService } from "@newheap/platform-common";\nexport const externalConfirmation = [NhModalConfirmComponent, NhModalService];\n',
+    'utf8'
+  );
+  const deploymentDirectory = resolve(consumerRoot, 'deployment');
+  await mkdir(deploymentDirectory, { recursive: true });
+  await writeFile(resolve(deploymentDirectory, 'Api.Dockerfile'), 'FROM scratch\n', 'utf8');
+
+  const externalIdentityValidation = run(inspectorScript, [consumerRoot, '--mode', 'validate']);
+  const externalIdentityReport = JSON.parse(externalIdentityValidation.stdout);
+  const externalIdentityIssueCodes = externalIdentityReport.issues.map(issue => issue.code);
+  assert.doesNotMatch(externalIdentityIssueCodes.join(','), /identity-dbcontext|protected-controller|angular-modal-base|docker-missing/);
+  assert.ok(externalIdentityReport.backend.authorizedControllers.includes(
+    'src/Back-end/Applications/Example.Portal.Api/Controllers/ExternalIdentityController.cs'
+  ));
+  assert.ok(externalIdentityReport.angular.modalContent.includes(
+    'src/Front-end/projects/portal/src/app/external-confirmation.ts'
+  ));
+  assert.ok(externalIdentityReport.optionalInfrastructure.docker.includes('deployment/Api.Dockerfile'));
+
   await writeFile(resolve(consumerRoot, 'angular.json'), '{}\n', 'utf8');
   const invalid = run(inspectorScript, [consumerRoot, '--mode', 'foundation']);
   assert.notEqual(invalid.status, 0, 'Foundation validation must reject Angular workspace files at the repository root.');

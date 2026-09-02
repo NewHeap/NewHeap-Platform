@@ -2,9 +2,11 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { repositoryRoot } from './lib.mjs';
+import { validateReleaseVersionPolicy } from './change-impact-policy.mjs';
 
 const baseIndex = process.argv.indexOf('--base');
 const base = baseIndex >= 0 ? process.argv[baseIndex + 1] : undefined;
+const releaseMode = process.argv.includes('--release');
 const failures = [];
 
 const snapshot = spawnSync(process.execPath, [resolve(repositoryRoot, 'tools', 'guidance', 'snapshot-public-api.mjs'), '--check'], {
@@ -34,9 +36,7 @@ if (base) {
           ['executable SampleProjectManagement evidence', path => path.startsWith('examples/SampleProjectManagement/')],
           ['an atomic guidance rule', path => path.startsWith('guidance/rules/')],
           ['the canonical sample case registry', path => path === 'examples/SampleProjectManagement/docs/cases/sample-case-registry.json'],
-          ['the reviewed public API snapshot', path => path === 'guidance/public-api-snapshot.json'],
-          ['a guidance version bump', path => path === 'guidance/version.json'],
-          ['a matching plugin version bump', path => path === 'plugins/newheap-platform/.codex-plugin/plugin.json']
+          ['the reviewed public API snapshot', path => path === 'guidance/public-api-snapshot.json']
         ];
         for (const [label, matches] of requirements) {
           if (!changed.some(matches)) failures.push(`Library files changed relative to ${base}, but the diff contains no ${label}.`);
@@ -50,22 +50,45 @@ if (base) {
       path === 'plugins/newheap-platform/INSTALL.md' ||
       path === 'examples/SampleProjectManagement/docs/cases/sample-case-registry.json'
     );
-    if (distributableGuidanceChanged) {
-      if (!changed.includes('guidance/version.json')) failures.push('Distributable guidance changed without a guidance version bump.');
-      if (!changed.includes('plugins/newheap-platform/.codex-plugin/plugin.json')) failures.push('Distributable guidance changed without a plugin version bump.');
+    let changedManifestVersionUnits = [];
+    if (changed.includes('release/manifest.json')) {
+      const previousManifest = spawnSync('git', ['show', `${base}:release/manifest.json`], { cwd: repositoryRoot, encoding: 'utf8' });
+      if (previousManifest.status === 0) {
+        const previousUnits = JSON.parse(previousManifest.stdout).units ?? {};
+        const currentUnits = JSON.parse(await readFile(resolve(repositoryRoot, 'release', 'manifest.json'), 'utf8')).units ?? {};
+        changedManifestVersionUnits = Object.entries(currentUnits)
+          .filter(([id, unit]) => previousUnits[id] && previousUnits[id].version !== unit.version)
+          .map(([id]) => id);
+      }
+    }
+    let previousGuidanceVersion;
+    let currentGuidanceVersion;
+    let previousPluginVersion;
+    let currentPluginVersion;
+    if (releaseMode && distributableGuidanceChanged) {
       const previousGuidance = spawnSync('git', ['show', `${base}:guidance/version.json`], { cwd: repositoryRoot, encoding: 'utf8' });
       const previousPlugin = spawnSync('git', ['show', `${base}:plugins/newheap-platform/.codex-plugin/plugin.json`], { cwd: repositoryRoot, encoding: 'utf8' });
       const currentGuidance = JSON.parse(await readFile(resolve(repositoryRoot, 'guidance', 'version.json'), 'utf8'));
       const currentPlugin = JSON.parse(await readFile(resolve(repositoryRoot, 'plugins', 'newheap-platform', '.codex-plugin', 'plugin.json'), 'utf8'));
-      if (previousGuidance.status === 0 && JSON.parse(previousGuidance.stdout).guidanceVersion === currentGuidance.guidanceVersion) {
-        failures.push('Distributable guidance changed, but guidanceVersion was not incremented.');
-      }
-      if (previousPlugin.status === 0 && JSON.parse(previousPlugin.stdout).version === currentPlugin.version) {
-        failures.push('Distributable guidance changed, but the plugin version was not incremented.');
-      }
+      previousGuidanceVersion = previousGuidance.status === 0 ? JSON.parse(previousGuidance.stdout).guidanceVersion : undefined;
+      currentGuidanceVersion = currentGuidance.guidanceVersion;
+      previousPluginVersion = previousPlugin.status === 0 ? JSON.parse(previousPlugin.stdout).version : undefined;
+      currentPluginVersion = currentPlugin.version;
     }
+    failures.push(...validateReleaseVersionPolicy({
+      changed,
+      releaseMode,
+      distributableGuidanceChanged,
+      previousGuidanceVersion,
+      currentGuidanceVersion,
+      previousPluginVersion,
+      currentPluginVersion,
+      changedManifestVersionUnits
+    }));
   }
 }
 
 if (failures.length > 0) throw new Error(failures.join('\n'));
-console.log(base ? `Verified library-change impact relative to ${base}.` : 'Verified current public API snapshot.');
+console.log(base
+  ? `Verified ${releaseMode ? 'release' : 'library-change'} impact relative to ${base}.`
+  : 'Verified current public API snapshot.');

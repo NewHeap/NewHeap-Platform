@@ -24,33 +24,12 @@ internal static class NhPartialUpdateControllerExecutor
         where TUpdateMutateModel : class
         where TEntity : class
     {
-        if (!controller.ModelState.IsValid)
-        {
-            return controller.BadRequest(controller.ModelState);
-        }
-
-        if (partialUpdate is null)
-        {
-            controller.ModelState.AddModelError(
-                string.Empty,
-                Localize(localizer, "Invalid request"));
-            return controller.BadRequest(controller.ModelState);
-        }
-
-        var serializer = CreateSerializer(controller);
-        var mapping = NhPartialUpdateMapper.Map<TUpdateMutateModel>(
-            partialUpdate,
-            serializer,
-            canPartiallyUpdateProperty);
-
-        foreach (var error in mapping.Errors)
-        {
-            controller.ModelState.AddModelError(
-                error.PropertyName,
-                Localize(localizer, error.Message));
-        }
-
-        if (!controller.ModelState.IsValid)
+        if (!TryCreateMapping<TUpdateMutateModel>(
+                controller,
+                localizer,
+                partialUpdate,
+                canPartiallyUpdateProperty,
+                out var mapping))
         {
             return controller.BadRequest(controller.ModelState);
         }
@@ -68,6 +47,45 @@ internal static class NhPartialUpdateControllerExecutor
         }
 
         return controller.NoContent();
+    }
+
+    internal static bool TryCreateMapping<TUpdateMutateModel>(
+        ControllerBase controller,
+        IStringLocalizer localizer,
+        JObject? partialUpdate,
+        Func<string, bool> canPartiallyUpdateProperty,
+        out NhPartialUpdateMapping<TUpdateMutateModel> mapping)
+        where TUpdateMutateModel : class
+    {
+        mapping = null!;
+
+        if (!controller.ModelState.IsValid)
+        {
+            return false;
+        }
+
+        if (partialUpdate is null)
+        {
+            controller.ModelState.AddModelError(
+                string.Empty,
+                Localize(localizer, "Invalid request"));
+            return false;
+        }
+
+        var serializer = CreateSerializer(controller);
+        mapping = NhPartialUpdateMapper.Map<TUpdateMutateModel>(
+            partialUpdate,
+            serializer,
+            canPartiallyUpdateProperty);
+
+        foreach (var error in mapping.Errors)
+        {
+            controller.ModelState.AddModelError(
+                error.PropertyName,
+                Localize(localizer, error.Message));
+        }
+
+        return controller.ModelState.IsValid;
     }
 
     private static JsonSerializer CreateSerializer(ControllerBase controller)

@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using NewHeap.Platform.Mapping;
 
 namespace NewHeap.Platform.Common;
 

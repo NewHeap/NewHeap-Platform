@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidance": {
     "schemaVersion": 1,
-    "guidanceVersion": "1.11.9",
+    "guidanceVersion": "1.13.22",
     "sampleRegistryVersion": 1,
     "minimumNodeVersion": "22.0.0"
   },
@@ -12,20 +12,28 @@
   },
   "packages": {
     "@newheap/nh-toastr": "0.0.6",
-    "@newheap/platform-common": "0.20.7",
+    "@newheap/platform-common": "1.0.0",
+    "NewHeap.Platform.AI.AgentFramework": "4.4.5",
+    "NewHeap.Platform.AI.AspNet.Common": "4.4.5",
+    "NewHeap.Platform.AI.Common": "4.4.5",
+    "NewHeap.Platform.AI.Generators": "4.4.5",
+    "NewHeap.Platform.AI.Mcp": "4.4.5",
+    "NewHeap.Platform.AI.Test": "4.4.5",
     "NewHeap.Platform.AspNet.Caching": "0.1.4",
-    "NewHeap.Platform.AspNet.Common": "2.0.0",
-    "NewHeap.Platform.AspNet.Common.Test": "2.0.0",
-    "NewHeap.Platform.Common": "2.0.0",
-    "NewHeap.Platform.Common.Test": "2.0.0",
-    "NewHeap.Platform.Events.Cap": "2.0.0",
-    "NewHeap.Platform.Media": "2.0.0",
-    "NewHeap.Platform.Media.Core": "2.0.0",
-    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "2.0.0",
-    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "2.0.0",
-    "NewHeap.Platform.Media.Http": "2.0.0",
-    "NewHeap.Platform.Media.MediaStorage.FileSystem": "2.0.0",
-    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "2.0.0"
+    "NewHeap.Platform.AspNet.Common": "4.4.5",
+    "NewHeap.Platform.AspNet.Common.Test": "4.4.5",
+    "NewHeap.Platform.Common": "4.4.5",
+    "NewHeap.Platform.Common.Test": "4.4.5",
+    "NewHeap.Platform.DatabaseRead.Tool": "4.4.5",
+    "NewHeap.Platform.Events.Cap": "4.4.5",
+    "NewHeap.Platform.Mapping": "4.4.5",
+    "NewHeap.Platform.Media": "3.0.0",
+    "NewHeap.Platform.Media.Core": "3.0.0",
+    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "3.0.0",
+    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "3.0.0",
+    "NewHeap.Platform.Media.Http": "3.0.0",
+    "NewHeap.Platform.Media.MediaStorage.FileSystem": "3.0.0",
+    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "3.0.0"
   },
   "skills": [
     {
@@ -34,7 +42,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.9",
+        "pluginVersion": "1.13.22",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -50,6 +58,10 @@
           "claude": ".claude/skills/newheap-platform-development"
         }
       },
+      "references": [
+        "references/immutable-evidence.md",
+        "references/platform-fit.md"
+      ],
       "modules": [
         "newheap-consumer-development",
         "newheap-authentication",
@@ -69,7 +81,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.9",
+        "pluginVersion": "1.13.22",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -100,7 +112,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.9",
+        "pluginVersion": "1.13.22",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -117,6 +129,7 @@
         }
       },
       "references": [
+        "references/ai-aspnet-context.md",
         "references/authentication-overrides.md",
         "references/authorization-permissions.md"
       ]
@@ -128,7 +141,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.9",
+        "pluginVersion": "1.13.22",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -145,13 +158,25 @@
         }
       },
       "references": [
+        "references/ai-agent-framework.md",
+        "references/ai-assets.md",
+        "references/ai-context-retrieval.md",
+        "references/ai-durable-runs.md",
+        "references/ai-ingestion.md",
+        "references/ai-local-tools.md",
+        "references/ai-mcp-imports.md",
+        "references/ai-mcp-tools.md",
+        "references/ai-model-profiles.md",
+        "references/ai-observability-evaluation.md",
+        "references/ai-protected-actions.md",
         "references/backend-controller-contracts.md",
         "references/backend-models-localization.md",
         "references/backend-module-composition.md",
         "references/backend-partial-update.md",
         "references/backend-project-foundation.md",
         "references/backend-unit-of-work.md",
-        "references/database-bulk-upsert.md"
+        "references/database-bulk-upsert.md",
+        "references/observability-logging.md"
       ]
     },
     {
@@ -161,7 +186,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.9",
+        "pluginVersion": "1.13.22",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -178,7 +203,11 @@
         }
       },
       "references": [
+        "references/ai-agent-framework.md",
+        "references/ai-durable-runs.md",
+        "references/ai-ingestion.md",
         "references/backend-unit-of-work.md",
+        "references/background-operation-suspension.md",
         "references/background-processing.md"
       ]
     },
@@ -189,7 +218,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.9",
+        "pluginVersion": "1.13.22",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -207,6 +236,7 @@
       },
       "references": [
         "references/database-bulk-upsert.md",
+        "references/database-diagnostics.md",
         "references/database-providers.md"
       ]
     },
@@ -217,7 +247,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.9",
+        "pluginVersion": "1.13.22",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -237,6 +267,7 @@
         "references/frontend-collection-query.md",
         "references/frontend-lifecycle-modals.md",
         "references/frontend-root-configuration.md",
+        "references/observability-logging.md",
         "references/frontend-toast-notifications.md"
       ]
     },
@@ -247,7 +278,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.9",
+        "pluginVersion": "1.13.22",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -274,7 +305,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.9",
+        "pluginVersion": "1.13.22",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -291,6 +322,8 @@
         }
       },
       "references": [
+        "references/database-diagnostics.md",
+        "references/observability-logging.md",
         "references/runtime-configuration.md"
       ]
     },
@@ -301,7 +334,7 @@
       "audience": "consumer-applications",
       "distribution": {
         "plugin": "plugins/newheap-platform",
-        "pluginVersion": "1.11.9",
+        "pluginVersion": "1.13.22",
         "portableInstaller": "plugins/newheap-platform/scripts/install-consumer-skills.mjs",
         "githubReleaseUnit": "newheap-platform-plugin",
         "releaseAssetPattern": "newheap-platform-<version>.tar.gz",
@@ -318,6 +351,7 @@
         }
       },
       "references": [
+        "references/ai-observability-evaluation.md",
         "references/testing.md"
       ]
     },

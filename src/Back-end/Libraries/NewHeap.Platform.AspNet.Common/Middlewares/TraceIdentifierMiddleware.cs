@@ -2,14 +2,14 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Sentry;
 
 namespace NewHeap.Platform.AspNet.Common.Middlewares;
 
 public class TraceIdentifierMiddleware
 {
     public const string CorrelationIdHeaderName = "X-Correlation-ID";
-    private const string SentryTagName = "correlation_id";
+    public const string CorrelationIdScopeName = "correlation_id";
+    public const int MaximumCorrelationIdLength = 128;
     private readonly ILogger<TraceIdentifierMiddleware> _logger;
     private readonly RequestDelegate _next;
 
@@ -33,25 +33,27 @@ public class TraceIdentifierMiddleware
             return Task.CompletedTask;
         });
 
-        SentrySdk.ConfigureScope(scope => scope.SetTag(SentryTagName, correlationId));
-
         using (_logger.BeginScope(new Dictionary<string, object>
         {
-            [SentryTagName] = correlationId,
-            ["CorrelationId"] = correlationId
+            [CorrelationIdScopeName] = correlationId
         }))
         {
             await _next(context);
         }
     }
 
-    private static string GetCorrelationId(HttpContext context)
+    private string GetCorrelationId(HttpContext context)
     {
         var correlationId = context.Request.Headers[CorrelationIdHeaderName].FirstOrDefault();
 
+        if (IsValidCorrelationId(correlationId))
+        {
+            return correlationId!;
+        }
+
         if (!string.IsNullOrWhiteSpace(correlationId))
         {
-            return correlationId;
+            _logger.LogDebug("Ignored an invalid external correlation identifier.");
         }
 
         correlationId = Activity.Current?.TraceId.ToString();
@@ -63,6 +65,13 @@ public class TraceIdentifierMiddleware
 
         return context.TraceIdentifier;
     }
+
+    private static bool IsValidCorrelationId(string? correlationId) =>
+        !string.IsNullOrWhiteSpace(correlationId)
+        && correlationId.Length <= MaximumCorrelationIdLength
+        && correlationId.All(character =>
+            char.IsAsciiLetterOrDigit(character)
+            || character is '-' or '_' or '.' or ':');
 }
 
 public static class TraceIdentifierMiddlewareExtensions

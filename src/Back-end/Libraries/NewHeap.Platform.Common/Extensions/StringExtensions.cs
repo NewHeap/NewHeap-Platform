@@ -17,17 +17,15 @@ public static partial class StringExtensions
 
     public static bool ToBoolean(this string str)
     {
-        try
+        if (bool.TryParse(str, out var booleanValue))
         {
-            return Convert.ToBoolean(str);
+            return booleanValue;
         }
-        catch { }
 
-        try
+        if (int.TryParse(str, out var integerValue))
         {
-            return Convert.ToBoolean(Convert.ToInt32(str));
+            return integerValue != 0;
         }
-        catch { }
 
         return false;
     }
@@ -49,7 +47,7 @@ public static partial class StringExtensions
             var doc = JsonSerializer.Deserialize<ExpandoObject>(input);
             return JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
         }
-        catch
+        catch (JsonException)
         {
             return input;
         }

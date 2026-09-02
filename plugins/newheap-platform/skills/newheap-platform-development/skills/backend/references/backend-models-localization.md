@@ -30,4 +30,4 @@ Run model, mapping, and resource-completeness tests. Test a valid model and at l
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.9/docs/consumer-guide/backend-models-localization.md#model-contracts-validation-and-localization)
+- [Immutable guide and executable evidence](../../../references/immutable-evidence.md#backend-models-localization)

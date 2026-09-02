@@ -34,12 +34,12 @@
         <PackageReference Include="OneOf" />
         <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
         <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
-        <PackageReference Include="Sentry.AspNetCore" />
         <PackageReference Include="System.Linq.Dynamic.Core" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
+        <ProjectReference Include="..\NewHeap.Platform.Mapping\NewHeap.Platform.Mapping.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "profile": "sample-development",
+  "schema": {
+    "operation": "indexes",
+    "schemaName": "public",
+    "objectName": "Projects"
+  },
+  "limits": {
+    "maximumRows": 100,
+    "timeoutSeconds": 10
+  },
+  "reason": "Inspect positioned column and expression keys plus any partial predicate before designing a compatible diagnostic query"
+}

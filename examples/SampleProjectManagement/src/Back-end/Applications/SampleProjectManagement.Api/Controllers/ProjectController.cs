@@ -1,4 +1,4 @@
-using AutoMapper;
+using NewHeap.Platform.Mapping;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
@@ -265,10 +265,49 @@ public class ProjectController : DbEntityProtectedNhBaseController<
     [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> UpdatePlanning(
+    public Task<IActionResult> UpdatePlanning(
         Guid id,
         [FromBody] ProjectPlanningMutateModel mutateModel,
         CancellationToken cancellationToken = default)
+    {
+        return UpdatePlanningCore(id, mutateModel, cancellationToken);
+    }
+
+    [HttpPatch("{id:guid}/planning")]
+    [Consumes("application/json")]
+    [Authorize(Policy = "app.project.manage")]
+    [EndpointSummary("Partially update project planning")]
+    [EndpointDescription("Loads the existing planning model, applies the supplied top-level properties with the reusable NewHeap model helper, and runs the custom planning workflow.")]
+    [ProducesResponseType<ProjectViewModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdatePlanningPartial(
+        [FromRoute] Guid id,
+        [FromBody] JObject? partialUpdate,
+        CancellationToken cancellationToken = default)
+    {
+        var mutateModel = await _projectService.GetPlanningMutateModelAsync(
+            id,
+            cancellationToken);
+        if (mutateModel is null)
+        {
+            return NotFound();
+        }
+
+        if (!TryApplyPartialUpdate(mutateModel, partialUpdate))
+        {
+            return BadRequest(ModelState);
+        }
+
+        return await UpdatePlanningCore(id, mutateModel, cancellationToken);
+    }
+
+    private async Task<IActionResult> UpdatePlanningCore(
+        Guid id,
+        ProjectPlanningMutateModel mutateModel,
+        CancellationToken cancellationToken)
     {
         var result = await _projectService.UpdatePlanningAsync(
             id,

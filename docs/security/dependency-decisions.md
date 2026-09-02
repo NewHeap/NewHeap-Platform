@@ -1,14 +1,10 @@
 # Dependency security decisions
 
-## AutoMapper 14 recursion advisory
+## NewHeap mapping recursion boundary
 
-NewHeap temporarily remains on the official `AutoMapper` 14.0.0 package. This preserves the existing dependency and API while the project decides between a licensed official upgrade and another mapping strategy.
+NewHeap no longer depends on the AutoMapper package, so the former AutoMapper 14 recursion advisory and its NuGet audit suppression have been removed. `NewHeap.Platform.Mapping` provides only the profile and runtime mapping surface exercised by NewHeap and its executable sample.
 
-This version is affected by [GHSA-rvv3-g6hj-g44x](https://github.com/advisories/GHSA-rvv3-g6hj-g44x). Official patched releases start at 15.1.1 and require an AutoMapper license as well as version 15 API adjustments. NewHeap applies AutoMapper's documented pre-patch mitigation instead: after the built-in and consumer profiles have been registered, every type map without an explicit depth limit receives `MaxDepth(64)`. The built-in NewHeap profile applies the same convention when it is used independently.
-
-`AutoMapperSecurityConfigurationTests` constructs circular consumer mappings, enumerates the resulting type-map graph, requires a non-zero maximum depth for every circular map, verifies the default of 64 for otherwise unbounded maps, and proves that an explicit consumer limit is not changed. The repository and executable sample therefore suppress only this exact advisory while continuing to fail on every other high or critical NuGet advisory.
-
-The mitigation boundary is the mapper configuration managed by NewHeap. A consumer that constructs an independent `MapperConfiguration` outside `NewHeapAspNetCommonOptionsBuilder.ConfigureAutoMapper` must apply and test its own depth guard. Reassess this exception on every AutoMapper dependency change, when the mapping strategy changes, or no later than 2027-02-19.
+Every NewHeap type map has a default maximum depth of 64, regardless of whether it is registered through `NewHeapAspNetCommonOptionsBuilder.ConfigureAutoMapper` or an independent `MapperConfiguration`. An explicit `MaxDepth` overrides that default. Focused mapping tests prove both the AutoMapper 14-compatible explicit-depth boundary and the 64-level default on recursive graphs, while nested-object and collection tests protect mapping into existing destinations.
 
 ## Testcontainers SSH dependency
 

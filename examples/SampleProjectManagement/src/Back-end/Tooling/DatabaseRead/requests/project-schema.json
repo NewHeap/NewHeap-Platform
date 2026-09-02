@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "profile": "sample-development",
+  "schema": {
+    "operation": "describe",
+    "schemaName": "public",
+    "objectName": "Projects"
+  },
+  "limits": {
+    "maximumRows": 100,
+    "timeoutSeconds": 10
+  },
+  "reason": "Confirm the deployed project columns, indexes and permission-filtered relationships before constructing joins or a diagnostic query"
+}

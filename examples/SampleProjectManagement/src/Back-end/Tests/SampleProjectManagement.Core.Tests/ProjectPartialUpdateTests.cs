@@ -1,4 +1,4 @@
-using AutoMapper;
+using NewHeap.Platform.Mapping;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +18,7 @@ using NSubstitute;
 using SampleProjectManagement.Api.Controllers;
 using SampleProjectManagement.Core.Events;
 using SampleProjectManagement.Core.Models.Mutate;
+using SampleProjectManagement.Core.Models.View;
 using SampleProjectManagement.Core.Services;
 using SampleProjectManagement.DAL;
 using SampleProjectManagement.DAL.Entities;
@@ -73,6 +74,32 @@ public class ProjectPartialUpdateTests
     }
 
     [Fact]
+    public void ProjectControllerExposesCustomExistingModelPartialUpdateContract()
+    {
+        var action = typeof(ProjectController).GetMethod(
+            nameof(ProjectController.UpdatePlanningPartial));
+
+        Assert.NotNull(action);
+        Assert.Equal(
+            "{id:guid}/planning",
+            action.GetCustomAttribute<HttpPatchAttribute>()?.Template);
+        Assert.Equal(
+            typeof(JObject),
+            action.GetParameters().Single(parameter =>
+                parameter.GetCustomAttribute<FromBodyAttribute>() is not null).ParameterType);
+        Assert.Contains(
+            action.GetCustomAttributes<ProducesResponseTypeAttribute>(),
+            attribute => attribute.StatusCode == StatusCodes.Status200OK &&
+                attribute.Type == typeof(ProjectViewModel));
+        Assert.Contains(
+            action.GetCustomAttributes<ProducesResponseTypeAttribute>(),
+            attribute => attribute.StatusCode == StatusCodes.Status400BadRequest);
+        Assert.Contains(
+            action.GetCustomAttributes<ProducesResponseTypeAttribute>(),
+            attribute => attribute.StatusCode == StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
     public async Task ProjectPartialUpdateNormalizesBeforeValidation()
     {
         await using var dbContext = new SampleProjectManagementDbContext(
@@ -115,8 +142,11 @@ public class ProjectPartialUpdateTests
                 Substitute.For<IRepository<NhLog>>(),
                 Substitute.For<IHttpContextAccessor>(),
                 Substitute.For<IStringLocalizer<NhDbLogService>>(),
-                Options.Create(new NewHeapAspNetCommonSettings())),
-            new LogHelperService(Substitute.For<IStringLocalizer<SharedDataAnnotationRecources>>()),
+                Options.Create(new NewHeapAspNetCommonSettings()),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<NhDbLogService>.Instance),
+            new LogHelperService(
+                Substitute.For<IStringLocalizer<SharedDataAnnotationRecources>>(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<LogHelperService>.Instance),
             mapper,
             Substitute.For<IStringLocalizer<ProjectService>>(),
             new ValidationService(serviceProvider),

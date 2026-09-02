@@ -67,6 +67,48 @@ the RabbitMQ values and
 `NewHeap.PlatformAspNetCommon.Authorization.JWT.Token.Key`. Generate a unique
 64-byte Base64 JWT key for every installation.
 
+## Read-only database diagnostics
+
+The backend contains a checked-in
+`.newheap/database-read.json` profile and a parameterized
+`Tooling/DatabaseRead/requests/project-by-id.json` request. For direct agent
+diagnostics, the profile, `Tooling/DatabaseRead/README.md`, and checked-in request
+files are the routing and JSON contract; application code and package internals
+are not discovery prerequisites. From the sample root, one bounded tracked-file
+search finds the nested catalog under `src/Back-end`; that catalog root, not an
+ancestor tool-manifest directory, becomes the diagnostic working directory. Its
+only `sample-development` profile governs provider, configuration path,
+connection-string name and ceilings; Development is its default runtime
+environment. If the user explicitly requests Staging or Production, pass that
+value with `--environment` to schema and query instead of requiring another
+profile solely for the environment. Let `newheap-db` resolve the governed
+connection-string name. Create a dedicated
+PostgreSQL login that has only `CONNECT`, schema `USAGE`, and `SELECT` on the
+approved diagnostic tables or views. Put that login's connection string in
+`ConnectionStrings.NewHeapDiagnosticsReadOnly` in the local `secrets.json`.
+Never reuse the application owner credential.
+
+Restore the repository-pinned `NewHeap.Platform.DatabaseRead.Tool`, then run
+this from `src/Back-end` in PowerShell:
+
+```powershell
+dotnet tool restore
+dotnet tool run newheap-db schema --search Projects --schema-name public --describe-if-single
+dotnet tool run newheap-db query --request-file Tooling/DatabaseRead/requests/project-by-id.json
+```
+
+For an explicitly requested Production diagnostic, use the same profile with
+`--environment Production` on both execution commands. The tool resolves the
+environment-specific configuration and still refuses any principal with write,
+DDL or elevated permissions.
+
+The commands return one JSON document on standard output and also retain standard
+input as a supported request transport. The only profile is selected automatically.
+Both execution commands validate internally and refuse a principal when write,
+DDL, or elevated permissions are detected; do not add a separate `validate` call
+to an interactive diagnostic. `validate` remains available for CI and dry-run
+request checks without opening the database.
+
 ## Maintain the samples
 
 The canonical machine-readable source is

@@ -32,4 +32,4 @@ Run the final validator with the manifest feature flags enabled. For Aspire, sta
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.9/docs/consumer-guide/consumer-optional-infrastructure.md#add-infrastructure-only-through-explicit-bootstrap-options)
+- [Immutable guide and executable evidence](../../newheap-platform-development/references/immutable-evidence.md#consumer-optional-infrastructure)

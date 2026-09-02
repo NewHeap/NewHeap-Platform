@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ObjectPool;
 using NewHeap.Media.Models;
 using NhMedia.Http;
@@ -464,6 +465,7 @@ public static class WebApplicationExtensions
         string? language,
         string? orderBy,
         IMediaLibraryService mediaLibraryService,
+        ILoggerFactory loggerFactory,
         [FromQuery] int page = 0,
         [FromQuery] int pageSize = 30
         )
@@ -482,10 +484,11 @@ public static class WebApplicationExtensions
                     var sorts = JsonSerializer.Deserialize<SortOption[]>(orderBy, _jsonOptions);
                     options.OrderBy = sorts?.ToList() ?? [];
                 }
-                catch (Exception)
+                catch (JsonException exception)
                 {
-                    // Ignore
-                    ;
+                    loggerFactory
+                        .CreateLogger(typeof(WebApplicationExtensions).FullName!)
+                        .LogDebug(exception, "Ignored an invalid media sort expression");
                 }
             }
             var contents = await mediaLibraryService.GetFolder(path, language, options);

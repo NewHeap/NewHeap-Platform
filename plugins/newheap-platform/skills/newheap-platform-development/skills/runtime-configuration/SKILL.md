@@ -7,6 +7,8 @@ description: Configure or troubleshoot NewHeap consumer appsettings, secrets dir
 
 Read [runtime configuration](references/runtime-configuration.md) before changing NewHeap configuration composition or automation overrides.
 
+Read [database diagnostics](references/database-diagnostics.md) when configuring or troubleshooting a `newheap-db` profile, target environment, application configuration path or secrets-based connection-string resolution.
+
 Use the same appsettings and NewHeap secrets-file model on every host. Allow environment variables and explicitly supplied command-line arguments to override host-specific values with the supported precedence.
 
 Prefer double-underscore environment variables for pipelines and avoid secrets in command-line arguments. Ensure design-time factories forward their arguments into the same configuration path as runtime hosts.

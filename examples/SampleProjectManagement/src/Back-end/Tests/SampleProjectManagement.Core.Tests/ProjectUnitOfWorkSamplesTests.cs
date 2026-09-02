@@ -1,4 +1,4 @@
-using AutoMapper;
+using NewHeap.Platform.Mapping;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -96,8 +96,11 @@ public class ProjectUnitOfWorkSamplesTests
                 Substitute.For<IRepository<NhLog>>(),
                 Substitute.For<IHttpContextAccessor>(),
                 Substitute.For<IStringLocalizer<NhDbLogService>>(),
-                Options.Create(new NewHeapAspNetCommonSettings())),
-            new LogHelperService(Substitute.For<IStringLocalizer<SharedDataAnnotationRecources>>()),
+                Options.Create(new NewHeapAspNetCommonSettings()),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<NhDbLogService>.Instance),
+            new LogHelperService(
+                Substitute.For<IStringLocalizer<SharedDataAnnotationRecources>>(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<LogHelperService>.Instance),
             mapper,
             Substitute.For<IStringLocalizer<ProjectService>>(),
             new ValidationService(serviceProvider),

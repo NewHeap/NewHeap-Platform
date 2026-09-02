@@ -41,12 +41,15 @@ public class NewHeapCommonOptionsBuilder
         return this;
     }
 
-    public NewHeapCommonOptionsBuilder UseOtlpUseExporter(bool use = true)
+    public NewHeapCommonOptionsBuilder UseOtlpExporter(bool use = true)
     {
         ThrowIfBuild();
         _options!.OtlpUseExporter = use;
         return this;
     }
+
+    [Obsolete($"Use {nameof(UseOtlpExporter)} instead. Standard OTEL_* environment variables are preferred.")]
+    public NewHeapCommonOptionsBuilder UseOtlpUseExporter(bool use = true) => UseOtlpExporter(use);
 
     public NewHeapCommonOptions Build()
     {

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>NewHeap.Platform.AI.AgentFramework</PackageId>
+    <Copyright>NewHeap B.V.</Copyright>
+    <Title>NewHeap AI Agent Framework</Title>
+    <PackageDescription>Policy-preserving Microsoft Agent Framework workflow and checkpoint adapters for NewHeap Platform AI.</PackageDescription>
+    <PackageTags>newheap platform ai agents workflows checkpoints durable</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Agents.AI" />
+    <PackageReference Include="Microsoft.Agents.AI.Workflows" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../NewHeap.Platform.AI.Common/NewHeap.Platform.AI.Common.csproj" />
+  </ItemGroup>
+</Project>

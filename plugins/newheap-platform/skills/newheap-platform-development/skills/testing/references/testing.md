@@ -20,6 +20,16 @@ contexts, `TaskResult` assertions, and NSubstitute predicate helpers. Add
 and automatic repository registration. The SampleProjectManagement tests for
 SPM-173 through SPM-176 are the executable examples.
 
+Keep the test framework version consumer-owned. The reusable packages do not
+reference or flow xUnit compile/runtime assets into consumer test projects, so
+a consumer can select its supported xUnit version without duplicate test
+attributes. `NhTestingContextFixture<TContext>` exposes lifecycle methods but
+does not implement a version-specific xUnit interface; consumers that need an
+xUnit class fixture add a small version-specific adapter in their own test
+project, as demonstrated by SPM-173. Resolve contexts and application services
+from the validated DI provider instead of manually constructing NewHeap
+repositories.
+
 Keep the packable `NewHeap.Platform.*.Test` projects limited to public, reusable
 fixtures, contexts, factories, and assertions. Put NewHeap's own `[Fact]` and
 `[Theory]` regression tests under `src/Back-end/Tests` in a `*.Tests` project
@@ -30,6 +40,8 @@ tests, but they never become part of a consumer package.
 
 - Adding library regression tests to a packable `.Test` helper project.
 - Referencing an internal `NewHeap.Platform.*.Tests` project from a consumer.
+- Relying on a transitive test-framework dependency instead of declaring the
+  consumer's chosen runner and test framework explicitly.
 - Using EF Core InMemory as evidence for query translation, migrations,
   relational constraints, transactions, or provider-specific behavior.
 - Publishing test-runner, coverage, or browser dependencies when no public
@@ -46,4 +58,4 @@ tests in addition to any in-memory unit tests.
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.9/docs/consumer-guide/testing.md#separate-reusable-test-helpers-from-library-tests)
+- [Immutable guide and executable evidence](../../../references/immutable-evidence.md#testing)

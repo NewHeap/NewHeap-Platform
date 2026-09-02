@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -28,14 +29,14 @@ using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Resolvers;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
 using NewHeap.Platform.AspNet.Common.Utilities;
 using NewHeap.Platform.AspNet.Policy.AuthorizationHandlers;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Localization;
 using NewHeap.Platform.Common.Translations;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Trace;
+using NewHeap.Platform.Common.Utilities;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
@@ -140,8 +141,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         AddLocalization();
         AddHttpRelated();
         AddRequestLocalization();
-        AddOpenTelementry();
-
         _serviceCollection.AddHealthChecks();
 
         #region Services
@@ -150,23 +149,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection.AddSingleton<IHttpCollectionProcessingService, HttpCollectionProcessingService>();
 
         #endregion
-    }
-
-    private void AddOpenTelementry()
-    {
-        _serviceCollection.AddOpenTelemetry()
-            .WithMetrics(metrics =>
-            {
-                metrics.AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation();
-            })
-            .WithTracing(tracing =>
-            {
-                tracing.AddAspNetCoreInstrumentation()
-                    // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
-                    //.AddGrpcClientInstrumentation()
-                    .AddHttpClientInstrumentation();
-            });
     }
 
     private void AddHttpRelated()
@@ -249,7 +231,6 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             >));
 
             _options.AutoMapperConfigurationAction?.Invoke(options);
-            AutoMapperSecurityConfiguration.Apply(options);
         });
     }
 
@@ -483,6 +464,13 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         serviceCollection.AddScopedNhDbRepository<NhUserNotification>();
         serviceCollection.AddScopedNhDbRepository<NhUserNotificationMessage>();
         serviceCollection.AddScopedNhDbRepository<NhUserAuthRefreshToken>();
+        serviceCollection.AddScopedNhDbRepository<NhBackgroundOperation>();
+        serviceCollection.AddScopedNhDbRepository<NhBackgroundOperationAttempt>();
+        serviceCollection.AddScopedNhDbRepository<NhBackgroundOperationStep>();
+        serviceCollection.AddScopedNhDbRepository<NhBackgroundOperationEvent>();
+        serviceCollection.AddScopedNhDbRepository<NhBackgroundOperationCheckpoint>();
+        serviceCollection.AddScopedNhDbRepository<NhBackgroundOperationIdempotencyRecord>();
+        serviceCollection.AddScopedNhDbRepository<NhBackgroundOperationLease>();
 
         #endregion
 
@@ -772,6 +760,98 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             TDivisionUserService,
             TDivisionUserMutateModel
         >
+        WithBackgroundOperations(Action<NhBackgroundOperationBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        if (_serviceCollection.Any(x => x.ServiceType == typeof(NhBackgroundOperationRegistry)))
+        {
+            throw new InvalidOperationException("Background operations have already been configured.");
+        }
+
+        var options = new NhBackgroundOperationsOptions();
+        var builder = new NhBackgroundOperationBuilder(_serviceCollection, options);
+        configure(builder);
+        var registry = builder.Build();
+
+        _serviceCollection.AddSingleton(options);
+        _serviceCollection.AddSingleton(registry);
+        _serviceCollection.AddControllers().AddApplicationPart(typeof(Controllers.NhBackgroundOperationController).Assembly);
+        _serviceCollection.TryAddSingleton<INhHangfireQueueNameResolver, NhHangfireQueueNameResolver>();
+        if (options.LiveUpdatesEnabled)
+        {
+            _serviceCollection.AddSignalR();
+            _serviceCollection.TryAddSingleton<NhBackgroundOperationSignalRMarker>();
+            _serviceCollection.TryAddSingleton<INhBackgroundOperationLiveUpdatePublisher, NhSignalRBackgroundOperationLiveUpdatePublisher>();
+        }
+        else
+        {
+            _serviceCollection.TryAddSingleton<INhBackgroundOperationLiveUpdatePublisher, NhNoOpBackgroundOperationLiveUpdatePublisher>();
+        }
+        if (options.UserNotificationProjectionEnabled)
+        {
+            _serviceCollection.TryAddScoped<INhBackgroundOperationNotificationFormatter,
+                NhDefaultBackgroundOperationNotificationFormatter>();
+            _serviceCollection.TryAddSingleton<INhBackgroundOperationNotificationProjector, NhBackgroundOperationNotificationProjector>();
+        }
+        else
+        {
+            _serviceCollection.TryAddSingleton<INhBackgroundOperationNotificationProjector, NhNoOpBackgroundOperationNotificationProjector>();
+        }
+
+        _serviceCollection.TryAddSingleton<NhBackgroundOperationFanOutCoordinator>();
+        _serviceCollection.TryAddSingleton<NhBackgroundOperationPersistence>();
+        _serviceCollection.AddHealthChecks()
+            .AddCheck<NhBackgroundOperationHealthCheck>("nh-background-operations", tags: ["ready"]);
+        _serviceCollection.TryAddScoped<INhBackgroundOperationScheduler, NhHangfireBackgroundOperationScheduler>();
+        _serviceCollection.TryAddScoped<INhBackgroundOperationService, NhBackgroundOperationService>();
+        _serviceCollection.TryAddScoped<INhBackgroundOperationSignalService, NhBackgroundOperationSignalService>();
+        _serviceCollection.AddScoped(serviceProvider => new NhBackgroundOperationRunner(
+            serviceProvider,
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            serviceProvider.GetRequiredService<NhBackgroundOperationPersistence>(),
+            serviceProvider.GetRequiredService<NhBackgroundOperationRegistry>(),
+            serviceProvider.GetRequiredService<NhBackgroundOperationFanOutCoordinator>(),
+            serviceProvider.GetRequiredService<NhBackgroundOperationsOptions>(),
+            serviceProvider.GetRequiredService<ILogger<NhBackgroundOperationRunner>>()));
+        _serviceCollection.AddHostedService<NhBackgroundOperationStartupValidator>();
+        if (options.DispatchWorkersEnabled)
+        {
+            _serviceCollection.AddHostedService<NhBackgroundOperationDispatchService>();
+        }
+
+        if (options.ReconciliationEnabled)
+        {
+            _serviceCollection.AddHostedService<NhBackgroundOperationReconciliationService>();
+        }
+
+        if (options.CleanupEnabled)
+        {
+            _serviceCollection.AddHostedService<NhBackgroundOperationCleanupService>();
+        }
+
+        return this;
+    }
+
+    public INewHeapPlatformAspNetCommonConfigurator<
+            TUser,
+            TUserRole,
+            TDivision,
+            TDivisionUser,
+            TDivisionRole,
+            TDivisionUserRole,
+            TDivisionRoleClaim,
+            TLog,
+            TLogMessageArgument,
+            TLogFile,
+            TLogMessageTranslated,
+            TDbLogService,
+            TDbContext,
+            TUserManager,
+            TDivisionService,
+            TDivisionMutateModel,
+            TDivisionUserService,
+            TDivisionUserMutateModel
+        >
         WithHangfire(
             string nameOrConnectionString,
             Action<IGlobalConfiguration>? hangfireOptionsAction = null,
@@ -780,6 +860,8 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             DatabaseProvider databaseProvider = DatabaseProvider.SqlServer
         )
     {
+        _serviceCollection.TryAddSingleton<INhHangfireQueueNameResolver, NhHangfireQueueNameResolver>();
+
         _serviceCollection.AddHangfire(options =>
         {
             switch (databaseProvider)
@@ -802,9 +884,21 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             options.UseConsole(consoleOptions);
         });
 
-        _serviceCollection.AddHangfireServer(options =>
+        _serviceCollection.AddHangfireServer((serviceProvider, options) =>
         {
             backgroundJobServerOptions?.Invoke(options);
+
+            var queueResolver = serviceProvider.GetRequiredService<INhHangfireQueueNameResolver>();
+            var backgroundOperationQueues = serviceProvider.GetService<NhBackgroundOperationRegistry>()?
+                .Descriptors
+                .Select(descriptor => NhBackgroundOperationKeys.NormalizeQueueName(
+                    queueResolver.GetQueueName(descriptor.Queue)))
+                ?? [];
+            options.Queues = options.Queues
+                .Append(queueResolver.GetQueueName())
+                .Concat(backgroundOperationQueues)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
         });
 
         return this;

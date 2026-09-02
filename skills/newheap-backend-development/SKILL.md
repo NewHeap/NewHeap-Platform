@@ -18,7 +18,7 @@ Read only the reference needed for the current backend task:
 
 Read multiple references only when the requested change genuinely crosses those boundaries.
 
-New modules normally include the consumer-owned entity and relationships, `DbSet`, repository and service registration, view and mutate models, AutoMapper mappings and a thin authorized controller. View-model IDs are filterable; mutate models omit creation and last-modified timestamps.
+New modules normally include the consumer-owned entity and relationships, `DbSet`, repository and service registration, view and mutate models, NewHeap mapping profiles and a thin authorized controller. View-model IDs are filterable; mutate models omit creation and last-modified timestamps.
 
 Every changed HTTP action exposes a typed Scalar/OpenAPI contract with summary, description, explicit binding, authorization intent and the response metadata the implementation can actually produce.
 

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 3,
-  "pluginVersion": "1.11.9",
-  "guidanceVersion": "1.11.9",
-  "skillContentHash": "7a0053e18a576d15f2975bc6bdb89fb43baf22c6f8364f88ef0efeee9df8a629",
+  "pluginVersion": "1.13.22",
+  "guidanceVersion": "1.13.22",
+  "skillContentHash": "2d8885d873ee3f76a2559dd8465f51693a380f4cb4fce753ac5ac21469aa6f24",
   "skills": [
     "newheap-platform-development"
   ],
@@ -30,20 +30,32 @@
   },
   "compatiblePackages": {
     "@newheap/nh-toastr": "0.0.6",
-    "@newheap/platform-common": "0.20.7",
+    "@newheap/platform-common": "1.0.0",
+    "NewHeap.Platform.AI.AgentFramework": "4.4.5",
+    "NewHeap.Platform.AI.AspNet.Common": "4.4.5",
+    "NewHeap.Platform.AI.Common": "4.4.5",
+    "NewHeap.Platform.AI.Generators": "4.4.5",
+    "NewHeap.Platform.AI.Mcp": "4.4.5",
+    "NewHeap.Platform.AI.Test": "4.4.5",
     "NewHeap.Platform.AspNet.Caching": "0.1.4",
-    "NewHeap.Platform.AspNet.Common": "2.0.0",
-    "NewHeap.Platform.AspNet.Common.Test": "2.0.0",
-    "NewHeap.Platform.Common": "2.0.0",
-    "NewHeap.Platform.Common.Test": "2.0.0",
-    "NewHeap.Platform.Events.Cap": "2.0.0",
-    "NewHeap.Platform.Media": "2.0.0",
-    "NewHeap.Platform.Media.Core": "2.0.0",
-    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "2.0.0",
-    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "2.0.0",
-    "NewHeap.Platform.Media.Http": "2.0.0",
-    "NewHeap.Platform.Media.MediaStorage.FileSystem": "2.0.0",
-    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "2.0.0"
+    "NewHeap.Platform.AspNet.Common": "4.4.5",
+    "NewHeap.Platform.AspNet.Common.Test": "4.4.5",
+    "NewHeap.Platform.Common": "4.4.5",
+    "NewHeap.Platform.Common.Test": "4.4.5",
+    "NewHeap.Platform.DatabaseRead.Tool": "4.4.5",
+    "NewHeap.Platform.Events.Cap": "4.4.5",
+    "NewHeap.Platform.Mapping": "4.4.5",
+    "NewHeap.Platform.Media": "3.0.0",
+    "NewHeap.Platform.Media.Core": "3.0.0",
+    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "3.0.0",
+    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "3.0.0",
+    "NewHeap.Platform.Media.Http": "3.0.0",
+    "NewHeap.Platform.Media.MediaStorage.FileSystem": "3.0.0",
+    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "3.0.0"
+  },
+  "evidence": {
+    "sourceRef": "newheap-platform-plugin-v1.13.22",
+    "catalog": "skills/newheap-platform-development/references/immutable-evidence.md"
   },
   "repositoryTarget": ".agents/skills/newheap-platform-development",
   "repositoryTargets": {

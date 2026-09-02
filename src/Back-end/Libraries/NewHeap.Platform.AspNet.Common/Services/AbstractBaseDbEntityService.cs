@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using NewHeap.Platform.Mapping;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NewHeap.Platform.AspNet.Common.DAL;

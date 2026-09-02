@@ -72,6 +72,7 @@ async function convertGroupedToFlat(root, schemaVersion) {
     guidanceVersion: groupedLock.guidanceVersion,
     skillContentHash: groupedLock.skillContentHash,
     compatiblePackages: groupedLock.compatiblePackages,
+    evidence: groupedLock.evidence,
     source: groupedLock.source,
     files: flatFiles
   };
@@ -100,6 +101,7 @@ async function convertGroupedToLegacy(root) {
     guidanceVersion: groupedLock.guidanceVersion,
     skillContentHash: groupedLock.skillContentHash,
     compatiblePackages: groupedLock.compatiblePackages,
+    evidence: groupedLock.evidence,
     files
   }, null, 2)}\n`);
 }
@@ -115,9 +117,15 @@ async function assertGroupedInstall(root, directory, targetName) {
   const lock = JSON.parse(await readFile(lockPath, 'utf8'));
   if (lock.schemaVersion !== 4 || lock.target !== targetName
     || lock.repositoryTarget !== `${directory}/skills/${consumerSkillBundleName}`
-    || lock.skill !== consumerSkillBundleName) {
+    || lock.skill !== consumerSkillBundleName
+    || lock.evidence?.catalog !== `skills/${consumerSkillBundleName}/references/immutable-evidence.md`
+    || !lock.evidence?.sourceRef?.startsWith('newheap-platform-plugin-v')) {
     throw new Error(`${targetName} installation metadata does not identify the grouped discovery target.`);
   }
+  await assertExists(
+    resolve(bundleRoot, 'references', 'immutable-evidence.md'),
+    `Installer omitted ${targetName} immutable-evidence catalog.`
+  );
   await assertMissing(
     resolve(skillsRoot, '.newheap-platform-install.json'),
     `${targetName} installation left metadata outside the grouped skill directory.`

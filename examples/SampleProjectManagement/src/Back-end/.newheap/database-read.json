@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "profiles": {
+    "sample-development": {
+      "provider": "postgresql",
+      "configurationPath": "Applications/SampleProjectManagement.Api",
+      "environment": "Development",
+      "connectionStringName": "NewHeapDiagnosticsReadOnly",
+      "maximumRows": 1000,
+      "maximumTimeoutSeconds": 30,
+      "maximumLockTimeoutMilliseconds": 5000,
+      "maximumOutputBytes": 4194304,
+      "maximumCellBytes": 65536,
+      "maximumSqlBytes": 65536
+    }
+  }
+}

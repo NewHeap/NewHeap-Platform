@@ -51,4 +51,4 @@ Test initial navigation, parameter changes inside the same shell, modal open, sa
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.9/docs/consumer-guide/frontend-lifecycle-modals.md#newheap-lifecycle-pages-and-modals)
+- [Immutable guide and executable evidence](../../../references/immutable-evidence.md#frontend-lifecycle-modals)

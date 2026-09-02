@@ -32,4 +32,4 @@ Test with the opt-ins enabled in the consumer and test the library defaults sepa
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.9/docs/consumer-guide/frontend-root-configuration.md#root-configuration-with-compatible-opt-ins)
+- [Immutable guide and executable evidence](../../newheap-platform-development/references/immutable-evidence.md#frontend-root-configuration)

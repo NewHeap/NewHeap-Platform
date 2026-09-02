@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using NewHeap.Platform.Mapping;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
@@ -197,7 +197,7 @@ public partial class NhNotificationService : INhNotificationService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An error occurred while creating the notification: {Message}", ex.Message);
+            _logger.LogError(ex, "An error occurred while creating the notification.");
             taskResult.AddError(string.Empty, _localizer["An error occurred while creating the notification."]);
             return taskResult;
         }

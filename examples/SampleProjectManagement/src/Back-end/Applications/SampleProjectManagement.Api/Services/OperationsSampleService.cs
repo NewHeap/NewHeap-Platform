@@ -3,9 +3,11 @@ using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
+using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 using NewHeap.Platform.Common.Utilities;
+using NewHeap.Platform.AI.AspNet;
 using SampleProjectManagement.Api.Jobs;
 using SampleProjectManagement.Api.Models;
 
@@ -17,15 +19,21 @@ public sealed class OperationsSampleService
     private readonly NhMailService _mailService;
     private readonly INhNotificationService _notificationService;
     private readonly RazorViewService _razorViewService;
+    private readonly INhBackgroundOperationService _backgroundOperations;
+    private readonly INhBackgroundOperationSignalService _backgroundOperationSignals;
 
     public OperationsSampleService(
         NhMailService mailService,
         INhNotificationService notificationService,
-        RazorViewService razorViewService)
+        RazorViewService razorViewService,
+        INhBackgroundOperationService backgroundOperations,
+        INhBackgroundOperationSignalService backgroundOperationSignals)
     {
         _mailService = mailService;
         _notificationService = notificationService;
         _razorViewService = razorViewService;
+        _backgroundOperations = backgroundOperations;
+        _backgroundOperationSignals = backgroundOperationSignals;
     }
 
     public JobSampleResult EnqueueOverdueJob()
@@ -107,5 +115,74 @@ public sealed class OperationsSampleService
             .Build();
 
         return _notificationService.CreateAsync(notification, cancellationToken);
+    }
+
+    public Task<TaskResult<NewHeap.Platform.AspNet.Common.Models.View.NhBackgroundOperationViewModel>>
+        EnqueuePortfolioAnalysisAsync(
+            ProjectPortfolioAnalysisMutateModel model,
+            Guid ownerUserId,
+            Guid divisionId,
+            CancellationToken cancellationToken = default)
+    {
+        return _backgroundOperations.EnqueueAsync(
+            new ProjectPortfolioAnalysisRequest(
+                divisionId,
+                model.Passes,
+                model.DelayPerItemMilliseconds,
+                model.FailFirstAttempt),
+            new NhBackgroundOperationEnqueueOptions
+            {
+                OwnerUserId = ownerUserId,
+                DivisionId = divisionId,
+                IdempotencyKey = model.IdempotencyKey,
+                DomainObjectType = "division",
+                DomainObjectId = divisionId.ToString("N")
+            },
+            cancellationToken);
+    }
+
+    public Task<TaskResult<NewHeap.Platform.AspNet.Common.Models.View.NhBackgroundOperationViewModel>>
+        EnqueueAiPortfolioReportAsync(
+            ProjectAiPortfolioReportMutateModel model,
+            Guid ownerUserId,
+            Guid divisionId,
+            CancellationToken cancellationToken = default)
+    {
+        return _backgroundOperations.EnqueueAsync(
+            new ProjectAiPortfolioReportRequest(
+                divisionId,
+                ownerUserId,
+                model.ApprovalExpiresAt),
+            new NhBackgroundOperationEnqueueOptions
+            {
+                OwnerUserId = ownerUserId,
+                DivisionId = divisionId,
+                IdempotencyKey = model.IdempotencyKey,
+                DomainObjectType = "division-ai-report",
+                DomainObjectId = divisionId.ToString("N")
+            },
+            cancellationToken);
+    }
+
+    public Task<TaskResult<NhBackgroundOperationSignalWriteResult>>
+        ApproveAiPortfolioReportAsync(
+            Guid operationId,
+            ProjectAiPortfolioReportApprovalMutateModel model,
+            Guid ownerUserId,
+            Guid approvingUserId,
+            CancellationToken cancellationToken = default)
+    {
+        return _backgroundOperationSignals.SignalForOwnerAsync(
+            operationId,
+            ownerUserId,
+            approvingUserId,
+            "approve-ai-report",
+            new NhAiBackgroundApprovalSignal(
+                model.ApprovalId,
+                model.ProposalId,
+                model.ProposalHash.ToLowerInvariant(),
+                model.Approved,
+                model.DecisionCode),
+            cancellationToken: cancellationToken);
     }
 }

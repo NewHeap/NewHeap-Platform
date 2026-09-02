@@ -80,6 +80,108 @@
       "save-failed": "Could not save. Check the input and try again."
     }
   },
+  "nh-background-operations": {
+    "operation": "Background operation",
+    "progress": "Progress",
+    "overall-progress": "Overall progress",
+    "steps": "Progress steps",
+    "children": "Child operations",
+    "no-steps": "The operation has not published any steps yet.",
+    "activity": "Activity",
+    "open-result": "Open result",
+    "cancel": "Cancel operation",
+    "retry": "Retry operation",
+    "status": {
+      "pending-dispatch": "Pending dispatch",
+      "queued": "Queued",
+      "running": "Running",
+      "waiting-for-children": "Waiting for child operations",
+      "cancel-requested": "Cancelling",
+      "retry-scheduled": "Retry scheduled",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "timed-out": "Timed out",
+      "unknown": "Unknown"
+    },
+    "step-status": {
+      "pending": "Pending",
+      "running": "Running",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "skipped": "Skipped",
+      "cancelled": "Cancelled",
+      "indeterminate": "In progress",
+      "unknown": "Unknown"
+    },
+    "batch": {
+      "processed": "Processed",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "skipped": "Skipped",
+      "retried": "Retried",
+      "active": "Active"
+    }
+  },
+  "background-operation": {
+    "queued": "The operation was queued.",
+    "started": "Processing started.",
+    "succeeded": "The operation completed successfully.",
+    "failed": "The operation failed safely.",
+    "cancelled": "The operation was cancelled.",
+    "timed-out": "The operation timed out.",
+    "cancellation-requested": "Cancellation was requested.",
+    "retry-requested": "A retry was requested.",
+    "retry-scheduled": "A retry was scheduled.",
+    "waiting-for-resource": "Waiting for an exclusive resource lock.",
+    "checkpoint-saved": "A recovery checkpoint was saved.",
+    "result-available": "The result is available.",
+    "children-created": "Child operations were created.",
+    "children-completed": "All child operations reached a final state.",
+    "child-operation-failed": "One or more child operations failed.",
+    "dispatch-recovered": "Dispatch was recovered by reconciliation.",
+    "stale-attempt-recovered": "A stale attempt was recovered.",
+    "operator-recovery-required": "Operator recovery is required.",
+    "unsupported-payload-schema": "This operation payload version is no longer supported."
+  },
+  "sample-project-management": {
+    "background-operations": {
+      "navigation": "Background operations",
+      "label": "Durable work",
+      "title": "Background operations",
+      "description": "Follow durable work through fan-out child operations, weighted phases, nested progress, batch counters, retries, cancellation, polling and live updates.",
+      "action-failed": "The action could not be completed. The durable operation was not changed locally.",
+      "back-to-list": "Back to background operations",
+      "loading": "Loading the durable operation…",
+      "start-title": "Analyze the active division portfolio",
+      "start-description": "Starts an idempotent, division-exclusive sample. Starting it twice returns the same active operation instead of doing the work twice.",
+      "fail-first-attempt": "Fail the first attempt to demonstrate durable retry",
+      "start": "Start analysis",
+      "starting": "Starting…",
+      "recent": "Recent operations",
+      "empty": "No background operations have been started for this user and division.",
+      "connection": {
+        "disabled": "Polling only",
+        "disconnected": "Polling fallback",
+        "connecting": "Connecting live updates",
+        "connected": "Live updates connected",
+        "reconnecting": "Reconnecting; polling remains active"
+      },
+      "steps": {
+        "discover-projects": "Discover projects",
+        "analyze-portfolio": "Analyze portfolio",
+        "load-checkpoint": "Load recovery checkpoint",
+        "process-projects": "Process project passes",
+        "process-project-passes": "Process project passes",
+        "publish-summary": "Publish summary"
+      },
+      "messages": {
+        "projects-discovered": "{{count}} projects discovered.",
+        "checkpoint-loaded": "Resuming at batch item {{nextItem}}.",
+        "analysis-completed": "Analysis completed with {{childCount}} child operations for {{projectCount}} projects across {{passes}} passes."
+      }
+    }
+  },
   "general": {
     "search": "Search"
   },

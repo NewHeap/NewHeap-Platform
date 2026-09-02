@@ -3,6 +3,7 @@ using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using NewHeap.Media.Modules;
 using NewHeap.Platform.Common.Models;
 
@@ -11,17 +12,21 @@ namespace NewHeap.Platform.Media.MediaStorage.S3Bucket;
 public class S3BucketStorage : IMediaStorage
 {
     private readonly IOptionsSnapshot<S3MediaStorageSettings> _options;
+    private readonly ILogger<S3BucketStorage> _logger;
 
-    public S3BucketStorage(IOptionsSnapshot<S3MediaStorageSettings> options)
+    public S3BucketStorage(
+        IOptionsSnapshot<S3MediaStorageSettings> options,
+        ILogger<S3BucketStorage> logger)
     {
         _options = options;
+        _logger = logger;
     }
     
     public async Task<Guid> SaveFileAsync(Stream file)
     {
         var fileName = Guid.NewGuid();
         
-        var client = CreateClient();
+        using var client = CreateClient();
         await client.PutObjectAsync(new PutObjectRequest()
         {
             BucketName = _options.Value.BucketName,
@@ -37,7 +42,7 @@ public class S3BucketStorage : IMediaStorage
     {
         try
         {
-            var client = CreateClient();
+            using var client = CreateClient();
             await client.PutObjectAsync(new PutObjectRequest()
             {
                 BucketName = _options.Value.BucketName,
@@ -48,9 +53,10 @@ public class S3BucketStorage : IMediaStorage
 
             return TaskResult.Succeeded();
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            return TaskResult.Failed(e.ToString());
+            _logger.LogError(exception, "Failed to update media object {MediaObjectId} in S3 storage.", id);
+            return TaskResult.Failed("media.storage.update-failed");
         }
     }
 
@@ -58,16 +64,17 @@ public class S3BucketStorage : IMediaStorage
     {
         try
         {
-            var client = CreateClient();
-            var response = await client.DeleteObjectAsync(new DeleteObjectRequest()
+            using var client = CreateClient();
+            await client.DeleteObjectAsync(new DeleteObjectRequest()
             {
                 BucketName = _options.Value.BucketName, Key = id.ToString().ToLower(),
             });
-            return string.IsNullOrWhiteSpace(response.VersionId) ? TaskResult.Succeeded() : TaskResult.Failed("Could not delete file");
+            return TaskResult.Succeeded();
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            return TaskResult.Failed(e.ToString());
+            _logger.LogError(exception, "Failed to delete media object {MediaObjectId} from S3 storage.", id);
+            return TaskResult.Failed("media.storage.delete-failed");
         }
     }
 
@@ -75,15 +82,16 @@ public class S3BucketStorage : IMediaStorage
     {
         try
         {
-            using var utitility = new TransferUtility(CreateClient());
-            await using var stream = await utitility.OpenStreamAsync(_options.Value.BucketName, fileRefId.ToString().ToLower());
+            using var utility = new TransferUtility(CreateClient());
+            await using var stream = await utility.OpenStreamAsync(_options.Value.BucketName, fileRefId.ToString().ToLower());
             var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
             ms.Seek(0, SeekOrigin.Begin);
             return ms;
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            _logger.LogError(exception, "Failed to read media object {MediaObjectId} from S3 storage.", fileRefId);
             return null;
         }
     }

@@ -69,6 +69,14 @@ export function isSingleVersionBump(previousVersion, version) {
   return ['patch', 'minor', 'major'].some(bump => bumpVersion(previousVersion, bump) === version);
 }
 
+export function assertPluginReleaseBaseline(manifestVersion, guidanceVersion, pluginVersion) {
+  if (guidanceVersion === manifestVersion && pluginVersion === manifestVersion) return;
+  throw new Error(
+    `Plugin and guidance must both remain at released version ${manifestVersion} until Prepare release runs; `
+    + `found plugin ${pluginVersion} and guidance ${guidanceVersion}.`
+  );
+}
+
 export function resolveRepositoryPath(path) {
   const resolved = resolve(repositoryRoot, path);
   const display = relative(repositoryRoot, resolved);

@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using NewHeap.Platform.Mapping;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -198,9 +198,12 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
                 {
                     disposable.Dispose();
                 }
-                catch
+                catch (Exception exception)
                 {
-                    // F in chat
+                    _logger.LogDebug(
+                        exception,
+                        "Failed to dispose notification resource {ResourceType}",
+                        disposable.GetType().Name);
                 }
             }
         }

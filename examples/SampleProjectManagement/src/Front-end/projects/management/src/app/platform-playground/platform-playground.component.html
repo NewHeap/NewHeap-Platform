@@ -115,10 +115,10 @@
     </article>
 
     <article>
-      <h3>Front-end Sentry pipeline</h3>
-      <p>The sample registers all five runtime hooks, breadcrumb, span, trace service, and the central error handler. Transport deliberately remains disabled locally.</p>
-      <button type="button" (click)="demonstrateSentry()">Run observability pipeline</button>
-      <pre>{{ sentryPreview() }}</pre>
+      <h3>Provider-neutral front-end error handling</h3>
+      <p><code>NhErrorHandlerService</code> fans out to consumer-owned handlers without requiring a remote telemetry vendor.</p>
+      <button type="button" (click)="demonstrateFrontendErrorHandling()">Run error-handler pipeline</button>
+      <pre>{{ frontendErrorPreview() }}</pre>
     </article>
   </div>
 </section>

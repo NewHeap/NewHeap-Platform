@@ -10,14 +10,15 @@ if (!['inventory', 'foundation', 'validate'].includes(mode)) throw new Error('--
 if (!(await stat(root)).isDirectory()) throw new Error(`${root} is not a directory.`);
 
 const ignored = new Set(['.agents', '.angular', '.claude', '.git', '.nx', 'bin', 'dist', 'docs', 'node_modules', 'obj']);
-const extensions = new Set(['.cjs', '.config', '.cs', '.csproj', '.html', '.json', '.mjs', '.props', '.sln', '.slnx', '.ts']);
+const extensions = new Set(['.cjs', '.config', '.cs', '.csproj', '.html', '.json', '.mjs', '.props', '.sln', '.slnx', '.ts', '.yaml', '.yml']);
+const dockerArtifactNamePattern = /^(?:Dockerfile|.+\.Dockerfile|compose\.ya?ml|docker-compose\.ya?ml)$/i;
 const files = [];
 async function walk(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     if (entry.isSymbolicLink() || entry.isDirectory() && ignored.has(entry.name)) continue;
     const path = resolve(directory, entry.name);
     if (entry.isDirectory()) await walk(path);
-    else if (extensions.has(extname(entry.name)) || entry.name === 'package.json') files.push(path);
+    else if (extensions.has(extname(entry.name)) || entry.name === 'package.json' || dockerArtifactNamePattern.test(entry.name)) files.push(path);
   }
 }
 await walk(root);
@@ -57,6 +58,7 @@ const applicationProfile = manifest?.applicationProfile;
 const apiExpected = ['api', 'management-portal'].includes(applicationProfile);
 const frontendExpected = applicationProfile === 'management-portal';
 const backgroundServiceExpected = applicationProfile === 'service';
+const identityOwnership = manifest?.capabilities?.identityOwnership ?? 'local';
 const exactFoundationPaths = [
   'src/Back-end/Directory.Build.props',
   'src/Back-end/Directory.Packages.props',
@@ -117,7 +119,7 @@ const report = {
   angular: {
     rootRegistrations: matchingFiles(/NhCommonModule\.forRoot/),
     apiServices: matchingFiles(/extends\s+NhBaseApiService/),
-    modalContent: matchingFiles(/NhModalMutateBaseComponent|NhModalComponentImpl/),
+    modalContent: matchingFiles(/NhModalMutateBaseComponent|NhModalComponentImpl|NhModalConfirmComponent/),
     getDeduplicationOptIns: matchingFiles(/deduplicateGetRequests\s*:\s*true/),
     deferredDropdownOptIns: matchingFiles(/deferLazyLoadUntilOpened\s*:\s*true/),
     directAngularLifecycleOverrides: directLifecycleOverrides,
@@ -127,6 +129,9 @@ const report = {
   backend: {
     dbContexts: matchingFiles(/\bNhIdentityDbContext\b/),
     protectedControllers: matchingFiles(/(?:DbEntityProtectedNhBaseController|CompositeDbEntityProtectedNhBaseController|ProtectedNhBaseController)/),
+    authorizedControllers: sources
+      .filter(file => file.name.endsWith('.cs') && /\bControllerBase\b/.test(file.content) && /\[Authorize(?:Attribute)?\b/.test(file.content))
+      .map(file => file.name),
     apiPrefixedControllerRoutes: matchingFiles(/\[Route\("\/?api\//i),
     migrations: sources.filter(file => /(^|\/)Migrations\//i.test(file.name)).map(file => file.name),
     scalarOrOpenApi: matchingFiles(/AddOpenApi|MapOpenApi|MapScalarApiReference|EndpointSummary/),
@@ -134,7 +139,7 @@ const report = {
   },
   optionalInfrastructure: {
     aspire: matchingFiles(/DistributedApplication\.CreateBuilder|Aspire\.Hosting\.AppHost/),
-    docker: sources.filter(file => /(^|\/)(?:Dockerfile|compose\.ya?ml|docker-compose\.ya?ml)$/i.test(file.name)).map(file => file.name),
+    docker: sources.filter(file => /(^|\/)(?:Dockerfile|[^/]+\.Dockerfile|compose\.ya?ml|docker-compose\.ya?ml)$/i.test(file.name)).map(file => file.name),
     elasticsearch: matchingFiles(/Elastic\.Clients\.Elasticsearch|NEST|AddElasticsearch|ElasticsearchClient/)
   },
   issues: []
@@ -145,6 +150,8 @@ const warning = (code, message) => report.issues.push({ severity: 'warning', cod
 if (mode !== 'inventory') {
   if (!manifest) error('manifest-missing', 'newheap-consumer.json is missing or invalid.');
   else if (!['service', 'api', 'management-portal'].includes(applicationProfile)) error('profile-invalid', 'applicationProfile must be service, api, or management-portal.');
+  else if (!['local', 'external'].includes(identityOwnership)) error('identity-ownership-invalid', 'capabilities.identityOwnership must be local or external when specified.');
+  if (identityOwnership === 'external' && !manifest?.capabilities?.authentication) error('identity-ownership-invalid', 'External identity ownership requires authentication to be enabled.');
   for (const path of missingFoundationPaths) error('foundation-path-missing', `Required foundation path is missing: ${path}`);
   for (const path of rootWorkspaceFiles) error('root-workspace-file', `Move workspace file out of the repository root: ${path}`);
   for (const path of invalidSolutionFiles) error('solution-location', `Move the solution into src/Back-end: ${path}`);
@@ -171,8 +178,10 @@ if (mode === 'validate') {
   for (const path of directLifecycleOverrides) error('angular-lifecycle', `Use appOn... hooks instead of owned Angular lifecycle hooks: ${path}`);
   for (const path of asideMutationFiles) error('aside-mutation', `Move create/edit form content from an aside into a NewHeap modal: ${path}`);
   for (const path of report.angular.genericStarterFiles) error('generic-angular-starter', `Replace the generic Angular starter with the management portal shell: ${path}`);
-  if (frontendExpected && report.backend.dbContexts.length === 0) error('identity-dbcontext', 'Use a consumer DbContext derived from NhIdentityDbContext for the authenticated management portal.');
-  if ((frontendExpected || manifest?.capabilities?.authentication) && apiExpected && report.backend.protectedControllers.length === 0) error('protected-controller', 'Use a NewHeap protected/base controller with explicit authorization metadata for the selected authenticated profile.');
+  if (frontendExpected && identityOwnership === 'local' && report.backend.dbContexts.length === 0) error('identity-dbcontext', 'Use a consumer DbContext derived from NhIdentityDbContext when the management portal owns identity.');
+  const hasExpectedProtectedController = report.backend.protectedControllers.length > 0
+    || identityOwnership === 'external' && report.backend.authorizedControllers.length > 0;
+  if ((frontendExpected || manifest?.capabilities?.authentication) && apiExpected && !hasExpectedProtectedController) error('protected-controller', 'Use a NewHeap protected/base controller, or an explicitly authorized ControllerBase when identity is externally owned.');
   if (apiExpected && report.backend.scalarOrOpenApi.length === 0) error('openapi-missing', 'Expose the API contract through OpenAPI and Scalar metadata.');
   if (apiExpected && report.backend.apiPrefixedControllerRoutes.length > 0) error('api-route-prefix', 'Backend controller routes must not repeat the browser /api proxy prefix.');
   const proxy = sourceByName.get('src/Front-end/proxy.conf.cjs')?.content ?? '';

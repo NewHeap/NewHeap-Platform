@@ -1,4 +1,4 @@
-using AutoMapper;
+using NewHeap.Platform.Mapping;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -17,6 +17,7 @@ using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using NSubstitute;
+using System.ComponentModel.DataAnnotations;
 using Xunit;
 
 namespace NewHeap.Platform.AspNet.Common.Tests;
@@ -115,6 +116,79 @@ public sealed class PartialUpdateControllerTests
 
         Assert.Empty(mapping.Errors);
         Assert.Equal("MIXED CASE", model.ConvertedValue);
+    }
+
+    [Fact]
+    public void PublicControllerAppliesPatchToExistingModelAndValidatesCompleteResult()
+    {
+        var controller = CreatePublicController();
+        var model = new ExistingModelMutateModel
+        {
+            RequiredValue = "required",
+            OptionalValue = "clear me",
+            Enabled = true,
+            Count = 12,
+            DisplayName = "before"
+        };
+
+        var success = controller.ApplyPartialUpdate(
+            model,
+            JObject.Parse(
+                """
+                {
+                  "optionalValue": null,
+                  "enabled": false,
+                  "count": 0,
+                  "display-name": "after"
+                }
+                """));
+
+        Assert.True(success);
+        Assert.Equal("required", model.RequiredValue);
+        Assert.Null(model.OptionalValue);
+        Assert.False(model.Enabled);
+        Assert.Equal(0, model.Count);
+        Assert.Equal("after", model.DisplayName);
+    }
+
+    [Fact]
+    public void PublicControllerRejectsEntirePatchBeforeMutatingExistingModel()
+    {
+        var controller = CreatePublicController();
+        var model = new ExistingModelMutateModel
+        {
+            RequiredValue = "required",
+            Enabled = true,
+            DisplayName = "before"
+        };
+
+        var success = controller.ApplyPartialUpdate(
+            model,
+            JObject.Parse("""{ "display-name": "after", "enabled": false }"""),
+            propertyName => propertyName != nameof(ExistingModelMutateModel.Enabled));
+
+        Assert.False(success);
+        Assert.Equal("before", model.DisplayName);
+        Assert.True(model.Enabled);
+        Assert.True(controller.ModelState.ContainsKey("enabled"));
+    }
+
+    [Fact]
+    public void PublicControllerValidatesCompleteModelAfterApplyingPatch()
+    {
+        var controller = CreatePublicController();
+        var model = new ExistingModelMutateModel
+        {
+            RequiredValue = "required"
+        };
+
+        var success = controller.ApplyPartialUpdate(
+            model,
+            JObject.Parse("""{ "requiredValue": null }"""));
+
+        Assert.False(success);
+        Assert.Null(model.RequiredValue);
+        Assert.True(controller.ModelState.ContainsKey(nameof(ExistingModelMutateModel.RequiredValue)));
     }
 
     [Fact]
@@ -255,6 +329,31 @@ public sealed class PartialUpdateControllerTests
         return controller;
     }
 
+    private static TestPublicController CreatePublicController()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services
+            .AddControllers()
+            .AddNewtonsoftJson(options =>
+            {
+                options.SerializerSettings.ContractResolver = new DefaultContractResolver
+                {
+                    NamingStrategy = new CamelCaseNamingStrategy()
+                };
+                options.SerializerSettings.Converters.Add(new StringEnumConverter());
+            });
+
+        var controller = new TestPublicController(
+            Substitute.For<IMapper>(),
+            Substitute.For<ILogger>(),
+            new ConfigurationBuilder().Build(),
+            Substitute.For<IStringLocalizer>(),
+            Substitute.For<IHttpCollectionProcessingService>());
+        SetHttpContext(controller, services.BuildServiceProvider());
+        return controller;
+    }
+
     private static TestCompositeController CreateCompositeController(FakeCompositeDbEntityService service)
     {
         var controller = new TestCompositeController(
@@ -268,15 +367,43 @@ public sealed class PartialUpdateControllerTests
         return controller;
     }
 
-    private static void SetHttpContext(ControllerBase controller)
+    private static void SetHttpContext(
+        ControllerBase controller,
+        IServiceProvider? requestServices = null)
     {
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
             {
-                RequestServices = new ServiceCollection().BuildServiceProvider()
+                RequestServices = requestServices ?? new ServiceCollection().BuildServiceProvider()
             }
         };
+    }
+
+    private sealed class TestPublicController(
+        IMapper mapper,
+        ILogger logger,
+        IConfiguration configuration,
+        IStringLocalizer localizer,
+        IHttpCollectionProcessingService collectionProcessingService)
+        : PublicNhBaseController(
+            mapper,
+            logger,
+            configuration,
+            localizer,
+            collectionProcessingService)
+    {
+        public bool ApplyPartialUpdate<TModel>(
+            TModel target,
+            JObject? partialUpdate,
+            Func<string, bool>? canPartiallyUpdateProperty = null)
+            where TModel : class
+        {
+            return TryApplyPartialUpdate(
+                target,
+                partialUpdate,
+                canPartiallyUpdateProperty);
+        }
     }
 
     private sealed class TestDbEntityController(
@@ -502,6 +629,21 @@ public sealed class PartialUpdateControllerTests
 
         [JsonConverter(typeof(UppercaseStringJsonConverter))]
         public string? ConvertedValue { get; set; }
+    }
+
+    private sealed class ExistingModelMutateModel
+    {
+        [Required]
+        public string? RequiredValue { get; set; }
+
+        public string? OptionalValue { get; set; }
+
+        public bool Enabled { get; set; }
+
+        public int Count { get; set; }
+
+        [JsonProperty("display-name")]
+        public string? DisplayName { get; set; }
     }
 
     private sealed class TestViewModel

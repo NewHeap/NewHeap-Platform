@@ -99,6 +99,7 @@ public class MediaLibrarySamplesTests
     public void S3ProviderRegistersAndDiagnosticsNeverExposeCredentials()
     {
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddMediaS3BucketStorage(settings =>
         {
             settings.BucketName = "sample-project-documents";

@@ -1,7 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
-using Xunit;
 
 namespace NewHeap.Platform.Common.Test;
 public class NhTestingContext : IDisposable, IAsyncDisposable
@@ -53,7 +52,6 @@ public class NhTestingContext : IDisposable, IAsyncDisposable
 }
 
 public class NhTestingContextFixture<TContext>
-    : IAsyncLifetime
     where TContext : NhTestingContext, new()
 {
     public TContext Context { get; private set; } = null!;

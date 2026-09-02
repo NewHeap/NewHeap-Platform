@@ -5,6 +5,7 @@ using Newtonsoft.Json.Linq;
 using System.ComponentModel.DataAnnotations;
 using System.Linq.Expressions;
 using System.Reflection;
+using Microsoft.Extensions.Logging;
 
 namespace NewHeap.Platform.Common.Services;
 
@@ -42,10 +43,14 @@ public static partial class JObjectExtensions
 public partial class LogHelperService
 {
     private readonly IStringLocalizer<SharedDataAnnotationRecources> _localizer;
+    private readonly ILogger<LogHelperService> _logger;
 
-    public LogHelperService(IStringLocalizer<SharedDataAnnotationRecources> localizer)
+    public LogHelperService(
+        IStringLocalizer<SharedDataAnnotationRecources> localizer,
+        ILogger<LogHelperService> logger)
     {
         _localizer = localizer;
+        _logger = logger;
     }
 
     /// <summary>
@@ -100,9 +105,12 @@ public partial class LogHelperService
                         val1 = await func(val1);
                         val2 = await func(val2);
                     }
-                    catch
+                    catch (Exception exception)
                     {
-                        // Nothing
+                        _logger.LogDebug(
+                            exception,
+                            "Could not resolve the comparison value for property {PropertyName}.",
+                            property.Name);
                     }
                 }
 
@@ -132,9 +140,12 @@ public partial class LogHelperService
                             originalValue = await func(val1);
                             updatedValue = await func(val2);
                         }
-                        catch
+                        catch (Exception exception)
                         {
-                            // Nothing
+                            _logger.LogDebug(
+                                exception,
+                                "Could not resolve the display value for property {PropertyName}.",
+                                property.Name);
                         }
                     }
 

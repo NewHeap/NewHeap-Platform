@@ -1,7 +1,3 @@
-import type {BrowserOptions} from "@sentry/browser/build/npm/types/client";
-import * as Sentry from "@sentry/angular";
-import {ErrorHandlerOptions} from "@sentry/angular";
-
 export class EndpointsAuthenticationNhCommonModuleConfig {
   msAuthenticate: string = '/authentication/oath/microsoft/authorize';
   msRedirectUrl: string = '/authentication/oath/microsoft';
@@ -39,26 +35,18 @@ export class UserNotificationNhCommonModuleConfig {
   }
 }
 
-export class NhSentryErrorLoggingNhCommonModuleConfig {
-  errorLoggingEnabled: boolean = false;
-  tracingEnabled: boolean = false;
-  beforeSendAddAuthServiceInformation: boolean = true;
-  options: BrowserOptions = {};
-  errorHandlerOptions: ErrorHandlerOptions = {};
+export class BackgroundOperationsNhCommonModuleConfig {
+  urlSuffix: string = '/background-operations';
+  hubBaseUrl?: string;
+  hubUrlSuffix: string = '/hub/background-operations';
+  pollingInterval: number = 5000;
+  liveUpdatesEnabled: boolean = true;
+  listPageSize: number = 100;
 
-  public constructor(init?: Partial<NhSentryErrorLoggingNhCommonModuleConfig>) {
+  public constructor(init?: Partial<BackgroundOperationsNhCommonModuleConfig>) {
     Object.assign(this, init);
   }
 }
-
-export class NhErrorLoggingNhCommonModuleConfig {
-  sentry: NhSentryErrorLoggingNhCommonModuleConfig = new NhSentryErrorLoggingNhCommonModuleConfig();
-
-  public constructor(init?: Partial<NhErrorLoggingNhCommonModuleConfig>) {
-    Object.assign(this, init);
-  }
-}
-
 export class NhTranslationNhCommonModuleConfig {
   browserLoaderPrefix: string = './assets/i18n/';
   serverLoaderPath: string = 'assets/i18n/';
@@ -110,7 +98,7 @@ export class NhCommonModuleConfig {
   defaultDateTimeFormat: string = 'dd-MM-yyyy HH:mm:ss';
   authentication: AuthenticationNhCommonModuleConfig = new AuthenticationNhCommonModuleConfig();
   userNotification: UserNotificationNhCommonModuleConfig = new UserNotificationNhCommonModuleConfig();
-  errorLogging: NhErrorLoggingNhCommonModuleConfig = new NhErrorLoggingNhCommonModuleConfig();
+  backgroundOperations: BackgroundOperationsNhCommonModuleConfig = new BackgroundOperationsNhCommonModuleConfig();
   translation: NhTranslationNhCommonModuleConfig = new NhTranslationNhCommonModuleConfig();
   formDropdown: NhFormDropDownNhCommonModuleConfig = new NhFormDropDownNhCommonModuleConfig();
   http: NhHttpNhCommonModuleConfig = new NhHttpNhCommonModuleConfig();

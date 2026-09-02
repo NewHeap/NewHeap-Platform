@@ -142,7 +142,7 @@ jobs:
         run: node tools/guidance/verify-change-impact.mjs --base "origin/${{ github.base_ref }}"
       - name: Validate prepared release impact
         if: inputs.source_branch != ''
-        run: node tools/guidance/verify-change-impact.mjs --base "${{ inputs.base_sha }}"
+        run: node tools/guidance/verify-change-impact.mjs --base "${{ inputs.base_sha }}" --release
 
   complete-release:
     if: inputs.source_branch != ''

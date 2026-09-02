@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import {
+  assertPluginReleaseBaseline,
   bumpVersion,
   loadReleaseManifest,
   parseArguments,
@@ -85,13 +86,7 @@ for (const { component, unit, previousVersion, version } of releases) {
     const plugin = await readJson(pluginPath);
     const guidanceVersion = guidance.guidanceVersion;
     const pluginVersion = plugin.version;
-    if (guidanceVersion !== pluginVersion
-      || (guidanceVersion !== previousVersion && guidanceVersion !== version)) {
-      throw new Error(
-        `Plugin and guidance must both be ${previousVersion} or the requested ${version}; `
-        + `found ${pluginVersion} and ${guidanceVersion}.`
-      );
-    }
+    assertPluginReleaseBaseline(previousVersion, guidanceVersion, pluginVersion);
     guidance.guidanceVersion = version;
     plugin.version = version;
     jsonWrites.push([guidancePath, guidance], [pluginPath, plugin]);

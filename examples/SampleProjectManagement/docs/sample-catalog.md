@@ -19,7 +19,7 @@ when it:
 | Operations API | CAP, Hangfire, email, and notification delivery | event configurator, `NhHangfireUtil`, `NhMailService`, notification builder |
 | Notification playground | polling, badge, mark-as-read, and archive | abstract notification component, service, and controller |
 | Platform playground | text, binary, download, modal, multi-select, custom control, head, and JSON-LD | HTTP options, modal, form, head, and configuration services |
-| Utility playground | strings, arrays, encoding, mutex, cookies, safe and date pipes, and Sentry hooks | concrete utilities, components, and hooks |
+| Utility playground | strings, arrays, encoding, mutex, cookies, safe and date pipes | concrete utilities and components |
 | EF Core chunks | ordered project query in bounded asynchronous batches | `IQueryable.ChunkAsync` with cancellation |
 | Executable tests | collection expressions, projection, validation, SQL, and translation parity | library-only contracts without a UI abstraction |
 
@@ -94,6 +94,37 @@ temporary secrets directory. In automation, prefer passing sensitive values such
 as connection strings directly as environment variables; CLI is more suitable
 for non-secret host settings.
 
+## Read-only database diagnostics
+
+SPM-218 provides a checked-in `.newheap/database-read.json` profile, a typed
+JSON request, and an executable validation test for `newheap-db`. The request
+keeps the project ID in the parameter collection instead of concatenating it
+into PostgreSQL text and applies `LIMIT` in addition to the request-level row
+and timeout limits. Standard input carries the request and standard output
+contains one schema-versioned JSON result, which makes the contract suitable
+for developers, Codex, and other agent environments.
+
+For an agent investigating persisted sample data, the repository profile, local
+database-read README and checked-in request files form a direct fast path. The
+agent makes one bounded tracked-file search when it starts above the backend,
+uses the directory containing the only nested catalog as its diagnostic working
+directory, and selects the catalog's only `sample-development` profile without
+asking for an environment. It makes only the schema calls needed to confirm
+deployed identifiers, validates the bounded query request, executes it and stops
+when the requested evidence is available. It does not inspect controllers,
+entities, EF configuration, appsettings, secrets or package internals merely to
+reconstruct routing or JSON fields that the repository already declares.
+
+The profile selects the existing NewHeap application configuration and the
+`NewHeapDiagnosticsReadOnly` connection-string name. The actual connection
+string is resolved by `newheap-db`, remains in the normal secrets file and must
+use a separate login with only the approved `SELECT` permissions. The parser,
+transaction rollback,
+timeouts, and row/output limits are additional safeguards; the database login
+is the security boundary. Platform integration tests prove that the same login
+can read but cannot update on real SQL Server and PostgreSQL instances while
+the diagnostic queries use provider-native `TOP` and `LIMIT` caps.
+
 ## Recommended deferred lazy dropdown
 
 `deferLazyLoadUntilOpened` is also disabled as a library default for backward
@@ -120,10 +151,15 @@ remains in the service.
 `/project-composites` uses the concrete NewHeap composite controller and service
 bases end to end. `ProjectCompositeService` delegates domain mutations to
 `ProjectService`, so the composite surface does not acquire a second set of
-business rules. The AutoMapper configuration builds the project with its tasks.
-The sample registers its profile through `ConfigureAutoMapper`, so the
-NewHeap-managed mapper applies the tested recursion-depth guard to otherwise
-unbounded maps without replacing an explicit consumer limit.
+business rules. The NewHeap mapping profile builds the project with its tasks.
+The sample registers its profile through the source-compatible
+`ConfigureAutoMapper` entry point. `NewHeap.Platform.Mapping` applies its
+recursion-depth guard to both platform and consumer mappings, maps nested task
+collections, and keeps entity navigation references intact when a mutate model
+does not expose those members. `ProjectMappingFeatureProfile` also uses
+`IncludeBase` to inherit a configured base view into a derived detail view and
+maps status metadata into an `IReadOnlyDictionary`, providing executable
+evidence for base-map and dictionary compatibility.
 
 `GET /projects/short` executes the real short-projection extension with an
 explicit `Project -> ProjectShortViewModel` expression. The source query defines
@@ -436,8 +472,8 @@ The traced catalog is in the
 generated for every build from that plan and
 `sample-implementation-status.json`.
 
-The current status is **211 implemented, 0 partial, 0 planned, and 3 gap cases
-out of 214**. Implemented cases show evidence paths to tests, endpoints, or
+The current status is **215 implemented, 0 partial, 0 planned, and 3 gap cases
+out of 218**. Implemented cases show evidence paths to tests, endpoints, or
 frontend code; only the remaining gaps stay explicitly visible.
 
 - SPM-033 is now a working resolver example: `WithFilterable` accepts the selector and generates `Tasks{any}.Title`. SPM-031 and SPM-032 cover concrete collection filtering separately;

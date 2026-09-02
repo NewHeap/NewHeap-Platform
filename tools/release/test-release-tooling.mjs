@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import {
   addLocalNugetSource,
+  assertPluginReleaseBaseline,
   bumpVersion,
   isSingleVersionBump,
   loadReleaseManifest,
@@ -120,6 +121,15 @@ assert.equal(isSingleVersionBump('1.11.6', '1.12.0'), true);
 assert.equal(isSingleVersionBump('1.11.6', '2.0.0'), true);
 assert.equal(isSingleVersionBump('1.11.6', '1.11.8'), false);
 assert.equal(isSingleVersionBump('1.11.6', '1.11.6'), false);
+assert.doesNotThrow(() => assertPluginReleaseBaseline('1.12.0', '1.12.0', '1.12.0'));
+assert.throws(
+  () => assertPluginReleaseBaseline('1.12.0', '1.12.1', '1.12.1'),
+  /must both remain at released version 1\.12\.0 until Prepare release runs/
+);
+assert.throws(
+  () => assertPluginReleaseBaseline('1.12.0', '1.12.0', '1.12.1'),
+  /found plugin 1\.12\.1 and guidance 1\.12\.0/
+);
 
 if (projectTargetFrameworks('<TargetFramework>net10.0</TargetFramework>').join(';') !== 'net10.0'
   || projectTargetFrameworks('<TargetFrameworks>net9.0;net10.0</TargetFrameworks>').join(';') !== 'net9.0;net10.0'

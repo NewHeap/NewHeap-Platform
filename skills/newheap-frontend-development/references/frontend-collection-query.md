@@ -32,4 +32,4 @@ Test AND/OR, null, text, date ranges, multiple values, single and multi-column s
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.9/docs/consumer-guide/frontend-collection-query.md#fluent-collections-filtering-and-ordering)
+- [Immutable guide and executable evidence](../../newheap-platform-development/references/immutable-evidence.md#frontend-collection-query)

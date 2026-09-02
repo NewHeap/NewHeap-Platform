@@ -69,7 +69,9 @@ public class NhResourceManagerStringLocalizerFactory : IStringLocalizerFactory
                 }
             }
 
-            return new NhCompositeStringLocalizer(localizers);
+            return new NhCompositeStringLocalizer(
+                localizers,
+                _loggerFactory.CreateLogger<NhCompositeStringLocalizer>());
         });
     }
 }

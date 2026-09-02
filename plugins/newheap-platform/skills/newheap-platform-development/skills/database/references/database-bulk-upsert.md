@@ -47,4 +47,4 @@ Run the same mixed insert/update import with thousands of records against real S
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.9/docs/consumer-guide/database-bulk-upsert.md#stream-large-imports-through-provider-native-bulk-upsert)
+- [Immutable guide and executable evidence](../../../references/immutable-evidence.md#database-bulk-upsert)

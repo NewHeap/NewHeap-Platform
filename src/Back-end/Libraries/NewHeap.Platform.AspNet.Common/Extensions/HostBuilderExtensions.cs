@@ -13,6 +13,7 @@ public static partial class HostBuilderExtensions
     public static IHostBuilder UseNewHeapAspnetCommonConfiguration(this IHostBuilder builder, bool environmentFileIsOptional = true)
     {
         builder.UseNhCommonConfiguration(environmentFileIsOptional);
+        builder.AddNewHeapAspNetObservability();
 
         return builder;
     }
@@ -23,6 +24,7 @@ public static partial class HostBuilderExtensions
         bool environmentFileIsOptional = true)
     {
         builder.UseNhCommonConfiguration(args, environmentFileIsOptional);
+        builder.AddNewHeapAspNetObservability();
 
         return builder;
     }
@@ -30,6 +32,7 @@ public static partial class HostBuilderExtensions
     public static IHostApplicationBuilder UseNewHeapAspnetCommonConfiguration(this IHostApplicationBuilder builder, bool environmentFileIsOptional = true)
     {
         builder.UseNhCommonConfiguration(environmentFileIsOptional);
+        builder.AddNewHeapAspNetObservability();
 
         return builder;
     }
@@ -40,6 +43,7 @@ public static partial class HostBuilderExtensions
         bool environmentFileIsOptional = true)
     {
         builder.UseNhCommonConfiguration(args, environmentFileIsOptional);
+        builder.AddNewHeapAspNetObservability();
 
         return builder;
     }

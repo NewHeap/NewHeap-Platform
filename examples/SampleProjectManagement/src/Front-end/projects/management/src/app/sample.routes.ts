@@ -53,6 +53,18 @@ export const SAMPLE_ROUTES: Routes = [
           .then(module => module.AuthPlaygroundComponent)
       },
       {
+        path: 'background-operations',
+        title: 'Background operations',
+        loadComponent: () => import('sample-project-management-common')
+          .then(module => module.BackgroundOperationsPageComponent)
+      },
+      {
+        path: 'background-operations/:id',
+        title: 'Background operation progress',
+        loadComponent: () => import('sample-project-management-common')
+          .then(module => module.BackgroundOperationsPageComponent)
+      },
+      {
         path: 'notifications',
         title: 'Notificaties',
         loadComponent: () => import('./notification-playground/notification-playground.component')
@@ -134,6 +146,10 @@ export const SAMPLE_ROUTES: Routes = [
           .then(module => module.DirtyRouteSampleComponent)
       }
     ]
+  },
+  {
+    path: 'background-operations/:id',
+    redirectTo: 'management/background-operations/:id'
   },
   {
     path: '**',

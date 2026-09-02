@@ -1,4 +1,4 @@
-using AutoMapper;
+using NewHeap.Platform.Mapping;
 using Microsoft.EntityFrameworkCore;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>NewHeap.Platform.AI.Mcp</PackageId>
+    <Copyright>NewHeap B.V.</Copyright>
+    <Title>NewHeap AI MCP</Title>
+    <PackageDescription>Authorized Model Context Protocol adapters for generated NewHeap AI tool catalogs.</PackageDescription>
+    <PackageTags>newheap platform ai mcp model-context-protocol tools authorization</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="ModelContextProtocol.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NewHeap.Platform.AI.Common\NewHeap.Platform.AI.Common.csproj" />
+  </ItemGroup>
+</Project>

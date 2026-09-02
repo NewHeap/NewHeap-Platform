@@ -30,13 +30,10 @@ public sealed record LocalizationSample(string Culture, string ProjectCreated);
 
 public sealed record InvariantFormSample(decimal Budget, DateTime Deadline, string Culture);
 
-public sealed record ObservabilityFailureItem(string Name, IReadOnlyList<string> Errors);
-
 public sealed record ObservabilityResponse(
     string TraceId,
     long ElapsedMilliseconds,
-    bool SuccessLogged,
-    bool FailureLoggedWithTaskResultException,
-    IReadOnlyList<ObservabilityFailureItem> FailureItems);
+    bool CompletionLogged,
+    bool HandledFailureLogged);
 
 public sealed record PublishedEventSample(Guid EventId, string Topic);
