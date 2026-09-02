@@ -133,7 +133,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | CRUD, controllers, services, and models | SPM-001–015 | 15 |
 | Collections, filters, expressions, and projections | SPM-016–035 | 20 |
 | Full, partial, and bulk mutations and validation | SPM-036–050 | 15 |
-| DAL, repositories, SQL, EF, and transactions | SPM-051–060, SPM-218 | 11 |
+| DAL, repositories, SQL, EF, and transactions | SPM-051–060, SPM-237 | 11 |
 | Authentication, identity, claims, and policies | SPM-061–075 | 15 |
 | Events, Hangfire, email, and notifications | SPM-076–090, SPM-229 | 16 |
 | Localization, options, middleware, and OpenAPI | SPM-091–105 | 15 |

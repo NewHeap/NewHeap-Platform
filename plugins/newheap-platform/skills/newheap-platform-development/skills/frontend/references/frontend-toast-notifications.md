@@ -39,4 +39,4 @@ notification playground emits localized feedback through `NhToastrService`.
 ## Optional source evidence
 
 The rule above is self-contained. Open the immutable public guide only when exact sample composition remains unclear.
-- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.11.9/docs/consumer-guide/frontend-toast-notifications.md#root-composed-toast-notifications)
+- [Immutable guide and executable evidence](../../../references/immutable-evidence.md#frontend-toast-notifications)

@@ -134,6 +134,10 @@ Source release: `newheap-platform-plugin-v1.13.22`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/frontend-root-configuration.md)
 
+## Frontend Toast Notifications
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/frontend-toast-notifications.md)
+
 ## Media
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.22/docs/consumer-guide/media.md)

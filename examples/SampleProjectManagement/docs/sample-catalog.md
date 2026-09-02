@@ -96,7 +96,7 @@ for non-secret host settings.
 
 ## Read-only database diagnostics
 
-SPM-218 provides a checked-in `.newheap/database-read.json` profile, a typed
+SPM-237 provides a checked-in `.newheap/database-read.json` profile, a typed
 JSON request, and an executable validation test for `newheap-db`. The request
 keeps the project ID in the parameter collection instead of concatenating it
 into PostgreSQL text and applies `LIMIT` in addition to the request-level row

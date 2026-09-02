@@ -2951,6 +2951,24 @@
     },
     {
       "id": "SPM-218",
+      "categoryId": "6",
+      "title": "Toast notifications",
+      "surface": "`provideNhToastr`, `NhToastrService`, and `NhToastrContainerComponent`",
+      "outcome": "Both application roots host one toast container and the notification playground emits localized feedback through the shared service.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+        "src/Front-end/projects/management/src/app/app-host.component.ts",
+        "src/Front-end/projects/workspace/src/app/app-host.component.ts",
+        "src/Front-end/projects/management/src/app/notification-playground/notification-playground.component.ts",
+        "src/Front-end/projects/management/src/app/notification-playground/notification-playground.component.html",
+        "src/Front-end/scripts/verify-frontend-integrity.mjs",
+        "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.ts",
+        "../../src/Front-end/projects/nh-toastr/src/components/component.ts"
+      ]
+    },
+    {
+      "id": "SPM-237",
       "categoryId": "4",
       "title": "Read-only database diagnostics",
       "surface": "`newheap-db` direct schema and JSON query contracts plus consumer-owned governed schema, indexes and query MCP tools",

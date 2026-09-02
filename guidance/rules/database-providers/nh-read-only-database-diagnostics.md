@@ -4,7 +4,7 @@ title: "Read-only database diagnostics for developers and agents"
 area: database
 reference: database-diagnostics
 summary: "Use newheap-db to inspect selectable schema and run typed read-only diagnostics while keeping credentials and operational limits under consumer control."
-sample-cases: ["SPM-218"]
+sample-cases: ["SPM-237"]
 public-symbols: ["NewHeapDatabaseReadApplication", "INhAiMcpToolAdapter", "UseNhCommonConfiguration"]
 skills: ["newheap-database-development", "newheap-runtime-configuration"]
 providers: ["sql-server", "postgresql"]

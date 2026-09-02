@@ -67,7 +67,7 @@ Validate strict JSON parsing, typed schema and parameter conversion, query-polic
 
 ## Executable evidence
 
-- SPM-218 — Read-only database diagnostics
+- SPM-237 — Read-only database diagnostics
   - [src/Back-end/.newheap/database-read.json](../../examples/SampleProjectManagement/src/Back-end/.newheap/database-read.json)
   - [src/Back-end/Tooling/DatabaseRead/requests/project-by-id.json](../../examples/SampleProjectManagement/src/Back-end/Tooling/DatabaseRead/requests/project-by-id.json)
   - [src/Back-end/Tooling/DatabaseRead/requests/project-schema.json](../../examples/SampleProjectManagement/src/Back-end/Tooling/DatabaseRead/requests/project-schema.json)
