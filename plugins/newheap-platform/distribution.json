@@ -45,13 +45,13 @@
     "NewHeap.Platform.DatabaseRead.Tool": "4.4.5",
     "NewHeap.Platform.Events.Cap": "4.4.5",
     "NewHeap.Platform.Mapping": "4.4.5",
-    "NewHeap.Platform.Media": "3.0.0",
-    "NewHeap.Platform.Media.Core": "3.0.0",
-    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "3.0.0",
-    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "3.0.0",
-    "NewHeap.Platform.Media.Http": "3.0.0",
-    "NewHeap.Platform.Media.MediaStorage.FileSystem": "3.0.0",
-    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "3.0.0"
+    "NewHeap.Platform.Media": "3.0.1",
+    "NewHeap.Platform.Media.Core": "3.0.1",
+    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "3.0.1",
+    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "3.0.1",
+    "NewHeap.Platform.Media.Http": "3.0.1",
+    "NewHeap.Platform.Media.MediaStorage.FileSystem": "3.0.1",
+    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "3.0.1"
   },
   "evidence": {
     "sourceRef": "newheap-platform-plugin-v1.13.22",
