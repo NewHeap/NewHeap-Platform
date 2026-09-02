@@ -10,7 +10,7 @@ public class FileStructureDbContext : DbContext
         "CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')) + NCHAR(31) + LOWER([Name]))";
     
     public const string PathLookupSql =
-        "CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')) + NCHAR(31) + LOWER([Name]))";
+        "CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')))";
 
     public const string PathNameLookupColumn = "PathNameLookup";
     public const string PathLookupColumn = "PathLookup";

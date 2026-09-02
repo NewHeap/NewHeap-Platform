@@ -27,10 +27,10 @@ internal static class SqlServerFileStructureModelConfiguration
         where TEntity : class
     {
         var entity = modelBuilder.Entity<TEntity>();
-        entity.Property<byte[]>(FileStructureDbContext.PathLookupColumn)
+        entity.Property<string>(FileStructureDbContext.PathLookupColumn)
             .HasColumnType("NVARCHAR(256)")
             .HasComputedColumnSql(FileStructureDbContext.PathLookupSql, stored: true);
-        entity.Property<byte[]>(FileStructureDbContext.PathNameLookupColumn)
+        entity.Property<string>(FileStructureDbContext.PathNameLookupColumn)
             .HasColumnType("NVARCHAR(256)")
             .HasComputedColumnSql(FileStructureDbContext.PathNameLookupSql, stored: true);
 
