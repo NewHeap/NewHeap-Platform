@@ -27,18 +27,18 @@ internal static class SqlServerFileStructureModelConfiguration
         where TEntity : class
     {
         var entity = modelBuilder.Entity<TEntity>();
-        entity.Property<byte[]>(FileStructureDbContext.PathLookupHashColumn)
-            .HasColumnType("binary(32)")
-            .HasComputedColumnSql(FileStructureDbContext.PathLookupHashSql, stored: true);
-        entity.Property<byte[]>(FileStructureDbContext.PathNameLookupHashColumn)
-            .HasColumnType("binary(32)")
-            .HasComputedColumnSql(FileStructureDbContext.PathNameLookupHashSql, stored: true);
+        entity.Property<byte[]>(FileStructureDbContext.PathLookupColumn)
+            .HasColumnType("NVARCHAR(256)")
+            .HasComputedColumnSql(FileStructureDbContext.PathLookupSql, stored: true);
+        entity.Property<byte[]>(FileStructureDbContext.PathNameLookupColumn)
+            .HasColumnType("NVARCHAR(256)")
+            .HasComputedColumnSql(FileStructureDbContext.PathNameLookupSql, stored: true);
 
-        entity.HasIndex(FileStructureDbContext.PathLookupHashColumn)
-            .HasDatabaseName($"{indexNamePrefix}_PathLookupHash")
+        entity.HasIndex(FileStructureDbContext.PathLookupColumn)
+            .HasDatabaseName($"{indexNamePrefix}_PathLookup")
             .IncludeProperties(idPropertyName);
-        entity.HasIndex(FileStructureDbContext.PathNameLookupHashColumn)
-            .HasDatabaseName($"{indexNamePrefix}_PathNameLookupHash")
+        entity.HasIndex(FileStructureDbContext.PathNameLookupColumn)
+            .HasDatabaseName($"{indexNamePrefix}_PathNameLookup")
             .IncludeProperties(idPropertyName);
     }
 }

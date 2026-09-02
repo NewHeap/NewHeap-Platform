@@ -14,8 +14,10 @@ public sealed class PostgreSqlFileStructureStorage : RelationalFileStructureStor
     {
     }
 
-    protected override byte[] ComputeLookupHash(params string?[] values)
+    protected override string ComputeLookupHash(params string?[] values)
     {
-        return HashHelper.ComputePostgreSqlHash(values);
+        var value = string.Join("\u001F", values.Select(x => x ?? string.Empty));
+        value = value[..Math.Min(value.Length, 256)];
+        return value;
     }
 }

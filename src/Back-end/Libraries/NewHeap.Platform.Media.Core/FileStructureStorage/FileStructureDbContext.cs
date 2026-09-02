@@ -5,15 +5,16 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer;
 
 public class FileStructureDbContext : DbContext
 {
-    // Path and Name exceed SQL Server's practical index-key limits, so lookups seek on persisted hashes.
-    public const string PathLookupHashColumn = "PathLookupHash";
-    public const string PathNameLookupHashColumn = "PathNameLookupHash";
 
-    public const string PathLookupHashSql =
-        "CONVERT(binary(32), HASHBYTES('SHA2_256', LOWER(COALESCE([Path], N''))))";
+    public const string PathNameLookupSql =
+        "CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')) + NCHAR(31) + LOWER([Name]))";
+    
+    public const string PathLookupSql =
+        "CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')) + NCHAR(31) + LOWER([Name]))";
 
-    public const string PathNameLookupHashSql =
-        "CONVERT(binary(32), HASHBYTES('SHA2_256', CONCAT(LOWER(COALESCE([Path], N'')), NCHAR(31), LOWER(COALESCE([Name], N'')))))";
+    public const string PathNameLookupColumn = "PathNameLookup";
+    public const string PathLookupColumn = "PathLookup";
+    
 
     private readonly FileStructureDbContextOptions _dbContextOptions;
     public DbSet<FileEntity> Files { get; set; }
@@ -81,7 +82,7 @@ public class FileStructureDbContext : DbContext
         Func<string?[], byte[]> lookupHashFactory, string? path, string? name)
         where TEntity : class
     {
-        entry.Property<byte[]>(PathLookupHashColumn).CurrentValue = lookupHashFactory([path]);
-        entry.Property<byte[]>(PathNameLookupHashColumn).CurrentValue = lookupHashFactory([path, name]);
+        entry.Property<byte[]>(PathLookupColumn).CurrentValue = lookupHashFactory([path]);
+        entry.Property<byte[]>(PathNameLookupColumn).CurrentValue = lookupHashFactory([path, name]);
     }
 }

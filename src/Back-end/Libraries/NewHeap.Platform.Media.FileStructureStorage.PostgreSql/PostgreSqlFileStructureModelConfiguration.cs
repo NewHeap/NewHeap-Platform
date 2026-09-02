@@ -22,11 +22,11 @@ internal static class PostgreSqlFileStructureModelConfiguration
         where TEntity : class
     {
         var entity = modelBuilder.Entity<TEntity>();
-        entity.Property<byte[]>(FileStructureDbContext.PathLookupHashColumn).IsRequired().HasMaxLength(32);
-        entity.Property<byte[]>(FileStructureDbContext.PathNameLookupHashColumn).IsRequired().HasMaxLength(32);
-        entity.HasIndex(FileStructureDbContext.PathLookupHashColumn)
-            .HasDatabaseName($"{indexNamePrefix}_PathLookupHash");
-        entity.HasIndex(FileStructureDbContext.PathNameLookupHashColumn)
-            .HasDatabaseName($"{indexNamePrefix}_PathNameLookupHash");
+        entity.Property<string>(FileStructureDbContext.PathLookupColumn).IsRequired().HasMaxLength(256);
+        entity.Property<string>(FileStructureDbContext.PathNameLookupColumn).IsRequired().HasMaxLength(256);
+        entity.HasIndex(FileStructureDbContext.PathLookupColumn)
+            .HasDatabaseName($"{indexNamePrefix}_PathLookup");
+        entity.HasIndex(FileStructureDbContext.PathNameLookupColumn)
+            .HasDatabaseName($"{indexNamePrefix}_PathNameLookup");
     }
 }

@@ -269,7 +269,7 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
         var pathHash = ComputeLookupHash(path);
 
         var folders = await _dbContext.Folders.AsNoTracking().Where(x =>
-                EF.Property<byte[]>(x, FileStructureDbContext.PathLookupHashColumn) == pathHash && x.Path == path)
+                EF.Property<string>(x, FileStructureDbContext.PathLookupColumn) == pathHash && x.Path == path)
             .Where(x => !string.IsNullOrEmpty(x.Name))
             .Select(x => new { x.Id, x.Path, x.Name })
             .ToArrayAsync();
@@ -292,7 +292,7 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
         }
 
         var q = _dbContext.Files.AsNoTracking().Where(x =>
-            EF.Property<byte[]>(x, FileStructureDbContext.PathLookupHashColumn) == pathHash && x.Path == path);
+            EF.Property<string>(x, FileStructureDbContext.PathLookupColumn) == pathHash && x.Path == path);
 
 
         q = ProcessOrderBy(sortOptions, q);
@@ -607,13 +607,13 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
         return path;
     }
 
-    protected abstract byte[] ComputeLookupHash(params string?[] values);
+    protected abstract string ComputeLookupHash(params string?[] values);
 
     private IQueryable<FileEntity> WhereFilePathAndName(IQueryable<FileEntity> query, string? path, string? name)
     {
         var pathNameHash = ComputeLookupHash(path, name);
         return query.Where(x =>
-            EF.Property<byte[]>(x, FileStructureDbContext.PathNameLookupHashColumn) == pathNameHash
+            EF.Property<string>(x, FileStructureDbContext.PathNameLookupColumn) == pathNameHash
             && x.Path == path
             && x.Name == name);
     }
@@ -623,7 +623,7 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
     {
         var pathNameHash = ComputeLookupHash(path, name);
         return query.Where(x =>
-            EF.Property<byte[]>(x, FileStructureDbContext.PathNameLookupHashColumn) == pathNameHash
+            EF.Property<string>(x, FileStructureDbContext.PathNameLookupColumn) == pathNameHash
             && x.Path == path
             && x.Name == name);
     }
