@@ -20,6 +20,9 @@ const managementIndex = read('projects/management/src/index.html');
 const workspaceIndex = read('projects/workspace/src/index.html');
 const mediaPlayground = read('projects/management/src/app/media-playground/media-playground.component.ts');
 const pageLifecycleSample = read('projects/management/src/app/dirty-route-sample/dirty-route-sample.component.ts');
+const notificationPlayground = read('projects/management/src/app/notification-playground/notification-playground.component.ts');
+const managementHost = read('projects/management/src/app/app-host.component.ts');
+const workspaceHost = read('projects/workspace/src/app/app-host.component.ts');
 
 const flattenTranslations = (value, prefix = '', result = new Map()) => {
   for (const [key, item] of Object.entries(value)) {
@@ -76,6 +79,15 @@ assert.match(projectApi, /return this\.updatePartial<void>\(id, \{ status \}\);/
   'The shared project API service must exercise the NewHeap partial-update helper.');
 assert.doesNotMatch(projectApi, /this\.apiService\.put<ProjectViewModel>\([\s\S]*?\/status/,
   'The preferred single-field sample must use PATCH rather than a custom PUT route.');
+
+assert.match(providers, /provideNhToastr\(\{ positionClass: 'toast-bottom-right' \}\)/,
+  'The NewHeap toast provider must be registered once in shared root composition.');
+assert.match(notificationPlayground, /inject\(NhToastrService\)/,
+  'The notification playground must exercise the public NewHeap toast service.');
+for (const [name, host] of [['management', managementHost], ['workspace', workspaceHost]]) {
+  assert.match(host, /<nh-toastr-container \/>/,
+    `The ${name} application root must render one NewHeap toast container.`);
+}
 
 const detachedLoad = pageLifecycleSample.indexOf(
   'void this.loadProjectSummary().catch(error => this.handleProjectSummaryLoadError(error))'

@@ -7,6 +7,7 @@
     <div class="badge">{{ userNotificationState.overview.unreadCount }} unread</div>
   </header>
   <div class="actions">
+    <button type="button" (click)="showToast()">{{ 'project.show-toast' | translate }}</button>
     <button type="button" (click)="load()">Refresh</button>
     <button type="button" (click)="markAllAsRead()">Mark all as read</button>
     <button type="button" (click)="archiveAll()">Archive all</button>

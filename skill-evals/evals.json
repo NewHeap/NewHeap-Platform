@@ -58,6 +58,13 @@
       "expectedOutcome": "Explicit root opt-ins while library defaults remain false."
     },
     {
+      "id": "consumer-frontend-toast-notifications",
+      "skill": "newheap-frontend-development",
+      "prompt": "Add localized toast feedback to an Angular 22 consumer that uses the NewHeap toast package.",
+      "expectedRules": ["nh-frontend-toast-notifications"],
+      "expectedOutcome": "Root composition registers one provider and one container while features inject NhToastrService and never expose raw server errors."
+    },
+    {
       "id": "consumer-auth-scopes",
       "skill": "newheap-authentication",
       "prompt": "Create application roles, division roles, and a consumer-specific resource permission with claim hydration.",

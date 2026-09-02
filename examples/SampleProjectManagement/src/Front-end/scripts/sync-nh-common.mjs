@@ -6,10 +6,10 @@ import { fileURLToPath } from "node:url";
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const sampleRoot = resolve(scriptDirectory, "..");
 const libraryRoot = resolve(scriptDirectory, "../../../../../src/Front-end");
-const libraryPackageDirectory = resolve(libraryRoot, "dist/nh-common");
 const angularCli = resolve(libraryRoot, "node_modules/@angular/cli/bin/ng.js");
 const lockFile = resolve(sampleRoot, ".nh-common-sync.lock");
 const npmCli = process.env.npm_execpath;
+const libraries = ["nh-common", "nh-toastr"];
 
 if (!npmCli) {
   throw new Error("npm_execpath is required to synchronize the local NH package.");
@@ -29,7 +29,7 @@ const runAngularCli = argumentsList =>
 
 const delay = milliseconds => new Promise(resolveDelay => setTimeout(resolveDelay, milliseconds));
 
-async function removePackedPackages() {
+async function removePackedPackages(libraryPackageDirectory) {
   const entries = await readdir(libraryPackageDirectory, { withFileTypes: true }).catch(error => {
     if (error.code === "ENOENT") return [];
     throw error;
@@ -64,30 +64,34 @@ async function acquireLock() {
 }
 
 const lock = await acquireLock();
-let packedPackagePath;
+const packedPackagePaths = [];
 let failure;
 
 try {
-  runAngularCli(["build", "nh-common", "--configuration=development"]);
-  await removePackedPackages();
+  for (const library of libraries) {
+    const libraryPackageDirectory = resolve(libraryRoot, `dist/${library}`);
+    runAngularCli(["build", library, "--configuration=development"]);
+    await removePackedPackages(libraryPackageDirectory);
 
-  const packedPackage = JSON.parse(
-    execFileSync(process.execPath, [npmCli, "pack", "--json"], {
-      cwd: libraryPackageDirectory,
-      encoding: "utf8"
-    })
-  )[0];
-  packedPackagePath = resolve(libraryPackageDirectory, packedPackage.filename);
+    const packedPackage = JSON.parse(
+      execFileSync(process.execPath, [npmCli, "pack", "--json"], {
+        cwd: libraryPackageDirectory,
+        encoding: "utf8"
+      })
+    )[0];
+    const packedPackagePath = resolve(libraryPackageDirectory, packedPackage.filename);
+    packedPackagePaths.push(packedPackagePath);
+  }
 
   runNpm([
     "install",
     "--no-save",
-    packedPackagePath
+    ...packedPackagePaths
   ], { cwd: sampleRoot });
 } catch (error) {
   failure = error;
 } finally {
-  if (packedPackagePath) {
+  for (const packedPackagePath of packedPackagePaths) {
     try { await unlink(packedPackagePath); } catch (error) { if (error.code !== "ENOENT") failure ??= error; }
   }
   try { await lock.close(); } catch (error) { failure ??= error; }

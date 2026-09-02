@@ -18,6 +18,7 @@
 - frontend-collection-query: ./frontend-collection-query.md
 - frontend-lifecycle-modals: ./frontend-lifecycle-modals.md
 - frontend-root-configuration: ./frontend-root-configuration.md
+- frontend-toast-notifications: ./frontend-toast-notifications.md
 - media: ./media.md
 - runtime-configuration: ./runtime-configuration.md
 - testing: ./testing.md

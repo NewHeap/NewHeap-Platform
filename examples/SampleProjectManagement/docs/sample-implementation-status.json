@@ -213,7 +213,8 @@
     "SPM-213",
     "SPM-214",
     "SPM-216",
-    "SPM-217"
+    "SPM-217",
+    "SPM-218"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -1317,6 +1318,16 @@
     ],
     "SPM-217": [
       "src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs"
+    ],
+    "SPM-218": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/projects/management/src/app/app-host.component.ts",
+      "src/Front-end/projects/workspace/src/app/app-host.component.ts",
+      "src/Front-end/projects/management/src/app/notification-playground/notification-playground.component.ts",
+      "src/Front-end/projects/management/src/app/notification-playground/notification-playground.component.html",
+      "src/Front-end/scripts/verify-frontend-integrity.mjs",
+      "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.ts",
+      "../../src/Front-end/projects/nh-toastr/src/components/component.ts"
     ]
   }
 }

@@ -67,6 +67,13 @@ const requiredNpmPeers = {
     'rxjs'
   ]
 };
+const supportedNpmPeerRanges = {
+  '@newheap/nh-toastr': {
+    '@angular/common': '^20.3.28 || ^21.0.0 || ^22.0.0',
+    '@angular/core': '^20.3.28 || ^21.0.0 || ^22.0.0',
+    '@ngx-translate/core': '^17.0.0 || ^18.0.0'
+  }
+};
 if (!rootPackage.scripts?.['release:test']?.includes('test-verify-public-release-targets.mjs')) {
   failures.push('release:test must exercise anonymous registry access, delayed package visibility and exact-version verification.');
 }
@@ -113,9 +120,12 @@ for (const [id, unit] of Object.entries(manifest.units)) {
     for (const dependency of requiredNpmPeers[unit.packageName] ?? []) {
       const declaredRange = packageJson.peerDependencies?.[dependency];
       const workspaceRange = frontEndWorkspacePackage.dependencies?.[dependency];
+      const supportedRange = supportedNpmPeerRanges[unit.packageName]?.[dependency];
       if (!declaredRange) {
         failures.push(`${unit.packageJson}: missing public runtime peer dependency ${dependency}.`);
-      } else if (workspaceRange && declaredRange !== workspaceRange) {
+      } else if (supportedRange && declaredRange !== supportedRange) {
+        failures.push(`${unit.packageJson}: peer dependency ${dependency} ${declaredRange} must match the supported range ${supportedRange}.`);
+      } else if (!supportedRange && workspaceRange && declaredRange !== workspaceRange) {
         failures.push(`${unit.packageJson}: peer dependency ${dependency} ${declaredRange} must match the tested workspace range ${workspaceRange}.`);
       }
     }

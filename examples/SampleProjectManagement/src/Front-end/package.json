@@ -3,18 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start:management": "ng serve management --host 127.0.0.1 --port 4210 --proxy-config proxy.conf.cjs",
-    "start:workspace": "ng serve workspace --host 127.0.0.1 --port 4220 --proxy-config proxy.conf.cjs",
-    "build:management": "ng build management",
-    "build:workspace": "ng build workspace",
-    "build": "npm run build:management && npm run build:workspace",
+    "start:management": "npm run sync:nh-common && ng serve management --host 127.0.0.1 --port 4210 --proxy-config proxy.conf.cjs",
+    "start:workspace": "npm run sync:nh-common && ng serve workspace --host 127.0.0.1 --port 4220 --proxy-config proxy.conf.cjs",
+    "build:management": "npm run prepare:build && ng build management",
+    "build:workspace": "npm run prepare:build && ng build workspace",
+    "build": "npm run prepare:build && ng build management && ng build workspace",
+    "prepare:build": "npm run sync:nh-common && npm run generate:samples && npm run verify:samples",
     "generate:samples": "node scripts/generate-sample-cases.mjs",
-    "prebuild:management": "npm run sync:nh-common && npm run generate:samples && npm run verify:samples",
-    "prebuild:workspace": "npm run sync:nh-common && npm run generate:samples && npm run verify:samples",
     "verify:samples": "node scripts/verify-sample-evidence.mjs && node scripts/verify-frontend-integrity.mjs",
-    "sync:nh-common": "node scripts/sync-nh-common.mjs",
-    "prestart:management": "npm run sync:nh-common",
-    "prestart:workspace": "npm run sync:nh-common"
+    "sync:nh-common": "node scripts/sync-nh-common.mjs"
   },
   "dependencies": {
     "@angular/animations": "20.3.28",
@@ -26,6 +23,7 @@
     "@angular/platform-browser-dynamic": "20.3.28",
     "@angular/router": "20.3.28",
     "@msgpack/msgpack": "^2.8.0",
+    "@newheap/nh-toastr": "file:../../../../src/Front-end/projects/nh-toastr",
     "@newheap/platform-common": "file:../../../../src/Front-end/projects/nh-common",
     "@ngx-translate/core": "^17.0.0",
     "@ngx-translate/http-loader": "^17.0.0",

@@ -137,6 +137,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-088 | Email dispatcher | email notification dispatcher | Sent and failed states include error details. |
 | SPM-089 | Read and unread | notification controller/models | The badge responds to mark-as-read. |
 | SPM-090 | Notification component | abstract component + FE service | The message, refresh, and target route work. |
+| SPM-218 | Toast notifications | `provideNhToastr`, `NhToastrService`, and `NhToastrContainerComponent` | Both application roots host one toast container and the notification playground emits localized feedback through the shared service. |
 
 ## 7. Localization, configuration, and HTTP infrastructure
 

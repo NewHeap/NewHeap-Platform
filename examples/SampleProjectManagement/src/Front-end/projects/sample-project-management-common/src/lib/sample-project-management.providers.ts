@@ -29,6 +29,7 @@ import {
   TranslateLoader,
   TranslateModule
 } from '@ngx-translate/core';
+import { provideNhToastr } from '@newheap/nh-toastr';
 import { ToastrModule } from 'ngx-toastr';
 import { SampleAuthService } from './sample-auth.service';
 import { SampleAuthSessionService } from './sample-auth-session.service';
@@ -81,6 +82,7 @@ export function provideSampleProjectManagement(routes: Routes = []) {
 
   return makeEnvironmentProviders([
     SampleAuthService,
+    provideNhToastr({ positionClass: 'toast-bottom-right' }),
     provideEnvironmentInitializer(() => {
       inject(SampleAuthSessionService).start();
     }),

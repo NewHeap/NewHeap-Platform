@@ -11,7 +11,8 @@
     "nh-common:build:production": "ng build nh-common --configuration=production",
     "nh-toastr:analyze": "ng build nh-toastr --stats-json",
     "nh-toastr:build": "ng build nh-toastr --configuration=development",
-    "nh-toastr:build:production": "ng build nh-toastr --configuration=production"
+    "nh-toastr:build:production": "ng build nh-toastr --configuration=production",
+    "nh-toastr:test:compatibility": "node ../../tools/release/verify-nh-toastr-angular-compatibility.mjs"
   },
   "private": true,
   "dependencies": {

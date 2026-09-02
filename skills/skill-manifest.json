@@ -236,7 +236,8 @@
       "references": [
         "references/frontend-collection-query.md",
         "references/frontend-lifecycle-modals.md",
-        "references/frontend-root-configuration.md"
+        "references/frontend-root-configuration.md",
+        "references/frontend-toast-notifications.md"
       ]
     },
     {

@@ -19,6 +19,13 @@ npm install @newheap/nh-toastr
 
 View available versions on [npmjs.org](https://www.npmjs.com/package/@newheap/nh-toastr). For NuGet, npm and AI-plugin installation, see [Consume public packages](../../../../docs/how-to/consume-public-packages.md).
 
+## Compatibility
+
+The package supports Angular 20.3.28 through Angular 22 and
+`@ngx-translate/core` 17 or 18. It is built on the oldest supported Angular
+baseline so the published partial-Ivy output remains consumable across that
+range.
+
 ## Usage
 
 Register the provider in the root application module:
