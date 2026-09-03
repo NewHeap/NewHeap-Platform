@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 public class FileStructureDbContextOptions
 {
     internal Action<ModelBuilder>? ConfigureProviderModel { get; set; }
-    internal Func<string?[], byte[]>? LookupHashFactory { get; set; }
+    internal Func<string?[], string>? LookupHashFactory { get; set; }
 
     /// <summary>
     /// Database schema to use. Defaults to 'nhmedia'

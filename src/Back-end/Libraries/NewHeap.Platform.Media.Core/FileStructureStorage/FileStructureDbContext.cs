@@ -79,10 +79,10 @@ public class FileStructureDbContext : DbContext
     }
 
     private static void SetLookupHashes<TEntity>(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<TEntity> entry,
-        Func<string?[], byte[]> lookupHashFactory, string? path, string? name)
+        Func<string?[], string> lookupHashFactory, string? path, string? name)
         where TEntity : class
     {
-        entry.Property<byte[]>(PathLookupColumn).CurrentValue = lookupHashFactory([path]);
-        entry.Property<byte[]>(PathNameLookupColumn).CurrentValue = lookupHashFactory([path, name]);
+        entry.Property<string>(PathLookupColumn).CurrentValue = lookupHashFactory([path]);
+        entry.Property<string>(PathNameLookupColumn).CurrentValue = lookupHashFactory([path, name]);
     }
 }
