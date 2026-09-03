@@ -5,10 +5,18 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer;
 
 internal static class SqlServerFileStructureModelConfiguration
 {
+    internal const string PathLookupColumn = "PathLookup";
+    internal const string PathNameLookupColumn = "PathNameLookup";
+
+    private const string PathLookupSql =
+        "CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')))";
+
+    private const string PathNameLookupSql =
+        "CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')) + NCHAR(31) + LOWER([Name]))";
+
     internal static void Apply(FileStructureDbContextOptions options)
     {
         options.ConfigureProviderModel = ConfigureModel;
-        options.LookupHashFactory = null;
     }
 
     private static void ConfigureModel(ModelBuilder modelBuilder)
@@ -27,17 +35,17 @@ internal static class SqlServerFileStructureModelConfiguration
         where TEntity : class
     {
         var entity = modelBuilder.Entity<TEntity>();
-        entity.Property<string>(FileStructureDbContext.PathLookupColumn)
+        entity.Property<string>(PathLookupColumn)
             .HasColumnType("NVARCHAR(256)")
-            .HasComputedColumnSql(FileStructureDbContext.PathLookupSql, stored: true);
-        entity.Property<string>(FileStructureDbContext.PathNameLookupColumn)
+            .HasComputedColumnSql(PathLookupSql, stored: true);
+        entity.Property<string>(PathNameLookupColumn)
             .HasColumnType("NVARCHAR(256)")
-            .HasComputedColumnSql(FileStructureDbContext.PathNameLookupSql, stored: true);
+            .HasComputedColumnSql(PathNameLookupSql, stored: true);
 
-        entity.HasIndex(FileStructureDbContext.PathLookupColumn)
+        entity.HasIndex(PathLookupColumn)
             .HasDatabaseName($"{indexNamePrefix}_PathLookup")
             .IncludeProperties(idPropertyName);
-        entity.HasIndex(FileStructureDbContext.PathNameLookupColumn)
+        entity.HasIndex(PathNameLookupColumn)
             .HasDatabaseName($"{indexNamePrefix}_PathNameLookup")
             .IncludeProperties(idPropertyName);
     }

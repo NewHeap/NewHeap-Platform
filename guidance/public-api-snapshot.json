@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.23",
   "backEnd": {
-    "hash": "49ddc613d629363c423e21320ce5d9a69c8921c6866c98f48ca548dec637540f",
-    "declarationCount": 3619,
+    "hash": "287d097b6ab2737cc716a148747dd6ecabebf2c9a26605c24964a0cb6a1c605c",
+    "declarationCount": 3628,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -13239,22 +13239,6 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
-        "declaration": "public const string PathNameLookupSql ="
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
-        "declaration": "public const string PathLookupSql ="
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
-        "declaration": "public const string PathNameLookupColumn = \"PathNameLookup\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
-        "declaration": "public const string PathLookupColumn = \"PathLookup\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
         "declaration": "public DbSet<FileEntity> Files { get; set; }"
       },
       {
@@ -13272,14 +13256,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
         "declaration": "protected override void OnModelCreating(ModelBuilder modelBuilder) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
-        "declaration": "public override int SaveChanges(bool acceptAllChangesOnSuccess) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
-        "declaration": "public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContextOptions.cs",
@@ -13367,7 +13343,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
-        "declaration": "protected abstract string ComputeLookupHash(params string?[] values);"
+        "declaration": "protected virtual IQueryable<FileEntity> WhereFilesInPath(IQueryable<FileEntity> query, string? path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "protected virtual IQueryable<FolderEntity> WhereFoldersInPath(IQueryable<FolderEntity> query, string? path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "protected virtual IQueryable<FileEntity> WhereFilePathAndName(IQueryable<FileEntity> query, string? path, string? name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "protected virtual IQueryable<FolderEntity> WhereFolderPathAndName(IQueryable<FolderEntity> query, string? path, string? name) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
@@ -13942,6 +13930,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903141415_UseFixedLookupHashes.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903141415_UseFixedLookupHashes.cs",
+        "declaration": "public partial class UseFixedLookupHashes : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903141415_UseFixedLookupHashes.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903141415_UseFixedLookupHashes.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/BasePostgreSqlMigration.cs",
         "declaration": "public abstract class BasePostgreSqlMigration : Migration {"
       },
@@ -13971,7 +13975,27 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlFileStructureStorage.cs",
-        "declaration": "protected override string ComputeLookupHash(params string?[] values) {"
+        "declaration": "protected override IQueryable<FileEntity> WhereFilesInPath(IQueryable<FileEntity> query, string? path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlFileStructureStorage.cs",
+        "declaration": "protected override IQueryable<FolderEntity> WhereFoldersInPath(IQueryable<FolderEntity> query, string? path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlFileStructureStorage.cs",
+        "declaration": "protected override IQueryable<FileEntity> WhereFilePathAndName(IQueryable<FileEntity> query, string? path, string? name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlFileStructureStorage.cs",
+        "declaration": "protected override IQueryable<FolderEntity> WhereFolderPathAndName(IQueryable<FolderEntity> query, string? path, string? name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlLookupHashSaveChangesInterceptor.cs",
+        "declaration": "public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlLookupHashSaveChangesInterceptor.cs",
+        "declaration": "public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlMigrateDatabaseHostedService.cs",
@@ -14175,7 +14199,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "protected override string ComputeLookupHash(params string?[] values) {"
+        "declaration": "protected override IQueryable<FileEntity> WhereFilesInPath(IQueryable<FileEntity> query, string? path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
+        "declaration": "protected override IQueryable<FolderEntity> WhereFoldersInPath(IQueryable<FolderEntity> query, string? path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
+        "declaration": "protected override IQueryable<FileEntity> WhereFilePathAndName(IQueryable<FileEntity> query, string? path, string? name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
+        "declaration": "protected override IQueryable<FolderEntity> WhereFolderPathAndName(IQueryable<FolderEntity> query, string? path, string? name) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/HttpContextExtensions.cs",
@@ -17831,7 +17867,9 @@
     "nh-media-storage-contract": [
       "UseFileSystemMediaStorage",
       "NhMediaServiceConfigurationContext",
-      "IAuthorizationModule"
+      "IAuthorizationModule",
+      "FileStructureDbContext",
+      "RelationalFileStructureStorage"
     ],
     "nh-observability-logging": [
       "AddNewHeapObservability",

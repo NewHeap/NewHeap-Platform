@@ -2373,7 +2373,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "PostgreSQL file structure",
     "category": "Media",
     "surface": "PostgreSQL structure provider",
-    "outcome": "Folders, files, and relationships are stored through the independent PostgreSQL provider package without a SQL Server package dependency or library-owned sample migrations.",
+    "outcome": "Folders, files, and relationships are stored through the independent PostgreSQL provider package without a SQL Server package dependency; each relational provider owns a safe lookup index strategy that is verified against its query plan.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",

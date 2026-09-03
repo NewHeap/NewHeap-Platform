@@ -5,17 +5,6 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer;
 
 public class FileStructureDbContext : DbContext
 {
-
-    public const string PathNameLookupSql =
-        "CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')) + NCHAR(31) + LOWER([Name]))";
-    
-    public const string PathLookupSql =
-        "CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')))";
-
-    public const string PathNameLookupColumn = "PathNameLookup";
-    public const string PathLookupColumn = "PathLookup";
-    
-
     private readonly FileStructureDbContextOptions _dbContextOptions;
     public DbSet<FileEntity> Files { get; set; }
     public DbSet<FolderEntity> Folders { get; set; }
@@ -44,45 +33,4 @@ public class FileStructureDbContext : DbContext
         _dbContextOptions.ConfigureProviderModel(modelBuilder);
     }
 
-    public override int SaveChanges(bool acceptAllChangesOnSuccess)
-    {
-        PopulatePostgreSqlLookupHashes();
-        return base.SaveChanges(acceptAllChangesOnSuccess);
-    }
-
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess,
-        CancellationToken cancellationToken = default)
-    {
-        PopulatePostgreSqlLookupHashes();
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
-    }
-
-    private void PopulatePostgreSqlLookupHashes()
-    {
-        var lookupHashFactory = _dbContextOptions.LookupHashFactory;
-        if (lookupHashFactory is null)
-        {
-            return;
-        }
-
-        foreach (var entry in ChangeTracker.Entries<FileEntity>()
-                     .Where(x => x.State is EntityState.Added or EntityState.Modified))
-        {
-            SetLookupHashes(entry, lookupHashFactory, entry.Entity.Path, entry.Entity.Name);
-        }
-
-        foreach (var entry in ChangeTracker.Entries<FolderEntity>()
-                     .Where(x => x.State is EntityState.Added or EntityState.Modified))
-        {
-            SetLookupHashes(entry, lookupHashFactory, entry.Entity.Path, entry.Entity.Name);
-        }
-    }
-
-    private static void SetLookupHashes<TEntity>(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<TEntity> entry,
-        Func<string?[], string> lookupHashFactory, string? path, string? name)
-        where TEntity : class
-    {
-        entry.Property<string>(PathLookupColumn).CurrentValue = lookupHashFactory([path]);
-        entry.Property<string>(PathNameLookupColumn).CurrentValue = lookupHashFactory([path, name]);
-    }
 }
