@@ -1,6 +1,6 @@
-using System.Data.Common;
 using Npgsql;
 using NpgsqlTypes;
+using System.Data.Common;
 
 namespace NewHeap.Platform.DatabaseRead;
 
@@ -141,43 +141,93 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
         };
     }
 
-    public DatabaseReadProviderFailure ClassifyException(DbException exception)
+    public DatabaseReadProviderFailure ClassifyException(
+        DbException exception,
+        DatabaseReadExecutionStage stage)
     {
-        if (exception is PostgresException postgresException)
+        var postgresException = DatabaseReadExceptionInspector.Find<PostgresException>(exception);
+        if (postgresException is not null)
         {
-            return postgresException.SqlState switch
-            {
-                "42P01" => Failure("object-not-found", postgresException.SqlState, false,
-                    "A referenced database object does not exist."),
-                "42703" => Failure("column-not-found", postgresException.SqlState, false,
-                    "A referenced database column does not exist."),
-                "42501" => Failure("permission-denied", postgresException.SqlState, false,
-                    "The database principal is not permitted to read a referenced object or column."),
-                "42601" => Failure("syntax-error", postgresException.SqlState, false,
-                    "The database rejected the SQL syntax."),
-                "57014" => Failure("statement-timeout", postgresException.SqlState, false,
-                    "The database cancelled the statement after its configured execution boundary."),
-                "55P03" => Failure("lock-timeout", postgresException.SqlState, false,
-                    "The database could not acquire a required lock within the configured boundary."),
-                "40P01" => Failure("deadlock", postgresException.SqlState, true,
-                    "The database selected the diagnostic statement as a deadlock victim."),
-                "3D000" => Failure("database-not-found", postgresException.SqlState, false,
-                    "The configured database does not exist or is unavailable to the principal."),
-                "3F000" => Failure("schema-not-found", postgresException.SqlState, false,
-                    "A referenced database schema does not exist."),
-                _ when postgresException.SqlState.StartsWith("08", StringComparison.Ordinal) =>
-                    Failure("connection-failed", postgresException.SqlState, true,
-                        "The database connection could not be established or was interrupted."),
-                _ => Failure("database-failure", null, false,
-                    "The database rejected or could not complete the diagnostic operation.")
-            };
+            return ClassifySqlState(postgresException.SqlState, exception, stage);
         }
 
-        return exception is NpgsqlException
-            ? Failure("connection-failed", null, true,
-                "The database connection could not be established or was interrupted.")
-            : Failure("database-failure", null, false,
-                "The database rejected or could not complete the diagnostic operation.");
+        if (stage == DatabaseReadExecutionStage.ConnectionOpen
+            || DatabaseReadExceptionInspector.Find<NpgsqlException>(exception) is not null
+            || DatabaseReadExceptionInspector.IsConnectivityFailure(exception))
+        {
+            return ConnectionFailure(null);
+        }
+
+        return Failure(
+            "database-failure",
+            null,
+            false,
+            "The database rejected or could not complete the diagnostic operation.");
+    }
+
+    internal static DatabaseReadProviderFailure ClassifySqlState(
+        string sqlState,
+        Exception exception,
+        DatabaseReadExecutionStage stage)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sqlState);
+        ArgumentNullException.ThrowIfNull(exception);
+
+        var providerCode = GetSafeSqlState(sqlState);
+
+        return sqlState switch
+        {
+            "42P01" => Failure("object-not-found", providerCode, false,
+                "A referenced database object does not exist."),
+            "42703" => Failure("column-not-found", providerCode, false,
+                "A referenced database column does not exist."),
+            "42501" => Failure("permission-denied", providerCode, false,
+                "The database principal is not permitted to read a referenced object or column."),
+            "42601" => Failure("syntax-error", providerCode, false,
+                "The database rejected the SQL syntax."),
+            "57014" => Failure("statement-timeout", providerCode, false,
+                "The database cancelled the statement after its configured execution boundary."),
+            "55P03" => Failure("lock-timeout", providerCode, false,
+                "The database could not acquire a required lock within the configured boundary."),
+            "40P01" => Failure("deadlock", providerCode, true, "retry-operation",
+                "The database selected the diagnostic statement as a deadlock victim."),
+            "3D000" => Failure("database-not-found", providerCode, false,
+                "The configured database does not exist or is unavailable to the principal."),
+            "3F000" => Failure("schema-not-found", providerCode, false,
+                "A referenced database schema does not exist."),
+            "28000" or "28P01" => Failure("authentication-failed", providerCode, false,
+                "The database rejected the configured principal."),
+            _ when sqlState.StartsWith("08", StringComparison.Ordinal) =>
+                ConnectionFailure(providerCode),
+            _ when stage == DatabaseReadExecutionStage.ConnectionOpen
+                   || DatabaseReadExceptionInspector.IsConnectivityFailure(exception) =>
+                ConnectionFailure(providerCode),
+            _ => Failure("database-failure", providerCode, false,
+                "The database rejected or could not complete the diagnostic operation.")
+        };
+    }
+
+    private static string? GetSafeSqlState(string sqlState)
+    {
+        if (sqlState.Length != 5)
+        {
+            return null;
+        }
+
+        return sqlState.All(character => character is >= '0' and <= '9'
+            or >= 'A' and <= 'Z')
+            ? sqlState
+            : null;
+    }
+
+    private static DatabaseReadProviderFailure ConnectionFailure(string? providerCode)
+    {
+        return Failure(
+            "connection-failed",
+            providerCode,
+            true,
+            "network-access-required",
+            "The database connection could not be established or was interrupted.");
     }
 
     private static async Task<DatabaseSchemaResultResponse> SearchSchemaAsync(
@@ -751,8 +801,26 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
         string classification,
         string? providerCode,
         bool transient,
-        string message) =>
-        new("postgresql", classification, providerCode, transient, message);
+        string message)
+    {
+        return Failure(classification, providerCode, transient, null, message);
+    }
+
+    private static DatabaseReadProviderFailure Failure(
+        string classification,
+        string? providerCode,
+        bool transient,
+        string? retryHint,
+        string message)
+    {
+        return new DatabaseReadProviderFailure(
+            "postgresql",
+            classification,
+            providerCode,
+            transient,
+            retryHint,
+            message);
+    }
 
     private sealed record PostgreSqlObjectDescriptor(
         uint ObjectId,

@@ -33,6 +33,16 @@ Those files are the routing and JSON contract. Do not inspect controllers,
 entities, EF configuration, appsettings, secrets or the tool's NuGet package
 merely to rediscover the profile, provider, ceilings or request shape.
 
+`newheap-db validate` is a local-only contract check and reports
+`requiredCapabilities: ["outbound-network"]` for subsequent execution without
+opening a connection. `newheap-db schema` and `newheap-db query` require outbound
+database access. In Codex, run the first schema or query attempt with
+network-enabled or escalated execution and request a reusable permission scoped
+only to `newheap-db`, such as the `dotnet tool run newheap-db` prefix. Do not
+probe the restricted sandbox first and do not grant a general `dotnet` or shell
+permission. A returned `network-access-required` hint is not proof of a sandbox
+restriction; a firewall, DNS failure or network ACL may have the same effect.
+
 This catalog contains exactly one profile, so use `sample-development` without
 asking for a profile selection. Its provider, configuration path,
 `connectionStringName` and ceilings remain governed, while its `environment`

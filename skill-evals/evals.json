@@ -90,7 +90,14 @@
       "skill": "newheap-database-development",
       "prompt": "Give Codex read-only staging and production database diagnostics without passing connection strings or query values through command-line arguments.",
       "expectedRules": ["nh-read-only-database-diagnostics"],
-      "expectedOutcome": "The consumer pins newheap-db and checks in bounded provider profiles, local database-read instructions, and typed query request files as the execution contract. A profile governs provider, configuration path, connection-string name, ceilings and a default environment. An explicitly requested runtime environment is passed with --environment to schema and query without requiring a duplicate profile solely for Production or Staging. The agent uses direct schema search-and-describe without a JSON schema file, uses --request-file instead of serialized query arguments, resolves a dedicated read-only credential through NewHeap secrets, returns strict JSON stdout, and proves both successful reads and rejected writes on SQL Server and PostgreSQL."
+      "expectedOutcome": "The consumer pins newheap-db and checks in bounded provider profiles, local database-read instructions, and typed query request files as the execution contract. A profile governs provider, configuration path, connection-string name, ceilings and a default environment. Validate runs locally and advertises outbound-network, while Codex starts the first schema or query invocation with network-enabled execution and a narrow reusable permission scoped only to newheap-db instead of probing the restricted sandbox. An explicitly requested runtime environment is passed with --environment to schema and query without requiring a duplicate profile solely for Production or Staging. The agent uses direct schema search-and-describe without a JSON schema file, uses --request-file instead of serialized query arguments, resolves a dedicated read-only credential through NewHeap secrets, returns strict JSON stdout, and proves both successful reads and rejected writes on SQL Server and PostgreSQL."
+    },
+    {
+      "id": "consumer-database-diagnostic-network-capability",
+      "skill": "newheap-database-development",
+      "prompt": "Use Codex to run the checked-in newheap-db schema and query diagnostics. Should it try the normal sandbox first or run validate before connecting?",
+      "expectedRules": ["nh-read-only-database-diagnostics"],
+      "expectedOutcome": "Validate is a local CI or dry-run contract check and is not required before schema or query because both execution commands validate internally. Codex runs the first schema or query attempt with outbound-network access or escalation and requests a narrow reusable permission scoped only to newheap-db, such as the dotnet tool run newheap-db prefix. It does not probe the restricted sandbox first and does not broaden the permission to arbitrary dotnet, shell or network commands. A network-access-required response remains host-neutral because a sandbox policy, firewall, DNS failure or network ACL can cause it."
     },
     {
       "id": "consumer-debug-persisted-state-diagnostics",

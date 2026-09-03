@@ -350,6 +350,8 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
         var classification = SafeToken(error, "classification", 64);
         var provider = SafeToken(error, "provider", 32);
         var providerCode = SafeToken(error, "providerCode", 16);
+        var stage = SafeToken(error, "stage", 32);
+        var retryHint = SafeToken(error, "retryHint", 64);
         var code = classification ?? SafeToken(error, "code", 64) ?? "sample-database-rejected";
         var message = classification switch
         {
@@ -361,6 +363,9 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
             "statement-timeout" => "The diagnostic statement reached its execution timeout. Narrow the query before retrying.",
             "lock-timeout" => "The diagnostic statement could not acquire a lock within its boundary.",
             "deadlock" => "The diagnostic statement was selected as a deadlock victim.",
+            "connection-failed" => "The database connection could not be established. Confirm that the host permits the required outbound network access before retrying.",
+            "authentication-failed" => "The database rejected the configured read-only principal.",
+            "database-not-found" => "The configured database does not exist or is unavailable to the read-only principal.",
             _ when code == "schema-object-not-found" =>
                 "The database object was not found or is not selectable by the configured principal.",
             _ => "The NewHeap database read tool rejected the sample diagnostic request."
@@ -368,6 +373,16 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
         if (provider is not null && providerCode is not null)
         {
             message = $"{message} Provider {provider} code {providerCode}.";
+        }
+
+        if (stage is not null)
+        {
+            message = $"{message} Stage {stage}.";
+        }
+
+        if (retryHint is not null)
+        {
+            message = $"{message} Retry hint {retryHint}.";
         }
 
         return TaskResult<JsonElement>.Failed(code, message);

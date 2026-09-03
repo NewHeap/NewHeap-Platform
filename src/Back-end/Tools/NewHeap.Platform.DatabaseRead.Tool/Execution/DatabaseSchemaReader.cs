@@ -6,19 +6,23 @@ internal static class DatabaseSchemaReader
 {
     public static async Task<DatabaseSchemaResultResponse> ExecuteAsync(
         IDatabaseReadProvider provider,
+        IDatabaseReadConnectionFactory connectionFactory,
+        DatabaseReadExecutionContext executionContext,
         string connectionString,
         string requestId,
         ResolvedDatabaseSchemaRequest request,
         DatabaseReadLimits limits,
         CancellationToken cancellationToken)
     {
-        await using var connection = DatabaseReadConnectionFactory.Create(
+        executionContext.Enter(DatabaseReadExecutionStage.ConnectionOpen);
+        await using var connection = await connectionFactory.OpenAsync(
             provider,
             connectionString,
             requestId,
-            limits);
-        await connection.OpenAsync(cancellationToken);
+            limits,
+            cancellationToken);
 
+        executionContext.Enter(DatabaseReadExecutionStage.ReadOnlyVerification);
         if (!await provider.VerifyReadOnlyPrincipalAsync(connection, limits, cancellationToken))
         {
             throw new DatabaseReadExpectedException(
@@ -39,6 +43,7 @@ internal static class DatabaseSchemaReader
                 limits,
                 cancellationToken);
 
+            executionContext.Enter(DatabaseReadExecutionStage.SchemaExecution);
             if (request.Operation != DatabaseSchemaOperation.SearchAndDescribe)
             {
                 return await provider.ReadSchemaAsync(

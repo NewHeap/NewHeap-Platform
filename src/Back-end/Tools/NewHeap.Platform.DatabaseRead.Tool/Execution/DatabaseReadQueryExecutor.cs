@@ -8,19 +8,23 @@ internal static class DatabaseReadQueryExecutor
 {
     public static async Task<DatabaseQueryResultResponse> ExecuteAsync(
         IDatabaseReadProvider provider,
+        IDatabaseReadConnectionFactory connectionFactory,
+        DatabaseReadExecutionContext executionContext,
         string connectionString,
         string requestId,
         DatabaseReadRequest request,
         DatabaseReadLimits limits,
         CancellationToken cancellationToken)
     {
-        await using var connection = DatabaseReadConnectionFactory.Create(
+        executionContext.Enter(DatabaseReadExecutionStage.ConnectionOpen);
+        await using var connection = await connectionFactory.OpenAsync(
             provider,
             connectionString,
             requestId,
-            limits);
-        await connection.OpenAsync(cancellationToken);
+            limits,
+            cancellationToken);
 
+        executionContext.Enter(DatabaseReadExecutionStage.ReadOnlyVerification);
         if (!await provider.VerifyReadOnlyPrincipalAsync(connection, limits, cancellationToken))
         {
             throw new DatabaseReadExpectedException(
@@ -41,6 +45,7 @@ internal static class DatabaseReadQueryExecutor
                 limits,
                 cancellationToken);
 
+            executionContext.Enter(DatabaseReadExecutionStage.QueryExecution);
             await using var command = connection.CreateCommand();
             command.CommandText = request.Sql!;
             command.CommandTimeout = limits.TimeoutSeconds;

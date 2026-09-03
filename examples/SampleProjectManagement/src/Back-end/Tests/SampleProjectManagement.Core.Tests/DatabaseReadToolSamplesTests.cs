@@ -7,7 +7,7 @@ using Xunit;
 namespace SampleProjectManagement.Core.Tests;
 
 /// <summary>
-/// SPM-218: consumers can validate parameterized data and typed schema diagnostic
+/// SPM-237: consumers can validate parameterized data and typed schema diagnostic
 /// requests against a checked-in profile without opening the database or handling secrets.
 /// </summary>
 public sealed class DatabaseReadToolSamplesTests
@@ -66,6 +66,11 @@ public sealed class DatabaseReadToolSamplesTests
             response.RootElement.GetProperty("target").GetProperty("provider").GetString());
         Assert.False(
             response.RootElement.GetProperty("target").TryGetProperty("readOnlyVerified", out _));
+        Assert.Equal(
+            ["outbound-network"],
+            response.RootElement.GetProperty("requiredCapabilities")
+                .EnumerateArray()
+                .Select(capability => capability.GetString()));
         Assert.Equal(
             10,
             response.RootElement.GetProperty("validation").GetProperty("effectiveLimits")

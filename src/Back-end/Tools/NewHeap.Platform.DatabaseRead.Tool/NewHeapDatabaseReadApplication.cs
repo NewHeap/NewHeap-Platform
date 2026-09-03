@@ -14,13 +14,30 @@ public static class NewHeapDatabaseReadApplication
         Stream output,
         CancellationToken cancellationToken = default)
     {
+        return await RunAsync(
+            args,
+            input,
+            output,
+            DatabaseReadConnectionFactory.Instance,
+            cancellationToken);
+    }
+
+    internal static async Task<int> RunAsync(
+        string[] args,
+        Stream input,
+        Stream output,
+        IDatabaseReadConnectionFactory connectionFactory,
+        CancellationToken cancellationToken = default)
+    {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(output);
+        ArgumentNullException.ThrowIfNull(connectionFactory);
 
         var requestId = Guid.NewGuid().ToString("N");
         var stopwatch = Stopwatch.StartNew();
         IDatabaseReadProvider? provider = null;
+        var executionContext = new DatabaseReadExecutionContext();
 
         try
         {
@@ -63,6 +80,8 @@ public static class NewHeapDatabaseReadApplication
             {
                 queryResult = await DatabaseReadQueryExecutor.ExecuteAsync(
                     provider,
+                    connectionFactory,
+                    executionContext,
                     connectionString,
                     requestId,
                     request,
@@ -73,6 +92,8 @@ public static class NewHeapDatabaseReadApplication
             {
                 schemaResult = await DatabaseSchemaReader.ExecuteAsync(
                     provider,
+                    connectionFactory,
+                    executionContext,
                     connectionString,
                     requestId,
                     validation.Schema!,
@@ -133,13 +154,14 @@ public static class NewHeapDatabaseReadApplication
         }
         catch (DbException exception)
         {
-            var failure = provider?.ClassifyException(exception);
+            var failure = provider?.ClassifyException(exception, executionContext.Stage);
             await WriteErrorAsync(
                 output,
                 requestId,
                 "database-query-failed",
                 failure?.Message ?? "The database rejected or could not complete the diagnostic operation.",
                 failure,
+                executionContext.GetResponseStage(),
                 cancellationToken);
             return (int)DatabaseReadExitCode.DatabaseFailure;
         }
@@ -194,6 +216,7 @@ public static class NewHeapDatabaseReadApplication
             Operation = "validate",
             RequestId = requestId,
             Target = CreateTarget(profile, provider, null),
+            RequiredCapabilities = ["outbound-network"],
             Validation = new DatabaseReadValidationResponse
             {
                 EffectiveLimits = new DatabaseReadLimitsResponse
@@ -264,7 +287,7 @@ public static class NewHeapDatabaseReadApplication
         string message,
         CancellationToken cancellationToken)
     {
-        return WriteErrorAsync(output, requestId, code, message, null, cancellationToken);
+        return WriteErrorAsync(output, requestId, code, message, null, null, cancellationToken);
     }
 
     private static Task WriteErrorAsync(
@@ -273,6 +296,7 @@ public static class NewHeapDatabaseReadApplication
         string code,
         string message,
         DatabaseReadProviderFailure? providerFailure,
+        string? stage,
         CancellationToken cancellationToken)
     {
         return DatabaseReadJson.WriteAsync(
@@ -287,7 +311,9 @@ public static class NewHeapDatabaseReadApplication
                     Classification = providerFailure?.Classification,
                     Provider = providerFailure?.Provider,
                     ProviderCode = providerFailure?.ProviderCode,
-                    Transient = providerFailure?.Transient
+                    Transient = providerFailure?.Transient,
+                    Stage = stage,
+                    RetryHint = providerFailure?.RetryHint
                 }
             },
             cancellationToken);
