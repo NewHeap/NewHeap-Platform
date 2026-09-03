@@ -7,6 +7,7 @@ using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Utilities;
 using System.Collections;
 using System.ComponentModel;
+using System.Data.Common;
 using System.Linq.Dynamic.Core;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -15,6 +16,9 @@ namespace NewHeap.Platform.Common.Services;
 
 public partial class CollectionProcessingService
 {
+    private const int SqlServerDeadlockNumber = 1205;
+    private const string PostgreSqlDeadlockSqlState = "40P01";
+
     public virtual Task<CollectionResultModel<TViewModel>> GetCollectionResultModelAsync<TEntity, TViewModel>(
         ICollectionRequestModel requestModel,
         IQueryable<TEntity> queryable,
@@ -153,9 +157,11 @@ public partial class CollectionProcessingService
             queryable = await resultQueryableFunc.Invoke(queryable, cancellationToken);
         }
 
-        var dbItems = queryable.GetType().GetInterfaces().Contains(typeof(IAsyncEnumerable<TEntity>))
-            ? await queryable.ToListAsync(cancellationToken)
-            : queryable.ToList();
+        var dbItems = await ExecuteDatabaseCommandAsync(
+            token => queryable.GetType().GetInterfaces().Contains(typeof(IAsyncEnumerable<TEntity>))
+                ? queryable.ToListAsync(token)
+                : Task.FromResult(queryable.ToList()),
+            cancellationToken);
 
         var items = typeof(TViewModel).Equals(typeof(TEntity))
             ? (List<TViewModel>)(object)dbItems
@@ -217,9 +223,11 @@ public partial class CollectionProcessingService
         var filterResult = ProcessFilter(ref queryable, requestModel.Filter, options);
         var orderByResult = ProcessOrderBy(ref queryable, requestModel.OrderBy, options, defaultOrderBy);
 
-        var totalCount = queryable.GetType().GetInterfaces().Contains(typeof(IAsyncEnumerable<TEntity>))
-            ? await queryable.LongCountAsync(cancellationToken)
-            : queryable.LongCount();
+        var totalCount = await ExecuteDatabaseCommandAsync(
+            token => queryable.GetType().GetInterfaces().Contains(typeof(IAsyncEnumerable<TEntity>))
+                ? queryable.LongCountAsync(token)
+                : Task.FromResult(queryable.LongCount()),
+            cancellationToken);
 
         queryable = queryable
             .PageSkipTake(requestModel)
@@ -809,6 +817,60 @@ public partial class CollectionProcessingService
     private static Expression ReplaceParameter(Expression expression, ParameterExpression source, ParameterExpression target)
     {
         return new ParameterReplaceVisitor(source, target).Visit(expression)!;
+    }
+
+    private async Task<TResult> ExecuteDatabaseCommandAsync<TResult>(
+        Func<CancellationToken, Task<TResult>> command,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                return await command(cancellationToken);
+            }
+            catch (Exception exception) when (
+                attempt < _settings.CollectionProcessingDeadlockMaxAttempts &&
+                IsDeadlockException(exception))
+            {
+                // The provider has rolled back the deadlock victim command. Re-run
+                // this read-only collection command within the configured bound.
+            }
+        }
+    }
+
+    private static bool IsDeadlockException(Exception exception)
+    {
+        for (Exception? candidate = exception; candidate != null; candidate = candidate.InnerException)
+        {
+            if (candidate is not DbException dbException)
+            {
+                continue;
+            }
+
+            if (string.Equals(
+                    dbException.SqlState,
+                    PostgreSqlDeadlockSqlState,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var numberProperty = candidate.GetType().GetProperty(
+                "Number",
+                BindingFlags.Instance | BindingFlags.Public);
+
+            if (numberProperty?.PropertyType == typeof(int) &&
+                numberProperty.GetValue(candidate) is int number &&
+                number == SqlServerDeadlockNumber)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private sealed class ParameterReplaceVisitor : ExpressionVisitor

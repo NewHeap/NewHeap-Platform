@@ -57,7 +57,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-028 | Explicit projection | projection extensions | SQL selects only the list columns. |
 | SPM-029 | Short projection | short-projection extensions | The dropdown retrieves only ID and name. |
 | SPM-030 | NhProjection builder | builder/source/definition | Calculated fields work without IncludeAll. |
-| SPM-031 | HTTP processing | `IHttpCollectionProcessingService` | Filtering, ordering, paging, and projection work together. |
+| SPM-031 | HTTP processing | `IHttpCollectionProcessingService` | Filtering, ordering, configurable paging defaults, projection, and bounded SQL Server or PostgreSQL deadlock retries work together. |
 | SPM-032 | In-memory processing | `CollectionProcessingService` | The same request runs against a test collection. |
 | SPM-033 | Expression resolver | collection expression resolver | The UI displays the generated expression. |
 | SPM-034 | Attribute protection | filter/search/order attributes | A disallowed field returns a safe error. |

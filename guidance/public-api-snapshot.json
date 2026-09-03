@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.23",
   "backEnd": {
-    "hash": "287d097b6ab2737cc716a148747dd6ecabebf2c9a26605c24964a0cb6a1c605c",
-    "declarationCount": 3628,
+    "hash": "8e0bf12b2a54f95eee7a16638c0931d47c7011d6a9cefdac2db46061de3630ec",
+    "declarationCount": 3633,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -8775,6 +8775,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/HttpCollectionProcessingService.cs",
+        "declaration": "public HttpCollectionProcessingService( IMapper mapper, IHttpContextAccessor httpContextAccessor, ILogger<HttpCollectionProcessingService> logger, IOptions<NewHeapCommonSettings> settings) : base(mapper, settings) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/HttpCollectionProcessingService.cs",
         "declaration": "public virtual ICollectionRequestModel GetCollectionRequestModel(int? maxItemsPerPage = null)"
       },
       {
@@ -11327,6 +11331,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapCommonSettings.cs",
+        "declaration": "public int CollectionProcessingDefaultItemsPerPage { get; set; } = 20;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapCommonSettings.cs",
+        "declaration": "public int CollectionProcessingDefaultMaxItemsPerPage { get; set; } = 1000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapCommonSettings.cs",
+        "declaration": "public int CollectionProcessingDeadlockMaxAttempts { get; set; } = 5;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapCommonSettings.cs",
         "declaration": "public class NewHeapCommonOptions {"
       },
       {
@@ -11940,6 +11956,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/CollectionProcessingService.cs",
         "declaration": "public CollectionProcessingService( IMapper mapper ) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/CollectionProcessingService.cs",
+        "declaration": "public CollectionProcessingService( IMapper mapper, IOptions<NewHeapCommonSettings> settings) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/CollectionProcessingService.cs",
@@ -17747,6 +17767,13 @@
       "NhAiToolInvoker",
       "NhAiToolManifestEntry",
       "NhAiToolSetAttribute"
+    ],
+    "nh-backend-collection-processing": [
+      "ICollectionProcessingService",
+      "IHttpCollectionProcessingService",
+      "CollectionProcessingService",
+      "HttpCollectionProcessingService",
+      "NewHeapCommonSettings"
     ],
     "nh-backend-controller-contracts": [
       "ProtectedNhBaseController",

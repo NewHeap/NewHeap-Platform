@@ -14,6 +14,7 @@
 - ai-protected-actions: ./ai-protected-actions.md
 - authentication-overrides: ./authentication-overrides.md
 - authorization-permissions: ./authorization-permissions.md
+- backend-collection-processing: ./backend-collection-processing.md
 - backend-controller-contracts: ./backend-controller-contracts.md
 - backend-models-localization: ./backend-models-localization.md
 - backend-module-composition: ./backend-module-composition.md
