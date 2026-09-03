@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.23",
   "backEnd": {
-    "hash": "14582ec75c7254e2736620ddcc36fe74c42b888b302554deef05e3bb70ddef9b",
-    "declarationCount": 3616,
+    "hash": "49ddc613d629363c423e21320ce5d9a69c8921c6866c98f48ca548dec637540f",
+    "declarationCount": 3619,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -13299,11 +13299,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/HashHelper.cs",
-        "declaration": "public static byte[] ComputeHash(params string?[] values) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/HashHelper.cs",
-        "declaration": "public static byte[] ComputePostgreSqlHash(params string?[] values) {"
+        "declaration": "public static string ComputePostgreSqlHash(params string?[] values) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
@@ -13927,6 +13923,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260805125944_InitialPostgreSql.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903134647_IndexSeekLookup.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903134647_IndexSeekLookup.cs",
+        "declaration": "public partial class IndexSeekLookup : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903134647_IndexSeekLookup.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903134647_IndexSeekLookup.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
