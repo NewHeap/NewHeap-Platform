@@ -1,5 +1,10 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using NewHeap.Platform.Common;
 using NewHeap.Platform.Mapping;
 using NewHeap.Platform.Common.Models;
+using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
 using SampleProjectManagement.Core.Models.View;
 using SampleProjectManagement.DAL.Entities;
@@ -54,6 +59,30 @@ public class CollectionAndProjectionSamplesTests
             .WithSearchable(project => project.Key, project => project.Name);
 
         Assert.Throws<ArgumentException>(() => builder.WithFilterable(project => project.Name.ToLowerInvariant()));
+    }
+
+    [Fact]
+    public void CollectionProcessingSettingsBindFromPlatformCommonSettings()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["NewHeap:PlatformCommon:Settings:CollectionProcessingDefaultItemsPerPage"] = "25",
+                ["NewHeap:PlatformCommon:Settings:CollectionProcessingDefaultMaxItemsPerPage"] = "250",
+                ["NewHeap:PlatformCommon:Settings:CollectionProcessingDeadlockMaxAttempts"] = "2"
+            })
+            .Build();
+        var services = new ServiceCollection();
+        services.AddNewHeapPlatformCommon(NewHeapCommonOptions.Builder(configuration).Build());
+        using var serviceProvider = services.BuildServiceProvider();
+
+        var settings = serviceProvider
+            .GetRequiredService<IOptions<NewHeapCommonSettings>>()
+            .Value;
+
+        Assert.Equal(25, settings.CollectionProcessingDefaultItemsPerPage);
+        Assert.Equal(250, settings.CollectionProcessingDefaultMaxItemsPerPage);
+        Assert.Equal(2, settings.CollectionProcessingDeadlockMaxAttempts);
     }
 
     [Fact]

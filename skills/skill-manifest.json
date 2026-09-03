@@ -169,6 +169,7 @@
         "references/ai-model-profiles.md",
         "references/ai-observability-evaluation.md",
         "references/ai-protected-actions.md",
+        "references/backend-collection-processing.md",
         "references/backend-controller-contracts.md",
         "references/backend-models-localization.md",
         "references/backend-module-composition.md",

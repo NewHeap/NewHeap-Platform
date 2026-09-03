@@ -409,8 +409,14 @@
     ],
     "SPM-031": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.json",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
-      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/CollectionProcessingDeadlockRetryTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/CollectionProcessingSettingsTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/HttpCollectionProcessingSettingsTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionProcessingProviderTests.cs"
     ],
     "SPM-032": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",

@@ -62,6 +62,10 @@ Source release: `newheap-platform-plugin-v1.13.23`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.23/docs/consumer-guide/authorization-permissions.md)
 
+## Backend Collection Processing
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.23/docs/consumer-guide/backend-collection-processing.md)
+
 ## Backend Controller Contracts
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.23/docs/consumer-guide/backend-controller-contracts.md)

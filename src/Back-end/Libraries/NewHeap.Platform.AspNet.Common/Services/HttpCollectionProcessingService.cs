@@ -2,7 +2,9 @@ using NewHeap.Platform.Mapping;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.Common.Models;
+using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using System.ComponentModel;
 using System.Linq.Expressions;
@@ -81,6 +83,17 @@ public partial class HttpCollectionProcessingService : CollectionProcessingServi
         _logger = logger;
     }
 
+    public HttpCollectionProcessingService(
+        IMapper mapper,
+        IHttpContextAccessor httpContextAccessor,
+        ILogger<HttpCollectionProcessingService> logger,
+        IOptions<NewHeapCommonSettings> settings)
+        : base(mapper, settings)
+    {
+        _httpContextAccessor = httpContextAccessor;
+        _logger = logger;
+    }
+
     public virtual ICollectionRequestModel GetCollectionRequestModel(int? maxItemsPerPage = null)
     {
         var request = _httpContextAccessor?.HttpContext?.Request;
@@ -91,7 +104,7 @@ public partial class HttpCollectionProcessingService : CollectionProcessingServi
         }
 
         maxItemsPerPage ??= GetDefaultMaxItemsPerPage();
-        var defaultItemsPerPage = 20;
+        var defaultItemsPerPage = GetDefaultItemsPerPage();
 
         var qPage = request.Query["page"];
         var qItemsPerPage = request.Query["itemsPerPage"];

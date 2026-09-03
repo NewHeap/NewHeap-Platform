@@ -37,6 +37,13 @@
       "expectedOutcome": "Consumer-owned DbSet, mapping, repository/service registration, thin authorized controller and typed OpenAPI metadata."
     },
     {
+      "id": "consumer-backend-collection-deadlock-retry",
+      "skill": "newheap-backend-development",
+      "prompt": "Configure collection processing to make at most three attempts when SQL Server or PostgreSQL selects a read query as a deadlock victim.",
+      "expectedRules": ["nh-backend-collection-processing"],
+      "expectedOutcome": "The consumer sets CollectionProcessingDeadlockMaxAttempts to 3 under NewHeap:PlatformCommon:Settings, treats the initial command as the first attempt, relies on SQL Server 1205 or PostgreSQL 40P01 instead of message matching, and does not retry unrelated database failures, cancellation, or side effects."
+    },
+    {
       "id": "consumer-frontend-collection-modal",
       "skill": "newheap-frontend-development",
       "prompt": "Build a filterable collection page and edit modal with the NewHeap lifecycle.",

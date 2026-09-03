@@ -425,12 +425,18 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "HTTP processing",
     "category": "Collections, filtering, and projections",
     "surface": "IHttpCollectionProcessingService",
-    "outcome": "Filtering, ordering, paging, and projection work together.",
+    "outcome": "Filtering, ordering, configurable paging defaults, projection, and bounded SQL Server or PostgreSQL deadlock retries work together.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.json",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
-      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/CollectionProcessingDeadlockRetryTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/CollectionProcessingSettingsTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/HttpCollectionProcessingSettingsTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionProcessingProviderTests.cs"
     ]
   },
   {
