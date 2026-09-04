@@ -56,15 +56,15 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
                         .HasMaxLength(10000)
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<byte[]>("PathLookupHash")
+                    b.Property<string>("PathLookup")
                         .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("binary(32)")
-                        .HasComputedColumnSql("CONVERT(binary(32), HASHBYTES('SHA2_256', LOWER(COALESCE([Path], N''))))", true);
+                        .HasColumnType("NVARCHAR(256)")
+                        .HasComputedColumnSql("CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')))", true);
 
-                    b.Property<byte[]>("PathNameLookupHash")
+                    b.Property<string>("PathNameLookup")
                         .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("binary(32)")
-                        .HasComputedColumnSql("CONVERT(binary(32), HASHBYTES('SHA2_256', CONCAT(LOWER(COALESCE([Path], N'')), NCHAR(31), LOWER(COALESCE([Name], N'')))))", true);
+                        .HasColumnType("NVARCHAR(256)")
+                        .HasComputedColumnSql("CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')) + NCHAR(31) + LOWER([Name]))", true);
 
                     b.PrimitiveCollection<string>("Tags")
                         .IsRequired()
@@ -76,15 +76,15 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PathLookupHash")
-                        .HasDatabaseName("IX_Files_PathLookupHash");
+                    b.HasIndex("PathLookup")
+                        .HasDatabaseName("IX_Files_PathLookup");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("PathLookupHash"), new[] { "Id" });
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("PathLookup"), new[] { "Id" });
 
-                    b.HasIndex("PathNameLookupHash")
-                        .HasDatabaseName("IX_Files_PathNameLookupHash");
+                    b.HasIndex("PathNameLookup")
+                        .HasDatabaseName("IX_Files_PathNameLookup");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("PathNameLookupHash"), new[] { "Id" });
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("PathNameLookup"), new[] { "Id" });
 
                     b.ToTable("Files", "nhmedia");
                 });
@@ -104,27 +104,27 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
                         .HasMaxLength(10000)
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<byte[]>("PathLookupHash")
+                    b.Property<string>("PathLookup")
                         .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("binary(32)")
-                        .HasComputedColumnSql("CONVERT(binary(32), HASHBYTES('SHA2_256', LOWER(COALESCE([Path], N''))))", true);
+                        .HasColumnType("NVARCHAR(256)")
+                        .HasComputedColumnSql("CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')))", true);
 
-                    b.Property<byte[]>("PathNameLookupHash")
+                    b.Property<string>("PathNameLookup")
                         .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("binary(32)")
-                        .HasComputedColumnSql("CONVERT(binary(32), HASHBYTES('SHA2_256', CONCAT(LOWER(COALESCE([Path], N'')), NCHAR(31), LOWER(COALESCE([Name], N'')))))", true);
+                        .HasColumnType("NVARCHAR(256)")
+                        .HasComputedColumnSql("CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')) + NCHAR(31) + LOWER([Name]))", true);
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PathLookupHash")
-                        .HasDatabaseName("IX_Folders_PathLookupHash");
+                    b.HasIndex("PathLookup")
+                        .HasDatabaseName("IX_Folders_PathLookup");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("PathLookupHash"), new[] { "Id" });
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("PathLookup"), new[] { "Id" });
 
-                    b.HasIndex("PathNameLookupHash")
-                        .HasDatabaseName("IX_Folders_PathNameLookupHash");
+                    b.HasIndex("PathNameLookup")
+                        .HasDatabaseName("IX_Folders_PathNameLookup");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("PathNameLookupHash"), new[] { "Id" });
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("PathNameLookup"), new[] { "Id" });
 
                     b.ToTable("Folders", "nhmedia");
                 });

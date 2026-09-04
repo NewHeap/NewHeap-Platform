@@ -1,7 +1,9 @@
+using AwesomeAssertions;
+using System.Data.Common;
 using System.Diagnostics;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using AwesomeAssertions;
 using Xunit;
 
 namespace NewHeap.Platform.DatabaseRead.Tool.Tests;
@@ -147,19 +149,28 @@ public sealed class DatabaseReadApplicationTests
             "SELECT @projectId AS \"ProjectId\"",
             [new { name = "projectId", type = "uuid", value = Guid.NewGuid().ToString() }]);
         using var output = new MemoryStream();
+        var connectionFactory = new ThrowingConnectionFactory(
+            new TestDatabaseException("Validation must not open a database connection."));
 
         var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
             ["validate", "--profiles", workspace.ProfileCatalogPath],
             input,
-            output);
+            output,
+            connectionFactory);
 
         exitCode.Should().Be(0);
+        connectionFactory.WasCalled.Should().BeFalse();
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
         response.RootElement.GetProperty("ok").GetBoolean().Should().BeTrue();
         response.RootElement.GetProperty("operation").GetString().Should().Be("validate");
         response.RootElement.GetProperty("target").GetProperty("profile").GetString().Should().Be("test");
         response.RootElement.GetProperty("target").GetProperty("provider").GetString().Should().Be("postgresql");
         response.RootElement.GetProperty("target").TryGetProperty("readOnlyVerified", out _).Should().BeFalse();
+        response.RootElement.GetProperty("requiredCapabilities")
+            .EnumerateArray()
+            .Select(capability => capability.GetString())
+            .Should()
+            .Equal("outbound-network");
         response.RootElement.GetProperty("validation").GetProperty("effectiveLimits")
             .GetProperty("maximumRows").GetInt32().Should().Be(10);
     }
@@ -464,41 +475,46 @@ public sealed class DatabaseReadApplicationTests
         response.RootElement.GetProperty("error").GetProperty("code").GetString().Should().Be("invalid-json");
     }
 
-    [Fact]
-    public async Task DatabaseFailuresDoNotExposeConnectionStringSecrets()
+    [Theory]
+    [InlineData("sql-server")]
+    [InlineData("postgresql")]
+    public async Task BlockedNetworkIsClassifiedSafelyWithoutOpeningARealConnection(
+        string provider)
     {
         const string canary = "NEVER-RETURN-THIS-PASSWORD";
-        var connectionString = new Npgsql.NpgsqlConnectionStringBuilder
-        {
-            Host = "127.0.0.1",
-            Port = 1,
-            Database = "missing",
-            Username = "diagnostic",
-            Password = canary,
-            Timeout = 1
-        }.ConnectionString;
+        const string unsafeServerName = "PRIVATE-DATABASE-HOST-MUST-NOT-LEAK";
         using var workspace = new DatabaseReadTestWorkspace(
-            "postgresql",
-            connectionString);
+            provider,
+            canary);
         using var input = DatabaseReadTestWorkspace.Request("SELECT 1");
         using var output = new MemoryStream();
+        var exception = new TestDatabaseException(
+            $"Could not connect to {unsafeServerName} with Password={canary}.",
+            new SocketException((int)SocketError.NetworkUnreachable));
+        var connectionFactory = new ThrowingConnectionFactory(exception);
 
         var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
             ["query", "--profiles", workspace.ProfileCatalogPath],
             input,
-            output);
+            output,
+            connectionFactory);
 
         var outputText = Encoding.UTF8.GetString(output.ToArray());
         exitCode.Should().Be(5, outputText);
+        connectionFactory.WasCalled.Should().BeTrue();
         outputText.Should().NotContain(canary);
         outputText.Should().NotContain("Password");
+        outputText.Should().NotContain(unsafeServerName);
+        outputText.Should().NotContain(exception.Message);
         using var response = JsonDocument.Parse(outputText);
-        response.RootElement.GetProperty("error").GetProperty("code").GetString()
-            .Should().Be("database-query-failed");
-        response.RootElement.GetProperty("error").GetProperty("classification").GetString()
-            .Should().Be("connection-failed");
-        response.RootElement.GetProperty("error").GetProperty("provider").GetString()
-            .Should().Be("postgresql");
+        var error = response.RootElement.GetProperty("error");
+        error.GetProperty("code").GetString().Should().Be("database-query-failed");
+        error.GetProperty("classification").GetString().Should().Be("connection-failed");
+        error.GetProperty("provider").GetString().Should().Be(provider);
+        error.GetProperty("stage").GetString().Should().Be("connection-open");
+        error.GetProperty("transient").GetBoolean().Should().BeTrue();
+        error.GetProperty("retryHint").GetString().Should().Be("network-access-required");
+        error.TryGetProperty("providerCode", out _).Should().BeFalse();
     }
 
     [Fact]
@@ -540,5 +556,45 @@ public sealed class DatabaseReadApplicationTests
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
         response.RootElement.GetProperty("error").GetProperty("code").GetString()
             .Should().Be("too-many-parameters");
+    }
+
+    private sealed class ThrowingConnectionFactory : IDatabaseReadConnectionFactory
+    {
+        private readonly DbException _exception;
+
+        public ThrowingConnectionFactory(DbException exception)
+        {
+            _exception = exception;
+        }
+
+        public bool WasCalled
+        {
+            get; private set;
+        }
+
+        public Task<DbConnection> OpenAsync(
+            IDatabaseReadProvider provider,
+            string connectionString,
+            string requestId,
+            DatabaseReadLimits limits,
+            CancellationToken cancellationToken)
+        {
+            WasCalled = true;
+
+            return Task.FromException<DbConnection>(_exception);
+        }
+    }
+
+    private sealed class TestDatabaseException : DbException
+    {
+        public TestDatabaseException(string message)
+            : base(message)
+        {
+        }
+
+        public TestDatabaseException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+        }
     }
 }

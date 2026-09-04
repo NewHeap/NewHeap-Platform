@@ -6,10 +6,12 @@ namespace NewHeap.Media.FileStructureStorage.PostgreSql;
 
 internal static class PostgreSqlFileStructureModelConfiguration
 {
+    internal const string PathLookupHashColumn = "PathLookupHash";
+    internal const string PathNameLookupHashColumn = "PathNameLookupHash";
+
     internal static void Apply(FileStructureDbContextOptions options)
     {
         options.ConfigureProviderModel = ConfigureModel;
-        options.LookupHashFactory = HashHelper.ComputePostgreSqlHash;
     }
 
     private static void ConfigureModel(ModelBuilder modelBuilder)
@@ -22,11 +24,11 @@ internal static class PostgreSqlFileStructureModelConfiguration
         where TEntity : class
     {
         var entity = modelBuilder.Entity<TEntity>();
-        entity.Property<byte[]>(FileStructureDbContext.PathLookupHashColumn).IsRequired().HasMaxLength(32);
-        entity.Property<byte[]>(FileStructureDbContext.PathNameLookupHashColumn).IsRequired().HasMaxLength(32);
-        entity.HasIndex(FileStructureDbContext.PathLookupHashColumn)
+        entity.Property<byte[]>(PathLookupHashColumn).IsRequired().HasMaxLength(16);
+        entity.Property<byte[]>(PathNameLookupHashColumn).IsRequired().HasMaxLength(16);
+        entity.HasIndex(PathLookupHashColumn)
             .HasDatabaseName($"{indexNamePrefix}_PathLookupHash");
-        entity.HasIndex(FileStructureDbContext.PathNameLookupHashColumn)
+        entity.HasIndex(PathNameLookupHashColumn)
             .HasDatabaseName($"{indexNamePrefix}_PathNameLookupHash");
     }
 }

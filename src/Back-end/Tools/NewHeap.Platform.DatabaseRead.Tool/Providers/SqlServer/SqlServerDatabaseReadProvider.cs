@@ -1,6 +1,6 @@
+using Microsoft.Data.SqlClient;
 using System.Data.Common;
 using System.Globalization;
-using Microsoft.Data.SqlClient;
 
 namespace NewHeap.Platform.DatabaseRead;
 
@@ -149,18 +149,25 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
         };
     }
 
-    public DatabaseReadProviderFailure ClassifyException(DbException exception)
+    public DatabaseReadProviderFailure ClassifyException(
+        DbException exception,
+        DatabaseReadExecutionStage stage)
     {
-        if (exception is SqlException sqlException)
+        var sqlException = DatabaseReadExceptionInspector.Find<SqlException>(exception);
+        if (sqlException is not null)
         {
-            foreach (SqlError error in sqlException.Errors)
-            {
-                var failure = ClassifySqlError(error.Number);
-                if (failure is not null)
-                {
-                    return failure;
-                }
-            }
+            var errorNumbers = sqlException.Errors
+                .Cast<SqlError>()
+                .Select(error => error.Number)
+                .ToArray();
+
+            return ClassifySqlErrorNumbers(errorNumbers, exception, stage);
+        }
+
+        if (stage == DatabaseReadExecutionStage.ConnectionOpen
+            || DatabaseReadExceptionInspector.IsConnectivityFailure(exception))
+        {
+            return ConnectionFailure(null);
         }
 
         return Failure(
@@ -170,9 +177,45 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
             "The database rejected or could not complete the diagnostic operation.");
     }
 
-    private static DatabaseReadProviderFailure? ClassifySqlError(int number)
+    internal static DatabaseReadProviderFailure ClassifySqlErrorNumbers(
+        IReadOnlyList<int> errorNumbers,
+        Exception exception,
+        DatabaseReadExecutionStage stage)
     {
-        var providerCode = number.ToString(CultureInfo.InvariantCulture);
+        ArgumentNullException.ThrowIfNull(errorNumbers);
+        ArgumentNullException.ThrowIfNull(exception);
+
+        var providerCode = errorNumbers.Count > 0
+            ? errorNumbers[0].ToString(CultureInfo.InvariantCulture)
+            : null;
+
+        foreach (var errorNumber in errorNumbers)
+        {
+            var failure = ClassifySqlError(errorNumber, providerCode, stage);
+            if (failure is not null)
+            {
+                return failure;
+            }
+        }
+
+        if (stage == DatabaseReadExecutionStage.ConnectionOpen
+            || DatabaseReadExceptionInspector.IsConnectivityFailure(exception))
+        {
+            return ConnectionFailure(providerCode);
+        }
+
+        return Failure(
+            "database-failure",
+            providerCode,
+            false,
+            "The database rejected or could not complete the diagnostic operation.");
+    }
+
+    private static DatabaseReadProviderFailure? ClassifySqlError(
+        int number,
+        string? providerCode,
+        DatabaseReadExecutionStage stage)
+    {
         return number switch
         {
             208 => Failure("object-not-found", providerCode, false,
@@ -183,23 +226,36 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
                 "The database principal is not permitted to read a referenced object or column."),
             102 or 156 => Failure("syntax-error", providerCode, false,
                 "The database rejected the SQL syntax."),
+            -2 when stage == DatabaseReadExecutionStage.ConnectionOpen =>
+                ConnectionFailure(providerCode),
             -2 => Failure("statement-timeout", providerCode, false,
                 "The database cancelled the statement after its configured execution boundary."),
             1222 => Failure("lock-timeout", providerCode, false,
                 "The database could not acquire a required lock within the configured boundary."),
-            1205 => Failure("deadlock", providerCode, true,
+            1205 => Failure("deadlock", providerCode, true, "retry-operation",
                 "The database selected the diagnostic statement as a deadlock victim."),
             4060 => Failure("database-not-found", providerCode, false,
                 "The configured database does not exist or is unavailable to the principal."),
-            18456 => Failure("authentication-failed", providerCode, false,
+            18452 or 18456 => Failure("authentication-failed", providerCode, false,
                 "The database rejected the configured principal."),
-            53 or 64 or 233 or 10053 or 10054 or 10060 => Failure(
+            0 or 2 or 20 or 40 or 53 or 64 or 233 or 10053 or 10054 or 10060 or 11001 => Failure(
                 "connection-failed",
                 providerCode,
                 true,
+                "network-access-required",
                 "The database connection could not be established or was interrupted."),
             _ => null
         };
+    }
+
+    private static DatabaseReadProviderFailure ConnectionFailure(string? providerCode)
+    {
+        return Failure(
+            "connection-failed",
+            providerCode,
+            true,
+            "network-access-required",
+            "The database connection could not be established or was interrupted.");
     }
 
     private static async Task<DatabaseSchemaResultResponse> SearchSchemaAsync(
@@ -823,8 +879,26 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
         string classification,
         string? providerCode,
         bool transient,
-        string message) =>
-        new("sql-server", classification, providerCode, transient, message);
+        string message)
+    {
+        return Failure(classification, providerCode, transient, null, message);
+    }
+
+    private static DatabaseReadProviderFailure Failure(
+        string classification,
+        string? providerCode,
+        bool transient,
+        string? retryHint,
+        string message)
+    {
+        return new DatabaseReadProviderFailure(
+            "sql-server",
+            classification,
+            providerCode,
+            transient,
+            retryHint,
+            message);
+    }
 
     private sealed record SqlServerObjectDescriptor(
         int ObjectId,

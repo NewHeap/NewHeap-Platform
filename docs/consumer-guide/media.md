@@ -16,7 +16,7 @@ Choose an independent storage-provider package in the composition root, keep med
 
 Select a file-system, S3, or other storage adapter only in the composition root. Keep media folders, tags, properties, and domain authorization in typed consumer services. Enforce upload, download, and mutation rights in the backend, and document content types, limits, and responses in OpenAPI and Scalar. Publish typed media events within the agreed transactional boundary.
 
-Reference only the relational provider that the application uses. The PostgreSQL file-structure package depends on the neutral Media.Core contract and does not require the SQL Server provider package; the SQL Server provider follows the same boundary.
+Reference only the relational provider that the application uses. The PostgreSQL file-structure package depends on the neutral Media.Core contract and does not require the SQL Server provider package; the SQL Server provider follows the same boundary. Keep provider-specific lookup columns and index-seek predicates in the provider package that defines them rather than adding them to the neutral storage contract or another provider's model. PostgreSQL lookup indexes use a fixed MD5 `bytea` digest, while the real path and name predicates remain the collision check. Consumers must not query provider lookup shadow properties through the neutral context.
 
 Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup hashes, folder operations and file operations. Test the selected blob adapter separately with the same storage contract tests.
 
@@ -29,7 +29,7 @@ Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup h
 
 ## Verification
 
-Test the folder lifecycle, upload and download, search and sorting, metadata, thumbnails, authorization, and events. Check missing blobs, oversized uploads, forbidden access, and consistent cleanup after failures.
+Test the folder lifecycle, upload and download, search and sorting, metadata, thumbnails, authorization, and events. Check missing blobs, oversized uploads, forbidden access, and consistent cleanup after failures. For provider lookup indexes, use `EXPLAIN (ANALYZE, FORMAT JSON)` against a real provider and assert the expected index scan without a sequential scan.
 
 ## Executable evidence
 

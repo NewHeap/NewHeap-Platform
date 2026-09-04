@@ -1,8 +1,8 @@
 {
   "schemaVersion": 3,
-  "pluginVersion": "1.13.22",
-  "guidanceVersion": "1.13.22",
-  "skillContentHash": "3698305a3cec7fcaaa06e354c2cf8341d2fc7dedf2c662b044d0a8ae3c921782",
+  "pluginVersion": "1.13.23",
+  "guidanceVersion": "1.13.23",
+  "skillContentHash": "2602f6893f648cc16791976d1d50e41addafb514173e9bb304064e5528dc4a41",
   "skills": [
     "newheap-platform-development"
   ],
@@ -45,16 +45,16 @@
     "NewHeap.Platform.DatabaseRead.Tool": "4.4.5",
     "NewHeap.Platform.Events.Cap": "4.4.5",
     "NewHeap.Platform.Mapping": "4.4.5",
-    "NewHeap.Platform.Media": "3.0.0",
-    "NewHeap.Platform.Media.Core": "3.0.0",
-    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "3.0.0",
-    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "3.0.0",
-    "NewHeap.Platform.Media.Http": "3.0.0",
-    "NewHeap.Platform.Media.MediaStorage.FileSystem": "3.0.0",
-    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "3.0.0"
+    "NewHeap.Platform.Media": "3.0.1",
+    "NewHeap.Platform.Media.Core": "3.0.1",
+    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "3.0.1",
+    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "3.0.1",
+    "NewHeap.Platform.Media.Http": "3.0.1",
+    "NewHeap.Platform.Media.MediaStorage.FileSystem": "3.0.1",
+    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "3.0.1"
   },
   "evidence": {
-    "sourceRef": "newheap-platform-plugin-v1.13.22",
+    "sourceRef": "newheap-platform-plugin-v1.13.23",
     "catalog": "skills/newheap-platform-development/references/immutable-evidence.md"
   },
   "repositoryTarget": ".agents/skills/newheap-platform-development",

@@ -2,17 +2,36 @@ using System.Data.Common;
 
 namespace NewHeap.Platform.DatabaseRead;
 
-internal static class DatabaseReadConnectionFactory
+internal interface IDatabaseReadConnectionFactory
 {
-    public static DbConnection Create(
+    Task<DbConnection> OpenAsync(
         IDatabaseReadProvider provider,
         string connectionString,
         string requestId,
-        DatabaseReadLimits limits)
+        DatabaseReadLimits limits,
+        CancellationToken cancellationToken);
+}
+
+internal sealed class DatabaseReadConnectionFactory : IDatabaseReadConnectionFactory
+{
+    public static DatabaseReadConnectionFactory Instance { get; } = new();
+
+    private DatabaseReadConnectionFactory()
     {
+    }
+
+    public async Task<DbConnection> OpenAsync(
+        IDatabaseReadProvider provider,
+        string connectionString,
+        string requestId,
+        DatabaseReadLimits limits,
+        CancellationToken cancellationToken)
+    {
+        DbConnection connection;
+
         try
         {
-            return provider.CreateConnection(connectionString, requestId, limits);
+            connection = provider.CreateConnection(connectionString, requestId, limits);
         }
         catch (Exception exception) when (
             exception is ArgumentException or FormatException or InvalidOperationException)
@@ -21,6 +40,19 @@ internal static class DatabaseReadConnectionFactory
                 "connection-configuration-invalid",
                 "The selected environment's resolved connection string is not valid for the configured provider.",
                 DatabaseReadExitCode.InvalidProfile);
+        }
+
+        try
+        {
+            await connection.OpenAsync(cancellationToken);
+
+            return connection;
+        }
+        catch
+        {
+            await connection.DisposeAsync();
+
+            throw;
         }
     }
 }

@@ -31,6 +31,7 @@ if (output is not JsonElement json
 }
 Console.WriteLine(catalog.Manifest.SchemaHash);
 
+
 public sealed record AotSmokeReadInput(string Value);
 
 [NhAiToolSet(

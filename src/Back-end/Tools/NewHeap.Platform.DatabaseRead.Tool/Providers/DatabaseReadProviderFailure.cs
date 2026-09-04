@@ -5,4 +5,5 @@ internal sealed record DatabaseReadProviderFailure(
     string Classification,
     string? ProviderCode,
     bool Transient,
+    string? RetryHint,
     string Message);

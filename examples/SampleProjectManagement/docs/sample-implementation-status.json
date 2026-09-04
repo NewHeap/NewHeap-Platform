@@ -215,6 +215,7 @@
     "SPM-216",
     "SPM-217",
     "SPM-218",
+    "SPM-237",
     "SPM-219",
     "SPM-220",
     "SPM-221",
@@ -408,8 +409,14 @@
     ],
     "SPM-031": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.json",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
-      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/CollectionProcessingDeadlockRetryTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/CollectionProcessingSettingsTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/HttpCollectionProcessingSettingsTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionProcessingProviderTests.cs"
     ],
     "SPM-032": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
@@ -1374,6 +1381,16 @@
       "src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs"
     ],
     "SPM-218": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/projects/management/src/app/app-host.component.ts",
+      "src/Front-end/projects/workspace/src/app/app-host.component.ts",
+      "src/Front-end/projects/management/src/app/notification-playground/notification-playground.component.ts",
+      "src/Front-end/projects/management/src/app/notification-playground/notification-playground.component.html",
+      "src/Front-end/scripts/verify-frontend-integrity.mjs",
+      "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.ts",
+      "../../src/Front-end/projects/nh-toastr/src/components/component.ts"
+    ],
+    "SPM-237": [
       "src/Back-end/.newheap/database-read.json",
       "src/Back-end/Tooling/DatabaseRead/requests/project-by-id.json",
       "src/Back-end/Tooling/DatabaseRead/requests/project-schema.json",

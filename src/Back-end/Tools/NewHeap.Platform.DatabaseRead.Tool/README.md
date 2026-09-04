@@ -120,6 +120,22 @@ run without a database connection:
 newheap-db validate --request-file request.json
 ```
 
+The validation response advertises the capability required by the executable
+commands without using it during validation:
+
+```json
+{
+  "requiredCapabilities": ["outbound-network"]
+}
+```
+
+`query` and `schema` require outbound network access to the configured database.
+When Codex invokes either command, its first attempt must use network-enabled or
+escalated execution with a narrow reusable permission scoped only to
+`newheap-db`, such as the `dotnet tool run newheap-db` prefix. Do not first probe
+the restricted sandbox and do not broaden the permission to arbitrary `dotnet`
+or shell commands.
+
 For an interactive diagnostic, call `query` directly. It performs the same
 request validation before it verifies the database principal and executes:
 
@@ -250,11 +266,19 @@ codes and never include provider exception text or a connection string.
 ```
 
 Database failures retain the stable `database-query-failed` code and may add an
-allowlisted `classification`, `provider`, `providerCode` and `transient` value.
-For example, PostgreSQL SQLSTATE `42P01` is returned as `object-not-found`, while
-SQL Server error `207` is returned as `column-not-found`. Raw provider messages,
-object names, connection values and stack traces are never copied into the error
-contract.
+allowlisted `classification`, `provider`, `providerCode`, `stage`, `transient`
+and `retryHint` value. Stages distinguish `connection-open`,
+`readonly-verification`, `query-execution` and `schema-execution`. For example,
+PostgreSQL SQLSTATE `42P01` is returned as `object-not-found`, while SQL Server
+error `207` is returned as `column-not-found`. Authentication and database
+selection remain `authentication-failed` and `database-not-found`. A socket,
+DNS or unknown provider error during connection open returns
+`connection-failed`, preserves the first safe provider code when present, and
+uses the `network-access-required` retry hint. That hint does not identify the
+host policy responsible for the failure; a sandbox, firewall, DNS issue or
+network ACL can produce the same response. Raw provider messages, server and
+object names, connection values and stack traces are never copied into the
+error contract.
 
 If the selected environment resolves the governed connection-string name to a
 value that the configured provider cannot parse, the tool returns

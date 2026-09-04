@@ -20,10 +20,13 @@ public static class PostgreSqlServiceCollectionExtensions
         var options = new FileStructureDbContextOptions();
         configureDbSet?.Invoke(options);
         PostgreSqlFileStructureModelConfiguration.Apply(options);
+        var lookupHashInterceptor = new PostgreSqlLookupHashSaveChangesInterceptor();
 
         services.AddSingleton(options);
         services.AddDbContextPool<FileStructureDbContext>(opt =>
         {
+            opt.AddInterceptors(lookupHashInterceptor);
+
             if (options.RunMigrations)
             {
                 opt.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));

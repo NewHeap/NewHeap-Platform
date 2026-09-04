@@ -1,7 +1,7 @@
-using System.Text.Json;
 using AwesomeAssertions;
 using Microsoft.Data.SqlClient;
 using Npgsql;
+using System.Text.Json;
 using Testcontainers.MsSql;
 using Testcontainers.PostgreSql;
 using Xunit;
@@ -763,6 +763,7 @@ public sealed class DatabaseReadProviderTests
         error.GetProperty("classification").GetString().Should().Be(classification);
         error.GetProperty("provider").GetString().Should().Be(provider);
         error.GetProperty("providerCode").GetString().Should().Be(providerCode);
+        error.GetProperty("stage").GetString().Should().Be("query-execution");
     }
 
     private static async Task AssertRowLimitOverflowFailsWithoutReturningPartialDataAsync(

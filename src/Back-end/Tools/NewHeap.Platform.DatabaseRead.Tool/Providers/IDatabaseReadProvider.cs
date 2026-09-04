@@ -29,7 +29,9 @@ internal interface IDatabaseReadProvider
         DatabaseReadLimits limits,
         CancellationToken cancellationToken);
 
-    DatabaseReadProviderFailure ClassifyException(DbException exception);
+    DatabaseReadProviderFailure ClassifyException(
+        DbException exception,
+        DatabaseReadExecutionStage stage);
 }
 
 internal static class DatabaseReadProviderFactory

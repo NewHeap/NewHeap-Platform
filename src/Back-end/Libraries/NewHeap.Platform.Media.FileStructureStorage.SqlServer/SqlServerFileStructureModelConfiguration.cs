@@ -5,10 +5,18 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer;
 
 internal static class SqlServerFileStructureModelConfiguration
 {
+    internal const string PathLookupColumn = "PathLookup";
+    internal const string PathNameLookupColumn = "PathNameLookup";
+
+    private const string PathLookupSql =
+        "CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')))";
+
+    private const string PathNameLookupSql =
+        "CONVERT(nvarchar(256), LOWER(COALESCE([Path], N'')) + NCHAR(31) + LOWER([Name]))";
+
     internal static void Apply(FileStructureDbContextOptions options)
     {
         options.ConfigureProviderModel = ConfigureModel;
-        options.LookupHashFactory = null;
     }
 
     private static void ConfigureModel(ModelBuilder modelBuilder)
@@ -27,18 +35,18 @@ internal static class SqlServerFileStructureModelConfiguration
         where TEntity : class
     {
         var entity = modelBuilder.Entity<TEntity>();
-        entity.Property<byte[]>(FileStructureDbContext.PathLookupHashColumn)
-            .HasColumnType("binary(32)")
-            .HasComputedColumnSql(FileStructureDbContext.PathLookupHashSql, stored: true);
-        entity.Property<byte[]>(FileStructureDbContext.PathNameLookupHashColumn)
-            .HasColumnType("binary(32)")
-            .HasComputedColumnSql(FileStructureDbContext.PathNameLookupHashSql, stored: true);
+        entity.Property<string>(PathLookupColumn)
+            .HasColumnType("NVARCHAR(256)")
+            .HasComputedColumnSql(PathLookupSql, stored: true);
+        entity.Property<string>(PathNameLookupColumn)
+            .HasColumnType("NVARCHAR(256)")
+            .HasComputedColumnSql(PathNameLookupSql, stored: true);
 
-        entity.HasIndex(FileStructureDbContext.PathLookupHashColumn)
-            .HasDatabaseName($"{indexNamePrefix}_PathLookupHash")
+        entity.HasIndex(PathLookupColumn)
+            .HasDatabaseName($"{indexNamePrefix}_PathLookup")
             .IncludeProperties(idPropertyName);
-        entity.HasIndex(FileStructureDbContext.PathNameLookupHashColumn)
-            .HasDatabaseName($"{indexNamePrefix}_PathNameLookupHash")
+        entity.HasIndex(PathNameLookupColumn)
+            .HasDatabaseName($"{indexNamePrefix}_PathNameLookup")
             .IncludeProperties(idPropertyName);
     }
 }

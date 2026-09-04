@@ -4,6 +4,21 @@ namespace NewHeap.Platform.Common.Models.Options;
 
 public class NewHeapCommonSettings
 {
+    /// <summary>
+    /// Number of items used when a collection request does not provide a valid page size.
+    /// </summary>
+    public int CollectionProcessingDefaultItemsPerPage { get; set; } = 20;
+
+    /// <summary>
+    /// Maximum page size used when a collection endpoint does not provide a custom maximum.
+    /// </summary>
+    public int CollectionProcessingDefaultMaxItemsPerPage { get; set; } = 1000;
+
+    /// <summary>
+    /// Maximum number of attempts for a collection database command that fails
+    /// because of a SQL Server or PostgreSQL deadlock.
+    /// </summary>
+    public int CollectionProcessingDeadlockMaxAttempts { get; set; } = 5;
 }
 
 

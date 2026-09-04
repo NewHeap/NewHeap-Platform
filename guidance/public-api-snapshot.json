@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "guidanceVersion": "1.13.22",
+  "guidanceVersion": "1.13.23",
   "backEnd": {
-    "hash": "369b83ae99563f2d49c76533048e2587b4ca9def5c2f954dc98b8a06f86a3f9c",
-    "declarationCount": 3612,
+    "hash": "8e0bf12b2a54f95eee7a16638c0931d47c7011d6a9cefdac2db46061de3630ec",
+    "declarationCount": 3633,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -8775,6 +8775,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/HttpCollectionProcessingService.cs",
+        "declaration": "public HttpCollectionProcessingService( IMapper mapper, IHttpContextAccessor httpContextAccessor, ILogger<HttpCollectionProcessingService> logger, IOptions<NewHeapCommonSettings> settings) : base(mapper, settings) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/HttpCollectionProcessingService.cs",
         "declaration": "public virtual ICollectionRequestModel GetCollectionRequestModel(int? maxItemsPerPage = null)"
       },
       {
@@ -11327,6 +11331,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapCommonSettings.cs",
+        "declaration": "public int CollectionProcessingDefaultItemsPerPage { get; set; } = 20;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapCommonSettings.cs",
+        "declaration": "public int CollectionProcessingDefaultMaxItemsPerPage { get; set; } = 1000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapCommonSettings.cs",
+        "declaration": "public int CollectionProcessingDeadlockMaxAttempts { get; set; } = 5;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/Options/NewHeapCommonSettings.cs",
         "declaration": "public class NewHeapCommonOptions {"
       },
       {
@@ -11940,6 +11956,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/CollectionProcessingService.cs",
         "declaration": "public CollectionProcessingService( IMapper mapper ) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/CollectionProcessingService.cs",
+        "declaration": "public CollectionProcessingService( IMapper mapper, IOptions<NewHeapCommonSettings> settings) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/CollectionProcessingService.cs",
@@ -13239,22 +13259,6 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
-        "declaration": "public const string PathLookupHashColumn = \"PathLookupHash\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
-        "declaration": "public const string PathNameLookupHashColumn = \"PathNameLookupHash\";"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
-        "declaration": "public const string PathLookupHashSql ="
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
-        "declaration": "public const string PathNameLookupHashSql ="
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
         "declaration": "public DbSet<FileEntity> Files { get; set; }"
       },
       {
@@ -13274,14 +13278,6 @@
         "declaration": "protected override void OnModelCreating(ModelBuilder modelBuilder) {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
-        "declaration": "public override int SaveChanges(bool acceptAllChangesOnSuccess) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContext.cs",
-        "declaration": "public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)"
-      },
-      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureDbContextOptions.cs",
         "declaration": "public class FileStructureDbContextOptions {"
       },
@@ -13299,11 +13295,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/HashHelper.cs",
-        "declaration": "public static byte[] ComputeHash(params string?[] values) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/HashHelper.cs",
-        "declaration": "public static byte[] ComputePostgreSqlHash(params string?[] values) {"
+        "declaration": "public static string ComputePostgreSqlHash(params string?[] values) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
@@ -13371,7 +13363,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
-        "declaration": "protected abstract byte[] ComputeLookupHash(params string?[] values);"
+        "declaration": "protected virtual IQueryable<FileEntity> WhereFilesInPath(IQueryable<FileEntity> query, string? path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "protected virtual IQueryable<FolderEntity> WhereFoldersInPath(IQueryable<FolderEntity> query, string? path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "protected virtual IQueryable<FileEntity> WhereFilePathAndName(IQueryable<FileEntity> query, string? path, string? name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "protected virtual IQueryable<FolderEntity> WhereFolderPathAndName(IQueryable<FolderEntity> query, string? path, string? name) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
@@ -13930,6 +13934,38 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903134647_IndexSeekLookup.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903134647_IndexSeekLookup.cs",
+        "declaration": "public partial class IndexSeekLookup : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903134647_IndexSeekLookup.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903134647_IndexSeekLookup.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903141415_UseFixedLookupHashes.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903141415_UseFixedLookupHashes.cs",
+        "declaration": "public partial class UseFixedLookupHashes : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903141415_UseFixedLookupHashes.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/20260903141415_UseFixedLookupHashes.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/Migrations/BasePostgreSqlMigration.cs",
         "declaration": "public abstract class BasePostgreSqlMigration : Migration {"
       },
@@ -13959,7 +13995,27 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlFileStructureStorage.cs",
-        "declaration": "protected override byte[] ComputeLookupHash(params string?[] values) {"
+        "declaration": "protected override IQueryable<FileEntity> WhereFilesInPath(IQueryable<FileEntity> query, string? path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlFileStructureStorage.cs",
+        "declaration": "protected override IQueryable<FolderEntity> WhereFoldersInPath(IQueryable<FolderEntity> query, string? path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlFileStructureStorage.cs",
+        "declaration": "protected override IQueryable<FileEntity> WhereFilePathAndName(IQueryable<FileEntity> query, string? path, string? name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlFileStructureStorage.cs",
+        "declaration": "protected override IQueryable<FolderEntity> WhereFolderPathAndName(IQueryable<FolderEntity> query, string? path, string? name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlLookupHashSaveChangesInterceptor.cs",
+        "declaration": "public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlLookupHashSaveChangesInterceptor.cs",
+        "declaration": "public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlMigrateDatabaseHostedService.cs",
@@ -14118,6 +14174,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Migrations/20260902133212_IndexSeekLookup.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Migrations/20260902133212_IndexSeekLookup.cs",
+        "declaration": "public partial class IndexSeekLookup : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Migrations/20260902133212_IndexSeekLookup.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Migrations/20260902133212_IndexSeekLookup.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Migrations/BaseMigration.cs",
         "declaration": "public abstract class BaseMigration : Migration {"
       },
@@ -14147,7 +14219,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
-        "declaration": "protected override byte[] ComputeLookupHash(params string?[] values) {"
+        "declaration": "protected override IQueryable<FileEntity> WhereFilesInPath(IQueryable<FileEntity> query, string? path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
+        "declaration": "protected override IQueryable<FolderEntity> WhereFoldersInPath(IQueryable<FolderEntity> query, string? path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
+        "declaration": "protected override IQueryable<FileEntity> WhereFilePathAndName(IQueryable<FileEntity> query, string? path, string? name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
+        "declaration": "protected override IQueryable<FolderEntity> WhereFolderPathAndName(IQueryable<FolderEntity> query, string? path, string? name) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/HttpContextExtensions.cs",
@@ -17684,6 +17768,13 @@
       "NhAiToolManifestEntry",
       "NhAiToolSetAttribute"
     ],
+    "nh-backend-collection-processing": [
+      "ICollectionProcessingService",
+      "IHttpCollectionProcessingService",
+      "CollectionProcessingService",
+      "HttpCollectionProcessingService",
+      "NewHeapCommonSettings"
+    ],
     "nh-backend-controller-contracts": [
       "ProtectedNhBaseController",
       "DbEntityProtectedNhBaseController",
@@ -17783,16 +17874,16 @@
       "NhHttpNhCommonModuleConfig",
       "NhFormDropDownNhCommonModuleConfig"
     ],
+    "nh-frontend-toast-notifications": [
+      "provideNhToastr",
+      "NhToastrService",
+      "NhToastrContainerComponent"
+    ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",
       "INhBackgroundOperationSignalService",
       "NhBackgroundOperationSignalWaitResult",
       "NhBackgroundOperationSignalWriteResult"
-      ],
-    "nh-frontend-toast-notifications": [
-      "provideNhToastr",
-      "NhToastrService",
-      "NhToastrContainerComponent"
     ],
     "nh-configuration-overrides": [
       "ConfigureNhCommonConfiguration",
@@ -17803,7 +17894,9 @@
     "nh-media-storage-contract": [
       "UseFileSystemMediaStorage",
       "NhMediaServiceConfigurationContext",
-      "IAuthorizationModule"
+      "IAuthorizationModule",
+      "FileStructureDbContext",
+      "RelationalFileStructureStorage"
     ],
     "nh-observability-logging": [
       "AddNewHeapObservability",

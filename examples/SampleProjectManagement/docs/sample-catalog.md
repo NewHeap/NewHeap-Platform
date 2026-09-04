@@ -96,13 +96,22 @@ for non-secret host settings.
 
 ## Read-only database diagnostics
 
-SPM-218 provides a checked-in `.newheap/database-read.json` profile, a typed
+SPM-237 provides a checked-in `.newheap/database-read.json` profile, a typed
 JSON request, and an executable validation test for `newheap-db`. The request
 keeps the project ID in the parameter collection instead of concatenating it
 into PostgreSQL text and applies `LIMIT` in addition to the request-level row
 and timeout limits. Standard input carries the request and standard output
 contains one schema-versioned JSON result, which makes the contract suitable
 for developers, Codex, and other agent environments.
+
+Validation is deliberately local and returns `requiredCapabilities` with
+`outbound-network` without opening a connection. Schema and query execution do
+require outbound database access. The checked-in agent guidance therefore tells
+Codex to use a narrow reusable `newheap-db` network permission on the first
+execution attempt instead of first probing a restricted sandbox. Connection
+failures return safe provider metadata, an execution stage and a retry hint;
+authentication and unknown-database failures remain distinct, and raw server,
+credential and exception details are never exposed.
 
 For an agent investigating persisted sample data, the repository profile, local
 database-read README and checked-in request files form a direct fast path. The

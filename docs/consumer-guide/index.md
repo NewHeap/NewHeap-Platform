@@ -30,6 +30,7 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 - [ai-protected-actions](./ai-protected-actions.md) — 1 rule
 - [authentication-overrides](./authentication-overrides.md) — 1 rule
 - [authorization-permissions](./authorization-permissions.md) — 1 rule
+- [backend-collection-processing](./backend-collection-processing.md) — 1 rule
 - [backend-controller-contracts](./backend-controller-contracts.md) — 1 rule
 - [backend-models-localization](./backend-models-localization.md) — 1 rule
 - [backend-module-composition](./backend-module-composition.md) — 1 rule
@@ -48,6 +49,7 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 - [frontend-collection-query](./frontend-collection-query.md) — 1 rule
 - [frontend-lifecycle-modals](./frontend-lifecycle-modals.md) — 1 rule
 - [frontend-root-configuration](./frontend-root-configuration.md) — 1 rule
+- [frontend-toast-notifications](./frontend-toast-notifications.md) — 1 rule
 - [media](./media.md) — 1 rule
 - [observability-logging](./observability-logging.md) — 1 rule
 - [runtime-configuration](./runtime-configuration.md) — 1 rule
@@ -55,4 +57,4 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 
 ## Maintenance
 
-Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 36 validated rules.
+Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 38 validated rules.

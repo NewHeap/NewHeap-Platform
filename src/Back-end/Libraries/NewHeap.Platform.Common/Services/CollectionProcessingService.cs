@@ -12,6 +12,8 @@ using System.Reflection;
 using System.Linq.Dynamic.Core;
 using NewHeap.Platform.Common.Extensions;
 using NewHeap.Platform.Common.Exceptions;
+using NewHeap.Platform.Common.Models.Options;
+using Microsoft.Extensions.Options;
 using System.Diagnostics;
 
 namespace NewHeap.Platform.Common.Services;
@@ -95,23 +97,74 @@ public interface ICollectionProcessingService
 public partial class CollectionProcessingService : ICollectionProcessingService
 {
     protected readonly IMapper _mapper;
+    private readonly NewHeapCommonSettings _settings;
 
     public CollectionProcessingService(
         IMapper mapper
         )
     {
+        ArgumentNullException.ThrowIfNull(mapper);
+
         _mapper = mapper;
+        _settings = new NewHeapCommonSettings();
     }
+
+    public CollectionProcessingService(
+        IMapper mapper,
+        IOptions<NewHeapCommonSettings> settings)
+    {
+        ArgumentNullException.ThrowIfNull(mapper);
+        ArgumentNullException.ThrowIfNull(settings);
+
+        ValidateSettings(settings.Value);
+
+        _mapper = mapper;
+        _settings = settings.Value;
+    }
+
     public virtual int GetDefaultMaxItemsPerPage()
     {
-        // TODO: Get this from the configuration / factory
-        return 1000;
+        return _settings.CollectionProcessingDefaultMaxItemsPerPage;
     }
 
     public virtual int GetDefaultItemsPerPage()
     {
-        // TODO: Get this from the configuration / factory
-        return 20;
+        return _settings.CollectionProcessingDefaultItemsPerPage;
+    }
+
+    private static void ValidateSettings(NewHeapCommonSettings settings)
+    {
+        if (settings.CollectionProcessingDefaultItemsPerPage < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                settings.CollectionProcessingDefaultItemsPerPage,
+                "CollectionProcessingDefaultItemsPerPage must be at least one.");
+        }
+
+        if (settings.CollectionProcessingDefaultMaxItemsPerPage < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                settings.CollectionProcessingDefaultMaxItemsPerPage,
+                "CollectionProcessingDefaultMaxItemsPerPage must be at least one.");
+        }
+
+        if (settings.CollectionProcessingDefaultItemsPerPage > settings.CollectionProcessingDefaultMaxItemsPerPage)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                settings.CollectionProcessingDefaultItemsPerPage,
+                "CollectionProcessingDefaultItemsPerPage cannot exceed CollectionProcessingDefaultMaxItemsPerPage.");
+        }
+
+        if (settings.CollectionProcessingDeadlockMaxAttempts < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                settings.CollectionProcessingDeadlockMaxAttempts,
+                "CollectionProcessingDeadlockMaxAttempts must be at least one.");
+        }
     }
 
     public void ProcessSearch<TEntity, TViewModel>(
@@ -842,9 +895,11 @@ public partial class CollectionProcessingService : ICollectionProcessingService
         var filterResult = ProcessFilter<TEntity, TViewModel>(ref queryable, requestModel.Filter);
         var orderByResult = _ProcessOrderBy<TEntity, TViewModel>(ref queryable, requestModel.OrderBy, defaultOrderBy);
 
-        var totalCount = queryable.GetType().GetInterfaces().Contains(typeof(IAsyncEnumerable<TEntity>))
-            ? await queryable.LongCountAsync(cancellationToken)
-            : queryable.LongCount();
+        var totalCount = await ExecuteDatabaseCommandAsync(
+            token => queryable.GetType().GetInterfaces().Contains(typeof(IAsyncEnumerable<TEntity>))
+                ? queryable.LongCountAsync(token)
+                : Task.FromResult(queryable.LongCount()),
+            cancellationToken);
 
         queryable = queryable
             .PageSkipTake(requestModel)
@@ -939,9 +994,11 @@ public partial class CollectionProcessingService : ICollectionProcessingService
             queryable = await resultQueryableFunc.Invoke(queryable, cancellationToken);
         }
 
-        var dbItems = queryable.GetType().GetInterfaces().Contains(typeof(IAsyncEnumerable<TEntity>))
-            ? await queryable.ToListAsync(cancellationToken)
-            : queryable.ToList();
+        var dbItems = await ExecuteDatabaseCommandAsync(
+            token => queryable.GetType().GetInterfaces().Contains(typeof(IAsyncEnumerable<TEntity>))
+                ? queryable.ToListAsync(token)
+                : Task.FromResult(queryable.ToList()),
+            cancellationToken);
 
         var items = typeof(TViewModel).Equals(typeof(TEntity))
             ? (List<TViewModel>)(object)dbItems
