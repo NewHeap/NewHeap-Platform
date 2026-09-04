@@ -18,6 +18,8 @@ Publish CAP events inside the service-owned transactional scope and configure th
 
 Model notification creation, the delivery channel, and email dispatch as separate steps. Use typed events and templates, and store read and unread state in the consumer-owned database with appropriate migrations.
 
+Keep the caught exception attached to failed dispatcher log records. Include its type and message as structured fields in the log message so operational log list views expose the immediate cause even when they do not render the separate exception field; keep stack traces in the exception field and return only safe localized errors through `TaskResult`.
+
 Keep strict EF Core warning policies enabled when they are part of the consumer's operational baseline. The built-in user-notification overview and background-operation startup schema probes are deterministic and support promoting unordered first-row and row-limiting warnings to exceptions; consumers do not need replacement service registrations for those queries.
 
 Use `NhHangfireUtil` for small, naturally repeatable fire-and-forget work. Use `WithBackgroundOperations` plus a typed `INhBackgroundOperationHandler<TRequest>` when work needs durable ownership, cancellation, progress, retries, a result, or user-visible notification milestones. Register every payload type explicitly; payloads never carry CLR type metadata. Deploy the consumer DbContext migration before enabling enqueueing or workers.

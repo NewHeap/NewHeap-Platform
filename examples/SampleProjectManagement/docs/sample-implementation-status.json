@@ -749,6 +749,7 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NotificationProcessingSamplesTests.cs"
     ],
     "SPM-088": [
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEmailNotificationDispatcherTests.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"

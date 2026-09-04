@@ -1226,6 +1226,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "outcome": "Sent and failed states include error details.",
     "implementation": "implemented",
     "evidence": [
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEmailNotificationDispatcherTests.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"

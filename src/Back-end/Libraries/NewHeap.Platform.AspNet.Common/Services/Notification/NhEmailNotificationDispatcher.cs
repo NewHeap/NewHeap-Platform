@@ -188,7 +188,11 @@ public partial class NhEmailNotificationDispatcher : NhAbstractNotificationDispa
         catch (Exception ex)
         {
             taskResult.AddError("DispatchError", _localizer["Failed to dispatch email notification."]);
-            _logger.LogError(ex, "Failed to dispatch email notification.");
+            _logger.LogError(
+                ex,
+                "Failed to dispatch email notification with {ExceptionType}: {ExceptionMessage}",
+                ex.GetType().FullName,
+                ex.Message);
         }
         finally
         {
