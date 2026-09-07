@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>NewHeap.Platform.AspNet.Proxy.Sqlite</PackageId>
+    <Copyright>NewHeap B.V.</Copyright>
+    <Title>NewHeap ASP.NET Proxy SQLite</Title>
+    <PackageDescription>Project foundation for NewHeap proxy SQLite persistence and composition. Features are not yet implemented.</PackageDescription>
+    <PackageTags>newheap platform aspnetcore proxy sqlite</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NewHeap.Platform.AspNet.Proxy\NewHeap.Platform.AspNet.Proxy.csproj" />
+  </ItemGroup>
+</Project>

@@ -233,12 +233,14 @@
     "SPM-233",
     "SPM-234",
     "SPM-235",
-    "SPM-236"
+    "SPM-236",
+    "SPM-238"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
     "SPM-113": "The sample frontends do not yet have an Angular server target, so the server interceptor cannot run end to end.",
-    "SPM-160": "The complete SSR stack still lacks @angular/platform-server, a server bootstrap, and an SSR build target."
+    "SPM-160": "The complete SSR stack still lacks @angular/platform-server, a server bootstrap, and an SSR build target.",
+    "SPM-239": "Startup registration, option binding, and native YARP endpoint mapping with initial configuration loading work. Managed forwarding, redirects, MVC, security, dry-run execution, and SQLite persistence are not implemented. No provider behavior is verified; SQL Server and PostgreSQL implementations are outside version-one scope."
   },
   "partial": {},
   "evidence": {
@@ -1513,6 +1515,9 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiDurableRuns.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AgentFramework.Tests/NhAiAgentFrameworkAdapterTests.cs"
+    ],
+    "SPM-238": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyContractBoundarySamplesTests.cs"
     ]
   }
 }

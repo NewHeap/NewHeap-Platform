@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.24",
   "backEnd": {
-    "hash": "89e0e4d2a06fb29bbe6a5ddffc2eb40905ac0237789d69d1506d746fcc09e72b",
-    "declarationCount": 3637,
+    "hash": "de3cb388b398e3e0b8f95bc862380892fee7224f85367d3dbd0726c60924fa3c",
+    "declarationCount": 3827,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -9714,6 +9714,766 @@
         "declaration": "public async Task CreateValueProviderAsync(ValueProviderFactoryContext context) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxyServiceCollectionExtensions.cs",
+        "declaration": "public static class NhProxyServiceCollectionExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxyServiceCollectionExtensions.cs",
+        "declaration": "public static IServiceCollection AddNewHeapProxy(this IServiceCollection services, IConfiguration configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxyServiceCollectionExtensions.cs",
+        "declaration": "public static IServiceCollection AddNewHeapProxy( this IServiceCollection services, Action<NhProxyOptions>? configure = null, Action<NhProxySqliteOptions>? configureStorage = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteConfigurationStore.cs",
+        "declaration": "public sealed class NhProxySqliteConfigurationStore : INhProxyConfigurationStore {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteConfigurationStore.cs",
+        "declaration": "public NhProxySqliteConfigurationStore(IOptions<NhProxySqliteOptions> options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteConfigurationStore.cs",
+        "declaration": "public Task InitializeAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteConfigurationStore.cs",
+        "declaration": "public Task<NhProxyRewriteConfiguration> LoadRewritesAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteConfigurationStore.cs",
+        "declaration": "public Task<NhProxyRedirectConfiguration> LoadRedirectsAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteConfigurationStore.cs",
+        "declaration": "public Task<TaskResult<NhProxyRewriteConfiguration>> SaveRewritesAsync(NhProxyRewriteSaveRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteConfigurationStore.cs",
+        "declaration": "public Task<TaskResult<NhProxyRedirectConfiguration>> SaveRedirectsAsync(NhProxyRedirectSaveRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteConfigurationStore.cs",
+        "declaration": "public ValueTask DisposeAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteLoginAuditStore.cs",
+        "declaration": "public sealed class NhProxySqliteLoginAuditStore : INhProxyLoginAuditStore {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteLoginAuditStore.cs",
+        "declaration": "public NhProxySqliteLoginAuditStore(IOptions<NhProxySqliteOptions> options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteLoginAuditStore.cs",
+        "declaration": "public Task AppendAsync(NhProxyLoginAuditEvent auditEvent, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteLoginAuditStore.cs",
+        "declaration": "public Task<TaskResult<NhProxyLoginAuditPage>> QueryAsync(NhProxyLoginAuditQuery query, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteLoginAuditStore.cs",
+        "declaration": "public Task<int> DeleteExpiredAsync(DateTimeOffset olderThanUtc, int batchSize, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteOptions.cs",
+        "declaration": "public sealed class NhProxySqliteOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteOptions.cs",
+        "declaration": "public const string ConfigurationSectionName = \"Sqlite\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteOptions.cs",
+        "declaration": "public string DatabasePath { get; set; } = \"App_Data/newheap-proxy.db\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteOptions.cs",
+        "declaration": "public TimeSpan BusyTimeout { get; set; } = TimeSpan.FromSeconds(5);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public sealed class NhProxyLoginRequest {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public required string UserName { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public required string Password { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public interface INhProxyAdministrationService {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public enum NhProxyLoginOutcome {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public sealed record NhProxyLoginAuditEvent {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "[Filterable] public required Guid Id { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public required DateTimeOffset OccurredAtUtc { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public string? ClientIp { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public string? ConnectionPeerIp { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public required NhProxyLoginOutcome Outcome { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public required string CorrelationId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public string? AuthenticatedUserName { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public sealed record NhProxyLoginAuditQuery {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public DateTimeOffset? FromUtc { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public DateTimeOffset? ToUtc { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public string? ClientIp { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public NhProxyLoginOutcome? Outcome { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public int Offset { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public int PageSize { get; init; } = 50;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public sealed record NhProxyLoginAuditPage(ImmutableArray<NhProxyLoginAuditEvent> Items, long TotalCount);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdministration.cs",
+        "declaration": "public interface INhProxyLoginAuditStore {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyApplicationExtensions.cs",
+        "declaration": "public static class NhProxyApplicationExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyApplicationExtensions.cs",
+        "declaration": "public static WebApplication UseNewHeapProxy(this WebApplication app) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyApplicationExtensions.cs",
+        "declaration": "public static IEndpointRouteBuilder MapNewHeapProxy(this IEndpointRouteBuilder endpoints) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public enum NhProxyEngine {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public sealed record NhProxyRewriteConfiguration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public long Revision { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public int FormatVersion { get; init; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public ImmutableArray<NhProxyRewriteRule> Rules { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public ImmutableArray<NhProxyCluster> Clusters { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public sealed record NhProxyRedirectConfiguration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public long Revision { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public int FormatVersion { get; init; } = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public ImmutableArray<NhProxyRedirectRule> Rules { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public sealed record NhProxyRewriteSaveRequest( long ExpectedRevision, ImmutableArray<NhProxyRewriteRule> Rules, ImmutableArray<NhProxyCluster> Clusters);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public sealed record NhProxyRedirectSaveRequest( long ExpectedRevision, ImmutableArray<NhProxyRedirectRule> Rules);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public enum NhProxyActivationState {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public sealed record NhProxyIssue(string Code, string LocalizationKey, string? Field = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public sealed record NhProxyEngineStatus( NhProxyEngine Engine, long DesiredRevision, long? ActiveRevision, NhProxyActivationState State, NhProxyIssue? Issue = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public sealed record NhProxyStatus(NhProxyEngineStatus Rewrite, NhProxyEngineStatus Redirect);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public sealed record NhProxySaveResult(long SavedRevision, NhProxyEngineStatus Activation);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public static class NhProxyErrorCodes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public const string Validation = \"newheap-proxy.validation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public const string RevisionConflict = \"newheap-proxy.revision-conflict\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public const string NotFound = \"newheap-proxy.not-found\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public const string ActivationFailed = \"newheap-proxy.activation-failed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public const string AccessDenied = \"newheap-proxy.access-denied\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public const string InvalidCredentials = \"newheap-proxy.invalid-credentials\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public const string Throttled = \"newheap-proxy.throttled\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public sealed record NhProxyTestRequest {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public required Uri Url { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public string Method { get; init; } = \"GET\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public ImmutableDictionary<string, ImmutableArray<string>> Headers { get; init; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public sealed record NhProxyRevisions(long Rewrite, long Redirect);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public sealed record NhProxyRewriteTestRequest( NhProxyRevisions ExpectedRevisions, NhProxyRewriteRule Draft, NhProxyTestRequest Request) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public ImmutableArray<NhProxyCluster>? DraftClusters { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public bool SimulateEnabled { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public sealed record NhProxyRedirectTestRequest( NhProxyRevisions ExpectedRevisions, NhProxyRedirectRule Draft, NhProxyTestRequest Request, bool SimulateEnabled = false);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public enum NhProxyTestOutcome {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public sealed record NhProxyRuleMatchDiagnostic( NhProxyEngine Engine, Guid RuleId, bool Matched, bool Selected, ImmutableArray<NhProxyIssue> Reasons);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public sealed record NhProxyRewritePreview( Guid ClusterId, Uri DestinationAddress, Uri TargetUrl, ImmutableDictionary<string, ImmutableArray<string>> SafeRequestHeaders, ImmutableArray<NhProxyHeaderTransform> UnevaluatedResponseHeaderTransforms);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public sealed record NhProxyRedirectPreview( NhProxyRedirectStatus Status, string Location, bool PreservesMethod);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public sealed record NhProxyRuleTestResult {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public required NhProxyRevisions TestedRevisions { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public required NhProxyStatus LiveStatus { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public required NhProxyTestOutcome Outcome { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public Guid? SelectedRuleId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public bool SimulatedEnabled { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public ImmutableDictionary<string, string> RouteValues { get; init; } = ImmutableDictionary<string, string>.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public ImmutableArray<NhProxyRuleMatchDiagnostic> Matches { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public ImmutableArray<NhProxyIssue> Warnings { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public NhProxyRewritePreview? Rewrite { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public NhProxyRedirectPreview? Redirect { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
+        "declaration": "public interface INhProxyDraftTester {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public sealed class NhProxyOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public const string ConfigurationSectionName = \"NewHeapProxy\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public const string AdministrationPath = \"/newheap-proxy\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public const string AuthenticationScheme = \"NewHeapProxy\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public const string AdministrationPolicy = \"NewHeapProxy.Administrator\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public NhProxyAdministratorOptions Administrator { get; set; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public NhProxyIpAllowlistOptions IpAllowlist { get; set; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public NhProxyLoginAuditOptions LoginAudit { get; set; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public NhProxyLimits Limits { get; set; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "[JsonIgnore] public Action<IReverseProxyBuilder>? YarpConfiguration { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public void ConfigureYarp(Action<IReverseProxyBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public string[] AllowedDestinationHosts { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public sealed class NhProxyAdministratorOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public string UserName { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public string PasswordHash { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public string CredentialVersion { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public TimeSpan SessionDuration { get; set; } = TimeSpan.FromHours(8);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public int LoginAttemptLimit { get; set; } = 5;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public TimeSpan LoginAttemptWindow { get; set; } = TimeSpan.FromMinutes(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public sealed class NhProxyIpAllowlistOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public bool Enabled { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public string[] Entries { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public sealed class NhProxyLoginAuditOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public TimeSpan Retention { get; set; } = TimeSpan.FromDays(90);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public int CleanupBatchSize { get; set; } = 1000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public int MaximumPageSize { get; set; } = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public sealed class NhProxyLimits {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public int MaximumRulesPerEngine { get; set; } = 1000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public int MaximumTestRequestBytes { get; set; } = 65536;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public TimeSpan TestTimeout { get; set; } = TimeSpan.FromSeconds(5);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public sealed record NhProxyRedirectRule {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "[Filterable] public required Guid Id { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public required string Name { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public bool Enabled { get; init; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public int Priority { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public required NhProxyRedirectMatch Match { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public required string Target { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public NhProxyRedirectStatus Status { get; init; } = NhProxyRedirectStatus.Found;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public NhProxyRedirectQueryMode QueryMode { get; init; } = NhProxyRedirectQueryMode.Preserve;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public sealed record NhProxyRedirectMatch {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public ImmutableArray<string> Hosts { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public ImmutableArray<string> Methods { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public required string Path { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public NhProxyRedirectPathMatchMode PathMode { get; init; } = NhProxyRedirectPathMatchMode.Exact;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public enum NhProxyRedirectPathMatchMode {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public enum NhProxyRedirectStatus {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
+        "declaration": "public enum NhProxyRedirectQueryMode {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public sealed record NhProxyRewriteRule {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "[Filterable] public required Guid Id { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public required string Name { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public bool Enabled { get; init; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public int Priority { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public required NhProxyRewriteMatch Match { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public required Guid ClusterId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public ImmutableArray<NhProxyTransform> Transforms { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public string? AuthorizationPolicy { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public string? CorsPolicy { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public string? RateLimiterPolicy { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public TimeSpan? RequestTimeout { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public sealed record NhProxyRewriteMatch {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public ImmutableArray<string> Hosts { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public string? Path { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public ImmutableArray<string> Methods { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public ImmutableArray<NhProxyHeaderMatch> Headers { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public ImmutableArray<NhProxyQueryMatch> QueryParameters { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public enum NhProxyHeaderMatchMode {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public sealed record NhProxyHeaderMatch( string Name, NhProxyHeaderMatchMode Mode, ImmutableArray<string> Values, bool IsCaseSensitive = false);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public enum NhProxyQueryMatchMode {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public sealed record NhProxyQueryMatch( string Name, NhProxyQueryMatchMode Mode, ImmutableArray<string> Values, bool IsCaseSensitive = false);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public sealed record NhProxyCluster {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "[Filterable] public required Guid Id { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public required string Name { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public required NhProxyDestination Destination { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public TimeSpan? ActivityTimeout { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public NhProxyActiveHealthCheck? ActiveHealthCheck { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public NhProxyPassiveHealthCheck? PassiveHealthCheck { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public sealed record NhProxyDestination(string Name, Uri Address);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public sealed record NhProxyActiveHealthCheck( string Path, TimeSpan Interval, TimeSpan Timeout, string Policy);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
+        "declaration": "public sealed record NhProxyPassiveHealthCheck( string Policy, TimeSpan ReactivationPeriod);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyServices.cs",
+        "declaration": "public interface INhProxyConfigurationService {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyServices.cs",
+        "declaration": "public interface INhProxyConfigurationStore : IAsyncDisposable {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyServices.cs",
+        "declaration": "public interface INhProxyConfigurationValidator {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyServices.cs",
+        "declaration": "public interface INhProxyRuntime {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
+        "declaration": "[JsonPolymorphic(TypeDiscriminatorPropertyName = \"kind\")] [JsonDerivedType(typeof(NhProxyPathTransform), \"path\")] [JsonDerivedType(typeof(NhProxyQueryTransform), \"query\")] [JsonDerivedType(typeof(NhProxyHeaderTransform), \"header\")] [JsonDerivedType(typeof(NhProxyOriginalHostTransform), \"original-host\")] [JsonDerivedType(typeof(NhProxyForwardedHeadersTransform), \"forwarded-headers\")] public abstract record NhProxyTransform;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
+        "declaration": "public enum NhProxyPathTransformKind {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
+        "declaration": "public sealed record NhProxyPathTransform( NhProxyPathTransformKind Operation, string Value) : NhProxyTransform;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
+        "declaration": "public enum NhProxyValueOperation {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
+        "declaration": "public enum NhProxyValueSource {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
+        "declaration": "public sealed record NhProxyQueryTransform( string Name, NhProxyValueOperation Operation, string? Value = null, NhProxyValueSource Source = NhProxyValueSource.Literal) : NhProxyTransform;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
+        "declaration": "public enum NhProxyHeaderDirection {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
+        "declaration": "public enum NhProxyResponseHeaderCondition {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
+        "declaration": "public sealed record NhProxyHeaderTransform( NhProxyHeaderDirection Direction, string Name, NhProxyValueOperation Operation, string? Value = null, NhProxyResponseHeaderCondition ResponseCondition = NhProxyResponseHeaderCondition.Success) : NhProxyTransform;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
+        "declaration": "public sealed record NhProxyOriginalHostTransform(bool Enabled) : NhProxyTransform;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
+        "declaration": "public enum NhProxyForwardedHeaderAction {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyTransforms.cs",
+        "declaration": "public sealed record NhProxyForwardedHeadersTransform( NhProxyForwardedHeaderAction Action, string Prefix = \"X-Forwarded-\") : NhProxyTransform;"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common.Test/Extensions/TaskResultExtensions.cs",
         "declaration": "public static class TaskResultExtensions {"
       },
@@ -17946,6 +18706,17 @@
       "NhNotificationSettings",
       "NhUserNotificationService",
       "TaskResult"
+    ],
+    "nh-proxy-contract-boundary": [
+      "NhProxyRewriteRule",
+      "NhProxyRedirectRule",
+      "ConfigureYarp",
+      "INhProxyConfigurationStore",
+      "INhProxyDraftTester",
+      "INhProxyLoginAuditStore",
+      "AddNewHeapProxy",
+      "UseNewHeapProxy",
+      "MapNewHeapProxy"
     ],
     "nh-reusable-test-helper-boundaries": [
       "NhTestingContext",

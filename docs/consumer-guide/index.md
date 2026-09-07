@@ -52,9 +52,9 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 - [frontend-toast-notifications](./frontend-toast-notifications.md) — 1 rule
 - [media](./media.md) — 1 rule
 - [observability-logging](./observability-logging.md) — 1 rule
-- [runtime-configuration](./runtime-configuration.md) — 1 rule
+- [runtime-configuration](./runtime-configuration.md) — 2 rules
 - [testing](./testing.md) — 1 rule
 
 ## Maintenance
 
-Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 38 validated rules.
+Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 39 validated rules.

@@ -160,6 +160,8 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-103 | JSON query binding | binder/provider | A complex filter binds from the query string. |
 | SPM-104 | Invariant form values | value-provider factory | Decimal and date values behave the same in English and Dutch. |
 | SPM-105 | Backend observability | ILogger/OpenTelemetry/resource and activity scope | Logs, traces, and metrics carry stable and legacy deployment-environment resource attributes while structured operation logs share sample and trace context. |
+| SPM-238 | Proxy startup registration and contract boundary | NhProxyRewriteRule, NhProxyRedirectRule, independent save requests, draft input, NhProxyOptions.ConfigureYarp, AddNewHeapProxy, UseNewHeapProxy, MapNewHeapProxy | A consumer starts a WebApplication with only AddNewHeapProxy and UseNewHeapProxy, configures YARP with options.ConfigureYarp(yarp => { ... }), and resolves startup options and the empty in-memory YARP configuration. UseNewHeapProxy internally maps native YARP endpoints and loads initial configuration; a separate MapNewHeapProxy call is unnecessary. Typed rule contracts compile. Managed forwarding, redirects, administration, and persistence remain unimplemented. |
+| SPM-239 | Managed rewrite and redirect proxy runtime | YARP forwarding, MVC administration, SQLite storage, independent activation, isolated rule testing, and login IP auditing | A consumer hosts the complete managed proxy with one destination per cluster, middleware redirects, and durable configuration and login auditing. |
 
 ## 8. Frontend HTTP, forms, and modals
 

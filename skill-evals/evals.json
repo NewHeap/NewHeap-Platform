@@ -170,6 +170,13 @@
       "expectedOutcome": "Composition-root adapter, consumer authorization and typed HTTP/event contracts."
     },
     {
+      "id": "consumer-proxy-contract-boundary",
+      "skill": "newheap-runtime-configuration",
+      "prompt": "Use NewHeap Proxy to host rewrite and redirect rules with SQLite persistence. Check whether its registration and runtime are implemented before composing a consumer application.",
+      "expectedRules": ["nh-proxy-contract-boundary"],
+      "expectedOutcome": "The agent identifies the unreleased foundation, uses SPM-238 as evidence of the two-call AddNewHeapProxy/UseNewHeapProxy WebApplication flow with internal native mapping and initial configuration loading, option binding, YARP callbacks, and typed contracts, and reports SPM-239 as the remaining managed runtime library gap. It does not add a redundant MapNewHeapProxy call or pretend managed forwarding or persistence is operational, and preserves one destination per cluster and independent engine revisions."
+    },
+    {
       "id": "consumer-configuration-automation",
       "skill": "newheap-runtime-configuration",
       "prompt": "Run NewHeap tooling in a production pipeline on another host with environment and CLI overrides for configuration and secrets.",

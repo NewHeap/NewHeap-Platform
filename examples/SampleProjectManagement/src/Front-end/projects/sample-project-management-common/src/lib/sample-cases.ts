@@ -3188,5 +3188,26 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiDurableRuns.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AgentFramework.Tests/NhAiAgentFrameworkAdapterTests.cs"
     ]
+  },
+  {
+    "id": "SPM-238",
+    "title": "Proxy startup registration and contract boundary",
+    "category": "Localization, configuration, and HTTP infrastructure",
+    "surface": "NhProxyRewriteRule, NhProxyRedirectRule, independent save requests, draft input, NhProxyOptions.ConfigureYarp, AddNewHeapProxy, UseNewHeapProxy, MapNewHeapProxy",
+    "outcome": "A consumer starts a WebApplication with only AddNewHeapProxy and UseNewHeapProxy, configures YARP with options.ConfigureYarp(yarp => { ... }), and resolves startup options and the empty in-memory YARP configuration. UseNewHeapProxy internally maps native YARP endpoints and loads initial configuration; a separate MapNewHeapProxy call is unnecessary. Typed rule contracts compile. Managed forwarding, redirects, administration, and persistence remain unimplemented.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyContractBoundarySamplesTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-239",
+    "title": "Managed rewrite and redirect proxy runtime",
+    "category": "Localization, configuration, and HTTP infrastructure",
+    "surface": "YARP forwarding, MVC administration, SQLite storage, independent activation, isolated rule testing, and login IP auditing",
+    "outcome": "A consumer hosts the complete managed proxy with one destination per cluster, middleware redirects, and durable configuration and login auditing.",
+    "implementation": "library-gap",
+    "statusReason": "Startup registration, option binding, and native YARP endpoint mapping with initial configuration loading work. Managed forwarding, redirects, MVC, security, dry-run execution, and SQLite persistence are not implemented. No provider behavior is verified; SQL Server and PostgreSQL implementations are outside version-one scope.",
+    "evidence": []
   }
 ] as const;

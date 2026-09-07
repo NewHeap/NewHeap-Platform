@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NewHeap.Platform.AspNet.Proxy.Sqlite.csproj" />
     <ProjectReference Include="../../Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj" />
     <ProjectReference Include="../../Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleProjectManagement.DatabaseRead.Mcp.csproj" />
     <ProjectReference Include="../../Libraries/SampleProjectManagement.Core/SampleProjectManagement.Core.csproj" />

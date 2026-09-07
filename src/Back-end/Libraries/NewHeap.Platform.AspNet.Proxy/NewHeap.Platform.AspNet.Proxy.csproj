@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <PackageId>NewHeap.Platform.AspNet.Proxy</PackageId>
+    <Copyright>NewHeap B.V.</Copyright>
+    <Title>NewHeap ASP.NET Proxy</Title>
+    <PackageDescription>Project foundation for NewHeap ASP.NET Core proxy integration and MVC administration. Features are not yet implemented.</PackageDescription>
+    <PackageTags>newheap platform aspnetcore proxy mvc</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
+    <PackageReference Include="Yarp.ReverseProxy" />
+  </ItemGroup>
+</Project>
