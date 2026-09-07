@@ -170,6 +170,16 @@ does not expose those members. `ProjectMappingFeatureProfile` also uses
 maps status metadata into an `IReadOnlyDictionary`, providing executable
 evidence for base-map and dictionary compatibility.
 
+`CircularMappingSamplesTests` demonstrates a project and assignment read graph
+with a back-reference. The mapper preserves the project destination within its mapping context, allowing
+JSON `ReferenceLoopHandling.Ignore` to omit the loop. The serialized result can
+be read with `MaxDepth = 32`. Write requests should still contain only the
+explicit mutate fields, without read-model navigation graphs.
+`MappingCompatibilitySamplesTests` additionally proves shared graph reuse,
+collection depth boundaries, inherited write conditions, runtime derived views,
+null converter defaults, current-culture imports, enum name conversion and
+flattened read models with private setters.
+
 `GET /projects/short` executes the real short-projection extension with an
 explicit `Project -> ProjectShortViewModel` expression. The source query defines
 a stable name order and the response contains only ID, key, and name.

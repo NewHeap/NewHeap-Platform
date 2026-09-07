@@ -715,7 +715,7 @@ public sealed class MapperCompatibilityTests
     private sealed class InvalidConfigurationDestination
     {
         public string Compatible { get; set; } = string.Empty;
-        public Guid Incompatible { get; set; }
+        public CircularDestination? Incompatible { get; set; }
         public string Unmapped { get; set; } = string.Empty;
     }
 }

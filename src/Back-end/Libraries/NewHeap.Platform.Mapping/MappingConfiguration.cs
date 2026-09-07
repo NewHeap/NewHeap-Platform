@@ -38,6 +38,7 @@ public sealed class MapperConfiguration : IConfigurationProvider
 
     private readonly IReadOnlyDictionary<TypePair, TypeMapDefinition> _typeMaps;
     private readonly IReadOnlyList<DuplicateTypeMapDefinition> _duplicateTypeMaps;
+    private readonly IReadOnlyDictionary<TypeMapDefinition, TypeMapDefinition[]> _includedDerivedMaps;
 
     public MapperConfiguration(Action<IMapperConfigurationExpression> configure)
     {
@@ -48,6 +49,12 @@ public sealed class MapperConfiguration : IConfigurationProvider
         var buildResult = expression.Build();
         _typeMaps = buildResult.TypeMaps;
         _duplicateTypeMaps = buildResult.DuplicateTypeMaps;
+        _includedDerivedMaps = _typeMaps.Values.ToDictionary(map => map, map =>
+            _typeMaps.Values.Where(candidate => IsIncludedDerivedMap(candidate, map))
+                .OrderByDescending(candidate => GetInheritanceDepth(candidate.SourceType))
+                .ThenByDescending(candidate => GetInheritanceDepth(candidate.DestinationType))
+                .ToArray());
+        ConfigureReferencePreservation();
     }
 
     public IMapper CreateMapper() => new Mapper(this);
@@ -127,6 +134,19 @@ public sealed class MapperConfiguration : IConfigurationProvider
 
     internal TypeMapDefinition? FindTypeMap(Type sourceType, Type destinationType)
     {
+        var typeMap = FindDeclaredTypeMap(sourceType, destinationType);
+        if (typeMap is null)
+        {
+            return null;
+        }
+
+        return _includedDerivedMaps[typeMap].FirstOrDefault(candidate =>
+            candidate.SourceType.IsAssignableFrom(sourceType) &&
+            destinationType.IsAssignableFrom(candidate.DestinationType)) ?? typeMap;
+    }
+
+    private TypeMapDefinition? FindDeclaredTypeMap(Type sourceType, Type destinationType)
+    {
         if (_typeMaps.TryGetValue(new TypePair(sourceType, destinationType), out var exact))
         {
             return exact;
@@ -138,6 +158,106 @@ public sealed class MapperConfiguration : IConfigurationProvider
                 destinationType == typeMap.DestinationType)
             .OrderByDescending(typeMap => GetInheritanceDepth(typeMap.SourceType))
             .FirstOrDefault();
+    }
+
+    private bool IsIncludedDerivedMap(TypeMapDefinition candidate, TypeMapDefinition baseMap)
+    {
+        var current = candidate;
+        while (current.IncludedBaseTypePair is { } parent && _typeMaps.TryGetValue(parent, out var parentMap))
+        {
+            if (parentMap == baseMap)
+            {
+                return true;
+            }
+
+            current = parentMap;
+        }
+
+        return false;
+    }
+
+    private void ConfigureReferencePreservation()
+    {
+        var dependencies = _typeMaps.Values.ToDictionary(map => map, map =>
+            map.MemberMaps.SelectMany(member => GetAssociatedMaps(
+                member.SourceValueType, member.DestinationProperty.PropertyType)).Distinct().ToArray());
+
+        foreach (var map in _typeMaps.Values)
+        {
+            if (map.UsesTypeConverter || map.SourceType.IsValueType || map.DestinationType.IsValueType)
+            {
+                continue;
+            }
+
+            var pending = new Stack<TypeMapDefinition>(dependencies[map]);
+            var visited = new HashSet<TypeMapDefinition>();
+            while (pending.TryPop(out var dependency))
+            {
+                if (dependency == map)
+                {
+                    map.PreserveReferences = true;
+                    break;
+                }
+
+                if (!visited.Add(dependency) || dependency.UsesTypeConverter)
+                {
+                    continue;
+                }
+
+                foreach (var child in dependencies[dependency])
+                {
+                    pending.Push(child);
+                }
+            }
+        }
+
+        foreach (var map in _typeMaps.Values.Where(map => map.PreserveReferences).ToArray())
+        {
+            foreach (var derived in _includedDerivedMaps[map])
+            {
+                derived.PreserveReferences = true;
+            }
+        }
+    }
+
+    private IEnumerable<TypeMapDefinition> GetAssociatedMaps(Type sourceType, Type destinationType)
+    {
+        var pending = new Stack<TypePair>();
+        var visited = new HashSet<TypePair>();
+        pending.Push(new TypePair(sourceType, destinationType));
+        while (pending.TryPop(out var pair))
+        {
+            if (!visited.Add(pair))
+            {
+                continue;
+            }
+
+            var map = FindTypeMap(pair.SourceType, pair.DestinationType);
+            if (map is not null)
+            {
+                yield return map;
+                foreach (var derived in _includedDerivedMaps[map])
+                {
+                    yield return derived;
+                }
+
+                continue;
+            }
+
+            if (TryGetDictionaryItemTypes(pair.SourceType, out var sourceKey, out var sourceValue) &&
+                TryGetDictionaryTypes(pair.DestinationType, out var destinationKey, out var destinationValue) ||
+                TryGetKeyValuePairTypes(pair.SourceType, out sourceKey, out sourceValue) &&
+                TryGetKeyValuePairTypes(pair.DestinationType, out destinationKey, out destinationValue))
+            {
+                pending.Push(new TypePair(sourceKey, destinationKey));
+                pending.Push(new TypePair(sourceValue, destinationValue));
+            }
+            else if (TryGetCollectionElementType(pair.SourceType, out var sourceElement) &&
+                     TryGetCollectionElementType(pair.DestinationType, out var destinationElement))
+            {
+                pending.Push(new TypePair(sourceElement, destinationElement));
+            }
+        }
     }
 
     private static int GetInheritanceDepth(Type type)
@@ -164,7 +284,7 @@ public sealed class MapperConfiguration : IConfigurationProvider
             return true;
         }
 
-        if (destinationType == typeof(string))
+        if (destinationType == typeof(string) || ScalarMapping.CanConvert(sourceType, destinationType))
         {
             return true;
         }
@@ -494,16 +614,16 @@ internal abstract class TypeMapDefinition
     public IReadOnlySet<string> IgnoredDestinationMembers { get; private set; } = new HashSet<string>();
     public bool UsesTypeConverter => TypeConverter is not null;
     public bool HasDestinationConstructor => DestinationConstructor is not null;
+    internal bool PreserveReferences { get; set; }
     public MappingTypeConverter? TypeConverter { get; protected set; }
     public MappingDestinationConstructor? DestinationConstructor { get; protected set; }
     public IReadOnlyList<MappingAfterAction> AfterMapActions { get; protected set; } = [];
-    protected TypePair? IncludedBaseTypePair { get; set; }
+    internal TypePair? IncludedBaseTypePair { get; set; }
 
     protected Dictionary<string, ConfiguredMemberMap> ConfiguredMembers { get; } =
         new(StringComparer.Ordinal);
 
-    protected Func<object, object, object?, object?, bool>? AllMembersCondition { get; set; }
-    protected bool AllMembersIgnored { get; set; }
+    protected List<Action<ConfiguredMemberMap>> AllMemberActions { get; } = [];
 
     protected void ThrowIfSealed()
     {
@@ -555,17 +675,10 @@ internal abstract class TypeMapDefinition
                 includedBaseMap.Seal(typeMaps);
             }
 
-            var sourceProperties = GetPublicInstanceProperties(SourceType)
-                .Where(property =>
-                    property.GetMethod?.IsPublic == true &&
-                    property.GetIndexParameters().Length == 0)
-                .GroupBy(property => property.Name, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
-
             var destinationProperties = GetPublicInstanceProperties(DestinationType)
                 .Where(property =>
                     property.GetMethod?.IsPublic == true &&
-                    (property.SetMethod?.IsPublic == true || IsMutableCollection(property.PropertyType)) &&
+                    (property.SetMethod is not null || IsMutableCollection(property.PropertyType)) &&
                     property.GetIndexParameters().Length == 0)
                 .GroupBy(property => property.Name, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
@@ -599,25 +712,43 @@ internal abstract class TypeMapDefinition
             var ignoredDestinationMembers = new HashSet<string>(StringComparer.Ordinal);
             foreach (var destinationProperty in destinationProperties.Values)
             {
-                ConfiguredMembers.TryGetValue(destinationProperty.Name, out var configuredMember);
-                sourceProperties.TryGetValue(destinationProperty.Name, out var sourceProperty);
+                ConfiguredMembers.TryGetValue(destinationProperty.Name, out var explicitMember);
+                var configuredMember = explicitMember?.Clone() ?? new ConfiguredMemberMap();
+                if (inheritedMemberMaps.TryGetValue(destinationProperty.Name, out var inheritedMemberMap))
+                {
+                    if (configuredMember.SourceResolver is null)
+                    {
+                        configuredMember.SourceResolver = inheritedMemberMap.SourceResolver;
+                        configuredMember.SourceValueType = inheritedMemberMap.SourceValueType;
+                    }
 
-                if (AllMembersIgnored ||
-                    configuredMember?.IsIgnored == true ||
-                    configuredMember is null && inheritedIgnoredMembers.Contains(destinationProperty.Name))
+                    configuredMember.Condition ??= inheritedMemberMap.Condition;
+                }
+
+                if (explicitMember?.SourceResolver is null && inheritedIgnoredMembers.Contains(destinationProperty.Name))
+                {
+                    configuredMember.IsIgnored = true;
+                }
+
+                foreach (var configureMember in AllMemberActions)
+                {
+                    configureMember(configuredMember);
+                }
+
+                if (configuredMember.IsIgnored)
                 {
                     ignoredDestinationMembers.Add(destinationProperty.Name);
                     continue;
                 }
 
-                if (configuredMember is null &&
-                    inheritedMemberMaps.TryGetValue(destinationProperty.Name, out var inheritedMemberMap))
+                if (configuredMember.SourceResolver is null)
                 {
-                    memberMaps.Add(inheritedMemberMap);
-                    continue;
+                    ConventionSource.TryResolve(SourceType, destinationProperty.Name, out var resolver, out var valueType);
+                    configuredMember.SourceResolver = resolver;
+                    configuredMember.SourceValueType = valueType;
                 }
 
-                if (configuredMember?.SourceResolver is null && sourceProperty is null)
+                if (configuredMember.SourceResolver is null)
                 {
                     unmappedDestinationMembers.Add(destinationProperty.Name);
                     continue;
@@ -625,10 +756,9 @@ internal abstract class TypeMapDefinition
 
                 memberMaps.Add(new MemberMapDefinition(
                     destinationProperty,
-                    configuredMember?.SourceResolver ??
-                    ((source, _, _, _) => sourceProperty!.GetValue(source)),
-                    configuredMember?.SourceValueType ?? sourceProperty!.PropertyType,
-                    configuredMember?.Condition ?? AllMembersCondition));
+                    configuredMember.SourceResolver,
+                    configuredMember.SourceValueType!,
+                    configuredMember.Condition));
             }
 
             MemberMaps = memberMaps;
@@ -649,12 +779,20 @@ internal abstract class TypeMapDefinition
 
     private static IEnumerable<PropertyInfo> GetPublicInstanceProperties(Type type)
     {
-        var propertyDeclaringTypes = type.IsInterface
-            ? new[] { type }.Concat(type.GetInterfaces())
-            : new[] { type };
+        if (type.IsInterface)
+        {
+            return new[] { type }.Concat(type.GetInterfaces()).SelectMany(interfaceType =>
+                interfaceType.GetProperties(BindingFlags.Instance | BindingFlags.Public));
+        }
 
-        return propertyDeclaringTypes.SelectMany(propertyDeclaringType =>
-            propertyDeclaringType.GetProperties(BindingFlags.Instance | BindingFlags.Public));
+        var properties = new List<PropertyInfo>();
+        for (var declaringType = type; declaringType is not null; declaringType = declaringType.BaseType)
+        {
+            properties.AddRange(declaringType.GetProperties(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly));
+        }
+
+        return properties;
     }
 
     private static bool IsMutableCollection(Type type)
@@ -707,10 +845,8 @@ internal sealed class TypeMapDefinition<TSource, TDestination> :
         ThrowIfSealed();
         ArgumentNullException.ThrowIfNull(memberOptions);
 
-        var configuredMember = new ConfiguredMemberMap();
-        memberOptions(new MemberConfigurationExpression<TSource, TDestination, object?>(configuredMember));
-        AllMembersCondition = configuredMember.Condition;
-        AllMembersIgnored = configuredMember.IsIgnored;
+        AllMemberActions.Add(configuredMember =>
+            memberOptions(new MemberConfigurationExpression<TSource, TDestination, object?>(configuredMember)));
     }
 
     public IMappingExpression<TSource, TDestination> MaxDepth(int depth)
@@ -738,7 +874,7 @@ internal sealed class TypeMapDefinition<TSource, TDestination> :
         ThrowIfSealed();
         ArgumentNullException.ThrowIfNull(converter);
 
-        TypeConverter = (source, _, _) => converter((TSource)source);
+        TypeConverter = (source, _, _) => converter(source is null ? default! : (TSource)source);
         return this;
     }
 
@@ -752,7 +888,7 @@ internal sealed class TypeMapDefinition<TSource, TDestination> :
             var converter = (TConverter)context.GetRequiredService(typeof(TConverter));
             var typedDestination = destination is null ? default! : (TDestination)destination;
             return converter.Convert(
-                (TSource)source,
+                source is null ? default! : (TSource)source,
                 typedDestination,
                 context.ResolutionContext);
         };
@@ -888,6 +1024,8 @@ internal sealed class MemberConfigurationExpression<TSource, TDestination, TDest
 
 internal sealed class ConfiguredMemberMap
 {
+    internal ConfiguredMemberMap Clone() => (ConfiguredMemberMap)MemberwiseClone();
+
     public bool IsIgnored { get; set; }
     public MappingMemberResolver? SourceResolver { get; set; }
     public Type? SourceValueType { get; set; }
@@ -907,7 +1045,7 @@ internal delegate object? MappingMemberResolver(
     MappingOperationContext context);
 
 internal delegate object? MappingTypeConverter(
-    object source,
+    object? source,
     object? destination,
     MappingOperationContext context);
 

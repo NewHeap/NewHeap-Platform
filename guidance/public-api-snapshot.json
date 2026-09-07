@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.23",
   "backEnd": {
-    "hash": "8e0bf12b2a54f95eee7a16638c0931d47c7011d6a9cefdac2db46061de3630ec",
-    "declarationCount": 3633,
+    "hash": "89e0e4d2a06fb29bbe6a5ddffc2eb40905ac0237789d69d1506d746fcc09e72b",
+    "declarationCount": 3637,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -12803,6 +12803,30 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public bool HasActiveMaps => _depths.Count > 0;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public bool ShareCollectionScope { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public bool IsAtDepthLimit(TypeMapDefinition typeMap) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public bool TryGetDestination(object source, Type destinationType, out object? destination) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public void CacheDestination(object source, Type destinationType, object destination) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
+        "declaration": "public void RemoveDestination(object source, Type destinationType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",
         "declaration": "public MappingContext(MappingOperationContext operationContext) {"
       },
       {
@@ -12991,19 +13015,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
-        "declaration": "protected TypePair? IncludedBaseTypePair { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
         "declaration": "protected Dictionary<string, ConfiguredMemberMap> ConfiguredMembers { get; } ="
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
-        "declaration": "protected Func<object, object, object?, object?, bool>? AllMembersCondition { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",
-        "declaration": "protected bool AllMembersIgnored { get; set; }"
+        "declaration": "protected List<Action<ConfiguredMemberMap>> AllMemberActions { get; } = [];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/MappingConfiguration.cs",

@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.ObjectModel;
-using System.Globalization;
 using System.Reflection;
 using System.Runtime.Serialization;
 
@@ -83,6 +82,26 @@ public sealed class Mapper : IMapper
         object? destination,
         MappingContext context)
     {
+        var runtimeSourceType = source?.GetType() ?? declaredSourceType;
+        var runtimeDestinationType = destination?.GetType() ?? destinationType;
+        var typeMap = _configuration.FindTypeMap(runtimeSourceType, runtimeDestinationType)
+            ?? _configuration.FindTypeMap(declaredSourceType, runtimeDestinationType)
+            ?? _configuration.FindTypeMap(runtimeSourceType, destinationType)
+            ?? _configuration.FindTypeMap(declaredSourceType, destinationType);
+
+        if (typeMap is not null && destination is not null &&
+            !typeMap.DestinationType.IsInstanceOfType(destination))
+        {
+            throw new MappingException(
+                $"Existing destination '{runtimeDestinationType.FullName}' cannot be used by the selected map " +
+                $"to '{typeMap.DestinationType.FullName}'.");
+        }
+
+        if (typeMap?.TypeConverter is not null)
+        {
+            return ConvertWithTypeMap(source, destination, context, typeMap);
+        }
+
         if (source is null)
         {
             if (TryGetDictionaryTypes(destinationType, out var nullDestinationKeyType, out var nullDestinationValueType))
@@ -124,14 +143,6 @@ public sealed class Mapper : IMapper
 
             return CreateNullValue(destinationType);
         }
-
-        var runtimeSourceType = source.GetType();
-        var runtimeDestinationType = destination?.GetType() ?? destinationType;
-
-        var typeMap = _configuration.FindTypeMap(runtimeSourceType, runtimeDestinationType)
-            ?? _configuration.FindTypeMap(declaredSourceType, runtimeDestinationType)
-            ?? _configuration.FindTypeMap(runtimeSourceType, destinationType)
-            ?? _configuration.FindTypeMap(declaredSourceType, destinationType);
 
         if (typeMap is not null)
         {
@@ -211,6 +222,12 @@ public sealed class Mapper : IMapper
         MappingContext context,
         TypeMapDefinition typeMap)
     {
+        var referenceType = typeMap.DestinationType;
+        if (typeMap.PreserveReferences && context.TryGetDestination(source, referenceType, out var cachedDestination))
+        {
+            return cachedDestination;
+        }
+
         var typePair = new TypePair(typeMap.SourceType, typeMap.DestinationType);
         if (!context.TryEnter(typePair, typeMap.MaximumDepth))
         {
@@ -219,39 +236,12 @@ public sealed class Mapper : IMapper
 
         try
         {
-            if (typeMap.TypeConverter is not null)
-            {
-                object? convertedDestination;
-                try
-                {
-                    convertedDestination = typeMap.TypeConverter(source, destination, context.OperationContext);
-                }
-                catch (MappingException)
-                {
-                    throw;
-                }
-                catch (Exception exception)
-                {
-                    throw new MappingException(
-                        $"Converting '{typeMap.SourceType.FullName}' to " +
-                        $"'{typeMap.DestinationType.FullName}' failed.",
-                        exception);
-                }
-
-                if (convertedDestination is not null)
-                {
-                    RunAfterMapActions(typeMap, source, convertedDestination, context.OperationContext);
-                }
-
-                return convertedDestination;
-            }
-
             if (destination is null)
             {
                 try
                 {
                     destination = typeMap.DestinationConstructor is null
-                        ? CreateDestination(destinationType)
+                        ? CreateDestination(typeMap.DestinationType)
                         : typeMap.DestinationConstructor(source, context.OperationContext);
                 }
                 catch (MappingException)
@@ -269,6 +259,11 @@ public sealed class Mapper : IMapper
                 {
                     return CreateNullValue(destinationType);
                 }
+            }
+
+            if (typeMap.PreserveReferences)
+            {
+                context.CacheDestination(source, referenceType, destination);
             }
 
             foreach (var memberMap in typeMap.MemberMaps)
@@ -301,7 +296,8 @@ public sealed class Mapper : IMapper
                         memberMap.SourceValueType,
                         memberMap.DestinationProperty.PropertyType,
                         destinationValue,
-                        context);
+                        context,
+                        typeMap);
                 }
                 catch (Exception exception) when (exception is not MappingException)
                 {
@@ -317,7 +313,7 @@ public sealed class Mapper : IMapper
                     continue;
                 }
 
-                if (memberMap.DestinationProperty.SetMethod?.IsPublic != true)
+                if (memberMap.DestinationProperty.SetMethod is null)
                 {
                     continue;
                 }
@@ -341,12 +337,46 @@ public sealed class Mapper : IMapper
         }
         catch (MappingException)
         {
+            context.RemoveDestination(source, referenceType);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            context.RemoveDestination(source, referenceType);
+            throw new MappingException(
+                $"Mapping '{typeMap.SourceType.FullName}' to '{typeMap.DestinationType.FullName}' failed.",
+                exception);
+        }
+        finally
+        {
+            context.Exit(typePair);
+        }
+    }
+
+    private static object? ConvertWithTypeMap(
+        object? source,
+        object? destination,
+        MappingContext context,
+        TypeMapDefinition typeMap)
+    {
+        var typePair = new TypePair(typeMap.SourceType, typeMap.DestinationType);
+        if (!context.TryEnter(typePair, typeMap.MaximumDepth))
+        {
+            return CreateNullValue(typeMap.DestinationType);
+        }
+
+        try
+        {
+            return typeMap.TypeConverter!(source, destination, context.OperationContext);
+        }
+        catch (MappingException)
+        {
             throw;
         }
         catch (Exception exception)
         {
             throw new MappingException(
-                $"Mapping '{typeMap.SourceType.FullName}' to '{typeMap.DestinationType.FullName}' failed.",
+                $"Converting '{typeMap.SourceType.FullName}' to '{typeMap.DestinationType.FullName}' failed.",
                 exception);
         }
         finally
@@ -386,8 +416,24 @@ public sealed class Mapper : IMapper
         Type declaredSourceType,
         Type destinationType,
         object? destinationValue,
-        MappingContext context)
+        MappingContext context,
+        TypeMapDefinition ownerMap)
     {
+        var memberTypeMap = _configuration.FindTypeMap(sourceValue?.GetType() ?? declaredSourceType, destinationType)
+            ?? _configuration.FindTypeMap(declaredSourceType, destinationType);
+        if (memberTypeMap?.TypeConverter is not null)
+        {
+            return ConvertWithTypeMap(sourceValue, destinationValue, context, memberTypeMap);
+        }
+
+        if (memberTypeMap is null && !destinationType.IsArray &&
+            context.IsAtDepthLimit(ownerMap) &&
+            (TryGetDictionaryTypes(destinationType, out _, out _) ||
+             TryGetCollectionElementType(destinationType, out _) || IsNonGenericListDestination(destinationType)))
+        {
+            sourceValue = null;
+        }
+
         if (sourceValue is null)
         {
             if (TryGetDictionaryTypes(destinationType, out var destinationKeyType, out var destinationValueType))
@@ -448,19 +494,10 @@ public sealed class Mapper : IMapper
             return ConvertWithoutTypeMap(source, nullableDestinationType, context);
         }
 
-        if (destinationType.IsEnum)
+        if (destinationType.IsEnum || ScalarMapping.CanConvert(sourceType, destinationType) ||
+            source is IConvertible && typeof(IConvertible).IsAssignableFrom(destinationType))
         {
-            if (source is string enumName)
-            {
-                return Enum.Parse(destinationType, enumName, ignoreCase: true);
-            }
-
-            return Enum.ToObject(destinationType, source);
-        }
-
-        if (source is IConvertible && typeof(IConvertible).IsAssignableFrom(destinationType))
-        {
-            return Convert.ChangeType(source, destinationType, CultureInfo.InvariantCulture);
+            return ScalarMapping.Convert(source, destinationType);
         }
 
         throw new MappingException(
@@ -552,7 +589,7 @@ public sealed class Mapper : IMapper
 
             var sourceKey = keyProperty.GetValue(sourceItem);
             var sourceValue = valueProperty.GetValue(sourceItem);
-            var mappedKey = MapCore(
+            var mappedKey = MapElement(
                 sourceKey,
                 hasDeclaredSourceTypes
                     ? declaredSourceKeyType
@@ -560,9 +597,8 @@ public sealed class Mapper : IMapper
                         ? runtimeSourceKeyType
                         : keyProperty.PropertyType,
                 destinationKeyType,
-                destination: null,
                 context);
-            var mappedValue = MapCore(
+            var mappedValue = MapElement(
                 sourceValue,
                 hasDeclaredSourceTypes
                     ? declaredSourceValueType
@@ -570,7 +606,6 @@ public sealed class Mapper : IMapper
                         ? runtimeSourceValueType
                         : valueProperty.PropertyType,
                 destinationValueType,
-                destination: null,
                 context);
             var mappedPair = keyValuePairConstructor.Invoke([mappedKey, mappedValue]);
             addMethod.Invoke(dictionary, [mappedPair]);
@@ -598,17 +633,15 @@ public sealed class Mapper : IMapper
         var sourceType = source.GetType();
         var sourceKey = sourceType.GetProperty("Key")!.GetValue(source);
         var sourceValue = sourceType.GetProperty("Value")!.GetValue(source);
-        var mappedKey = MapCore(
+        var mappedKey = MapElement(
             sourceKey,
             sourceKeyType,
             destinationKeyType,
-            destination: null,
             context);
-        var mappedValue = MapCore(
+        var mappedValue = MapElement(
             sourceValue,
             sourceValueType,
             destinationValueType,
-            destination: null,
             context);
         var constructor = destinationType.GetConstructor([destinationKeyType, destinationValueType])!;
         return constructor.Invoke([mappedKey, mappedValue]);
@@ -759,6 +792,11 @@ public sealed class Mapper : IMapper
             return array;
         }
 
+        if (_configuration.FindTypeMap(sourceElementType, destinationElementType) is not null)
+        {
+            context.ShareCollectionScope = true;
+        }
+
         var collectionInterface = typeof(ICollection<>).MakeGenericType(destinationElementType);
         if (isReadOnlyDestination ||
             destination is not null &&
@@ -801,17 +839,12 @@ public sealed class Mapper : IMapper
         Type destinationElementType,
         MappingContext context)
     {
-        if (sourceItem is null)
-        {
-            return CreateNullValue(destinationElementType);
-        }
-
         return MapCore(
             sourceItem,
             declaredSourceElementType,
             destinationElementType,
             destination: null,
-            context);
+            context.HasActiveMaps || context.ShareCollectionScope ? context : CreateMappingContext());
     }
 
     private static object CreateCollection(Type destinationType, Type elementType)
@@ -967,6 +1000,49 @@ public sealed class Mapper : IMapper
     private sealed class MappingContext
     {
         private readonly Dictionary<TypePair, int> _depths = [];
+        private readonly Dictionary<object, Dictionary<Type, object>> _destinations =
+            new(ReferenceEqualityComparer.Instance);
+
+        public bool HasActiveMaps => _depths.Count > 0;
+        public bool ShareCollectionScope { get; set; }
+
+        public bool IsAtDepthLimit(TypeMapDefinition typeMap)
+        {
+            return _depths.TryGetValue(new TypePair(typeMap.SourceType, typeMap.DestinationType), out var depth)
+                && depth >= typeMap.MaximumDepth;
+        }
+
+        public bool TryGetDestination(object source, Type destinationType, out object? destination)
+        {
+            destination = null;
+            return _destinations.TryGetValue(source, out var destinations)
+                && destinations.TryGetValue(destinationType, out destination);
+        }
+
+        public void CacheDestination(object source, Type destinationType, object destination)
+        {
+            if (!_destinations.TryGetValue(source, out var destinations))
+            {
+                destinations = [];
+                _destinations.Add(source, destinations);
+            }
+
+            destinations.Add(destinationType, destination);
+        }
+
+        public void RemoveDestination(object source, Type destinationType)
+        {
+            if (!_destinations.TryGetValue(source, out var destinations))
+            {
+                return;
+            }
+
+            destinations.Remove(destinationType);
+            if (destinations.Count == 0)
+            {
+                _destinations.Remove(source);
+            }
+        }
 
         public MappingContext(MappingOperationContext operationContext)
         {
