@@ -1,5 +1,9 @@
 using System.Xml.Linq;
 using Xunit;
+using System.Diagnostics;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using NewHeap.Platform.AspNet.Common;
+using NewHeap.Platform.Common.Models;
 
 namespace SampleProjectManagement.Core.Tests;
 
@@ -9,6 +13,56 @@ namespace SampleProjectManagement.Core.Tests;
 /// </summary>
 public sealed class RepositoryFoundationSamplesTests
 {
+    [Fact]
+    public async Task CommonConsoleRunsWithoutAspNetOrHangfireSqlStorage()
+    {
+        var frameworkDirectory = new DirectoryInfo(AppContext.BaseDirectory);
+        var configuration = frameworkDirectory.Parent!.Name;
+        var consolePath = Path.Combine(FindBackendRoot(), "Applications",
+            "SampleProjectManagement.CommonConsole", "bin", configuration,
+            frameworkDirectory.Name, "SampleProjectManagement.CommonConsole.dll");
+        var startInfo = new ProcessStartInfo("dotnet")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        startInfo.ArgumentList.Add(consolePath);
+
+        using var process = Process.Start(startInfo)!;
+        var outputTask = process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
+        var errorTask = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            process.Kill(entireProcessTree: true);
+            throw;
+        }
+
+        var output = await outputTask;
+        var error = await errorTask;
+        Assert.True(process.ExitCode == 0, $"Common console failed: {output}{error}");
+        Assert.Contains("without ASP.NET or Hangfire SQL storage", output);
+    }
+
+    [Fact]
+    public void HttpCompositionAdaptsNeutralResultsToModelState()
+    {
+        var validation = TaskResult.Failed("project-name", "A project name is required.");
+        var modelState = new ModelStateDictionary();
+
+        validation.ApplyToModelState(modelState);
+
+        Assert.False(modelState.IsValid);
+        Assert.Equal("A project name is required.", modelState["project-name"]!.Errors.Single().ErrorMessage);
+    }
+
     [Fact]
     public void BackendProjectsUseSharedBuildAndCentralPackageFiles()
     {

@@ -1381,7 +1381,8 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationOverrideSamplesTests.cs"
     ],
     "SPM-216": [
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.CommonConsole/Program.cs"
     ],
     "SPM-217": [
       "src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs"

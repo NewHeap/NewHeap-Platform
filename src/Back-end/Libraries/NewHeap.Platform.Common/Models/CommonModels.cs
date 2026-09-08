@@ -1,8 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc.ModelBinding;
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Linq;
-using Microsoft.Extensions.Localization;
 using System.Diagnostics.CodeAnalysis;
 using NewHeap.Platform.Common.Utilities;
 
@@ -125,7 +123,6 @@ public partial class TaskResult
     }
 
     public void ApplyTo(TaskResult taskResult) => ApplyToTaskResult(taskResult);
-    public void ApplyTo(ModelStateDictionary modelState) => ApplyToModelState(modelState);
 
     public virtual void ApplyToTaskResult(TaskResult taskResult)
     {
@@ -134,21 +131,6 @@ public partial class TaskResult
             foreach (var errorMessage in result.ErrorMessages)
             {
                 taskResult.AddError(result.Name, errorMessage);
-            }
-        }
-    }
-
-    public virtual void ApplyToModelState(ModelStateDictionary modelState, IStringLocalizer? stringLocalizer = null)
-    {
-        foreach (var result in Results)
-        {
-            foreach (var errorMessage in result.ErrorMessages)
-            {
-                var errorString = stringLocalizer != null 
-                    ? stringLocalizer[errorMessage.Format, (errorMessage.GetArguments() ?? []).Select(x => x == null ? "" : x)] 
-                    : errorMessage.ToString();
-
-                modelState.AddModelError(result.Name, errorMessage.ToString());
             }
         }
     }

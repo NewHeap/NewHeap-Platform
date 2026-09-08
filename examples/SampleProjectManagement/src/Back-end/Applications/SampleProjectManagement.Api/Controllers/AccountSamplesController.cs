@@ -1,3 +1,4 @@
+using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.Mapping;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

@@ -40,5 +40,6 @@ Run the bootstrap without `--skip-install`, then run `inspect-newheap-consumer.m
 
 - SPM-216 — Shared .NET build and package policy
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.CommonConsole/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.CommonConsole/Program.cs)
 - SPM-217 — Scope-driven consumer bootstrap
   - [src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs](../../examples/SampleProjectManagement/src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs)

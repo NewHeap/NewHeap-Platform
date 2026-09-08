@@ -2945,10 +2945,11 @@
       "categoryId": "17",
       "title": "Shared .NET build and package policy",
       "surface": "`Directory.Build.props` and `Directory.Packages.props`",
-      "outcome": "Every backend project inherits one build baseline and resolves versionless package references from one central catalog.",
+      "outcome": "Every backend project inherits one build baseline and central package catalog. A standalone Common consumer runs without ASP.NET or Hangfire SQL Server storage, while HTTP composition adapts neutral results to ModelState.",
       "implementation": "implemented",
       "evidence": [
-        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs"
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs",
+        "src/Back-end/Applications/SampleProjectManagement.CommonConsole/Program.cs"
       ]
     },
     {

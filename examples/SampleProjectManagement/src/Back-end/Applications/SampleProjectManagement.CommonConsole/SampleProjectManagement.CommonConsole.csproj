@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.Common/NewHeap.Platform.Common.csproj" />
+  </ItemGroup>
+  <Target Name="VerifyCommonFrameworkBoundary" AfterTargets="ResolveReferences">
+    <Error Condition="'%(FrameworkReference.Identity)' == 'Microsoft.AspNetCore.App'"
+           Text="The Common console sample must run without the ASP.NET shared framework." />
+  </Target>
+</Project>

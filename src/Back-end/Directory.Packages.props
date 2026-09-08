@@ -15,6 +15,9 @@
     <PackageVersion Include="DotNetCore.CAP.SqlServer" Version="8.4.1" />
     <PackageVersion Include="DotNetCore.CAP.PostgreSql" Version="8.4.1" />
     <PackageVersion Include="Hangfire" Version="1.8.23" />
+    <PackageVersion Include="Hangfire.Core" Version="1.8.23" />
+    <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.23" />
+    <PackageVersion Include="Hangfire.SqlServer" Version="1.8.23" />
     <PackageVersion Include="Hangfire.Console" Version="1.4.3" />
     <PackageVersion Include="Hangfire.PostgreSql" Version="1.21.1" />
     <PackageVersion Include="KeyedSemaphores" Version="6.1.0" />
@@ -66,6 +69,7 @@
     <PackageVersion Include="Microsoft.Extensions.VectorData.Abstractions" Version="10.9.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.16.7" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="8.1.0" />

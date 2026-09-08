@@ -34,6 +34,17 @@ afterward. There is no local base service or repository wrapper.
 
 ## Reusable test helpers
 
+SPM-216 also includes `SampleProjectManagement.CommonConsole`, a standalone
+Common consumer with no ASP.NET host. Run it with `dotnet run --project
+examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.CommonConsole`
+from the Platform repository root. It exercises result propagation and queue
+resolution and checks that its runtime artifacts contain neither ASP.NET nor
+Hangfire SQL Server storage. `RepositoryFoundationSamplesTests` launches the
+console and demonstrates the ModelState adapter from
+`NewHeap.Platform.AspNet.Common` in HTTP composition. See
+`docs/how-to/migrate-common-aspnet-boundary.md` in the Platform repository for
+the migration from the former virtual TaskResult method.
+
 The consumer test project references `NewHeap.Platform.Common.Test` and
 `NewHeap.Platform.AspNet.Common.Test` for DI contexts, DbContext and repository
 registration, `TaskResult` assertions, and NSubstitute predicates. These are

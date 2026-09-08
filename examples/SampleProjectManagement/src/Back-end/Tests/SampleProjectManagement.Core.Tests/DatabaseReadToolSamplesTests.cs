@@ -254,6 +254,15 @@ public sealed class DatabaseReadToolSamplesTests
                 WorkingDirectory = Path.GetDirectoryName(toolAssemblyPath)!
             };
             startInfo.Environment["NewHeap__PlatformCommon__AppSecretsDirectoryPath"] = secretsPath;
+            // This assembly was copied into the test host's output. Resolve its
+            // dependencies with that host, whose ASP.NET framework supplies shared
+            // Microsoft.Extensions assemblies that are absent from this directory.
+            var testAssemblyPath = typeof(DatabaseReadToolSamplesTests).Assembly.Location;
+            startInfo.ArgumentList.Add("exec");
+            startInfo.ArgumentList.Add("--runtimeconfig");
+            startInfo.ArgumentList.Add(Path.ChangeExtension(testAssemblyPath, ".runtimeconfig.json"));
+            startInfo.ArgumentList.Add("--depsfile");
+            startInfo.ArgumentList.Add(Path.ChangeExtension(testAssemblyPath, ".deps.json"));
             startInfo.ArgumentList.Add(toolAssemblyPath);
             startInfo.ArgumentList.Add("schema");
             startInfo.ArgumentList.Add("--profiles");
