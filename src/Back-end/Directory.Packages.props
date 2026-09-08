@@ -29,6 +29,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="10.0.10" />
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.6" />
     <PackageVersion Include="ModelContextProtocol.Core" Version="2.2.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
     <PackageVersion Include="Microsoft.Agents.AI" Version="1.19.0" />
     <PackageVersion Include="Microsoft.Agents.AI.Workflows" Version="1.19.0" />
     <PackageVersion Include="Microsoft.Playwright.Xunit" Version="1.61.0" />

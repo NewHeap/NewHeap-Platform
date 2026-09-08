@@ -72,6 +72,12 @@ public sealed class NhAiToolAttribute(
     public string[] RequiredCapabilities { get; set; } = [];
 }
 
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
+public sealed class NhAiToolExportNameAttribute(string name) : Attribute
+{
+    public string Name { get; } = name;
+}
+
 public sealed record NhAiToolDescriptor(
     string Id,
     int Version,
@@ -83,6 +89,7 @@ public sealed record NhAiToolDescriptor(
     bool RequiresAuthorization,
     IReadOnlyList<string> AuthorizationPolicies)
 {
+    public string ExportName { get; init; } = string.Empty;
     public string CatalogId { get; init; } = string.Empty;
     public int CatalogVersion { get; init; } = 1;
     public string DeclaringAssembly { get; init; } = string.Empty;
@@ -106,7 +113,10 @@ public sealed record NhAiToolManifestEntry(
     string Id,
     int Version,
     string SchemaHash,
-    string ContractHash);
+    string ContractHash)
+{
+    public string ExportName { get; init; } = string.Empty;
+}
 
 public sealed record NhAiToolCatalogManifest(
     string CatalogId,
@@ -121,6 +131,9 @@ public sealed record NhAiInvocationContext(
 {
     public Guid InvocationId { get; init; } = Guid.NewGuid();
     public NhAiActorKind ActorKind { get; init; } = NhAiActorKind.Human;
+    public string? Issuer { get; init; }
+    public string? Subject { get; init; }
+    public string? TenantId { get; init; }
     public string? RunId { get; init; }
     public int? RunAttemptNumber { get; init; }
     public string? CorrelationId { get; init; }
@@ -162,6 +175,10 @@ public interface INhAiToolCatalog
     NhAiToolCatalogManifest Manifest { get; }
 
     IReadOnlyList<AIFunction> CreateFunctions(IServiceProvider services);
+}
+
+public interface INhAiGeneratedToolCatalog : INhAiToolCatalog
+{
 }
 
 public interface INhAiGovernedAIFunction

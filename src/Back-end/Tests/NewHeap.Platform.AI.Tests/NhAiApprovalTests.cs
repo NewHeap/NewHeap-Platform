@@ -160,6 +160,36 @@ public sealed class NhAiApprovalTests
         Assert.Equal("executed", allowed.Data);
     }
 
+    [Fact]
+    public async Task Invoker_accepts_consumer_validated_authoritative_evidence_without_a_platform_proposal()
+    {
+        var idempotency = new AcquireIdempotencyManager();
+        var context = new NhAiInvocationContext(
+            "issuer-subject-a",
+            "project-maintenance",
+            new Dictionary<string, string>());
+        var invoker = new NhAiToolInvoker(
+            NhAiTestInvocationGate.Authorized(context),
+            [],
+            new RequireApprovalPolicy(),
+            new MissingEvidenceProvider(),
+            new NhAiApprovalValidator(new NhAiProposalFactory()),
+            idempotency,
+            [new SuccessfulVerifier()],
+            new AllowCapabilityResolver(),
+            new NhAiTestBudgetManager(),
+            new AllowConcurrencyLimiter(),
+            new AuthoritativeEvidenceValidator());
+
+        var result = await invoker.InvokeAsync(
+            Descriptor,
+            new StatusChangeInput(ProjectId, "active"),
+            (_, _) => Task.FromResult(TaskResult<string>.Succeeded("executed")));
+
+        Assert.True(result.Success);
+        Assert.Equal("external-operation-42", Assert.Single(idempotency.Requests).IdempotencyKey);
+    }
+
     private static readonly Guid ProposalId = Guid.Parse("10000000-0000-0000-0000-000000000001");
     private static readonly Guid ApprovalId = Guid.Parse("20000000-0000-0000-0000-000000000002");
     private static readonly Guid ProjectId = Guid.Parse("30000000-0000-0000-0000-000000000003");
@@ -277,12 +307,82 @@ public sealed class NhAiApprovalTests
         }
     }
 
+    private sealed class MissingEvidenceProvider : INhAiApprovalEvidenceProvider
+    {
+        public ValueTask<NhAiApprovalEvidence?> GetAsync(
+            NhAiToolDescriptor descriptor,
+            NhAiInvocationContext context,
+            object arguments,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult<NhAiApprovalEvidence?>(null);
+        }
+    }
+
+    private sealed class AuthoritativeEvidenceValidator :
+        INhAiAuthoritativeExecutionEvidenceValidator
+    {
+        public ValueTask<TaskResult<NhAiAuthoritativeExecutionEvidence>> ValidateAsync(
+            NhAiToolDescriptor descriptor,
+            NhAiInvocationContext context,
+            object arguments,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(TaskResult<NhAiAuthoritativeExecutionEvidence>.Succeeded(
+                new NhAiAuthoritativeExecutionEvidence(
+                    true,
+                    true,
+                    "external-operation-42",
+                    "sentinel-approval:42")));
+        }
+    }
+
+    private sealed class AllowCapabilityResolver : INhAiCapabilityResolver
+    {
+        public ValueTask<NhAiCapabilityResolution> ResolveAsync(
+            NhAiToolDescriptor descriptor,
+            NhAiInvocationContext context,
+            DateTimeOffset now,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(new NhAiCapabilityResolution(
+                true,
+                "test-capabilities-granted",
+                []));
+        }
+    }
+
+    private sealed class AllowConcurrencyLimiter : INhAiToolConcurrencyLimiter
+    {
+        public ValueTask<NhAiConcurrencyDecision> TryAcquireAsync(
+            NhAiToolDescriptor descriptor,
+            NhAiInvocationContext context,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(new NhAiConcurrencyDecision(
+                true,
+                "test-concurrency-acquired",
+                new AsyncLease()));
+        }
+
+        private sealed class AsyncLease : IAsyncDisposable
+        {
+            public ValueTask DisposeAsync()
+            {
+                return ValueTask.CompletedTask;
+            }
+        }
+    }
+
     private sealed class AcquireIdempotencyManager : INhAiIdempotencyManager
     {
+        public List<NhAiIdempotencyRequest> Requests { get; } = [];
+
         public ValueTask<NhAiIdempotencyLease> AcquireAsync(
             NhAiIdempotencyRequest request,
             CancellationToken cancellationToken = default)
         {
+            Requests.Add(request);
             return ValueTask.FromResult(new NhAiIdempotencyLease(
                 NhAiIdempotencyDecisionKind.Acquired,
                 "acquired",

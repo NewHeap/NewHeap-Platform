@@ -3009,8 +3009,8 @@
       "id": "SPM-219",
       "categoryId": "18",
       "title": "Generated local read-only AI tool",
-      "surface": "`NhAiToolSet`, `NhAiTool`, generated `INhAiToolCatalog`, and guarded `AIFunction` invocation",
-      "outcome": "A compile-time generated local function searches only the active division supplied by the authorized invocation context; typed schema binding, bounded input and mandatory budget reservation run before application work, while a denied, oversized or incomplete invocation never reaches the read service.",
+      "surface": "`NhAiToolSet`, `NhAiTool`, `NhAiToolExportName`, generated `INhAiGeneratedToolCatalog`, and guarded `AIFunction` invocation",
+      "outcome": "A compile-time generated local function searches only the active division supplied by the authorized invocation context; typed schema binding, bounded input and mandatory budget reservation run before application work, while a denied, oversized or incomplete invocation never reaches the read service. Optional explicit MCP/AIDAP export names are unique, version-independent manifest contracts, while tools without the attribute retain their existing generated wire names.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
@@ -3051,21 +3051,23 @@
       "id": "SPM-222",
       "categoryId": "18",
       "title": "Generated tool over MCP",
-      "surface": "`INhAiMcpToolAdapter`, official `ModelContextProtocol.Core` server/client primitives, generated `AIFunction`, and the shared discovery/invocation pipeline",
-      "outcome": "The same generated project search implementation is discovered and invoked through the official in-memory MCP transport while actor-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` semantics remain in the shared NewHeap pipeline; an ungoverned catalog cannot be exported.",
+      "surface": "`WithNewHeapPlatformAITools`, `INhAiMcpToolAdapter`, official ASP.NET Streamable HTTP and in-memory MCP transports, generated `AIFunction`, and the shared discovery/invocation pipeline",
+      "outcome": "The API publishes the same generated project search implementation through the official stateless ASP.NET MCP transport. Every list and call resolves the current authenticated request independently; actor- and tenant-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` errors remain in the shared NewHeap pipeline. Only generated catalogs enter the NewHeap export path. Independently governed external SDK tools can coexist under distinct wire names, while duplicate NewHeap publication and export-name collisions fail at startup.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
-        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs"
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs"
       ]
     },
     {
       "id": "SPM-223",
       "categoryId": "18",
       "title": "Authorized ASP.NET AI context",
-      "surface": "`AddNewHeapPlatformAIAspNet`, `IAuthorizationService`, active-division context contribution, execution scopes, and narrow capability grants",
-      "outcome": "The API composes the production ASP.NET tool gate and contributes the authenticated actor's active division and projects-read grant only after existing server-side policies succeed; a browser header, anonymous principal or mismatched actor alone contributes no authority.",
+      "surface": "`INhAiAuthenticatedInvocationContextResolver`, `AddNewHeapPlatformAIAspNet`, configurable OIDC claim projection, `IAuthorizationService`, execution scopes, and narrow capability grants",
+      "outcome": "The production ASP.NET gate resolves a fresh context per request. Hosts with unmapped JWT claims validate an exact issuer and single subject and tenant claims, project only configured scopes and capability values, and reject missing, duplicate, or mismatched authority. The existing active-division flow remains available and contributes scope only after server-side policy authorization; request cancellation propagates.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
@@ -3077,8 +3079,8 @@
       "id": "SPM-224",
       "categoryId": "18",
       "title": "Approved and verified AI mutation",
-      "surface": "`NhAiProposal`, `NhAiApproval`, `INhAiCapabilityResolver`, `INhAiBudgetManager`, `INhAiIdempotencyManager`, `INhAiToolVerifier`, and the shared invocation pipeline",
-      "outcome": "An agent can change one project status only inside its authorized division and narrow manage capability after exact proposal approval and mandatory budget reservation; the same idempotency key cannot repeat or alter the side effect, and success is reported only after an independent status read verifies the result.",
+      "surface": "`NhAiProposal`, `NhAiApproval`, `INhAiAuthoritativeExecutionEvidenceValidator`, `INhAiCapabilityResolver`, `INhAiBudgetManager`, `INhAiIdempotencyManager`, `INhAiToolVerifier`, and the shared invocation pipeline",
+      "outcome": "An agent can change one project status only inside its authorized division and narrow manage capability after authoritative approval and mandatory budget reservation; the same idempotency key cannot repeat or alter the side effect, and success is reported only after an independent status read verifies the result. Consumers may validate their existing authoritative approval and idempotency evidence into a bounded attestation without creating a second Platform proposal model, while all execution still passes through the shared invoker.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",

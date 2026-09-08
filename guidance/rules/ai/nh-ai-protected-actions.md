@@ -5,7 +5,7 @@ area: backend
 reference: ai-protected-actions
 summary: "Route material AI actions through scoped capabilities, canonical proposals, bound approvals, budgets, concurrency, idempotency, and independent verification before reporting success."
 sample-cases: ["SPM-224"]
-public-symbols: ["INhAiApprovalEvidenceProvider", "INhAiApprovalValidator", "INhAiBudgetManager", "INhAiCapabilityResolver", "INhAiEffectPolicy", "INhAiIdempotencyManager", "INhAiProposalFactory", "INhAiToolConcurrencyLimiter", "INhAiToolVerifier", "NhAiActionBudget", "NhAiApproval", "NhAiApprovalEvidence", "NhAiCapabilityGrant", "NhAiCapabilityResolution", "NhAiIdempotencyRequest", "NhAiProposal", "NhAiProposalCreateRequest", "NhAiToolEffect", "NhAiVerificationResult"]
+public-symbols: ["INhAiApprovalEvidenceProvider", "INhAiApprovalValidator", "INhAiAuthoritativeExecutionEvidenceValidator", "INhAiBudgetManager", "INhAiCapabilityResolver", "INhAiEffectPolicy", "INhAiIdempotencyManager", "INhAiProposalFactory", "INhAiToolConcurrencyLimiter", "INhAiToolVerifier", "NhAiActionBudget", "NhAiApproval", "NhAiApprovalEvidence", "NhAiAuthoritativeExecutionEvidence", "NhAiCapabilityGrant", "NhAiCapabilityResolution", "NhAiIdempotencyRequest", "NhAiProposal", "NhAiProposalCreateRequest", "NhAiToolEffect", "NhAiVerificationResult"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -25,6 +25,13 @@ contract hash, intent, expected effects, and expiry. Persist approval evidence i
 the consuming application. An `NhAiApproval` is valid only for that canonical
 proposal hash, approving actor, target set, constraints, maximum budget, and
 time window. An agent cannot approve its own proposal.
+
+When approval and idempotency are already authoritative in the consuming domain,
+register one `INhAiAuthoritativeExecutionEvidenceValidator`. Validate the
+consumer-owned evidence there and return only the bounded normalized attestation;
+do not translate it into a second Platform proposal. The shared invoker still
+performs authorization, capability, budget, concurrency, idempotency lease,
+execution, verification, and audit handling.
 
 Resolve short-lived capabilities again at discovery and invocation. Bind grants
 to subject, purpose, tool selector, execution scope, issuer, expiry, optional

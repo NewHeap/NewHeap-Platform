@@ -44,6 +44,9 @@ public static class NhAiServiceCollectionExtensions
             services.TryAddSingleton<INhAiToolConcurrencyLimiter, NhAiInProcessToolConcurrencyLimiter>();
             services.TryAddScoped<INhAiEffectPolicy, NhAiDefaultEffectPolicy>();
             services.TryAddScoped<INhAiApprovalEvidenceProvider, NhAiDenyApprovalEvidenceProvider>();
+            services.TryAddScoped<
+                INhAiAuthoritativeExecutionEvidenceValidator,
+                NhAiNoAuthoritativeExecutionEvidenceValidator>();
             services.TryAddScoped<INhAiIdempotencyManager, NhAiDenyIdempotencyManager>();
             services.TryAddScoped<INhAiBudgetManager, NhAiDenyBudgetManager>();
             services.TryAddSingleton<INhAiTaskResultMapper, NhAiTaskResultMapper>();
@@ -146,6 +149,15 @@ public sealed class NhAiBuilder
     {
         _services.Replace(
             ServiceDescriptor.Scoped<INhAiApprovalEvidenceProvider, TProvider>());
+        return this;
+    }
+
+    public NhAiBuilder UseAuthoritativeExecutionEvidenceValidator<TValidator>()
+        where TValidator : class, INhAiAuthoritativeExecutionEvidenceValidator
+    {
+        _services.Replace(ServiceDescriptor.Scoped<
+            INhAiAuthoritativeExecutionEvidenceValidator,
+            TValidator>());
         return this;
     }
 

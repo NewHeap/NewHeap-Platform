@@ -5,7 +5,7 @@ area: backend
 reference: ai-local-tools
 summary: "Declare stable application-owned tool contracts and let NewHeap generate local Microsoft.Extensions.AI functions that execute only after consumer authorization produces an explicit invocation scope."
 sample-cases: ["SPM-219", "SPM-221", "SPM-224", "SPM-234"]
-public-symbols: ["INhAiGovernedAIFunction", "INhAiToolCatalog", "INhAiToolDiscoveryPolicy", "INhAiToolDiscoveryService", "INhAiToolInvocationGate", "INhAiToolInvoker", "NhAiGovernedAIFunction", "NhAiInvocationContext", "NhAiTestBudgetManager", "NhAiTestDiscoveryPolicy", "NhAiTestInvocationGate", "NhAiToolAttribute", "NhAiToolCatalogGovernance", "NhAiToolCatalogManifest", "NhAiToolDescriptor", "NhAiToolDiscoveryRequest", "NhAiToolEffect", "NhAiToolExposure", "NhAiToolInvoker", "NhAiToolManifestEntry", "NhAiToolSetAttribute"]
+public-symbols: ["INhAiGeneratedToolCatalog", "INhAiGovernedAIFunction", "INhAiToolCatalog", "INhAiToolDiscoveryPolicy", "INhAiToolDiscoveryService", "INhAiToolInvocationGate", "INhAiToolInvoker", "NhAiGovernedAIFunction", "NhAiInvocationContext", "NhAiTestBudgetManager", "NhAiTestDiscoveryPolicy", "NhAiTestInvocationGate", "NhAiToolAttribute", "NhAiToolCatalogGovernance", "NhAiToolCatalogManifest", "NhAiToolDescriptor", "NhAiToolDiscoveryRequest", "NhAiToolEffect", "NhAiToolExportNameAttribute", "NhAiToolExposure", "NhAiToolInvoker", "NhAiToolManifestEntry", "NhAiToolSetAttribute"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -60,6 +60,12 @@ mutation, external-side-effect, and destructive effects also require approval;
 destructive effects require a verifier. Generated catalogs attest
 `SharedInvoker` governance and return descriptor-bound governed functions.
 MCP and Agent adapters reject raw, mismatched, or ungoverned functions.
+
+Use `NhAiToolExportName` when an external MCP/AIDAP wire contract already owns a
+stable lowercase dotted name such as `orders.search`. Export names do not encode
+the tool version. The generator rejects invalid or duplicate export names and
+records the chosen name in the descriptor and manifest. Without the attribute,
+the existing generated `<toolset>_<tool>_v<version>` name remains unchanged.
 
 ## Avoid
 

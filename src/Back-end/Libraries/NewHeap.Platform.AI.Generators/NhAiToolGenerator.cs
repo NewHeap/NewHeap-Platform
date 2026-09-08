@@ -16,6 +16,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
 {
     private const string ToolSetAttributeName = "NewHeap.Platform.AI.NhAiToolSetAttribute";
     private const string ToolAttributeName = "NewHeap.Platform.AI.NhAiToolAttribute";
+    private const string ToolExportNameAttributeName = "NewHeap.Platform.AI.NhAiToolExportNameAttribute";
     private const string InvocationContextName = "NewHeap.Platform.AI.NhAiInvocationContext";
     private const string CancellationTokenName = "System.Threading.CancellationToken";
     private const string DescriptionAttributeName = "System.ComponentModel.DescriptionAttribute";
@@ -93,6 +94,22 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         DiagnosticSeverity.Error,
         true);
 
+    private static readonly DiagnosticDescriptor InvalidExportName = new(
+        "NHAI010",
+        "AI tool export name is invalid",
+        "AI tool export name '{0}' must be a bounded lowercase MCP name and must not encode a contract version",
+        "NewHeap.AI",
+        DiagnosticSeverity.Error,
+        true);
+
+    private static readonly DiagnosticDescriptor DuplicateExportName = new(
+        "NHAI011",
+        "AI tool export name is duplicated",
+        "AI tool export name '{0}' is declared more than once",
+        "NewHeap.AI",
+        DiagnosticSeverity.Error,
+        true);
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var attributedMethods = context.SyntaxProvider.CreateSyntaxProvider(
@@ -140,6 +157,10 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 toolSetAttribute,
                 "JsonSerializerContextType");
             var toolId = (string?)toolAttribute.ConstructorArguments[0].Value ?? string.Empty;
+            var exportNameAttribute = FindAttribute(method, ToolExportNameAttributeName);
+            var explicitExportName = exportNameAttribute is null
+                ? null
+                : (string?)exportNameAttribute.ConstructorArguments[0].Value;
             if (!IsDashCase(setId))
             {
                 context.ReportDiagnostic(Diagnostic.Create(InvalidIdentifier, location, setId));
@@ -148,6 +169,14 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             if (!IsDashCase(toolId))
             {
                 context.ReportDiagnostic(Diagnostic.Create(InvalidIdentifier, location, toolId));
+                continue;
+            }
+            if (explicitExportName is not null && !IsExportName(explicitExportName))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    InvalidExportName,
+                    location,
+                    explicitExportName));
                 continue;
             }
 
@@ -266,7 +295,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             var inputSchema = SchemaWriter.Create(inputTypeSymbol!);
             var outputSchema = SchemaWriter.Create(outputTypeSymbol!);
             var schemaHash = ComputeHash(inputSchema + "\n" + outputSchema);
-            var contractHash = ComputeHash(string.Join(
+            var contractMaterial = string.Join(
                 "\n",
                 setId + "." + toolId,
                 version.ToString(global::System.Globalization.CultureInfo.InvariantCulture),
@@ -285,12 +314,18 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 string.Join(",", requiredCapabilities),
                 (authorizationAttributes.Length > 0).ToString(),
                 string.Join(",", policies),
-                schemaHash));
+                schemaHash);
+            if (explicitExportName is not null)
+            {
+                contractMaterial += "\nexport:" + explicitExportName;
+            }
+            var contractHash = ComputeHash(contractMaterial);
 
             tools.Add(new ToolModel(
                 method,
                 setId,
                 toolId,
+                explicitExportName,
                 version,
                 effect,
                 exposure,
@@ -332,8 +367,27 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         }
 
         var duplicateKeys = duplicateGroups.Select(group => group.Key).ToImmutableHashSet(StringComparer.Ordinal);
+        var duplicateExportGroups = tools
+            .Where(tool => !duplicateKeys.Contains(tool.LogicalId + "@" + tool.Version))
+            .GroupBy(tool => tool.ExportName, StringComparer.Ordinal)
+            .Where(group => group.Count() > 1)
+            .ToArray();
+        foreach (var duplicate in duplicateExportGroups)
+        {
+            foreach (var tool in duplicate)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    DuplicateExportName,
+                    tool.Method.Locations.FirstOrDefault(),
+                    tool.ExportName));
+            }
+        }
+        var duplicateExportNames = duplicateExportGroups
+            .Select(group => group.Key)
+            .ToImmutableHashSet(StringComparer.Ordinal);
         foreach (var group in tools
             .Where(tool => !duplicateKeys.Contains(tool.LogicalId + "@" + tool.Version))
+            .Where(tool => !duplicateExportNames.Contains(tool.ExportName))
             .GroupBy(tool => tool.Method.ContainingType, SymbolEqualityComparer.Default))
         {
             EmitCatalog(
@@ -369,7 +423,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         }
 
         builder.Append("public sealed class ").Append(catalogName)
-            .AppendLine(" : global::NewHeap.Platform.AI.INhAiToolCatalog");
+            .AppendLine(" : global::NewHeap.Platform.AI.INhAiGeneratedToolCatalog");
         builder.AppendLine("{");
         builder.AppendLine("    public global::NewHeap.Platform.AI.NhAiToolCatalogGovernance Governance => global::NewHeap.Platform.AI.NhAiToolCatalogGovernance.SharedInvoker;");
         builder.AppendLine();
@@ -398,7 +452,9 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 .Append(Literal(tool.LogicalId)).Append(", ")
                 .Append(tool.Version).Append(", ")
                 .Append(Literal(tool.SchemaHash)).Append(", ")
-                .Append(Literal(tool.ContractHash)).AppendLine("),");
+                .Append(Literal(tool.ContractHash)).AppendLine(")")
+                .Append("            { ExportName = ")
+                .Append(Literal(tool.ExportName)).AppendLine(" },");
         }
         builder.AppendLine("        });");
         builder.AppendLine();
@@ -442,7 +498,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 .Append(", global::Microsoft.Extensions.AI.AIFunctionFactory.Create(handler")
                 .Append(index).AppendLine(", new global::Microsoft.Extensions.AI.AIFunctionFactoryOptions");
             builder.AppendLine("        {");
-            builder.Append("            Name = ").Append(Literal(FunctionName(tool))).AppendLine(",");
+            builder.Append("            Name = ").Append(Literal(tool.ExportName)).AppendLine(",");
             builder.Append("            Description = ").Append(Literal(tool.Description));
             if (tool.JsonSerializerContextType is not null)
             {
@@ -488,6 +544,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         }
         builder.AppendLine("        })");
         builder.AppendLine("    {");
+        builder.Append("        ExportName = ").Append(Literal(tool.ExportName)).AppendLine(",");
         builder.Append("        CatalogId = ").Append(Literal(tool.SetId)).AppendLine(",");
         builder.AppendLine("        CatalogVersion = 1,");
         builder.Append("        DeclaringAssembly = ")
@@ -639,9 +696,42 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         return true;
     }
 
-    private static string FunctionName(ToolModel tool)
+    private static string FunctionName(string setId, string toolId, int version)
     {
-        return (tool.SetId + "_" + tool.ToolId).Replace('-', '_') + "_v" + tool.Version;
+        return (setId + "_" + toolId).Replace('-', '_') + "_v" + version;
+    }
+
+    private static bool IsExportName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)
+            || value.Length > 128
+            || global::System.Text.RegularExpressions.Regex.IsMatch(
+                value,
+                "[.-]v[0-9]+$",
+                global::System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        var previousWasSeparator = false;
+        for (var index = 0; index < value.Length; index++)
+        {
+            var character = value[index];
+            var separator = character is '-' or '.';
+            if (separator && (index == 0 || index == value.Length - 1 || previousWasSeparator))
+            {
+                return false;
+            }
+            if (!separator
+                && (character < 'a' || character > 'z')
+                && (character < '0' || character > '9'))
+            {
+                return false;
+            }
+            previousWasSeparator = separator;
+        }
+
+        return true;
     }
 
     private static string Literal(string value)
@@ -950,6 +1040,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             IMethodSymbol method,
             string setId,
             string toolId,
+            string? explicitExportName,
             int version,
             int effect,
             int exposure,
@@ -977,6 +1068,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             Method = method;
             SetId = setId;
             ToolId = toolId;
+            ExportName = explicitExportName ?? FunctionName(setId, toolId, version);
             Version = version;
             Effect = effect;
             Exposure = exposure;
@@ -1006,6 +1098,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         public string SetId { get; }
         public string ToolId { get; }
         public string LogicalId => SetId + "." + ToolId;
+        public string ExportName { get; }
         public int Version { get; }
         public int Effect { get; }
         public int Exposure { get; }

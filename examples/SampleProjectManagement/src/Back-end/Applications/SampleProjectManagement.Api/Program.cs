@@ -17,6 +17,8 @@ using NewHeap.Platform.AspNet.Common.OpenApiSchemaTransformers;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Mcp;
+using ModelContextProtocol.Server;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Events.Cap;
@@ -262,6 +264,9 @@ builder.Services.AddNewHeapPlatformAIAspNet(ai => ai
     .AddCapabilityGrant(
         ProjectAiTools.ManageCapability,
         "app.active-division.project.manage"));
+builder.Services.AddMcpServer()
+    .WithHttpTransport(options => options.Stateless = true)
+    .WithNewHeapPlatformAITools();
 builder.Services.AddScoped<IClaimsTransformation, SampleRuntimeClaimsTransformation>();
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectAccessHandler>();
 builder.Services.AddSingleton<SampleEventLog>();
@@ -323,6 +328,7 @@ app.UseNewHeapPlatformAspNetCommon(
             .UseEndpoints(endpoints =>
             {
                 endpoints.MapOpenApi();
+                endpoints.MapMcp("/mcp").RequireAuthorization();
                 endpoints.MapScalarApiReference("/scalar", options =>
                 {
                     options.WithOpenApiRoutePattern("/openapi/{documentName}.json");

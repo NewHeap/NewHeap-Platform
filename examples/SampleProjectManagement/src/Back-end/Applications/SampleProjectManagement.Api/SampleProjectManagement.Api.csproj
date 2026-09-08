@@ -2,6 +2,7 @@
   <ItemGroup>
     <PackageReference Include="DotNetCore.CAP.RabbitMQ" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="Scalar.AspNetCore" />
   </ItemGroup>
@@ -21,5 +22,6 @@
     <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Caching/NewHeap.Platform.AspNet.Caching.csproj" />
     <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeap.Platform.AspNet.Common.csproj" />
     <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NewHeap.Platform.AI.AspNet.Common.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NewHeap.Platform.AI.Mcp.csproj" />
   </ItemGroup>
 </Project>
