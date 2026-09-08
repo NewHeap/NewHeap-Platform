@@ -1,3 +1,7 @@
+using Hangfire;
+using Hangfire.PostgreSql;
+using NewHeap.Platform.AspNet.Common.SqlServer;
+using NewHeap.Platform.AspNet.Common.PostgreSql;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -163,7 +167,27 @@ builder.Services
                 .AddCustomTopicSubscriber<PriorityProjectEventConsumer>();
         });
     })
-    .WithIdentityEntityFramework(options => options.UseConfiguredDatabase(builder.Configuration))
+    .WithIdentityEntityFramework(options =>
+    {
+        switch (databaseProvider)
+        {
+            case DatabaseProvider.SqlServer:
+                options.UseNewHeapSqlServer(connectionString);
+                break;
+            case DatabaseProvider.PostgreSql:
+                options.UseNewHeapPostgreSql(connectionString, postgres =>
+                {
+                    var migrationsAssembly = builder.Configuration["Database:PostgreSqlMigrationsAssembly"];
+                    if (!string.IsNullOrWhiteSpace(migrationsAssembly))
+                    {
+                        postgres.MigrationsAssembly(migrationsAssembly);
+                    }
+                });
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(databaseProvider));
+        }
+    })
     .WithIdentity(_ => { })
     .WithDbLogService(options =>
     {
@@ -171,7 +195,20 @@ builder.Services
             .GetSection($"{NewHeapAspNetCommonOptions.DefaultSettingsPrefix}:DbLogServiceSettings")
             .Bind(options);
     })
-    .WithHangfire(connectionString, databaseProvider: databaseProvider)
+    .WithHangfire(options =>
+    {
+        switch (databaseProvider)
+        {
+            case DatabaseProvider.SqlServer:
+                options.UseSqlServerStorage(connectionString);
+                break;
+            case DatabaseProvider.PostgreSql:
+                options.UsePostgreSqlStorage(storage => storage.UseNpgsqlConnection(connectionString));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(databaseProvider));
+        }
+    })
     .WithBackgroundOperations(operations =>
     {
         operations.Options.OperationUrlPrefix = "/background-operations";

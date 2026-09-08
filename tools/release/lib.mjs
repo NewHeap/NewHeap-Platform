@@ -166,6 +166,63 @@ export function releaseTag(unit, version = unit.version) {
   return `${unit.tagPrefix}${version}`;
 }
 
+export async function prepareReleaseNotes(releases, directory = resolve(repositoryRoot, 'docs', 'release-notes')) {
+  const nextPath = resolve(directory, 'v-next.md');
+  const source = await readFile(nextPath, 'utf8');
+  // ponytail: release notes use package-level ## headings and short tables, not arbitrary Markdown.
+  const [heading, ...sections] = source.replaceAll('\r\n', '\n').trim().split(/^## /m);
+  if (heading.trim() !== '# v-next') {
+    throw new Error(`${nextPath}: expected # v-next followed by package sections.`);
+  }
+
+  const packageVersions = new Map();
+  for (const { unit, version } of releases) {
+    const names = unit.kind === 'nuget' ? unit.projects.map(project => project.packageId) : [unit.packageName];
+    for (const name of names) {
+      packageVersions.set(name, version);
+    }
+  }
+
+  const pending = [];
+  const archived = new Map();
+  for (const section of sections) {
+    const packageName = section.split(/\r?\n/, 1)[0].trim();
+    const version = packageVersions.get(packageName);
+    const text = `## ${section.trim()}`;
+    if (!version) {
+      pending.push(text);
+      continue;
+    }
+
+    if (!archived.has(version)) {
+      archived.set(version, []);
+    }
+    archived.get(version).push(text);
+  }
+
+  const writes = [];
+  for (const [version, packageSections] of archived) {
+    const path = resolve(directory, `v${version}.md`);
+    let existing;
+    try {
+      existing = await readFile(path, 'utf8');
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        throw error;
+      }
+      existing = `# v${version}`;
+    }
+    if (existing.split(/\r?\n/, 1)[0].trim() !== `# v${version}`) {
+      throw new Error(`${path}: expected # v${version}.`);
+    }
+    writes.push([path, `${[existing.replaceAll('\r\n', '\n').trimEnd(), ...packageSections].join('\n\n')}\n`]);
+  }
+  if (writes.length > 0) {
+    writes.push([nextPath, `${['# v-next', ...pending].join('\n\n')}\n`]);
+  }
+  return writes;
+}
+
 export function addLocalNugetSource(configuration, source, name = 'newheap-release-local') {
   if (!/^[A-Za-z0-9._-]+$/.test(name)) throw new Error(`Invalid NuGet source name: ${name}`);
   if (configuration.includes(`<add key="${name}"`) || configuration.includes(`<packageSource key="${name}"`)) {

@@ -79,6 +79,19 @@ a consumer repository under `.agents/skills/newheap-platform-development` or
 NewHeap libraries. Treat it as part of every library change, not as optional
 follow-up work.
 
+## Release notes
+
+- Document every breaking public API or behavior change in the current
+  `docs/release-notes/v-next.md` as part of the same change.
+- Group entries by package and use a `Breaking change | Required action` table;
+  keep each entry to one short "X changed; do Y" row with the concrete replacement.
+- During stable release preparation, archive the applicable notes under the
+  release version and create a fresh `v-next.md` in the same release commit.
+  Preserve pending entries for packages not being released. Follow
+  [the release-note procedure](docs/how-to/release-newheap-libraries.md#release-notes).
+
+## Library change requirements
+
 A library change includes:
 
 - a new or changed public type, method, option, extension, service registration,

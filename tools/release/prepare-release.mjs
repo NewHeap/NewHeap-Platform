@@ -6,6 +6,7 @@ import {
   bumpVersion,
   loadReleaseManifest,
   parseArguments,
+  prepareReleaseNotes,
   readJson,
   releaseManifestPath,
   releaseSelection,
@@ -64,7 +65,7 @@ runGuidanceTool(
 );
 
 const jsonWrites = [];
-const textWrites = [];
+const textWrites = await prepareReleaseNotes(releases);
 
 for (const { component, unit, previousVersion, version } of releases) {
   unit.version = version;

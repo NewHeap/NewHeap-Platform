@@ -719,13 +719,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-051",
     "title": "Generic repository",
     "category": "DAL, repositories, and transactions",
-    "surface": "IRepository<T>, Repository<T>",
-    "outcome": "The service queries through a DI-registered repository.",
+    "surface": "IRepository<T>, Repository<T>, UseNewHeapSqlServer, UseNewHeapPostgreSql",
+    "outcome": "The service queries through a DI-registered repository; composition explicitly selects a SQL Server or PostgreSQL package without adding provider dependencies to AspNet.Common.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseProviderSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/RepositoryProviderBoundaryTests.cs"
     ]
   },
   {
@@ -751,7 +753,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "evidence": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs"
     ]
   },
   {

@@ -231,11 +231,9 @@ public interface INewHeapPlatformAspNetCommonConfigurator
             TDivisionUserMutateModel
         >
         WithHangfire(
-            string nameOrConnectionString,
-            Action<IGlobalConfiguration>? hangfireOptionsAction = null,
+            Action<IGlobalConfiguration> hangfireOptionsAction,
             Action<ConsoleOptions>? consoleOptionsAction = null,
-            Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null,
-            DatabaseProvider databaseProvider = DatabaseProvider.SqlServer
+            Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null
         );
 
     INewHeapNotificationConfigurator<

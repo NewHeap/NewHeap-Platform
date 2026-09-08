@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageDescription>SqlServer EF Core, repository bulk operations, transaction locks, and Hangfire storage for NewHeap Platform.</PackageDescription>
+    <PackageTags>newheap platform aspnetcore entity-framework sqlserver hangfire</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NewHeap.Platform.AspNet.Common/NewHeap.Platform.AspNet.Common.csproj" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Hangfire.SqlServer" />
+  </ItemGroup>
+</Project>

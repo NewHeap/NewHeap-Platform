@@ -60,6 +60,14 @@
           "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeap.Platform.AspNet.Common.csproj"
         },
         {
+          "packageId": "NewHeap.Platform.AspNet.Common.SqlServer",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.SqlServer/NewHeap.Platform.AspNet.Common.SqlServer.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AspNet.Common.PostgreSql",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/NewHeap.Platform.AspNet.Common.PostgreSql.csproj"
+        },
+        {
           "packageId": "NewHeap.Platform.AspNet.Common.Test",
           "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NewHeap.Platform.AspNet.Common.Test.csproj"
         },

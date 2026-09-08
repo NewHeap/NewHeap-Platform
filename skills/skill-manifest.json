@@ -21,6 +21,8 @@
     "NewHeap.Platform.AI.Test": "5.0.0",
     "NewHeap.Platform.AspNet.Caching": "0.1.4",
     "NewHeap.Platform.AspNet.Common": "5.0.0",
+    "NewHeap.Platform.AspNet.Common.PostgreSql": "5.0.0",
+    "NewHeap.Platform.AspNet.Common.SqlServer": "5.0.0",
     "NewHeap.Platform.AspNet.Common.Test": "5.0.0",
     "NewHeap.Platform.Common": "5.0.0",
     "NewHeap.Platform.Common.Test": "5.0.0",

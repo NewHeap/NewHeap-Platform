@@ -8,8 +8,6 @@ namespace NewHeap.Platform.AspNet.Common.DAL;
 
 public static class RepositoryBulkExtensions
 {
-    private const string SqlServerProviderName = "Microsoft.EntityFrameworkCore.SqlServer";
-
     /// <summary>
     /// Immediately inserts or updates the supplied entities through a provider-native bulk operation.
     /// This operation bypasses EF Core change tracking and does not require SaveChanges.
@@ -31,7 +29,7 @@ public static class RepositoryBulkExtensions
         ArgumentNullException.ThrowIfNull(entities);
         ArgumentNullException.ThrowIfNull(matchOn);
 
-        var providerName = GetSupportedProviderName(repository.Context);
+        var provider = NhRepositoryProvider.GetRequired(repository.Context);
         var plan = BulkUpsertPlan<TEntity>.Create(repository.Context, matchOn);
         await using var transactionScope = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
         try
@@ -39,7 +37,7 @@ public static class RepositoryBulkExtensions
             var transaction = transactionScope.Transaction.DbContextTransaction.GetDbTransaction();
             var affected = await ExecuteProviderAsync(
                 repository.Context,
-                providerName,
+                provider,
                 plan,
                 entities,
                 transaction,
@@ -81,7 +79,7 @@ public static class RepositoryBulkExtensions
         ArgumentNullException.ThrowIfNull(matchOn);
         ArgumentNullException.ThrowIfNull(navigationSelectors);
 
-        var providerName = GetSupportedProviderName(repository.Context);
+        var provider = NhRepositoryProvider.GetRequired(repository.Context);
         var navigations = BulkUpsertGraph.GetNavigations(repository.Context, navigationSelectors);
         var plan = BulkUpsertPlan<TEntity>.Create(repository.Context, matchOn);
         var roots = entities.Select(entity => entity
@@ -95,7 +93,7 @@ public static class RepositoryBulkExtensions
             var transaction = transactionScope.Transaction.DbContextTransaction.GetDbTransaction();
             var affected = await ExecuteProviderAsync(
                 repository.Context,
-                providerName,
+                provider,
                 plan,
                 roots,
                 transaction,
@@ -103,7 +101,7 @@ public static class RepositoryBulkExtensions
                 cancellationToken);
             affected += await BulkUpsertGraph.ExecuteAsync(
                 repository.Context,
-                providerName,
+                provider,
                 roots,
                 navigations,
                 transaction,
@@ -121,7 +119,7 @@ public static class RepositoryBulkExtensions
 
     internal static Task<int> ExecuteProviderAsync<TEntity>(
         DbContext context,
-        string providerName,
+        NhRepositoryProvider provider,
         BulkUpsertPlan<TEntity> plan,
         IEnumerable<TEntity> entities,
         DbTransaction transaction,
@@ -129,38 +127,7 @@ public static class RepositoryBulkExtensions
         CancellationToken cancellationToken)
         where TEntity : class
     {
-        return providerName switch
-        {
-            SqlServerProviderName => SqlServerBulkUpsertExecutor.ExecuteAsync(
-                context,
-                plan,
-                entities,
-                transaction,
-                hydrateMatchedPrimaryKeys,
-                cancellationToken),
-            DatabaseProviderConfigurationExtensions.PostgreSqlProviderName =>
-                PostgreSqlBulkUpsertExecutor.ExecuteAsync(
-                    context,
-                    plan,
-                    entities,
-                    transaction,
-                    hydrateMatchedPrimaryKeys,
-                    cancellationToken),
-            _ => throw new NotSupportedException(
-                $"Bulk upsert is not supported by database provider '{providerName}'.")
-        };
-    }
-
-    private static string GetSupportedProviderName(DbContext context)
-    {
-        var providerName = context.Database.ProviderName;
-        if (providerName is not SqlServerProviderName and not DatabaseProviderConfigurationExtensions.PostgreSqlProviderName)
-        {
-            throw new NotSupportedException(
-                $"Bulk upsert is not supported by database provider '{providerName ?? "unknown"}'. " +
-                "Supported providers are SQL Server and PostgreSQL.");
-        }
-
-        return providerName;
+        return provider.ExecuteUpsertAsync(
+            context, plan, entities, transaction, hydrateMatchedPrimaryKeys, cancellationToken);
     }
 }

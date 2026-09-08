@@ -1,3 +1,5 @@
+using NewHeap.Platform.AspNet.Common.SqlServer;
+using NewHeap.Platform.AspNet.Common.PostgreSql;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -59,7 +61,7 @@ public sealed class BulkUpsertProviderTests
             "mcr.microsoft.com/mssql/server:2022-latest").Build();
         await container.StartAsync();
         await VerifyProviderAsync(
-            options => options.UseSqlServer(container.GetConnectionString()),
+            options => options.UseNewHeapSqlServer(container.GetConnectionString()),
             "sql-server");
     }
 
@@ -68,7 +70,7 @@ public sealed class BulkUpsertProviderTests
         await using var container = new PostgreSqlBuilder("postgres:15.1").Build();
         await container.StartAsync();
         await VerifyProviderAsync(
-            options => options.UseNpgsql(container.GetConnectionString()),
+            options => options.UseNewHeapPostgreSql(container.GetConnectionString()),
             "postgresql");
     }
 

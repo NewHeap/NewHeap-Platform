@@ -12,6 +12,8 @@ risk: critical
 ---
 ## Preferred approach
 
+Configure `WithHangfire` with a required storage callback, for example `options => options.UseSqlServerStorage(connectionString)` or `options => options.UsePostgreSqlStorage(storage => storage.UseNpgsqlConnection(connectionString))`. Reference the corresponding `NewHeap.Platform.AspNet.Common.SqlServer` or `.PostgreSql` package. The old connection-string/provider-enum overload is removed. Configure the background-operation DbContext with `UseNewHeapSqlServer` or `UseNewHeapPostgreSql` so that distributed transaction locks resolve through the matching provider package.
+
 Publish CAP events inside the service-owned transactional scope and configure the outbox and broker explicitly. Give consumers a stable group and topic, make processing idempotent, and ensure a retry safely produces the same result. Keep background jobs small and repeatable. A singleton hosted service creates a scope for each iteration and resolves scoped services inside it.
 
 Model notification creation, the delivery channel, and email dispatch as separate steps. Use typed events and templates, and store read and unread state in the consumer-owned database with appropriate migrations.

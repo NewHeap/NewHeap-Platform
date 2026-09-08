@@ -1,3 +1,5 @@
+using NewHeap.Platform.AspNet.Common.SqlServer;
+using NewHeap.Platform.AspNet.Common.PostgreSql;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -29,7 +31,7 @@ public sealed class NhEfWarningCompatibilityProviderTests
         {
             await sqlServer.StartAsync();
             await VerifyProviderAsync(
-                options => options.UseSqlServer(sqlServer.GetConnectionString()),
+                options => options.UseNewHeapSqlServer(sqlServer.GetConnectionString()),
                 "sql-server");
         }
 
@@ -37,7 +39,7 @@ public sealed class NhEfWarningCompatibilityProviderTests
         {
             await postgreSql.StartAsync();
             await VerifyProviderAsync(
-                options => options.UseNpgsql(postgreSql.GetConnectionString()),
+                options => options.UseNewHeapPostgreSql(postgreSql.GetConnectionString()),
                 "postgresql");
         }
     }

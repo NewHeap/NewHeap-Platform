@@ -14,6 +14,8 @@ Keep neutral EF code provider-translatable and put registration, SQL, and migrat
 
 ## Preferred approach
 
+Reference `NewHeap.Platform.AspNet.Common.SqlServer` or `NewHeap.Platform.AspNet.Common.PostgreSql` in application composition and configure repository contexts with `UseNewHeapSqlServer` or `UseNewHeapPostgreSql`. These extensions preserve native EF options and select the matching bulk and transaction-lock implementation per DbContext. Common itself has no SQL Server or PostgreSQL dependency. Register both packages only when the application uses both. `UseConfiguredDatabase` has been removed: select the provider in composition and pass any PostgreSQL migrations assembly explicitly. Internal identity contexts reuse the callback passed to `WithIdentityEntityFramework`. See `docs/release-notes/v-next.md` for the required upgrade changes.
+
 Use provider-neutral LINQ and model configuration in shared code. Put `UseSqlServer` or `UseNpgsql`, provider SQL, and provider-owned migrations in the owning implementation. Consumer entities and migrations belong in the consumer's database project. Use UTC-safe values in translated queries, preferably a captured `DateTimeOffset.UtcNow` value.
 
 Raw SQL is provider-specific until both dialects have executable proof. Parameterize data values and obtain schema, table, and column names from EF metadata where possible. Provide separate implementations or clearly separated subcases for SQL Server and PostgreSQL.
@@ -24,6 +26,7 @@ Raw SQL is provider-specific until both dialects have executable proof. Paramete
 - Hard-coded SQL Server quoting, types, or functions in neutral code.
 - `AsEnumerable` or premature materialization to bypass translation.
 - Combining `EnsureCreated` with migrations as the normal schema-update path.
+- Using only native `UseSqlServer`/`UseNpgsql` for a context that executes NewHeap bulk upsert or transaction locks; the NewHeap registration is required.
 - EF Core InMemory as evidence for raw SQL, constraints, transactions, or migrations.
 
 ## Verification

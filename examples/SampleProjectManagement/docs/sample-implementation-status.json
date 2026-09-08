@@ -545,7 +545,9 @@
     "SPM-051": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseProviderSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/RepositoryProviderBoundaryTests.cs"
     ],
     "SPM-052": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
@@ -555,7 +557,8 @@
     "SPM-053": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs"
     ],
     "SPM-054": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectCompositeController.cs",

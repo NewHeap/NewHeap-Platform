@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.26",
   "backEnd": {
-    "hash": "b30785b524a027045e292f92623396e4b73d16439a9a97b10b339d67db755068",
-    "declarationCount": 3643,
+    "hash": "e9e61ed30d3bb2e20e91d818b73a938f5a77e69819a65e4b259bd65dc8c39aec",
+    "declarationCount": 3657,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2566,6 +2566,46 @@
         "declaration": "public static string Create(params string[] keyParts) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlBulkUpsertExecutor.cs",
+        "declaration": "public static async Task<int> ExecuteAsync<TEntity>( DbContext context, BulkUpsertPlan<TEntity> plan, IEnumerable<TEntity> entities, DbTransaction transaction, CancellationToken cancellationToken) where TEntity : class {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlDbContextOptionsExtensions.cs",
+        "declaration": "public static class PostgreSqlDbContextOptionsExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlDbContextOptionsExtensions.cs",
+        "declaration": "public static DbContextOptionsBuilder UseNewHeapPostgreSql( this DbContextOptionsBuilder optionsBuilder, string connectionString, Action<NpgsqlDbContextOptionsBuilder>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlDbContextOptionsExtensions.cs",
+        "declaration": "public static DbContextOptionsBuilder<TContext> UseNewHeapPostgreSql<TContext>( this DbContextOptionsBuilder<TContext> optionsBuilder, string connectionString, Action<NpgsqlDbContextOptionsBuilder>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlModelBuilderExtensions.cs",
+        "declaration": "public static class PostgreSqlModelBuilderExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlModelBuilderExtensions.cs",
+        "declaration": "public static void ValidatePostgreSqlColumnTypes(this ModelBuilder modelBuilder, string? providerName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.SqlServer/SqlServerBulkUpsertExecutor.cs",
+        "declaration": "public static async Task<int> ExecuteAsync<TEntity>( DbContext context, BulkUpsertPlan<TEntity> plan, IEnumerable<TEntity> entities, DbTransaction transaction, CancellationToken cancellationToken) where TEntity : class {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.SqlServer/SqlServerDbContextOptionsExtensions.cs",
+        "declaration": "public static class SqlServerDbContextOptionsExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.SqlServer/SqlServerDbContextOptionsExtensions.cs",
+        "declaration": "public static DbContextOptionsBuilder UseNewHeapSqlServer( this DbContextOptionsBuilder optionsBuilder, string connectionString, Action<SqlServerDbContextOptionsBuilder>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.SqlServer/SqlServerDbContextOptionsExtensions.cs",
+        "declaration": "public static DbContextOptionsBuilder<TContext> UseNewHeapSqlServer<TContext>( this DbContextOptionsBuilder<TContext> optionsBuilder, string connectionString, Action<SqlServerDbContextOptionsBuilder>? configure = null)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.Test/NhDbContextTestingContext.cs",
         "declaration": "public class NhDbContextTestingContext<TDbContext> : NhTestingContext where TDbContext : DbContext {"
       },
@@ -3918,14 +3958,6 @@
         "declaration": "public object? GetProviderValue(TEntity entity) {"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/PostgreSqlBulkUpsertExecutor.cs",
-        "declaration": "public static async Task<int> ExecuteAsync<TEntity>( DbContext context, BulkUpsertPlan<TEntity> plan, IEnumerable<TEntity> entities, DbTransaction transaction, CancellationToken cancellationToken) where TEntity : class {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/SqlServerBulkUpsertExecutor.cs",
-        "declaration": "public static async Task<int> ExecuteAsync<TEntity>( DbContext context, BulkUpsertPlan<TEntity> plan, IEnumerable<TEntity> entities, DbTransaction transaction, CancellationToken cancellationToken) where TEntity : class {"
-      },
-      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/DatabaseProviderConfigurationExtensions.cs",
         "declaration": "public enum DatabaseProvider {"
       },
@@ -3944,14 +3976,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/DatabaseProviderConfigurationExtensions.cs",
         "declaration": "public static string GetDatabaseConnectionString(this IConfiguration configuration) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/DatabaseProviderConfigurationExtensions.cs",
-        "declaration": "public static DbContextOptionsBuilder UseConfiguredDatabase( this DbContextOptionsBuilder optionsBuilder, IConfiguration configuration, int? commandTimeoutSeconds = null)"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/DatabaseProviderConfigurationExtensions.cs",
-        "declaration": "public static void ValidatePostgreSqlColumnTypes(this ModelBuilder modelBuilder, string? providerName) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -5259,7 +5283,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/InternalNhIdentityDbContextFactory.cs",
-        "declaration": "public InternalNhIdentityDbContextFactory(IConfiguration config) {"
+        "declaration": "public InternalNhIdentityDbContextFactory(Action<DbContextOptionsBuilder> configureDatabase) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/InternalNhIdentityDbContextFactory.cs",
@@ -5408,6 +5432,38 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhIdentityDbContext.cs",
         "declaration": "protected override void OnModelCreating(ModelBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhRepositoryProvider.cs",
+        "declaration": "public DbContextOptionsExtensionInfo Info => new ExtensionInfo(this);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhRepositoryProvider.cs",
+        "declaration": "public void ApplyServices(IServiceCollection services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhRepositoryProvider.cs",
+        "declaration": "public void Validate(IDbContextOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhRepositoryProvider.cs",
+        "declaration": "public override bool IsDatabaseProvider => false;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhRepositoryProvider.cs",
+        "declaration": "public override string LogFragment => $\"NewHeapProvider={extension.Provider.ProviderName} \";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhRepositoryProvider.cs",
+        "declaration": "public override int GetServiceProviderHashCode() => extension.Provider.GetType().GetHashCode();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhRepositoryProvider.cs",
+        "declaration": "public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhRepositoryProvider.cs",
+        "declaration": "public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Repository.cs",
@@ -7359,7 +7415,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeapPlatformAspNetCommonConfigurator.cs",
-        "declaration": "public INewHeapPlatformAspNetCommonConfigurator< TUser, TUserRole, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TLog, TLogMessageArgument, TLogFile, TLogMessageTranslated, TDbLogService, TDbContext, TUserManager, TDivisionService, TDivisionMutateModel, TDivisionUserService, TDivisionUserMutateModel > WithHangfire( string nameOrConnectionString, Action<IGlobalConfiguration>? hangfireOptionsAction = null, Action<ConsoleOptions>? consoleOptionsAction = null, Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null, DatabaseProvider databaseProvider = DatabaseProvider.SqlServer ) {"
+        "declaration": "public INewHeapPlatformAspNetCommonConfigurator< TUser, TUserRole, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TLog, TLogMessageArgument, TLogFile, TLogMessageTranslated, TDbLogService, TDbContext, TUserManager, TDivisionService, TDivisionMutateModel, TDivisionUserService, TDivisionUserMutateModel > WithHangfire( Action<IGlobalConfiguration> hangfireOptionsAction, Action<ConsoleOptions>? consoleOptionsAction = null, Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null ) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeapPlatformAspNetCommonConfigurator.cs",
@@ -17892,7 +17948,9 @@
     "nh-database-provider-portability": [
       "IRepository",
       "Repository",
-      "StartOrGetTransactionScopeAsync"
+      "StartOrGetTransactionScopeAsync",
+      "UseNewHeapSqlServer",
+      "UseNewHeapPostgreSql"
     ],
     "nh-read-only-database-diagnostics": [
       "NewHeapDatabaseReadApplication",

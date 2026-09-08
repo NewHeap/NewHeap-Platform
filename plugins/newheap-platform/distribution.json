@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.26",
   "guidanceVersion": "1.13.26",
-  "skillContentHash": "7acb375e37ecaa6a4a46b7da39ceaac53296f4d7cc72387d52d62bc6e80a0d1d",
+  "skillContentHash": "78a9131dab325bd7ecb1c6b09d3fc173b6a275056a272d6f2014d5a96bc3ca86",
   "skills": [
     "newheap-platform-development"
   ],
@@ -39,6 +39,8 @@
     "NewHeap.Platform.AI.Test": "5.0.0",
     "NewHeap.Platform.AspNet.Caching": "0.1.4",
     "NewHeap.Platform.AspNet.Common": "5.0.0",
+    "NewHeap.Platform.AspNet.Common.PostgreSql": "5.0.0",
+    "NewHeap.Platform.AspNet.Common.SqlServer": "5.0.0",
     "NewHeap.Platform.AspNet.Common.Test": "5.0.0",
     "NewHeap.Platform.Common": "5.0.0",
     "NewHeap.Platform.Common.Test": "5.0.0",

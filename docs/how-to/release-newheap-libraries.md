@@ -62,6 +62,20 @@ Do not edit unit version fields in `release/manifest.json`, `guidance/version.js
 
 If registry publication succeeds but finalization is interrupted, run **Finalize pending release** for the current unit or `all`. Recovery never bumps or republishes; it verifies the current public versions, commit, artifacts, and checksums before publishing drafts.
 
+## Release notes
+
+Every breaking public API or behavior change must update `docs/release-notes/v-next.md` in the same change. Group entries by package using a `Breaking change | Required action` table, with one short "X changed; do Y" row per item.
+
+`Prepare release` automatically includes these steps in the generated stable release commit, after determining the release version:
+
+1. Rename `docs/release-notes/v-next.md` to `docs/release-notes/v<version>.md` and change its heading to `# v<version>`.
+2. Create a new `docs/release-notes/v-next.md` containing `# v-next`, ready for subsequent changes.
+3. Move entries for packages not included in this release back to the new `v-next.md`.
+
+Use the selected unit's version from `release/manifest.json`. For `all`, group released package sections by their respective unit versions. If `v<version>.md` already exists for another unit, append the newly released package sections without replacing existing entries.
+
+Releases without applicable notes leave the notes unchanged. Preview publishing and finalization retries do not rotate release notes.
+
 ## Local verification
 
 ```text

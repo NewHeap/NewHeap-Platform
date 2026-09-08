@@ -1,3 +1,5 @@
+using NewHeap.Platform.AspNet.Common.SqlServer;
+using NewHeap.Platform.AspNet.Common.PostgreSql;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using AwesomeAssertions;
@@ -31,13 +33,13 @@ public sealed class NhBackgroundOperationProviderTests
         await using (var sqlServer = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build())
         {
             await sqlServer.StartAsync();
-            await VerifyProviderAsync(options => options.UseSqlServer(sqlServer.GetConnectionString()), "sql-server");
+            await VerifyProviderAsync(options => options.UseNewHeapSqlServer(sqlServer.GetConnectionString()), "sql-server");
         }
 
         await using (var postgreSql = new PostgreSqlBuilder("postgres:15.1").Build())
         {
             await postgreSql.StartAsync();
-            await VerifyProviderAsync(options => options.UseNpgsql(postgreSql.GetConnectionString()), "postgresql");
+            await VerifyProviderAsync(options => options.UseNewHeapPostgreSql(postgreSql.GetConnectionString()), "postgresql");
         }
     }
 

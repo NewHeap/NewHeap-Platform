@@ -512,3 +512,7 @@ frontend code; only the remaining gaps stay explicitly visible.
 
 This makes completed work and focused follow-up immediately visible; nothing is
 incorrectly presented as implemented.
+
+## Explicit ASP.NET database providers
+
+SPM-051 selects `NewHeap.Platform.AspNet.Common.SqlServer` or `.PostgreSql` through `UseNewHeapSqlServer` and `UseNewHeapPostgreSql` in API composition. SPM-053 uses the same per-context registration for native bulk upsert. Common remains free of both database provider stacks. Hangfire storage is configured explicitly in its callback. `DatabaseProviderSamplesTests` verifies both composition variants; the library boundary tests and real-provider scenarios cover package isolation, bulk execution, locks, and identity-context configuration. See `docs/release-notes/v-next.md` for the required upgrade changes.

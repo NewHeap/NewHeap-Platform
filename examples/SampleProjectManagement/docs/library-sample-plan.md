@@ -87,7 +87,7 @@ The complete public-surface mapping and intended sample entry points are documen
 
 | ID | Case | Library surface | Verifiable outcome |
 |---|---|---|---|
-| SPM-051 | Generic repository | `IRepository<T>`, `Repository<T>` | The service queries through a DI-registered repository. |
+| SPM-051 | Generic repository | `IRepository<T>`, `Repository<T>`, `UseNewHeapSqlServer`, `UseNewHeapPostgreSql` | The service queries through a DI-registered repository; composition explicitly selects a SQL Server or PostgreSQL package without adding provider dependencies to AspNet.Common. |
 | SPM-052 | Load relationships | repository/queryable extensions | The detail loads without an N+1 query. |
 | SPM-053 | Provider-native bulk upsert | `ExecuteUpsertAsync` | Project imports atomically upsert roots and explicitly selected one-to-many tasks, retain omitted children, and reject populated nested dependencies before changing stored data. |
 | SPM-054 | Explicit transaction | `ITransaction`, transaction scope | Project and task commit or roll back together. |
