@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.24",
   "backEnd": {
-    "hash": "89e0e4d2a06fb29bbe6a5ddffc2eb40905ac0237789d69d1506d746fcc09e72b",
-    "declarationCount": 3637,
+    "hash": "428568b5e54efb591792619cdafc168d2e8fbd36c92ad5aee77058dfbdd2590c",
+    "declarationCount": 3642,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -12764,6 +12764,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Events.Cap/NhEventOptions.cs",
         "declaration": "public MessageProcessingType DefaultProcessingType { get; set; } = MessageProcessingType.PerInstance;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/DestinationMember.cs",
+        "declaration": "public string Name => member.Name;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/DestinationMember.cs",
+        "declaration": "public Type ValueType => member switch"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/DestinationMember.cs",
+        "declaration": "public bool CanWrite => member switch"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/DestinationMember.cs",
+        "declaration": "public object? GetValue(object destination) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/DestinationMember.cs",
+        "declaration": "public void SetValue(object destination, object? value) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Mapping/Mapper.cs",

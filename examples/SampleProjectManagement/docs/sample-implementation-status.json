@@ -303,6 +303,7 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CircularMappingSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MappingCompatibilitySamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/PublicFieldParityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/AutoMapper14BehaviorParityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/AutoMapper14BoundaryParityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/CircularReferenceParityTests.cs",

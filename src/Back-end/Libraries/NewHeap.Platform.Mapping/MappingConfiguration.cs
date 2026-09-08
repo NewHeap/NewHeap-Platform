@@ -111,16 +111,16 @@ public sealed class MapperConfiguration : IConfigurationProvider
 
             foreach (var memberMap in typeMap.MemberMaps)
             {
-                if (CanMapType(memberMap.SourceValueType, memberMap.DestinationProperty.PropertyType, []))
+                if (CanMapType(memberMap.SourceValueType, memberMap.DestinationMember.ValueType, []))
                 {
                     continue;
                 }
 
                 errors.Add(
                     $"Destination member '{typeMap.DestinationType.FullName}." +
-                    $"{memberMap.DestinationProperty.Name}' cannot map from " +
+                    $"{memberMap.DestinationMember.Name}' cannot map from " +
                     $"'{memberMap.SourceValueType.FullName}' to " +
-                    $"'{memberMap.DestinationProperty.PropertyType.FullName}'.");
+                    $"'{memberMap.DestinationMember.ValueType.FullName}'.");
             }
         }
 
@@ -180,7 +180,7 @@ public sealed class MapperConfiguration : IConfigurationProvider
     {
         var dependencies = _typeMaps.Values.ToDictionary(map => map, map =>
             map.MemberMaps.SelectMany(member => GetAssociatedMaps(
-                member.SourceValueType, member.DestinationProperty.PropertyType)).Distinct().ToArray());
+                member.SourceValueType, member.DestinationMember.ValueType)).Distinct().ToArray());
 
         foreach (var map in _typeMaps.Values)
         {
@@ -675,17 +675,21 @@ internal abstract class TypeMapDefinition
                 includedBaseMap.Seal(typeMaps);
             }
 
-            var destinationProperties = GetPublicInstanceProperties(DestinationType)
+            var destinationMembers = GetPublicInstanceProperties(DestinationType)
                 .Where(property =>
                     property.GetMethod?.IsPublic == true &&
                     (property.SetMethod is not null || IsMutableCollection(property.PropertyType)) &&
                     property.GetIndexParameters().Length == 0)
+                .Select(property => new DestinationMember(property))
+                .Concat(DestinationType.GetFields(BindingFlags.Instance | BindingFlags.Public)
+                    .Where(field => !field.IsInitOnly && !field.IsLiteral)
+                    .Select(field => new DestinationMember(field)))
                 .GroupBy(property => property.Name, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
 
             foreach (var configuredMemberName in ConfiguredMembers.Keys)
             {
-                if (!destinationProperties.ContainsKey(configuredMemberName))
+                if (!destinationMembers.ContainsKey(configuredMemberName))
                 {
                     throw new MappingConfigurationException(
                         $"Destination member '{configuredMemberName}' does not exist on " +
@@ -703,18 +707,18 @@ internal abstract class TypeMapDefinition
             }
 
             var inheritedMemberMaps = includedBaseMap?.MemberMaps
-                .ToDictionary(memberMap => memberMap.DestinationProperty.Name, StringComparer.Ordinal)
+                .ToDictionary(memberMap => memberMap.DestinationMember.Name, StringComparer.Ordinal)
                 ?? new Dictionary<string, MemberMapDefinition>(StringComparer.Ordinal);
             var inheritedIgnoredMembers = includedBaseMap?.IgnoredDestinationMembers
                 ?? new HashSet<string>(StringComparer.Ordinal);
             var memberMaps = new List<MemberMapDefinition>();
             var unmappedDestinationMembers = new List<string>();
             var ignoredDestinationMembers = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var destinationProperty in destinationProperties.Values)
+            foreach (var destinationMember in destinationMembers.Values)
             {
-                ConfiguredMembers.TryGetValue(destinationProperty.Name, out var explicitMember);
+                ConfiguredMembers.TryGetValue(destinationMember.Name, out var explicitMember);
                 var configuredMember = explicitMember?.Clone() ?? new ConfiguredMemberMap();
-                if (inheritedMemberMaps.TryGetValue(destinationProperty.Name, out var inheritedMemberMap))
+                if (inheritedMemberMaps.TryGetValue(destinationMember.Name, out var inheritedMemberMap))
                 {
                     if (configuredMember.SourceResolver is null)
                     {
@@ -725,7 +729,7 @@ internal abstract class TypeMapDefinition
                     configuredMember.Condition ??= inheritedMemberMap.Condition;
                 }
 
-                if (explicitMember?.SourceResolver is null && inheritedIgnoredMembers.Contains(destinationProperty.Name))
+                if (explicitMember?.SourceResolver is null && inheritedIgnoredMembers.Contains(destinationMember.Name))
                 {
                     configuredMember.IsIgnored = true;
                 }
@@ -737,25 +741,25 @@ internal abstract class TypeMapDefinition
 
                 if (configuredMember.IsIgnored)
                 {
-                    ignoredDestinationMembers.Add(destinationProperty.Name);
+                    ignoredDestinationMembers.Add(destinationMember.Name);
                     continue;
                 }
 
                 if (configuredMember.SourceResolver is null)
                 {
-                    ConventionSource.TryResolve(SourceType, destinationProperty.Name, out var resolver, out var valueType);
+                    ConventionSource.TryResolve(SourceType, destinationMember.Name, out var resolver, out var valueType);
                     configuredMember.SourceResolver = resolver;
                     configuredMember.SourceValueType = valueType;
                 }
 
                 if (configuredMember.SourceResolver is null)
                 {
-                    unmappedDestinationMembers.Add(destinationProperty.Name);
+                    unmappedDestinationMembers.Add(destinationMember.Name);
                     continue;
                 }
 
                 memberMaps.Add(new MemberMapDefinition(
-                    destinationProperty,
+                    destinationMember,
                     configuredMember.SourceResolver,
                     configuredMember.SourceValueType!,
                     configuredMember.Condition));
@@ -828,7 +832,7 @@ internal sealed class TypeMapDefinition<TSource, TDestination> :
         ArgumentNullException.ThrowIfNull(destinationMember);
         ArgumentNullException.ThrowIfNull(memberOptions);
 
-        var property = GetDirectProperty(destinationMember);
+        var property = GetDirectMember(destinationMember);
         if (!ConfiguredMembers.TryGetValue(property.Name, out var configuredMember))
         {
             configuredMember = new ConfiguredMemberMap();
@@ -936,22 +940,23 @@ internal sealed class TypeMapDefinition<TSource, TDestination> :
         return this;
     }
 
-    private static PropertyInfo GetDirectProperty<TDestinationMember>(
+    private static MemberInfo GetDirectMember<TDestinationMember>(
         Expression<Func<TDestination, TDestinationMember>> destinationMember)
     {
         var body = destinationMember.Body is UnaryExpression { NodeType: ExpressionType.Convert } unary
             ? unary.Operand
             : destinationMember.Body;
 
-        if (body is not MemberExpression { Member: PropertyInfo property } memberExpression ||
+        if (body is not MemberExpression memberExpression ||
+            memberExpression.Member is not (PropertyInfo or FieldInfo) ||
             memberExpression.Expression != destinationMember.Parameters[0])
         {
             throw new ArgumentException(
-                "A destination member must select one direct property.",
+                "A destination member must select one direct property or field.",
                 nameof(destinationMember));
         }
 
-        return property;
+        return memberExpression.Member;
     }
 }
 
@@ -1033,7 +1038,7 @@ internal sealed class ConfiguredMemberMap
 }
 
 internal sealed record MemberMapDefinition(
-    PropertyInfo DestinationProperty,
+    DestinationMember DestinationMember,
     MappingMemberResolver SourceResolver,
     Type SourceValueType,
     Func<object, object, object?, object?, bool>? Condition);
