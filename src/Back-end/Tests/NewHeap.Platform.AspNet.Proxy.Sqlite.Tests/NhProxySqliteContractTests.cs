@@ -14,6 +14,7 @@ public sealed class NhProxySqliteContractTests
     [Fact]
     public async Task Registration_starts_an_empty_host_and_invokes_callbacks_once()
     {
+        var databasePath = Path.Combine(Path.GetTempPath(), $"newheap-proxy-{Guid.NewGuid():N}.db");
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         var optionCalls = 0;
@@ -29,7 +30,11 @@ public sealed class NhProxySqliteContractTests
                 Assert.Contains(yarp.Services, descriptor => descriptor.ServiceType == typeof(IProxyConfigProvider));
                 yarp.ConfigureHttpClient((_, handler) => handler.ConnectTimeout = TimeSpan.FromSeconds(3));
             });
-        }, storage => storage.BusyTimeout = TimeSpan.FromSeconds(8));
+        }, storage =>
+        {
+            storage.BusyTimeout = TimeSpan.FromSeconds(8);
+            storage.DatabasePath = databasePath;
+        });
 
         Assert.Same(builder.Services, services);
         await using var app = builder.Build();
@@ -57,6 +62,9 @@ public sealed class NhProxySqliteContractTests
 
         Assert.Equal(1, optionCalls);
         Assert.Equal(1, yarpCalls);
+        await app.DisposeAsync();
+        File.Delete(databasePath);
+        File.Delete(databasePath + ".lock");
     }
 
     [Fact]
@@ -97,27 +105,10 @@ public sealed class NhProxySqliteContractTests
     }
 
     [Fact]
-    public async Task Storage_operations_fail_explicitly_without_claiming_persistence()
+    public async Task Rewrite_storage_remains_unimplemented()
     {
-        var options = Options.Create(new NhProxySqliteOptions());
-        var store = new NhProxySqliteConfigurationStore(options);
-        var audit = new NhProxySqliteLoginAuditStore(options);
-
-        await Assert.ThrowsAsync<NotImplementedException>(() => store.InitializeAsync());
+        await using var store = new NhProxySqliteConfigurationStore(Options.Create(new NhProxySqliteOptions()));
         await Assert.ThrowsAsync<NotImplementedException>(() => store.LoadRewritesAsync());
-        await Assert.ThrowsAsync<NotImplementedException>(() => store.LoadRedirectsAsync());
         await Assert.ThrowsAsync<NotImplementedException>(() => store.SaveRewritesAsync(new NhProxyRewriteSaveRequest(0, [], [])));
-        await Assert.ThrowsAsync<NotImplementedException>(() => store.SaveRedirectsAsync(new NhProxyRedirectSaveRequest(0, [])));
-        await Assert.ThrowsAsync<NotImplementedException>(() => audit.AppendAsync(new NhProxyLoginAuditEvent
-        {
-            Id = Guid.NewGuid(),
-            OccurredAtUtc = DateTimeOffset.UtcNow,
-            ClientIp = "192.0.2.1",
-            Outcome = NhProxyLoginOutcome.InvalidCredentials,
-            CorrelationId = "contract-check"
-        }));
-        await Assert.ThrowsAsync<NotImplementedException>(() => audit.QueryAsync(new NhProxyLoginAuditQuery()));
-        await Assert.ThrowsAsync<NotImplementedException>(() => audit.DeleteExpiredAsync(DateTimeOffset.UtcNow, 10));
-        await Assert.ThrowsAsync<NotImplementedException>(() => store.DisposeAsync().AsTask());
     }
 }

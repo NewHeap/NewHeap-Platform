@@ -25,20 +25,23 @@ when it:
 
 ## Library patterns
 
-Proxy registration case SPM-238 is exercised by `ProxyContractBoundarySamplesTests`.
-It starts an ASP.NET host through `AddNewHeapProxy`, exercises the optional
-`NhProxyOptions.ConfigureYarp` callback during registration, resolves options and
-the empty YARP configuration, and constructs typed rewrite/redirect requests.
-`UseNewHeapProxy` internally maps native YARP endpoints and loads initial configuration;
-the sample needs only Add/Use. SPM-239 remains a `library-gap`:
-YARP forwarding, middleware redirects, MVC administration, dry-run execution,
-and SQLite persistence/auditing are not implemented. There is no proxy workbench
-to open yet, and these contract tests provide no relational-provider evidence.
+Proxy case SPM-238 is exercised by `ProxyContractBoundarySamplesTests`,
+`ProxyLiteralRedirectSamplesTests`, `ProxyAdministrationSamplesTests` and the
+standalone `SampleProjectManagement.Proxy` application. The preferred two-call
+flow loads SQLite redirects before requests and provides embedded MVC management.
+The panel authenticates one configured account, enforces optional IP restrictions,
+audits login attempts, tests unsaved literal rules and saves/activates revisions
+without restart. Real SQLite and HTTP tests cover persistence, conflicts,
+authentication, CSRF, audit failure, PathBase and activation retry.
+
+See [proxy administration setup](proxy-administration.md) for the runnable sample.
+SPM-239 remains a `library-gap` for managed rewrite persistence/editing/activation,
+full-pipeline draft execution, prefix/template matching and general cycle analysis.
+SQL Server and PostgreSQL remain explicit v1 provider gaps.
 
 The samples are built directly on the public NewHeap surface. Collections use
-the fluent request builder and edit components are opened through
-`NhModalService`. The controller only translates HTTP while the concrete service
-owns business rules and the outer transaction scope. Database writes are saved,
+the fluent request builder, and project mutations call one concrete application
+service that owns the full transaction scope. Database writes are saved,
 events are published through CAP inside that scope, and one commit follows only
 afterward. There is no local base service or repository wrapper.
 

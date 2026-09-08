@@ -15,6 +15,7 @@ public sealed class ProxyContractBoundarySamplesTests
     [Fact]
     public async Task Consumer_can_start_a_host_and_configure_yarp_through_proxy_options()
     {
+        var databasePath = Path.Combine(Path.GetTempPath(), $"newheap-proxy-sample-{Guid.NewGuid():N}.db");
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         var callbackCalls = 0;
@@ -26,7 +27,7 @@ public sealed class ProxyContractBoundarySamplesTests
                 yarp.ConfigureHttpClient((_, handler) => handler.ConnectTimeout = TimeSpan.FromSeconds(5));
                 callbackCalls++;
             });
-        });
+        }, storage => storage.DatabasePath = databasePath);
 
         await using var app = builder.Build();
         app.UseNewHeapProxy();
@@ -42,6 +43,9 @@ public sealed class ProxyContractBoundarySamplesTests
         finally
         {
             await app.StopAsync(TestContext.Current.CancellationToken);
+            await app.DisposeAsync();
+            File.Delete(databasePath);
+            File.Delete(databasePath + ".lock");
         }
     }
 

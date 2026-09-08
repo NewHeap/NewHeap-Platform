@@ -240,7 +240,7 @@
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
     "SPM-113": "The sample frontends do not yet have an Angular server target, so the server interceptor cannot run end to end.",
     "SPM-160": "The complete SSR stack still lacks @angular/platform-server, a server bootstrap, and an SSR build target.",
-    "SPM-239": "Startup registration, option binding, and native YARP endpoint mapping with initial configuration loading work. Managed forwarding, redirects, MVC, security, dry-run execution, and SQLite persistence are not implemented. No provider behavior is verified; SQL Server and PostgreSQL implementations are outside version-one scope."
+    "SPM-239": "Literal exact redirects, the MVC administration panel, fixed-account authentication, IP allowlisting, SQLite login auditing, revision-checked save/activation and single-rule local draft previews are implemented. Managed rewrite persistence/editing/activation, prefix/template matching, full-pipeline draft execution and general redirect-cycle analysis remain unimplemented. SQLite is verified; SQL Server and PostgreSQL are outside version-one scope."
   },
   "partial": {},
   "evidence": {
@@ -1517,7 +1517,10 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AgentFramework.Tests/NhAiAgentFrameworkAdapterTests.cs"
     ],
     "SPM-238": [
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyContractBoundarySamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyContractBoundarySamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyLiteralRedirectSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyAdministrationSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs"
     ]
   }
 }

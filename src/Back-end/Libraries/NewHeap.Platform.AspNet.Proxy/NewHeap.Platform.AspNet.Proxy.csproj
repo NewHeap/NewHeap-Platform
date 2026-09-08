@@ -7,12 +7,13 @@
     <PackageId>NewHeap.Platform.AspNet.Proxy</PackageId>
     <Copyright>NewHeap B.V.</Copyright>
     <Title>NewHeap ASP.NET Proxy</Title>
-    <PackageDescription>Project foundation for NewHeap ASP.NET Core proxy integration and MVC administration. Features are not yet implemented.</PackageDescription>
+    <PackageDescription>NewHeap ASP.NET Core literal redirect runtime, proxy contracts, and native YARP integration.</PackageDescription>
     <PackageTags>newheap platform aspnetcore proxy mvc</PackageTags>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="NewHeap.Platform.AspNet.Proxy.Sqlite" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
     <PackageReference Include="Yarp.ReverseProxy" />

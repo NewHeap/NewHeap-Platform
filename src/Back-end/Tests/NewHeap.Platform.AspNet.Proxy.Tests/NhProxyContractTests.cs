@@ -112,6 +112,8 @@ public sealed class NhProxyContractTests
     public async Task Combined_use_and_standalone_map_initialize_native_yarp_routes(bool useCombinedEntryPoint)
     {
         var builder = WebApplication.CreateBuilder();
+        // This mapping-only test assembles neutral services; the SQLite Add entry point registers MVC in real hosts.
+        builder.Services.AddControllersWithViews();
         builder.Services.AddReverseProxy().LoadFromMemory(
             [new RouteConfig
             {
@@ -139,7 +141,8 @@ public sealed class NhProxyContractTests
             Assert.Same(app, app.MapNewHeapProxy());
         }
 
-        var endpoint = Assert.Single(((IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints));
+        var endpoint = Assert.Single(((IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints)
+            .OfType<RouteEndpoint>(), endpoint => endpoint.RoutePattern.RawText == "/probe/{**remainder}");
         Assert.Equal("/probe/{**remainder}", Assert.IsType<RouteEndpoint>(endpoint).RoutePattern.RawText);
     }
 }

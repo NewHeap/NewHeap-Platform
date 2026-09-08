@@ -1,57 +1,133 @@
 # NewHeap ASP.NET Proxy
 
-Startup registration and typed contracts are available. `AddNewHeapProxy` registers
-options and YARP with an empty in-memory configuration, allowing an ASP.NET host to
-start. Managed forwarding, redirects, MVC administration, authentication, draft
-execution, and persistence are not implemented. `UseNewHeapProxy()` on a
-`WebApplication` maps native YARP endpoints, loads the initial configuration,
-and returns the same application. Administration endpoints are not installed yet.
+The library now loads literal redirects from SQLite at startup and applies them
+from an immutable in-memory snapshot before proxy and host endpoint execution.
+The embedded MVC panel manages literal redirects, tests unsaved rules, audits
+logins and activates saved changes. Managed rewrite storage/editing remains
+unimplemented; native YARP customization is available.
 
-The .NET 10 Razor SDK project is prepared for ASP.NET Core MVC views and uses
-the shared ASP.NET Core framework. It references `NewHeap.Platform.Common` for
-the existing `TaskResult` and `Filterable` contracts. `Yarp.ReverseProxy` supplies
-the native `IReverseProxyBuilder` callback contract; SQLite dependencies will be
-added with persistence implementation.
-
-The SQLite composition project references this library; this library does not
-reference a storage provider. Both libraries are in the backend solution and
-have dedicated, non-packable xUnit test projects using central package versions.
-The tests verify host startup, option binding, YARP callbacks, typed JSON roundtrips,
-defaults, and native route endpoint creation. They do not prove managed
-forwarding or database behavior.
-
-## Contract map
-
-| Boundary | Contracts |
-| --- | --- |
-| Host settings | `NhProxyOptions`, `ConfigureYarp`, fixed administrator, allowlist, audit retention, and limits |
-| Rewrite rules | `NhProxyRewriteRule`, match conditions, ordered typed transforms, single-destination `NhProxyCluster` |
-| Redirect rules | `NhProxyRedirectRule`, path matching, status and query handling |
-| Desired state | Immutable engine configurations and revision-checked replacement requests |
-| Orchestration | `INhProxyConfigurationService`, `INhProxyConfigurationValidator`, `INhProxyRuntime` |
-| Persistence | `INhProxyConfigurationStore` with independent writes and async ownership disposal |
-| Draft tests | `INhProxyDraftTester`, synthetic input, match diagnostics and safe previews |
-| Administration | `INhProxyAdministrationService`, login input, `INhProxyLoginAuditStore` |
-
-Full-snapshot save requests cover create, update, enable/disable, and delete
-without separate persistence methods per editor action. Revision zero represents
-a new empty engine. Never infer runtime activation from a successful database
-commit. Propagate failed activation results while retaining committed-save data.
-
-Collection values use immutable standard-library types. Host options are mutable
-for configuration binding. Credential options and login inputs are separate from
-serializable rule and audit records. Inbound proxy trust uses the host's standard
-ASP.NET Core forwarded-header configuration.
-
-## Native YARP configuration callback
-
-Call `NhProxyOptions.ConfigureYarp` with an
-`Action<Microsoft.Extensions.DependencyInjection.IReverseProxyBuilder>`:
+## Host integration
 
 ```csharp
-using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.AspNet.Proxy;
 using NewHeap.Platform.AspNet.Proxy.Sqlite;
 
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddNewHeapProxy();
+
+var app = builder.Build();
+app.UseNewHeapProxy();
+app.Run();
+```
+
+`AddNewHeapProxy` registers options, SQLite storage, redirect validation/runtime,
+and a hosted initializer. Initialization runs in the host's `StartingAsync`
+phase, before its HTTP server starts, including with concurrent hosted-service
+startup enabled. Missing databases are created; unreadable, invalid, or
+incompatible storage fails startup instead of substituting empty rules.
+
+`UseNewHeapProxy` installs the administration branch and redirect middleware and calls `MapNewHeapProxy`
+internally. Do not call both on the same `WebApplication`. Standalone
+`MapNewHeapProxy(IEndpointRouteBuilder)` remains a lower-level YARP-only mapping
+alternative; it does not install redirect middleware. Host-configured forwarded
+headers and other required host middleware belong before `UseNewHeapProxy`.
+
+Native YARP mapping loads its own initial configuration. Its provider remains
+empty until configured; redirect processing does not depend on rewrite activation.
+The reserved administration branch is installed before redirects and YARP, including catch-all routes.
+
+## Administration
+
+Open `/newheap-proxy`. The MVC panel provides search, create/edit, enable/disable,
+priority, host/method restrictions, query modes, deletion confirmation, login
+activity and a local draft test. Test evaluates one unsaved literal rule with the
+same runtime matcher, without storage writes or outbound requests. It does not
+simulate the full ordered rule set or execute managed rewrites.
+
+Configure the single account through host-owned options:
+
+```csharp
+builder.Services.AddNewHeapProxy(options =>
+{
+    options.Administrator.UserName = builder.Configuration["ProxyAdmin:UserName"]!;
+    options.Administrator.PasswordHash = builder.Configuration["ProxyAdmin:PasswordHash"]!;
+    options.Administrator.CredentialVersion = "1";
+    options.IpAllowlist.Enabled = true;
+    options.IpAllowlist.Entries = ["192.0.2.0/24"];
+});
+```
+
+Use an ASP.NET Identity `PasswordHasher<string>` hash from your secret provider.
+No default account is created; missing credentials return 503 for the panel while
+ordinary proxy traffic continues. HTTPS is required outside Development. The panel
+uses a dedicated HttpOnly, SameSite=Strict session cookie scoped to its PathBase,
+CSRF protection on POST forms, no-store responses and a restrictive CSP. The host's
+explicit/default authentication scheme is preserved. Do not explicitly choose the
+NewHeapProxy scheme as your host's default scheme. A custom host scheme provider
+remains host-owned and must likewise keep the administration scheme isolated.
+
+Every administration request checks the optional IP allowlist. Enabled with no
+entries denies access. Only trusted host forwarding middleware may alter the
+client IP; configure it before UseNewHeapProxy. Login attempts are audited with
+UTC timestamps and IP addresses, without attempted usernames or passwords. Audit
+failure cannot grant a new session. One process-wide account budget defaults to
+five attempts per minute. Retention cleanup deletes up to 1,000 expired events
+per credential attempt; idle hosts perform no background cleanup.
+
+Changing credentials or CredentialVersion invalidates existing cookies after the
+new startup options are loaded. Session duration defaults to eight hours. Host
+Data Protection configuration controls key persistence across ordinary restarts.
+
+See the [runnable administration sample](../../../../examples/SampleProjectManagement/docs/proxy-administration.md)
+for password-hash generation, host configuration and verification.
+## Literal redirects
+
+- Only `PathMode = Exact` is supported. Compare against `HttpRequest.Path` using
+  ordinal, case-sensitive equality. Trailing slashes matter. With `UsePathBase`,
+  matching uses the remaining path. The query is not part of path matching.
+- Regex characters are literal characters. Prefix, route-template matching, and
+  captures are rejected or unavailable; no regex or template substitution runs.
+- Optional hosts match case-insensitively. A host without a port matches any
+  request port; a configured port must match. Host wildcards are rejected.
+  Methods are exact, case-sensitive HTTP tokens; empty host/method lists mean all.
+- Disabled rules never match. Lower priority wins, then stable `Guid` ordering.
+  `/newheap-proxy` and its descendants bypass redirect processing.
+- Status codes `301`, `302`, `303`, `307`, and `308` are supported; `302` is the default.
+- Targets are literal root-relative paths or absolute HTTP(S) URLs. Root-relative
+  targets are rooted at the origin, not `PathBase`. Control characters, backslashes,
+  network-path targets, userinfo, and other schemes are rejected. Root-relative
+  same-path redirects are rejected conservatively even when only the query changes.
+- Preserve mode merges incoming and target query values using ASP.NET query
+  parsing. Target keys replace incoming keys case-insensitively; repeated values
+  survive and query escaping is normalized. Replace keeps only target query
+  values; Discard removes all query values. Fragments are retained.
+
+Each request captures one snapshot and never queries SQLite. A matching redirect
+sets the status and `Location` and ends processing; an unmatched request continues
+to the host/YARP pipeline. General cycle analysis and absolute self-redirect
+diagnostics remain future work.
+
+## Persistence and activation
+
+See the [SQLite README](../NewHeap.Platform.AspNet.Proxy.Sqlite/README.md) for file
+ownership, schema, and an offline seeding example. `SaveRedirectsAsync` replaces
+the complete redirect document using an expected revision. Validation and stale
+writes return failed `TaskResult` values; always inspect `Success`.
+
+Use `INhProxyConfigurationService.SaveRedirectsAsync` for live changes. It commits
+first and publishes the new snapshot even if the request is cancelled after the
+commit. A failed activation retains `NhProxySaveResult` in the failed TaskResult's
+Data; the panel shows the saved/active revision difference and offers retry.
+Conflicts do not overwrite another editor's work. Managed rewrite state remains
+independent and uninitialized.
+
+The lower-level store persists only, and the lower-level runtime publishes only.
+Both remain useful for offline setup or explicit orchestration. Requests never
+query SQLite. Do not bypass the configuration service for routine live changes.
+
+## Native YARP customization
+
+```csharp
 builder.Services.AddNewHeapProxy(options =>
 {
     options.ConfigureYarp(yarp =>
@@ -64,45 +140,31 @@ builder.Services.AddNewHeapProxy(options =>
 });
 ```
 
-Registration invokes the callback once after NewHeap's YARP base setup, not on
-rule updates or dry-runs. `builder.Services.AddNewHeapProxy()` also works with
-defaults. Complete the pipeline after building the host:
+Import `Microsoft.Extensions.DependencyInjection` for YARP builder extensions.
+The callback runs once per registration after NewHeap's base YARP setup. Repeated
+`ConfigureYarp` calls replace it; null arguments are rejected. `YarpConfiguration`
+is excluded from JSON and cannot be configured through appsettings or SQLite.
+Both option types are startup snapshots exposed through `IOptions<T>`.
 
-```csharp
-app.UseNewHeapProxy();
-app.Run();
-```
-
-`UseNewHeapProxy` calls `MapNewHeapProxy` internally, which uses native `MapReverseProxy` to install the YARP endpoint
-source and loads its initial configuration. No separate initialization call is needed.
-With the default empty provider, no forwarding routes are created.
-Do not call `MapNewHeapProxy` separately after `UseNewHeapProxy`. The standalone
-mapping method remains a lower-level alternative for `IEndpointRouteBuilder` hosts.
-Managed redirect middleware will be added to `UseNewHeapProxy` later.
-Both `NhProxyOptions` and `NhProxySqliteOptions` are available through `IOptions<T>`
-as startup snapshots. Configuration reload does not rebind these options.
-The read-only `YarpConfiguration` callback defaults to null. Repeated calls to
-`ConfigureYarp` replace it; null arguments are rejected. It is excluded from JSON and cannot be configured
-through appsettings or SQLite. Standard YARP extension methods remain available.
-Host credentials are configured separately; the callback does not configure login.
-
-## Verification
+## Verification and remaining scope
 
 From `src/Back-end`, using the pinned SDK:
 
 ```text
-dotnet build Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NewHeap.Platform.AspNet.Proxy.Sqlite.csproj
 dotnet test Tests/NewHeap.Platform.AspNet.Proxy.Tests/NewHeap.Platform.AspNet.Proxy.Tests.csproj
 dotnet test Tests/NewHeap.Platform.AspNet.Proxy.Sqlite.Tests/NewHeap.Platform.AspNet.Proxy.Sqlite.Tests.csproj
 ```
 
-Sample case SPM-238 starts a host with only Add/Use and constructs the contracts.
-SPM-239 remains a `library-gap` for the managed proxy runtime,
-including SQLite storage. SQL Server and PostgreSQL implementations are outside
-version-one scope. Replace stub checks with executable behavior tests as features
-are implemented.
+SPM-238 demonstrates startup, contracts, and real SQLite-backed HTTP redirects in
+`ProxyContractBoundarySamplesTests`, `ProxyLiteralRedirectSamplesTests` and `ProxyAdministrationSamplesTests`.
+Tests cover matching, query handling, safe targets, atomic publication, persistence,
+restart, stale writes, exclusive ownership, invalid data, and requests after the
+storage connection is disposed. SPM-239 remains a `library-gap` for the remaining
+managed rewrite features, full-pipeline draft tests and general cycle analysis.
+SQLite is the implemented provider; SQL Server and PostgreSQL are outside v1.
 
-See the [design document](../../../../docs/plans/newheap-proxy-design.md) for
-agreed scope and remaining technical decisions. These scaffold packages are not
-enrolled in the release manifest; release registration and version selection
-belong to later release preparation.
+The neutral library references ASP.NET Core, YARP, and NewHeap Common contracts;
+SQLite-specific dependencies stay in the SQLite composition project. See the
+[design document](../../../../docs/plans/newheap-proxy-design.md) for the complete
+planned scope. These unreleased packages have no release-unit membership yet;
+release versions remain unchanged.

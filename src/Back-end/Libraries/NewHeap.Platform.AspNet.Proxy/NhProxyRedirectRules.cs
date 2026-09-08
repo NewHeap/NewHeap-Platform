@@ -27,7 +27,9 @@ public sealed record NhProxyRedirectMatch
 public enum NhProxyRedirectPathMatchMode
 {
     Exact,
+    /// <summary>Reserved for a future version; currently rejected by validation.</summary>
     Prefix,
+    /// <summary>Reserved for a future version; currently rejected by validation.</summary>
     RouteTemplate
 }
 

@@ -1,0 +1,5 @@
+@model NhProxyRedirectDeleteModel
+@{ ViewData["Title"] = "Delete redirect"; }
+<div class="editor"><a asp-action="Index">Back to redirects</a><h1>Delete redirect?</h1><p class="muted">This rule will stop redirecting visitors as soon as the change is activated.</p>
+<div class="card"><h2>@Model.Rule.Name</h2><p><code>@Model.Rule.Match.Path</code></p><p class="muted">Destination: <code>@Model.Rule.Target</code></p><span class="badge">HTTP @((int)Model.Rule.Status)</span></div>
+<form asp-action="Delete" asp-route-id="@Model.Rule.Id" method="post"><input type="hidden" name="revision" value="@Model.Revision" /><div class="actions"><a asp-action="Index">Cancel</a><button class="danger" type="submit">Delete redirect</button></div></form></div>

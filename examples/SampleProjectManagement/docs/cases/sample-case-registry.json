@@ -3253,12 +3253,15 @@
     {
       "id": "SPM-238",
       "categoryId": "7",
-      "title": "Proxy startup registration and contract boundary",
-      "surface": "NhProxyRewriteRule, NhProxyRedirectRule, independent save requests, draft input, NhProxyOptions.ConfigureYarp, AddNewHeapProxy, UseNewHeapProxy, MapNewHeapProxy",
-      "outcome": "A consumer starts a WebApplication with only AddNewHeapProxy and UseNewHeapProxy, configures YARP with options.ConfigureYarp(yarp => { ... }), and resolves startup options and the empty in-memory YARP configuration. UseNewHeapProxy internally maps native YARP endpoints and loads initial configuration; a separate MapNewHeapProxy call is unnecessary. Typed rule contracts compile. Managed forwarding, redirects, administration, and persistence remain unimplemented.",
+      "title": "SQLite literal redirects and embedded MVC administration",
+      "surface": "NhProxyRedirectRule, INhProxyConfigurationService, INhProxyAdministrationService, NhProxySqliteLoginAuditStore, NhProxyOptions.ConfigureYarp, AddNewHeapProxy, UseNewHeapProxy, MVC redirect editing and local draft testing",
+      "outcome": "A consumer starts the proxy with AddNewHeapProxy and UseNewHeapProxy, loads literal redirects from SQLite before requests, and manages rules in the embedded MVC panel with host-owned credentials. The configuration service commits and activates changes immediately with revision conflict protection. The panel tests unsaved literal rules locally and records login IP/outcome auditing. Native YARP and host authentication remain independent; managed rewrite editing and full-pipeline draft testing remain gaps.",
       "implementation": "implemented",
       "evidence": [
-        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyContractBoundarySamplesTests.cs"
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyContractBoundarySamplesTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyLiteralRedirectSamplesTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyAdministrationSamplesTests.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs"
       ]
     },
     {
@@ -3268,7 +3271,7 @@
       "surface": "YARP forwarding, MVC administration, SQLite storage, independent activation, isolated rule testing, and login IP auditing",
       "outcome": "A consumer hosts the complete managed proxy with one destination per cluster, middleware redirects, and durable configuration and login auditing.",
       "implementation": "library-gap",
-      "statusReason": "Startup registration, option binding, and native YARP endpoint mapping with initial configuration loading work. Managed forwarding, redirects, MVC, security, dry-run execution, and SQLite persistence are not implemented. No provider behavior is verified; SQL Server and PostgreSQL implementations are outside version-one scope.",
+      "statusReason": "Literal exact redirects, the MVC administration panel, fixed-account authentication, IP allowlisting, SQLite login auditing, revision-checked save/activation and single-rule local draft previews are implemented. Managed rewrite persistence/editing/activation, prefix/template matching, full-pipeline draft execution and general redirect-cycle analysis remain unimplemented. SQLite is verified; SQL Server and PostgreSQL are outside version-one scope.",
       "evidence": []
     }
   ]
