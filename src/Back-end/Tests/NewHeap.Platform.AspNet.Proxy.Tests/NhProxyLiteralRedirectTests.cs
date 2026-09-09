@@ -1,5 +1,8 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -249,19 +252,165 @@ public sealed class NhProxyLiteralRedirectTests
     }
 
     [Fact]
-    public async Task Regex_timeout_is_bounded_and_the_administration_branch_is_always_reserved()
+    public async Task Regex_timeout_returns_503_and_the_administration_branch_is_always_reserved()
     {
         var runtime = Runtime();
         Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
         {
             Rules = [Rule() with { Match = new NhProxyRedirectMatch { PathMode = NhProxyRedirectPathMatchMode.Regex, Path = "^/(a+)+$" } }]
         })).Success);
-        Assert.Equal(418, (await Request(runtime, "/" + new string('a', 10000) + "!")).Response.StatusCode);
+        var timedOut = await Request(runtime, "/" + new string('a', 10000) + "!");
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, timedOut.Response.StatusCode);
+        Assert.Equal("no-store", timedOut.Response.Headers.CacheControl.ToString());
+        Assert.False(timedOut.Response.Headers.ContainsKey("Location"));
         Assert.Equal(302, (await Request(runtime, "/aaa")).Response.StatusCode);
         Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
         {
             Revision = 1, Rules = [Rule() with { Match = new NhProxyRedirectMatch { PathMode = NhProxyRedirectPathMatchMode.Regex, Path = ".*" } }]
         })).Success);
         Assert.Equal(418, (await Request(runtime, "/newheap-proxy/Edit")).Response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/old", 1, 60)]
+    [InlineData("/missing", 1, 60)]
+    [InlineData("/missing", 10, 20)]
+    public async Task Whole_resolver_deadline_covers_exact_hits_misses_and_accumulated_rule_work(string path, int ruleCount, int delayMilliseconds)
+    {
+        var runtime = Runtime();
+        Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
+        {
+            Rules = Enumerable.Range(0, ruleCount).Select(_ => Rule() with
+            {
+                Match = new NhProxyRedirectMatch { Path = "/old", Methods = ["GET"] }
+            }).ToImmutableArray()
+        })).Success);
+
+        var feature = new SlowMethodRequestFeature(delayMilliseconds) { Path = path };
+        var context = new DefaultHttpContext();
+        context.Features.Set<IHttpRequestFeature>(feature);
+        var middleware = new NhProxyRedirectMiddleware(_ => throw new InvalidOperationException("Timed-out resolution must not reach the backend."), runtime);
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
+        Assert.Equal("no-store", context.Response.Headers.CacheControl.ToString());
+        Assert.False(context.Response.Headers.ContainsKey("Location"));
+        Assert.InRange(feature.MethodReads, 1, Math.Min(ruleCount, 3));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(15)]
+    [InlineData(49)]
+    [InlineData(75)]
+    public void Remaining_budget_is_enforced_inside_the_regex_engine(int remainingMilliseconds)
+    {
+        var variants = new ConcurrentDictionary<int, Regex>();
+        var remaining = TimeSpan.FromMilliseconds(remainingMilliseconds + 0.9);
+        var regex = NhProxyRuntime.GetRegexForBudget(variants, "^/(a+)+$", remaining)!;
+        Assert.Equal(TimeSpan.FromMilliseconds(remainingMilliseconds), regex.MatchTimeout);
+        Assert.Matches(regex, "/aaa");
+
+        // This exception comes from the synchronous regex engine, not a timer that abandons running work.
+        var exception = Assert.Throws<RegexMatchTimeoutException>(() => regex.Match("/" + new string('a', 10000) + "!"));
+
+        Assert.Equal(TimeSpan.FromMilliseconds(remainingMilliseconds), exception.MatchTimeout);
+        Assert.Same(regex, NhProxyRuntime.GetRegexForBudget(variants, "^/(a+)+$", remaining));
+        Assert.Matches(regex, "/aaa");
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(0.9)]
+    public void Exhausted_budget_does_not_prepare_or_start_a_regex(double remainingMilliseconds)
+    {
+        var variants = new ConcurrentDictionary<int, Regex>();
+
+        Assert.Null(NhProxyRuntime.GetRegexForBudget(variants, "^/(a+)+$", TimeSpan.FromMilliseconds(remainingMilliseconds)));
+
+        Assert.Empty(variants);
+    }
+
+    [Fact]
+    public async Task Expired_filter_work_returns_timeout_before_redirecting()
+    {
+        var runtime = Runtime();
+        Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
+        {
+            Rules = [Rule() with
+            {
+                Match = new NhProxyRedirectMatch { Path = "^/(a+)+$", PathMode = NhProxyRedirectPathMatchMode.Regex, Methods = ["GET"] }
+            }]
+        })).Success);
+        var context = new DefaultHttpContext();
+        context.Features.Set<IHttpRequestFeature>(new SlowMethodRequestFeature(60) { Path = "/aaa" });
+
+        Assert.False(runtime.TryRedirect(context, out var failure));
+
+        Assert.Equal(NhProxyRuntime.ResolutionTimeoutFailure, failure);
+        Assert.False(context.Response.Headers.ContainsKey("Location"));
+    }
+
+    [Theory]
+    [InlineData(20, 503)]
+    [InlineData(500, 302)]
+    public async Task Configured_resolution_timeout_controls_the_whole_resolver(int timeoutMilliseconds, int expectedStatus)
+    {
+        var options = Options.Create(new NhProxyOptions
+        {
+            Limits = new NhProxyLimits { RedirectResolutionTimeoutMilliseconds = timeoutMilliseconds }
+        });
+        var runtime = new NhProxyRuntime(new NhProxyConfigurationValidator(options), options);
+        Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
+        {
+            Rules = [Rule() with { Match = new NhProxyRedirectMatch { Path = "/old", Methods = ["GET"] } }]
+        })).Success);
+        var context = new DefaultHttpContext();
+        context.Features.Set<IHttpRequestFeature>(new SlowMethodRequestFeature(60) { Path = "/old" });
+        var middleware = new NhProxyRedirectMiddleware(_ => throw new InvalidOperationException("Must not reach the backend."), runtime);
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(expectedStatus, context.Response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(2147483647)]
+    public void Invalid_resolution_timeouts_are_rejected(int milliseconds)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new NhProxyLimits { RedirectResolutionTimeoutMilliseconds = milliseconds });
+    }
+
+    [Fact]
+    public void Larger_timeouts_do_not_grow_the_regex_cache_without_limit()
+    {
+        var variants = new ConcurrentDictionary<int, Regex>();
+        for (var milliseconds = 1; milliseconds <= 75; milliseconds++)
+        {
+            var regex = NhProxyRuntime.GetRegexForBudget(variants, "^/old$", TimeSpan.FromMilliseconds(milliseconds))!;
+            Assert.Equal(TimeSpan.FromMilliseconds(milliseconds), regex.MatchTimeout);
+        }
+
+        Assert.Equal(50, variants.Count);
+    }
+
+    private sealed class SlowMethodRequestFeature(int delayMilliseconds) : HttpRequestFeature, IHttpRequestFeature
+    {
+        public int MethodReads { get; private set; }
+
+        string IHttpRequestFeature.Method
+        {
+            get
+            {
+                MethodReads++;
+                Thread.Sleep(delayMilliseconds);
+                return "GET";
+            }
+            set => base.Method = value;
+        }
     }
 }

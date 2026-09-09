@@ -73,6 +73,7 @@ public sealed class NhProxySqliteContractTests
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["NewHeapProxy:Administrator:UserName"] = "proxy-admin",
+            ["NewHeapProxy:Limits:RedirectResolutionTimeoutMilliseconds"] = "125",
             ["NewHeapProxy:IpAllowlist:Enabled"] = "true",
             ["NewHeapProxy:IpAllowlist:Entries:0"] = "192.0.2.0/24",
             ["NewHeapProxy:Sqlite:DatabasePath"] = "App_Data/custom-proxy.db",
@@ -86,6 +87,7 @@ public sealed class NhProxySqliteContractTests
         var options = provider.GetRequiredService<IOptions<NhProxyOptions>>().Value;
         var storage = provider.GetRequiredService<IOptions<NhProxySqliteOptions>>().Value;
         Assert.Equal("proxy-admin", options.Administrator.UserName);
+        Assert.Equal(125, options.Limits.RedirectResolutionTimeoutMilliseconds);
         Assert.True(options.IpAllowlist.Enabled);
         Assert.Equal("192.0.2.0/24", Assert.Single(options.IpAllowlist.Entries));
         Assert.Equal("App_Data/custom-proxy.db", storage.DatabasePath);
@@ -100,6 +102,7 @@ public sealed class NhProxySqliteContractTests
         await using var app = builder.Build();
 
         Assert.Null(app.Services.GetRequiredService<IOptions<NhProxyOptions>>().Value.YarpConfiguration);
+        Assert.Equal(50, app.Services.GetRequiredService<IOptions<NhProxyOptions>>().Value.Limits.RedirectResolutionTimeoutMilliseconds);
         Assert.Equal("App_Data/newheap-proxy.db", app.Services.GetRequiredService<IOptions<NhProxySqliteOptions>>().Value.DatabasePath);
         Assert.Empty(app.Services.GetRequiredService<IProxyConfigProvider>().GetConfig().Routes);
     }

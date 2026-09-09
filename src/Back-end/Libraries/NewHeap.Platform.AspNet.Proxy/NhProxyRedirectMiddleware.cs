@@ -7,6 +7,18 @@ public sealed class NhProxyRedirectMiddleware(RequestDelegate next, NhProxyRunti
 {
     public Task InvokeAsync(HttpContext context)
     {
-        return runtime.TryRedirect(context, out _) ? Task.CompletedTask : next(context);
+        if (runtime.TryRedirect(context, out var failure))
+        {
+            return Task.CompletedTask;
+        }
+
+        if (failure == NhProxyRuntime.ResolutionTimeoutFailure)
+        {
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            context.Response.Headers.CacheControl = "no-store";
+            return Task.CompletedTask;
+        }
+
+        return next(context);
     }
 }

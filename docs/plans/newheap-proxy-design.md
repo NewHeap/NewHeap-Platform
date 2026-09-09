@@ -462,9 +462,15 @@ Regex matching receives the escaped path plus query string (excluding PathBase),
 and .NET substitutions such as $1 and ${name} build the entire target. All QueryMode
 settings are ignored: the administrator must explicitly capture or supply every
 query value. Absolute target authorities remain fixed. Regexes are prepared per
-snapshot with a 50 ms match timeout and a cumulative budget checked before each
-pattern. Invalid expansions or timeouts pass through and are explained in draft
-tests. Existing SQLite documents remain compatible and no schema migration is
+snapshot with a shared resolver budget (50 ms by default), configured through
+NewHeapProxy:Limits:RedirectResolutionTimeoutMilliseconds and captured at startup, covering
+exact rules, filters and target construction. Timeout returns HTTP 503 with
+no-store and no downstream execution. Each regex receives only the remaining
+budget as its native engine timeout, interrupting matching rather than abandoning
+a background task. Other synchronous operations and scheduling can overrun the
+deadline. Invalid expansions still pass through unless
+the budget expired. Draft tests explain failures. Existing SQLite documents remain
+compatible and no schema migration is
 needed. See the proxy README for limits and exact input/escaping semantics.
 
 The following describes the broader planned redirect feature set; prefix/template

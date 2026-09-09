@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.28",
   "backEnd": {
-    "hash": "76de72710631bf6652bffdf42c22d5bfebb1b972ceefc584d0f8abd903155938",
-    "declarationCount": 3938,
+    "hash": "7875b65736799374cfe3a3a1dff1dde50f1ce6b9152d70bb1522e6543651e2ff",
+    "declarationCount": 3940,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -10611,6 +10611,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public int RedirectResolutionTimeoutMilliseconds {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
         "declaration": "public int MaximumRulesPerEngine { get; set; } = 1000;"
       },
       {
@@ -10827,7 +10831,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRuntime.cs",
-        "declaration": "public sealed class NhProxyRuntime(INhProxyConfigurationValidator validator) : INhProxyRuntime {"
+        "declaration": "public sealed class NhProxyRuntime(INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options) : INhProxyRuntime {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRuntime.cs",
+        "declaration": "public NhProxyRuntime(INhProxyConfigurationValidator validator) : this(validator, Options.Create(new NhProxyOptions())) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRuntime.cs",
@@ -19164,6 +19172,7 @@
       "NhProxyRedirectRule",
       "NhProxyConfigurationValidator",
       "NhProxyRuntime",
+      "RedirectResolutionTimeoutMilliseconds",
       "NhProxySqliteConfigurationStore",
       "NhProxySqliteLoginAuditStore",
       "INhProxyConfigurationService",

@@ -69,7 +69,7 @@ public sealed class NhProxyConfigurationValidator(IOptions<NhProxyOptions> optio
         return Task.FromResult(TaskResult.Succeeded());
     }
 
-    internal static Regex CreateRegex(string pattern) => new(pattern, RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(50));
+    internal static Regex CreateRegex(string pattern, TimeSpan? timeout = null) => new(pattern, RegexOptions.CultureInvariant, timeout ?? TimeSpan.FromMilliseconds(50));
 
     private static bool IsValidRegexRule(NhProxyRedirectRule rule)
     {

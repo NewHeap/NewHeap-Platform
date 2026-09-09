@@ -116,12 +116,26 @@ QueryMode is ignored for regex rules: include every query value explicitly in th
 target or capture it from the input. No merge or query parsing occurs in this mode.
 Absolute authorities stay fixed; captures belong in the path, query or fragment.
 The runtime prepares regexes per immutable snapshot, validates expanded targets,
-and rejects unsafe or root-relative self expansions. A 50 ms per-match timeout,
-a cumulative budget checked before each regex, and 65,536-character input/output
-limits bound evaluation. Patterns are limited to 2,048 characters and targets to
-4,096. A timed-out, over-limit or unsafe expansion ends redirect evaluation and
-passes through; the draft tester explains the failure. Existing rules stay Exact,
-and no schema migration is needed. Older runtimes cannot load new regex rules.
+and rejects unsafe or root-relative self expansions. A shared wall-clock resolver
+budget includes exact rules, host/method checks and target construction. Configure
+NewHeapProxy:Limits:RedirectResolutionTimeoutMilliseconds as an integer number of milliseconds (default 50)
+through the section-binding overload or options callback. The runtime captures
+the value at startup and the draft tester uses the same option. Values must be
+between 1 and 2,147,483,646 ms, matching the regex engine's supported range.
+Expiry or a regex timeout returns HTTP 503 with Cache-Control: no-store and no
+Location header; downstream endpoints do not execute. Each regex receives only
+the remaining budget as its engine timeout, rounded down to whole milliseconds.
+With less than 1 ms left, do not start another match. RegexMatchTimeoutException
+interrupts the matching itself; do not use Task.Run/WaitAsync to abandon CPU work.
+Cache at most 50 timeout variants per rule and snapshot regardless of the configured
+budget; run additional variants without retaining them. Recheck the remaining
+budget after preparing a variant. Check the deadline between resolver stages and
+before returning. Other synchronous operations and runtime scheduling remain
+cooperative rather than hard-preemptible.
+Input/output limits are 65,536 characters; patterns are limited to 2,048 characters
+and targets to 4,096. Over-limit or unsafe expansions still pass through unless
+the resolver budget expired. The draft tester explains failures. Existing rules
+stay Exact, and no schema migration is needed. Older runtimes cannot load new regex rules.
 
 Keep the SQLite file on durable local storage outside the webroot. Its default is
 App_Data/newheap-proxy.db under the host content root. One lock-file handle enforces
@@ -168,6 +182,11 @@ covers startup, compare-and-swap, reopen, ownership, corruption, schema upgrade,
 audit idempotency/filtering/paging and retention. HTTP tests cover CSRF, login/IP
 checks, throttling, audit failure, scoped cookies, credential rotation, host auth,
 PathBase, local draft isolation, save/activation, stale writes and deletion.
+Resolver tests cover engine-enforced remaining-budget timeouts, exhausted-budget
+short-circuiting, configured budgets, invalid values, bounded caching, slow exact
+hits/misses and accumulated rule work. The persisted HTTP sample binds a 75 ms
+budget from configuration, verifies that an expensive regex returns 503 and that
+a later request succeeds. Registration tests verify the 50 ms default.
 Run the standalone sample and inspect login, list, editor and audit pages on desktop
 and mobile. Keep SPM-239's remaining capabilities explicitly unimplemented.
 

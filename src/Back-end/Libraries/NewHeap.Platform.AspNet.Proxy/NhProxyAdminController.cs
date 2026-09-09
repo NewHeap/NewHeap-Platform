@@ -194,7 +194,7 @@ public sealed class NhProxyAdminController(INhProxyConfigurationService configur
                 return View(model);
             }
 
-            var preview = new NhProxyRuntime(validator);
+            var preview = new NhProxyRuntime(validator, options);
             var published = await preview.PublishRedirectsAsync(new NhProxyRedirectConfiguration { Rules = [rule] }, cancellationToken);
             if (!published.Success)
             {

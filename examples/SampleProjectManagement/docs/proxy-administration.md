@@ -88,6 +88,17 @@ Leave the checkbox off to retain exact path matching and the existing query mode
 The test also reports invalid expanded destinations and regex timeouts without
 saving the draft. Absolute destination hosts must remain fixed in the template.
 
+Live redirect resolution has a shared budget for exact and regex rules, defaulting
+to 50 ms. Set `NewHeapProxy:Limits:RedirectResolutionTimeoutMilliseconds` to an integer
+such as `100` for 100 ms, then restart. The same setting applies to draft tests.
+Expiry or a regex timeout returns HTTP 503 with `Cache-Control: no-store`; no
+redirect or backend request follows. Each regex gets only the remaining budget;
+the engine's own timeout interrupts matching without leaving background CPU work.
+Other synchronous operations and runtime scheduling can still overrun the deadline.
+`ProxyLiteralRedirectSamplesTests` binds a 75 ms budget and demonstrates the 503
+response using a deliberately expensive pattern; avoid nested repetitions such
+as `(a+)+` in real rules.
+
 **Test draft** shows the response for the unsaved rule without making a network
 request. **Save and activate** commits a new revision and publishes it immediately.
 Visit `/old-projects?campaign=sample` to reach the destination. Edit the rule to

@@ -107,6 +107,33 @@ sets the status and `Location` and ends processing; an unmatched request continu
 to the host/YARP pipeline. General cycle analysis and absolute self-redirect
 diagnostics remain future work.
 
+Redirect resolution has a shared wall-clock budget (50 ms by default), including exact rules,
+host/method checks and destination construction. Expiry or a regex timeout returns
+HTTP 503 with `Cache-Control: no-store`, without a Location header or executing
+downstream endpoints. Each regex receives only the remaining budget as its native
+engine timeout, so backtracking is interrupted inside the engine. No background
+task is abandoned. Checks between stages stop further resolver work. Non-regex
+synchronous operations and runtime scheduling are not hard-preemptible; the final
+result is checked before committing a redirect or allowing a no-match through.
+
+Configure `NewHeapProxy:Limits:RedirectResolutionTimeoutMilliseconds` as an integer number of milliseconds:
+
+```json
+{
+  "NewHeapProxy": {
+    "Limits": {
+      "RedirectResolutionTimeoutMilliseconds": 50
+    }
+  }
+}
+```
+
+Use `AddNewHeapProxy(builder.Configuration.GetSection("NewHeapProxy"))` to bind
+the section, or set `options.Limits.RedirectResolutionTimeoutMilliseconds` in the existing
+registration callback. The runtime captures the value at startup; restart after
+changing it. The same budget applies to the administration draft tester. Values
+below 1 ms or above 2,147,483,646 ms (the regex engine limit) are rejected.
+
 ## Regex redirects
 
 Enable **Use regular expression**, or set `Match.PathMode = NhProxyRedirectPathMatchMode.Regex`.
@@ -122,16 +149,23 @@ incoming query. **All QueryMode settings are ignored for regex rules**: there is
 no automatic merge, preserve or discard step. Captures keep their URL escaping;
 the final URL is normalized for the Location header without parsing/merging query values.
 
-Patterns are prepared once per published snapshot. Invalid patterns or unsafe
+Patterns and reusable timeout variants belong to each published snapshot. Invalid patterns or unsafe
 target templates fail validation. Absolute destination authorities must be fixed;
 substitutions belong in the path, query or fragment. Expanded destinations are
 validated again, including network-path targets and root-relative self-redirects.
-Matching has a 50 ms timeout and a cumulative 50 ms budget checked before each
-regex; one in-progress match can extend that budget by up to its own timeout.
+Regex timeouts are rounded down to whole milliseconds of remaining budget. With
+less than 1 ms left, no new regex starts. The engine throws RegexMatchTimeoutException
+to stop matching; this is not a timer that merely stops waiting for CPU work.
+Timeout variants are cached lazily, at most 50 per rule regardless of the configured
+budget, and discarded with the snapshot. Additional variants run without being
+retained. Preparing a new variant also consumes budget, which is checked again
+before matching. Scheduling and the engine's timeout checks can still cause a
+small overrun; this is not a real-time guarantee.
 Regex inputs and expanded targets are limited to 65,536 characters, patterns to
-2,048 and templates to 4,096. Timeout, limit or unsafe expansion stops redirect
-evaluation for that request and passes through without a Location header; the
-draft test explains the failure. General multi-rule cycle detection remains pending.
+2,048 and templates to 4,096. An input/output limit or unsafe expansion stops
+redirect evaluation and passes through unless the resolver budget expired.
+Timeouts return HTTP 503. The draft test explains the failure without returning
+an actual redirect. General multi-rule cycle detection remains pending.
 
 Existing SQLite documents retain exact matching. Regex mode uses the existing
 rule document without a schema migration; runtimes predating regex support cannot

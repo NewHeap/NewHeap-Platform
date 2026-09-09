@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Proxy;
@@ -43,6 +44,16 @@ public sealed class ProxyLiteralRedirectSamplesTests
                         },
                         Target = "/projects/${id}${query}"
                         // QueryMode is ignored for regex rules: only captured query values are carried over.
+                    },
+                    new NhProxyRedirectRule
+                    {
+                        Id = Guid.NewGuid(), Name = "Deliberately unsafe pattern demonstrating the resolver deadline",
+                        Match = new NhProxyRedirectMatch
+                        {
+                            PathMode = NhProxyRedirectPathMatchMode.Regex,
+                            Path = @"^/timeout/(a+)+$"
+                        },
+                        Target = "/projects"
                     }
                 ]), cancellationToken);
                 Assert.True(save.Success, string.Join("; ", save.AllErrorMessages));
@@ -50,12 +61,18 @@ public sealed class ProxyLiteralRedirectSamplesTests
 
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseUrls("http://127.0.0.1:0");
-            builder.Services.AddNewHeapProxy(configureStorage: options => options.DatabasePath = databasePath);
+            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["NewHeapProxy:Limits:RedirectResolutionTimeoutMilliseconds"] = "75",
+                ["NewHeapProxy:Sqlite:DatabasePath"] = databasePath
+            });
+            builder.Services.AddNewHeapProxy(builder.Configuration.GetSection(NhProxyOptions.ConfigurationSectionName));
             await using var app = builder.Build();
             app.UseNewHeapProxy();
             await app.StartAsync(cancellationToken);
             try
             {
+                Assert.Equal(75, app.Services.GetRequiredService<IOptions<NhProxyOptions>>().Value.Limits.RedirectResolutionTimeoutMilliseconds);
                 using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
                 using var response = await client.GetAsync(app.Urls.Single() + "/old-projects?campaign=sample", cancellationToken);
                 Assert.Equal(HttpStatusCode.Found, response.StatusCode);
@@ -70,6 +87,15 @@ public sealed class ProxyLiteralRedirectSamplesTests
 
                 using var unmatched = await client.GetAsync(app.Urls.Single() + "/old-projects/child", cancellationToken);
                 Assert.Equal(HttpStatusCode.NotFound, unmatched.StatusCode);
+
+                using var timedOut = await client.GetAsync(app.Urls.Single() + "/timeout/" + new string('a', 1000) + "!", cancellationToken);
+                Assert.Equal(HttpStatusCode.ServiceUnavailable, timedOut.StatusCode);
+                Assert.Null(timedOut.Headers.Location);
+                Assert.True(timedOut.Headers.CacheControl!.NoStore);
+
+                using var afterTimeout = await client.GetAsync(app.Urls.Single() + "/timeout/aaa", cancellationToken);
+                Assert.Equal(HttpStatusCode.Found, afterTimeout.StatusCode);
+                Assert.Equal("/projects", afterTimeout.Headers.Location!.OriginalString);
             }
             finally
             {

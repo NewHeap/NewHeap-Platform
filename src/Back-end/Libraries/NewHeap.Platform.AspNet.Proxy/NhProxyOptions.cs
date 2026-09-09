@@ -66,6 +66,23 @@ public sealed class NhProxyLoginAuditOptions
 
 public sealed class NhProxyLimits
 {
+    private int _redirectResolutionTimeoutMilliseconds = 50;
+
+    /// <summary>Shared redirect resolution budget, captured at startup. Defaults to 50 ms; valid values are 1 through 2,147,483,646 ms.</summary>
+    public int RedirectResolutionTimeoutMilliseconds
+    {
+        get => _redirectResolutionTimeoutMilliseconds;
+        set
+        {
+            if (value < 1 || value > int.MaxValue - 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), "RedirectResolutionTimeoutMilliseconds must be between 1 and 2,147,483,646 milliseconds.");
+            }
+
+            _redirectResolutionTimeoutMilliseconds = value;
+        }
+    }
+
     public int MaximumRulesPerEngine { get; set; } = 1000;
     public int MaximumTestRequestBytes { get; set; } = 65536;
     public TimeSpan TestTimeout { get; set; } = TimeSpan.FromSeconds(5);
