@@ -501,6 +501,8 @@ internal class NhNotificationProcessingService : BackgroundService
                 (x.Status == NotificationDeliveryStatus.Queued && x.ScheduledAt <= now)
                 || (x.Status == NotificationDeliveryStatus.Processing
                     && (x.LastSendAttemptAt == null || x.LastSendAttemptAt <= staleThreshold)))
+            .OrderBy(x => x.ScheduledAt)
+            .ThenBy(x => x.Id)
             .Take(100)
             .ToListAsync(cancellationToken);
 

@@ -134,7 +134,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-084 | Simple email | mail service/settings | A test email uses the correct sender. |
 | SPM-085 | Razor email template | Razor view service | A localized assignment email is rendered. |
 | SPM-086 | Create and summarize user notifications | `INhUserNotificationService` and `NhUserNotificationService` | Assignment creates the correct message, and the overview remains query-safe under strict EF Core warning policies on SQL Server and PostgreSQL. |
-| SPM-087 | Delivery channels | notification dispatcher workers and per-channel concurrency | A channel opts into parallel workers while unconfigured channels remain serial and deliveries are claimed only when worker capacity is available. |
+| SPM-087 | Delivery channels | notification dispatcher workers and per-channel concurrency | A channel opts into parallel workers while unconfigured channels remain serial, deliveries are claimed only when worker capacity is available, and unknown-dispatcher cleanup processes deterministic oldest-first batches under strict EF Core warning policies on SQL Server and PostgreSQL. |
 | SPM-088 | Email dispatcher | email notification dispatcher | Sent and failed states include error details. |
 | SPM-089 | Read and unread | notification controller/models | The badge responds to mark-as-read. |
 | SPM-090 | Notification component | abstract component + FE service | The message, refresh, and target route work. |

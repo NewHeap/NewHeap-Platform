@@ -48,6 +48,8 @@ Treat short transaction-lock contention inside a running operation as an interna
 
 Notification dispatcher channels are serial by default. Opt a channel into parallel processing with `NhNotificationSettings.ProcessingDispatcherConcurrency[dispatcherId]` only when its dispatcher is safe to run concurrently. Worker counts are created when the notification processor starts, so restart the host after changing this setting. The processor claims a delivery only when a worker is available, records the attempt before calling the dispatcher, and ignores a late result when a newer attempt has already claimed the delivery. Keep dispatchers idempotent because stale recovery and retries provide at-least-once delivery.
 
+Keep notification processing enabled when unknown dispatcher IDs may remain in persisted data. The processor fails eligible unknown-dispatcher deliveries in bounded, deterministic batches ordered by `ScheduledAt` and then `Id`. This cleanup path supports promoting `RowLimitingOperationWithoutOrderByWarning` to an exception; preserve the strict warning policy instead of disabling the processor or suppressing the warning for the complete consumer DbContext.
+
 ## Avoid
 
 - Injecting `CapTransactionScope` directly into a singleton `IHostedService`.
@@ -56,6 +58,7 @@ Notification dispatcher channels are serial by default. Opt a channel into paral
 - Handling email or push synchronously in the HTTP controller.
 - Assuming delivery order is preserved after configuring more than one worker for a dispatcher channel.
 - Sharing one dispatcher ID across workloads that require different ordering or concurrency guarantees.
+- Disabling all notification processing, or suppressing row-limiting warnings for the complete DbContext, to work around an unknown-dispatcher cleanup failure.
 - Retrying a handler without documenting whether every side effect is idempotent.
 - Holding an EF transaction open while the handler performs long-running work.
 - Blocking a parent worker while polling child operations, or manually enqueueing children without stable item keys.
@@ -73,7 +76,7 @@ Notification dispatcher channels are serial by default. Opt a channel into paral
 
 ## Verification
 
-Test successful processing, retry, duplicate delivery, publication failure, rollback, job deduplication, and notification state. Promote `FirstWithoutOrderByAndFilterWarning` and `RowLimitingOperationWithoutOrderByWarning` to exceptions, then verify the user-notification overview and background-operation startup validation on SQL Server and PostgreSQL. For notification dispatchers, block one attempt deliberately and verify queued deliveries remain queued until worker capacity exists, attempts are recorded before dispatch, configured concurrency removes head-of-line blocking, and stale results cannot overwrite newer attempts. Run claim and transaction-lock tests on SQL Server and PostgreSQL, and verify scoped DI validation at host startup.
+Test successful processing, retry, duplicate delivery, publication failure, rollback, job deduplication, and notification state. Promote `FirstWithoutOrderByAndFilterWarning` and `RowLimitingOperationWithoutOrderByWarning` to exceptions, then verify the user-notification overview and background-operation startup validation on SQL Server and PostgreSQL. For notification dispatchers, block one attempt deliberately and verify queued deliveries remain queued until worker capacity exists, attempts are recorded before dispatch, configured concurrency removes head-of-line blocking, and stale results cannot overwrite newer attempts. Seed more than 100 eligible unknown-dispatcher deliveries with tied schedules and verify one batch fails exactly the first 100 ordered by `ScheduledAt` and `Id` under the strict warning policy. Run claim and transaction-lock tests on SQL Server and PostgreSQL, and verify scoped DI validation at host startup.
 
 For background operations, also test enqueue idempotency, conflict behavior, global/queue/type/resource concurrency, mixed single/multi-resource acquisition, lease expiry and monotonically increasing fencing tokens, required-lease and transaction-lock rescheduling, stale-attempt reconciliation, cancellation before and during execution, retry exhaustion, checkpoint compare-and-swap, weighted nested progress, batch counters, fan-out idempotency, parent suspension without worker starvation, child progress aggregation, a contended final-child wake-up through dispatcher redispatch into the next parent step, fan-in failure policy, hierarchy cancellation/retry, leaf-first retention, event ordering and milestone protection, notification projection retry, reconnect resync, polling recovery, user/division scope changes with late responses, retention/redaction, readiness health, and authorization isolation. Exercise persistence and translated queries on both SQL Server and PostgreSQL; EF Core InMemory is not relational evidence.
 

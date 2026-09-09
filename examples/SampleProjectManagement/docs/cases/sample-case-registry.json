@@ -1283,7 +1283,7 @@
       "categoryId": "6",
       "title": "Delivery channels",
       "surface": "notification dispatcher workers and per-channel concurrency",
-      "outcome": "A channel opts into parallel workers while unconfigured channels remain serial and deliveries are claimed only when worker capacity is available.",
+      "outcome": "A channel opts into parallel workers while unconfigured channels remain serial, deliveries are claimed only when worker capacity is available, and unknown-dispatcher cleanup processes deterministic oldest-first batches under strict EF Core warning policies on SQL Server and PostgreSQL.",
       "implementation": "implemented",
       "evidence": [
         "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhNotificationProcessingService.cs",
