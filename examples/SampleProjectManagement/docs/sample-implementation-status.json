@@ -1435,6 +1435,7 @@
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs"
     ],

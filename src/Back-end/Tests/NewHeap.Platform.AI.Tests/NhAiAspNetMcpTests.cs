@@ -68,17 +68,21 @@ public sealed class NhAiAspNetMcpTests
         var externalContent = Assert.IsType<TextContentBlock>(
             Assert.Single(externalResult.Content));
         Assert.Contains("external", externalContent.Text, StringComparison.Ordinal);
-        var actorAResult = await actorATool.CallAsync(new Dictionary<string, object?>
-        {
-            ["input"] = "value"
-        });
-        Assert.NotEqual(true, actorAResult.IsError);
-        Assert.Contains("subject-a:tenant-a", actorAResult.StructuredContent!.Value.GetRawText());
+        var actorAResult = await client.CallNewHeapToolAsync<string, string>(
+            actorATool.Name,
+            "value");
+        Assert.Equal("value:subject-a:tenant-a", actorAResult);
         var failedResult = await actorATool.CallAsync(new Dictionary<string, object?>
         {
             ["input"] = "fail"
         });
         Assert.True(failedResult.IsError);
+        var failedException = await Assert.ThrowsAsync<NhAiMcpToolException>(async () =>
+            await client.CallNewHeapToolAsync<string, string>(
+                actorATool.Name,
+                "fail"));
+        Assert.Equal(actorATool.Name, failedException.ToolName);
+        Assert.True(failedException.Result.IsError);
 
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.28",
   "backEnd": {
-    "hash": "0de17456f8fe483e53ec8899ac5d84d270074851cb5fa7463a14ac8f1bdded62",
-    "declarationCount": 3692,
+    "hash": "ae07bb527171038303a009836e1b7394d2f60eb920ddfc871f55e88dee21eb65",
+    "declarationCount": 3698,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2180,6 +2180,30 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
         "declaration": "public ImmutableArray<string?> AuthorizationPolicies { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public static class NhAiMcpClientExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public static ValueTask<TOutput> CallNewHeapToolAsync<TInput, TOutput>( this McpClient client, string toolName, TInput input, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public static async ValueTask<TOutput> CallNewHeapToolAsync<TInput, TOutput>( this McpClient client, string toolName, TInput input, JsonSerializerOptions serializerOptions, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public sealed class NhAiMcpToolException : McpException {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public string ToolName { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public CallToolResult Result { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
@@ -17920,7 +17944,9 @@
     ],
     "nh-ai-mcp-tools": [
       "INhAiMcpToolAdapter",
-      "WithNewHeapPlatformAITools"
+      "WithNewHeapPlatformAITools",
+      "CallNewHeapToolAsync",
+      "NhAiMcpToolException"
     ],
     "nh-ai-model-profiles": [
       "INhAiModelProfileRegistry",

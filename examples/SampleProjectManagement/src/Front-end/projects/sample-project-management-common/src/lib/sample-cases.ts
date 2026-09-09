@@ -2990,13 +2990,14 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-222",
     "title": "Generated tool over MCP",
     "category": "AI tools and generated catalogs",
-    "surface": "WithNewHeapPlatformAITools, INhAiMcpToolAdapter, official ASP.NET Streamable HTTP and in-memory MCP transports, generated AIFunction, and the shared discovery/invocation pipeline",
-    "outcome": "The API publishes the same generated project search implementation through the official stateless ASP.NET MCP transport. Every list and call resolves the current authenticated request independently; actor- and tenant-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` errors remain in the shared NewHeap pipeline. Only generated catalogs enter the NewHeap export path. Independently governed external SDK tools can coexist under distinct wire names, while duplicate NewHeap publication and export-name collisions fail at startup.",
+    "surface": "WithNewHeapPlatformAITools, INhAiMcpToolAdapter, CallNewHeapToolAsync<TInput, TOutput>, official ASP.NET Streamable HTTP and in-memory MCP transports, generated AIFunction, and the shared discovery/invocation pipeline",
+    "outcome": "The API publishes the same generated project search implementation through the official stateless ASP.NET MCP transport. Every list and call resolves the current authenticated request independently; actor- and tenant-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` errors remain in the shared NewHeap pipeline. A typed .NET client passes generated input directly through the official helper, which creates the `input` envelope, honors explicit JSON options including omitted optional null properties, returns the typed `TaskResult<T>.data` value, and preserves failed MCP tool results in `NhAiMcpToolException`. Only generated catalogs enter the NewHeap export path. Independently governed external SDK tools can coexist under distinct wire names and continue using the official SDK directly, while duplicate NewHeap publication and export-name collisions fail at startup.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs"
     ]
