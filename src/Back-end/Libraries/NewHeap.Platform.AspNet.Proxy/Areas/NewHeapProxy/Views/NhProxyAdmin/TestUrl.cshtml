@@ -1,0 +1,49 @@
+@model NhProxyRuleTestResult
+@{
+    ViewData["Title"] = "URL test";
+}
+<div class="editor">
+    <h1>URL test</h1>
+    <p class="help">Tests a GET request against saved rules. Redirects take precedence over rewrites. Disabled rules are skipped.</p>
+    @if (ViewData["Error"] is { } error)
+    {
+        <div class="notice error" role="alert">@error</div>
+    }
+    @if (Model is not null)
+    {
+        <div class="card test-result" role="status">
+            @if (Model.SelectedRuleId is { } ruleId)
+            {
+                <h2>@Model.Outcome match</h2>
+                <p><strong>@ViewData["RuleName"]</strong><br /><code>@ViewData["RulePath"]</code></p>
+                @if (Model.Redirect is { } redirect)
+                {
+                    <p>Browser redirect: <strong>HTTP @((int)redirect.Status)</strong><br /><code>@redirect.Location</code></p>
+                }
+                @if (Model.Rewrite is { } rewrite)
+                {
+                    <p>Proxied backend request:<br /><code>@rewrite.TargetUrl.AbsoluteUri</code></p>
+                    <p class="help">The browser URL stays unchanged. The backend can still return a redirect or an error.</p>
+                }
+                <a class="button" asp-action="@(Model.Outcome == NhProxyTestOutcome.Redirect ? "Edit" : "RewriteEdit")" asp-route-id="@ruleId">Edit matched rule</a>
+            }
+            else if (Model.Outcome == NhProxyTestOutcome.ReservedAdministrationPath)
+            {
+                <h2>Reserved administration path</h2>
+                <p>This URL bypasses managed redirects and rewrites.</p>
+            }
+            else
+            {
+                <h2>No matching rule</h2>
+                <p>No enabled saved redirect or rewrite matches this GET request. Check the path, host, method and any header or query conditions.</p>
+            }
+        </div>
+        @if (Model.LiveStatus.Redirect.ActiveRevision != Model.TestedRevisions.Redirect
+            || Model.LiveStatus.Rewrite.ActiveRevision != Model.TestedRevisions.Rewrite)
+        {
+            <p class="notice" role="alert">The saved rules differ from the active configuration. Live requests may behave differently; check activation on the rule lists.</p>
+        }
+        <p class="footer-note">Tested saved revisions: redirects @Model.TestedRevisions.Redirect, rewrites @Model.TestedRevisions.Rewrite.</p>
+    }
+    <p class="help">No request is sent to the destination. This preview excludes browser cache, backend responses, host middleware and other configuration sources. For custom methods or headers, use the rewrite editor’s draft test.</p>
+</div>

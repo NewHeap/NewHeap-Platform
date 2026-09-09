@@ -1,7 +1,7 @@
 # NewHeap ASP.NET Proxy SQLite
 
-`AddNewHeapProxy` registers exact and regex redirect persistence, validation, runtime, and
-startup loading, plus native YARP. The `Microsoft.Data.Sqlite` provider and all
+`AddNewHeapProxy` registers stored rewrites and exact/regex redirects, validation,
+runtime, isolated testing and startup loading. The `Microsoft.Data.Sqlite` provider and all
 SQL/schema code belong to this project. No EF Core or consumer DAL migrations are used.
 
 ## Storage configuration
@@ -14,25 +14,28 @@ The timeout is rounded up to whole seconds for the SQLite provider.
 
 Startup creates missing parent directories and a missing database, acquires
 exclusive application ownership through `<database>.lock`, and loads the stored
-redirect snapshot before the server starts accepting requests. The database must
+redirect and rewrite snapshots before the server starts accepting requests. The database must
 be a file outside the webroot on writable, durable local storage. In-memory and
 network deployments are unsupported. A second NewHeap owner of the same file fails.
 The lock file may remain after shutdown; ownership is its open file handle, not
 its existence. Never delete it to bypass ownership while a host is running.
 
-Schema version 2 uses `PRAGMA user_version` and `NhProxyConfiguration`, with
+Schema version 3 uses `PRAGMA user_version` and `NhProxyConfiguration`, with
 `Engine`, `Revision`, `FormatVersion`, and `Document` columns. The initial Redirect
-row is revision zero, format 1, with an empty rule collection. Documents use
+and Rewrite rows are revision zero, format 1, with empty rule collections and
+an empty rewrite cluster collection. Documents use
 System.Text.Json web defaults (camel-case properties, numeric enum values).
 Schema creation is transactional. Unknown schemas, missing/inconsistent records,
 unknown JSON properties, unsupported match modes, or invalid rules fail rather
 than resetting data. Version-1 databases upgrade transactionally while preserving
 redirects. Version 2 adds NhProxyLoginAudit with UTC ticks, IP addresses, outcome,
-correlation ID and successful account name, plus a time/ID index. Unknown versions
-are rejected.
+correlation ID and successful account name, plus a time/ID index. Version 3 adds the
+independent Rewrite row without changing redirect documents or login activity.
+Unknown versions are rejected. Older schema-2 runtimes cannot reopen an upgraded
+file; take a backup before upgrading when rollback may be needed.
 
 SQLite WAL is enabled. One conditional, parameterized UPDATE commits a whole
-redirect document only when its expected revision matches. Reads/writes share a
+engine document only when its expected revision matches. Reads/writes share a
 bounded configuration gate; request processing never enters it. Back up after a
 clean shutdown or with SQLite's backup API. Do not copy only the main database
 while WAL writes are active. External live database edits and multiple writers
@@ -78,14 +81,14 @@ app.Run();
 ```
 
 Dispose the offline store before starting the host so it can acquire ownership.
-The store validates redirects but does not activate them. The registered
+The store validates both engines but does not activate them. The registered
 INhProxyConfigurationService implements commit-then-publish orchestration for live
 changes; the panel uses that service. NhProxySqliteLoginAuditStore implements
 idempotent append, parameterized filtered paging and bounded retention deletion.
-Audit writes must succeed before a login cookie is issued. Managed rewrite
-storage remains unimplemented.
+Audit writes must succeed before a login cookie is issued. Rewrite writes own their
+cluster list and revision; they never rewrite the redirect document.
 See the [proxy README](../NewHeap.Platform.AspNet.Proxy/README.md) for exact and regex matching
 and query semantics. Real SQLite coverage lives in
-`NewHeap.Platform.AspNet.Proxy.Sqlite.Tests` and sample case SPM-238. SQL Server
+`NewHeap.Platform.AspNet.Proxy.Sqlite.Tests` and sample cases SPM-238/SPM-239. SQL Server
 and PostgreSQL are explicit v1 capability gaps. All schema work is owned here;
 no NewHeap release versions or consumer migrations change.

@@ -42,10 +42,10 @@
             color:inherit;
             text-underline-offset:4px;
         }
-        button,input,select {
+        button,input,select,textarea {
             font:inherit;
         }
-        a,button,input,select {
+        a,button,input,select,textarea,summary {
             outline-offset:4px;
         }
         :focus-visible {
@@ -238,7 +238,7 @@
             font-size:14px;
             margin-bottom:7px;
         }
-        input:not([type=checkbox]),select {
+        input:not([type=checkbox]),select,textarea {
             background:var(--input);
             border:1px solid var(--line);
             border-radius:12px;
@@ -246,6 +246,17 @@
             padding:11px 13px;
             width:100%;
             min-width:0;
+        }
+        textarea {
+            resize:vertical;
+            font:13px/1.5 ui-monospace,monospace;
+        }
+        summary {
+            cursor:pointer;
+            font-weight:600;
+        }
+        .test-result code {
+            overflow-wrap:anywhere;
         }
         input::placeholder {
             color:var(--muted);
@@ -330,6 +341,23 @@
             margin:0;
             flex:1;
         }
+        .url-tester {
+            display:flex;
+            align-items:center;
+            gap:12px;
+            width:100%;
+            margin:0;
+        }
+        .url-tester label {
+            margin:0;
+            white-space:nowrap;
+        }
+        .url-tester input {
+            flex:1;
+        }
+        .url-tester button {
+            flex-shrink:0;
+        }
         .footer-note {
             margin-top:24px;
             font-size:12px;
@@ -363,6 +391,12 @@
             }
         }
         @@media(max-width:650px) {
+            .url-tester {
+                flex-wrap:wrap;
+            }
+            .url-tester label {
+                width:100%;
+            }
             .shell {
                 padding:20px;
             }
@@ -414,9 +448,14 @@
     @if (User.Identity?.AuthenticationType == NhProxyOptions.AuthenticationScheme)
     {
         <nav aria-label="Administration">
-            <a asp-action="Index">Redirects</a><a asp-action="Activity">Login activity</a>
+            <a asp-action="Index">Redirects</a><a asp-action="Rewrites">Rewrites</a><a asp-action="Activity">Login activity</a>
             <form asp-action="Logout" method="post"><button class="link-button" type="submit">Sign out</button></form>
         </nav>
+        <form class="url-tester" asp-action="TestUrl" method="post" role="search" aria-label="Test saved proxy rules">
+            <label for="proxy-test-url">Test a URL</label>
+            <input id="proxy-test-url" name="url" type="url" required maxlength="4096" value="@ViewData["TestUrl"]" placeholder="https://your-proxy.example/path?query=value" />
+            <button type="submit">Test URL</button>
+        </form>
     }
 </div></header>
 <main class="shell" id="main">@RenderBody()</main>

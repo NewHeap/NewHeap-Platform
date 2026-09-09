@@ -1,11 +1,11 @@
 ---
 id: nh-proxy-contract-boundary
-title: "Manage SQLite exact and regex redirects through embedded MVC administration"
+title: "Manage SQLite rewrites and redirects through embedded MVC administration"
 area: configuration
 reference: runtime-configuration
-summary: "The two-call proxy loads exact and opt-in regex redirects before requests and provides secured MVC management, local draft testing, login IP auditing and revision-checked save/activation. Regex targets use captures without automatic query merging. Managed rewrites remain a gap."
-sample-cases: ["SPM-238"]
-public-symbols: ["NhProxyRedirectRule", "NhProxyConfigurationValidator", "NhProxyRuntime", "RedirectResolutionTimeoutMilliseconds", "NhProxySqliteConfigurationStore", "NhProxySqliteLoginAuditStore", "INhProxyConfigurationService", "INhProxyAdministrationService", "ConfigureYarp", "INhProxyConfigurationStore", "INhProxyRuntime", "AddNewHeapProxy", "UseNewHeapProxy", "MapNewHeapProxy"]
+summary: "The two-call proxy loads exact and opt-in regex redirects before requests and provides secured MVC management, local draft testing, login IP auditing and revision-checked save/activation. Regex targets use captures without automatic query merging. Stored rewrites use native YARP matching/transforms and an isolated managed-rule test tool."
+sample-cases: ["SPM-238", "SPM-239"]
+public-symbols: ["NhProxyRewriteRule", "NhProxyDraftTester", "INhProxyDraftTester", "SaveRewritesAsync", "NhProxyRedirectRule", "NhProxyConfigurationValidator", "NhProxyRuntime", "RedirectResolutionTimeoutMilliseconds", "NhProxySqliteConfigurationStore", "NhProxySqliteLoginAuditStore", "INhProxyConfigurationService", "INhProxyAdministrationService", "ConfigureYarp", "INhProxyConfigurationStore", "INhProxyRuntime", "AddNewHeapProxy", "UseNewHeapProxy", "MapNewHeapProxy"]
 skills: ["newheap-runtime-configuration"]
 providers: ["provider-neutral", "sqlite"]
 risk: high
@@ -44,8 +44,7 @@ The MVC panel supports search, creation, editing, enable/disable, priority,
 host/method restrictions, status/query options, deletion confirmation and login
 activity and an opt-in Use regular expression checkbox. Test draft evaluates one unsaved rule with the runtime
 matcher. It neither saves nor makes network requests and does not simulate the
-entire ordered configuration. Managed rewrite editing and full draft APIs remain
-SPM-239 gaps.
+entire ordered configuration. The rewrite editor and INhProxyDraftTester evaluate isolated candidates against both stored managed engines (SPM-239).
 
 Use INhProxyConfigurationService.SaveRedirectsAsync for live changes: read the
 current configuration, submit its expected revision and complete rule collection,
@@ -105,8 +104,7 @@ stay Exact, and no schema migration is needed. Older runtimes cannot load new re
 
 Keep the SQLite file on durable local storage outside the webroot. Its default is
 App_Data/newheap-proxy.db under the host content root. One lock-file handle enforces
-exclusive NewHeap ownership. Schema version 2 transactionally upgrades version 1
-with login auditing while retaining redirect documents. Unknown/corrupt state
+exclusive NewHeap ownership. Schema version 3 transactionally adds a separate rewrite document after the version-2 login-audit upgrade, retaining redirect documents and audit data. Back up before upgrading; old schema-2 runtimes cannot reopen the upgraded database. Unknown/corrupt state
 fails rather than resetting. WAL, parameterized conditional writes, filtered audit
 queries and bounded retention SQL stay in the SQLite project. SQL Server and
 PostgreSQL are explicit v1 capability gaps.
@@ -125,8 +123,46 @@ The sample AppHost selects the same demo profile as sample-project-management-pr
 assigns its HTTP port and links directly to /newheap-proxy in the dashboard. Shared
 service defaults expose Development health endpoints, and Aspire checks /alive.
 The proxy has no database-container or API dependency; its administration endpoint
-is excluded from service discovery references. SPM-239
-tracks remaining managed rewrites, full-pipeline drafts and cycle analysis.
+is excluded from service discovery references. SPM-239 demonstrates stored rewrite preview and real forwarding; redirect prefix/template matching and general cycle analysis remain deferred.
+
+Use SaveRewritesAsync with the complete stored rule/cluster snapshot and expected
+rewrite revision. The store validates native YARP configuration before its
+conditional commit; the runtime publishes a dedicated InMemoryConfigProvider.
+Never mutate its collections. A unique publication token is confirmed through
+IConfigChangeListener.ConfigurationApplied, rather than inferring activation from
+Update or GetConfig. Rejected application retains the previous active revision;
+five seconds without confirmation reports Unconfirmed. A late callback may still
+confirm it. Separate engine gates keep redirect saves independent. Both engines
+load before the server listens, and proxy requests never open SQLite.
+
+The Rewrites panel supports basic matching, shared destinations, ordered path
+transforms and advanced JSON for header/query conditions, additional transforms,
+policies, timeouts and health checks. Load a shared destination explicitly before
+editing it; changes affect every referencing rule. Visible form fields override
+their matching advanced JSON properties. Unknown fields, protected/secret header
+changes, unsafe destinations and exact duplicate enabled matches are rejected.
+AllowedDestinationHosts restricts destination hosts when configured. Keep exactly
+one HTTP(S) destination per cluster. Avoid forwarding back into the same rule;
+general cross-service cycle analysis is not implemented.
+
+Use INhProxyDraftTester.TestRewriteAsync with both expected engine revisions,
+the draft rule, synthetic URL/method/headers and optional replacement DraftClusters.
+TestRedirectAsync uses the same managed-rule pipeline. Stale revisions fail.
+TestSavedAsync accepts the expected revisions and synthetic input without a draft.
+The administration top-bar URL tester uses this API for a GET preview of saved
+rules, shows the selected rule and target with an edit link, and distinguishes
+no-match and reserved paths. It warns when saved and active revisions differ.
+Disabled rules stay disabled unless SimulateEnabled is explicit. The administration
+path is reserved and redirects precede rewrite matching, including ambiguous
+rewrites. Native isolated routing and transforms produce route values, target URL,
+safe headers and the winner. No server starts, health checks run or outbound
+requests occur. Nothing is saved or published. Ambiguity returns a failed result.
+Only supplied non-secret headers are accepted; administrator credentials/cookies
+are never copied. The input limit defaults to 64 KiB and the cooperative test
+budget to five seconds. Response header transforms remain unevaluated. Host
+callbacks, custom policies/constraints/transforms, other configuration sources,
+connectivity, health and upstream responses are explicitly outside the preview.
+Host policy registration and optional middleware composition remain host-owned.
 
 ## Avoid
 
@@ -137,13 +173,13 @@ tracks remaining managed rewrites, full-pipeline drafts and cycle analysis.
 - Trusting forwarding headers from arbitrary clients or exposing administration over production HTTP.
 - Issuing a login cookie when the audit write failed.
 - Discarding failed TaskResult values, including failed activation after commit.
-- Claiming complete managed rewrites, full-pipeline draft testing or SQL Server/PostgreSQL support.
+- Treating preview as a connectivity/authorization check, claiming it replays host customizations or other configuration sources, or claiming SQL Server/PostgreSQL storage support.
 - Editing consumer DAL migrations or copying only the database while WAL writes are active.
 
 ## Verification
 
 Run both proxy library test projects plus ProxyContractBoundarySamplesTests,
-ProxyLiteralRedirectSamplesTests and ProxyAdministrationSamplesTests. Real SQLite
+ProxyLiteralRedirectSamplesTests, ProxyAdministrationSamplesTests and ProxyRewriteSamplesTests. Real SQLite
 covers startup, compare-and-swap, reopen, ownership, corruption, schema upgrade,
 audit idempotency/filtering/paging and retention. HTTP tests cover CSRF, login/IP
 checks, throttling, audit failure, scoped cookies, credential rotation, host auth,
@@ -154,4 +190,4 @@ hits/misses and accumulated rule work. The persisted HTTP sample binds a 75 ms
 budget from configuration, verifies that an expensive regex returns 503 and that
 a later request succeeds. Registration tests verify the 50 ms default.
 Run the standalone sample and inspect login, list, editor and audit pages on desktop
-and mobile. Keep SPM-239's remaining capabilities explicitly unimplemented.
+and mobile. Exercise rewrite persistence/restart, native preview/forwarding parity, synthetic-input isolation, shared destinations, disabled rules, stale revisions, ambiguous matching, redirect precedence and rejected YARP reload/retry.

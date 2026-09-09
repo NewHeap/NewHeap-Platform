@@ -248,7 +248,7 @@ public sealed class NhProxyAdministrationTests
             {
                 await connection.OpenAsync();
                 using var command = connection.CreateCommand();
-                command.CommandText = "DROP TABLE NhProxyLoginAudit; PRAGMA user_version=1;";
+                command.CommandText = "DROP TABLE NhProxyLoginAudit; DELETE FROM NhProxyConfiguration WHERE Engine='Rewrite'; PRAGMA user_version=1;";
                 await command.ExecuteNonQueryAsync();
             }
 
@@ -284,6 +284,107 @@ public sealed class NhProxyAdministrationTests
     {
         values["__RequestVerificationToken"] = Field(html, "__RequestVerificationToken");
         return new FormUrlEncodedContent(values);
+    }
+
+    [Fact]
+    public async Task Rewrite_panel_tests_unsaved_rules_then_saves_conflicts_and_deletes_behind_reserved_path()
+    {
+        var directory = Directory.CreateTempSubdirectory("newheap-rewrite-panel-");
+        try
+        {
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+            builder.Services.AddNewHeapProxy(options =>
+            {
+                options.Administrator.UserName = "administrator";
+                options.Administrator.PasswordHash = new PasswordHasher<string>().HashPassword("administrator", "test-only-password");
+            }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
+            await using var app = builder.Build();
+            app.UsePathBase("/mounted");
+            app.UseNewHeapProxy();
+            await app.StartAsync();
+            var panel = app.Urls.Single() + "/mounted/newheap-proxy";
+            using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
+            Assert.Equal(HttpStatusCode.Found, (await client.GetAsync(panel + "/Rewrites")).StatusCode);
+            Assert.Equal(HttpStatusCode.Found, (await client.PostAsync(panel + "/TestUrl", new FormUrlEncodedContent(new Dictionary<string, string> { ["url"] = "https://public.example/" }))).StatusCode);
+            var login = await client.GetStringAsync(panel + "/Login");
+            Assert.Equal(HttpStatusCode.Found, (await client.PostAsync(panel + "/Login", Form(login,
+                new() { ["UserName"] = "administrator", ["Password"] = "test-only-password" }))).StatusCode);
+            var edit = await client.GetStringAsync(panel + "/RewriteEdit");
+            Assert.Contains("action=\"/mounted/newheap-proxy/TestUrl\"", edit);
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync(panel + "/TestUrl", new FormUrlEncodedContent(new Dictionary<string, string> { ["url"] = "https://public.example/" }))).StatusCode);
+            var noMatch = await client.PostAsync(panel + "/TestUrl", Form(edit, new() { ["url"] = "https://public.example/missing" }));
+            Assert.Equal(HttpStatusCode.OK, noMatch.StatusCode);
+            Assert.Contains("No matching rule", await noMatch.Content.ReadAsStringAsync());
+            var invalidUrl = await client.PostAsync(panel + "/TestUrl", Form(edit, new() { ["url"] = "javascript:alert(1)" }));
+            Assert.Equal(HttpStatusCode.BadRequest, invalidUrl.StatusCode);
+            Assert.Contains("Enter a complete HTTP(S) URL", await invalidUrl.Content.ReadAsStringAsync());
+            var id = Guid.Parse(Field(edit, "Id"));
+            var cluster = new NhProxyCluster
+            {
+                Id = Guid.Parse(Field(edit, "ClusterId")), Name = "Backend", Destination = new("backend", new("https://backend.example/"))
+            };
+            var rule = new NhProxyRewriteRule { Id = id, Name = "Rewrite <project>", ClusterId = cluster.Id, Match = new() { Path = "/{**rest}" } };
+            var json = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
+            var values = new Dictionary<string, string>
+            {
+                ["Id"] = id.ToString(), ["Revision"] = "0", ["RedirectRevision"] = "0", ["IsNew"] = "true",
+                ["Name"] = rule.Name, ["Path"] = rule.Match.Path!, ["Enabled"] = "true", ["Priority"] = "-1000",
+                ["ClusterId"] = cluster.Id.ToString(), ["ClusterName"] = cluster.Name, ["DestinationAddress"] = cluster.Destination.Address.AbsoluteUri,
+                ["AdvancedRuleJson"] = System.Text.Json.JsonSerializer.Serialize(rule, json),
+                ["AdvancedClusterJson"] = System.Text.Json.JsonSerializer.Serialize(cluster, json),
+                ["PathOperation"] = "AddPrefix", ["PathValue"] = "/backend", ["TestUrl"] = "https://public.example/projects/42?keep=yes",
+                ["TestMethod"] = "GET", ["TestHeadersJson"] = "{}", ["operation"] = "test"
+            };
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync(panel + "/RewriteEdit/" + id, new FormUrlEncodedContent(values))).StatusCode);
+            var tested = await client.PostAsync(panel + "/RewriteEdit/" + id, Form(edit, values));
+            Assert.Equal(HttpStatusCode.OK, tested.StatusCode);
+            Assert.Contains("https://backend.example/backend/projects/42?keep=yes", await tested.Content.ReadAsStringAsync());
+            var configuration = app.Services.GetRequiredService<INhProxyConfigurationService>();
+            Assert.Empty((await configuration.GetRewritesAsync()).Rules);
+            values["operation"] = "save";
+            Assert.Equal(HttpStatusCode.Found, (await client.PostAsync(panel + "/RewriteEdit/" + id, Form(edit, values))).StatusCode);
+            Assert.Equal(1, configuration.GetStatus().Rewrite.ActiveRevision);
+            var list = await client.GetStringAsync(panel + "/Rewrites");
+            Assert.Contains("Rewrite &lt;project&gt;", list);
+            var quickTest = await client.PostAsync(panel + "/TestUrl", Form(list, new() { ["url"] = values["TestUrl"] }));
+            var quickHtml = await quickTest.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.OK, quickTest.StatusCode);
+            Assert.Null(quickTest.Headers.Location);
+            Assert.Contains("Rewrite match", quickHtml);
+            Assert.Contains("Rewrite &lt;project&gt;", quickHtml);
+            Assert.Contains("https://backend.example/backend/projects/42?keep=yes", quickHtml);
+            Assert.Contains("/mounted/newheap-proxy/RewriteEdit/" + id, quickHtml);
+            var redirect = new NhProxyRedirectRule
+            {
+                Id = Guid.NewGuid(), Name = "Moved <project>", Match = new() { Path = new Uri(values["TestUrl"]).AbsolutePath },
+                Target = "/new-project", Status = NhProxyRedirectStatus.MovedPermanently
+            };
+            Assert.True((await configuration.SaveRedirectsAsync(new(0, [redirect]))).Success);
+            var redirectTest = await client.PostAsync(panel + "/TestUrl", Form(list, new() { ["url"] = values["TestUrl"] }));
+            var redirectHtml = await redirectTest.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.OK, redirectTest.StatusCode);
+            Assert.Null(redirectTest.Headers.Location);
+            Assert.Contains("Redirect match", redirectHtml);
+            Assert.Contains("HTTP 301", redirectHtml);
+            Assert.Contains("Moved &lt;project&gt;", redirectHtml);
+            Assert.Contains("/mounted/newheap-proxy/Edit/" + redirect.Id, redirectHtml);
+            var reserved = await client.PostAsync(panel + "/TestUrl", Form(list, new() { ["url"] = "https://public.example/newheap-proxy/Rewrites" }));
+            Assert.Contains("Reserved administration path", await reserved.Content.ReadAsStringAsync());
+            Assert.Equal(1, (await configuration.GetRewritesAsync()).Revision);
+            Assert.Equal(1, (await configuration.GetRedirectsAsync()).Revision);
+            Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync(panel + "/RewriteEdit/" + id, Form(edit, values))).StatusCode);
+            Assert.Contains("Advanced matching", await client.GetStringAsync(panel + "/RewriteEdit/" + id));
+            var delete = await client.GetStringAsync(panel + "/RewriteDelete/" + id);
+            Assert.Equal(HttpStatusCode.Found, (await client.PostAsync(panel + "/RewriteDelete/" + id, Form(delete, new() { ["revision"] = "1" }))).StatusCode);
+            Assert.Empty((await configuration.GetRewritesAsync()).Rules);
+            Assert.Equal(2, configuration.GetStatus().Rewrite.ActiveRevision);
+            await app.StopAsync();
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
     }
 
     [Fact]

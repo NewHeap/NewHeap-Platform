@@ -5,17 +5,22 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AspNet.Proxy;
 
-/// <summary>Publishes redirects and their prepared regexes atomically. Managed rewrite activation is not implemented yet.</summary>
-public sealed class NhProxyRuntime(INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options) : INhProxyRuntime
+/// <summary>Publishes independent redirect snapshots and managed YARP configurations.</summary>
+public sealed class NhProxyRuntime(INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options, IServiceProvider? services = null) : INhProxyRuntime
 {
     internal const string ResolutionTimeoutFailure = "Redirect resolution exceeded its configured time limit.";
     private readonly TimeSpan _resolutionTimeout = TimeSpan.FromMilliseconds(options.Value.Limits.RedirectResolutionTimeoutMilliseconds);
     private sealed record Snapshot(long Revision, ImmutableArray<(NhProxyRedirectRule Rule, ConcurrentDictionary<int, Regex>? Patterns)> Rules);
     private Snapshot? _redirects;
+
+    public NhProxyRuntime(INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options) : this(validator, options, null)
+    {
+    }
 
     public NhProxyRuntime(INhProxyConfigurationValidator validator) : this(validator, Options.Create(new NhProxyOptions()))
     {
@@ -25,14 +30,17 @@ public sealed class NhProxyRuntime(INhProxyConfigurationValidator validator, IOp
     {
         var snapshot = Volatile.Read(ref _redirects);
         return new NhProxyStatus(
-            new NhProxyEngineStatus(NhProxyEngine.Rewrite, 0, null, NhProxyActivationState.NotInitialized),
+            services?.GetRequiredService<NhProxyRewriteRuntime>().Status
+                ?? new NhProxyEngineStatus(NhProxyEngine.Rewrite, 0, null, NhProxyActivationState.NotInitialized),
             new NhProxyEngineStatus(NhProxyEngine.Redirect, snapshot?.Revision ?? 0, snapshot?.Revision,
                 snapshot is null ? NhProxyActivationState.NotInitialized : NhProxyActivationState.Active));
     }
 
     public Task<TaskResult<NhProxyEngineStatus>> PublishRewritesAsync(NhProxyRewriteConfiguration configuration, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return (services?.GetRequiredService<NhProxyRewriteRuntime>()
+            ?? throw new InvalidOperationException("Register AddNewHeapProxy before publishing managed rewrites."))
+            .PublishAsync(configuration, cancellationToken);
     }
 
     public async Task<TaskResult<NhProxyEngineStatus>> PublishRedirectsAsync(NhProxyRedirectConfiguration configuration, CancellationToken cancellationToken = default)
@@ -75,6 +83,12 @@ public sealed class NhProxyRuntime(INhProxyConfigurationValidator validator, IOp
 
     internal bool TryRedirect(HttpContext context, out string? failure)
     {
+        return TryRedirect(context, out failure, out _);
+    }
+
+    internal bool TryRedirect(HttpContext context, out string? failure, out Guid? selectedRuleId)
+    {
+        selectedRuleId = null;
         failure = null;
         if (context.Request.Path.StartsWithSegments(NhProxyOptions.AdministrationPath, StringComparison.OrdinalIgnoreCase))
         {
@@ -95,6 +109,7 @@ public sealed class NhProxyRuntime(INhProxyConfigurationValidator validator, IOp
         }
 
         context.Response.StatusCode = (int)rule.Status;
+        selectedRuleId = rule.Id;
         context.Response.Headers.Location = location;
         return true;
     }

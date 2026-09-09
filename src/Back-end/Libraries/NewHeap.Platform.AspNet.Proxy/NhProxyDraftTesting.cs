@@ -79,6 +79,8 @@ public sealed record NhProxyRuleTestResult
 /// </summary>
 public interface INhProxyDraftTester
 {
+    /// <summary>Tests the saved managed rules without replacing a rule or enabling disabled rules.</summary>
+    Task<TaskResult<NhProxyRuleTestResult>> TestSavedAsync(NhProxyRevisions expectedRevisions, NhProxyTestRequest request, CancellationToken cancellationToken = default);
     Task<TaskResult<NhProxyRuleTestResult>> TestRewriteAsync(NhProxyRewriteTestRequest request, CancellationToken cancellationToken = default);
     Task<TaskResult<NhProxyRuleTestResult>> TestRedirectAsync(NhProxyRedirectTestRequest request, CancellationToken cancellationToken = default);
 }

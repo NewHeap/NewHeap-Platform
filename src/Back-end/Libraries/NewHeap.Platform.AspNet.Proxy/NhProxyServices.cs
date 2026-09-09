@@ -4,7 +4,7 @@ namespace NewHeap.Platform.AspNet.Proxy;
 
 /// <summary>
 /// Administration orchestration. Validate, commit, then publish only the changed engine.
-/// After commit, publication survives request cancellation. Managed rewrite orchestration is pending.
+/// After commit, publication survives request cancellation. Each engine activates independently.
 /// </summary>
 public interface INhProxyConfigurationService
 {

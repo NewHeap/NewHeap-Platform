@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.28",
   "backEnd": {
-    "hash": "7875b65736799374cfe3a3a1dff1dde50f1ce6b9152d70bb1522e6543651e2ff",
-    "declarationCount": 3940,
+    "hash": "45746d3488ddf0ee6657561f1c41c98809f4c640616d1583ce853e212ca30529",
+    "declarationCount": 3968,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -9971,7 +9971,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteConfigurationStore.cs",
-        "declaration": "public Task<NhProxyRewriteConfiguration> LoadRewritesAsync(CancellationToken cancellationToken = default)"
+        "declaration": "public async Task<NhProxyRewriteConfiguration> LoadRewritesAsync(CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteConfigurationStore.cs",
@@ -9979,7 +9979,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteConfigurationStore.cs",
-        "declaration": "public Task<TaskResult<NhProxyRewriteConfiguration>> SaveRewritesAsync(NhProxyRewriteSaveRequest request, CancellationToken cancellationToken = default)"
+        "declaration": "public async Task<TaskResult<NhProxyRewriteConfiguration>> SaveRewritesAsync(NhProxyRewriteSaveRequest request, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NhProxySqliteConfigurationStore.cs",
@@ -10026,6 +10026,34 @@
         "declaration": "public TimeSpan BusyTimeout { get; set; } = TimeSpan.FromSeconds(5);"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.Rewrites.cs",
+        "declaration": "public sealed partial class NhProxyAdminController {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.Rewrites.cs",
+        "declaration": "[HttpGet] [EndpointSummary(\"List managed rewrites\")] [EndpointDescription(\"Shows saved rewrite rules, destinations and independently confirmed YARP activation.\")] [ProducesResponseType(typeof(NhProxyRewriteListModel), StatusCodes.Status200OK)] public async Task<IActionResult> Rewrites([FromQuery] string? search, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.Rewrites.cs",
+        "declaration": "[HttpGet] [EndpointSummary(\"Edit a managed rewrite\")] [EndpointDescription(\"Loads a stored rule or prepares a draft with its rewrite and redirect revisions. Native configuration sources are outside this editor.\")] [ProducesResponseType(typeof(NhProxyRewriteEditorModel), StatusCodes.Status200OK)] [ProducesResponseType(StatusCodes.Status404NotFound)] public async Task<IActionResult> RewriteEdit([FromRoute] Guid? id, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.Rewrites.cs",
+        "declaration": "[HttpPost] [EndpointSummary(\"Save or test a managed rewrite\")] [EndpointDescription(\"Tests a revision-checked candidate with saved redirects and rewrites without outbound requests, or commits and activates the rewrite configuration. Shared destination edits affect every referencing rule.\")] [ProducesResponseType(typeof(NhProxyRewriteEditorModel), StatusCodes.Status200OK)] [ProducesResponseType(StatusCodes.Status400BadRequest)] [ProducesResponseType(StatusCodes.Status302Found)] [ProducesResponseType(StatusCodes.Status409Conflict)] public async Task<IActionResult> RewriteEdit([FromForm] NhProxyRewriteEditorModel model, [FromForm] string? operation, [FromServices] INhProxyDraftTester tester, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.Rewrites.cs",
+        "declaration": "[HttpGet] [EndpointSummary(\"Confirm rewrite deletion\")] [EndpointDescription(\"Displays the stored rewrite to remove. Shared destinations are retained.\")] [ProducesResponseType(typeof(NhProxyRewriteDeleteModel), StatusCodes.Status200OK)] [ProducesResponseType(StatusCodes.Status404NotFound)] public async Task<IActionResult> RewriteDelete([FromRoute] Guid id, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.Rewrites.cs",
+        "declaration": "[HttpPost, ActionName(nameof(RewriteDelete))] [EndpointSummary(\"Delete a managed rewrite\")] [EndpointDescription(\"Removes a rewrite with revision protection and activates the remaining rules. Destinations are retained for reuse.\")] [ProducesResponseType(StatusCodes.Status400BadRequest)] [ProducesResponseType(StatusCodes.Status302Found)] [ProducesResponseType(StatusCodes.Status409Conflict)] public async Task<IActionResult> RewriteDeleteConfirmed([FromRoute] Guid id, [FromForm] long revision, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.Rewrites.cs",
+        "declaration": "[HttpPost] [EndpointSummary(\"Retry managed rewrite activation\")] [EndpointDescription(\"Publishes the current stored rewrite revision and waits for YARP confirmation without modifying storage or redirects.\")] [ProducesResponseType(StatusCodes.Status302Found)] public async Task<IActionResult> RewriteActivate(CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
         "declaration": "public sealed class NhProxyRedirectEditorModel {"
       },
@@ -10063,7 +10091,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "[Area(\"NewHeapProxy\")] [Authorize(Policy = NhProxyOptions.AdministrationPolicy)] [AutoValidateAntiforgeryToken] [RequestSizeLimit(65536)] [ProducesResponseType(StatusCodes.Status403Forbidden)] [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)] public sealed class NhProxyAdminController(INhProxyConfigurationService configuration, INhProxyAdministrationService administration, INhProxyConfigurationValidator validator, INhProxyLoginAuditStore audit, IOptions<NhProxyOptions> options) : Controller {"
+        "declaration": "[Area(\"NewHeapProxy\")] [Authorize(Policy = NhProxyOptions.AdministrationPolicy)] [AutoValidateAntiforgeryToken] [RequestSizeLimit(65536)] [ProducesResponseType(StatusCodes.Status403Forbidden)] [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)] public sealed partial class NhProxyAdminController(INhProxyConfigurationService configuration, INhProxyAdministrationService administration, INhProxyConfigurationValidator validator, INhProxyLoginAuditStore audit, IOptions<NhProxyOptions> options) : Controller {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
@@ -10084,6 +10112,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
         "declaration": "[HttpGet] [EndpointSummary(\"List redirects\")] [EndpointDescription(\"Shows persisted redirect rules, their priority and the active configuration revision.\")] [ProducesResponseType(typeof(NhProxyRedirectListModel), StatusCodes.Status200OK)] public async Task<IActionResult> Index([FromQuery] string? search, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
+        "declaration": "[HttpPost] [EndpointSummary(\"Test a URL against saved proxy rules\")] [EndpointDescription(\"Previews a synthetic GET request against saved redirects, then rewrites, and identifies the selected rule without contacting the destination. Requires an administrator session and antiforgery token.\")] [ProducesResponseType(typeof(NhProxyRuleTestResult), StatusCodes.Status200OK)] [ProducesResponseType(StatusCodes.Status400BadRequest)] [ProducesResponseType(StatusCodes.Status302Found)] [ProducesResponseType(StatusCodes.Status409Conflict)] public async Task<IActionResult> TestUrl([FromForm, Required, StringLength(4096)] string? url, [FromServices] INhProxyDraftTester tester, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
@@ -10371,11 +10403,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfigurationService.cs",
-        "declaration": "public Task<NhProxyRewriteConfiguration> GetRewritesAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();"
+        "declaration": "public Task<NhProxyRewriteConfiguration> GetRewritesAsync(CancellationToken cancellationToken = default) => store.LoadRewritesAsync(cancellationToken);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfigurationService.cs",
-        "declaration": "public Task<TaskResult<NhProxySaveResult>> SaveRewritesAsync(NhProxyRewriteSaveRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();"
+        "declaration": "public async Task<TaskResult<NhProxySaveResult>> SaveRewritesAsync(NhProxyRewriteSaveRequest request, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfigurationService.cs",
@@ -10391,15 +10423,35 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfigurationValidator.cs",
-        "declaration": "public sealed class NhProxyConfigurationValidator(IOptions<NhProxyOptions> options) : INhProxyConfigurationValidator {"
+        "declaration": "public sealed class NhProxyConfigurationValidator(IOptions<NhProxyOptions> options, IConfigValidator? yarp = null, IInlineConstraintResolver? constraints = null) : INhProxyConfigurationValidator"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfigurationValidator.cs",
-        "declaration": "public Task<TaskResult> ValidateRewritesAsync(NhProxyRewriteSaveRequest request, CancellationToken cancellationToken = default)"
+        "declaration": "public NhProxyConfigurationValidator(IOptions<NhProxyOptions> options) : this(options, null) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfigurationValidator.cs",
+        "declaration": "public async Task<TaskResult> ValidateRewritesAsync(NhProxyRewriteSaveRequest request, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfigurationValidator.cs",
         "declaration": "public Task<TaskResult> ValidateRedirectsAsync(NhProxyRedirectSaveRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTester.cs",
+        "declaration": "public sealed class NhProxyDraftTester(INhProxyConfigurationService configuration, INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options) : INhProxyDraftTester {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTester.cs",
+        "declaration": "public Task<TaskResult<NhProxyRuleTestResult>> TestSavedAsync(NhProxyRevisions expectedRevisions, NhProxyTestRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTester.cs",
+        "declaration": "public Task<TaskResult<NhProxyRuleTestResult>> TestRewriteAsync(NhProxyRewriteTestRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTester.cs",
+        "declaration": "public Task<TaskResult<NhProxyRuleTestResult>> TestRedirectAsync(NhProxyRedirectTestRequest request, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyDraftTesting.cs",
@@ -10702,6 +10754,46 @@
         "declaration": "public enum NhProxyRedirectQueryMode {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteEditorModel.cs",
+        "declaration": "public sealed class NhProxyRewriteEditorModel {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteEditorModel.cs",
+        "declaration": "[Filterable] public Guid Id { get; set; } public bool IsNew { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteEditorModel.cs",
+        "declaration": "[Range(0, long.MaxValue)] public long Revision { get; set; } [Range(0, long.MaxValue)] public long RedirectRevision { get; set; } [Required, StringLength(200)] public string Name { get; set; } = \"\"; [StringLength(2048)] public string? Path { get; set; } = \"/{**rest}\"; [StringLength(2048)] public string? Hosts { get; set; } [StringLength(512)] public string? Methods { get; set; } public int Priority { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteEditorModel.cs",
+        "declaration": "public bool Enabled { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteEditorModel.cs",
+        "declaration": "public Guid ClusterId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteEditorModel.cs",
+        "declaration": "public Guid? SelectedClusterId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteEditorModel.cs",
+        "declaration": "[Required, StringLength(200)] public string ClusterName { get; set; } = \"Backend\"; [Required, StringLength(4096)] public string DestinationAddress { get; set; } = \"\"; public NhProxyPathTransformKind? PathOperation { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteEditorModel.cs",
+        "declaration": "[StringLength(2048)] public string? PathValue { get; set; } [Required, StringLength(32768)] public string AdvancedRuleJson { get; set; } = \"{}\"; [Required, StringLength(8192)] public string AdvancedClusterJson { get; set; } = \"{}\"; [StringLength(4096)] public string? TestUrl { get; set; } [Required, StringLength(32)] public string TestMethod { get; set; } = \"GET\"; [Required, StringLength(8192)] public string TestHeadersJson { get; set; } = \"{}\"; public bool SimulateEnabled { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteEditorModel.cs",
+        "declaration": "public sealed record NhProxyRewriteListModel(NhProxyRewriteConfiguration Configuration, NhProxyEngineStatus Status, string? Search);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteEditorModel.cs",
+        "declaration": "public sealed record NhProxyRewriteDeleteModel(NhProxyRewriteRule Rule, long Revision);"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRules.cs",
         "declaration": "public sealed record NhProxyRewriteRule {"
       },
@@ -10830,8 +10922,28 @@
         "declaration": "public sealed record NhProxyPassiveHealthCheck( string Policy, TimeSpan ReactivationPeriod);"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRuntime.cs",
+        "declaration": "public void ConfigurationApplied(IReadOnlyList<IProxyConfig> proxyConfigs) => Complete(proxyConfigs, true);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRuntime.cs",
+        "declaration": "public void ConfigurationApplyingFailed(IReadOnlyList<IProxyConfig> proxyConfigs, Exception exception) => Complete(proxyConfigs, false);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRuntime.cs",
+        "declaration": "public void ConfigurationLoadingFailed(IProxyConfigProvider configProvider, Exception exception) { }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRuntime.cs",
+        "declaration": "public void ConfigurationLoaded(IReadOnlyList<IProxyConfig> proxyConfigs) { }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRuntime.cs",
-        "declaration": "public sealed class NhProxyRuntime(INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options) : INhProxyRuntime {"
+        "declaration": "public sealed class NhProxyRuntime(INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options, IServiceProvider? services = null) : INhProxyRuntime"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRuntime.cs",
+        "declaration": "public NhProxyRuntime(INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options) : this(validator, options, null) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRuntime.cs",
@@ -19169,6 +19281,10 @@
       "TaskResult"
     ],
     "nh-proxy-contract-boundary": [
+      "NhProxyRewriteRule",
+      "NhProxyDraftTester",
+      "INhProxyDraftTester",
+      "SaveRewritesAsync",
       "NhProxyRedirectRule",
       "NhProxyConfigurationValidator",
       "NhProxyRuntime",

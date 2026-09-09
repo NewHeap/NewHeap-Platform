@@ -234,13 +234,13 @@
     "SPM-234",
     "SPM-235",
     "SPM-236",
-    "SPM-238"
+    "SPM-238",
+    "SPM-239"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
     "SPM-113": "The sample frontends do not yet have an Angular server target, so the server interceptor cannot run end to end.",
-    "SPM-160": "The complete SSR stack still lacks @angular/platform-server, a server bootstrap, and an SSR build target.",
-    "SPM-239": "Literal exact redirects, the MVC administration panel, fixed-account authentication, IP allowlisting, SQLite login auditing, revision-checked save/activation and single-rule local draft previews are implemented. Managed rewrite persistence/editing/activation, prefix/template matching, full-pipeline draft execution and general redirect-cycle analysis remain unimplemented. SQLite is verified; SQL Server and PostgreSQL are outside version-one scope."
+    "SPM-160": "The complete SSR stack still lacks @angular/platform-server, a server bootstrap, and an SSR build target."
   },
   "partial": {},
   "evidence": {
@@ -1530,6 +1530,10 @@
       "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs",
       "src/Back-end/Applications/SampleProjectManagement.Proxy/Properties/launchSettings.json",
       "src/Back-end/Orchestration/SampleProjectManagement.AppHost/Program.cs"
+    ],
+    "SPM-239": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyRewriteSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs"
     ]
   }
 }

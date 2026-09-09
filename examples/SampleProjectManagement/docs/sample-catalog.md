@@ -42,8 +42,13 @@ isolated demo storage and one example redirect. The PowerShell smoke check verif
 the actual executable, health endpoints and persistence across restarts. The Aspire
 AppHost also starts this profile as `sample-project-management-proxy`, with a
 dashboard link to the panel, an assigned port and an independent SQLite file.
-SPM-239 remains a `library-gap` for managed rewrite persistence/editing/activation,
-full-pipeline draft execution, prefix/template matching and general cycle analysis.
+SPM-239 is exercised by `ProxyRewriteSamplesTests` and the embedded Rewrites panel.
+It demonstrates isolated managed-rule previews, SQLite rewrite persistence, native
+YARP route/transform parity, independent confirmed activation and real forwarding.
+The administration top bar tests a GET URL against saved redirects and rewrites,
+showing the winning rule, target and edit link through `TestSavedAsync`.
+Appsettings/other sources and host customizations are outside preview; redirect
+prefix/template matching and general cycle analysis remain deferred.
 SQL Server and PostgreSQL remain explicit v1 provider gaps.
 
 The samples are built directly on the public NewHeap surface. Collections use

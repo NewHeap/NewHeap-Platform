@@ -2,9 +2,10 @@
 
 The library loads exact and opt-in regex redirects from SQLite at startup and applies them
 from an immutable in-memory snapshot before proxy and host endpoint execution.
-The embedded MVC panel manages redirects, tests unsaved rules, audits
-logins and activates saved changes. Managed rewrite storage/editing remains
-unimplemented; native YARP customization is available.
+The embedded MVC panel manages redirects and stored rewrites, tests unsaved rules,
+audits logins and activates saved changes. Stored rewrites use native YARP routes,
+matching and transforms. Appsettings and other native configuration sources remain
+host-owned and are outside managed editing and testing.
 
 ## Host integration
 
@@ -20,7 +21,7 @@ app.UseNewHeapProxy();
 app.Run();
 ```
 
-`AddNewHeapProxy` registers options, SQLite storage, redirect validation/runtime,
+`AddNewHeapProxy` registers options, SQLite storage, both rule engines and draft testing,
 and a hosted initializer. Initialization runs in the host's `StartingAsync`
 phase, before its HTTP server starts, including with concurrent hosted-service
 startup enabled. Missing databases are created; unreadable, invalid, or
@@ -32,8 +33,8 @@ internally. Do not call both on the same `WebApplication`. Standalone
 alternative; it does not install redirect middleware. Host-configured forwarded
 headers and other required host middleware belong before `UseNewHeapProxy`.
 
-Native YARP mapping loads its own initial configuration. Its provider remains
-empty until configured; redirect processing does not depend on rewrite activation.
+Native YARP mapping loads stored rewrites through a dedicated InMemoryConfigProvider;
+redirect processing does not depend on rewrite activation.
 The reserved administration branch is installed before redirects and YARP, including catch-all routes.
 
 ## Administration
@@ -42,7 +43,8 @@ Open `/newheap-proxy`. The MVC panel provides search, create/edit, enable/disabl
 priority, host/method restrictions, query modes, deletion confirmation, login
 activity, a **Use regular expression** checkbox and a local draft test. Test evaluates one unsaved rule with the
 same runtime matcher, without storage writes or outbound requests. It does not
-simulate the full ordered rule set or execute managed rewrites.
+simulate the full ordered rule set. The separate rewrite editor tests a candidate
+against both saved managed engines using `INhProxyDraftTester`.
 
 Configure the single account through host-owned options:
 
@@ -183,12 +185,68 @@ Use `INhProxyConfigurationService.SaveRedirectsAsync` for live changes. It commi
 first and publishes the new snapshot even if the request is cancelled after the
 commit. A failed activation retains `NhProxySaveResult` in the failed TaskResult's
 Data; the panel shows the saved/active revision difference and offers retry.
-Conflicts do not overwrite another editor's work. Managed rewrite state remains
-independent and uninitialized.
+Conflicts do not overwrite another editor's work. Managed rewrite state activates
+independently through `SaveRewritesAsync` and its own mutation gate.
 
 The lower-level store persists only, and the lower-level runtime publishes only.
 Both remain useful for offline setup or explicit orchestration. Requests never
 query SQLite. Do not bypass the configuration service for routine live changes.
+
+## Stored rewrites and the test tool
+
+Open **Rewrites** in `/newheap-proxy`, create a rule, enter a path template and
+HTTP(S) backend URL, and optionally choose a path transform. Destinations may be
+shared; explicitly load an existing destination before editing it. Changes to a
+shared destination affect every referencing rule. The advanced JSON sections
+preserve ordered transforms, header/query conditions, policies, timeouts and
+health checks. Visible form fields take precedence over their corresponding
+advanced JSON properties; unknown properties are rejected.
+
+The backend URL's base path is prepended after the rule's path transforms.
+For `/api/{**rest}`, destination `https://backend.example/base/`, and a remove-prefix
+transform `/api`, request `/api/projects/42?source=test` becomes
+`https://backend.example/base/projects/42?source=test`. There is no browser redirect.
+Matching retains ASP.NET/YARP host, method, path constraint, header, query and
+priority semantics. Exact duplicate enabled matches at the same priority are
+rejected; broader ambiguity is reported by the tester. Avoid destinations that
+route back into the same proxy rule; general cross-service cycle detection is not implemented.
+
+`SaveRewritesAsync` validates the full rule/cluster candidate, commits its own
+revision and publishes to the dedicated native provider. YARP's
+`IConfigChangeListener.ConfigurationApplied` confirms the exact publication token.
+An update notification alone is not success. A rejected reload retains the old
+active revision; five seconds without confirmation reports `Unconfirmed`. A late
+callback may still confirm it. The failed save result retains its committed
+`SavedRevision` in `Data`. Retry activation without creating another revision.
+
+**Test draft** evaluates the draft in place of the rule with the same ID, alongside
+all other stored rules. It checks both expected revisions, includes optional draft
+cluster replacements, preserves disabled state unless **Simulate enabled** is
+selected, and gives redirects precedence. Output includes the winning rule, route
+values, transformed target URL, safe outgoing headers and unevaluated response
+header transforms. The reserved administration path bypasses both engines.
+The administration top bar accepts a complete HTTP(S) URL and previews a GET
+against saved managed rules. It shows the winning redirect or rewrite, target URL
+and an edit link, or an explicit no-match/reserved-path result. Saved-versus-active
+revision differences are highlighted. It never contacts the destination, so an
+upstream redirect or error is not part of this preview.
+
+`INhProxyDraftTester.TestSavedAsync` takes both expected revisions and synthetic
+input to test saved rules without supplying a draft. Disabled rules remain disabled.
+`INhProxyDraftTester.TestRewriteAsync` and `TestRedirectAsync` expose the same
+isolated managed-rule evaluator to code. No server is started, no live provider
+is changed, no document is saved and no upstream requests or health probes run.
+
+Only synthetic non-secret headers are accepted. Preview does not copy credentials
+or cookies from the administrator request. The default request input limit is
+64 KiB and the test budget is five seconds. Cancellation and stage deadlines are
+cooperative; native routing constraints retain their own evaluation limits.
+Preview does not prove connectivity, health, authorization, CORS, rate limiting
+or upstream responses, and does not replay host callbacks, filters, custom
+constraints/transforms or other configuration sources. Policy registration remains
+host-owned. `UseNewHeapProxy` installs routing, authentication and authorization
+after redirects. When using CORS, rate limiting or request timeouts, compose their
+middleware after route selection and before endpoint execution as required by ASP.NET.
 
 ## Native YARP customization
 
@@ -224,8 +282,11 @@ SPM-238 demonstrates startup, contracts, and real SQLite-backed HTTP redirects i
 `ProxyContractBoundarySamplesTests`, `ProxyLiteralRedirectSamplesTests` and `ProxyAdministrationSamplesTests`.
 Tests cover matching, query handling, safe targets, atomic publication, persistence,
 restart, stale writes, exclusive ownership, invalid data, and requests after the
-storage connection is disposed. SPM-239 remains a `library-gap` for the remaining
-managed rewrite features, full-pipeline draft tests and general cycle analysis.
+storage connection is disposed. SPM-239 adds `ProxyRewriteSamplesTests`: isolated
+preview, real forwarding, route capture/query transform parity and independent activation.
+Library tests additionally cover restart, native header/query/host/method matching,
+disabled drafts, conflicts, ambiguity, rejected reload/retry and secured MVC CRUD.
+Redirect prefix/template matching and general cycle analysis remain outside this implementation.
 SQLite is the implemented provider; SQL Server and PostgreSQL are outside v1.
 
 The neutral library references ASP.NET Core, YARP, and NewHeap Common contracts;

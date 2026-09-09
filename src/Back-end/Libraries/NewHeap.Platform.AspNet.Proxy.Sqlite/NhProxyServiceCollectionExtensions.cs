@@ -4,10 +4,11 @@ using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
+using Yarp.ReverseProxy.Configuration;
 
 namespace NewHeap.Platform.AspNet.Proxy.Sqlite;
 
-/// <summary>Registers YARP, literal redirects, MVC administration and SQLite storage.</summary>
+/// <summary>Registers managed YARP rewrites, redirects, isolated testing, MVC administration and SQLite storage.</summary>
 public static class NhProxyServiceCollectionExtensions
 {
     /// <summary>Binds proxy options from the supplied section and storage options from its Sqlite child.</summary>
@@ -36,6 +37,12 @@ public static class NhProxyServiceCollectionExtensions
         if (options.Limits is null || options.Limits.MaximumRulesPerEngine <= 0)
         {
             throw new ArgumentException("MaximumRulesPerEngine must be positive.", nameof(configure));
+        }
+
+        if (options.Limits.MaximumTestRequestBytes <= 0 || options.Limits.TestTimeout <= TimeSpan.Zero
+            || options.Limits.TestTimeout.TotalMilliseconds > int.MaxValue)
+        {
+            throw new ArgumentException("Test limits must be positive and the timeout must fit in milliseconds.", nameof(configure));
         }
 
         services.AddSingleton<IOptions<NhProxyOptions>>(Options.Create(options));
@@ -96,7 +103,12 @@ public static class NhProxyServiceCollectionExtensions
         services.AddAuthorization(authorization => authorization.AddPolicy(NhProxyOptions.AdministrationPolicy,
             policy => policy.AddAuthenticationSchemes(NhProxyOptions.AuthenticationScheme).RequireAuthenticatedUser()));
 
-        var yarp = services.AddReverseProxy().LoadFromMemory([], []);
+        var managedProvider = new InMemoryConfigProvider([], []);
+        services.AddSingleton<IProxyConfigProvider>(managedProvider);
+        services.AddSingleton(provider => new NhProxyRewriteRuntime(provider.GetRequiredService<INhProxyConfigurationValidator>(), managedProvider, provider));
+        services.AddSingleton<IConfigChangeListener>(provider => provider.GetRequiredService<NhProxyRewriteRuntime>());
+        services.AddSingleton<INhProxyDraftTester, NhProxyDraftTester>();
+        var yarp = services.AddReverseProxy();
         options.YarpConfiguration?.Invoke(yarp);
 
         return services;

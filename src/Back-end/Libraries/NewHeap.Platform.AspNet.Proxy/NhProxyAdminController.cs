@@ -45,14 +45,14 @@ public sealed class NhProxyRedirectEditorModel
 public sealed record NhProxyRedirectListModel(NhProxyRedirectConfiguration Configuration, NhProxyEngineStatus Status, string? Search);
 public sealed record NhProxyRedirectDeleteModel(NhProxyRedirectRule Rule, long Revision);
 
-/// <summary>Embedded MVC administration for redirects. The reserved pipeline branch owns access checks.</summary>
+/// <summary>Embedded MVC administration for managed proxy rules. The reserved pipeline branch owns access checks.</summary>
 [Area("NewHeapProxy")]
 [Authorize(Policy = NhProxyOptions.AdministrationPolicy)]
 [AutoValidateAntiforgeryToken]
 [RequestSizeLimit(65536)]
 [ProducesResponseType(StatusCodes.Status403Forbidden)]
 [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
-public sealed class NhProxyAdminController(INhProxyConfigurationService configuration, INhProxyAdministrationService administration,
+public sealed partial class NhProxyAdminController(INhProxyConfigurationService configuration, INhProxyAdministrationService administration,
     INhProxyConfigurationValidator validator, INhProxyLoginAuditStore audit, IOptions<NhProxyOptions> options) : Controller
 {
     public override void OnActionExecuting(ActionExecutingContext context)
@@ -113,6 +113,47 @@ public sealed class NhProxyAdminController(INhProxyConfigurationService configur
     public async Task<IActionResult> Index([FromQuery] string? search, CancellationToken cancellationToken)
     {
         return View(new NhProxyRedirectListModel(await configuration.GetRedirectsAsync(cancellationToken), configuration.GetStatus().Redirect, search));
+    }
+
+    [HttpPost]
+    [EndpointSummary("Test a URL against saved proxy rules")]
+    [EndpointDescription("Previews a synthetic GET request against saved redirects, then rewrites, and identifies the selected rule without contacting the destination. Requires an administrator session and antiforgery token.")]
+    [ProducesResponseType(typeof(NhProxyRuleTestResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> TestUrl([FromForm, Required, StringLength(4096)] string? url,
+        [FromServices] INhProxyDraftTester tester, CancellationToken cancellationToken)
+    {
+        ViewData["TestUrl"] = url;
+        if (!ModelState.IsValid || !Uri.TryCreate(url, UriKind.Absolute, out var requestUrl)
+            || requestUrl.Scheme is not ("http" or "https") || requestUrl.UserInfo.Length != 0 || requestUrl.Fragment.Length != 0)
+        {
+            Response.StatusCode = 400;
+            ViewData["Error"] = "Enter a complete HTTP(S) URL without credentials or a fragment.";
+            return View();
+        }
+
+        var rewrites = await configuration.GetRewritesAsync(cancellationToken);
+        var redirects = await configuration.GetRedirectsAsync(cancellationToken);
+        var tested = await tester.TestSavedAsync(new(rewrites.Revision, redirects.Revision), new() { Url = requestUrl }, cancellationToken);
+        if (!tested.Success)
+        {
+            var conflict = tested.GetResultItems().Any(item => item.Name == NhProxyErrorCodes.RevisionConflict);
+            Response.StatusCode = conflict ? 409 : 400;
+            ViewData["Error"] = conflict ? "The saved rules changed during the test. Test the URL again."
+                : "The URL could not be tested. Check for overlapping rewrite matches and invalid rules, then try again.";
+            return View();
+        }
+
+        var result = tested.Data!;
+        ViewData["RuleName"] = result.Outcome == NhProxyTestOutcome.Redirect
+            ? redirects.Rules.FirstOrDefault(rule => rule.Id == result.SelectedRuleId)?.Name
+            : rewrites.Rules.FirstOrDefault(rule => rule.Id == result.SelectedRuleId)?.Name;
+        ViewData["RulePath"] = result.Outcome == NhProxyTestOutcome.Redirect
+            ? redirects.Rules.FirstOrDefault(rule => rule.Id == result.SelectedRuleId)?.Match.Path
+            : rewrites.Rules.FirstOrDefault(rule => rule.Id == result.SelectedRuleId)?.Match.Path;
+        return View(result);
     }
 
     [HttpGet]

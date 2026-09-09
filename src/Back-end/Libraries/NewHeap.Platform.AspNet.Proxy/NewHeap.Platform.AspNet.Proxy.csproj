@@ -7,7 +7,7 @@
     <PackageId>NewHeap.Platform.AspNet.Proxy</PackageId>
     <Copyright>NewHeap B.V.</Copyright>
     <Title>NewHeap ASP.NET Proxy</Title>
-    <PackageDescription>NewHeap ASP.NET Core literal redirect runtime, proxy contracts, and native YARP integration.</PackageDescription>
+    <PackageDescription>NewHeap ASP.NET Core redirects, managed YARP rewrites, isolated rule testing and proxy administration.</PackageDescription>
     <PackageTags>newheap platform aspnetcore proxy mvc</PackageTags>
     <IsPackable>true</IsPackable>
   </PropertyGroup>

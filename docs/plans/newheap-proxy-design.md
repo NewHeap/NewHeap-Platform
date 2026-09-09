@@ -1,6 +1,6 @@
 # NewHeap Proxy Library Design
 
-Status: exact and opt-in regex SQLite redirects, MVC administration, authentication, login auditing and save/activation implemented; managed rewrites and full-pipeline draft testing pending
+Status: stored rewrites, exact/regex redirects, MVC administration, independent activation and isolated managed-rule testing implemented; other configuration sources and broader cycle analysis are outside the current milestone
 
 Date: 2026-09-07  
 Scope: an ASP.NET Core proxy and redirect library with embedded administration, draft rule testing, and SQLite persistence
@@ -11,21 +11,20 @@ The backend solution now contains the .NET 10 project scaffolds
 `NewHeap.Platform.AspNet.Proxy` (Razor SDK with MVC support),
 `NewHeap.Platform.AspNet.Proxy.Sqlite`, and a corresponding non-packable
 `*.Tests` project for each library. The SQLite project references the neutral
-proxy project. Public data/service contracts and explicit `NotImplementedException`
-stubs exist for future features. `AddNewHeapProxy` registers SQLite redirect storage,
-validation, runtime, and startup loading alongside empty native YARP configuration.
+proxy project. `AddNewHeapProxy` registers SQLite storage for both engines,
+validation, runtime, isolated draft testing and startup loading through a dedicated native YARP provider.
 `UseNewHeapProxy` installs literal redirect middleware and calls `MapNewHeapProxy`
 internally. Microsoft.Data.Sqlite owns storage in the SQLite project; no consumer
 DAL migrations are used. MVC management, login auditing and single-rule local
-draft previews are implemented. Managed rewrite persistence/activation and the
-full-pipeline draft API remain unimplemented.
+draft previews are implemented. Stored rewrite persistence, independent confirmed
+activation and isolated testing against both managed engines are also implemented.
 
 See the [project README](../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/README.md)
 for the contract map and verification commands. Library tests cover host startup,
 request continuation, native route creation, literal matching, real SQLite persistence,
 exclusive ownership, invalid data, and restart behavior. SPM-238 demonstrates the
 two-call Add/Use flow, real SQLite-backed HTTP redirects, and consumer contracts;
-SPM-239 remains a runtime `library-gap`. The projects are not yet part
+SPM-239 demonstrates stored rewrite preview and real forwarding. The projects are not yet part
 of a release unit, and existing release versions are unchanged.
 
 The initial options choose configurable defaults: eight-hour sessions, five login
@@ -34,7 +33,7 @@ audit pages capped at 100, 1,000 rules per engine, and draft inputs capped at 64
 with a five-second test budget. SQLite defaults to `App_Data/newheap-proxy.db` and
 a five-second busy timeout. The literal rule-count limit and SQLite timeout are
 enforced. Session/rate/audit settings and a 64 KiB administration form limit are
-also enforced. Full draft API budgets remain future contracts. The fixed account
+also enforced. Isolated testing enforces the input limit and a cooperative deadline. The fixed account
 uses a username, ASP.NET Identity hash and optional credential version;
 there are no usable default credentials.
 
@@ -60,14 +59,21 @@ SQLite schema 2 adds audit events and an ordered index through a transactional
 upgrade from schema 1, preserving redirects. INhProxyConfigurationService commits
 before publishing; publication survives HTTP cancellation, and failed activation
 retains the committed revision in TaskResult.Data. The UI exposes retry without
-saving a second configuration. The draft button tests only its unsaved rule with
-the runtime matcher, not the full future test API or general cycle analysis.
+saving a second configuration. The redirect editor tests one unsaved rule; the
+rewrite editor tests its candidate against both stored engines. Schema 3 adds the
+rewrite document while retaining redirects and audit events. The rewrite runtime
+correlates YARP configuration-applied events with a unique publication token;
+rejected reloads retain the active revision and a missing confirmation is explicit.
 
 SPM-238 provides the runnable SampleProjectManagement.Proxy host, public-service
 consumer evidence and real HTTP/SQLite regression coverage. See
 [administration setup](../../examples/SampleProjectManagement/docs/proxy-administration.md).
-The remaining sections describe the broader target design; incomplete features
-remain tracked as SPM-239 gaps.
+SPM-239 adds native routing/transform parity, real backend forwarding, rewrite
+CRUD, shared destinations and isolated previews. Advanced matching/transforms and
+policy/health settings are currently edited as typed configuration JSON. The
+remaining sections describe the broader target design; redirect prefix/template
+matching, general cycle analysis, exhaustive condition-by-condition diagnostics,
+and previewing host customizations or other sources are not implemented.
 
 ## Objective and agreed direction
 
@@ -129,7 +135,7 @@ configure DNS, a listening port, or an inbound TLS certificate.
 
 ## Consumer integration
 
-Current startup integration (managed rewrite processing remains a future milestone):
+Current startup integration:
 
 ```csharp
 using NewHeap.Platform.AspNet.Proxy;
@@ -169,12 +175,11 @@ The current registration binds startup option snapshots exposed through `IOption
 installs YARP with an empty in-memory configuration, and invokes the callback.
 `AddNewHeapProxy()` supports defaults; the configuration overload binds the supplied
 section and its `Sqlite` child. A hosted lifecycle service initializes storage and
-publishes the validated redirect snapshot in StartingAsync, before the HTTP server
+publishes both validated managed snapshots in StartingAsync, before the HTTP server
 starts (including with concurrent service startup). Administration and redirect
-save/activation orchestration are implemented. Option reload and managed rewrites
-remain future work.
+save/activation orchestration are implemented. Option reload remains future work.
 NewHeap continues to own the managed route/cluster source. Any host customization
-that a future isolated draft evaluator cannot reproduce must be reported as an
+that the isolated draft evaluator cannot reproduce must be reported as an
 unexecuted runtime customization, not silently simulated with different semantics.
 
 The library must document and test required middleware ordering, including
@@ -737,10 +742,10 @@ access for draft isolation checks. Put library tests in non-packable plural `*.T
 under `src/Back-end/Tests` and keep executable consumer evidence in the sample.
 
 SPM-238 and `nh-proxy-contract-boundary` describe startup registration, typed contracts,
-and real SQLite-backed literal redirects. SPM-239 describes the remaining managed
-rewrite, administration, security, auditing, and draft gaps. Extend those cases as
-features arrive; the implemented literal redirect milestone does not imply the
-whole product is complete. Keep SQL Server/PostgreSQL scope gaps and actual SQLite
+and real SQLite-backed literal redirects. SPM-239 demonstrates stored rewrites and
+isolated managed-rule testing. Extend those cases as features arrive; broader
+redirect matching/cycle analysis and external-source preview remain outside the
+implemented scope. Keep SQL Server/PostgreSQL scope gaps and actual SQLite
 evidence explicit.
 
 For implementation completion, update the registry and evidence paths, applicable

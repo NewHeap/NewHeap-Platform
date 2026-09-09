@@ -7,7 +7,7 @@ using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AspNet.Proxy.Sqlite;
 
-/// <summary>Owns versioned SQLite redirect snapshots. Writes persist only; activation is a separate operation.</summary>
+/// <summary>Owns versioned SQLite redirect and rewrite snapshots. Writes persist only; activation is a separate operation.</summary>
 public sealed class NhProxySqliteConfigurationStore : INhProxyConfigurationStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -91,7 +91,7 @@ public sealed class NhProxySqliteConfigurationStore : INhProxyConfigurationStore
                 using var command = _connection.CreateCommand();
                 command.CommandText = "PRAGMA user_version;";
                 var version = (long)(await command.ExecuteScalarAsync(cancellationToken))!;
-                if (version is < 0 or > 2)
+                if (version is < 0 or > 3)
                 {
                     throw new InvalidDataException($"Unsupported NewHeap Proxy SQLite schema version {version}.");
                 }
@@ -148,6 +148,21 @@ public sealed class NhProxySqliteConfigurationStore : INhProxyConfigurationStore
                     await command.ExecuteNonQueryAsync(cancellationToken);
                     await transaction.CommitAsync(cancellationToken);
                 }
+
+                if (version < 3)
+                {
+                    using var transaction = _connection.BeginTransaction();
+                    command.Transaction = transaction;
+                    command.Parameters.Clear();
+                    command.CommandText = """
+                        INSERT INTO NhProxyConfiguration (Engine, Revision, FormatVersion, Document)
+                        VALUES ('Rewrite', 0, 1, $document);
+                        PRAGMA user_version=3;
+                        """;
+                    command.Parameters.AddWithValue("$document", JsonSerializer.Serialize(new NhProxyRewriteConfiguration(), JsonOptions));
+                    await command.ExecuteNonQueryAsync(cancellationToken);
+                    await transaction.CommitAsync(cancellationToken);
+                }
             }
             catch
             {
@@ -164,10 +179,49 @@ public sealed class NhProxySqliteConfigurationStore : INhProxyConfigurationStore
         }
     }
 
-    public Task<NhProxyRewriteConfiguration> LoadRewritesAsync(CancellationToken cancellationToken = default)
+    public async Task<NhProxyRewriteConfiguration> LoadRewritesAsync(CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            using var command = GetConnection().CreateCommand();
+            command.CommandText = "SELECT Revision, FormatVersion, Document FROM NhProxyConfiguration WHERE Engine='Rewrite';";
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                throw new InvalidDataException("The persisted rewrite snapshot is missing.");
+            }
+
+            var json = reader.GetString(2);
+            using var document = JsonDocument.Parse(json);
+            if (!document.RootElement.TryGetProperty("revision", out _)
+                || !document.RootElement.TryGetProperty("formatVersion", out _)
+                || !document.RootElement.TryGetProperty("rules", out _) || !document.RootElement.TryGetProperty("clusters", out _))
+            {
+                throw new InvalidDataException("The persisted rewrite document is incomplete.");
+            }
+
+            var snapshot = JsonSerializer.Deserialize<NhProxyRewriteConfiguration>(json, JsonOptions)
+                ?? throw new InvalidDataException("The persisted rewrite document is null.");
+            if (snapshot.Revision != reader.GetInt64(0) || snapshot.FormatVersion != reader.GetInt32(1) || snapshot.FormatVersion != 1)
+            {
+                throw new InvalidDataException("The persisted rewrite revision or format is inconsistent or unsupported.");
+            }
+
+            var validation = await _validator.ValidateRewritesAsync(new NhProxyRewriteSaveRequest(snapshot.Revision, snapshot.Rules, snapshot.Clusters), cancellationToken);
+            if (!validation.Success)
+            {
+                throw new InvalidDataException("The persisted rewrite snapshot contains invalid or unsupported rules.");
+            }
+
+            return snapshot;
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
+
 
     public async Task<NhProxyRedirectConfiguration> LoadRedirectsAsync(CancellationToken cancellationToken = default)
     {
@@ -212,10 +266,47 @@ public sealed class NhProxySqliteConfigurationStore : INhProxyConfigurationStore
         }
     }
 
-    public Task<TaskResult<NhProxyRewriteConfiguration>> SaveRewritesAsync(NhProxyRewriteSaveRequest request, CancellationToken cancellationToken = default)
+    public async Task<TaskResult<NhProxyRewriteConfiguration>> SaveRewritesAsync(NhProxyRewriteSaveRequest request, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.ExpectedRevision == long.MaxValue)
+        {
+            return TaskResult<NhProxyRewriteConfiguration>.Failed(NhProxyErrorCodes.Validation, "newheap-proxy.revision-exhausted");
+        }
+
+        var validation = await _validator.ValidateRewritesAsync(request, cancellationToken);
+        if (!validation.Success)
+        {
+            return TaskResult<NhProxyRewriteConfiguration>.Failed(validation);
+        }
+
+        var snapshot = new NhProxyRewriteConfiguration { Revision = checked(request.ExpectedRevision + 1), Rules = request.Rules, Clusters = request.Clusters };
+        var json = JsonSerializer.Serialize(snapshot, JsonOptions);
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            using var command = GetConnection().CreateCommand();
+            command.CommandText = """
+                UPDATE NhProxyConfiguration SET Revision=$revision, FormatVersion=1, Document=$document
+                WHERE Engine='Rewrite' AND Revision=$expected AND FormatVersion=1;
+                """;
+            command.Parameters.AddWithValue("$revision", snapshot.Revision);
+            command.Parameters.AddWithValue("$expected", request.ExpectedRevision);
+            command.Parameters.AddWithValue("$document", json);
+            // One conditional UPDATE is an atomic SQLite transaction; no read-then-write race.
+            if (await command.ExecuteNonQueryAsync(cancellationToken) != 1)
+            {
+                return TaskResult<NhProxyRewriteConfiguration>.Failed(NhProxyErrorCodes.RevisionConflict, NhProxyErrorCodes.RevisionConflict);
+            }
+
+            return TaskResult<NhProxyRewriteConfiguration>.Succeeded(snapshot);
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
+
 
     public async Task<TaskResult<NhProxyRedirectConfiguration>> SaveRedirectsAsync(NhProxyRedirectSaveRequest request, CancellationToken cancellationToken = default)
     {

@@ -108,10 +108,10 @@ public sealed class NhProxySqliteContractTests
     }
 
     [Fact]
-    public async Task Rewrite_storage_remains_unimplemented()
+    public async Task Rewrite_storage_requires_initialization()
     {
         await using var store = new NhProxySqliteConfigurationStore(Options.Create(new NhProxySqliteOptions()));
-        await Assert.ThrowsAsync<NotImplementedException>(() => store.LoadRewritesAsync());
-        await Assert.ThrowsAsync<NotImplementedException>(() => store.SaveRewritesAsync(new NhProxyRewriteSaveRequest(0, [], [])));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.LoadRewritesAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.SaveRewritesAsync(new NhProxyRewriteSaveRequest(0, [], [])));
     }
 }

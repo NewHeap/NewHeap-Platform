@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 
 namespace NewHeap.Platform.AspNet.Proxy;
 
-/// <summary>Pipeline entry points for the administration panel, literal redirects and native YARP.</summary>
+/// <summary>Pipeline entry points for administration, redirects and managed/native YARP routes.</summary>
 public static class NhProxyApplicationExtensions
 {
     /// <summary>Installs literal redirects before proxy execution and maps native YARP endpoints.</summary>
@@ -85,6 +85,10 @@ public static class NhProxyApplicationExtensions
                 new { controller = "NhProxyAdmin" }));
         });
         app.UseMiddleware<NhProxyRedirectMiddleware>();
+        // Explicit routing keeps redirects ahead of route selection, including ambiguous rewrite matches.
+        app.UseRouting();
+        app.UseAuthentication();
+        app.UseAuthorization();
         app.MapNewHeapProxy();
 
         return app;
