@@ -61,6 +61,8 @@ Build the backend, call `AssertConfigurationIsValid`, run the mapping, service, 
 
 Run `AutoMapper14BehaviorParityTests` and `AutoMapper14BoundaryParityTests` for the conversion, condition, inheritance, reference-identity, flattening and null-converter contract. These compare the real AutoMapper 14 package with NH and cover the former default depth policy, shared 12-node graphs, culture changes, collection scopes and validation. `MappingCompatibilitySamplesTests` demonstrates these contracts using consumer-owned project read/import models.
 
+Public writable instance fields participate in destination mapping just like properties, including inherited fields, `ForMember`, `Ignore`, conditions, nested values, collections and configuration validation. Readonly and static fields are not convention mapping destinations. Run `PublicFieldParityTests` against AutoMapper 14 and the `PublicReadModelFieldsRetainDescriptions` sample before changing member discovery; a filled source description must not silently become a null or empty destination field.
+
 ## Executable evidence
 
 - SPM-001 — Retrieve projects

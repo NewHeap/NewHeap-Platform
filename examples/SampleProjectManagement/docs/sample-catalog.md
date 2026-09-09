@@ -47,6 +47,17 @@ afterward. There is no local base service or repository wrapper.
 
 ## Reusable test helpers
 
+SPM-216 also includes `SampleProjectManagement.CommonConsole`, a standalone
+Common consumer with no ASP.NET host. Run it with `dotnet run --project
+examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.CommonConsole`
+from the Platform repository root. It exercises result propagation and queue
+resolution and checks that its runtime artifacts contain neither ASP.NET nor
+Hangfire SQL Server storage. `RepositoryFoundationSamplesTests` launches the
+console and demonstrates the ModelState adapter from
+`NewHeap.Platform.AspNet.Common` in HTTP composition. See
+`docs/how-to/migrate-common-aspnet-boundary.md` in the Platform repository for
+the migration from the former virtual TaskResult method.
+
 The consumer test project references `NewHeap.Platform.Common.Test` and
 `NewHeap.Platform.AspNet.Common.Test` for DI contexts, DbContext and repository
 registration, `TaskResult` assertions, and NSubstitute predicates. These are
@@ -188,7 +199,7 @@ with a back-reference. The mapper preserves the project destination within its m
 JSON `ReferenceLoopHandling.Ignore` to omit the loop. The serialized result can
 be read with `MaxDepth = 32`. Write requests should still contain only the
 explicit mutate fields, without read-model navigation graphs.
-`MappingCompatibilitySamplesTests` additionally proves shared graph reuse,
+`MappingCompatibilitySamplesTests` additionally proves that public destination fields retain source descriptions, as well as shared graph reuse,
 collection depth boundaries, inherited write conditions, runtime derived views,
 null converter defaults, current-culture imports, enum name conversion and
 flattened read models with private setters.
@@ -514,3 +525,7 @@ frontend code; only the remaining gaps stay explicitly visible.
 
 This makes completed work and focused follow-up immediately visible; nothing is
 incorrectly presented as implemented.
+
+## Explicit ASP.NET database providers
+
+SPM-051 selects `NewHeap.Platform.AspNet.Common.SqlServer` or `.PostgreSql` through `UseNewHeapSqlServer` and `UseNewHeapPostgreSql` in API composition. SPM-053 uses the same per-context registration for native bulk upsert. Common remains free of both database provider stacks. Hangfire storage is configured explicitly in its callback. `DatabaseProviderSamplesTests` verifies both composition variants; the library boundary tests and real-provider scenarios cover package isolation, bulk execution, locks, and identity-context configuration. See `docs/release-notes/v-next.md` for the required upgrade changes.

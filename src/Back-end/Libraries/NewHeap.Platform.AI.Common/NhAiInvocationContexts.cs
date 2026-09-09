@@ -54,6 +54,9 @@ public sealed class NhAiInvocationContextBuilder
     public string Purpose { get; }
     public string? AccountableOwnerId { get; }
     public string? RunId { get; set; }
+    public string? Issuer { get; set; }
+    public string? Subject { get; set; }
+    public string? TenantId { get; set; }
     public string? CorrelationId { get; set; }
     public string? ModelProfileName { get; set; }
     public string? PromptVersion { get; set; }
@@ -113,6 +116,9 @@ public sealed class NhAiInvocationContextBuilder
         return new NhAiInvocationContext(ActorId, Purpose, new Dictionary<string, string>(_scope))
         {
             ActorKind = ActorKind,
+            Issuer = Issuer,
+            Subject = Subject,
+            TenantId = TenantId,
             RunId = RunId,
             CorrelationId = CorrelationId,
             AccountableOwnerId = AccountableOwnerId,

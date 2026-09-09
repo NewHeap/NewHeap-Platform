@@ -45,14 +45,16 @@ internal sealed class NhAiMcpToolAdapter(
             .Select(descriptor => (descriptor.Id, descriptor.Version, descriptor.ContractHash))
             .ToHashSet();
         var result = new List<McpServerTool>(visible.Count);
+        var exportNames = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var catalog in catalogs.OrderBy(item => item.Manifest.CatalogId, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (catalog.Governance != NhAiToolCatalogGovernance.SharedInvoker)
+            if (catalog is not INhAiGeneratedToolCatalog
+                || catalog.Governance != NhAiToolCatalogGovernance.SharedInvoker)
             {
                 throw new InvalidOperationException(
-                    $"AI catalog '{catalog.Manifest.CatalogId}' is not governed by INhAiToolInvoker.");
+                    $"AI catalog '{catalog.Manifest.CatalogId}' is not a generated catalog governed by INhAiToolInvoker.");
             }
             var descriptors = catalog.Descriptors;
             var functions = catalog.CreateFunctions(services);
@@ -71,6 +73,10 @@ internal sealed class NhAiMcpToolAdapter(
                     || !string.Equals(
                         governed.Descriptor.ContractHash,
                         descriptor.ContractHash,
+                        StringComparison.Ordinal)
+                    || !string.Equals(
+                        functions[index].Name,
+                        descriptor.ExportName,
                         StringComparison.Ordinal))
                 {
                     throw new InvalidOperationException(
@@ -80,6 +86,11 @@ internal sealed class NhAiMcpToolAdapter(
                     (descriptor.Id, descriptor.Version, descriptor.ContractHash)))
                 {
                     continue;
+                }
+                if (!exportNames.Add(descriptor.ExportName))
+                {
+                    throw new InvalidOperationException(
+                        $"AI MCP export name '{descriptor.ExportName}' is registered more than once.");
                 }
 
                 var inner = McpServerTool.Create(

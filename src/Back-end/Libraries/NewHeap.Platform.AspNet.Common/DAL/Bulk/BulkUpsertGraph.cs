@@ -75,7 +75,7 @@ internal static class BulkUpsertGraph
 
     internal static async Task<int> ExecuteAsync<TEntity>(
         DbContext context,
-        string providerName,
+        NhRepositoryProvider provider,
         IReadOnlyList<TEntity> principals,
         IReadOnlyList<INavigation> navigations,
         DbTransaction transaction,
@@ -95,7 +95,7 @@ internal static class BulkUpsertGraph
 
             var task = (Task<int>)ExecuteNavigationMethod
                 .MakeGenericMethod(navigation.TargetEntityType.ClrType)
-                .Invoke(null, [context, providerName, dependents, transaction, cancellationToken])!;
+                .Invoke(null, [context, provider, dependents, transaction, cancellationToken])!;
             affected += await task;
         }
 
@@ -216,7 +216,7 @@ internal static class BulkUpsertGraph
 
     private static async Task<int> ExecuteNavigationTypedAsync<TDependent>(
         DbContext context,
-        string providerName,
+        NhRepositoryProvider provider,
         IReadOnlyList<object> dependentObjects,
         DbTransaction transaction,
         CancellationToken cancellationToken)
@@ -239,7 +239,7 @@ internal static class BulkUpsertGraph
 
             return await ExecuteGroupAsync(
                 context,
-                providerName,
+                provider,
                 dependents,
                 BulkUpsertOperation.Upsert,
                 transaction,
@@ -265,7 +265,7 @@ internal static class BulkUpsertGraph
         {
             affected += await ExecuteGroupAsync(
                 context,
-                providerName,
+                provider,
                 inserts,
                 BulkUpsertOperation.InsertOnly,
                 transaction,
@@ -276,7 +276,7 @@ internal static class BulkUpsertGraph
         {
             affected += await ExecuteGroupAsync(
                 context,
-                providerName,
+                provider,
                 updates,
                 BulkUpsertOperation.UpdateOnly,
                 transaction,
@@ -288,7 +288,7 @@ internal static class BulkUpsertGraph
 
     private static Task<int> ExecuteGroupAsync<TDependent>(
         DbContext context,
-        string providerName,
+        NhRepositoryProvider provider,
         IReadOnlyList<TDependent> dependents,
         BulkUpsertOperation operation,
         DbTransaction transaction,
@@ -298,7 +298,7 @@ internal static class BulkUpsertGraph
         var plan = BulkUpsertPlan<TDependent>.CreateForPrimaryKey(context, operation);
         return RepositoryBulkExtensions.ExecuteProviderAsync(
             context,
-            providerName,
+            provider,
             plan,
             dependents,
             transaction,

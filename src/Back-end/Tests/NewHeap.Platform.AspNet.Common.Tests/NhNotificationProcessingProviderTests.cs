@@ -1,5 +1,8 @@
+using NewHeap.Platform.AspNet.Common.SqlServer;
+using NewHeap.Platform.AspNet.Common.PostgreSql;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -17,7 +20,7 @@ namespace NewHeap.Platform.AspNet.Common.Tests;
 public sealed class NhNotificationProcessingProviderTests
 {
     [Fact]
-    public async Task ClaimCompletionAndTransactionLocksWorkOnBothRelationalProviders()
+    public async Task ProcessingQueriesAndTransactionLocksWorkOnBothRelationalProviders()
     {
         await VerifySqlServerAsync();
         await VerifyPostgreSqlAsync();
@@ -29,7 +32,7 @@ public sealed class NhNotificationProcessingProviderTests
             "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
         await container.StartAsync();
         await VerifyProviderAsync(
-            options => options.UseSqlServer(container.GetConnectionString()),
+            options => options.UseNewHeapSqlServer(container.GetConnectionString()),
             "sql-server");
     }
 
@@ -38,7 +41,7 @@ public sealed class NhNotificationProcessingProviderTests
         await using var container = new PostgreSqlBuilder("postgres:15.1").Build();
         await container.StartAsync();
         await VerifyProviderAsync(
-            options => options.UseNpgsql(container.GetConnectionString()),
+            options => options.UseNewHeapPostgreSql(container.GetConnectionString()),
             "postgresql");
     }
 
@@ -47,7 +50,12 @@ public sealed class NhNotificationProcessingProviderTests
         string providerName)
     {
         var services = new ServiceCollection();
-        services.AddDbContext<ProviderNotificationDbContext>(configureProvider);
+        services.AddDbContext<ProviderNotificationDbContext>(options =>
+        {
+            configureProvider(options);
+            options.ConfigureWarnings(warnings => warnings.Throw(
+                CoreEventId.RowLimitingOperationWithoutOrderByWarning));
+        });
         services.AddScoped<IRepository<NhNotificationDelivery>>(serviceProvider =>
             new Repository<NhNotificationDelivery>(
                 serviceProvider.GetRequiredService<ProviderNotificationDbContext>(),
@@ -64,7 +72,7 @@ public sealed class NhNotificationProcessingProviderTests
             serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<NhNotificationProcessingService>.Instance,
             new FixedOptionsMonitor<NhNotificationSettings>(settings),
-            TimeSpan.FromMilliseconds(10),
+            TimeSpan.FromHours(1),
             TimeSpan.FromMilliseconds(10));
 
         var claim = await processor.TryClaimNextDeliveryAsync("ProviderTestDispatcher", CancellationToken.None);
@@ -111,6 +119,39 @@ public sealed class NhNotificationProcessingProviderTests
             "NotificationProviderIntegrationTest",
             500)).Should().BeTrue();
         await secondTransaction.CommitAsync();
+
+        var expectedQueuedDeliveryId = await SeedUnknownDispatcherDeliveriesAsync(serviceProvider, providerName);
+
+        await processor.StartAsync(CancellationToken.None);
+        try
+        {
+            await WaitUntilAsync(async () =>
+            {
+                await using var scope = serviceProvider.CreateAsyncScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ProviderNotificationDbContext>();
+                return await dbContext.NotificationDeliveries
+                    .CountAsync(x =>
+                        x.DispatcherId == "UnknownProviderTestDispatcher"
+                        && x.Status == NotificationDeliveryStatus.Failed) == 100;
+            });
+
+            await using var verificationScope = serviceProvider.CreateAsyncScope();
+            var verificationContext = verificationScope.ServiceProvider
+                .GetRequiredService<ProviderNotificationDbContext>();
+            var unknownDeliveries = await verificationContext.NotificationDeliveries
+                .AsNoTracking()
+                .Where(x => x.DispatcherId == "UnknownProviderTestDispatcher")
+                .ToListAsync();
+
+            unknownDeliveries.Count(x => x.Status == NotificationDeliveryStatus.Failed)
+                .Should().Be(100);
+            unknownDeliveries.Single(x => x.Status == NotificationDeliveryStatus.Queued).Id
+                .Should().Be(expectedQueuedDeliveryId);
+        }
+        finally
+        {
+            await processor.StopAsync(CancellationToken.None);
+        }
     }
 
     private static async Task<Guid> SeedDeliveryAsync(
@@ -142,6 +183,57 @@ public sealed class NhNotificationProcessingProviderTests
         dbContext.Notifications.Add(notification);
         await dbContext.SaveChangesAsync();
         return delivery.Id;
+    }
+
+    private static async Task<Guid> SeedUnknownDispatcherDeliveriesAsync(
+        ServiceProvider serviceProvider,
+        string providerName)
+    {
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ProviderNotificationDbContext>();
+        var scheduledAt = DateTimeOffset.UtcNow.AddMinutes(-2);
+        var notification = new NhNotification
+        {
+            Id = Guid.NewGuid(),
+            Name = $"{providerName} unknown dispatcher notification",
+            ProcessorKey = "default",
+            Priority = NhNotificationPriority.Normal
+        };
+
+        foreach (var _ in Enumerable.Range(0, 101))
+        {
+            notification.Deliveries.Add(new NhNotificationDelivery
+            {
+                Id = Guid.NewGuid(),
+                Notification = notification,
+                NotificationId = notification.Id,
+                DispatcherId = "UnknownProviderTestDispatcher",
+                Data = new { Provider = providerName },
+                ScheduledAt = scheduledAt,
+                Status = NotificationDeliveryStatus.Queued
+            });
+        }
+
+        dbContext.Notifications.Add(notification);
+        await dbContext.SaveChangesAsync();
+
+        return await dbContext.NotificationDeliveries
+            .AsNoTracking()
+            .Where(x => x.DispatcherId == "UnknownProviderTestDispatcher")
+            .OrderBy(x => x.ScheduledAt)
+            .ThenBy(x => x.Id)
+            .Select(x => x.Id)
+            .Skip(100)
+            .SingleAsync();
+    }
+
+    private static async Task WaitUntilAsync(Func<Task<bool>> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        while (!await condition())
+        {
+            await Task.Delay(25, timeout.Token);
+        }
     }
 
     private sealed class ProviderNotificationDbContext(DbContextOptions<ProviderNotificationDbContext> options)

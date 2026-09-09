@@ -305,6 +305,7 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CircularMappingSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MappingCompatibilitySamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/PublicFieldParityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/AutoMapper14BehaviorParityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/AutoMapper14BoundaryParityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/CircularReferenceParityTests.cs",
@@ -546,7 +547,9 @@
     "SPM-051": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseProviderSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/RepositoryProviderBoundaryTests.cs"
     ],
     "SPM-052": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
@@ -556,7 +559,8 @@
     "SPM-053": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs"
     ],
     "SPM-054": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectCompositeController.cs",
@@ -1382,7 +1386,8 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationOverrideSamplesTests.cs"
     ],
     "SPM-216": [
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.CommonConsole/Program.cs"
     ],
     "SPM-217": [
       "src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs"
@@ -1430,8 +1435,10 @@
     ],
     "SPM-222": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs"
     ],
     "SPM-223": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",

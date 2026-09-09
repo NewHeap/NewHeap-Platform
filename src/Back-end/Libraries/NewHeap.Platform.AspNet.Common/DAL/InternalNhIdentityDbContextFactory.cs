@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 
 namespace NewHeap.Platform.AspNet.Common.DAL;
@@ -43,17 +42,18 @@ public partial class InternalNhIdentityDbContextFactory<
     where TLogFile : NhLogFile
     where TLogMessageTranslated : NhLogMessageTranslated
 {
-    private readonly IConfiguration _config;
+    private readonly Action<DbContextOptionsBuilder> _configureDatabase;
 
-    public InternalNhIdentityDbContextFactory(IConfiguration config)
+    public InternalNhIdentityDbContextFactory(Action<DbContextOptionsBuilder> configureDatabase)
     {
-        _config = config;
+        ArgumentNullException.ThrowIfNull(configureDatabase);
+        _configureDatabase = configureDatabase;
     }
 
     public TDbContext CreateDbContext(Action<DbContextOptionsBuilder>? dbOptionsAction = null)
     {
         DbContextOptionsBuilder<TDbContext> optionsBuilder = new();
-        optionsBuilder.UseConfiguredDatabase(_config);
+        _configureDatabase(optionsBuilder);
         dbOptionsAction?.Invoke(optionsBuilder);
 
         return (TDbContext)Activator.CreateInstance(typeof(TDbContext), optionsBuilder.Options)!;

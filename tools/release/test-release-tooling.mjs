@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import {
   addLocalNugetSource,
@@ -9,7 +11,9 @@ import {
   loadReleaseManifest,
   missingTargetFrameworks,
   projectTargetFrameworks,
+  prepareReleaseNotes,
   releasePackages,
+  releaseSelection,
   releaseTag,
   repositoryRoot
 } from './lib.mjs';
@@ -102,6 +106,83 @@ assert.match(validateNpmArtifactEntries({
 }).join('\n'), /contains a nested package archive/);
 
 const manifest = await loadReleaseManifest();
+const notesDirectory = await mkdtemp(resolve(tmpdir(), 'newheap-release-notes-'));
+try {
+  const nextPath = resolve(notesDirectory, 'v-next.md');
+  const common = '## NewHeap.Platform.AspNet.Common\n\n| Breaking change | Required action |\n|---|---|\n| Storage moved | Add the provider package. |';
+  const media = '## NewHeap.Platform.Media.Core\n\n| Breaking change | Required action |\n|---|---|\n| Method renamed | Use the new name. |';
+  const npm = '## @newheap/platform-common\n\n| Breaking change | Required action |\n|---|---|\n| Option removed | Remove the option. |';
+  const plugin = '## newheap-platform\n\n| Breaking change | Required action |\n|---|---|\n| Skill renamed | Use the new name. |';
+  const releases = releaseSelection(manifest, 'all').map(({ unit }) => ({ unit, version: bumpVersion(unit.version, 'patch') }));
+  const commonRelease = releases.find(release => release.unit === manifest.units['nuget-common']);
+  const archivePath = resolve(notesDirectory, `v${commonRelease.version}.md`);
+  const original = ['# v-next', common, media, npm, plugin].join('\n\n') + '\n';
+  await writeFile(nextPath, original.replaceAll('\n', '\r\n'));
+
+  const commonWrites = await prepareReleaseNotes([commonRelease], notesDirectory);
+  assert.equal(commonWrites.length, 2);
+  assert.equal(await readFile(nextPath, 'utf8'), original.replaceAll('\n', '\r\n'), 'Planning must not mutate release notes.');
+  for (const [path, text] of commonWrites) {
+    await writeFile(path, text);
+  }
+  assert.equal(await readFile(archivePath, 'utf8'), `# v${commonRelease.version}\n\n${common}\n`);
+  assert.equal(await readFile(nextPath, 'utf8'), ['# v-next', media, npm, plugin].join('\n\n') + '\n');
+  assert.deepEqual(await prepareReleaseNotes([commonRelease], notesDirectory), [], 'Repeating a selection must not duplicate archived notes.');
+
+  // Two independent units can publish the same version without replacing each other's notes.
+  const npmRelease = { unit: manifest.units['npm-platform-common'], version: commonRelease.version };
+  for (const [path, text] of await prepareReleaseNotes([npmRelease], notesDirectory)) {
+    await writeFile(path, text);
+  }
+  assert.equal(await readFile(archivePath, 'utf8'), `# v${commonRelease.version}\n\n${common}\n\n${npm}\n`);
+  assert.equal(await readFile(nextPath, 'utf8'), ['# v-next', media, plugin].join('\n\n') + '\n');
+
+  await writeFile(nextPath, original);
+  await rm(archivePath);
+  const allReleases = releases.map(release => release.unit === npmRelease.unit ? npmRelease : release);
+  const allWrites = new Map(await prepareReleaseNotes(allReleases, notesDirectory));
+  assert.equal(allWrites.get(nextPath), '# v-next\n');
+  for (const [unitId, section] of [['nuget-media', media], ['newheap-platform-plugin', plugin]]) {
+    const release = allReleases.find(item => item.unit === manifest.units[unitId]);
+    assert.equal(allWrites.get(resolve(notesDirectory, `v${release.version}.md`)), `# v${release.version}\n\n${section}\n`);
+  }
+  assert.equal(allWrites.get(archivePath), `# v${commonRelease.version}\n\n${common}\n\n${npm}\n`, 'An all-unit release must group matching versions into one archive.');
+
+  await writeFile(nextPath, '# v-next\n');
+  assert.deepEqual(await prepareReleaseNotes(allReleases, notesDirectory), []);
+  await writeFile(nextPath, 'Unassigned notes\n');
+  await assert.rejects(prepareReleaseNotes(allReleases, notesDirectory), /expected # v-next/);
+  await writeFile(nextPath, original);
+  await writeFile(archivePath, '# Incorrect version\n');
+  await assert.rejects(prepareReleaseNotes(allReleases, notesDirectory), /expected # v/);
+  assert.equal(await readFile(nextPath, 'utf8'), original, 'Invalid archives must leave pending notes intact.');
+
+  // Exercise the actual preparation entry point without changing repository versions.
+  const fixture = resolve(notesDirectory, 'repository');
+  for (const directory of ['tools/release', 'tools/guidance', 'release', 'src/Back-end', 'docs/release-notes']) {
+    await mkdir(resolve(fixture, directory), { recursive: true });
+  }
+  for (const script of ['prepare-release.mjs', 'lib.mjs']) {
+    await copyFile(resolve(repositoryRoot, 'tools/release', script), resolve(fixture, 'tools/release', script));
+  }
+  for (const script of ['snapshot-public-api.mjs', 'generate-guidance.mjs']) {
+    await writeFile(resolve(fixture, 'tools/guidance', script), '// Guidance generation is outside this release-note regression.\n');
+  }
+  await writeFile(resolve(fixture, 'release/manifest.json'), JSON.stringify(manifest));
+  await copyFile(resolve(repositoryRoot, 'src/Back-end/Directory.Packages.props'), resolve(fixture, 'src/Back-end/Directory.Packages.props'));
+  const fixtureNext = resolve(fixture, 'docs/release-notes/v-next.md');
+  await writeFile(fixtureNext, original);
+  for (const dryRun of [true, false]) {
+    const prepared = spawnSync(process.execPath, [resolve(fixture, 'tools/release/prepare-release.mjs'),
+      '--component', 'nuget-common', '--bump', 'patch', ...(dryRun ? ['--dry-run'] : [])], { cwd: fixture, encoding: 'utf8' });
+    assert.equal(prepared.status, 0, prepared.stderr);
+    assert.equal(await readFile(fixtureNext, 'utf8'), dryRun ? original : ['# v-next', media, npm, plugin].join('\n\n') + '\n');
+  }
+  assert.equal(await readFile(resolve(fixture, 'docs/release-notes', `v${commonRelease.version}.md`), 'utf8'), `# v${commonRelease.version}\n\n${common}\n`);
+} finally {
+  await rm(notesDirectory, { recursive: true, force: true });
+}
+
 if (manifest.packageVisibility !== 'public'
   || manifest.registries.npm !== 'https://registry.npmjs.org/'
   || manifest.registries.nuget !== 'https://api.nuget.org/v3/index.json') {
@@ -235,4 +316,4 @@ if (!allPackages.some(item => item.packageType === 'npm' && item.packageName ===
   throw new Error('public release targets do not match the release manifest.');
 }
 
-console.log(`Exercised SemVer and dry-run packaging for ${Object.keys(manifest.units).length} release units.`);
+console.log(`Exercised release-note rollover, SemVer and dry-run packaging for ${Object.keys(manifest.units).length} release units.`);

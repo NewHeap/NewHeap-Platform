@@ -14,11 +14,18 @@ Contribute authenticated actor, active-division scope, and narrow capability gra
 
 ## Preferred approach
 
-Register `AddNewHeapPlatformAIAspNet` in the API host. Configure one existing
+Register `AddNewHeapPlatformAIAspNet` in the API host. For OIDC/JWT hosts with
+unmapped claims, call `UseAuthenticatedClaims` with the exact expected issuer and
+the issuer, subject, and tenant claim types. Add only reviewed scalar claim scopes
+and explicit scope-value-to-capability mappings. Duplicate authority claims,
+missing required claims, and an issuer mismatch fail closed. The resulting context
+keeps issuer, subject, tenant, and a collision-resistant actor ID distinct.
+
+For the legacy active-division flow, configure one existing
 active-division authorization policy and explicit capability-to-policy mappings.
 Set a bounded lowercase tool-invocation purpose with
 `UseToolInvocationPurpose`. The registration supplies the production
-`INhAiToolInvocationGate`: it requires an authenticated name identifier,
+`INhAiToolInvocationGate`: it uses the same per-request authenticated resolver,
 re-authorizes descriptor policies, builds context through the shared factory,
 and accepts only a bounded idempotency header.
 The contributor matches the authenticated name-identifier claim to the requested
@@ -36,6 +43,7 @@ an ASP.NET dependency.
 
 - Treating the active-division request header or a browser selection as authorization.
 - Copying every user role or claim into ambient AI capabilities.
+- Accepting duplicate issuer, subject, tenant, scope, or projected scalar claims.
 - Accepting an actor, division, tenant, or capability from model/tool input.
 - Storing an access token, cookie, user profile, prompt, or raw request in invocation context.
 - Granting a capability when its configured authorization policy fails or is missing.

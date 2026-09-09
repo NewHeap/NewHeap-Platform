@@ -1,3 +1,5 @@
+using NewHeap.Platform.AspNet.Common.SqlServer;
+using NewHeap.Platform.AspNet.Common.PostgreSql;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using NewHeap.Platform.Common.Models;
@@ -20,13 +22,13 @@ public sealed class CollectionProcessingProviderTests
             "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build())
         {
             await sqlServer.StartAsync();
-            await VerifyProviderAsync(options => options.UseSqlServer(sqlServer.GetConnectionString()));
+            await VerifyProviderAsync(options => options.UseNewHeapSqlServer(sqlServer.GetConnectionString()));
         }
 
         await using (var postgreSql = new PostgreSqlBuilder("postgres:15.1").Build())
         {
             await postgreSql.StartAsync();
-            await VerifyProviderAsync(options => options.UseNpgsql(postgreSql.GetConnectionString()));
+            await VerifyProviderAsync(options => options.UseNewHeapPostgreSql(postgreSql.GetConnectionString()));
         }
     }
 

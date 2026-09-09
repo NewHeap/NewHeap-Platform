@@ -1,3 +1,7 @@
+using Hangfire;
+using Hangfire.PostgreSql;
+using NewHeap.Platform.AspNet.Common.SqlServer;
+using NewHeap.Platform.AspNet.Common.PostgreSql;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +17,8 @@ using NewHeap.Platform.AspNet.Common.OpenApiSchemaTransformers;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Mcp;
+using ModelContextProtocol.Server;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Events.Cap;
@@ -163,7 +169,27 @@ builder.Services
                 .AddCustomTopicSubscriber<PriorityProjectEventConsumer>();
         });
     })
-    .WithIdentityEntityFramework(options => options.UseConfiguredDatabase(builder.Configuration))
+    .WithIdentityEntityFramework(options =>
+    {
+        switch (databaseProvider)
+        {
+            case DatabaseProvider.SqlServer:
+                options.UseNewHeapSqlServer(connectionString);
+                break;
+            case DatabaseProvider.PostgreSql:
+                options.UseNewHeapPostgreSql(connectionString, postgres =>
+                {
+                    var migrationsAssembly = builder.Configuration["Database:PostgreSqlMigrationsAssembly"];
+                    if (!string.IsNullOrWhiteSpace(migrationsAssembly))
+                    {
+                        postgres.MigrationsAssembly(migrationsAssembly);
+                    }
+                });
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(databaseProvider));
+        }
+    })
     .WithIdentity(_ => { })
     .WithDbLogService(options =>
     {
@@ -171,7 +197,20 @@ builder.Services
             .GetSection($"{NewHeapAspNetCommonOptions.DefaultSettingsPrefix}:DbLogServiceSettings")
             .Bind(options);
     })
-    .WithHangfire(connectionString, databaseProvider: databaseProvider)
+    .WithHangfire(options =>
+    {
+        switch (databaseProvider)
+        {
+            case DatabaseProvider.SqlServer:
+                options.UseSqlServerStorage(connectionString);
+                break;
+            case DatabaseProvider.PostgreSql:
+                options.UsePostgreSqlStorage(storage => storage.UseNpgsqlConnection(connectionString));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(databaseProvider));
+        }
+    })
     .WithBackgroundOperations(operations =>
     {
         operations.Options.OperationUrlPrefix = "/background-operations";
@@ -225,6 +264,9 @@ builder.Services.AddNewHeapPlatformAIAspNet(ai => ai
     .AddCapabilityGrant(
         ProjectAiTools.ManageCapability,
         "app.active-division.project.manage"));
+builder.Services.AddMcpServer()
+    .WithHttpTransport(options => options.Stateless = true)
+    .WithNewHeapPlatformAITools();
 builder.Services.AddScoped<IClaimsTransformation, SampleRuntimeClaimsTransformation>();
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectAccessHandler>();
 builder.Services.AddSingleton<SampleEventLog>();
@@ -286,6 +328,7 @@ app.UseNewHeapPlatformAspNetCommon(
             .UseEndpoints(endpoints =>
             {
                 endpoints.MapOpenApi();
+                endpoints.MapMcp("/mcp").RequireAuthorization();
                 endpoints.MapScalarApiReference("/scalar", options =>
                 {
                     options.WithOpenApiRoutePattern("/openapi/{documentName}.json");

@@ -63,6 +63,12 @@ destructive effects require a verifier. Generated catalogs attest
 `SharedInvoker` governance and return descriptor-bound governed functions.
 MCP and Agent adapters reject raw, mismatched, or ungoverned functions.
 
+Use `NhAiToolExportName` when an external MCP/AIDAP wire contract already owns a
+stable lowercase dotted name such as `orders.search`. Export names do not encode
+the tool version. The generator rejects invalid or duplicate export names and
+records the chosen name in the descriptor and manifest. Without the attribute,
+the existing generated `<toolset>_<tool>_v<version>` name remains unchanged.
+
 ## Avoid
 
 - Calling controllers or bypassing the normal application service from a tool.

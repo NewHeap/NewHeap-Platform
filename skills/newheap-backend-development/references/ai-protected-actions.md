@@ -28,6 +28,13 @@ the consuming application. An `NhAiApproval` is valid only for that canonical
 proposal hash, approving actor, target set, constraints, maximum budget, and
 time window. An agent cannot approve its own proposal.
 
+When approval and idempotency are already authoritative in the consuming domain,
+register one `INhAiAuthoritativeExecutionEvidenceValidator`. Validate the
+consumer-owned evidence there and return only the bounded normalized attestation;
+do not translate it into a second Platform proposal. The shared invoker still
+performs authorization, capability, budget, concurrency, idempotency lease,
+execution, verification, and audit handling.
+
 Resolve short-lived capabilities again at discovery and invocation. Bind grants
 to subject, purpose, tool selector, execution scope, issuer, expiry, optional
 budget, and revocation evidence. Always reserve a declared budget through

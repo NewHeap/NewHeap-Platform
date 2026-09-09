@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
-using NewHeap.Platform.AspNet.Common.DAL.TransactionLocks;
 using NewHeap.Platform.Common.Extensions;
 using System.Data;
 using System.Linq.Expressions;
@@ -294,14 +293,14 @@ public partial class Repository<T> : IRepository<T>
             ? resourceName
             : resourceName[..255];
 
+        var lockProvider = NhRepositoryProvider.GetRequired(Context);
         var connection = Context.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open)
         {
             await connection.OpenAsync(cancellationToken);
         }
 
-        var lockProvider = NhTransactionLockProviderFactory.Create(Context.Database.ProviderName);
-        return await lockProvider.TryAcquireAsync(
+        return await lockProvider.TryAcquireTransactionLockAsync(
             connection,
             transactionScope.Transaction.DbContextTransaction.GetDbTransaction(),
             resourceName,

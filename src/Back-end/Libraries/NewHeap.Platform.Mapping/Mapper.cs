@@ -273,7 +273,7 @@ public sealed class Mapper : IMapper
 
                 try
                 {
-                    destinationValue = memberMap.DestinationProperty.GetValue(destination);
+                    destinationValue = memberMap.DestinationMember.GetValue(destination);
                     sourceValue = memberMap.SourceResolver(
                         source,
                         destination,
@@ -283,7 +283,7 @@ public sealed class Mapper : IMapper
                 catch (Exception exception)
                 {
                     throw new MappingException(
-                        $"Reading member '{memberMap.DestinationProperty.Name}' while mapping " +
+                        $"Reading member '{memberMap.DestinationMember.Name}' while mapping " +
                         $"'{typeMap.SourceType.FullName}' to '{typeMap.DestinationType.FullName}' failed.",
                         exception);
                 }
@@ -294,7 +294,7 @@ public sealed class Mapper : IMapper
                     mappedValue = MapMemberValue(
                         sourceValue,
                         memberMap.SourceValueType,
-                        memberMap.DestinationProperty.PropertyType,
+                        memberMap.DestinationMember.ValueType,
                         destinationValue,
                         context,
                         typeMap);
@@ -302,7 +302,7 @@ public sealed class Mapper : IMapper
                 catch (Exception exception) when (exception is not MappingException)
                 {
                     throw new MappingException(
-                        $"Mapping member '{memberMap.DestinationProperty.Name}' while mapping " +
+                        $"Mapping member '{memberMap.DestinationMember.Name}' while mapping " +
                         $"'{typeMap.SourceType.FullName}' to '{typeMap.DestinationType.FullName}' failed.",
                         exception);
                 }
@@ -313,19 +313,19 @@ public sealed class Mapper : IMapper
                     continue;
                 }
 
-                if (memberMap.DestinationProperty.SetMethod is null)
+                if (!memberMap.DestinationMember.CanWrite)
                 {
                     continue;
                 }
 
                 try
                 {
-                    memberMap.DestinationProperty.SetValue(destination, mappedValue);
+                    memberMap.DestinationMember.SetValue(destination, mappedValue);
                 }
                 catch (Exception exception)
                 {
                     throw new MappingException(
-                        $"Writing member '{memberMap.DestinationProperty.Name}' while mapping " +
+                        $"Writing member '{memberMap.DestinationMember.Name}' while mapping " +
                         $"'{typeMap.SourceType.FullName}' to '{typeMap.DestinationType.FullName}' failed.",
                         exception);
                 }

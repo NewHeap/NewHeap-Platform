@@ -14,6 +14,8 @@ Use ExecuteUpsertAsync for immediate, untracked imports of scalar rows or explic
 
 ## Preferred approach
 
+Configure the repository DbContext with `UseNewHeapSqlServer` from `NewHeap.Platform.AspNet.Common.SqlServer` or `UseNewHeapPostgreSql` from `NewHeap.Platform.AspNet.Common.PostgreSql`. Bulk plans and graph orchestration stay in Common; native execution comes from the selected provider package. Missing provider registration fails before enumerating input or starting the bulk transaction.
+
 Call `ExecuteUpsertAsync` on an existing `IRepository<TEntity>` when an import supplies many entities and one mapped property or composite property selector identifies each root row. Configure a non-nullable, non-filtered unique key or index over exactly those root match properties. Normalize, validate, and set application-owned audit values before the call because the operation is immediate, bypasses EF change tracking, and does not run the regular CRUD service or `SaveChanges` pipeline.
 
 Use the overload with navigation selectors only when the import also owns immediate one-to-one or one-to-many dependents. Select each principal-to-dependent navigation explicitly, for example `[project => project.Tasks]`; loaded inverse, lookup, or other unselected navigations are ignored. The relationship must reference the principal primary key, and each root and dependent must have one non-shadow numeric or `Guid` primary key. Dependents always match on that primary key:
@@ -50,3 +52,4 @@ Run the same mixed insert/update import with thousands of records against real S
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs)
   - [../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)

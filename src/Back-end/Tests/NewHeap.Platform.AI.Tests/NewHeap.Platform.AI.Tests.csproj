@@ -30,6 +30,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Common\NewHeap.Platform.AI.Common.csproj" />
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.AspNet.Common\NewHeap.Platform.AI.AspNet.Common.csproj" />
+    <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Mcp\NewHeap.Platform.AI.Mcp.csproj" />
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Test\NewHeap.Platform.AI.Test.csproj" />
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Generators\NewHeap.Platform.AI.Generators.csproj"
                       OutputItemType="Analyzer"

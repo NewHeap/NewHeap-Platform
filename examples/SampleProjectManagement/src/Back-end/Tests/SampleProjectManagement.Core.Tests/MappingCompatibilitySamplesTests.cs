@@ -7,6 +7,28 @@ namespace SampleProjectManagement.Core.Tests;
 public sealed class MappingCompatibilitySamplesTests
 {
     [Fact]
+    public void PublicReadModelFieldsRetainDescriptions()
+    {
+        var configuration = new MapperConfiguration(c => c.CreateMap<ProjectDescription, ProjectDescriptionView>());
+        configuration.AssertConfigurationIsValid();
+
+        var view = configuration.CreateMapper().Map<ProjectDescriptionView>(
+            new ProjectDescription { Description = "Project delivery details" });
+
+        Assert.Equal("Project delivery details", view.Description);
+    }
+
+    public sealed class ProjectDescription
+    {
+        public string Description { get; set; } = string.Empty;
+    }
+
+    public sealed class ProjectDescriptionView
+    {
+        public string Description = string.Empty;
+    }
+
+    [Fact]
     public void ImportValuesUseTheRequestCultureAndEnumNames()
     {
         var originalCulture = CultureInfo.CurrentCulture;

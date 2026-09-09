@@ -20,6 +20,9 @@ Set `ManagePackageVersionsCentrally` to `true` in `Directory.Packages.props` and
 
 ## Avoid
 
+- Adding the ASP.NET shared framework to a domain or console project merely to consume `TaskResult` or other Common primitives.
+- Relying on Common to supply Hangfire ASP.NET hosting or SQL Server storage transitively.
+
 - Generating a multi-project solution without the two central `Directory.*.props` files.
 - Putting the backend solution or central props at the repository root, or putting Angular workspace files outside `src/Front-end`.
 - Repeating target-framework, nullable or language settings in every project file.
@@ -30,6 +33,16 @@ Set `ManagePackageVersionsCentrally` to `true` in `Directory.Packages.props` and
 ## Verification
 
 Restore and build the complete solution from a clean state. Confirm every project imports the intended `Directory.Build.props`, central package management is enabled, each direct `PackageReference` resolves to exactly one `PackageVersion`, and no project file carries an inline `Version` or `VersionOverride`. Run the consumer inspector and require an empty `projectFoundation.missingRecommendedFiles` result.
+
+Run `dotnet run --project examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.CommonConsole` from the Platform repository root. The SPM-216 console exercises result propagation and neutral queue helpers, and rejects ASP.NET framework or Hangfire ASP.NET/SQL Server dependencies in its runtime artifacts. `RepositoryFoundationSamplesTests` also launches this executable and exercises the HTTP adapter.
+
+## Common and HTTP boundaries
+
+Reference `NewHeap.Platform.Common` from domain libraries and console applications that need its result models, configuration or neutral utilities. It uses `Hangfire.Core` and `Hangfire.Console` without the Hangfire ASP.NET integration or SQL Server storage. Generic hosting and localization use explicit `Microsoft.Extensions` packages.
+
+In the HTTP composition project, reference `NewHeap.Platform.AspNet.Common` and import `NewHeap.Platform.AspNet.Common` to call `result.ApplyToModelState(modelState)` or `result.ApplyTo(modelState)`. These are extension methods owned by the ASP.NET library; `TaskResult.ApplyTo(TaskResult)` remains in Common for propagating business failures. The ASP.NET library explicitly retains its existing Hangfire hosting and SQL Server storage dependencies.
+
+This boundary change removes the former instance ModelState methods from `TaskResult`. Rebuild consumers, add the extension namespace to HTTP call sites, and move overrides of the former virtual `ApplyToModelState` method into consumer-owned HTTP adapters. Existing binaries must be rebuilt; extensions do not preserve binary compatibility or virtual dispatch. Schedule the change for a breaking Platform release through the protected release workflow. See `docs/how-to/migrate-common-aspnet-boundary.md` for the migration and unchanged formatting contract.
 
 ## Optional source evidence
 

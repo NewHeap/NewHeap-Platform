@@ -151,7 +151,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "NewHeap mapping",
     "category": "Domain, CRUD, and models",
     "surface": "profile, null-safe MapFrom, inherited interface contracts, nested, generic and non-generic collection mapping, dictionary mapping, dictionary-shaped JSON objects, object-to-string conversion, inherited base maps, duplicate profile composition, ignored members, DI resolvers, converters, construction, mapping actions, configuration validation, MapOnlyIfChanged",
-    "outcome": "Entity, view, mutate, nested, collection, dictionary and value-object mappings use `NewHeap.Platform.Mapping`; convention mapping discovers members declared by inherited source interfaces and inherited destination classes; object and JSON values mapped to strings use their AutoMapper 14-compatible `ToString()` representation, including enum-member values; an explicit destination constructor may return null for a nullable reference destination; `IncludeBase` reuses base member configuration and mapping actions for derived destinations while allowing explicit derived overrides; duplicate maps preserve AutoMapper 14's last-registration runtime behavior while explicit configuration validation reports every contributing profile; generic collection and key/value entries are used even when a source exposes a different non-generic enumeration path, standalone key/value pairs convert and validate per member, set interfaces materialize as sets, concrete read-only collections and dictionaries are wrapped from mutable results, incompatible existing enumerable members are replaced, dictionary key and value conversions validate independently, and supported non-generic list destinations follow AutoMapper 14 materialization and reuse behavior; explicit `MapFrom` expressions tolerate unloaded nullable navigations like AutoMapper 14; ignored members are not read; DI-backed resolvers and actions enrich results; construction and conversion remain centralized; configuration validation fails on duplicate, unmapped or incompatible members; compatible existing navigation references remain stable during mutate mapping; recursive maps preserve reference identity across shared siblings and cycles so a shared 12-node graph creates 12 destinations and JSON loop handling can omit cycles; collection scopes, MaxDepth boundaries, all-member condition precedence, derived runtime mapping, null converters, current-culture numeric parsing, enum names and wire values, scalar parsing, flattened members and private setters match the executable AutoMapper 14 parity evidence; and recursion depth remains bounded for distinct source objects.",
+    "outcome": "Entity, view, mutate, nested, collection, dictionary and value-object mappings use `NewHeap.Platform.Mapping`; convention mapping discovers members declared by inherited source interfaces and inherited destination classes; public writable destination fields preserve source data and support explicit member configuration, inherited maps, validation and recursive collection references; object and JSON values mapped to strings use their AutoMapper 14-compatible `ToString()` representation, including enum-member values; an explicit destination constructor may return null for a nullable reference destination; `IncludeBase` reuses base member configuration and mapping actions for derived destinations while allowing explicit derived overrides; duplicate maps preserve AutoMapper 14's last-registration runtime behavior while explicit configuration validation reports every contributing profile; generic collection and key/value entries are used even when a source exposes a different non-generic enumeration path, standalone key/value pairs convert and validate per member, set interfaces materialize as sets, concrete read-only collections and dictionaries are wrapped from mutable results, incompatible existing enumerable members are replaced, dictionary key and value conversions validate independently, and supported non-generic list destinations follow AutoMapper 14 materialization and reuse behavior; explicit `MapFrom` expressions tolerate unloaded nullable navigations like AutoMapper 14; ignored members are not read; DI-backed resolvers and actions enrich results; construction and conversion remain centralized; configuration validation fails on duplicate, unmapped or incompatible members; compatible existing navigation references remain stable during mutate mapping; recursive maps preserve reference identity across shared siblings and cycles so a shared 12-node graph creates 12 destinations and JSON loop handling can omit cycles; collection scopes, MaxDepth boundaries, all-member condition precedence, derived runtime mapping, null converters, current-culture numeric parsing, enum names and wire values, scalar parsing, flattened members and private setters match the executable AutoMapper 14 parity evidence; and recursion depth remains bounded for distinct source objects.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
@@ -163,6 +163,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CircularMappingSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MappingCompatibilitySamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/PublicFieldParityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/AutoMapper14BehaviorParityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/AutoMapper14BoundaryParityTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Mapping.Tests/CircularReferenceParityTests.cs",
@@ -718,13 +719,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-051",
     "title": "Generic repository",
     "category": "DAL, repositories, and transactions",
-    "surface": "IRepository<T>, Repository<T>",
-    "outcome": "The service queries through a DI-registered repository.",
+    "surface": "IRepository<T>, Repository<T>, UseNewHeapSqlServer, UseNewHeapPostgreSql",
+    "outcome": "The service queries through a DI-registered repository; composition explicitly selects a SQL Server or PostgreSQL package without adding provider dependencies to AspNet.Common.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ValidationAndSqlSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/DatabaseProviderSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/RepositoryProviderBoundaryTests.cs"
     ]
   },
   {
@@ -750,7 +753,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "evidence": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs"
     ]
   },
   {
@@ -1218,7 +1222,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Delivery channels",
     "category": "Events, jobs, email, and notifications",
     "surface": "notification dispatcher workers and per-channel concurrency",
-    "outcome": "A channel opts into parallel workers while unconfigured channels remain serial and deliveries are claimed only when worker capacity is available.",
+    "outcome": "A channel opts into parallel workers while unconfigured channels remain serial, deliveries are claimed only when worker capacity is available, and unknown-dispatcher cleanup processes deterministic oldest-first batches under strict EF Core warning policies on SQL Server and PostgreSQL.",
     "implementation": "implemented",
     "evidence": [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhNotificationProcessingService.cs",
@@ -2883,10 +2887,11 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Shared .NET build and package policy",
     "category": "Consumer repository foundation",
     "surface": "Directory.Build.props and Directory.Packages.props",
-    "outcome": "Every backend project inherits one build baseline and resolves versionless package references from one central catalog.",
+    "outcome": "Every backend project inherits one build baseline and central package catalog. A standalone Common consumer runs without ASP.NET or Hangfire SQL Server storage, while HTTP composition adapts neutral results to ModelState.",
     "implementation": "implemented",
     "evidence": [
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.CommonConsole/Program.cs"
     ]
   },
   {
@@ -2943,8 +2948,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-219",
     "title": "Generated local read-only AI tool",
     "category": "AI tools and generated catalogs",
-    "surface": "NhAiToolSet, NhAiTool, generated INhAiToolCatalog, and guarded AIFunction invocation",
-    "outcome": "A compile-time generated local function searches only the active division supplied by the authorized invocation context; typed schema binding, bounded input and mandatory budget reservation run before application work, while a denied, oversized or incomplete invocation never reaches the read service.",
+    "surface": "NhAiToolSet, NhAiTool, NhAiToolExportName, generated INhAiGeneratedToolCatalog, and guarded AIFunction invocation",
+    "outcome": "A compile-time generated local function searches only the active division supplied by the authorized invocation context; typed schema binding, bounded input and mandatory budget reservation run before application work, while a denied, oversized or incomplete invocation never reaches the read service. Optional explicit MCP/AIDAP export names are unique, version-independent manifest contracts, while tools without the attribute retain their existing generated wire names.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
@@ -2985,21 +2990,23 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-222",
     "title": "Generated tool over MCP",
     "category": "AI tools and generated catalogs",
-    "surface": "INhAiMcpToolAdapter, official ModelContextProtocol.Core server/client primitives, generated AIFunction, and the shared discovery/invocation pipeline",
-    "outcome": "The same generated project search implementation is discovered and invoked through the official in-memory MCP transport while actor-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` semantics remain in the shared NewHeap pipeline; an ungoverned catalog cannot be exported.",
+    "surface": "WithNewHeapPlatformAITools, INhAiMcpToolAdapter, official ASP.NET Streamable HTTP and in-memory MCP transports, generated AIFunction, and the shared discovery/invocation pipeline",
+    "outcome": "The API publishes the same generated project search implementation through the official stateless ASP.NET MCP transport. Every list and call resolves the current authenticated request independently; actor- and tenant-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` errors remain in the shared NewHeap pipeline. Only generated catalogs enter the NewHeap export path. Independently governed external SDK tools can coexist under distinct wire names, while duplicate NewHeap publication and export-name collisions fail at startup.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs"
     ]
   },
   {
     "id": "SPM-223",
     "title": "Authorized ASP.NET AI context",
     "category": "AI tools and generated catalogs",
-    "surface": "AddNewHeapPlatformAIAspNet, IAuthorizationService, active-division context contribution, execution scopes, and narrow capability grants",
-    "outcome": "The API composes the production ASP.NET tool gate and contributes the authenticated actor's active division and projects-read grant only after existing server-side policies succeed; a browser header, anonymous principal or mismatched actor alone contributes no authority.",
+    "surface": "INhAiAuthenticatedInvocationContextResolver, AddNewHeapPlatformAIAspNet, configurable OIDC claim projection, IAuthorizationService, execution scopes, and narrow capability grants",
+    "outcome": "The production ASP.NET gate resolves a fresh context per request. Hosts with unmapped JWT claims validate an exact issuer and single subject and tenant claims, project only configured scopes and capability values, and reject missing, duplicate, or mismatched authority. The existing active-division flow remains available and contributes scope only after server-side policy authorization; request cancellation propagates.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
@@ -3011,8 +3018,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-224",
     "title": "Approved and verified AI mutation",
     "category": "AI tools and generated catalogs",
-    "surface": "NhAiProposal, NhAiApproval, INhAiCapabilityResolver, INhAiBudgetManager, INhAiIdempotencyManager, INhAiToolVerifier, and the shared invocation pipeline",
-    "outcome": "An agent can change one project status only inside its authorized division and narrow manage capability after exact proposal approval and mandatory budget reservation; the same idempotency key cannot repeat or alter the side effect, and success is reported only after an independent status read verifies the result.",
+    "surface": "NhAiProposal, NhAiApproval, INhAiAuthoritativeExecutionEvidenceValidator, INhAiCapabilityResolver, INhAiBudgetManager, INhAiIdempotencyManager, INhAiToolVerifier, and the shared invocation pipeline",
+    "outcome": "An agent can change one project status only inside its authorized division and narrow manage capability after authoritative approval and mandatory budget reservation; the same idempotency key cannot repeat or alter the side effect, and success is reported only after an independent status read verifies the result. Consumers may validate their existing authoritative approval and idempotency evidence into a bounded attestation without creating a second Platform proposal model, while all execution still passes through the shared invoker.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",

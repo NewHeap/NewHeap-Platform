@@ -112,6 +112,93 @@ public sealed class NhAiAspNetContextTests
     }
 
     [Fact]
+    public async Task Authenticated_resolver_projects_exact_issuer_subject_tenant_claims_and_scopes()
+    {
+        var httpContext = CreateOidcHttpContext(
+            "https://identity.example",
+            "subject-a",
+            "tenant-a",
+            "orders.read");
+        var services = CreateOidcServices(httpContext);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var result = await scope.ServiceProvider
+            .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>()
+            .ResolveAsync(httpContext);
+
+        Assert.True(result.Success);
+        Assert.Equal("https://identity.example", result.Data.Issuer);
+        Assert.Equal("subject-a", result.Data.Subject);
+        Assert.Equal("tenant-a", result.Data.TenantId);
+        Assert.NotEqual("subject-a", result.Data.ActorId);
+        Assert.True(result.Data.TryGetScopeValue("tenant-id", out var tenant));
+        Assert.Equal("tenant-a", tenant);
+        Assert.Contains("orders-read", result.Data.CapabilityGrants);
+    }
+
+    [Theory]
+    [InlineData("iss")]
+    [InlineData("sub")]
+    [InlineData("tenant_id")]
+    [InlineData("scope")]
+    public async Task Authenticated_resolver_rejects_duplicate_authority_claims(string duplicateClaimType)
+    {
+        var httpContext = CreateOidcHttpContext(
+            "https://identity.example",
+            "subject-a",
+            "tenant-a",
+            "orders.read");
+        httpContext.User.Identities.Single().AddClaim(new Claim(
+            duplicateClaimType,
+            httpContext.User.FindFirstValue(duplicateClaimType)!));
+        var services = CreateOidcServices(httpContext);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var result = await scope.ServiceProvider
+            .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>()
+            .ResolveAsync(httpContext);
+
+        Assert.False(result.Success);
+        Assert.Contains(
+            result.GetResultItems(),
+            item => item.Name == "ai-tool-claim-duplicate");
+    }
+
+    [Fact]
+    public async Task Authenticated_resolver_rejects_an_unexpected_issuer_and_request_cancellation()
+    {
+        var unexpected = CreateOidcHttpContext(
+            "https://attacker.example",
+            "subject-a",
+            "tenant-a",
+            "orders.read");
+        var services = CreateOidcServices(unexpected);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var resolver = scope.ServiceProvider
+            .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>();
+
+        var mismatch = await resolver.ResolveAsync(unexpected);
+        Assert.False(mismatch.Success);
+        Assert.Contains(
+            mismatch.GetResultItems(),
+            item => item.Name == "ai-tool-issuer-mismatch");
+
+        var cancelled = CreateOidcHttpContext(
+            "https://identity.example",
+            "subject-a",
+            "tenant-a",
+            "orders.read");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        cancelled.RequestAborted = cancellation.Token;
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await resolver.ResolveAsync(cancelled));
+    }
+
+    [Fact]
     public void Durable_run_binding_uses_operation_identity_attempt_idempotency_and_fencing()
     {
         var services = CreateServices(CreateHttpContext("actor-1", Guid.NewGuid()));
@@ -179,6 +266,38 @@ public sealed class NhAiAspNetContextTests
         context.Request.Headers[Constants.HttpHeaderKeys.ActiveDivisionId] =
             divisionId.ToString();
         return context;
+    }
+
+    private static ServiceCollection CreateOidcServices(HttpContext httpContext)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IHttpContextAccessor>(
+            new HttpContextAccessor { HttpContext = httpContext });
+        services.AddSingleton<IAuthorizationService>(
+            new TestAuthorizationService([]));
+        services.AddNewHeapPlatformAIAspNet(ai => ai
+            .UseAuthenticatedClaims("https://identity.example")
+            .AddScopeCapability("scope", "orders.read", "orders-read"));
+        return services;
+    }
+
+    private static DefaultHttpContext CreateOidcHttpContext(
+        string issuer,
+        string subject,
+        string tenant,
+        string scope)
+    {
+        return new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                [
+                    new Claim("iss", issuer),
+                    new Claim("sub", subject),
+                    new Claim("tenant_id", tenant),
+                    new Claim("scope", scope)
+                ],
+                "test"))
+        };
     }
 
     private sealed class TestAuthorizationService(

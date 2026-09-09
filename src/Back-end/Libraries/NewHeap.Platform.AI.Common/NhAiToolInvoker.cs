@@ -16,6 +16,7 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
     private readonly INhAiEffectPolicy _effectPolicy;
     private readonly INhAiApprovalEvidenceProvider _approvalEvidenceProvider;
     private readonly INhAiApprovalValidator _approvalValidator;
+    private readonly INhAiAuthoritativeExecutionEvidenceValidator _authoritativeEvidenceValidator;
     private readonly INhAiIdempotencyManager _idempotencyManager;
     private readonly IReadOnlyDictionary<string, INhAiToolVerifier> _verifiers;
     private readonly INhAiCapabilityResolver _capabilityResolver;
@@ -211,7 +212,8 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
         IEnumerable<INhAiToolVerifier> verifiers,
         INhAiCapabilityResolver capabilityResolver,
         INhAiBudgetManager budgetManager,
-        INhAiToolConcurrencyLimiter concurrencyLimiter)
+        INhAiToolConcurrencyLimiter concurrencyLimiter,
+        INhAiAuthoritativeExecutionEvidenceValidator? authoritativeEvidenceValidator = null)
     {
         ArgumentNullException.ThrowIfNull(invocationGate);
         ArgumentNullException.ThrowIfNull(auditSinks);
@@ -228,6 +230,8 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
         _effectPolicy = effectPolicy;
         _approvalEvidenceProvider = approvalEvidenceProvider;
         _approvalValidator = approvalValidator;
+        _authoritativeEvidenceValidator = authoritativeEvidenceValidator
+            ?? new NhAiNoAuthoritativeExecutionEvidenceValidator();
         _idempotencyManager = idempotencyManager;
         _verifiers = CreateVerifierRegistry(verifiers);
         _capabilityResolver = capabilityResolver;
@@ -307,6 +311,40 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                 "The AI invocation lacks a required tool capability.");
         }
 
+        var authoritativeEvidence = await _authoritativeEvidenceValidator.ValidateAsync(
+            descriptor,
+            context,
+            arguments,
+            cancellationToken);
+        if (!authoritativeEvidence.Success)
+        {
+            activity?.SetTag("newheap.ai.tool.outcome", "execution-evidence-invalid");
+            await WriteAuditAsync(
+                descriptor,
+                context,
+                NhAiOutcomeKind.AuthorizationDenied,
+                cancellationToken);
+            return TaskResult<T>.Failed(authoritativeEvidence);
+        }
+        var validatedEvidence = authoritativeEvidence.Data;
+        if ((validatedEvidence.ApprovalValidated || validatedEvidence.IdempotencyKeyValidated)
+                && string.IsNullOrWhiteSpace(validatedEvidence.EvidenceReference)
+            || validatedEvidence.EvidenceReference is { Length: > 256 }
+            || (validatedEvidence.IdempotencyKeyValidated
+                && (string.IsNullOrWhiteSpace(validatedEvidence.IdempotencyKey)
+                    || validatedEvidence.IdempotencyKey.Length > 256
+                    || validatedEvidence.IdempotencyKey.Any(character =>
+                        !char.IsAsciiLetterOrDigit(character)
+                        && character is not '-' and not '_' and not '.' and not ':'))))
+        {
+            return TaskResult<T>.Failed(
+                "Authoritative AI execution evidence is invalid.");
+        }
+        if (validatedEvidence.IdempotencyKeyValidated)
+        {
+            context = context with { IdempotencyKey = validatedEvidence.IdempotencyKey };
+        }
+
         var effectDecision = await _effectPolicy.EvaluateAsync(
             descriptor,
             context,
@@ -322,7 +360,8 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                 cancellationToken);
             return TaskResult<T>.Failed("AI tool effect policy denied execution.");
         }
-        if (effectDecision.Kind == NhAiEffectDecisionKind.RequireApproval)
+        if (effectDecision.Kind == NhAiEffectDecisionKind.RequireApproval
+            && !validatedEvidence.ApprovalValidated)
         {
             var evidence = await _approvalEvidenceProvider.GetAsync(
                 descriptor,

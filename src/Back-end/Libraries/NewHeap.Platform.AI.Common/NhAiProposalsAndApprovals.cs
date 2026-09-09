@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI;
 
@@ -107,6 +108,25 @@ public interface INhAiApprovalValidator
 public interface INhAiApprovalEvidenceProvider
 {
     ValueTask<NhAiApprovalEvidence?> GetAsync(
+        NhAiToolDescriptor descriptor,
+        NhAiInvocationContext context,
+        object arguments,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed record NhAiAuthoritativeExecutionEvidence(
+    bool ApprovalValidated,
+    bool IdempotencyKeyValidated,
+    string? IdempotencyKey,
+    string? EvidenceReference)
+{
+    public static NhAiAuthoritativeExecutionEvidence None { get; } =
+        new(false, false, null, null);
+}
+
+public interface INhAiAuthoritativeExecutionEvidenceValidator
+{
+    ValueTask<TaskResult<NhAiAuthoritativeExecutionEvidence>> ValidateAsync(
         NhAiToolDescriptor descriptor,
         NhAiInvocationContext context,
         object arguments,
@@ -430,5 +450,20 @@ internal sealed class NhAiDenyApprovalEvidenceProvider : INhAiApprovalEvidencePr
     {
         cancellationToken.ThrowIfCancellationRequested();
         return ValueTask.FromResult<NhAiApprovalEvidence?>(null);
+    }
+}
+
+internal sealed class NhAiNoAuthoritativeExecutionEvidenceValidator :
+    INhAiAuthoritativeExecutionEvidenceValidator
+{
+    public ValueTask<TaskResult<NhAiAuthoritativeExecutionEvidence>> ValidateAsync(
+        NhAiToolDescriptor descriptor,
+        NhAiInvocationContext context,
+        object arguments,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(TaskResult<NhAiAuthoritativeExecutionEvidence>.Succeeded(
+            NhAiAuthoritativeExecutionEvidence.None));
     }
 }

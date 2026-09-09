@@ -157,12 +157,14 @@ public sealed class NhAiToolTests
         Assert.Equal(1, descriptor.Version);
         Assert.Equal(NhAiToolEffect.ReadOnly, descriptor.Effect);
         Assert.Equal(NhAiToolExposure.Local, descriptor.Exposure);
-        Assert.Equal("generated_read_v1", function.Name);
+        Assert.Equal("generated.read", function.Name);
+        Assert.Equal("generated.read", descriptor.ExportName);
         Assert.Equal("generated", descriptor.CatalogId);
         Assert.Equal(64, descriptor.SchemaHash.Length);
         Assert.Contains("\"value\"", descriptor.InputSchemaJson, StringComparison.Ordinal);
         Assert.Equal("generated", catalog.Manifest.CatalogId);
         Assert.Equal(descriptor.SchemaHash, Assert.Single(catalog.Manifest.Tools).SchemaHash);
+        Assert.Equal("generated.read", Assert.Single(catalog.Manifest.Tools).ExportName);
 
         var output = await function.InvokeAsync(new AIFunctionArguments
         {
@@ -333,6 +335,93 @@ public sealed class NhAiToolTests
             diagnostic => diagnostic.Id == expectedDiagnostic);
     }
 
+    [Theory]
+    [InlineData("Bad.Name", "NHAI010")]
+    [InlineData("orders.search-v2", "NHAI010")]
+    public void Generator_rejects_invalid_or_version_encoded_export_names(
+        string exportName,
+        string expectedDiagnostic)
+    {
+        var source = $$"""
+            using System;
+            using System.ComponentModel;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using NewHeap.Platform.AI;
+            using NewHeap.Platform.Common.Models;
+
+            [NhAiToolSet("generated")]
+            public sealed class InvalidTool
+            {
+                [NhAiTool("read", 1, NhAiToolEffect.ReadOnly, NhAiToolExposure.Local)]
+                [NhAiToolExportName("{{exportName}}")]
+                [Description("Read generated data.")]
+                public Task<TaskResult<string>> ReadAsync(
+                    string input,
+                    NhAiInvocationContext context,
+                    CancellationToken cancellationToken) => throw new NotImplementedException();
+            }
+            """;
+
+        AssertGeneratorDiagnostic(source, expectedDiagnostic);
+    }
+
+    [Fact]
+    public void Generator_rejects_duplicate_export_names_across_catalogs()
+    {
+        var source = """
+            using System;
+            using System.ComponentModel;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using NewHeap.Platform.AI;
+            using NewHeap.Platform.Common.Models;
+
+            [NhAiToolSet("first")]
+            public sealed class FirstTool
+            {
+                [NhAiTool("read", 1, NhAiToolEffect.ReadOnly, NhAiToolExposure.Local)]
+                [NhAiToolExportName("orders.search")]
+                [Description("Read first data.")]
+                public Task<TaskResult<string>> ReadAsync(string input, NhAiInvocationContext context, CancellationToken cancellationToken) => throw new NotImplementedException();
+            }
+
+            [NhAiToolSet("second")]
+            public sealed class SecondTool
+            {
+                [NhAiTool("read", 1, NhAiToolEffect.ReadOnly, NhAiToolExposure.Local)]
+                [NhAiToolExportName("orders.search")]
+                [Description("Read second data.")]
+                public Task<TaskResult<string>> ReadAsync(string input, NhAiInvocationContext context, CancellationToken cancellationToken) => throw new NotImplementedException();
+            }
+            """;
+
+        AssertGeneratorDiagnostic(source, "NHAI011");
+    }
+
+    private static void AssertGeneratorDiagnostic(string source, string expectedDiagnostic)
+    {
+        var syntaxTree = CSharpSyntaxTree.ParseText(source);
+        var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+            .Split(Path.PathSeparator)
+            .Select(path => MetadataReference.CreateFromFile(path));
+        var references = trustedAssemblies
+            .Append(MetadataReference.CreateFromFile(typeof(NhAiToolAttribute).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(TaskResult<>).Assembly.Location));
+        var compilation = CSharpCompilation.Create(
+            "GeneratorExportDiagnostics",
+            [syntaxTree],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new NhAiToolGenerator());
+
+        driver = driver.RunGenerators(compilation);
+
+        Assert.Contains(
+            driver.GetRunResult().Diagnostics,
+            diagnostic => diagnostic.Id == expectedDiagnostic);
+    }
+
     private static readonly NhAiToolDescriptor Descriptor = new(
         "generated.read",
         1,
@@ -364,6 +453,7 @@ public sealed class CyclicInput
 public sealed class GeneratedTool
 {
     [NhAiTool("read", 1, NhAiToolEffect.ReadOnly, NhAiToolExposure.Local)]
+    [NhAiToolExportName("generated.read")]
     [Description("Read generated data.")]
     public Task<TaskResult<string>> ReadAsync(
         ReadInput input,

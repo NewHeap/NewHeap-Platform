@@ -7,12 +7,13 @@ namespace SampleProjectManagement.Core.Tests;
 public sealed class NotificationProcessingSamplesTests
 {
     [Fact]
-    public void DispatcherConcurrencyIsAnExplicitPerChannelOptIn()
+    public void ProcessingRemainsEnabledAndDispatcherConcurrencyIsAnExplicitPerChannelOptIn()
     {
         var settings = new NhNotificationSettings();
 
         NotificationProcessingSample.Configure(settings);
 
+        Assert.True(settings.ProcessingEnabled);
         Assert.Equal(
             NotificationProcessingSample.EmailDispatcherConcurrency,
             settings.ProcessingDispatcherConcurrency[NhEmailNotificationDispatcher.DispatcherIdValue]);

@@ -1,6 +1,5 @@
 ﻿using Hangfire;
 using Hangfire.Console;
-using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -565,7 +564,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             TLogMessageArgument,
             TLogFile,
             TLogMessageTranslated
-        >>();
+        >>(_ => new(dbOptionsAction));
 
         _serviceCollection
             .AddDbContext<TDbContext>(dbOptionsAction);
@@ -853,31 +852,17 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             TDivisionUserMutateModel
         >
         WithHangfire(
-            string nameOrConnectionString,
-            Action<IGlobalConfiguration>? hangfireOptionsAction = null,
+            Action<IGlobalConfiguration> hangfireOptionsAction,
             Action<ConsoleOptions>? consoleOptionsAction = null,
-            Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null,
-            DatabaseProvider databaseProvider = DatabaseProvider.SqlServer
+            Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null
         )
     {
+        ArgumentNullException.ThrowIfNull(hangfireOptionsAction);
         _serviceCollection.TryAddSingleton<INhHangfireQueueNameResolver, NhHangfireQueueNameResolver>();
 
         _serviceCollection.AddHangfire(options =>
         {
-            switch (databaseProvider)
-            {
-                case DatabaseProvider.SqlServer:
-                    options.UseSqlServerStorage(nameOrConnectionString);
-                    break;
-                case DatabaseProvider.PostgreSql:
-                    options.UsePostgreSqlStorage(bootstrapper =>
-                        bootstrapper.UseNpgsqlConnection(nameOrConnectionString, _ => { }));
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(databaseProvider), databaseProvider, null);
-            }
-
-            hangfireOptionsAction?.Invoke(options);
+            hangfireOptionsAction(options);
 
             var consoleOptions = new ConsoleOptions();
             consoleOptionsAction?.Invoke(consoleOptions);

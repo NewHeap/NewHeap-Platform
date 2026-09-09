@@ -14,7 +14,7 @@
     "nuget-common": {
       "displayName": "NewHeap common NuGet packages",
       "kind": "nuget",
-      "version": "4.4.6",
+      "version": "7.0.0",
       "tagPrefix": "nuget-common-v",
       "includeSymbols": true,
       "replaces": "src/Back-end/publish-common.ps1",
@@ -58,6 +58,14 @@
         {
           "packageId": "NewHeap.Platform.AspNet.Common",
           "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeap.Platform.AspNet.Common.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AspNet.Common.SqlServer",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.SqlServer/NewHeap.Platform.AspNet.Common.SqlServer.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AspNet.Common.PostgreSql",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/NewHeap.Platform.AspNet.Common.PostgreSql.csproj"
         },
         {
           "packageId": "NewHeap.Platform.AspNet.Common.Test",
@@ -150,7 +158,7 @@
     "newheap-platform-plugin": {
       "displayName": "NewHeap Platform AI plugin",
       "kind": "plugin",
-      "version": "1.13.24",
+      "version": "1.13.28",
       "tagPrefix": "newheap-platform-plugin-v",
       "directory": "plugins/newheap-platform",
       "packageName": "newheap-platform"
