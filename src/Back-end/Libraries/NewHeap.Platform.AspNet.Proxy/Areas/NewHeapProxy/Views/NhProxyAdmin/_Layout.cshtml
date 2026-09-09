@@ -1,3 +1,15 @@
+@functions {
+    private static readonly string LogoDataUri = LoadLogo();
+
+    private static string LoadLogo()
+    {
+        using var logo = typeof(NhProxyOptions).Assembly.GetManifestResourceStream("NewHeap.Proxy.Logo")
+            ?? throw new InvalidOperationException("The embedded NewHeap logo is missing.");
+        using var buffer = new System.IO.MemoryStream();
+        logo.CopyTo(buffer);
+        return "data:image/webp;base64," + Convert.ToBase64String(buffer.ToArray());
+    }
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -41,6 +53,9 @@
         }
         header {
             border-bottom:1px solid var(--line);
+            background:#080b10;
+            color:#edf2f8;
+            --muted:#9eacbe;
         }
         .shell {
             max-width:1180px;
@@ -55,18 +70,20 @@
             flex-wrap:wrap;
         }
         .brand {
-            font-weight:750;
+            display:inline-flex;
+            align-items:center;
             font-size:19px;
             text-decoration:none;
-            letter-spacing:-.5px;
+        }
+        .brand img {
+            display:block;
+            width:160px;
+            height:34px;
         }
         .brand span {
             color:var(--muted);
             font-weight:450;
             margin-left:10px;
-        }
-        .brand b {
-            color:var(--accent);
         }
         nav {
             display:flex;
@@ -393,7 +410,7 @@
 </head>
 <body>
 <header><div class="shell bar">
-    <a class="brand" asp-action="Index">newheap<b>.</b><span>Proxy</span></a>
+    <a class="brand" asp-action="Index"><img src="@LogoDataUri" alt="NewHeap" width="160" height="34" /><span>Proxy</span></a>
     @if (User.Identity?.AuthenticationType == NhProxyOptions.AuthenticationScheme)
     {
         <nav aria-label="Administration">

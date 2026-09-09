@@ -7,7 +7,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 ## Contents
 
 - [Configuration overrides for runtime and automation](#configuration-overrides-for-runtime-and-automation)
-- [Manage SQLite literal redirects through embedded MVC administration](#manage-sqlite-literal-redirects-through-embedded-mvc-administration)
+- [Manage SQLite exact and regex redirects through embedded MVC administration](#manage-sqlite-exact-and-regex-redirects-through-embedded-mvc-administration)
 
 ## Configuration overrides for runtime and automation
 
@@ -40,9 +40,9 @@ Test that an environment variable overrides the secrets directory during bootstr
 
 ---
 
-## Manage SQLite literal redirects through embedded MVC administration
+## Manage SQLite exact and regex redirects through embedded MVC administration
 
-The two-call proxy loads literal redirects before requests and provides secured MVC management, local draft testing, login IP auditing and revision-checked save/activation. Managed rewrites remain a gap.
+The two-call proxy loads exact and opt-in regex redirects before requests and provides secured MVC management, local draft testing, login IP auditing and revision-checked save/activation. Regex targets use captures without automatic query merging. Managed rewrites remain a gap.
 
 ## Preferred approach
 
@@ -76,7 +76,7 @@ retention cleanup runs on credential attempts; idle hosts have no cleanup worker
 
 The MVC panel supports search, creation, editing, enable/disable, priority,
 host/method restrictions, status/query options, deletion confirmation and login
-activity. Test draft evaluates that one unsaved literal rule with the runtime
+activity and an opt-in Use regular expression checkbox. Test draft evaluates one unsaved rule with the runtime
 matcher. It neither saves nor makes network requests and does not simulate the
 entire ordered configuration. Managed rewrite editing and full draft APIs remain
 SPM-239 gaps.
@@ -108,6 +108,21 @@ case-insensitively; Replace keeps target values only; Discard removes all querie
 Repeated values and fragments survive. Query escaping is normalized by ASP.NET.
 No client Host value is reflected into Location.
 
+Opt into NhProxyRedirectPathMatchMode.Regex through Match.PathMode or the checkbox.
+The pattern receives the escaped HttpRequest.Path plus the query string, including
+the question mark, excluding PathBase. Use anchors for full-input matching. The
+first match expands the entire target using .NET substitutions ($1, ${name}, $$).
+QueryMode is ignored for regex rules: include every query value explicitly in the
+target or capture it from the input. No merge or query parsing occurs in this mode.
+Absolute authorities stay fixed; captures belong in the path, query or fragment.
+The runtime prepares regexes per immutable snapshot, validates expanded targets,
+and rejects unsafe or root-relative self expansions. A 50 ms per-match timeout,
+a cumulative budget checked before each regex, and 65,536-character input/output
+limits bound evaluation. Patterns are limited to 2,048 characters and targets to
+4,096. A timed-out, over-limit or unsafe expansion ends redirect evaluation and
+passes through; the draft tester explains the failure. Existing rules stay Exact,
+and no schema migration is needed. Older runtimes cannot load new regex rules.
+
 Keep the SQLite file on durable local storage outside the webroot. Its default is
 App_Data/newheap-proxy.db under the host content root. One lock-file handle enforces
 exclusive NewHeap ownership. Schema version 2 transactionally upgrades version 1
@@ -119,7 +134,18 @@ PostgreSQL are explicit v1 capability gaps.
 Use options.ConfigureYarp(yarp => { ... }) for host-owned YARP customization. It
 runs once during registration, is not JSON configuration and is not persisted.
 Both options objects are startup snapshots. SPM-238 includes the standalone
-SampleProjectManagement.Proxy application and consumer behavior tests. SPM-239
+SampleProjectManagement.Proxy application and consumer behavior tests. Its explicit
+Proxy demo launch profile uses the test account administrator / NewHeap123!, a
+separate SQLite demo file and a first-run literal redirect. This sample-only mode
+requires Development, binds localhost in its launch profile and allowlists only
+loopback addresses for administration; Configured proxy keeps host-owned
+settings and has no default account. The verify-proxy-demo.ps1 smoke check exercises
+the real executable, health endpoints, login, redirect, persisted deletion and Production guard.
+The sample AppHost selects the same demo profile as sample-project-management-proxy,
+assigns its HTTP port and links directly to /newheap-proxy in the dashboard. Shared
+service defaults expose Development health endpoints, and Aspire checks /alive.
+The proxy has no database-container or API dependency; its administration endpoint
+is excluded from service discovery references. SPM-239
 tracks remaining managed rewrites, full-pipeline drafts and cycle analysis.
 
 ## Avoid
@@ -147,7 +173,7 @@ and mobile. Keep SPM-239's remaining capabilities explicitly unimplemented.
 
 ## Executable evidence
 
-- SPM-238 — SQLite literal redirects and embedded MVC administration
+- SPM-238 — SQLite exact and regex redirects and embedded MVC administration
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyContractBoundarySamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyContractBoundarySamplesTests.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyLiteralRedirectSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyLiteralRedirectSamplesTests.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyAdministrationSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyAdministrationSamplesTests.cs)

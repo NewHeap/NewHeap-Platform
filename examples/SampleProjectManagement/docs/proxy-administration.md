@@ -5,19 +5,63 @@ MVC panel with the same two calls used by a consuming application. It uses a rea
 SQLite file and serves `/projects` as a neutral redirect destination. It does not
 require the SampleProjectManagement database or AppHost.
 
+## Run the demo
+
+From `examples/SampleProjectManagement/src/Back-end`:
+
+```text
+dotnet run --project Applications/SampleProjectManagement.Proxy --launch-profile "Proxy demo"
+```
+
+Alternatively, select this project and the **Proxy demo** profile in Visual Studio
+or Rider. Open http://localhost:5289/newheap-proxy and sign in with the fixed test
+account `administrator` / `NewHeap123!`. No credential or database setup is needed.
+This explicit mode requires Development and restricts administration to loopback
+addresses using the library's IP allowlist. Its launch profile listens on localhost.
+It overrides the account and database settings only for this demo; the library
+does not gain default credentials.
+
+The demo creates `App_Data/proxy-demo.db`, excluded from Git, and seeds a literal
+302 from `/old-projects` to `/projects?source=proxy` only at revision zero. Try
+http://localhost:5289/old-projects?campaign=demo, then edit or test the rule in the
+panel. Changes and deletions survive restarts without reseeding. Restarting also
+requires a fresh login because the test password receives a new salted hash.
+
+## Run through Aspire
+
+Select `SampleProjectManagement.AppHost` as the startup project, or run from
+`examples/SampleProjectManagement/src/Back-end`:
+
+```text
+aspire start --apphost Orchestration/SampleProjectManagement.AppHost/SampleProjectManagement.AppHost.csproj
+```
+
+Open the `sample-project-management-proxy` resource URL in the dashboard. It points
+to `/newheap-proxy` on an automatically assigned localhost port. The AppHost selects
+the **Proxy demo** profile, so the same `administrator` / `NewHeap123!` account and
+`App_Data/proxy-demo.db` apply. Stop a standalone instance before starting Aspire;
+the SQLite file permits one owning process.
+
+The proxy starts independently of PostgreSQL, RabbitMQ and the API. Shared service
+defaults provide Development `/health` and `/alive` endpoints; Aspire checks `/alive`
+for resource health. The administration endpoint is excluded from service discovery
+references to other resources.
+
+## Configure your own account
+
 From `examples/SampleProjectManagement/src/Back-end`:
 
 ```text
 dotnet run --project Applications/SampleProjectManagement.Proxy -- --hash-password
 dotnet user-secrets set --project Applications/SampleProjectManagement.Proxy NewHeapProxy:Administrator:UserName administrator
 dotnet user-secrets set --project Applications/SampleProjectManagement.Proxy NewHeapProxy:Administrator:PasswordHash "<generated hash>"
-dotnet run --project Applications/SampleProjectManagement.Proxy -- --environment Development --urls http://localhost:5289
+dotnet run --project Applications/SampleProjectManagement.Proxy --launch-profile "Configured proxy"
 ```
 
 The hash command reads the password without displaying it and prints an ASP.NET
 Identity password hash. Do not commit credentials or hashes. User secrets are a
 local development facility; production uses the host's secret provider and HTTPS.
-No account is enabled by default. Set `NewHeapProxy:Sqlite:DatabasePath` to change
+The configured profile has no default account. Set `NewHeapProxy:Sqlite:DatabasePath` to change
 the database path, which otherwise defaults to `App_Data/newheap-proxy.db` beneath
 the application's content root.
 
@@ -28,6 +72,21 @@ Open `/newheap-proxy`, sign in, and create a redirect:
 - Destination: `/projects?source=proxy`
 - Status: `302`
 - Test URL: `https://example.com/old-projects?campaign=sample`
+
+For regex matching, enable **Use regular expression**. For example:
+
+- Source: `^/old-projects/([^?]+)(\?.*)?$`
+- Destination: `/projects/$1$2`
+- Test URL: `https://example.com/old-projects/42?campaign=sample`
+- Result: `/projects/42?campaign=sample`
+
+The regex receives the escaped path plus query string. Use numbered captures
+such as `$1` or named captures such as `${id}` in the destination. Query controls
+are hidden and ignored in this mode: only query values explicitly included in
+the target survive. Omitting `$2` in this example drops the incoming query.
+Leave the checkbox off to retain exact path matching and the existing query modes.
+The test also reports invalid expanded destinations and regex timeouts without
+saving the draft. Absolute destination hosts must remain fixed in the template.
 
 **Test draft** shows the response for the unsaved rule without making a network
 request. **Save and activate** commits a new revision and publishes it immediately.
@@ -54,9 +113,17 @@ administration requires HTTPS; HTTP is accepted only in Development.
 Verification:
 
 ```text
+dotnet build Applications/SampleProjectManagement.Proxy --configuration Release
+pwsh -NoProfile -File ../../tools/verify-proxy-demo.ps1
 dotnet test Tests/SampleProjectManagement.Core.Tests --filter FullyQualifiedName~ProxyAdministrationSamplesTests
 dotnet test ../../../../src/Back-end/Tests/NewHeap.Platform.AspNet.Proxy.Sqlite.Tests --filter FullyQualifiedName~NhProxyAdministrationTests
 ```
+
+The PowerShell smoke check starts the actual compiled demo with a temporary content
+root, checks the health endpoints, signs in with the documented test account, verifies the seeded 302, deletes
+the example rule, restarts against the same SQLite file and verifies that deletion
+persists. It also checks that Production rejects demo mode. It never touches the
+developer's demo database.
 
 The internal HTTP tests exercise CSRF, authentication, audit failure, IP denial,
 throttling, credential rotation, PathBase, draft isolation, save/activation,

@@ -178,4 +178,90 @@ public sealed class NhProxyLiteralRedirectTests
         Assert.Equal(418, (await Request(runtime, "/old")).Response.StatusCode);
         Assert.Equal(NhProxyActivationState.NotInitialized, runtime.GetStatus().Rewrite.State);
     }
+
+    [Theory]
+    [InlineData(NhProxyRedirectQueryMode.Preserve)]
+    [InlineData(NhProxyRedirectQueryMode.Discard)]
+    [InlineData(NhProxyRedirectQueryMode.Replace)]
+    public async Task Regex_captures_build_the_entire_target_without_applying_query_modes(NhProxyRedirectQueryMode mode)
+    {
+        var runtime = Runtime();
+        Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
+        {
+            Rules = [Rule(target: "/projects/${id}?${query}&source=proxy#details") with
+            {
+                QueryMode = mode,
+                Match = new NhProxyRedirectMatch { PathMode = NhProxyRedirectPathMatchMode.Regex, Path = @"^/old/(?<id>[^?]+)\?(?<query>.*)$" }
+            }]
+        })).Success);
+        Assert.Equal("/projects/42?tag=a%26b&tag=c&drop=1&source=proxy#details",
+            (await Request(runtime, "/old/42", query: "?tag=a%26b&tag=c&drop=1")).Response.Headers.Location.ToString());
+        Assert.Equal(418, (await Request(runtime, "/OLD/42", query: "?tag=x")).Response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(@"^/old/([^?]+)(\?.*)?$", "/new/$1$2", "/old/café", "?tag=a%26b&tag=c", "/new/caf%C3%A9?tag=a%26b&tag=c")]
+    [InlineData(@"^/old/([^?]+)(\?.*)?$", "/new/$1$2", "/old/42", "", "/new/42")]
+    [InlineData(@"^/old/([^?]+)", "/new/$1?fixed=1", "/old/42", "?discard=1", "/new/42?fixed=1")]
+    [InlineData(@"(?i)^/old/(?<id>[^?]+)", "https://example.com/new/${id}?cost=$$5", "/OLD/42", "?discard=1", "https://example.com/new/42?cost=$5")]
+    public async Task Regex_uses_escaped_path_and_query_and_dotnet_substitutions(string pattern, string target, string path, string query, string expected)
+    {
+        var runtime = Runtime();
+        Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
+        {
+            Rules = [Rule(target: target) with { Match = new NhProxyRedirectMatch { PathMode = NhProxyRedirectPathMatchMode.Regex, Path = pattern } }]
+        })).Success);
+        Assert.Equal(expected, (await Request(runtime, path, query: query)).Response.Headers.Location.ToString());
+    }
+
+    [Theory]
+    [InlineData("(", "/new/$1")]
+    [InlineData("[", "/new")]
+    [InlineData("^/old$", "javascript:$1")]
+    [InlineData("^/old$", "//example.com/$1")]
+    [InlineData("^/old/(.*)$", "https://$1/")]
+    [InlineData("^/old/(?<host>.*)$", "https://${host}/")]
+    public async Task Invalid_regex_does_not_replace_an_active_snapshot(string pattern, string target)
+    {
+        var runtime = Runtime();
+        Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration { Revision = 1, Rules = [Rule()] })).Success);
+        Assert.False((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
+        {
+            Revision = 2, Rules = [Rule(target: target) with { Match = new NhProxyRedirectMatch { PathMode = NhProxyRedirectPathMatchMode.Regex, Path = pattern } }]
+        })).Success);
+        Assert.Equal(1, runtime.GetStatus().Redirect.ActiveRevision);
+        Assert.Equal("/new", (await Request(runtime, "/old")).Response.Headers.Location.ToString());
+    }
+
+    [Theory]
+    [InlineData("/old//evil.example", "/$1")]
+    [InlineData("/old/value", "/old/$1")]
+    public async Task Unsafe_or_self_expansions_pass_through_without_a_location_header(string path, string target)
+    {
+        var runtime = Runtime();
+        Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
+        {
+            Rules = [Rule(target: target) with { Match = new NhProxyRedirectMatch { PathMode = NhProxyRedirectPathMatchMode.Regex, Path = "^/old/(.*)$" } }]
+        })).Success);
+        var response = (await Request(runtime, path)).Response;
+        Assert.Equal(418, response.StatusCode);
+        Assert.False(response.Headers.ContainsKey("Location"));
+    }
+
+    [Fact]
+    public async Task Regex_timeout_is_bounded_and_the_administration_branch_is_always_reserved()
+    {
+        var runtime = Runtime();
+        Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
+        {
+            Rules = [Rule() with { Match = new NhProxyRedirectMatch { PathMode = NhProxyRedirectPathMatchMode.Regex, Path = "^/(a+)+$" } }]
+        })).Success);
+        Assert.Equal(418, (await Request(runtime, "/" + new string('a', 10000) + "!")).Response.StatusCode);
+        Assert.Equal(302, (await Request(runtime, "/aaa")).Response.StatusCode);
+        Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
+        {
+            Revision = 1, Rules = [Rule() with { Match = new NhProxyRedirectMatch { PathMode = NhProxyRedirectPathMatchMode.Regex, Path = ".*" } }]
+        })).Success);
+        Assert.Equal(418, (await Request(runtime, "/newheap-proxy/Edit")).Response.StatusCode);
+    }
 }

@@ -17,6 +17,7 @@ public sealed class NhProxyRedirectEditorModel
     public bool IsNew { get; set; }
     [Required, StringLength(200)] public string Name { get; set; } = "";
     [Required, StringLength(2048)] public string Path { get; set; } = "";
+    public bool IsRegex { get; set; }
     [Required, StringLength(4096)] public string Target { get; set; } = "";
     public bool Enabled { get; set; } = true;
     public int Priority { get; set; }
@@ -31,7 +32,11 @@ public sealed class NhProxyRedirectEditorModel
     internal NhProxyRedirectRule ToRule() => new()
     {
         Id = Id, Name = Name, Enabled = Enabled, Priority = Priority, Status = Status, QueryMode = QueryMode, Target = Target,
-        Match = new NhProxyRedirectMatch { Path = Path, Hosts = Split(Hosts), Methods = Split(Methods) }
+        Match = new NhProxyRedirectMatch
+        {
+            Path = Path, PathMode = IsRegex ? NhProxyRedirectPathMatchMode.Regex : NhProxyRedirectPathMatchMode.Exact,
+            Hosts = Split(Hosts), Methods = Split(Methods)
+        }
     };
 
     private static ImmutableArray<string> Split(string? value) => (value ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToImmutableArray();
@@ -40,7 +45,7 @@ public sealed class NhProxyRedirectEditorModel
 public sealed record NhProxyRedirectListModel(NhProxyRedirectConfiguration Configuration, NhProxyEngineStatus Status, string? Search);
 public sealed record NhProxyRedirectDeleteModel(NhProxyRedirectRule Rule, long Revision);
 
-/// <summary>Embedded MVC administration for literal redirects. The reserved pipeline branch owns access checks.</summary>
+/// <summary>Embedded MVC administration for redirects. The reserved pipeline branch owns access checks.</summary>
 [Area("NewHeapProxy")]
 [Authorize(Policy = NhProxyOptions.AdministrationPolicy)]
 [AutoValidateAntiforgeryToken]
@@ -102,7 +107,7 @@ public sealed class NhProxyAdminController(INhProxyConfigurationService configur
     }
 
     [HttpGet]
-    [EndpointSummary("List literal redirects")]
+    [EndpointSummary("List redirects")]
     [EndpointDescription("Shows persisted redirect rules, their priority and the active configuration revision.")]
     [ProducesResponseType(typeof(NhProxyRedirectListModel), StatusCodes.Status200OK)]
     public async Task<IActionResult> Index([FromQuery] string? search, CancellationToken cancellationToken)
@@ -112,7 +117,7 @@ public sealed class NhProxyAdminController(INhProxyConfigurationService configur
 
     [HttpGet]
     [EndpointSummary("Edit a redirect")]
-    [EndpointDescription("Loads a redirect or prepares a new literal rule with its current configuration revision.")]
+    [EndpointDescription("Loads a redirect or prepares a new exact rule with optional regex matching and its current configuration revision.")]
     [ProducesResponseType(typeof(NhProxyRedirectEditorModel), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Edit([FromRoute] Guid? id, CancellationToken cancellationToken)
@@ -138,13 +143,14 @@ public sealed class NhProxyAdminController(INhProxyConfigurationService configur
         {
             Id = rule.Id, Revision = snapshot.Revision, Name = rule.Name, Path = rule.Match.Path, Target = rule.Target,
             Enabled = rule.Enabled, Priority = rule.Priority, Status = rule.Status, QueryMode = rule.QueryMode,
+            IsRegex = rule.Match.PathMode == NhProxyRedirectPathMatchMode.Regex,
             Hosts = string.Join(", ", rule.Match.Hosts), Methods = string.Join(", ", rule.Match.Methods)
         });
     }
 
     [HttpPost]
-    [EndpointSummary("Save or test a literal redirect")]
-    [EndpointDescription("Tests an unsaved draft locally or commits a revision-checked change and activates it immediately.")]
+    [EndpointSummary("Save or test a redirect")]
+    [EndpointDescription("Tests an exact or regex draft locally, including capture substitutions, or commits and activates a revision-checked change.")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(NhProxyRedirectEditorModel), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status302Found)]
@@ -156,7 +162,7 @@ public sealed class NhProxyAdminController(INhProxyConfigurationService configur
             return BadRequest("Choose save or test.");
         }
 
-        if (model.Path?.StartsWith('/') == true && new PathString(model.Path).StartsWithSegments(NhProxyOptions.AdministrationPath, StringComparison.OrdinalIgnoreCase))
+        if (!model.IsRegex && model.Path?.StartsWith('/') == true && new PathString(model.Path).StartsWithSegments(NhProxyOptions.AdministrationPath, StringComparison.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.Path), "The administration path is reserved and cannot be redirected.");
         }
@@ -171,7 +177,9 @@ public sealed class NhProxyAdminController(INhProxyConfigurationService configur
         var validation = await validator.ValidateRedirectsAsync(new(model.Revision, [rule]), cancellationToken);
         if (!validation.Success)
         {
-            ModelState.AddModelError("", "The rule is invalid. Use a literal path starting with / and a safe HTTP(S) or root-relative target. Host restrictions must be literal hosts; methods must be HTTP tokens.");
+            ModelState.AddModelError("", model.IsRegex
+                ? "The rule is invalid. Use a valid .NET regex and a safe HTTP(S) or root-relative target with capture substitutions. Host restrictions must be literal hosts; methods must be HTTP tokens."
+                : "The rule is invalid. Use a literal path starting with / and a safe HTTP(S) or root-relative target. Host restrictions must be literal hosts; methods must be HTTP tokens.");
             Response.StatusCode = 400;
             return View(model);
         }
@@ -200,9 +208,9 @@ public sealed class NhProxyAdminController(INhProxyConfigurationService configur
             request.Request.Host = HostString.FromUriComponent(url);
             request.Request.QueryString = new QueryString(url.Query);
             request.Request.Method = model.TestMethod;
-            model.TestResult = preview.TryRedirect(request)
+            model.TestResult = preview.TryRedirect(request, out var failure)
                 ? $"Match: {request.Response.StatusCode} → {request.Response.Headers.Location}"
-                : "No match. This draft would pass the request to the next middleware.";
+                : failure ?? "No match. This draft would pass the request to the next middleware.";
             return View(model);
         }
 

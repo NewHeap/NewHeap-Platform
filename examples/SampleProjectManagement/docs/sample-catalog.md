@@ -29,12 +29,19 @@ Proxy case SPM-238 is exercised by `ProxyContractBoundarySamplesTests`,
 `ProxyLiteralRedirectSamplesTests`, `ProxyAdministrationSamplesTests` and the
 standalone `SampleProjectManagement.Proxy` application. The preferred two-call
 flow loads SQLite redirects before requests and provides embedded MVC management.
+An opt-in regex checkbox enables captures over the escaped path and query string;
+the target alone determines query values. Exact matching remains the default.
 The panel authenticates one configured account, enforces optional IP restrictions,
 audits login attempts, tests unsaved literal rules and saves/activates revisions
 without restart. Real SQLite and HTTP tests cover persistence, conflicts,
 authentication, CSRF, audit failure, PathBase and activation retry.
 
 See [proxy administration setup](proxy-administration.md) for the runnable sample.
+The **Proxy demo** launch profile needs no setup: it supplies a local test account,
+isolated demo storage and one example redirect. The PowerShell smoke check verifies
+the actual executable, health endpoints and persistence across restarts. The Aspire
+AppHost also starts this profile as `sample-project-management-proxy`, with a
+dashboard link to the panel, an assigned port and an independent SQLite file.
 SPM-239 remains a `library-gap` for managed rewrite persistence/editing/activation,
 full-pipeline draft execution, prefix/template matching and general cycle analysis.
 SQL Server and PostgreSQL remain explicit v1 provider gaps.

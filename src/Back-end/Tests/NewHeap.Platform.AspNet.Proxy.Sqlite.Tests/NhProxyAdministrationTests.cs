@@ -15,9 +15,11 @@ namespace NewHeap.Platform.AspNet.Proxy.Sqlite.Tests;
 public sealed class NhProxyAdministrationTests
 {
     [Theory]
-    [InlineData("")]
-    [InlineData("/mounted")]
-    public async Task Panel_authenticates_tests_saves_conflicts_and_deletes_without_restarting(string pathBase)
+    [InlineData("", false)]
+    [InlineData("/mounted", false)]
+    [InlineData("", true)]
+    [InlineData("/mounted", true)]
+    public async Task Panel_authenticates_tests_saves_conflicts_and_deletes_without_restarting(string pathBase, bool isRegex)
     {
         var directory = Directory.CreateTempSubdirectory("newheap-panel-test-");
         try
@@ -71,6 +73,25 @@ public sealed class NhProxyAdministrationTests
                     ["Status"] = "302", ["QueryMode"] = "Preserve", ["Priority"] = "0",
                     ["TestUrl"] = "https://example.com/old?campaign=sample", ["TestMethod"] = "GET", ["operation"] = "test"
                 };
+                if (isRegex)
+                {
+                    values["IsRegex"] = "true";
+                    values["Path"] = @"^/old/([^?]+)(\?.*)?$";
+                    values["Target"] = "/new/$1$2";
+                    values["TestUrl"] = "https://example.com/old/42?campaign=sample";
+                    var invalidValues = new Dictionary<string, string>(values) { ["Path"] = "(" };
+                    var invalid = await client.PostAsync(panel + "/Edit/" + id, Form(edit, invalidValues));
+                    Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+                    Assert.Contains("valid .NET regex", await invalid.Content.ReadAsStringAsync());
+                    var unsafeValues = new Dictionary<string, string>(values)
+                    {
+                        ["Target"] = "/$1", ["TestUrl"] = "https://example.com/old//evil.example"
+                    };
+                    var unsafePreview = await client.PostAsync(panel + "/Edit/" + id, Form(edit, unsafeValues));
+                    Assert.Equal(HttpStatusCode.OK, unsafePreview.StatusCode);
+                    Assert.Contains("invalid destination", await unsafePreview.Content.ReadAsStringAsync());
+                }
+
                 var tested = await client.PostAsync(panel + "/Edit/" + id, Form(edit, values));
                 var testedHtml = await tested.Content.ReadAsStringAsync();
                 Assert.Equal(HttpStatusCode.OK, tested.StatusCode);
@@ -80,9 +101,16 @@ public sealed class NhProxyAdministrationTests
                 values["operation"] = "save";
                 var saved = await client.PostAsync(panel + "/Edit/" + id, Form(edit, values));
                 Assert.Equal(HttpStatusCode.Found, saved.StatusCode);
-                var redirected = await client.GetAsync(root + "/old?campaign=sample");
+                var redirected = await client.GetAsync(root + (isRegex ? "/old/42?campaign=sample" : "/old?campaign=sample"));
                 Assert.Equal(HttpStatusCode.Found, redirected.StatusCode);
-                Assert.Equal("/new?campaign=sample&source=proxy", redirected.Headers.Location!.OriginalString);
+                Assert.Equal(isRegex ? "/new/42?campaign=sample" : "/new?campaign=sample&source=proxy", redirected.Headers.Location!.OriginalString);
+                if (isRegex)
+                {
+                    var reopened = await client.GetStringAsync(panel + "/Edit/" + id);
+                    Assert.Matches("<input(?=[^>]*name=\"IsRegex\")(?=[^>]*checked)[^>]*>", reopened);
+                    Assert.Equal(NhProxyRedirectPathMatchMode.Regex,
+                        Assert.Single((await app.Services.GetRequiredService<INhProxyConfigurationService>().GetRedirectsAsync()).Rules).Match.PathMode);
+                }
                 Assert.Contains("Moved &lt;project&gt;", await client.GetStringAsync(panel));
                 var stale = await client.PostAsync(panel + "/Edit/" + id, Form(edit, values));
                 Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);

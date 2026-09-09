@@ -13,6 +13,7 @@ public sealed record NhProxyRedirectRule
     public required NhProxyRedirectMatch Match { get; init; }
     public required string Target { get; init; }
     public NhProxyRedirectStatus Status { get; init; } = NhProxyRedirectStatus.Found;
+    /// <summary>Applies only to exact rules. Regex rules construct the entire destination, including its query, through substitutions.</summary>
     public NhProxyRedirectQueryMode QueryMode { get; init; } = NhProxyRedirectQueryMode.Preserve;
 }
 
@@ -30,7 +31,9 @@ public enum NhProxyRedirectPathMatchMode
     /// <summary>Reserved for a future version; currently rejected by validation.</summary>
     Prefix,
     /// <summary>Reserved for a future version; currently rejected by validation.</summary>
-    RouteTemplate
+    RouteTemplate,
+    /// <summary>Match the escaped request path plus query string; expand the target with .NET regex substitutions.</summary>
+    Regex
 }
 
 public enum NhProxyRedirectStatus

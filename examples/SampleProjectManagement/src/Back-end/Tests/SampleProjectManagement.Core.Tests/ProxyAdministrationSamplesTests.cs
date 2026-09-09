@@ -24,8 +24,8 @@ public sealed class ProxyAdministrationSamplesTests
             builder.Services.AddNewHeapProxy(options =>
             {
                 // Test credential only. Real hosts load a precomputed hash from their secret provider.
-                options.Administrator.UserName = "administrator";
-                options.Administrator.PasswordHash = new PasswordHasher<string>().HashPassword("administrator", "sample-test-only-password");
+                options.Administrator.UserName = "info@newheap.com";
+                options.Administrator.PasswordHash = new PasswordHasher<string>().HashPassword("info@newheap.com", "sample-test-only-password");
                 options.IpAllowlist.Enabled = true;
                 options.IpAllowlist.Entries = ["127.0.0.1/32", "::1/128"];
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
@@ -35,7 +35,15 @@ public sealed class ProxyAdministrationSamplesTests
             try
             {
                 using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { BaseAddress = new Uri(app.Urls.Single()) };
-                Assert.Contains("Sign in", await client.GetStringAsync("/newheap-proxy/Login", cancellationToken));
+                using var login = await client.GetAsync("/newheap-proxy/Login", cancellationToken);
+                var loginHtml = await login.Content.ReadAsStringAsync(cancellationToken);
+                Assert.Contains("Sign in", loginHtml);
+                Assert.Contains("img-src data:", Assert.Single(login.Headers.GetValues("Content-Security-Policy")));
+                var logo = System.Text.RegularExpressions.Regex.Match(loginHtml, "<img src=\"data:image/webp;base64,([^\"]+)\" alt=\"NewHeap\"");
+                Assert.True(logo.Success, "The official logo must be embedded without host static-file setup or external requests.");
+                var logoBytes = Convert.FromBase64String(WebUtility.HtmlDecode(logo.Groups[1].Value));
+                Assert.Equal("RIFF", System.Text.Encoding.ASCII.GetString(logoBytes, 0, 4));
+                Assert.Equal("WEBP", System.Text.Encoding.ASCII.GetString(logoBytes, 8, 4));
                 Assert.Equal(HttpStatusCode.Found, (await client.GetAsync("/newheap-proxy", cancellationToken)).StatusCode);
 
                 var configuration = app.Services.GetRequiredService<INhProxyConfigurationService>();

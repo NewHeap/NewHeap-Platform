@@ -7,6 +7,6 @@ public sealed class NhProxyRedirectMiddleware(RequestDelegate next, NhProxyRunti
 {
     public Task InvokeAsync(HttpContext context)
     {
-        return runtime.TryRedirect(context) ? Task.CompletedTask : next(context);
+        return runtime.TryRedirect(context, out _) ? Task.CompletedTask : next(context);
     }
 }

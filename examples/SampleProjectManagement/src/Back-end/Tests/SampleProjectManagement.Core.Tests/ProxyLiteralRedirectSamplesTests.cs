@@ -9,7 +9,7 @@ using Xunit;
 
 namespace SampleProjectManagement.Core.Tests;
 
-/// <summary>SPM-238: persist a literal redirect, restart storage, and serve it through the two-call host API.</summary>
+/// <summary>SPM-238: persist exact and regex redirects, restart storage, and serve them through the two-call host API.</summary>
 public sealed class ProxyLiteralRedirectSamplesTests
 {
     [Fact]
@@ -32,6 +32,17 @@ public sealed class ProxyLiteralRedirectSamplesTests
                         Id = Guid.NewGuid(), Name = "Project landing page",
                         Match = new NhProxyRedirectMatch { Path = "/old-projects" },
                         Target = "/projects?source=proxy"
+                    },
+                    new NhProxyRedirectRule
+                    {
+                        Id = Guid.NewGuid(), Name = "Project details with explicit query captures",
+                        Match = new NhProxyRedirectMatch
+                        {
+                            PathMode = NhProxyRedirectPathMatchMode.Regex,
+                            Path = @"^/legacy-projects/(?<id>[0-9]+)(?<query>\?.*)?$"
+                        },
+                        Target = "/projects/${id}${query}"
+                        // QueryMode is ignored for regex rules: only captured query values are carried over.
                     }
                 ]), cancellationToken);
                 Assert.True(save.Success, string.Join("; ", save.AllErrorMessages));
@@ -51,6 +62,12 @@ public sealed class ProxyLiteralRedirectSamplesTests
                 Assert.Equal("/projects?campaign=sample&source=proxy", response.Headers.Location!.OriginalString);
                 Assert.Equal(1, app.Services.GetRequiredService<INhProxyRuntime>().GetStatus().Redirect.ActiveRevision);
 
+                using var regex = await client.GetAsync(app.Urls.Single() + "/legacy-projects/42?tag=a%26b&tag=c", cancellationToken);
+                Assert.Equal(HttpStatusCode.Found, regex.StatusCode);
+                Assert.Equal("/projects/42?tag=a%26b&tag=c", regex.Headers.Location!.OriginalString);
+                var persisted = await app.Services.GetRequiredService<INhProxyConfigurationService>().GetRedirectsAsync(cancellationToken);
+                Assert.Contains(persisted.Rules, rule => rule.Match.PathMode == NhProxyRedirectPathMatchMode.Regex);
+
                 using var unmatched = await client.GetAsync(app.Urls.Single() + "/old-projects/child", cancellationToken);
                 Assert.Equal(HttpStatusCode.NotFound, unmatched.StatusCode);
             }
@@ -65,4 +82,3 @@ public sealed class ProxyLiteralRedirectSamplesTests
         }
     }
 }
-

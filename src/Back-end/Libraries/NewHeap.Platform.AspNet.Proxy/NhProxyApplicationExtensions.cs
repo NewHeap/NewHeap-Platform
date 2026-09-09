@@ -25,7 +25,7 @@ public static class NhProxyApplicationExtensions
                 context.Items[typeof(NhProxyAdminController)] = true;
                 context.Request.RouteValues = new RouteValueDictionary();
                 context.Response.Headers.CacheControl = "no-store";
-                context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+                context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
                 context.Response.Headers["X-Content-Type-Options"] = "nosniff";
                 context.Response.Headers["Referrer-Policy"] = "no-referrer";
                 var options = context.RequestServices.GetRequiredService<IOptions<NhProxyOptions>>().Value;

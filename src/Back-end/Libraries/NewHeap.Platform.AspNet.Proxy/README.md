@@ -1,8 +1,8 @@
 # NewHeap ASP.NET Proxy
 
-The library now loads literal redirects from SQLite at startup and applies them
+The library loads exact and opt-in regex redirects from SQLite at startup and applies them
 from an immutable in-memory snapshot before proxy and host endpoint execution.
-The embedded MVC panel manages literal redirects, tests unsaved rules, audits
+The embedded MVC panel manages redirects, tests unsaved rules, audits
 logins and activates saved changes. Managed rewrite storage/editing remains
 unimplemented; native YARP customization is available.
 
@@ -40,7 +40,7 @@ The reserved administration branch is installed before redirects and YARP, inclu
 
 Open `/newheap-proxy`. The MVC panel provides search, create/edit, enable/disable,
 priority, host/method restrictions, query modes, deletion confirmation, login
-activity and a local draft test. Test evaluates one unsaved literal rule with the
+activity, a **Use regular expression** checkbox and a local draft test. Test evaluates one unsaved rule with the
 same runtime matcher, without storage writes or outbound requests. It does not
 simulate the full ordered rule set or execute managed rewrites.
 
@@ -82,11 +82,11 @@ See the [runnable administration sample](../../../../examples/SampleProjectManag
 for password-hash generation, host configuration and verification.
 ## Literal redirects
 
-- Only `PathMode = Exact` is supported. Compare against `HttpRequest.Path` using
+- `PathMode = Exact` remains the default. Compare against `HttpRequest.Path` using
   ordinal, case-sensitive equality. Trailing slashes matter. With `UsePathBase`,
   matching uses the remaining path. The query is not part of path matching.
-- Regex characters are literal characters. Prefix, route-template matching, and
-  captures are rejected or unavailable; no regex or template substitution runs.
+- With the checkbox off, regex characters and target substitutions remain literal.
+  Prefix and route-template matching are still rejected.
 - Optional hosts match case-insensitively. A host without a port matches any
   request port; a configured port must match. Host wildcards are rejected.
   Methods are exact, case-sensitive HTTP tokens; empty host/method lists mean all.
@@ -106,6 +106,37 @@ Each request captures one snapshot and never queries SQLite. A matching redirect
 sets the status and `Location` and ends processing; an unmatched request continues
 to the host/YARP pipeline. General cycle analysis and absolute self-redirect
 diagnostics remain future work.
+
+## Regex redirects
+
+Enable **Use regular expression**, or set `Match.PathMode = NhProxyRedirectPathMatchMode.Regex`.
+The pattern matches `HttpRequest.Path.ToUriComponent()` plus the incoming query
+string, including `?`. PathBase is excluded. Matching is case-sensitive unless
+the pattern specifies otherwise; use `^` and `$` when the entire input must match.
+The first match expands the complete destination using [.NET substitutions](https://learn.microsoft.com/en-us/dotnet/standard/base-types/substitutions-in-regular-expressions):
+`$1`, `${name}` and `$$` for a literal dollar sign. Unmatched input is not appended.
+
+For example, `^/old-projects/([^?]+)(\?.*)?$` with target `/projects/$1$2` maps
+`/old-projects/42?tag=a%26b` to `/projects/42?tag=a%26b`. Omitting `$2` drops the
+incoming query. **All QueryMode settings are ignored for regex rules**: there is
+no automatic merge, preserve or discard step. Captures keep their URL escaping;
+the final URL is normalized for the Location header without parsing/merging query values.
+
+Patterns are prepared once per published snapshot. Invalid patterns or unsafe
+target templates fail validation. Absolute destination authorities must be fixed;
+substitutions belong in the path, query or fragment. Expanded destinations are
+validated again, including network-path targets and root-relative self-redirects.
+Matching has a 50 ms timeout and a cumulative 50 ms budget checked before each
+regex; one in-progress match can extend that budget by up to its own timeout.
+Regex inputs and expanded targets are limited to 65,536 characters, patterns to
+2,048 and templates to 4,096. Timeout, limit or unsafe expansion stops redirect
+evaluation for that request and passes through without a Location header; the
+draft test explains the failure. General multi-rule cycle detection remains pending.
+
+Existing SQLite documents retain exact matching. Regex mode uses the existing
+rule document without a schema migration; runtimes predating regex support cannot
+load documents containing regex rules. Host/method filters, ordering, status codes
+and administration-path protection apply equally to both modes.
 
 ## Persistence and activation
 

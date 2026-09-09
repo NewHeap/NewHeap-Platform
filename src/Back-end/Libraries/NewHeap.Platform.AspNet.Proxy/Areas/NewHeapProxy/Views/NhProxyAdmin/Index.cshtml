@@ -5,7 +5,7 @@
         .Where(rule => string.IsNullOrWhiteSpace(Model.Search) || (rule.Name + " " + rule.Match.Path + " " + rule.Target).Contains(Model.Search, StringComparison.OrdinalIgnoreCase)).ToArray();
 }
 <div class="heading">
-    <div><div class="eyebrow">Traffic management</div><h1>Redirects</h1><p class="muted">Send visitors from an exact path to the right destination.</p>
+    <div><div class="eyebrow">Traffic management</div><h1>Redirects</h1><p class="muted">Send visitors to the right destination with exact or regex rules.</p>
         <div class="status-line"><span class="badge @(Model.Status.State == NhProxyActivationState.Active ? "active" : "disabled")">@Model.Status.State</span> Saved revision @Model.Configuration.Revision · Active revision @(Model.Status.ActiveRevision?.ToString() ?? "none")</div>
     </div>
     <a class="button primary" asp-action="Edit">Create redirect</a>
@@ -33,4 +33,4 @@ else
     </tbody></table></div>
 }
 </div>
-<p class="footer-note">Lower priority numbers run first. Paths are case-sensitive and trailing slashes matter. Regex and wildcard matching are not supported.</p>
+<p class="footer-note">Lower priority numbers run first. Exact paths are case-sensitive and trailing slashes matter. Regex rules match the escaped path and query string; capture substitutions define the destination.</p>

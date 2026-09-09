@@ -1,6 +1,6 @@
 # NewHeap ASP.NET Proxy SQLite
 
-`AddNewHeapProxy` registers literal redirect persistence, validation, runtime, and
+`AddNewHeapProxy` registers exact and regex redirect persistence, validation, runtime, and
 startup loading, plus native YARP. The `Microsoft.Data.Sqlite` provider and all
 SQL/schema code belong to this project. No EF Core or consumer DAL migrations are used.
 
@@ -84,7 +84,7 @@ changes; the panel uses that service. NhProxySqliteLoginAuditStore implements
 idempotent append, parameterized filtered paging and bounded retention deletion.
 Audit writes must succeed before a login cookie is issued. Managed rewrite
 storage remains unimplemented.
-See the [proxy README](../NewHeap.Platform.AspNet.Proxy/README.md) for literal matching
+See the [proxy README](../NewHeap.Platform.AspNet.Proxy/README.md) for exact and regex matching
 and query semantics. Real SQLite coverage lives in
 `NewHeap.Platform.AspNet.Proxy.Sqlite.Tests` and sample case SPM-238. SQL Server
 and PostgreSQL are explicit v1 capability gaps. All schema work is owned here;

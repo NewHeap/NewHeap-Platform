@@ -13,6 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Assets/newheap-logo.webp" LogicalName="NewHeap.Proxy.Logo" />
     <InternalsVisibleTo Include="NewHeap.Platform.AspNet.Proxy.Sqlite" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />

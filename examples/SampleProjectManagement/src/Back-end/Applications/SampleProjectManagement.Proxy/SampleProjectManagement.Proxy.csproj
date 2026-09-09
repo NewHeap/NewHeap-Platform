@@ -3,6 +3,7 @@
     <UserSecretsId>newheap-sample-proxy</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../Orchestration/SampleProjectManagement.ServiceDefaults/SampleProjectManagement.ServiceDefaults.csproj" />
     <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NewHeap.Platform.AspNet.Proxy.Sqlite.csproj" />
   </ItemGroup>
 </Project>

@@ -3198,16 +3198,18 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
   },
   {
     "id": "SPM-238",
-    "title": "SQLite literal redirects and embedded MVC administration",
+    "title": "SQLite exact and regex redirects and embedded MVC administration",
     "category": "Localization, configuration, and HTTP infrastructure",
-    "surface": "NhProxyRedirectRule, INhProxyConfigurationService, INhProxyAdministrationService, NhProxySqliteLoginAuditStore, NhProxyOptions.ConfigureYarp, AddNewHeapProxy, UseNewHeapProxy, MVC redirect editing and local draft testing",
-    "outcome": "A consumer starts the proxy with AddNewHeapProxy and UseNewHeapProxy, loads literal redirects from SQLite before requests, and manages rules in the embedded MVC panel with host-owned credentials. The configuration service commits and activates changes immediately with revision conflict protection. The panel tests unsaved literal rules locally and records login IP/outcome auditing. Native YARP and host authentication remain independent; managed rewrite editing and full-pipeline draft testing remain gaps.",
+    "surface": "NhProxyRedirectRule, NhProxyRedirectPathMatchMode.Regex, INhProxyConfigurationService, INhProxyAdministrationService, NhProxySqliteLoginAuditStore, NhProxyOptions.ConfigureYarp, AddNewHeapProxy, UseNewHeapProxy, MVC regex checkbox and local draft testing",
+    "outcome": "A consumer starts the proxy with AddNewHeapProxy and UseNewHeapProxy, loads literal redirects from SQLite before requests, and manages rules in the embedded MVC panel with host-owned credentials. The configuration service commits and activates changes immediately with revision conflict protection. The panel tests unsaved literal rules locally and records login IP/outcome auditing. Native YARP and host authentication remain independent; managed rewrite editing and full-pipeline draft testing remain gaps. The opt-in Development-only Proxy demo profile provides a fixed local test account and seeds one literal redirect in a separate SQLite file without resetting edits on restart. The Aspire AppHost starts this profile independently with an assigned port, an administration dashboard link and a health check. The regex checkbox opts into matching the escaped path plus query; captures build the entire destination without automatic query merging. Exact rules remain unchanged, and regex rules survive SQLite restart. The panel embeds the official NewHeap logo without external image requests or consumer static-file configuration.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyContractBoundarySamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyLiteralRedirectSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyAdministrationSamplesTests.cs",
-      "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs"
+      "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Proxy/Properties/launchSettings.json",
+      "src/Back-end/Orchestration/SampleProjectManagement.AppHost/Program.cs"
     ]
   },
   {

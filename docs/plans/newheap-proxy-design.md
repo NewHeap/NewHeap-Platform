@@ -1,6 +1,6 @@
 # NewHeap Proxy Library Design
 
-Status: literal SQLite redirects, MVC administration, authentication, login auditing and save/activation implemented; managed rewrites and full-pipeline draft testing pending
+Status: exact and opt-in regex SQLite redirects, MVC administration, authentication, login auditing and save/activation implemented; managed rewrites and full-pipeline draft testing pending
 
 Date: 2026-09-07  
 Scope: an ASP.NET Core proxy and redirect library with embedded administration, draft rule testing, and SQLite persistence
@@ -445,10 +445,10 @@ to these boundaries must have explicit validation and sample evidence.
 
 ## Redirect rule features
 
-The current first milestone supports only literal Exact matching, using ordinal,
+The default remains literal Exact matching, using ordinal,
 case-sensitive comparison with HttpRequest.Path. Trailing slashes are significant;
 PathBase is excluded and queries do not participate in matching. Regex characters
-are literal, Prefix and RouteTemplate are rejected, and targets have no captures.
+are literal in Exact mode; Prefix and RouteTemplate are rejected.
 Host/method restrictions, priority/Guid ordering, supported statuses, query modes,
 reserved administration paths, and immutable request snapshots are implemented.
 Root-relative same-path redirects are rejected conservatively; general cycle and
@@ -457,14 +457,24 @@ persists only. INhProxyConfigurationService and the panel commit then activate
 without restarting; the runtime rejects equal/older publications. Failed activation
 retains the committed revision and can be retried.
 
+The editor's opt-in **Use regular expression** checkbox selects PathMode.Regex.
+Regex matching receives the escaped path plus query string (excluding PathBase),
+and .NET substitutions such as $1 and ${name} build the entire target. All QueryMode
+settings are ignored: the administrator must explicitly capture or supply every
+query value. Absolute target authorities remain fixed. Regexes are prepared per
+snapshot with a 50 ms match timeout and a cumulative budget checked before each
+pattern. Invalid expansions or timeouts pass through and are explained in draft
+tests. Existing SQLite documents remain compatible and no schema migration is
+needed. See the proxy README for limits and exact input/escaping semantics.
+
 The following describes the broader planned redirect feature set; prefix/template
-matching, captures, and broader cycle diagnostics belong to later milestones.
+matching, route-template captures, and broader cycle diagnostics belong to later milestones.
 
 Redirect rules run in middleware and never make an outbound request:
 
 - Match host, HTTP method, and path using structured exact, prefix, or ASP.NET
-  Core route-template matching. Make prefix matching segment-aware. Defer arbitrary
-  regular expressions and executable expressions in the first editor.
+  Core route-template matching. Make prefix matching segment-aware. Regex matching
+  is already available as an explicit opt-in; executable expressions remain excluded.
 - Target a root-relative path or an absolute HTTP(S) URL. Permit captured route
   values in the path/query, while keeping an absolute target's authority fixed by
   the administrator. Do not accept a client-supplied destination host.
@@ -473,7 +483,7 @@ Redirect rules run in middleware and never make an outbound request:
   and `308` preserve the method; `303` directs a retrieval, while `301` and `302`
   can change POST to GET in clients. Permanent redirects can outlive rule changes
   in browser caches.
-- Default to preserving the incoming query. Let the editor explicitly discard
+- For exact rules, default to preserving the incoming query. Let the editor explicitly discard
   or replace it; in preserve mode, target-template keys replace incoming values
   of the same key while unrelated keys and repeated values remain intact. Use
   existing URI/query builders with documented escaping, case, and duplicate-key

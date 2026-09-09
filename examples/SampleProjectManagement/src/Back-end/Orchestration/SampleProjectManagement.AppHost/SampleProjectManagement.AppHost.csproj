@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj" />
+    <ProjectReference Include="../../Applications/SampleProjectManagement.Proxy/SampleProjectManagement.Proxy.csproj" />
     <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.Common/NewHeap.Platform.Common.csproj" IsAspireProjectResource="false" />
   </ItemGroup>
 </Project>
