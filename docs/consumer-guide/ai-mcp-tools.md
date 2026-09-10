@@ -35,6 +35,16 @@ MCP tool errors rather than JSON-RPC protocol failures. Cancellation propagates.
 Unexpected exceptions are handled once at the protocol boundary without
 returning internal exception detail.
 
+For a typed .NET client that intentionally calls a generated NewHeap tool, use
+`CallNewHeapToolAsync<TInput, TOutput>`. Pass the generated tool input directly;
+the helper creates the required `input` envelope and returns the deserialized
+`TaskResult<T>.data` value. A failed tool result becomes `NhAiMcpToolException`,
+which preserves the original `CallToolResult` for structured handling. Use the
+official `CallToolAsync` API directly for independently registered MCP tools,
+including consumer-owned write tools that do not use the generated NewHeap
+contract. Supply explicit serializer options when a source-generated JSON
+context or null-omission policy owns the wire schema.
+
 Other libraries may register independently governed MCP tools through
 `WithTools`, `WithToolsFromAssembly`, or manual `McpServerTool` services. Keep
 their export names distinct from every NewHeap-managed export. Startup rejects
@@ -45,6 +55,9 @@ NewHeap tool, because those form a second publication path. Only source-generate
 ## Avoid
 
 - Adding separate MCP methods that copy generated domain tool implementations.
+- Maintaining application-specific lists of generated tool names solely to wrap
+  input and unwrap `TaskResult<T>` responses.
+- Calling independently registered MCP tools through the NewHeap client helper.
 - Publishing a NewHeap tool both through its generated catalog and through SDK tool registration.
 - Giving an external MCP tool the same wire name as a NewHeap-managed export.
 - Publishing every local tool remotely or treating catalog membership as authorization.
@@ -60,7 +73,11 @@ tool without a network or live model. Verify an unauthorized context receives no
 NewHeap tool, a direct call still passes the invocation gate, cancellation
 propagates, failed `TaskResult` values remain structured tool errors, an external
 SDK tool with a distinct name remains available, and an export-name collision
-fails at startup. SPM-222 is the executable reference.
+fails at startup. Also call the generated tool through
+`CallNewHeapToolAsync<TInput, TOutput>`, omit an optional null property through
+explicit serializer options, assert the typed data is returned, and assert a
+failed result becomes `NhAiMcpToolException` without changing direct SDK calls.
+SPM-222 is the executable reference.
 
 ## Executable evidence
 
@@ -68,4 +85,4 @@ fails at startup. SPM-222 is the executable reference.
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs)
-  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs)

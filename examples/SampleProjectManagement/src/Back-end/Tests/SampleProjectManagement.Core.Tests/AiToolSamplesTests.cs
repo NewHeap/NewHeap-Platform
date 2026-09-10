@@ -2,6 +2,7 @@ using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Test;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -10,6 +11,8 @@ using SampleProjectManagement.Core.Models.AI;
 using SampleProjectManagement.Core.Services;
 using NewHeap.Platform.AI.Mcp;
 using System.IO.Pipelines;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Xunit;
 
 namespace SampleProjectManagement.Core.Tests;
@@ -160,17 +163,32 @@ public sealed class AiToolSamplesTests
                 serverToClient.Reader.AsStream()));
 
         var tool = Assert.Single(await client.ListToolsAsync());
-        var result = await tool.CallAsync(new Dictionary<string, object?>
-        {
-            ["input"] = new ProjectAiSearchInput("roadmap", 5)
-        });
+        var result = await client.CallNewHeapToolAsync<
+            ProjectAiSearchInput,
+            IReadOnlyList<ProjectAiSearchItem>>(
+            tool.Name,
+            new ProjectAiSearchInput("roadmap", 5),
+            TestContext.Current.CancellationToken);
 
         Assert.Equal("projects_search_v1", tool.Name);
-        Assert.NotEqual(true, result.IsError);
-        Assert.True(result.StructuredContent.HasValue);
-        Assert.True(result.StructuredContent.Value.GetProperty("success").GetBoolean());
+        Assert.Empty(result);
         Assert.Equal(divisionId, readService.DivisionId);
         Assert.Equal("roadmap", readService.Query);
+
+        var omitNullOptions = new JsonSerializerOptions(McpJsonUtilities.DefaultOptions)
+        {
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        };
+        var omittedOptionalResult = await client.CallNewHeapToolAsync<
+            ProjectAiSearchInput,
+            IReadOnlyList<ProjectAiSearchItem>>(
+            tool.Name,
+            new ProjectAiSearchInput(null, 5),
+            omitNullOptions,
+            TestContext.Current.CancellationToken);
+
+        Assert.Empty(omittedOptionalResult);
+        Assert.Null(readService.Query);
     }
 
     [Fact]
