@@ -7,6 +7,11 @@ require the SampleProjectManagement database or AppHost.
 
 ## Supported hosting
 
+The standalone sample uses project references during development. Consumers
+install `NewHeap.Platform.AspNet.Proxy.Sqlite`, which includes the neutral proxy
+package. Both are published together in the independent `nuget-proxy` release
+unit; the Common dependency retains its own release version.
+
 Host the proxy at the origin root, for example `https://proxy.example/`, with
 administration at `/newheap-proxy`. Hosting the proxy under a subdirectory such
 as `https://example.com/proxy/` with a non-empty `PathBase` is not supported.

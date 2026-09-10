@@ -10,6 +10,7 @@ on:
         options:
           - nuget-common
           - nuget-caching
+          - nuget-proxy
           - nuget-media
       publish:
         description: Publish the prerelease to nuget.org after packing

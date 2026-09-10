@@ -92,7 +92,7 @@ jobs:
           fi
 
           case "$COMPONENT" in
-            all|nuget-common|nuget-caching|nuget-media|npm-platform-common|npm-nh-toastr|newheap-platform-plugin) ;;
+            all|nuget-common|nuget-caching|nuget-proxy|nuget-media|npm-platform-common|npm-nh-toastr|newheap-platform-plugin) ;;
             *)
               echo "Unsupported release component: $COMPONENT" >&2
               exit 1

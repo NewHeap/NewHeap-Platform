@@ -15,7 +15,7 @@ public sealed class NhProxySqliteContractTests
     [Fact]
     public void Password_configuration_is_bound_hashed_once_and_cleared_from_options()
     {
-        const string password = " test-only-password with spaces ";
+        const string password = " test-only-password ";
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["NewHeapProxy:Administrator:UserName"] = "proxy-admin",

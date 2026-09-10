@@ -16,6 +16,7 @@ The release pipeline publishes NuGet packages to nuget.org, scoped npm packages 
 |---|---|---|
 | `nuget-common` | Mapping, Common and ASP.NET foundations, AI packages and test helpers, Events.Cap, and DatabaseRead.Tool | `nuget-common-v<version>` |
 | `nuget-caching` | AspNet.Caching | `nuget-caching-v<version>` |
+| `nuget-proxy` | AspNet.Proxy and AspNet.Proxy.Sqlite | `nuget-proxy-v<version>` |
 | `nuget-media` | Core, SQL Server, PostgreSQL, HTTP, file system, S3, and the bundle | `nuget-media-v<version>` |
 | `npm-platform-common` | `@newheap/platform-common` | `npm-platform-common-v<version>` |
 | `npm-nh-toastr` | `@newheap/nh-toastr` | `npm-nh-toastr-v<version>` |
@@ -24,6 +25,13 @@ The release pipeline publishes NuGet packages to nuget.org, scoped npm packages 
 Versions remain independent. The `all` option applies the selected SemVer bump to every unit but preserves separate versions, tags, artifacts, and GitHub Releases. In an all-unit release, Common is packed first and exposed as a temporary local NuGet source for dependent Media packages.
 
 ## Established release configuration
+
+The new `nuget-proxy` unit starts at the unpublished `0.0.0` baseline. Select
+`nuget-proxy` with a `major` bump in **Prepare release** for its first `1.0.0`
+release. The workflow owns that version change. Both proxy packages share the
+unit version; their Common dependency retains the independently published
+`nuget-common` version. Local development uses the Common project, while release
+packaging restores the central public Common package version.
 
 The public repository, `@newheap` npm scope, NuGet.org `NewHeap` owner, branch protection, immutable GitHub Releases, and trusted-publisher identities are already established. They are release infrastructure, not steps to repeat before an ordinary release.
 

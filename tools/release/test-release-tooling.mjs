@@ -309,10 +309,8 @@ const allPackages = releasePackages(manifest, 'all');
 if (!allPackages.some(item => item.packageType === 'npm' && item.packageName === '@newheap/platform-common')
   || allPackages.filter(item => item.packageType === 'npm').some(item => !item.packageName.startsWith('@newheap/'))
   || allPackages.some(item => item.version !== manifest.units[item.component].version)
-  || allPackages.length !== manifest.units['nuget-common'].projects.length
-    + manifest.units['nuget-caching'].projects.length
-    + manifest.units['nuget-media'].projects.length
-    + 2) {
+  || allPackages.length !== Object.values(manifest.units).reduce((count, unit) =>
+    count + (unit.kind === 'nuget' ? unit.projects.length : unit.kind === 'npm' ? 1 : 0), 0)) {
   throw new Error('public release targets do not match the release manifest.');
 }
 
