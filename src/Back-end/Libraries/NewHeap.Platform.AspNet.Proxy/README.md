@@ -4,8 +4,9 @@ The library loads exact and opt-in regex redirects from SQLite at startup and ap
 from an immutable in-memory snapshot before proxy and host endpoint execution.
 The embedded MVC panel manages redirects and stored rewrites, tests unsaved rules,
 audits logins and activates saved changes. Stored rewrites use native YARP routes,
-matching and transforms. Appsettings and other native configuration sources remain
-host-owned and are outside managed editing and testing.
+matching and transforms. Rewrites from appsettings or other sources are covered
+by host-owned native YARP APIs/configuration through `ConfigureYarp`; no additional
+NewHeap source integration is planned. Managed editing and testing cover stored rules only.
 
 ## Host integration
 
@@ -88,7 +89,8 @@ for password-hash generation, host configuration and verification.
   ordinal, case-sensitive equality. Trailing slashes matter. With `UsePathBase`,
   matching uses the remaining path. The query is not part of path matching.
 - With the checkbox off, regex characters and target substitutions remain literal.
-  Prefix and route-template matching are still rejected.
+  The separate Prefix and RouteTemplate modes are rejected; use Regex with capture
+  groups for those patterns. Additional match modes are not planned.
 - Optional hosts match case-insensitively. A host without a port matches any
   request port; a configured port must match. Host wildcards are rejected.
   Methods are exact, case-sensitive HTTP tokens; empty host/method lists mean all.
@@ -106,8 +108,9 @@ for password-hash generation, host configuration and verification.
 
 Each request captures one snapshot and never queries SQLite. A matching redirect
 sets the status and `Location` and ends processing; an unmatched request continues
-to the host/YARP pipeline. General cycle analysis and absolute self-redirect
-diagnostics remain future work.
+to the host/YARP pipeline. Before execution, a bounded local chain check refuses
+requests exceeding `Limits.MaximumChainDepth` (default 2), including local loops
+and absolute self-redirects. External origins and backend responses are not followed.
 
 Redirect resolution has a shared wall-clock budget (50 ms by default), including exact rules,
 host/method checks and destination construction. Expiry or a regex timeout returns
@@ -167,7 +170,7 @@ Regex inputs and expanded targets are limited to 65,536 characters, patterns to
 2,048 and templates to 4,096. An input/output limit or unsafe expansion stops
 redirect evaluation and passes through unless the resolver budget expired.
 Timeouts return HTTP 503. The draft test explains the failure without returning
-an actual redirect. General multi-rule cycle detection remains pending.
+an actual redirect. Local regex self-redirects are refused by the chain-depth guard with HTTP 508.
 
 Existing SQLite documents retain exact matching. Regex mode uses the existing
 rule document without a schema migration; runtimes predating regex support cannot
@@ -209,7 +212,8 @@ transform `/api`, request `/api/projects/42?source=test` becomes
 Matching retains ASP.NET/YARP host, method, path constraint, header, query and
 priority semantics. Exact duplicate enabled matches at the same priority are
 rejected; broader ambiguity is reported by the tester. Avoid destinations that
-route back into the same proxy rule; general cross-service cycle detection is not implemented.
+route back into the same proxy rule; the local chain-depth guard refuses overlong
+chains before forwarding, while cross-service/backend response cycles are outside its scope.
 
 `SaveRewritesAsync` validates the full rule/cluster candidate, commits its own
 revision and publishes to the dedicated native provider. YARP's
@@ -225,7 +229,11 @@ cluster replacements, preserves disabled state unless **Simulate enabled** is
 selected, and gives redirects precedence. Output includes the winning rule, route
 values, transformed target URL, safe outgoing headers and unevaluated response
 header transforms. The reserved administration path bypasses both engines.
-The administration top bar accepts a complete HTTP(S) URL and previews a GET
+The administration top bar accepts a complete HTTP(S) URL or a path such as
+`/foo?s=1`. A path uses the administration request's scheme, host and port, without
+prepending the administration path or PathBase. Trusted forwarded-header middleware
+must run before `UseNewHeapProxy` when an upstream proxy supplies the public origin.
+The result displays the resolved request URL and previews a GET
 against saved managed rules. It shows the winning redirect or rewrite, target URL
 and an edit link, or an explicit no-match/reserved-path result. Saved-versus-active
 revision differences are highlighted. It never contacts the destination, so an
@@ -250,6 +258,9 @@ middleware after route selection and before endpoint execution as required by AS
 
 ## Native YARP customization
 
+For native customization, use the callback below. The managed chain limit is
+configured separately through `Limits.MaximumChainDepth`.
+
 ```csharp
 builder.Services.AddNewHeapProxy(options =>
 {
@@ -269,6 +280,38 @@ The callback runs once per registration after NewHeap's base YARP setup. Repeate
 is excluded from JSON and cannot be configured through appsettings or SQLite.
 Both option types are startup snapshots exposed through `IOptions<T>`.
 
+## Local rule-chain limit
+
+`UseNewHeapProxy` checks the active managed-rule chain before sending a redirect
+or forwarding a request. Each selected redirect or rewrite counts as one step;
+exactly two steps are allowed by default, while a third returns **HTTP 508 Loop
+Detected** with `Cache-Control: no-store` and no `Location` or outbound request.
+Even a legitimate longer chain is refused. Rules may still be saved; the check
+uses the concrete incoming URL, method, headers and query at request time.
+
+```json
+{
+  "NewHeapProxy": {
+    "Limits": { "MaximumChainDepth": 2 }
+  }
+}
+```
+
+Set a positive integer through configuration binding or
+`options.Limits.MaximumChainDepth`. The value is captured at startup. The tester
+checks its saved/draft candidate with the same limit and returns the safe failure
+code `NhProxyErrorCodes.MaximumChainDepth` when exceeded.
+
+Analysis follows targets only within the initial scheme/host/port, respects
+PathBase and reserved administration paths, and stops at external destinations
+or native routes outside the managed source. It does not contact destinations,
+query SQLite per request, collapse redirects, or carry counters in cookies,
+headers or URLs. For redirect simulation, 303 switches to GET except for HEAD;
+301/302 switch POST to GET, and 307/308 preserve the method. External aliases,
+host endpoint behavior, custom runtime effects and backend responses are outside
+this local analysis. Native routing is reused without executing endpoints;
+standard request transforms are applied only when following a local rewrite.
+
 ## Verification and remaining scope
 
 From `src/Back-end`, using the pinned SDK:
@@ -286,7 +329,8 @@ storage connection is disposed. SPM-239 adds `ProxyRewriteSamplesTests`: isolate
 preview, real forwarding, route capture/query transform parity and independent activation.
 Library tests additionally cover restart, native header/query/host/method matching,
 disabled drafts, conflicts, ambiguity, rejected reload/retry and secured MVC CRUD.
-Redirect prefix/template matching and general cycle analysis remain outside this implementation.
+Regex with capture groups covers prefix and route-template redirects. Local
+managed chains are bounded by MaximumChainDepth; external cycle analysis is excluded.
 SQLite is the implemented provider; SQL Server and PostgreSQL are outside v1.
 
 The neutral library references ASP.NET Core, YARP, and NewHeap Common contracts;

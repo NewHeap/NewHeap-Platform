@@ -140,14 +140,18 @@ The internal HTTP tests exercise CSRF, authentication, audit failure, IP denial,
 throttling, credential rotation, PathBase, draft isolation, save/activation,
 conflicting writes and deletion. The consumer test demonstrates the public
 configuration service and the standalone application provides the real MVC UI.
-SQLite is the implemented storage provider. SQL Server/PostgreSQL and general
-redirect-cycle analysis remain explicit capability gaps.
+SQLite is the implemented storage provider. SQL Server/PostgreSQL remain explicit
+capability gaps. Local managed chains are checked against a configurable depth limit.
 
 ## Stored rewrites and validation
 
 Use **Test a URL** in the administration top bar for a quick GET preview against
 all saved managed rules. The result identifies the winning redirect or rewrite,
-its target and an **Edit matched rule** link. Redirects take precedence; disabled
+its target and an **Edit matched rule** link.
+Enter `/foo?s=1` to use the proxy's current scheme, host and port, or supply a
+complete HTTP(S) URL to test another host. The result shows the resolved request
+URL. Paths start at `/`; the administration path and PathBase are not prepended.
+Redirects take precedence; disabled
 rules are skipped. No match and reserved administration paths have explicit
 results. A warning appears when saved revisions differ from active revisions.
 The test sends no backend request and cannot reveal backend redirects or errors.
@@ -179,11 +183,18 @@ and health checks. The form explains which basic fields take precedence over JSO
 The test tool evaluates stored managed rules only. Appsettings/other configuration
 sources, host callbacks/customizations, connectivity, policy enforcement and actual
 backend responses are outside its scope. Response header transforms are reported
-as unevaluated. General redirect and cross-service cycle analysis is deferred.
+as unevaluated. Set `NewHeapProxy:Limits:MaximumChainDepth` to a positive integer
+(default `2`). Each matched redirect or rewrite counts as a step; a third step
+at the default limit is refused before execution with HTTP 508, no Location and
+no outbound request. The URL/draft tester reports the same refusal. The check
+follows only the current scheme/host/port and stops outside the host PathBase or
+at the reserved administration path. External origins and backend responses are
+not followed; this does not prove that external redirect chains are loop-free.
 
 SPM-239 is executable in `ProxyRewriteSamplesTests`: a local backend proves that
 the public tester and real forwarding agree, while the preview makes no backend
-calls and leaves revisions untouched. From the sample backend directory run:
+calls and leaves revisions untouched. It also demonstrates a two-redirect chain
+ending in a rewrite being refused at the default depth of two. From the sample backend directory run:
 
 ```text
 dotnet test Tests/SampleProjectManagement.Core.Tests --filter FullyQualifiedName~ProxyRewriteSamplesTests

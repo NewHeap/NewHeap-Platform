@@ -145,6 +145,8 @@ public sealed partial class NhProxyAdminController
                 var stale = tested.GetResultItems().Any(item => item.Name == NhProxyErrorCodes.RevisionConflict);
                 return RewriteError(model, stale ? 409 : 400, stale
                     ? "The saved rules changed. Reload this editor before testing again."
+                    : tested.GetResultItems().Any(item => item.Name == NhProxyRuntime.ChainDepthFailure)
+                        ? $"Request refused: the managed rule chain exceeds the maximum depth of {options.Value.Limits.MaximumChainDepth}. Check for a loop or shorten the chain."
                     : "The draft could not be evaluated. Check request values and overlapping routes. Credential headers are not accepted; complex matches may exceed the test budget.");
             }
 

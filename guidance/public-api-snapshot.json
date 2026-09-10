@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.28",
   "backEnd": {
-    "hash": "1cb746cfa0b33b623609488bd074eab2170135a5e151484237a24ec4aafb62a5",
-    "declarationCount": 3974,
+    "hash": "fcba84084ed4e432deb2a75a0ecd34798071a79cb47ba7c98afaf38759ce5811",
+    "declarationCount": 3980,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -10139,7 +10139,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "[HttpPost] [EndpointSummary(\"Test a URL against saved proxy rules\")] [EndpointDescription(\"Previews a synthetic GET request against saved redirects, then rewrites, and identifies the selected rule without contacting the destination. Requires an administrator session and antiforgery token.\")] [ProducesResponseType(typeof(NhProxyRuleTestResult), StatusCodes.Status200OK)] [ProducesResponseType(StatusCodes.Status400BadRequest)] [ProducesResponseType(StatusCodes.Status302Found)] [ProducesResponseType(StatusCodes.Status409Conflict)] public async Task<IActionResult> TestUrl([FromForm, Required, StringLength(4096)] string? url, [FromServices] INhProxyDraftTester tester, CancellationToken cancellationToken) {"
+        "declaration": "[HttpPost] [EndpointSummary(\"Test a URL against saved proxy rules\")] [EndpointDescription(\"Previews a synthetic GET request against saved redirects, then rewrites. A path starting with / uses the administration request's scheme, host and port. Identifies the selected rule without contacting the destination. Requires an administrator session and antiforgery token.\")] [ProducesResponseType(typeof(NhProxyRuleTestResult), StatusCodes.Status200OK)] [ProducesResponseType(StatusCodes.Status400BadRequest)] [ProducesResponseType(StatusCodes.Status302Found)] [ProducesResponseType(StatusCodes.Status409Conflict)] public async Task<IActionResult> TestUrl([FromForm, Required, StringLength(4096)] string? url, [FromServices] INhProxyDraftTester tester, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
@@ -10388,6 +10388,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
         "declaration": "public const string Validation = \"newheap-proxy.validation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
+        "declaration": "public const string MaximumChainDepth = \"newheap-proxy.maximum-chain-depth\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyConfiguration.cs",
@@ -10687,6 +10691,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public int MaximumChainDepth {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
         "declaration": "public int RedirectResolutionTimeoutMilliseconds {"
       },
       {
@@ -10707,7 +10715,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectMiddleware.cs",
-        "declaration": "public Task InvokeAsync(HttpContext context) {"
+        "declaration": "public async Task InvokeAsync(HttpContext context) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectRules.cs",
@@ -10962,8 +10970,24 @@
         "declaration": "public void ConfigurationLoaded(IReadOnlyList<IProxyConfig> proxyConfigs) { }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRuntime.Chain.cs",
+        "declaration": "public sealed partial class NhProxyRuntime {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRuntime.Chain.cs",
+        "declaration": "public override IReadOnlyList<Endpoint> Endpoints => _source.Endpoints.Where(endpoint => endpoint.Metadata.GetMetadata<RouteModel>() is not null).ToArray();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRuntime.Chain.cs",
+        "declaration": "public override IChangeToken GetChangeToken() => _source.GetChangeToken();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRuntime.Chain.cs",
+        "declaration": "public void Dispose() => _source.Dispose();"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRuntime.cs",
-        "declaration": "public sealed class NhProxyRuntime(INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options, IServiceProvider? services = null) : INhProxyRuntime"
+        "declaration": "public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options, IServiceProvider? services = null) : INhProxyRuntime"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRuntime.cs",

@@ -117,7 +117,7 @@ public sealed partial class NhProxyAdminController(INhProxyConfigurationService 
 
     [HttpPost]
     [EndpointSummary("Test a URL against saved proxy rules")]
-    [EndpointDescription("Previews a synthetic GET request against saved redirects, then rewrites, and identifies the selected rule without contacting the destination. Requires an administrator session and antiforgery token.")]
+    [EndpointDescription("Previews a synthetic GET request against saved redirects, then rewrites. A path starting with / uses the administration request's scheme, host and port. Identifies the selected rule without contacting the destination. Requires an administrator session and antiforgery token.")]
     [ProducesResponseType(typeof(NhProxyRuleTestResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status302Found)]
@@ -126,14 +126,21 @@ public sealed partial class NhProxyAdminController(INhProxyConfigurationService 
         [FromServices] INhProxyDraftTester tester, CancellationToken cancellationToken)
     {
         ViewData["TestUrl"] = url;
-        if (!ModelState.IsValid || !Uri.TryCreate(url, UriKind.Absolute, out var requestUrl)
+        var inputUrl = url;
+        if (url?.StartsWith('/') == true && !url.StartsWith("//", StringComparison.Ordinal) && !url.Contains('\\'))
+        {
+            inputUrl = $"{Request.Scheme}://{Request.Host.ToUriComponent()}{url}";
+        }
+
+        if (!ModelState.IsValid || !Uri.TryCreate(inputUrl, UriKind.Absolute, out var requestUrl)
             || requestUrl.Scheme is not ("http" or "https") || requestUrl.UserInfo.Length != 0 || requestUrl.Fragment.Length != 0)
         {
             Response.StatusCode = 400;
-            ViewData["Error"] = "Enter a complete HTTP(S) URL without credentials or a fragment.";
+            ViewData["Error"] = "Enter a path starting with / or a complete HTTP(S) URL, without credentials or a fragment.";
             return View();
         }
 
+        ViewData["RequestUrl"] = requestUrl.AbsoluteUri;
         var rewrites = await configuration.GetRewritesAsync(cancellationToken);
         var redirects = await configuration.GetRedirectsAsync(cancellationToken);
         var tested = await tester.TestSavedAsync(new(rewrites.Revision, redirects.Revision), new() { Url = requestUrl }, cancellationToken);
@@ -142,6 +149,8 @@ public sealed partial class NhProxyAdminController(INhProxyConfigurationService 
             var conflict = tested.GetResultItems().Any(item => item.Name == NhProxyErrorCodes.RevisionConflict);
             Response.StatusCode = conflict ? 409 : 400;
             ViewData["Error"] = conflict ? "The saved rules changed during the test. Test the URL again."
+                : tested.GetResultItems().Any(item => item.Name == NhProxyRuntime.ChainDepthFailure)
+                    ? $"Request refused: the managed rule chain exceeds the maximum depth of {options.Value.Limits.MaximumChainDepth}. Check the matched rules for a loop or shorten the chain."
                 : "The URL could not be tested. Check for overlapping rewrite matches and invalid rules, then try again.";
             return View();
         }
@@ -249,6 +258,14 @@ public sealed partial class NhProxyAdminController(INhProxyConfigurationService 
             request.Request.Host = HostString.FromUriComponent(url);
             request.Request.QueryString = new QueryString(url.Query);
             request.Request.Method = model.TestMethod;
+            request.Request.Scheme = url.Scheme;
+            var chainFailure = await preview.CheckChainAsync(request);
+            if (chainFailure == NhProxyRuntime.ChainDepthFailure)
+            {
+                model.TestResult = $"Request refused: the rule chain exceeds the maximum depth of {options.Value.Limits.MaximumChainDepth}.";
+                return View(model);
+            }
+
             model.TestResult = preview.TryRedirect(request, out var failure)
                 ? $"Match: {request.Response.StatusCode} → {request.Response.Headers.Location}"
                 : failure ?? "No match. This draft would pass the request to the next middleware.";

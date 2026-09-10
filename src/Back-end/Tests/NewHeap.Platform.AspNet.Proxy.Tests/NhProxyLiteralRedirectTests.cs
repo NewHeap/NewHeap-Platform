@@ -11,6 +11,14 @@ namespace NewHeap.Platform.AspNet.Proxy.Tests;
 
 public sealed class NhProxyLiteralRedirectTests
 {
+    [Fact]
+    public void Chain_depth_defaults_to_two_and_rejects_non_positive_values()
+    {
+        Assert.Equal(2, new NhProxyLimits().MaximumChainDepth);
+        Assert.Throws<ArgumentOutOfRangeException>(() => new NhProxyLimits { MaximumChainDepth = 0 });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new NhProxyLimits { MaximumChainDepth = -1 });
+    }
+
     private static NhProxyRedirectRule Rule(string path = "/old", string target = "/new") => new()
     {
         Id = Guid.NewGuid(), Name = "Literal redirect", Match = new NhProxyRedirectMatch { Path = path }, Target = target
@@ -237,9 +245,9 @@ public sealed class NhProxyLiteralRedirectTests
     }
 
     [Theory]
-    [InlineData("/old//evil.example", "/$1")]
-    [InlineData("/old/value", "/old/$1")]
-    public async Task Unsafe_or_self_expansions_pass_through_without_a_location_header(string path, string target)
+    [InlineData("/old//evil.example", "/$1", 418)]
+    [InlineData("/old/value", "/old/$1", 508)]
+    public async Task Unsafe_expansions_pass_through_and_self_redirects_are_refused(string path, string target, int expectedStatus)
     {
         var runtime = Runtime();
         Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
@@ -247,7 +255,7 @@ public sealed class NhProxyLiteralRedirectTests
             Rules = [Rule(target: target) with { Match = new NhProxyRedirectMatch { PathMode = NhProxyRedirectPathMatchMode.Regex, Path = "^/old/(.*)$" } }]
         })).Success);
         var response = (await Request(runtime, path)).Response;
-        Assert.Equal(418, response.StatusCode);
+        Assert.Equal(expectedStatus, response.StatusCode);
         Assert.False(response.Headers.ContainsKey("Location"));
     }
 

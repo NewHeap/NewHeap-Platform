@@ -66,7 +66,23 @@ public sealed class NhProxyLoginAuditOptions
 
 public sealed class NhProxyLimits
 {
+    private int _maximumChainDepth = 2;
     private int _redirectResolutionTimeoutMilliseconds = 50;
+
+    /// <summary>Maximum matched steps in a local managed-rule chain. Defaults to 2; must be positive.</summary>
+    public int MaximumChainDepth
+    {
+        get => _maximumChainDepth;
+        set
+        {
+            if (value < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), "MaximumChainDepth must be positive.");
+            }
+
+            _maximumChainDepth = value;
+        }
+    }
 
     /// <summary>Shared redirect resolution budget, captured at startup. Defaults to 50 ms; valid values are 1 through 2,147,483,646 ms.</summary>
     public int RedirectResolutionTimeoutMilliseconds

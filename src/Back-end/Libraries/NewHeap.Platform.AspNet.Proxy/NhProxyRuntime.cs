@@ -11,7 +11,7 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AspNet.Proxy;
 
 /// <summary>Publishes independent redirect snapshots and managed YARP configurations.</summary>
-public sealed class NhProxyRuntime(INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options, IServiceProvider? services = null) : INhProxyRuntime
+public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options, IServiceProvider? services = null) : INhProxyRuntime
 {
     internal const string ResolutionTimeoutFailure = "Redirect resolution exceeded its configured time limit.";
     private readonly TimeSpan _resolutionTimeout = TimeSpan.FromMilliseconds(options.Value.Limits.RedirectResolutionTimeoutMilliseconds);
@@ -116,10 +116,19 @@ public sealed class NhProxyRuntime(INhProxyConfigurationValidator validator, IOp
 
     private NhProxyRedirectRule? ResolveRedirect(HttpContext context, long started, out string? location, out string? failure)
     {
+        var snapshot = context.Items.TryGetValue(typeof(Snapshot), out var checkedSnapshot) ? (Snapshot)checkedSnapshot! : Volatile.Read(ref _redirects);
+        if (snapshot is null)
+        {
+            throw new InvalidOperationException("NewHeap Proxy redirects have not been initialized. Start the host before processing requests.");
+        }
+
+        return ResolveRedirect(snapshot, context, started, out location, out failure);
+    }
+
+    private NhProxyRedirectRule? ResolveRedirect(Snapshot snapshot, HttpContext context, long started, out string? location, out string? failure, bool allowSelfRedirect = false)
+    {
         location = null;
         failure = null;
-        var snapshot = Volatile.Read(ref _redirects)
-            ?? throw new InvalidOperationException("NewHeap Proxy redirects have not been initialized. Start the host before processing requests.");
 
         // ponytail: scan at most MaximumRulesPerEngine rules; index by literal path if the configured ceiling grows.
         string? input = null;
@@ -202,7 +211,7 @@ public sealed class NhProxyRuntime(INhProxyConfigurationValidator validator, IOp
                     }
 
                     location = BuildLocation(rule with { Target = target, QueryMode = NhProxyRedirectQueryMode.Replace }, QueryString.Empty);
-                    if (target.StartsWith('/') && location.Split('#')[0] == context.Request.PathBase.ToUriComponent() + input)
+                    if (!allowSelfRedirect && target.StartsWith('/') && location.Split('#')[0] == context.Request.PathBase.ToUriComponent() + input)
                     {
                         failure = "The regex would redirect to the same request URL.";
                         return null;

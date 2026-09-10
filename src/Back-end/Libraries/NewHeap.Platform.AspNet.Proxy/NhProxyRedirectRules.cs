@@ -28,9 +28,9 @@ public sealed record NhProxyRedirectMatch
 public enum NhProxyRedirectPathMatchMode
 {
     Exact,
-    /// <summary>Reserved for a future version; currently rejected by validation.</summary>
+    /// <summary>Rejected by validation; use Regex for prefix matching. No separate implementation is planned.</summary>
     Prefix,
-    /// <summary>Reserved for a future version; currently rejected by validation.</summary>
+    /// <summary>Rejected by validation; use Regex with capture groups for route-like matching. No separate implementation is planned.</summary>
     RouteTemplate,
     /// <summary>Match the escaped request path plus query string; expand the target with .NET regex substitutions.</summary>
     Regex

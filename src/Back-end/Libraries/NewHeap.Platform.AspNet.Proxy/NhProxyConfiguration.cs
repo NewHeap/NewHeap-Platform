@@ -66,6 +66,7 @@ public sealed record NhProxySaveResult(long SavedRevision, NhProxyEngineStatus A
 public static class NhProxyErrorCodes
 {
     public const string Validation = "newheap-proxy.validation";
+    public const string MaximumChainDepth = "newheap-proxy.maximum-chain-depth";
     public const string RevisionConflict = "newheap-proxy.revision-conflict";
     public const string NotFound = "newheap-proxy.not-found";
     public const string ActivationFailed = "newheap-proxy.activation-failed";

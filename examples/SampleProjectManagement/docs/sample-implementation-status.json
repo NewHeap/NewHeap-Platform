@@ -1534,6 +1534,7 @@
     ],
     "SPM-239": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyRewriteSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyAdministrationSamplesTests.cs",
       "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs"
     ]
   }

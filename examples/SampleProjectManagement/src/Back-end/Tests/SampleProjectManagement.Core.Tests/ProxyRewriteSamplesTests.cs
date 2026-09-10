@@ -13,7 +13,7 @@ namespace SampleProjectManagement.Core.Tests;
 public sealed class ProxyRewriteSamplesTests
 {
     [Fact]
-    public async Task Consumer_tests_saves_and_executes_a_managed_rewrite_without_changing_redirects()
+    public async Task Consumer_tests_saves_and_executes_a_rewrite_and_refuses_an_overlong_local_chain()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var directory = Directory.CreateTempSubdirectory("newheap-rewrite-sample-");
@@ -96,6 +96,23 @@ public sealed class ProxyRewriteSamplesTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Null(response.Headers.Location);
             Assert.Equal("Project 42, source managed-proxy", await response.Content.ReadAsStringAsync(cancellationToken));
+            Assert.Equal(1, backendRequests);
+            // The default depth of two refuses a third local managed step before any redirect or backend call.
+            NhProxyRedirectRule Redirect(string path, string target) => new()
+            {
+                Id = Guid.NewGuid(), Name = path, Match = new() { Path = path }, Target = target
+            };
+            Assert.True((await configuration.SaveRedirectsAsync(new(redirects.Revision,
+            [
+                Redirect("/start", "/second"), Redirect("/second", "/api/projects/42")
+            ]), cancellationToken)).Success);
+            var refused = await tester.TestSavedAsync(new(saved.Data.SavedRevision, redirects.Revision + 1),
+                new() { Url = new(app.Urls.Single() + "/start") }, cancellationToken);
+            Assert.False(refused.Success);
+            Assert.Contains(refused.GetResultItems(), item => item.Name == NhProxyErrorCodes.MaximumChainDepth);
+            using var refusedResponse = await client.GetAsync(app.Urls.Single() + "/start", cancellationToken);
+            Assert.Equal(508, (int)refusedResponse.StatusCode);
+            Assert.Null(refusedResponse.Headers.Location);
             Assert.Equal(1, backendRequests);
             await app.StopAsync(cancellationToken);
             await backend.StopAsync(cancellationToken);

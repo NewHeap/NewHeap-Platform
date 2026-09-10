@@ -318,7 +318,11 @@ public sealed class NhProxyAdministrationTests
             Assert.Contains("No matching rule", await noMatch.Content.ReadAsStringAsync());
             var invalidUrl = await client.PostAsync(panel + "/TestUrl", Form(edit, new() { ["url"] = "javascript:alert(1)" }));
             Assert.Equal(HttpStatusCode.BadRequest, invalidUrl.StatusCode);
-            Assert.Contains("Enter a complete HTTP(S) URL", await invalidUrl.Content.ReadAsStringAsync());
+            Assert.Contains("Enter a path starting with / or a complete HTTP(S) URL", await invalidUrl.Content.ReadAsStringAsync());
+            foreach (var invalidPath in new[] { "//other.example/foo", "/\\other.example/foo", "/foo#fragment" })
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync(panel + "/TestUrl", Form(edit, new() { ["url"] = invalidPath }))).StatusCode);
+            }
             var id = Guid.Parse(Field(edit, "Id"));
             var cluster = new NhProxyCluster
             {
@@ -355,12 +359,34 @@ public sealed class NhProxyAdministrationTests
             Assert.Contains("Rewrite &lt;project&gt;", quickHtml);
             Assert.Contains("https://backend.example/backend/projects/42?keep=yes", quickHtml);
             Assert.Contains("/mounted/newheap-proxy/RewriteEdit/" + id, quickHtml);
+            var relativeTest = await client.PostAsync(panel + "/TestUrl", Form(list, new() { ["url"] = "/projects/42?keep=yes" }));
+            var relativeHtml = await relativeTest.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.OK, relativeTest.StatusCode);
+            Assert.Contains("GET " + app.Urls.Single() + "/projects/42?keep=yes", relativeHtml);
+            Assert.Contains("https://backend.example/backend/projects/42?keep=yes", relativeHtml);
             var redirect = new NhProxyRedirectRule
             {
                 Id = Guid.NewGuid(), Name = "Moved <project>", Match = new() { Path = new Uri(values["TestUrl"]).AbsolutePath },
                 Target = "/new-project", Status = NhProxyRedirectStatus.MovedPermanently
             };
-            Assert.True((await configuration.SaveRedirectsAsync(new(0, [redirect]))).Success);
+            var localRedirect = redirect with
+            {
+                Id = Guid.NewGuid(), Name = "Local proxy match",
+                Match = new() { Path = "/foo", Hosts = [new Uri(app.Urls.Single()).Authority] }
+            };
+            var cycleA = redirect with { Id = Guid.NewGuid(), Match = new() { Path = "/cycle-a" }, Target = "/cycle-b" };
+            var cycleB = redirect with { Id = Guid.NewGuid(), Match = new() { Path = "/cycle-b" }, Target = "/cycle-a" };
+            Assert.True((await configuration.SaveRedirectsAsync(new(0, [redirect, localRedirect, cycleA, cycleB]))).Success);
+            var refusedTest = await client.PostAsync(panel + "/TestUrl", Form(list, new() { ["url"] = "/cycle-a" }));
+            Assert.Equal(HttpStatusCode.BadRequest, refusedTest.StatusCode);
+            Assert.Contains("exceeds the maximum depth of 2", await refusedTest.Content.ReadAsStringAsync());
+            var localTest = await client.PostAsync(panel + "/TestUrl", Form(list, new() { ["url"] = "/foo?s=1&s=2" }));
+            var localHtml = await localTest.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.OK, localTest.StatusCode);
+            Assert.Contains("Local proxy match", localHtml);
+            Assert.Contains("/new-project?s=1&amp;s=2", localHtml);
+            var otherHostTest = await client.PostAsync(panel + "/TestUrl", Form(list, new() { ["url"] = "https://public.example/foo" }));
+            Assert.Contains("Rewrite match", await otherHostTest.Content.ReadAsStringAsync());
             var redirectTest = await client.PostAsync(panel + "/TestUrl", Form(list, new() { ["url"] = values["TestUrl"] }));
             var redirectHtml = await redirectTest.Content.ReadAsStringAsync();
             Assert.Equal(HttpStatusCode.OK, redirectTest.StatusCode);

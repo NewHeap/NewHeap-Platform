@@ -453,7 +453,7 @@
         </nav>
         <form class="url-tester" asp-action="TestUrl" method="post" role="search" aria-label="Test saved proxy rules">
             <label for="proxy-test-url">Test a URL</label>
-            <input id="proxy-test-url" name="url" type="url" required maxlength="4096" value="@ViewData["TestUrl"]" placeholder="https://your-proxy.example/path?query=value" />
+            <input id="proxy-test-url" name="url" type="text" inputmode="url" required maxlength="4096" value="@ViewData["TestUrl"]" placeholder="/foo or https://example.com/foo" />
             <button type="submit">Test URL</button>
         </form>
     }

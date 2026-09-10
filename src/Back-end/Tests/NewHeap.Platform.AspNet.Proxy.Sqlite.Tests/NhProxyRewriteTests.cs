@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Xunit;
 using Yarp.ReverseProxy.Configuration;
@@ -13,6 +14,82 @@ namespace NewHeap.Platform.AspNet.Proxy.Sqlite.Tests;
 
 public sealed class NhProxyRewriteTests
 {
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task Local_rule_chains_are_refused_before_redirecting_or_forwarding(int maximumDepth)
+    {
+        var directory = Directory.CreateTempSubdirectory("nh-chain-depth-");
+        try
+        {
+            var builder = WebApplication.CreateBuilder();
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["NewHeapProxy:Limits:MaximumChainDepth"] = maximumDepth.ToString(),
+                ["NewHeapProxy:Sqlite:DatabasePath"] = Path.Combine(directory.FullName, "proxy.db")
+            });
+            builder.Services.AddNewHeapProxy(builder.Configuration.GetSection("NewHeapProxy"));
+            await using var app = builder.Build();
+            app.UseNewHeapProxy();
+            var terminalRequests = 0;
+            app.MapGet("/terminal", () => { terminalRequests++; return "done"; });
+            await app.StartAsync();
+            var origin = app.Urls.Single();
+            var configuration = app.Services.GetRequiredService<INhProxyConfigurationService>();
+            NhProxyRedirectRule Redirect(string path, string target) => new()
+            {
+                Id = Guid.NewGuid(), Name = path, Match = new() { Path = path }, Target = target
+            };
+            Assert.True((await configuration.SaveRedirectsAsync(new(0,
+            [
+                Redirect("/a", "/b"), Redirect("/b", "/terminal"), Redirect("/c", "/a"),
+                Redirect("/loop-a", "/loop-b"), Redirect("/loop-b", "/loop-a"),
+                Redirect("/absolute", origin + "/absolute"), Redirect("/external", "https://other.example/a"),
+                Redirect("/regex", "/regex/x$1") with { Match = new() { Path = "^/regex/(.*)$", PathMode = NhProxyRedirectPathMatchMode.Regex } }
+            ]))).Success);
+            var cluster = Cluster(new(origin + "/"));
+            var rewrite = new NhProxyRewriteRule
+            {
+                Id = Guid.NewGuid(), Name = "Local forwarding", ClusterId = cluster.Id,
+                Match = new() { Path = "/proxy/{**rest}" },
+                Transforms = [new NhProxyPathTransform(NhProxyPathTransformKind.RemovePrefix, "/proxy")]
+            };
+            var self = rewrite with { Id = Guid.NewGuid(), Match = new() { Path = "/self/{**rest}" }, Transforms = [] };
+            Assert.True((await configuration.SaveRewritesAsync(new(0, [rewrite, self], [cluster]))).Success);
+            using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
+            var tester = app.Services.GetRequiredService<INhProxyDraftTester>();
+            foreach (var (path, steps) in new[] { ("/a", 2), ("/c", 3), ("/proxy/a", 3), ("/loop-a", int.MaxValue), ("/absolute", int.MaxValue), ("/regex/a", int.MaxValue), ("/self/a", int.MaxValue), ("/external", 1) })
+            {
+                using var response = await client.GetAsync(origin + path);
+                var tested = await tester.TestSavedAsync(new(1, 1), new() { Url = new(origin + path) });
+                if (steps > maximumDepth)
+                {
+                    Assert.Equal(508, (int)response.StatusCode);
+                    Assert.Null(response.Headers.Location);
+                    Assert.Equal("no-store", response.Headers.CacheControl!.ToString());
+                    Assert.False(tested.Success);
+                    Assert.Contains(tested.GetResultItems(), item => item.Name == "newheap-proxy.maximum-chain-depth");
+                }
+                else
+                {
+                    Assert.Equal(HttpStatusCode.Found, response.StatusCode);
+                    Assert.True(tested.Success, string.Join("; ", tested.AllErrorMessages));
+                }
+            }
+
+            Assert.Equal(0, terminalRequests);
+            Assert.Equal(1, (await configuration.GetRedirectsAsync()).Revision);
+            Assert.Equal(1, (await configuration.GetRewritesAsync()).Revision);
+            await app.StopAsync();
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
     private static NhProxyCluster Cluster(Uri address) => new()
     {
         Id = Guid.NewGuid(), Name = "Backend", Destination = new("backend", address)

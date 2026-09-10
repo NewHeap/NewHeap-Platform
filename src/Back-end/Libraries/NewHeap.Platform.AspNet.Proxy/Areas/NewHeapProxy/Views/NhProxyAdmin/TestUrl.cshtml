@@ -11,6 +11,7 @@
     }
     @if (Model is not null)
     {
+        <p>Request: <code>GET @ViewData["RequestUrl"]</code></p>
         <div class="card test-result" role="status">
             @if (Model.SelectedRuleId is { } ruleId)
             {

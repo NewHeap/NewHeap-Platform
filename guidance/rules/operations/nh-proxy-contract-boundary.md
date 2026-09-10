@@ -59,7 +59,8 @@ Requests never query SQLite.
 
 Use exact literal paths. HttpRequest.Path matching is ordinal and case-sensitive,
 excludes queries and distinguishes trailing slashes. Regex metacharacters remain
-literal; Prefix and RouteTemplate are rejected. Optional hosts compare without
+literal; Prefix and RouteTemplate are rejected. Regex with capture groups covers
+these requirements; separate match modes are not planned. Optional hosts compare without
 case; a configured port must match, while no port accepts any port. Methods are
 case-sensitive tokens. Disabled rules are ignored; lower priority wins, then Guid
 order. The administration path and descendants never redirect.
@@ -67,8 +68,8 @@ order. The administration path and descendants never redirect.
 302 is the default; 301, 303, 307 and 308 are supported. Targets are literal
 root-relative paths or HTTP(S) URLs. Reject controls, backslashes, network-path
 URLs, userinfo and unsupported schemes. Root-relative same-path targets are
-rejected even with changed queries. General cycle and absolute self-redirect
-analysis remain future work. Preserve merges query values with target keys winning
+rejected even with changed queries. The local chain-depth guard also refuses
+overlong chains and absolute self-redirects before execution. Preserve merges query values with target keys winning
 case-insensitively; Replace keeps target values only; Discard removes all queries.
 Repeated values and fragments survive. Query escaping is normalized by ASP.NET.
 No client Host value is reflected into Location.
@@ -111,6 +112,10 @@ PostgreSQL are explicit v1 capability gaps.
 
 Use options.ConfigureYarp(yarp => { ... }) for host-owned YARP customization. It
 runs once during registration, is not JSON configuration and is not persisted.
+Native YARP APIs/configuration satisfy the requirement for rewrites from appsettings
+or other sources. This is a completed scope decision, not a missing NewHeap feature.
+Managed editing/testing intentionally cover stored rules only; do not treat
+external-source preview as planned work.
 Both options objects are startup snapshots. SPM-238 includes the standalone
 SampleProjectManagement.Proxy application and consumer behavior tests. Its explicit
 Proxy demo launch profile uses the test account administrator / NewHeap123!, a
@@ -123,7 +128,7 @@ The sample AppHost selects the same demo profile as sample-project-management-pr
 assigns its HTTP port and links directly to /newheap-proxy in the dashboard. Shared
 service defaults expose Development health endpoints, and Aspire checks /alive.
 The proxy has no database-container or API dependency; its administration endpoint
-is excluded from service discovery references. SPM-239 demonstrates stored rewrite preview and real forwarding; redirect prefix/template matching and general cycle analysis remain deferred.
+is excluded from service discovery references. SPM-239 demonstrates stored rewrite preview, real forwarding and local chain-depth refusal. Regex with capture groups satisfies prefix and route-template redirects; external cycle analysis is excluded.
 
 Use SaveRewritesAsync with the complete stored rule/cluster snapshot and expected
 rewrite revision. The store validates native YARP configuration before its
@@ -143,7 +148,7 @@ their matching advanced JSON properties. Unknown fields, protected/secret header
 changes, unsafe destinations and exact duplicate enabled matches are rejected.
 AllowedDestinationHosts restricts destination hosts when configured. Keep exactly
 one HTTP(S) destination per cluster. Avoid forwarding back into the same rule;
-general cross-service cycle analysis is not implemented.
+external backend responses and cross-service cycles are outside the local chain analysis.
 
 Use INhProxyDraftTester.TestRewriteAsync with both expected engine revisions,
 the draft rule, synthetic URL/method/headers and optional replacement DraftClusters.
@@ -152,6 +157,10 @@ TestSavedAsync accepts the expected revisions and synthetic input without a draf
 The administration top-bar URL tester uses this API for a GET preview of saved
 rules, shows the selected rule and target with an edit link, and distinguishes
 no-match and reserved paths. It warns when saved and active revisions differ.
+An input such as /foo?s=1 uses the administration request's scheme, host and port;
+an absolute HTTP(S) URL keeps its own origin. The result displays the resolved URL.
+No administration path or PathBase is prepended. Configure trusted forwarding
+middleware before UseNewHeapProxy when the public origin comes from an upstream proxy.
 Disabled rules stay disabled unless SimulateEnabled is explicit. The administration
 path is reserved and redirects precede rewrite matching, including ambiguous
 rewrites. Native isolated routing and transforms produce route values, target URL,
@@ -163,6 +172,20 @@ budget to five seconds. Response header transforms remain unevaluated. Host
 callbacks, custom policies/constraints/transforms, other configuration sources,
 connectivity, health and upstream responses are explicitly outside the preview.
 Host policy registration and optional middleware composition remain host-owned.
+
+Configure NewHeapProxy:Limits:MaximumChainDepth as a positive integer, default 2,
+captured at startup. Before executing a request, follow its local managed-rule
+chain without outbound calls; each redirect or rewrite counts once. Exactly the
+configured number is allowed; a further match returns HTTP 508, no-store, no
+Location and no backend request. This also refuses legitimate overlong chains.
+The tester uses the same check and returns NhProxyErrorCodes.MaximumChainDepth.
+Rules are still saved normally; refusal uses the concrete request at runtime.
+Follow only the original scheme/host/port and current PathBase; reserved paths,
+external destinations and native routes from other sources end analysis. Host
+endpoint behavior, aliases and backend responses are outside the guarantee.
+Simulate 303 as GET except for HEAD and 301/302 POST as GET; 307/308 keep the method.
+Do not add hop cookies/headers or perform network probes. Use native route
+selection and standard transforms without executing endpoint delegates.
 
 ## Avoid
 

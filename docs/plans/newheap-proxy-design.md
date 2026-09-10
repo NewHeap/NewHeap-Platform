@@ -1,6 +1,6 @@
 # NewHeap Proxy Library Design
 
-Status: stored rewrites, exact/regex redirects, MVC administration, independent activation and isolated managed-rule testing implemented; other configuration sources and broader cycle analysis are outside the current milestone
+Status: stored rewrites, exact/regex redirects, MVC administration, independent activation, isolated testing and bounded local rule-chain checks implemented; rewrites from other sources are covered by native YARP APIs/configuration; external/backend response cycles are outside local analysis
 
 Date: 2026-09-07  
 Scope: an ASP.NET Core proxy and redirect library with embedded administration, draft rule testing, and SQLite persistence
@@ -71,9 +71,13 @@ consumer evidence and real HTTP/SQLite regression coverage. See
 SPM-239 adds native routing/transform parity, real backend forwarding, rewrite
 CRUD, shared destinations and isolated previews. Advanced matching/transforms and
 policy/health settings are currently edited as typed configuration JSON. The
-remaining sections describe the broader target design; redirect prefix/template
-matching, general cycle analysis, exhaustive condition-by-condition diagnostics,
-and previewing host customizations or other sources are not implemented.
+remaining sections describe the broader target design; exhaustive condition-by-condition
+diagnostics remain deferred. A configurable MaximumChainDepth (default 2) refuses
+overlong local chains before execution and in the tester. Regex with capture
+groups satisfies prefix and route-template redirect requirements; separate match
+modes are not planned. Rewrites from appsettings or other sources are considered covered
+by native YARP APIs/configuration through the host. Managed editing and testing
+intentionally cover stored rules only; external-source preview is not a planned requirement.
 
 ## Objective and agreed direction
 
@@ -456,8 +460,8 @@ PathBase is excluded and queries do not participate in matching. Regex character
 are literal in Exact mode; Prefix and RouteTemplate are rejected.
 Host/method restrictions, priority/Guid ordering, supported statuses, query modes,
 reserved administration paths, and immutable request snapshots are implemented.
-Root-relative same-path redirects are rejected conservatively; general cycle and
-absolute self-redirect diagnostics remain pending. The lower-level SQLite store
+Root-relative same-path redirects are rejected conservatively; the local depth
+guard refuses overlong chains and absolute self-redirects at request time. The lower-level SQLite store
 persists only. INhProxyConfigurationService and the panel commit then activate
 without restarting; the runtime rejects equal/older publications. Failed activation
 retains the committed revision and can be retried.
@@ -478,15 +482,17 @@ the budget expired. Draft tests explain failures. Existing SQLite documents rema
 compatible and no schema migration is
 needed. See the proxy README for limits and exact input/escaping semantics.
 
-The following describes the broader planned redirect feature set; prefix/template
-matching, route-template captures, and broader cycle diagnostics belong to later milestones.
+Regex with capture groups covers prefix and route-template redirects. This
+requirement is complete; separate Prefix and RouteTemplate modes are not planned
+and remain rejected by validation. Local chains are bounded by MaximumChainDepth;
+external/backend response cycle analysis is intentionally excluded.
 
 Redirect rules run in middleware and never make an outbound request:
 
-- Match host, HTTP method, and path using structured exact, prefix, or ASP.NET
-  Core route-template matching. Make prefix matching segment-aware. Regex matching
-  is already available as an explicit opt-in; executable expressions remain excluded.
-- Target a root-relative path or an absolute HTTP(S) URL. Permit captured route
+- Match host and HTTP method, then use exact path matching or opt-in regex.
+  Express prefix boundaries and route-like captures in the regex pattern;
+  arbitrary executable expressions remain excluded.
+- Target a root-relative path or an absolute HTTP(S) URL. Permit captured regex
   values in the path/query, while keeping an absolute target's authority fixed by
   the administrator. Do not accept a client-supplied destination host.
 - Offer `301`, `302`, `303`, `307`, and `308`, with `302` as the agreed default.
@@ -503,8 +509,13 @@ Redirect rules run in middleware and never make an outbound request:
   targets, fragments, and query strings. Reject control characters, CR/LF,
   unsupported schemes, userinfo, and network-path targets such as `//host/path`.
   Never reflect an untrusted Host header into an absolute redirect target.
-- Detect direct self-redirects and identifiable local cycles. Do not claim to
-  prevent all cycles involving external sites or arbitrary future requests.
+- Refuse a concrete managed-rule chain before execution if it needs more than
+  Limits.MaximumChainDepth steps (default 2; positive and configured at startup).
+  Each selected redirect or rewrite counts once. Return HTTP 508 with no-store,
+  no Location and no forwarding; apply the same check to saved/draft previews.
+  Follow only the original scheme/host/port within PathBase; external destinations
+  and reserved administration paths end analysis. This caps legitimate chains too.
+  It does not predict host endpoint behavior, aliases or external backend responses.
 
 Use standard ASP.NET Core response/redirect facilities. Once a redirect matches,
 return its status and `Location` without invoking subsequent rule engines.
@@ -566,7 +577,7 @@ an upstream response.
 Do not claim that dry-run success proves DNS/TLS/connectivity, upstream responses,
 authorization, policy outcomes, or destination health. These depend on runtime
 state. Do not follow redirect destinations;
-bounded local chain analysis may report possible loops without network access.
+bounded local chain analysis refuses chains exceeding MaximumChainDepth without network access.
 Any later live connectivity probe is a separate feature with explicit controls.
 
 Protect the test endpoint with the same administration authentication, IP policy,
@@ -744,8 +755,11 @@ under `src/Back-end/Tests` and keep executable consumer evidence in the sample.
 SPM-238 and `nh-proxy-contract-boundary` describe startup registration, typed contracts,
 and real SQLite-backed literal redirects. SPM-239 demonstrates stored rewrites and
 isolated managed-rule testing. Extend those cases as features arrive; broader
-redirect matching/cycle analysis and external-source preview remain outside the
-implemented scope. Keep SQL Server/PostgreSQL scope gaps and actual SQLite
+external cycle analysis remains outside the implemented scope. Local managed
+chains are refused above MaximumChainDepth. Regex with capture groups
+satisfies prefix and route-template redirect requirements. Native
+YARP APIs/configuration satisfy the other-source rewrite requirement; external-source
+preview is intentionally excluded. Keep SQL Server/PostgreSQL scope gaps and actual SQLite
 evidence explicit.
 
 For implementation completion, update the registry and evidence paths, applicable

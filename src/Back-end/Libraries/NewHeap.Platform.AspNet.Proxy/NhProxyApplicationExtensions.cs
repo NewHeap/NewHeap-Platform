@@ -100,6 +100,7 @@ public static class NhProxyApplicationExtensions
         ArgumentNullException.ThrowIfNull(endpoints);
 
         endpoints.MapReverseProxy();
+        endpoints.ServiceProvider.GetService<NhProxyRuntime>()?.ConfigureChainRouting(endpoints);
 
         return endpoints;
     }

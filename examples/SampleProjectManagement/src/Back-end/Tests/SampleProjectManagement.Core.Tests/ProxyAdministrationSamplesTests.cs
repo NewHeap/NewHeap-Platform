@@ -53,7 +53,7 @@ public sealed class ProxyAdministrationSamplesTests
                     new NhProxyRedirectRule
                     {
                         Id = Guid.NewGuid(), Name = "Moved project overview",
-                        Match = new NhProxyRedirectMatch { Path = "/old-projects" }, Target = "/projects"
+                        Match = new NhProxyRedirectMatch { Path = "/old-projects", Hosts = [client.BaseAddress.Authority] }, Target = "/projects"
                     }
                 ]), cancellationToken);
                 Assert.True(saved.Success, string.Join("; ", saved.AllErrorMessages));
@@ -61,6 +61,29 @@ public sealed class ProxyAdministrationSamplesTests
                 var redirect = await client.GetAsync("/old-projects", cancellationToken);
                 Assert.Equal(HttpStatusCode.Found, redirect.StatusCode);
                 Assert.Equal("/projects", redirect.Headers.Location!.OriginalString);
+                // SPM-239: a root-relative tester input inherits the proxy origin, including its assigned port.
+                var loginToken = System.Text.RegularExpressions.Regex.Match(loginHtml, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
+                Assert.True(loginToken.Success);
+                using var signedIn = await client.PostAsync("/newheap-proxy/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["UserName"] = "info@newheap.com", ["Password"] = "sample-test-only-password",
+                    ["__RequestVerificationToken"] = WebUtility.HtmlDecode(loginToken.Groups[1].Value)
+                }), cancellationToken);
+                Assert.Equal(HttpStatusCode.Found, signedIn.StatusCode);
+                var panelHtml = await client.GetStringAsync("/newheap-proxy", cancellationToken);
+                var panelToken = System.Text.RegularExpressions.Regex.Match(panelHtml, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
+                Assert.True(panelToken.Success);
+                using var preview = await client.PostAsync("/newheap-proxy/TestUrl", new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["url"] = "/old-projects?source=quick-test",
+                    ["__RequestVerificationToken"] = WebUtility.HtmlDecode(panelToken.Groups[1].Value)
+                }), cancellationToken);
+                Assert.Equal(HttpStatusCode.OK, preview.StatusCode);
+                Assert.Null(preview.Headers.Location);
+                var previewHtml = await preview.Content.ReadAsStringAsync(cancellationToken);
+                Assert.Contains("GET " + app.Urls.Single() + "/old-projects?source=quick-test", previewHtml);
+                Assert.Contains("Redirect match", previewHtml);
+                Assert.Contains("/projects?source=quick-test", previewHtml);
                 Assert.False((await configuration.SaveRedirectsAsync(new(snapshot.Revision, []), cancellationToken)).Success);
             }
             finally

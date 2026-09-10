@@ -104,6 +104,22 @@ public sealed class NhProxyDraftTester(INhProxyConfigurationService configuratio
                 return TaskResult<NhProxyRuleTestResult>.Succeeded(result with { Outcome = NhProxyTestOutcome.ReservedAdministrationPath });
             }
 
+            await using var previewApp = CreatePreviewApplication(rewrites);
+            var constraintResolver = previewApp.Services.GetRequiredService<IInlineConstraintResolver>();
+            if (rewrites.Rules.Any(rule => rule.Enabled && !NhProxyConfigurationValidator.HasSupportedConstraints(rule.Match.Path, constraintResolver)))
+            {
+                return TaskResult<NhProxyRuleTestResult>.Failed(NhProxyErrorCodes.Validation, "newheap-proxy.unsupported-preview-constraint");
+            }
+
+            context.RequestServices = previewApp.Services;
+            redirectRuntime.ConfigureChainRouting(previewApp);
+            var chainFailure = await redirectRuntime.CheckChainAsync(context);
+            if (chainFailure is not null)
+            {
+                return TaskResult<NhProxyRuleTestResult>.Failed(chainFailure == NhProxyRuntime.ChainDepthFailure
+                    ? NhProxyRuntime.ChainDepthFailure : NhProxyErrorCodes.Validation, chainFailure);
+            }
+
             if (redirectRuntime.TryRedirect(context, out var failure, out var redirectId))
             {
                 result = result with
@@ -120,7 +136,7 @@ public sealed class NhProxyDraftTester(INhProxyConfigurationService configuratio
             }
             else
             {
-                var evaluated = await EvaluateRewriteAsync(rewrites, context, result);
+                var evaluated = await EvaluateRewriteAsync(previewApp, rewrites, context, result);
                 if (!evaluated.Success)
                 {
                     return evaluated;
@@ -182,8 +198,7 @@ public sealed class NhProxyDraftTester(INhProxyConfigurationService configuratio
         return context;
     }
 
-    private static async Task<TaskResult<NhProxyRuleTestResult>> EvaluateRewriteAsync(NhProxyRewriteConfiguration configuration,
-        HttpContext context, NhProxyRuleTestResult result)
+    private static WebApplication CreatePreviewApplication(NhProxyRewriteConfiguration configuration)
     {
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
         {
@@ -198,15 +213,15 @@ public sealed class NhProxyDraftTester(INhProxyConfigurationService configuratio
                 CorsPolicy = string.IsNullOrEmpty(route.CorsPolicy) ? null : "Default"
             }).ToArray(), configuration.Clusters.Select(NhProxyYarpConfiguration.Cluster)
             .Select(cluster => cluster with { HealthCheck = null }).ToArray());
-        await using var app = builder.Build();
-        var resolver = app.Services.GetRequiredService<IInlineConstraintResolver>();
-        if (configuration.Rules.Any(rule => rule.Enabled && !NhProxyConfigurationValidator.HasSupportedConstraints(rule.Match.Path, resolver)))
-        {
-            return TaskResult<NhProxyRuleTestResult>.Failed(NhProxyErrorCodes.Validation, "newheap-proxy.unsupported-preview-constraint");
-        }
-
-        app.UseRouting();
+        var app = builder.Build();
         app.MapReverseProxy();
+        return app;
+    }
+
+    private static async Task<TaskResult<NhProxyRuleTestResult>> EvaluateRewriteAsync(WebApplication app, NhProxyRewriteConfiguration configuration,
+        HttpContext context, NhProxyRuleTestResult result)
+    {
+        app.UseRouting();
         app.Run(async request =>
         {
             var route = request.GetEndpoint()?.Metadata.GetMetadata<RouteModel>();

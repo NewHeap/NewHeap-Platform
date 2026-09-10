@@ -47,8 +47,14 @@ It demonstrates isolated managed-rule previews, SQLite rewrite persistence, nati
 YARP route/transform parity, independent confirmed activation and real forwarding.
 The administration top bar tests a GET URL against saved redirects and rewrites,
 showing the winning rule, target and edit link through `TestSavedAsync`.
-Appsettings/other sources and host customizations are outside preview; redirect
-prefix/template matching and general cycle analysis remain deferred.
+`ProxyAdministrationSamplesTests` demonstrates `/old-projects?source=quick-test`
+using the proxy's current scheme, host and port, including host-restricted matching.
+Native YARP APIs/configuration cover rewrites from appsettings and other sources.
+These sources and host customizations intentionally remain outside preview.
+Regex with capture groups covers prefix and route-template redirects. Local
+managed chains are checked before execution with a configurable MaximumChainDepth
+of two by default; the sample proves refusal before an overlong chain reaches its
+backend. External origins and backend responses remain outside chain analysis.
 SQL Server and PostgreSQL remain explicit v1 provider gaps.
 
 The samples are built directly on the public NewHeap surface. Collections use
