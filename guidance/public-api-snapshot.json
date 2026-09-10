@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.29",
   "backEnd": {
-    "hash": "c9b59f1e3e4e41cd5c4d90a39b8dbdefcb68208db3d27d9d942659cb7abe6e70",
+    "hash": "f00160d6d94f2c0ecfe82ca96d352187235151c1d06678cd6638cec0ad3c3278",
     "declarationCount": 3981,
     "declarations": [
       {
@@ -10959,11 +10959,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRuntime.cs",
-        "declaration": "public void ConfigurationApplied(IReadOnlyList<IProxyConfig> proxyConfigs) => Complete(proxyConfigs, true);"
+        "declaration": "public void ConfigurationApplied(IReadOnlyList<IProxyConfig> proxyConfigs) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRuntime.cs",
-        "declaration": "public void ConfigurationApplyingFailed(IReadOnlyList<IProxyConfig> proxyConfigs, Exception exception) => Complete(proxyConfigs, false);"
+        "declaration": "public void ConfigurationApplyingFailed(IReadOnlyList<IProxyConfig> proxyConfigs, Exception exception) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRuntime.cs",
@@ -10971,7 +10971,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRewriteRuntime.cs",
-        "declaration": "public void ConfigurationLoaded(IReadOnlyList<IProxyConfig> proxyConfigs) { }"
+        "declaration": "public void ConfigurationLoaded(IReadOnlyList<IProxyConfig> proxyConfigs) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRuntime.Chain.cs",

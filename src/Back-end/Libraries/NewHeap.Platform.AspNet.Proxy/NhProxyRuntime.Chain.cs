@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Model;
@@ -32,12 +33,20 @@ public sealed partial class NhProxyRuntime
             ?? throw new InvalidOperationException("Initialize redirects before checking rule chains.");
         // Keep redirect execution on the same immutable snapshot as its preflight check.
         input.Items[typeof(Snapshot)] = snapshot;
+        var origin = new Uri($"{(input.Request.Scheme.Length == 0 ? "http" : input.Request.Scheme)}://{(input.Request.Host.HasValue ? input.Request.Host.ToUriComponent() : "newheap.invalid")}");
+        if (snapshot.Rules.IsEmpty
+            && services?.GetService<NhProxyRewriteRuntime>()?.HasOnlyExternalDestinations(origin) == true)
+        {
+            // Without redirects or a destination on this origin, a local chain cannot continue.
+            input.RequestAborted.ThrowIfCancellationRequested();
+            return HasResolutionTimedOut(preparationStarted) ? ResolutionTimeoutFailure : null;
+        }
+
         var request = CopyRequest(input);
         if (HasResolutionTimedOut(preparationStarted))
         {
             return ResolutionTimeoutFailure;
         }
-        var origin = new Uri($"{(input.Request.Scheme.Length == 0 ? "http" : input.Request.Scheme)}://{(input.Request.Host.HasValue ? input.Request.Host.ToUriComponent() : "newheap.invalid")}");
         long depth = 0;
         while (!request.Request.Path.StartsWithSegments(NhProxyOptions.AdministrationPath, StringComparison.OrdinalIgnoreCase))
         {

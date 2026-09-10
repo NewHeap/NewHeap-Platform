@@ -17,6 +17,12 @@ and chain checks remain installed. Configuration is seeded and activated before
 measurement. No library behavior or defaults are changed. Startup, administration,
 database writes, regex rules and large rule sets are outside this workload.
 
+This workload exercises the chain-check early exit: the active redirect snapshot
+is empty and every applied destination has a different origin (scheme, host or
+port). The proxy can therefore skip the copied request and extra route matching.
+Local destinations, active redirects and configuration application failures retain
+the full check; the shortcut is disabled while YARP applies a new configuration.
+
 The backend and proxies run in separate processes on dynamically assigned IPv4
 loopback ports, with logging disabled and no TLS or application telemetry. Both
 tests use the same HTTP client configuration and validate HTTP 200 plus the entire

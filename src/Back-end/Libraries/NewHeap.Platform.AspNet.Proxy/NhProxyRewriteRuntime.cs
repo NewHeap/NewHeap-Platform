@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.Common.Models;
+using Yarp.ReverseProxy;
 using Yarp.ReverseProxy.Configuration;
 
 namespace NewHeap.Platform.AspNet.Proxy;
@@ -12,6 +13,7 @@ internal sealed class NhProxyRewriteRuntime(INhProxyConfigurationValidator valid
     private NhProxyEngineStatus _status = new(NhProxyEngine.Rewrite, 0, null, NhProxyActivationState.NotInitialized);
     private sealed record Publication(long Revision, string Token, TaskCompletionSource<bool> Completion);
     private Publication? _publication;
+    private HashSet<string>? _destinationOrigins;
 
     internal NhProxyEngineStatus Status => Volatile.Read(ref _status);
 
@@ -68,10 +70,50 @@ internal sealed class NhProxyRewriteRuntime(INhProxyConfigurationValidator valid
         }
     }
 
-    public void ConfigurationApplied(IReadOnlyList<IProxyConfig> proxyConfigs) => Complete(proxyConfigs, true);
-    public void ConfigurationApplyingFailed(IReadOnlyList<IProxyConfig> proxyConfigs, Exception exception) => Complete(proxyConfigs, false);
+    internal bool HasOnlyExternalDestinations(Uri origin)
+    {
+        var origins = Volatile.Read(ref _destinationOrigins);
+        return origins is not null && !origins.Contains(OriginKey(origin));
+    }
+
+    private static string OriginKey(Uri uri) => $"{uri.Scheme}://{uri.IdnHost}:{uri.Port}";
+
+    public void ConfigurationApplied(IReadOnlyList<IProxyConfig> proxyConfigs)
+    {
+        // Read applied state: host filters can change destinations after loading the source configuration.
+        var origins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var cluster in services.GetRequiredService<IProxyStateLookup>().GetClusters())
+        {
+            foreach (var destination in cluster.Model.Config.Destinations?.Values ?? [])
+            {
+                if (!Uri.TryCreate(destination.Address, UriKind.Absolute, out var address))
+                {
+                    // Unknown destinations must retain the full chain check.
+                    Volatile.Write(ref _destinationOrigins, null);
+                    Complete(proxyConfigs, true);
+                    return;
+                }
+
+                origins.Add(OriginKey(address));
+            }
+        }
+
+        Volatile.Write(ref _destinationOrigins, origins);
+        Complete(proxyConfigs, true);
+    }
+
+    public void ConfigurationApplyingFailed(IReadOnlyList<IProxyConfig> proxyConfigs, Exception exception)
+    {
+        Volatile.Write(ref _destinationOrigins, null);
+        Complete(proxyConfigs, false);
+    }
+
     public void ConfigurationLoadingFailed(IProxyConfigProvider configProvider, Exception exception) { }
-    public void ConfigurationLoaded(IReadOnlyList<IProxyConfig> proxyConfigs) { }
+    public void ConfigurationLoaded(IReadOnlyList<IProxyConfig> proxyConfigs)
+    {
+        // Disable the shortcut before YARP mutates active clusters; re-enable only after successful application.
+        Volatile.Write(ref _destinationOrigins, null);
+    }
 
     private void Complete(IReadOnlyList<IProxyConfig> configurations, bool success)
     {
