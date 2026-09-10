@@ -31,7 +31,7 @@ The main implementation paths are:
 - `src/Back-end/Applications/SampleProjectManagement.Api`: controllers, Scalar and OpenAPI, and composition;
 - `src/Back-end/Libraries/SampleProjectManagement.Core`: models, services, and mappings;
 - `src/Back-end/Libraries/SampleProjectManagement.DAL`: entities, DbContext, and consumer-owned migrations;
-- `src/Back-end/Orchestration/SampleProjectManagement.AppHost`: PostgreSQL, RabbitMQ, the API, and both frontends;
+- `src/Back-end/Orchestration/SampleProjectManagement.AppHost`: PostgreSQL, RabbitMQ, the API, the proxy demo, and both frontends;
 - `src/Front-end/projects/management`: management interface and interactive sample catalog;
 - `src/Front-end/projects/workspace`: day-to-day project workspace;
 - `src/Front-end/projects/sample-project-management-common`: genuinely shared Angular code.
@@ -39,9 +39,14 @@ The main implementation paths are:
 ## Run the sample
 
 Set `SampleProjectManagement.AppHost` as the startup project and start Aspire.
-The AppHost starts PostgreSQL, RabbitMQ, the API, and both Angular applications.
+The AppHost starts PostgreSQL, RabbitMQ, the API, the proxy demo, and both Angular applications.
 Scalar is available from the API at `/scalar`; the OpenAPI document is at
 `/openapi/v1.json`.
+
+Open the `sample-project-management-proxy` resource URL in the Aspire dashboard
+to reach `/newheap-proxy`. Sign in with `administrator` / `NewHeap123!`.
+Aspire assigns the port; the demo uses its own persistent SQLite file and has no
+dependency on the API or database containers. See [proxy administration](docs/proxy-administration.md).
 
 The PostgreSQL container deliberately has no data volume. The API uses
 `MigrateAsync` to create the database and apply migrations. Only in Development

@@ -130,6 +130,11 @@ The main implementation areas are:
 - `skills` and `plugins/newheap-platform` — versioned development guidance;
 - `release/manifest.json` — package groups and protected release definitions.
 
+Planned library work is documented in the
+[NewHeap Proxy design](docs/plans/newheap-proxy-design.md), a proposal for a YARP
+proxy with rewrite and redirect rules, testing before save, embedded administration,
+and SQLite persistence; it is not yet implemented.
+
 ## Built for human and AI-assisted development
 
 NewHeap ships the same development contract to maintainers and coding agents.

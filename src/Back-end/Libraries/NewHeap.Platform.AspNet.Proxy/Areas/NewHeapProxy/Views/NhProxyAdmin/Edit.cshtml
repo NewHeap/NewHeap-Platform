@@ -1,0 +1,45 @@
+@model NhProxyRedirectEditorModel
+@{ ViewData["Title"] = Model.IsNew ? "Create redirect" : "Edit redirect"; }
+<style>
+    .editor .regex-help, .editor form:has(#IsRegex:checked) .literal-only { display: none; }
+    .editor form:has(#IsRegex:checked) .regex-help { display: block; }
+</style>
+<div class="editor">
+    <a asp-action="Index">Back to redirects</a>
+    <div class="heading"><div><h1>@ViewData["Title"]</h1><p class="muted">Define a redirect. Test your draft before putting it live.</p></div><span class="badge">Revision @Model.Revision</span></div>
+    <form asp-action="Edit" asp-route-id="@Model.Id" method="post">
+        <input asp-for="Id" type="hidden" /><input asp-for="Revision" type="hidden" /><input asp-for="IsNew" type="hidden" />
+        <div asp-validation-summary="All" role="alert"></div>
+        <div class="card">
+            <h2>Source and destination</h2>
+            <div class="field"><label asp-for="Name">Rule name</label><input asp-for="Name" placeholder="Moved project overview" required maxlength="200" /><span asp-validation-for="Name"></span></div>
+            <div class="check"><input asp-for="IsRegex" aria-describedby="regex-description" /><label asp-for="IsRegex">Use regular expression</label></div>
+            <p id="regex-description" class="help">Off: match the exact path. On: match the escaped path and query string with a .NET regex.</p>
+            <div class="field"><label asp-for="Path">Source path or pattern</label><input asp-for="Path" placeholder="/old-projects" required maxlength="2048" /><p class="help literal-only">Starts with /. Excludes the query string. /Projects and /projects are different paths.</p><p class="help regex-help">Example: <code>^/old-projects/([^?]+)(\?.*)?$</code>. Use anchors to match the entire input. Matching is case-sensitive by default.</p></div>
+            <div class="field"><label asp-for="Target">Destination URL</label><input asp-for="Target" placeholder="/projects or https://example.com/projects" required maxlength="4096" /><p class="help">Use a root-relative path or an absolute HTTP(S) URL.</p><p class="help regex-help">Example: <code>/projects/$1$2</code>. Use <code>$1</code> or <code>${name}</code> for captures and <code>$$</code> for a dollar sign. Query modes are ignored: include every query value you want in the destination.</p></div>
+            <div class="grid">
+                <div class="field"><label asp-for="Status">HTTP status</label><select asp-for="Status"><option value="302">302 · Found (default)</option><option value="301">301 · Moved permanently</option><option value="303">303 · See other</option><option value="307">307 · Temporary redirect</option><option value="308">308 · Permanent redirect</option></select></div>
+                <div class="field literal-only"><label asp-for="QueryMode">Query string</label><select asp-for="QueryMode"><option value="Preserve">Merge · destination values win</option><option value="Discard">Discard all query values</option><option value="Replace">Use destination values only</option></select></div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Matching and order</h2><p class="muted">Leave host and method restrictions empty to accept all.</p>
+            <div class="grid">
+                <div class="field"><label asp-for="Hosts">Host restrictions</label><input asp-for="Hosts" placeholder="example.com, www.example.com" maxlength="2048" /><p class="help">Comma-separated literal hosts; optional ports.</p></div>
+                <div class="field"><label asp-for="Methods">HTTP methods</label><input asp-for="Methods" placeholder="GET, HEAD" maxlength="512" /><p class="help">Comma-separated, case-sensitive method names.</p></div>
+                <div class="field"><label asp-for="Priority">Priority</label><input asp-for="Priority" /><p class="help">Lower numbers are evaluated first; rule ID breaks ties.</p></div>
+                <div class="check"><input asp-for="Enabled" /><label asp-for="Enabled">Enabled</label></div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Test this draft</h2><p class="muted">See the response for this rule only. Nothing is saved and no network request is sent.</p>
+            <div class="grid"><div class="field"><label asp-for="TestUrl">Request URL</label><input asp-for="TestUrl" placeholder="https://example.com/old-projects?source=email" maxlength="4096" /></div><div class="field"><label asp-for="TestMethod">Request method</label><input asp-for="TestMethod" maxlength="32" /></div></div>
+            <button name="operation" value="test" type="submit">Test draft</button>
+            @if (Model.TestResult is not null)
+            {
+                <div class="notice test-result" role="status">@Model.TestResult</div>
+            }
+        </div>
+        <div class="actions"><a asp-action="Index">Cancel</a><button class="primary" name="operation" value="save" type="submit">Save and activate</button></div>
+    </form>
+</div>

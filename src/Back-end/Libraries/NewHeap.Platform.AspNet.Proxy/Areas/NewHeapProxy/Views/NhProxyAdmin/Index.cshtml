@@ -1,0 +1,36 @@
+@model NhProxyRedirectListModel
+@{
+    ViewData["Title"] = "Redirects";
+    var rules = Model.Configuration.Rules.OrderBy(rule => rule.Priority).ThenBy(rule => rule.Id)
+        .Where(rule => string.IsNullOrWhiteSpace(Model.Search) || (rule.Name + " " + rule.Match.Path + " " + rule.Target).Contains(Model.Search, StringComparison.OrdinalIgnoreCase)).ToArray();
+}
+<div class="heading">
+    <div><div class="eyebrow">Traffic management</div><h1>Redirects</h1><p class="muted">Send visitors to the right destination with exact or regex rules.</p>
+        <div class="status-line"><span class="badge @(Model.Status.State == NhProxyActivationState.Active ? "active" : "disabled")">@Model.Status.State</span> Saved revision @Model.Configuration.Revision · Active revision @(Model.Status.ActiveRevision?.ToString() ?? "none")</div>
+    </div>
+    <a class="button primary" asp-action="Edit">Create redirect</a>
+</div>
+@if (Model.Status.ActiveRevision != Model.Configuration.Revision)
+{
+    <div class="notice" role="alert"><p>Your changes are saved, but are not active yet. Requests still use the previous configuration.</p><form asp-action="Activate" method="post"><button type="submit">Retry activation</button></form></div>
+}
+<div class="actions">
+    <form class="search" asp-action="Index" method="get"><div class="field"><label for="search">Find a redirect</label><input id="search" name="search" value="@Model.Search" placeholder="Search name, source or destination" /></div><button type="submit">Search</button></form>
+    <span class="muted">@rules.Length of @Model.Configuration.Rules.Length rules</span>
+</div>
+<div class="card">
+@if (rules.Length == 0)
+{
+    <div class="empty"><h2>@(string.IsNullOrWhiteSpace(Model.Search) ? "Your first redirect starts here" : "No matching redirects")</h2><p class="muted">@(string.IsNullOrWhiteSpace(Model.Search) ? "Create a literal rule, test the result, then save to put it live." : "Try a different name, source path or destination.")</p><a class="button" asp-action="@(string.IsNullOrWhiteSpace(Model.Search) ? "Edit" : "Index")">@(string.IsNullOrWhiteSpace(Model.Search) ? "Create redirect" : "Clear search")</a></div>
+}
+else
+{
+    <div class="scroll" role="region" aria-label="Redirect rules" tabindex="0"><table><thead><tr><th>Rule / source</th><th>Destination</th><th>Status</th><th>Priority</th><th>Actions</th></tr></thead><tbody>
+    @foreach (var rule in rules)
+    {
+        <tr><td><strong>@rule.Name</strong><code class="rule-path">@rule.Match.Path</code><span class="help">HTTP @((int)rule.Status)</span></td><td><code class="rule-path">@rule.Target</code></td><td><span class="badge @(rule.Enabled ? "active" : "disabled")">@(rule.Enabled ? "Enabled" : "Disabled")</span></td><td>@rule.Priority</td><td><div class="actions"><a asp-action="Edit" asp-route-id="@rule.Id" aria-label="Edit @rule.Name">Edit</a><a asp-action="Delete" asp-route-id="@rule.Id" aria-label="Delete @rule.Name">Delete</a></div></td></tr>
+    }
+    </tbody></table></div>
+}
+</div>
+<p class="footer-note">Lower priority numbers run first. Exact paths are case-sensitive and trailing slashes matter. Regex rules match the escaped path and query string; capture substitutions define the destination.</p>

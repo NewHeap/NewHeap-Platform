@@ -233,7 +233,9 @@
     "SPM-233",
     "SPM-234",
     "SPM-235",
-    "SPM-236"
+    "SPM-236",
+    "SPM-238",
+    "SPM-239"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -1521,6 +1523,19 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiDurableRuns.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AgentFramework.Tests/NhAiAgentFrameworkAdapterTests.cs"
+    ],
+    "SPM-238": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyContractBoundarySamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyLiteralRedirectSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyAdministrationSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Proxy/Properties/launchSettings.json",
+      "src/Back-end/Orchestration/SampleProjectManagement.AppHost/Program.cs"
+    ],
+    "SPM-239": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyRewriteSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyAdministrationSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs"
     ]
   }
 }

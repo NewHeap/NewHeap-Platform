@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <PackageId>NewHeap.Platform.AspNet.Proxy</PackageId>
+    <Copyright>NewHeap B.V.</Copyright>
+    <Title>NewHeap ASP.NET Proxy</Title>
+    <PackageDescription>NewHeap ASP.NET Core redirects, managed YARP rewrites, isolated rule testing and proxy administration.</PackageDescription>
+    <PackageTags>newheap platform aspnetcore proxy mvc</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/newheap-logo.webp" LogicalName="NewHeap.Proxy.Logo" />
+    <InternalsVisibleTo Include="NewHeap.Platform.AspNet.Proxy.Sqlite" />
+    <InternalsVisibleTo Include="NewHeap.Platform.AspNet.Proxy.Tests" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
+    <PackageReference Include="Yarp.ReverseProxy" />
+  </ItemGroup>
+</Project>

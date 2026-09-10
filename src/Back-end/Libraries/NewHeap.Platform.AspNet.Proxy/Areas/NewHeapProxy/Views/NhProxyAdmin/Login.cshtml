@@ -1,0 +1,20 @@
+@{ ViewData["Title"] = "Sign in"; }
+<div class="login">
+    <div class="eyebrow">Proxy administration</div>
+    <h1>A clear path forward.</h1>
+    <p class="muted">Sign in to manage your redirects and rewrites.</p>
+    <div class="card">
+        <h2>Welcome back</h2>
+        <p class="muted">Use your configured administrator account.</p>
+        @if (ViewData["Error"] is string error)
+        {
+            <div class="notice error" role="alert">@error</div>
+        }
+        <form asp-action="Login" method="post">
+            <div class="field"><label for="UserName">Username</label><input id="UserName" name="UserName" autocomplete="username" maxlength="200" required autofocus /></div>
+            <div class="field"><label for="Password">Password</label><input id="Password" name="Password" type="password" autocomplete="current-password" maxlength="1024" required /></div>
+            <button class="primary" type="submit">Sign in</button>
+        </form>
+    </div>
+    <p class="footer-note">Sign-in attempts and IP addresses are recorded for security.</p>
+</div>

@@ -1,0 +1,37 @@
+@model NhProxyRewriteListModel
+@{
+    ViewData["Title"] = "Rewrites";
+    var rules = Model.Configuration.Rules.Where(rule => string.IsNullOrWhiteSpace(Model.Search)
+        || rule.Name.Contains(Model.Search, StringComparison.OrdinalIgnoreCase)
+        || (rule.Match.Path?.Contains(Model.Search, StringComparison.OrdinalIgnoreCase) ?? false))
+        .OrderBy(rule => rule.Priority).ThenBy(rule => rule.Name).ToArray();
+}
+<div class="heading"><div><span class="eyebrow">Traffic management</span><h1>Rewrites</h1><p class="muted">Forward requests to a backend while keeping the browser URL.</p>
+    <div class="status-line"><span class="badge @(Model.Status.State == NhProxyActivationState.Active ? "active" : "disabled")">@Model.Status.State</span> Saved revision @Model.Configuration.Revision · Active revision @(Model.Status.ActiveRevision?.ToString() ?? "none")</div>
+</div><a class="button primary" asp-action="RewriteEdit">Create rewrite</a></div>
+    @if (Model.Status.State != NhProxyActivationState.Active)
+    {
+        <p class="notice">The saved configuration has not been confirmed active. Review the host logs and retry activation.</p>
+        <form asp-action="RewriteActivate" method="post"><button type="submit">Retry activation</button></form>
+    }
+<div class="actions">
+    <form asp-action="Rewrites" method="get" class="search"><div class="field"><label for="search">Search rewrites</label><input id="search" name="search" value="@Model.Search" placeholder="Name or path" /></div><button type="submit">Search</button></form>
+    <span class="muted">@rules.Length of @Model.Configuration.Rules.Length rules</span>
+</div>
+<div class="card">
+    @if (rules.Length == 0)
+    {
+        <div class="empty"><h2>@(Model.Configuration.Rules.IsEmpty ? "No rewrites yet" : "No matching rewrites")</h2><p class="muted">Create a rule with a backend destination, test it, then save and activate.</p></div>
+    }
+    else
+    {
+        <div class="scroll" role="region" aria-label="Rewrite rules" tabindex="0"><table><thead><tr><th>Rule / path</th><th>Destination</th><th>Status</th><th>Priority</th><th>Actions</th></tr></thead><tbody>
+        @foreach (var rule in rules)
+        {
+            var cluster = Model.Configuration.Clusters.Single(cluster => cluster.Id == rule.ClusterId);
+            <tr><td><strong>@rule.Name</strong><code class="rule-path">@(rule.Match.Path ?? "All paths")</code></td><td><strong>@cluster.Name</strong><code class="rule-path">@cluster.Destination.Address</code></td><td><span class="badge @(rule.Enabled ? "active" : "disabled")">@(rule.Enabled ? "Enabled" : "Disabled")</span></td><td>@rule.Priority</td><td><div class="actions"><a asp-action="RewriteEdit" asp-route-id="@rule.Id" aria-label="Edit @rule.Name">Edit</a><a asp-action="RewriteDelete" asp-route-id="@rule.Id" aria-label="Delete @rule.Name">Delete</a></div></td></tr>
+        }
+        </tbody></table></div>
+    }
+</div>
+<p class="footer-note">Redirects run first. Lower rewrite priority numbers win; equally ranked matches use native route specificity. Configuration from appsettings or other sources is outside this editor and tester.</p>

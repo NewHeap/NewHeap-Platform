@@ -1,0 +1,27 @@
+@model NhProxyLoginAuditPage
+@{ ViewData["Title"] = "Login activity"; var offset = int.TryParse(Context.Request.Query["offset"], out var value) ? value : 0; var pageSize = (int)ViewData["PageSize"]!; }
+<div class="heading"><div><div class="eyebrow">Security</div><h1>Login activity</h1><p class="muted">Sign-in outcomes and client addresses. All times are shown in UTC.</p></div><span class="badge">@Model.TotalCount events</span></div>
+<div class="card">
+@if (Model.Items.IsEmpty)
+{
+    <div class="empty"><h2>No login events on this page</h2><p class="muted">Login attempts appear here once they have been recorded.</p></div>
+}
+else
+{
+    <div class="scroll" role="region" aria-label="Login activity" tabindex="0"><table><thead><tr><th>Time (UTC)</th><th>Client IP</th><th>Outcome</th><th>Account</th></tr></thead><tbody>
+    @foreach (var item in Model.Items)
+    {
+        <tr><td>@item.OccurredAtUtc.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss")</td><td><code>@(item.ClientIp ?? "Unavailable")</code></td><td><span class="badge @(item.Outcome == NhProxyLoginOutcome.Success ? "active" : "disabled")">@(item.Outcome switch { NhProxyLoginOutcome.InvalidCredentials => "Invalid credentials", NhProxyLoginOutcome.IpDenied => "IP denied", _ => item.Outcome.ToString() })</span></td><td>@(item.AuthenticatedUserName ?? "—")</td></tr>
+    }
+    </tbody></table></div>
+}
+</div><div class="actions">
+@if (offset > 0)
+{
+    <a class="button" asp-action="Activity" asp-route-offset="@Math.Max(0, offset - pageSize)">Previous page</a>
+}
+@if (offset + Model.Items.Length < Model.TotalCount)
+{
+    <a class="button" asp-action="Activity" asp-route-offset="@(offset + pageSize)">Next page</a>
+}
+</div><p class="footer-note">Attempted usernames and passwords are never included in the audit log.</p>

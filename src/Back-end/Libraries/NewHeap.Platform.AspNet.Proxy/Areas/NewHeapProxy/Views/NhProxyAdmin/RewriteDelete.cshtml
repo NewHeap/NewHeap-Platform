@@ -1,0 +1,6 @@
+@model NhProxyRewriteDeleteModel
+@{ ViewData["Title"] = "Delete rewrite"; }
+<div class="heading"><div><h1>Delete rewrite</h1><p class="muted">Remove this rule from the running proxy.</p></div></div>
+<div class="card"><h2>@Model.Rule.Name</h2><code class="rule-path">@Model.Rule.Match.Path</code><p>The destination is retained for other rules. Existing in-flight requests may finish.</p>
+    <form asp-action="RewriteDelete" asp-route-id="@Model.Rule.Id" method="post"><input type="hidden" name="revision" value="@Model.Revision" /><div class="actions"><a asp-action="Rewrites">Cancel</a><button class="primary" type="submit">Delete rewrite</button></div></form>
+</div>

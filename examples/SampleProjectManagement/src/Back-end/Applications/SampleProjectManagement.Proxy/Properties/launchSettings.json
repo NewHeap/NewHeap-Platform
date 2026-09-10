@@ -1,0 +1,23 @@
+{
+  "profiles": {
+    "Proxy demo": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "newheap-proxy",
+      "applicationUrl": "http://localhost:5289",
+      "commandLineArgs": "--ProxyDemo=true",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "Configured proxy": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "newheap-proxy",
+      "applicationUrl": "http://localhost:5289",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}

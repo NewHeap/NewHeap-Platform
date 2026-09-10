@@ -170,6 +170,13 @@
       "expectedOutcome": "Composition-root adapter, consumer authorization and typed HTTP/event contracts."
     },
     {
+      "id": "consumer-proxy-contract-boundary",
+      "skill": "newheap-runtime-configuration",
+      "prompt": "Use NewHeap Proxy to host rewrite and redirect rules with SQLite persistence. Check whether its registration and runtime are implemented before composing a consumer application.",
+      "expectedRules": ["nh-proxy-contract-boundary"],
+      "expectedOutcome": "The agent uses SPM-238 as real SQLite and MVC evidence through AddNewHeapProxy/UseNewHeapProxy, configures a host-owned ASP.NET Identity password hash and HTTPS, and manages literal redirects through the panel or INhProxyConfigurationService. It keeps requests in memory, handles revision conflicts and committed activation failures, distinguishes lower-level storage from publication, and describes local single-rule draft testing and login IP auditing. It reports SPM-239 for managed rewrites, full-pipeline drafts and general cycle analysis without inventing SQL Server/PostgreSQL support or a redundant Map call."
+    },
+    {
       "id": "consumer-configuration-automation",
       "skill": "newheap-runtime-configuration",
       "prompt": "Run NewHeap tooling in a production pipeline on another host with environment and CLI overrides for configuration and secrets.",

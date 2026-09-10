@@ -25,10 +25,53 @@ when it:
 
 ## Library patterns
 
+Proxy case SPM-238 is exercised by `ProxyContractBoundarySamplesTests`,
+`ProxyLiteralRedirectSamplesTests`, `ProxyAdministrationSamplesTests` and the
+standalone `SampleProjectManagement.Proxy` application. The preferred two-call
+flow loads SQLite redirects before requests and provides embedded MVC management.
+An opt-in regex checkbox enables captures over the escaped path and query string;
+the target alone determines query values. Exact matching remains the default.
+The panel authenticates one configured account, enforces optional IP restrictions,
+audits login attempts, tests unsaved literal rules and saves/activates revisions
+without restart. Real SQLite and HTTP tests cover persistence, conflicts,
+authentication, CSRF, audit failure, PathBase and activation retry.
+
+See [proxy administration setup](proxy-administration.md) for the runnable sample.
+The **Proxy demo** launch profile needs no setup: it supplies a local test account,
+isolated demo storage and one example redirect. The PowerShell smoke check verifies
+the actual executable, health endpoints and persistence across restarts. The Aspire
+AppHost also starts this profile as `sample-project-management-proxy`, with a
+dashboard link to the panel, an assigned port and an independent SQLite file.
+`ProxyAdministrationSamplesTests` also demonstrates administrator credentials bound
+from environment variables, the recommended production setup. `Password` is hashed
+at startup; a precomputed `PasswordHash` remains an alternative.
+SPM-239 is exercised by `ProxyRewriteSamplesTests` and the embedded Rewrites panel.
+SPM-238 and SPM-239 support hosting at the origin root only. Subdirectory hosting
+with a non-empty `PathBase` is unsupported and deferred until a concrete use case
+requires it. Existing isolated PathBase tests do not establish full proxy support.
+It demonstrates isolated managed-rule previews, SQLite rewrite persistence, native
+YARP route/transform parity, independent confirmed activation and real forwarding.
+Content headers appear in previews and the backend receives the intact body.
+Local chain matching carries transformed general and content headers, including
+multiple values and header replacements/removals.
+The administration top bar tests a GET URL against saved redirects and rewrites,
+showing the winning rule, target and edit link through `TestSavedAsync`.
+`ProxyAdministrationSamplesTests` demonstrates `/old-projects?source=quick-test`
+using the proxy's current scheme, host and port, including host-restricted matching.
+It also verifies complete saved rewrite JSON, including the first path transform,
+and the CSP nonce for the editor script. The developer-facing JSON and form fields
+synchronize in both directions; invalid JSON is retained for correction.
+Native YARP APIs/configuration cover rewrites from appsettings and other sources.
+These sources and host customizations intentionally remain outside preview.
+Regex with capture groups covers prefix and route-template redirects. Local
+managed chains are checked before execution with a configurable MaximumChainDepth
+of two by default; the sample proves refusal before an overlong chain reaches its
+backend. External origins and backend responses remain outside chain analysis.
+SQL Server and PostgreSQL remain explicit v1 provider gaps.
+
 The samples are built directly on the public NewHeap surface. Collections use
-the fluent request builder and edit components are opened through
-`NhModalService`. The controller only translates HTTP while the concrete service
-owns business rules and the outer transaction scope. Database writes are saved,
+the fluent request builder, and project mutations call one concrete application
+service that owns the full transaction scope. Database writes are saved,
 events are published through CAP inside that scope, and one commit follows only
 afterward. There is no local base service or repository wrapper.
 

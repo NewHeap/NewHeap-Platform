@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Applications/">
+    <Project Path="Applications/SampleProjectManagement.Proxy/SampleProjectManagement.Proxy.csproj" />
     <Project Path="Applications/SampleProjectManagement.CommonConsole/SampleProjectManagement.CommonConsole.csproj" />
     <Project Path="Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj" />
     <Project Path="Applications/SampleProjectManagement.DatabaseRead.Mcp/SampleProjectManagement.DatabaseRead.Mcp.csproj" />

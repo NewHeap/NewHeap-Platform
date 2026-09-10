@@ -3,6 +3,16 @@ using NewHeap.Platform.Common;
 var builder = DistributedApplication.CreateBuilder(args);
 builder.Configuration.ConfigureNhCommonConfiguration(args);
 
+builder
+    .AddProject<Projects.SampleProjectManagement_Proxy>("sample-project-management-proxy", launchProfileName: "Proxy demo")
+    .WithEndpoint("http", endpoint =>
+    {
+        endpoint.Port = null;
+        endpoint.ExcludeReferenceEndpoint = true;
+    })
+    .WithHttpHealthCheck("/alive")
+    .WithUrlForEndpoint("http", endpoint => endpoint.Url = "/newheap-proxy");
+
 var postgres = builder.AddPostgres("postgres");
 var database = postgres.AddDatabase("sample-project-management");
 

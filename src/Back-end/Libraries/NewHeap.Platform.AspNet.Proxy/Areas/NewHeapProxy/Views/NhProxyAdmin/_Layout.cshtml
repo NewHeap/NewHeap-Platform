@@ -1,0 +1,464 @@
+@functions {
+    private static readonly string LogoDataUri = LoadLogo();
+
+    private static string LoadLogo()
+    {
+        using var logo = typeof(NhProxyOptions).Assembly.GetManifestResourceStream("NewHeap.Proxy.Logo")
+            ?? throw new InvalidOperationException("The embedded NewHeap logo is missing.");
+        using var buffer = new System.IO.MemoryStream();
+        logo.CopyTo(buffer);
+        return "data:image/webp;base64," + Convert.ToBase64String(buffer.ToArray());
+    }
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] · NewHeap Proxy</title>
+    <style>
+        :root {
+            color-scheme:dark;
+            --bg:#080b10;
+            --surface:#121820;
+            --input:#0b1017;
+            --text:#edf2f8;
+            --muted:#9eacbe;
+            --line:#2a3544;
+            --accent:#ff6700;
+            --blue:#022962;
+            --error:#ffb5b5;
+        }
+        * {
+            box-sizing:border-box;
+        }
+        body {
+            margin:0;
+            background:var(--bg);
+            color:var(--text);
+            font:15px/1.55 Inter,system-ui,sans-serif;
+        }
+        a {
+            color:inherit;
+            text-underline-offset:4px;
+        }
+        button,input,select,textarea {
+            font:inherit;
+        }
+        a,button,input,select,textarea,summary {
+            outline-offset:4px;
+        }
+        :focus-visible {
+            outline:2px solid var(--accent);
+        }
+        header {
+            border-bottom:1px solid var(--line);
+            background:#080b10;
+            color:#edf2f8;
+            --muted:#9eacbe;
+        }
+        .shell {
+            max-width:1180px;
+            margin:auto;
+            padding:24px 32px;
+        }
+        .bar,.actions,.heading {
+            display:flex;
+            gap:16px;
+            align-items:center;
+            justify-content:space-between;
+            flex-wrap:wrap;
+        }
+        .brand {
+            display:inline-flex;
+            align-items:center;
+            font-size:19px;
+            text-decoration:none;
+        }
+        .brand img {
+            display:block;
+            width:160px;
+            height:34px;
+        }
+        .brand span {
+            color:var(--muted);
+            font-weight:450;
+            margin-left:10px;
+        }
+        nav {
+            display:flex;
+            gap:24px;
+            align-items:center;
+            flex-wrap:wrap;
+        }
+        nav a {
+            text-decoration:none;
+            font-size:14px;
+        }
+        nav a:hover {
+            text-decoration:underline;
+        }
+        nav form {
+            margin:0;
+        }
+        main.shell {
+            padding-top:48px;
+            padding-bottom:80px;
+        }
+        h1 {
+            font-size:32px;
+            line-height:1.2;
+            letter-spacing:-1px;
+            margin:8px 0 12px;
+        }
+        h2 {
+            font-size:18px;
+            margin:0 0 8px;
+        }
+        p {
+            margin:0 0 18px;
+        }
+        .muted,.help {
+            color:var(--muted);
+        }
+        .eyebrow {
+            text-transform:uppercase;
+            letter-spacing:2px;
+            font-size:11px;
+            font-weight:750;
+            color:var(--muted);
+        }
+        .heading {
+            margin-bottom:28px;
+        }
+        .card {
+            border:1px solid var(--line);
+            border-radius:16px;
+            background:var(--surface);
+            padding:28px;
+            margin:20px 0;
+        }
+        .button,button {
+            display:inline-flex;
+            justify-content:center;
+            align-items:center;
+            padding:10px 18px;
+            border:1px solid var(--line);
+            border-radius:12px;
+            background:var(--surface);
+            color:var(--text);
+            text-decoration:none;
+            cursor:pointer;
+            font-weight:650;
+            font-size:14px;
+        }
+        .primary {
+            background:var(--accent);
+            color:#15100b;
+            border-color:var(--accent);
+        }
+        button:hover,.button:hover {
+            filter:brightness(1.12);
+        }
+        .link-button {
+            padding:0;
+            background:none;
+            border:0;
+            color:var(--muted);
+            font-weight:450;
+        }
+        .danger {
+            color:var(--error);
+            border-color:#804b50;
+        }
+        .badge {
+            display:inline-block;
+            padding:3px 10px;
+            border-radius:8px;
+            border:1px solid var(--line);
+            font-size:12px;
+            white-space:nowrap;
+        }
+        .active {
+            color:#8bddb0;
+            background:#133324;
+            border-color:#29523b;
+        }
+        .disabled {
+            color:var(--muted);
+        }
+        .scroll {
+            overflow-x:auto;
+            max-width:100%;
+        }
+        table {
+            width:100%;
+            border-collapse:collapse;
+            text-align:left;
+            font-size:14px;
+        }
+        th {
+            color:var(--muted);
+            font-size:11px;
+            font-weight:650;
+            text-transform:uppercase;
+            letter-spacing:1px;
+            padding:14px 12px;
+            border-bottom:1px solid var(--line);
+        }
+        td {
+            padding:18px 12px;
+            border-bottom:1px solid var(--line);
+            vertical-align:top;
+        }
+        tr:last-child td {
+            border:0;
+        }
+        td strong {
+            display:block;
+            margin-bottom:3px;
+        }
+        code {
+            font:13px/1.5 ui-monospace,monospace;
+            overflow-wrap:anywhere;
+        }
+        td .rule-path {
+            display:block;
+            max-width:340px;
+            overflow-wrap:anywhere;
+        }
+        td .actions {
+            gap:14px;
+            justify-content:flex-start;
+            flex-wrap:nowrap;
+        }
+        label {
+            display:block;
+            font-weight:600;
+            font-size:14px;
+            margin-bottom:7px;
+        }
+        input:not([type=checkbox]),select,textarea {
+            background:var(--input);
+            border:1px solid var(--line);
+            border-radius:12px;
+            color:var(--text);
+            padding:11px 13px;
+            width:100%;
+            min-width:0;
+        }
+        textarea {
+            resize:vertical;
+            font:13px/1.5 ui-monospace,monospace;
+        }
+        summary {
+            cursor:pointer;
+            font-weight:600;
+        }
+        .test-result code {
+            overflow-wrap:anywhere;
+        }
+        input::placeholder {
+            color:var(--muted);
+        }
+        .field {
+            margin-bottom:20px;
+            min-width:0;
+        }
+        .grid {
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:0 24px;
+        }
+        .help {
+            font-size:13px;
+            overflow-wrap:anywhere;
+            margin-top:6px;
+            margin-bottom:0;
+        }
+        .check {
+            display:flex;
+            align-items:center;
+            gap:10px;
+            margin:14px 0;
+        }
+        .check input {
+            accent-color:var(--accent);
+            width:18px;
+            height:18px;
+        }
+        .check label {
+            margin:0;
+        }
+        .notice,.validation-summary-errors {
+            padding:16px 20px;
+            border:1px solid var(--line);
+            border-radius:12px;
+            margin:20px 0;
+            overflow-wrap:anywhere;
+            background:var(--input);
+        }
+        .validation-summary-errors,.error {
+            color:var(--error);
+            border-color:#804b50;
+        }
+        .validation-summary-valid {
+            display:none;
+        }
+        .validation-summary-errors ul {
+            margin:0;
+            padding-left:20px;
+        }
+        .field-validation-error {
+            color:var(--error);
+            font-size:13px;
+        }
+        .empty {
+            text-align:center;
+            padding:50px 24px;
+        }
+        .empty h2 {
+            font-size:22px;
+        }
+        .editor {
+            max-width:850px;
+            margin:auto;
+        }
+        .login {
+            max-width:460px;
+            margin:5vh auto;
+        }
+        .login .card {
+            padding:36px;
+        }
+        .search {
+            display:flex;
+            gap:10px;
+            max-width:520px;
+            width:100%;
+            align-items:end;
+        }
+        .search .field {
+            margin:0;
+            flex:1;
+        }
+        .url-tester {
+            display:flex;
+            align-items:center;
+            gap:12px;
+            width:100%;
+            margin:0;
+        }
+        .url-tester label {
+            margin:0;
+            white-space:nowrap;
+        }
+        .url-tester input {
+            flex:1;
+        }
+        .url-tester button {
+            flex-shrink:0;
+        }
+        .footer-note {
+            margin-top:24px;
+            font-size:12px;
+            color:var(--muted);
+        }
+        .status-line {
+            display:flex;
+            align-items:center;
+            gap:10px;
+            font-size:13px;
+            color:var(--muted);
+        }
+        .test-result {
+            border-left:3px solid var(--accent);
+        }
+        @@media(prefers-color-scheme:light) {
+            :root {
+                color-scheme:light;
+                --bg:#f4f6f9;
+                --surface:#fff;
+                --input:#f9fafc;
+                --text:#152234;
+                --muted:#54667b;
+                --line:#d6dee8;
+                --error:#a12631;
+            }
+            .active {
+                color:#23613c;
+                background:#eef9f1;
+                border-color:#b7dcc4;
+            }
+        }
+        @@media(max-width:650px) {
+            .url-tester {
+                flex-wrap:wrap;
+            }
+            .url-tester label {
+                width:100%;
+            }
+            .shell {
+                padding:20px;
+            }
+            .bar {
+                gap:20px;
+            }
+            nav {
+                gap:18px;
+            }
+            main.shell {
+                padding-top:32px;
+            }
+            h1 {
+                font-size:28px;
+            }
+            .card {
+                padding:20px;
+            }
+            .grid {
+                grid-template-columns:1fr;
+            }
+            .heading .button {
+                width:100%;
+            }
+            .login .card {
+                padding:24px;
+            }
+            .search {
+                max-width:none;
+            }
+            th,td {
+                padding:12px 8px;
+            }
+            .login {
+                margin:0 auto;
+            }
+            .actions {
+                gap:12px;
+            }
+            .scroll table {
+                min-width:600px;
+            }
+        }
+    </style>
+</head>
+<body>
+<header><div class="shell bar">
+    <a class="brand" asp-action="Index"><img src="@LogoDataUri" alt="NewHeap" width="160" height="34" /><span>Proxy</span></a>
+    @if (User.Identity?.AuthenticationType == NhProxyOptions.AuthenticationScheme)
+    {
+        <nav aria-label="Administration">
+            <a asp-action="Index">Redirects</a><a asp-action="Rewrites">Rewrites</a><a asp-action="Activity">Login activity</a>
+            <form asp-action="Logout" method="post"><button class="link-button" type="submit">Sign out</button></form>
+        </nav>
+        <form class="url-tester" asp-action="TestUrl" method="post" role="search" aria-label="Test saved proxy rules">
+            <label for="proxy-test-url">Test a URL</label>
+            <input id="proxy-test-url" name="url" type="text" inputmode="url" required maxlength="4096" value="@ViewData["TestUrl"]" placeholder="/foo or https://example.com/foo" />
+            <button type="submit">Test URL</button>
+        </form>
+    }
+</div></header>
+<main class="shell" id="main">@RenderBody()</main>
+</body>
+</html>
