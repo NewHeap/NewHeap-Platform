@@ -11,6 +11,7 @@ on:
           - all
           - nuget-common
           - nuget-caching
+          - nuget-proxy
           - nuget-media
           - npm-platform-common
           - npm-nh-toastr

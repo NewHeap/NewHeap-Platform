@@ -95,6 +95,23 @@
         }
       ]
     },
+    "nuget-proxy": {
+      "displayName": "NewHeap ASP.NET proxy NuGet packages",
+      "kind": "nuget",
+      "version": "0.0.0",
+      "tagPrefix": "nuget-proxy-v",
+      "includeSymbols": true,
+      "projects": [
+        {
+          "packageId": "NewHeap.Platform.AspNet.Proxy",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NewHeap.Platform.AspNet.Proxy.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AspNet.Proxy.Sqlite",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NewHeap.Platform.AspNet.Proxy.Sqlite.csproj"
+        }
+      ]
+    },
     "nuget-media": {
       "displayName": "NewHeap media NuGet packages",
       "kind": "nuget",

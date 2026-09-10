@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.28",
   "guidanceVersion": "1.13.28",
-  "skillContentHash": "bc205df401e6dfb1c397b8e798321ffbd6430463844bd01afb34c1eed61bda03",
+  "skillContentHash": "f47a49388e0395253a57351e9b58786217bfbc85d924eb0a91171a5b2ab4ab14",
   "skills": [
     "newheap-platform-development"
   ],
@@ -42,6 +42,8 @@
     "NewHeap.Platform.AspNet.Common.PostgreSql": "7.0.0",
     "NewHeap.Platform.AspNet.Common.SqlServer": "7.0.0",
     "NewHeap.Platform.AspNet.Common.Test": "7.0.0",
+    "NewHeap.Platform.AspNet.Proxy": "0.0.0",
+    "NewHeap.Platform.AspNet.Proxy.Sqlite": "0.0.0",
     "NewHeap.Platform.Common": "7.0.0",
     "NewHeap.Platform.Common.Test": "7.0.0",
     "NewHeap.Platform.DatabaseRead.Tool": "7.0.0",

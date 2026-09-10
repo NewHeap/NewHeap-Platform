@@ -6,7 +6,7 @@
     <PackageId>NewHeap.Platform.AspNet.Proxy.Sqlite</PackageId>
     <Copyright>NewHeap B.V.</Copyright>
     <Title>NewHeap ASP.NET Proxy SQLite</Title>
-    <PackageDescription>SQLite persistence and startup loading for NewHeap literal redirects, with ASP.NET Core proxy composition.</PackageDescription>
+    <PackageDescription>SQLite persistence, startup loading and administration for NewHeap redirects and managed YARP rewrites, with ASP.NET Core proxy composition.</PackageDescription>
     <PackageTags>newheap platform aspnetcore proxy sqlite</PackageTags>
     <IsPackable>true</IsPackable>
   </PropertyGroup>

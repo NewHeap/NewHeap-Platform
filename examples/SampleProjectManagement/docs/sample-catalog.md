@@ -46,6 +46,9 @@ dashboard link to the panel, an assigned port and an independent SQLite file.
 from environment variables, the recommended production setup. `Password` is hashed
 at startup; a precomputed `PasswordHash` remains an alternative.
 SPM-239 is exercised by `ProxyRewriteSamplesTests` and the embedded Rewrites panel.
+Both proxy packages are published together in the independent `nuget-proxy`
+unit; the sample uses local project references and releases retain the public
+Common dependency version.
 SPM-238 and SPM-239 support hosting at the origin root only. Subdirectory hosting
 with a non-empty `PathBase` is unsupported and deferred until a concrete use case
 requires it. Existing isolated PathBase tests do not establish full proxy support.

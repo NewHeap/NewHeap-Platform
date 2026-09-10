@@ -46,6 +46,10 @@ The two-call proxy loads exact and opt-in regex redirects before requests and pr
 
 ## Preferred approach
 
+Install NewHeap.Platform.AspNet.Proxy.Sqlite, which also brings in the
+neutral NewHeap.Platform.AspNet.Proxy package. Both packages belong to the
+independent nuget-proxy release unit. Release packaging consumes the published
+Common dependency; local development uses its project reference.
 Use the two-call AddNewHeapProxy / UseNewHeapProxy WebApplication flow. Add registers
 MVC, dedicated cookie authentication, configuration/audit storage, validation,
 runtime, administration and a hosted lifecycle initializer. StartingAsync loads

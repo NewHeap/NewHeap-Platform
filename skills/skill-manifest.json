@@ -24,6 +24,8 @@
     "NewHeap.Platform.AspNet.Common.PostgreSql": "7.0.0",
     "NewHeap.Platform.AspNet.Common.SqlServer": "7.0.0",
     "NewHeap.Platform.AspNet.Common.Test": "7.0.0",
+    "NewHeap.Platform.AspNet.Proxy": "0.0.0",
+    "NewHeap.Platform.AspNet.Proxy.Sqlite": "0.0.0",
     "NewHeap.Platform.Common": "7.0.0",
     "NewHeap.Platform.Common.Test": "7.0.0",
     "NewHeap.Platform.DatabaseRead.Tool": "7.0.0",

@@ -17,7 +17,12 @@
     <InternalsVisibleTo Include="NewHeap.Platform.AspNet.Proxy.Sqlite" />
     <InternalsVisibleTo Include="NewHeap.Platform.AspNet.Proxy.Tests" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
     <PackageReference Include="Yarp.ReverseProxy" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseLocalNewHeapProjects)' == 'true'">
+    <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseLocalNewHeapProjects)' != 'true'">
+    <PackageReference Include="NewHeap.Platform.Common" />
   </ItemGroup>
 </Project>

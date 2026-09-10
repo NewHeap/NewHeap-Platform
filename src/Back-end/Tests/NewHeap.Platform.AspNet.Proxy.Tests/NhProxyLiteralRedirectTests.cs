@@ -125,10 +125,17 @@ public sealed class NhProxyLiteralRedirectTests
         Assert.Equal(new[] { "a&b", "c" }, QueryHelpers.ParseQuery(location.Query)["tag"].ToArray());
     }
 
+    [Fact]
+    public Task Targets_with_user_name_and_password_fail_validation()
+    {
+        var target = new UriBuilder("https://example.com/") { UserName = "test", Password = "test" };
+        return Unsafe_or_self_targets_fail_validation_without_losing_active_snapshot(target.Uri.AbsoluteUri);
+    }
+
     [Theory]
     [InlineData("//evil.example/path")]
     [InlineData("/\\evil.example/path")]
-    [InlineData("https://user:password@example.com/")]
+    [InlineData("https://user@example.com/")]
     [InlineData("javascript:alert(1)")]
     [InlineData("/new\r\nX-Injected: value")]
     [InlineData("relative/path")]

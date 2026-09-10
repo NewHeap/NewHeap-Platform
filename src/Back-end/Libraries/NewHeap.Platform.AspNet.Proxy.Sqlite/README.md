@@ -6,6 +6,10 @@ SQL/schema code belong to this project. No EF Core or consumer DAL migrations ar
 
 ## Storage configuration
 
+Install `NewHeap.Platform.AspNet.Proxy.Sqlite` from nuget.org. It brings in
+`NewHeap.Platform.AspNet.Proxy`; both packages share the independent `nuget-proxy`
+release version. The Common dependency keeps its own published version.
+
 `AddNewHeapProxy()` uses `App_Data/newheap-proxy.db` relative to the host content
 root and a five-second busy timeout. Overloads accept `NhProxyOptions` and
 `NhProxySqliteOptions` callbacks, or a configuration section with SQLite options

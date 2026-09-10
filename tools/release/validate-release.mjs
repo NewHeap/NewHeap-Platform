@@ -141,7 +141,7 @@ for (const [id, unit] of Object.entries(manifest.units)) {
 }
 
 const media = manifest.units['nuget-media'];
-if (!manifest.units['nuget-common'].includeSymbols || !manifest.units['nuget-caching'].includeSymbols || !media.includeSymbols) {
+if (Object.values(manifest.units).some(unit => unit.kind === 'nuget' && !unit.includeSymbols)) {
   failures.push('Every public NuGet release unit must publish Portable PDB symbol packages.');
 }
 if (!packageReleaseTool.includes('validatePackageArtifacts')) {
