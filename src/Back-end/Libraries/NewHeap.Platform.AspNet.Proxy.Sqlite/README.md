@@ -1,19 +1,20 @@
 # NewHeap ASP.NET Proxy SQLite
 
-`AddNewHeapProxy` registers stored rewrites and exact/regex redirects, validation,
-runtime, isolated testing and startup loading. The `Microsoft.Data.Sqlite` provider and all
-SQL/schema code belong to this project. No EF Core or consumer DAL migrations are used.
+Store proxy redirects, rewrites and login activity in a local SQLite database.
+`AddNewHeapProxy` sets up storage and loads saved rules at startup.
 
 ## Storage configuration
 
+See [Configuration](../NewHeap.Platform.AspNet.Proxy/README.md#configuration) for
+all proxy and SQLite options, their defaults and explanations.
+
 Install `NewHeap.Platform.AspNet.Proxy.Sqlite` from nuget.org. It brings in
-`NewHeap.Platform.AspNet.Proxy`; both packages share the independent `nuget-proxy`
-release version. The Common dependency keeps its own published version.
+`NewHeap.Platform.AspNet.Proxy` automatically.
 
 `AddNewHeapProxy()` uses `App_Data/newheap-proxy.db` relative to the host content
 root and a five-second busy timeout. Overloads accept `NhProxyOptions` and
 `NhProxySqliteOptions` callbacks, or a configuration section with SQLite options
-in its `Sqlite` child. Options are startup snapshots and are not rebound on reload.
+in its `Sqlite` child. Restart the host after changing these settings.
 The timeout is rounded up to whole seconds for the SQLite provider.
 
 Startup creates missing parent directories and a missing database, acquires
@@ -24,30 +25,19 @@ network deployments are unsupported. A second NewHeap owner of the same file fai
 The lock file may remain after shutdown; ownership is its open file handle, not
 its existence. Never delete it to bypass ownership while a host is running.
 
-Schema version 3 uses `PRAGMA user_version` and `NhProxyConfiguration`, with
-`Engine`, `Revision`, `FormatVersion`, and `Document` columns. The initial Redirect
-and Rewrite rows are revision zero, format 1, with empty rule collections and
-an empty rewrite cluster collection. Documents use
-System.Text.Json web defaults (camel-case properties, numeric enum values).
-Schema creation is transactional. Unknown schemas, missing/inconsistent records,
-unknown JSON properties, unsupported match modes, or invalid rules fail rather
-than resetting data. Version-1 databases upgrade transactionally while preserving
-redirects. Version 2 adds NhProxyLoginAudit with UTC ticks, IP addresses, outcome,
-correlation ID and successful account name, plus a time/ID index. Version 3 adds the
-independent Rewrite row without changing redirect documents or login activity.
-Unknown versions are rejected. Older schema-2 runtimes cannot reopen an upgraded
-file; take a backup before upgrading when rollback may be needed.
+The database is created and upgraded automatically while preserving existing
+rules and login activity. Invalid or incompatible data prevents startup instead
+of resetting the database. Back up before upgrading: older proxy versions may
+not be able to reopen an upgraded database.
 
-SQLite WAL is enabled. One conditional, parameterized UPDATE commits a whole
-engine document only when its expected revision matches. Reads/writes share a
-bounded configuration gate; request processing never enters it. Back up after a
-clean shutdown or with SQLite's backup API. Do not copy only the main database
-while WAL writes are active. External live database edits and multiple writers
-are unsupported; there is no file watcher or automatic refresh.
+Back up after a clean shutdown or with SQLite's backup API. Do not copy only the
+main database while the proxy is running; recent changes may be in SQLite's
+write-ahead log. Use the administration panel or configuration service to edit
+live rules. Direct database edits and multiple writers are unsupported.
 
 ## Seed a redirect before starting the host
 
-Prefer the MVC panel or INhProxyConfigurationService for live changes. The
+Prefer the administration panel or `INhProxyConfigurationService` for live changes. The
 following lower-level storage alternative supports offline setup. Choose an absolute path outside the webroot and use the same path for the
 host. Read the current revision before replacing its complete rule collection:
 
@@ -85,14 +75,7 @@ app.Run();
 ```
 
 Dispose the offline store before starting the host so it can acquire ownership.
-The store validates both engines but does not activate them. The registered
-INhProxyConfigurationService implements commit-then-publish orchestration for live
-changes; the panel uses that service. NhProxySqliteLoginAuditStore implements
-idempotent append, parameterized filtered paging and bounded retention deletion.
-Audit writes must succeed before a login cookie is issued. Rewrite writes own their
-cluster list and revision; they never rewrite the redirect document.
+The store saves rules but does not activate them. Use
+`INhProxyConfigurationService` to save and activate changes in a running proxy.
 See the [proxy README](../NewHeap.Platform.AspNet.Proxy/README.md) for exact and regex matching
-and query semantics. Real SQLite coverage lives in
-`NewHeap.Platform.AspNet.Proxy.Sqlite.Tests` and sample cases SPM-238/SPM-239. SQL Server
-and PostgreSQL are explicit v1 capability gaps. All schema work is owned here;
-no NewHeap release versions or consumer migrations change.
+and query behavior.
