@@ -11,6 +11,36 @@ namespace NewHeap.Platform.AspNet.Proxy.Tests;
 public sealed class NhProxyContractTests
 {
     [Fact]
+    public void Rewrite_editor_shows_complete_configuration_and_replaces_the_first_path_transform_once()
+    {
+        var cluster = new NhProxyCluster { Id = Guid.NewGuid(), Name = "Backend", Destination = new("backend", new("https://backend.example/")) };
+        var rule = new NhProxyRewriteRule
+        {
+            Id = Guid.NewGuid(), Name = "Projects", ClusterId = cluster.Id, Match = new() { Path = "/api/{**rest}" },
+            Transforms = [new NhProxyPathTransform(NhProxyPathTransformKind.RemovePrefix, "/api"),
+                new NhProxyPathTransform(NhProxyPathTransformKind.AddPrefix, "/v2"),
+                new NhProxyQueryTransform("source", NhProxyValueOperation.Set, "proxy")]
+        };
+        var editor = NhProxyRewriteEditorModel.FromRule(rule, cluster, 1, 0);
+        var displayed = JsonSerializer.Deserialize<NhProxyRewriteRule>(editor.AdvancedRuleJson, NhProxyRewriteEditorModel.JsonOptions)!;
+        Assert.Equal(rule.Transforms.ToArray(), displayed.Transforms.ToArray());
+        Assert.Equal(rule.Transforms.ToArray(), editor.ToRule().Transforms.ToArray());
+        Assert.Equal(cluster, editor.ToCluster());
+
+        editor.PathValue = "/changed";
+        var edited = editor.ToRule();
+        Assert.Equal(3, edited.Transforms.Length);
+        Assert.Equal(new NhProxyPathTransform(NhProxyPathTransformKind.RemovePrefix, "/changed"), edited.Transforms[0]);
+        Assert.Equal(rule.Transforms.Skip(1), edited.Transforms.Skip(1));
+
+        editor.PathOperation = null;
+        Assert.Equal(rule.Transforms.Skip(1), editor.ToRule().Transforms);
+        editor.AdvancedRuleJson = "{";
+        Assert.Throws<JsonException>(() => editor.ToRule());
+        Assert.Equal("{", editor.AdvancedRuleJson);
+    }
+
+    [Fact]
     public void Yarp_callback_accepts_the_native_builder_and_is_excluded_from_json()
     {
         var options = new NhProxyOptions();

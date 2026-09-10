@@ -49,6 +49,9 @@ The administration top bar tests a GET URL against saved redirects and rewrites,
 showing the winning rule, target and edit link through `TestSavedAsync`.
 `ProxyAdministrationSamplesTests` demonstrates `/old-projects?source=quick-test`
 using the proxy's current scheme, host and port, including host-restricted matching.
+It also verifies complete saved rewrite JSON, including the first path transform,
+and the CSP nonce for the editor script. The developer-facing JSON and form fields
+synchronize in both directions; invalid JSON is retained for correction.
 Native YARP APIs/configuration cover rewrites from appsettings and other sources.
 These sources and host customizations intentionally remain outside preview.
 Regex with capture groups covers prefix and route-template redirects. Local

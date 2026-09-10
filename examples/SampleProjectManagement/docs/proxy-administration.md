@@ -178,7 +178,20 @@ list offers an activation retry. Deletion retains destinations for reuse. To sha
 a destination, select it and choose **Load destination** before editing; changes
 affect every rule referencing that destination. Expand the advanced sections for
 header/query matches, additional ordered transforms, host policy names, timeouts
-and health checks. The form explains which basic fields take precedence over JSON.
+and health checks. The JSON shows the complete current draft, including the first
+path transform. Form fields and valid JSON edits synchronize immediately in both
+directions. Invalid JSON stays visible for correction. The path control edits the
+first transform when it is a path transform, without duplicating it on save.
+IDs are editor-owned; without JavaScript, form fields take precedence on submission.
+To verify synchronization, edit the path operation and backend URL, then inspect
+both JSON fields. Change the name and a transform in JSON and check the form.
+Temporarily enter invalid JSON and verify it stays intact when another field changes.
+Restore valid JSON, save and reopen the rule; the transform order and count must
+remain unchanged. Testing the draft must produce the same target URL.
+JSON is the intended developer interface for these settings. Documentation links
+beside the fields open YARP matching/policy, transform, health-check and timeout
+references in a new tab, preserving the draft. Retain the displayed NewHeap JSON
+structure; native YARP examples use different property names and nesting.
 
 The test tool evaluates stored managed rules only. Appsettings/other configuration
 sources, host callbacks/customizations, connectivity, policy enforcement and actual

@@ -49,6 +49,10 @@ public sealed class NhProxyRewriteEditorModel
             throw new JsonException("Match and transforms are required.");
         }
         var transforms = advanced.Transforms;
+        if (transforms.FirstOrDefault() is NhProxyPathTransform)
+        {
+            transforms = transforms.RemoveAt(0);
+        }
         if (PathOperation is { } operation)
         {
             transforms = transforms.Insert(0, new NhProxyPathTransform(operation, PathValue ?? ""));
@@ -85,7 +89,7 @@ public sealed class NhProxyRewriteEditorModel
             Path = rule.Match.Path, Hosts = string.Join(", ", rule.Match.Hosts), Methods = string.Join(", ", rule.Match.Methods),
             Priority = rule.Priority, Enabled = rule.Enabled, ClusterId = cluster.Id, SelectedClusterId = cluster.Id, ClusterName = cluster.Name,
             DestinationAddress = cluster.Destination.Address.AbsoluteUri, PathOperation = first?.Operation, PathValue = first?.Value,
-            AdvancedRuleJson = JsonSerializer.Serialize(first is null ? rule : rule with { Transforms = rule.Transforms.RemoveAt(0) }, JsonOptions),
+            AdvancedRuleJson = JsonSerializer.Serialize(rule, JsonOptions),
             AdvancedClusterJson = JsonSerializer.Serialize(cluster, JsonOptions)
         };
     }

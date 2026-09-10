@@ -70,6 +70,35 @@ public sealed class ProxyAdministrationSamplesTests
                     ["__RequestVerificationToken"] = WebUtility.HtmlDecode(loginToken.Groups[1].Value)
                 }), cancellationToken);
                 Assert.Equal(HttpStatusCode.Found, signedIn.StatusCode);
+                var rewriteEditor = await client.GetStringAsync("/newheap-proxy/RewriteEdit", cancellationToken);
+                foreach (var reference in new[] { "config-files", "transforms", "dests-health-checks", "timeouts" })
+                {
+                    Assert.Contains($"href=\"https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/yarp/{reference}?view=aspnetcore-10.0\" target=\"_blank\" rel=\"noopener noreferrer\"", rewriteEditor);
+                }
+                Assert.Contains("Use the NewHeap JSON structure shown here", rewriteEditor);
+
+                // SPM-239: editing a saved rule exposes its complete configuration, including the first path transform.
+                var cluster = new NhProxyCluster { Id = Guid.NewGuid(), Name = "Projects backend", Destination = new("backend", new("https://backend.example/")) };
+                var rewrite = new NhProxyRewriteRule
+                {
+                    Id = Guid.NewGuid(), Name = "Projects", ClusterId = cluster.Id, Match = new() { Path = "/api/{**rest}" },
+                    Transforms = [new NhProxyPathTransform(NhProxyPathTransformKind.RemovePrefix, "/api")]
+                };
+                Assert.True((await configuration.SaveRewritesAsync(new(0, [rewrite], [cluster]), cancellationToken)).Success);
+                using var editorResponse = await client.GetAsync("/newheap-proxy/RewriteEdit/" + rewrite.Id, cancellationToken);
+                var editorHtml = await editorResponse.Content.ReadAsStringAsync(cancellationToken);
+                var jsonField = System.Text.RegularExpressions.Regex.Match(editorHtml, "<textarea[^>]*id=\"AdvancedRuleJson\"[^>]*>(.*?)</textarea>", System.Text.RegularExpressions.RegexOptions.Singleline);
+                Assert.True(jsonField.Success);
+                using var displayedRule = System.Text.Json.JsonDocument.Parse(WebUtility.HtmlDecode(jsonField.Groups[1].Value));
+                Assert.Equal("RemovePrefix", displayedRule.RootElement.GetProperty("transforms")[0].GetProperty("operation").GetString());
+                Assert.Equal("/api", displayedRule.RootElement.GetProperty("transforms")[0].GetProperty("value").GetString());
+                var policy = Assert.Single(editorResponse.Headers.GetValues("Content-Security-Policy"));
+                var nonce = System.Text.RegularExpressions.Regex.Match(policy, "script-src 'nonce-([^']+)'");
+                Assert.True(nonce.Success);
+                var script = System.Text.RegularExpressions.Regex.Match(editorHtml, "<script nonce=\"([^\"]+)\">");
+                Assert.True(script.Success);
+                Assert.Equal(nonce.Groups[1].Value, WebUtility.HtmlDecode(script.Groups[1].Value));
+
                 var panelHtml = await client.GetStringAsync("/newheap-proxy", cancellationToken);
                 var panelToken = System.Text.RegularExpressions.Regex.Match(panelHtml, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
                 Assert.True(panelToken.Success);

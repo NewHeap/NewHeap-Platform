@@ -202,8 +202,12 @@ HTTP(S) backend URL, and optionally choose a path transform. Destinations may be
 shared; explicitly load an existing destination before editing it. Changes to a
 shared destination affect every referencing rule. The advanced JSON sections
 preserve ordered transforms, header/query conditions, policies, timeouts and
-health checks. Visible form fields take precedence over their corresponding
-advanced JSON properties; unknown properties are rejected.
+health checks. JSON shows the complete current draft, including the first path
+transform, and stays synchronized with the form fields in both directions.
+Invalid JSON is retained for correction. IDs remain editor-owned; without
+JavaScript, visible form fields take precedence when submitting. The path control
+replaces the first transform when it is a path transform; it is not prepended a
+second time. Unknown properties are rejected.
 
 The backend URL's base path is prepended after the rule's path transforms.
 For `/api/{**rest}`, destination `https://backend.example/base/`, and a remove-prefix

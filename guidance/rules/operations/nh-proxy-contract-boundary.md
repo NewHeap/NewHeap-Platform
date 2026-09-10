@@ -142,9 +142,16 @@ load before the server listens, and proxy requests never open SQLite.
 
 The Rewrites panel supports basic matching, shared destinations, ordered path
 transforms and advanced JSON for header/query conditions, additional transforms,
-policies, timeouts and health checks. Load a shared destination explicitly before
-editing it; changes affect every referencing rule. Visible form fields override
-their matching advanced JSON properties. Unknown fields, protected/secret header
+policies, timeouts and health checks. JSON is the agreed developer interface for
+these settings; dedicated form controls are not required. Contextual links open
+YARP matching/policy, transform, health-check and timeout documentation in a new
+tab without leaving the draft. Keep the displayed NewHeap JSON structure: native
+YARP examples use different property names and nesting. Load a shared destination explicitly before
+editing it; changes affect every referencing rule. JSON shows the complete current
+draft, including the first path transform. Form fields and valid JSON edits synchronize
+in both directions; invalid JSON is preserved for correction. IDs remain editor-owned.
+The path control replaces the first path transform without duplicating it. Without
+JavaScript, visible form fields take precedence on submission. Unknown fields, protected/secret header
 changes, unsafe destinations and exact duplicate enabled matches are rejected.
 AllowedDestinationHosts restricts destination hosts when configured. Keep exactly
 one HTTP(S) destination per cluster. Avoid forwarding back into the same rule;

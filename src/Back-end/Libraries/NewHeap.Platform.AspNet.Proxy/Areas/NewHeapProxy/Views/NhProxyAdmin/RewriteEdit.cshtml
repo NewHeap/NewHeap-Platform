@@ -35,10 +35,13 @@
         <div class="field"><label asp-for="PathValue">Path value</label><input asp-for="PathValue" placeholder="/projects/{**rest}" /></div>
     </div></div>
     <div class="card"><details><summary>Advanced matching, transforms and policies</summary>
-        <p class="help">Edit headers and queryParameters under match, additional ordered transforms, authorizationPolicy, corsPolicy, rateLimiterPolicy and requestTimeout. The fields above override id, name, enabled, priority, clusterId, path, hosts and methods. The path operation above runs before this transform list. Enum names and numeric values are accepted; unknown fields are rejected.</p>
+        <p class="help">The JSON shows the complete current draft. Changes to the fields above and valid JSON edits stay in sync. Edit headers and queryParameters under match, ordered transforms, authorizationPolicy, corsPolicy, rateLimiterPolicy and requestTimeout. The path operation above edits the first transform when it is a path transform. IDs are managed by the editor. Enum names and numeric values are accepted; unknown fields are rejected.</p>
+        <p id="json-feedback" class="help" role="status" aria-live="polite"></p>
         <div class="field"><label asp-for="AdvancedRuleJson">Advanced rule (JSON)</label><textarea asp-for="AdvancedRuleJson" rows="14" spellcheck="false"></textarea></div>
+        <p class="help">Reference (opens in a new tab): <a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/yarp/config-files?view=aspnetcore-10.0" target="_blank" rel="noopener noreferrer">YARP matching and policies</a>, <a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/yarp/transforms?view=aspnetcore-10.0" target="_blank" rel="noopener noreferrer">request and response transforms</a>. Use the NewHeap JSON structure shown here; native YARP examples use different property names and nesting.</p>
         <p class="help">For example, add {"kind":"query","name":"source","operation":"Set","value":"proxy"} to transforms. Header and query matching use name, mode, values and isCaseSensitive.</p>
         <div class="field"><label asp-for="AdvancedClusterJson">Advanced destination (JSON)</label><textarea asp-for="AdvancedClusterJson" rows="10" spellcheck="false"></textarea><p class="help">Configure activityTimeout, activeHealthCheck and passiveHealthCheck here. Durations use hh:mm:ss. The destination name and URL fields above take precedence.</p></div>
+        <p class="help">Reference (opens in a new tab): <a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/yarp/dests-health-checks?view=aspnetcore-10.0" target="_blank" rel="noopener noreferrer">destination health checks</a>, <a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/yarp/timeouts?view=aspnetcore-10.0" target="_blank" rel="noopener noreferrer">request and activity timeouts</a>.</p>
     </details></div>
     <div class="card"><h2>Test this draft</h2><p class="muted">Test against all saved managed rules, including redirects that take precedence. No changes are saved and no backend request or health probe is sent.</p>
         <div class="grid"><div class="field"><label asp-for="TestUrl">Request URL</label><input asp-for="TestUrl" placeholder="https://public.example/api/projects?source=test" /></div><div class="field"><label asp-for="TestMethod">Request method</label><input asp-for="TestMethod" /></div></div>
@@ -88,3 +91,113 @@
     </div>
     <div class="actions"><a asp-action="Rewrites">Cancel</a><button class="primary" type="submit" name="operation" value="save">Save and activate</button></div>
 </form></div>
+<script nonce="@Context.Items["NewHeapProxy.ScriptNonce"]">
+(() => {
+    const field = name => document.getElementById(name);
+    const ruleJson = field('AdvancedRuleJson');
+    const clusterJson = field('AdvancedClusterJson');
+    const pathOperations = ['AddPrefix', 'RemovePrefix', 'Set', 'Pattern'];
+    const split = value => value.split(',').map(item => item.trim()).filter(Boolean);
+    const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+    const stringList = value => Array.isArray(value) && value.every(item => typeof item === 'string');
+
+    function pathFields(rule) {
+        const path = rule.transforms[0]?.kind === 'path' ? rule.transforms[0] : null;
+        const operation = path === null ? '' : typeof path.operation === 'number'
+            ? pathOperations[path.operation] : pathOperations.find(item => item.toLowerCase() === String(path.operation).toLowerCase());
+        if (path !== null && (!operation || typeof path.value !== 'string')) {
+            throw new Error();
+        }
+        return { operation, value: path?.value ?? '' };
+    }
+
+    function update(textarea, action) {
+        try {
+            const value = JSON.parse(textarea.value);
+            if (!isObject(value)) {
+                throw new Error();
+            }
+            action(value);
+            textarea.setCustomValidity('');
+            textarea.removeAttribute('aria-invalid');
+        } catch {
+            textarea.setCustomValidity('Enter a valid configuration object. Your JSON has been kept.');
+            textarea.setAttribute('aria-invalid', 'true');
+        }
+        field('json-feedback').textContent = ruleJson.validationMessage || clusterJson.validationMessage
+            ? 'JSON synchronization is paused for invalid configuration. Correct the JSON to continue; your text has been kept.' : '';
+    }
+
+    function ruleToJson() {
+        update(ruleJson, rule => {
+            if (!isObject(rule.match) || !Array.isArray(rule.transforms)) {
+                throw new Error();
+            }
+            Object.assign(rule, {
+                id: field('Id').value, name: field('Name').value, enabled: field('Enabled').checked,
+                priority: Number(field('Priority').value), clusterId: field('ClusterId').value
+            });
+            Object.assign(rule.match, { path: field('Path').value || null, hosts: split(field('Hosts').value), methods: split(field('Methods').value) });
+            if (rule.transforms[0]?.kind === 'path') {
+                rule.transforms.shift();
+            }
+            if (field('PathOperation').value) {
+                rule.transforms.unshift({ kind: 'path', operation: field('PathOperation').value, value: field('PathValue').value });
+            }
+            const path = pathFields(rule);
+            field('PathOperation').value = path.operation;
+            field('PathValue').value = path.value;
+            ruleJson.value = JSON.stringify(rule, null, 2);
+        });
+    }
+
+    function clusterToJson() {
+        update(clusterJson, cluster => {
+            if (!isObject(cluster.destination)) {
+                throw new Error();
+            }
+            Object.assign(cluster, { id: field('ClusterId').value, name: field('ClusterName').value });
+            cluster.destination.address = field('DestinationAddress').value;
+            clusterJson.value = JSON.stringify(cluster, null, 2);
+        });
+    }
+
+    ruleJson.addEventListener('input', () => update(ruleJson, rule => {
+        if (typeof rule.name !== 'string' || typeof rule.enabled !== 'boolean' || !Number.isInteger(rule.priority)
+            || !isObject(rule.match) || (rule.match.path != null && typeof rule.match.path !== 'string')
+            || !stringList(rule.match.hosts) || !stringList(rule.match.methods) || !Array.isArray(rule.transforms)) {
+            throw new Error();
+        }
+        const path = pathFields(rule);
+        field('Name').value = rule.name;
+        field('Enabled').checked = rule.enabled;
+        field('Priority').value = rule.priority;
+        field('Path').value = rule.match.path ?? '';
+        field('Hosts').value = rule.match.hosts.join(', ');
+        field('Methods').value = rule.match.methods.join(', ');
+        field('PathOperation').value = path.operation;
+        field('PathValue').value = path.value;
+    }));
+
+    clusterJson.addEventListener('input', () => update(clusterJson, cluster => {
+        if (typeof cluster.name !== 'string' || !isObject(cluster.destination) || typeof cluster.destination.address !== 'string') {
+            throw new Error();
+        }
+        field('ClusterName').value = cluster.name;
+        field('DestinationAddress').value = cluster.destination.address;
+    }));
+
+    for (const name of ['Name', 'Enabled', 'Priority', 'Path', 'Hosts', 'Methods', 'PathOperation', 'PathValue']) {
+        field(name).addEventListener('input', ruleToJson);
+    }
+    for (const name of ['ClusterName', 'DestinationAddress']) {
+        field(name).addEventListener('input', clusterToJson);
+    }
+    ruleJson.form.addEventListener('submit', () => {
+        ruleToJson();
+        clusterToJson();
+    });
+    ruleToJson();
+    clusterToJson();
+})();
+</script>

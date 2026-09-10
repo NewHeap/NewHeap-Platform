@@ -70,7 +70,8 @@ consumer evidence and real HTTP/SQLite regression coverage. See
 [administration setup](../../examples/SampleProjectManagement/docs/proxy-administration.md).
 SPM-239 adds native routing/transform parity, real backend forwarding, rewrite
 CRUD, shared destinations and isolated previews. Advanced matching/transforms and
-policy/health settings are currently edited as typed configuration JSON. The
+policy/health settings use typed configuration JSON as the agreed developer interface,
+with contextual links to YARP documentation; dedicated form controls are not planned. The
 remaining sections describe the broader target design; exhaustive condition-by-condition
 diagnostics remain deferred. A configurable MaximumChainDepth (default 2) refuses
 overlong local chains before execution and in the tester. Regex with capture
