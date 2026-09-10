@@ -46,8 +46,14 @@ dashboard link to the panel, an assigned port and an independent SQLite file.
 from environment variables, the recommended production setup. `Password` is hashed
 at startup; a precomputed `PasswordHash` remains an alternative.
 SPM-239 is exercised by `ProxyRewriteSamplesTests` and the embedded Rewrites panel.
+SPM-238 and SPM-239 support hosting at the origin root only. Subdirectory hosting
+with a non-empty `PathBase` is unsupported and deferred until a concrete use case
+requires it. Existing isolated PathBase tests do not establish full proxy support.
 It demonstrates isolated managed-rule previews, SQLite rewrite persistence, native
 YARP route/transform parity, independent confirmed activation and real forwarding.
+Content headers appear in previews and the backend receives the intact body.
+Local chain matching carries transformed general and content headers, including
+multiple values and header replacements/removals.
 The administration top bar tests a GET URL against saved redirects and rewrites,
 showing the winning rule, target and edit link through `TestSavedAsync`.
 `ProxyAdministrationSamplesTests` demonstrates `/old-projects?source=quick-test`

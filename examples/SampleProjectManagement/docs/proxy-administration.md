@@ -5,6 +5,16 @@ MVC panel with the same two calls used by a consuming application. It uses a rea
 SQLite file and serves `/projects` as a neutral redirect destination. It does not
 require the SampleProjectManagement database or AppHost.
 
+## Supported hosting
+
+Host the proxy at the origin root, for example `https://proxy.example/`, with
+administration at `/newheap-proxy`. Hosting the proxy under a subdirectory such
+as `https://example.com/proxy/` with a non-empty `PathBase` is not supported.
+The URL/draft tester does not model that mount prefix and can report no match
+for requests that match at runtime. Do not configure `UsePathBase` for this
+deployment. Subdirectory hosting is deferred until a concrete use case requires
+it; no implementation is planned as part of the current production scope.
+
 ## Run the demo
 
 From `examples/SampleProjectManagement/src/Back-end`:
@@ -142,7 +152,7 @@ client-supplied forwarding headers on its own. The raw connection peer address
 is not retained when host middleware has already changed it.
 
 Sessions expire after eight hours by default, use a cookie scoped to the panel
-(including a host PathBase), and require a new login after credentials or
+and require a new login after credentials or
 `CredentialVersion` change. Credential options are startup snapshots: rotate them
 in the host's secret provider and restart the application. Persist ASP.NET Data
 Protection keys when sessions should survive ordinary process restarts. Production
@@ -227,13 +237,19 @@ as unevaluated. Set `NewHeapProxy:Limits:MaximumChainDepth` to a positive intege
 (default `2`). Each matched redirect or rewrite counts as a step; a third step
 at the default limit is refused before execution with HTTP 508, no Location and
 no outbound request. The URL/draft tester reports the same refusal. The check
+uses the transformed general and content headers for subsequent matching,
+including multiple values and header replacements/removals. Preview results
+include safe content headers such as `Content-Type` and `Content-Language`.
+Native YARP preserves these headers without reading the real request body;
+secret and framing headers remain excluded from simulation. The check
 follows only the current scheme/host/port and stops outside the host PathBase or
 at the reserved administration path. External origins and backend responses are
 not followed; this does not prove that external redirect chains are loop-free.
 
 SPM-239 is executable in `ProxyRewriteSamplesTests`: a local backend proves that
 the public tester and real forwarding agree, while the preview makes no backend
-calls and leaves revisions untouched. It also demonstrates a two-redirect chain
+calls and leaves revisions untouched. It verifies content-header preview and
+intact body forwarding, and also demonstrates a two-redirect chain
 ending in a rewrite being refused at the default depth of two. From the sample backend directory run:
 
 ```text

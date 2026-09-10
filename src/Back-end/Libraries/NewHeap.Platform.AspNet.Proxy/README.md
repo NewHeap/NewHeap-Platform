@@ -10,6 +10,13 @@ NewHeap source integration is planned. Managed editing and testing cover stored 
 
 ## Host integration
 
+Host the proxy at the origin root, for example `https://proxy.example/`, with an
+empty `PathBase` and administration at `/newheap-proxy`. Hosting under a
+subdirectory such as `https://example.com/proxy/` is not supported. Do not use
+`UsePathBase` to mount this proxy: the URL/draft tester does not model the mount
+prefix and can disagree with runtime matching. Subdirectory support is deferred
+until a concrete use case requires it, outside the current production scope.
+
 ```csharp
 using NewHeap.Platform.AspNet.Proxy;
 using NewHeap.Platform.AspNet.Proxy.Sqlite;
@@ -102,8 +109,8 @@ for password-hash generation, host configuration and verification.
 ## Literal redirects
 
 - `PathMode = Exact` remains the default. Compare against `HttpRequest.Path` using
-  ordinal, case-sensitive equality. Trailing slashes matter. With `UsePathBase`,
-  matching uses the remaining path. The query is not part of path matching.
+  ordinal, case-sensitive equality. Trailing slashes matter.
+  The query is not part of path matching.
 - With the checkbox off, regex characters and target substitutions remain literal.
   The separate Prefix and RouteTemplate modes are rejected; use Regex with capture
   groups for those patterns. Additional match modes are not planned.

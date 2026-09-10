@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -23,10 +24,12 @@ public sealed class ProxyRewriteSamplesTests
             var backendBuilder = WebApplication.CreateBuilder();
             backendBuilder.WebHost.UseUrls("http://127.0.0.1:0");
             await using var backend = backendBuilder.Build();
-            backend.MapGet("/projects/{id:int}", (int id, HttpContext context) =>
+            backend.MapGet("/projects/{id:int}", async (int id, HttpContext context) =>
             {
                 Interlocked.Increment(ref backendRequests);
-                return $"Project {id}, source {context.Request.Query["source"]}";
+                using var reader = new StreamReader(context.Request.Body);
+                var body = await reader.ReadToEndAsync(cancellationToken);
+                return $"Project {id}, source {context.Request.Query["source"]}, content {context.Request.ContentType}: {body}";
             }).AllowAnonymous();
             await backend.StartAsync(cancellationToken);
 
@@ -58,8 +61,13 @@ public sealed class ProxyRewriteSamplesTests
             };
 
             // Candidate clusters replace the saved cluster list only inside this isolated test.
-            var tested = await tester.TestRewriteAsync(new(new(rewrites.Revision, redirects.Revision), rule,
-                new() { Url = new("https://public.example/api/projects/42?source=incoming") })
+            var input = new NhProxyTestRequest
+            {
+                Url = new("https://public.example/api/projects/42?source=incoming"),
+                Headers = ImmutableDictionary<string, ImmutableArray<string>>.Empty
+                    .Add("Content-Type", ["application/json"])
+            };
+            var tested = await tester.TestRewriteAsync(new(new(rewrites.Revision, redirects.Revision), rule, input)
             {
                 DraftClusters = rewrites.Clusters.Add(cluster)
             }, cancellationToken);
@@ -67,6 +75,7 @@ public sealed class ProxyRewriteSamplesTests
             Assert.Equal(NhProxyTestOutcome.Rewrite, tested.Data!.Outcome);
             Assert.Equal("42", tested.Data.RouteValues["id"]);
             Assert.Equal("/projects/42?source=managed-proxy", tested.Data.Rewrite!.TargetUrl.PathAndQuery);
+            Assert.Equal("application/json", Assert.Single(tested.Data.Rewrite.SafeRequestHeaders["Content-Type"]));
             Assert.Equal(0, backendRequests);
             Assert.Equal(rewrites.Revision, (await configuration.GetRewritesAsync(cancellationToken)).Revision);
 
@@ -77,8 +86,7 @@ public sealed class ProxyRewriteSamplesTests
             Assert.Equal(redirects.Revision, configuration.GetStatus().Redirect.ActiveRevision);
             // The top-bar URL tester uses the same API to test saved rules without a draft.
             var revisions = new NhProxyRevisions(saved.Data.SavedRevision, redirects.Revision);
-            var savedTest = await tester.TestSavedAsync(revisions,
-                new() { Url = new("https://public.example/api/projects/42?source=incoming") }, cancellationToken);
+            var savedTest = await tester.TestSavedAsync(revisions, input, cancellationToken);
             Assert.True(savedTest.Success, string.Join("; ", savedTest.AllErrorMessages));
             Assert.Equal(rule.Id, savedTest.Data!.SelectedRuleId);
             Assert.Equal(tested.Data.Rewrite.TargetUrl, savedTest.Data.Rewrite!.TargetUrl);
@@ -92,10 +100,16 @@ public sealed class ProxyRewriteSamplesTests
                 new() { Url = new("https://public.example/api/projects/42") }, cancellationToken);
             Assert.False(staleTest.Success);
             using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
-            using var response = await client.GetAsync(app.Urls.Single() + "/api/projects/42?source=incoming", cancellationToken);
+            // Body presence is independent of the method; preview must not consume a real request body.
+            using var request = new HttpRequestMessage(HttpMethod.Get, app.Urls.Single() + "/api/projects/42?source=incoming")
+            {
+                Content = new StringContent("{}")
+            };
+            request.Content.Headers.ContentType = new("application/json");
+            using var response = await client.SendAsync(request, cancellationToken);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Null(response.Headers.Location);
-            Assert.Equal("Project 42, source managed-proxy", await response.Content.ReadAsStringAsync(cancellationToken));
+            Assert.Equal("Project 42, source managed-proxy, content application/json: {}", await response.Content.ReadAsStringAsync(cancellationToken));
             Assert.Equal(1, backendRequests);
             // The default depth of two refuses a third local managed step before any redirect or backend call.
             NhProxyRedirectRule Redirect(string path, string target) => new()

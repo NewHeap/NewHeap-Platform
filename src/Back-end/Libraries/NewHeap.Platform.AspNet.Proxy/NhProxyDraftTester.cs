@@ -243,7 +243,7 @@ public sealed class NhProxyDraftTester(INhProxyConfigurationService configuratio
                     pair => Convert.ToString(pair.Value, CultureInfo.InvariantCulture) ?? ""),
                 Matches = [new(NhProxyEngine.Rewrite, rule.Id, true, true, [])],
                 Rewrite = new(rule.ClusterId, cluster.Destination.Address, target,
-                    message.Headers.Where(header => NhProxyConfigurationValidator.IsSafeHeader(header.Key))
+                    NhProxyRuntime.GetSafeHeaders(message)
                         .ToImmutableDictionary(header => header.Key, header => header.Value.ToImmutableArray()),
                     rule.Transforms.OfType<NhProxyHeaderTransform>().Where(header => header.Direction == NhProxyHeaderDirection.Response).ToImmutableArray())
             };

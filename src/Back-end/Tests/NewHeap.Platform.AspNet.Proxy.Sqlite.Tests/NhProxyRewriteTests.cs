@@ -15,6 +15,115 @@ namespace NewHeap.Platform.AspNet.Proxy.Sqlite.Tests;
 public sealed class NhProxyRewriteTests
 {
     [Theory]
+    [InlineData("Content-Type", null, true)]
+    [InlineData("Content-Type", "application/json", true)]
+    [InlineData("Content-Type", "text/plain", false)]
+    [InlineData("Content-Type", "", false)]
+    [InlineData("X-Mode", null, true)]
+    [InlineData("X-Mode", "application/json", true)]
+    [InlineData("X-Mode", "text/plain", false)]
+    [InlineData("X-Mode", "", false)]
+    public async Task Chain_and_preview_use_transformed_general_and_content_headers(string headerName, string? transformedValue, bool loops)
+    {
+        var directory = Directory.CreateTempSubdirectory("nh-chain-headers-");
+        try
+        {
+            var builder = WebApplication.CreateBuilder();
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+            builder.Services.AddNewHeapProxy(configureStorage: storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
+            await using var app = builder.Build();
+            var requests = 0;
+            string? forwardedBody = null;
+            app.Use(async (context, next) =>
+            {
+                // Bound the regression even if a broken guard forwards the loop again.
+                if (Interlocked.Increment(ref requests) > 3)
+                {
+                    context.Response.StatusCode = 529;
+                    return;
+                }
+
+                if (context.Request.Path == "/b")
+                {
+                    using var reader = new StreamReader(context.Request.Body);
+                    forwardedBody = await reader.ReadToEndAsync();
+                }
+
+                await next(context);
+            });
+            app.UseNewHeapProxy();
+            await app.StartAsync();
+            var origin = app.Urls.Single();
+            var cluster = Cluster(new(origin + "/"));
+            NhProxyRewriteRule RuleFor(string path, string target) => new()
+            {
+                Id = Guid.NewGuid(), Name = path, ClusterId = cluster.Id,
+                Match = new() { Path = path, Headers = [new(headerName, NhProxyHeaderMatchMode.Exact, ["application/json"])] },
+                Transforms = [new NhProxyPathTransform(NhProxyPathTransformKind.Set, target)]
+            };
+            var first = RuleFor("/a", "/b");
+            if (transformedValue is not null)
+            {
+                first = first with { Transforms = first.Transforms.Add(new NhProxyHeaderTransform(NhProxyHeaderDirection.Request,
+                    headerName, transformedValue.Length == 0 ? NhProxyValueOperation.Remove : NhProxyValueOperation.Set,
+                    transformedValue.Length == 0 ? null : transformedValue)) };
+            }
+
+            var configuration = app.Services.GetRequiredService<INhProxyConfigurationService>();
+            Assert.True((await configuration.SaveRewritesAsync(new(0, [first, RuleFor("/b", "/a")], [cluster]))).Success);
+            var tester = app.Services.GetRequiredService<INhProxyDraftTester>();
+            var headers = ImmutableDictionary<string, ImmutableArray<string>>.Empty
+                .Add("Content-Type", ["application/json"]).Add("Content-Language", ["en", "nl"]).Add("X-Multi", ["one", "two"]);
+            if (headerName != "Content-Type")
+            {
+                headers = headers.Add(headerName, ["application/json"]);
+            }
+
+            var input = new NhProxyTestRequest { Url = new(origin + "/a"), Method = "POST", Headers = headers };
+            var tested = await tester.TestSavedAsync(new(1, 0), input);
+            Assert.Equal(!loops, tested.Success);
+            if (loops)
+            {
+                Assert.Contains(tested.GetResultItems(), item => item.Name == NhProxyErrorCodes.MaximumChainDepth);
+            }
+
+            // An external synthetic origin stops chain traversal and exposes the first transform's headers.
+            var preview = await tester.TestSavedAsync(new(1, 0), input with { Url = new("https://public.example/a") });
+            Assert.True(preview.Success, string.Join("; ", preview.AllErrorMessages));
+            var outgoing = preview.Data!.Rewrite!.SafeRequestHeaders;
+            Assert.Equal(new[] { "en", "nl" }, outgoing["Content-Language"]);
+            Assert.Equal(new[] { "one", "two" }, outgoing["X-Multi"]);
+            if (transformedValue == "")
+            {
+                Assert.False(outgoing.ContainsKey(headerName));
+            }
+            else
+            {
+                Assert.Equal(new[] { transformedValue ?? "application/json" }, outgoing[headerName]);
+            }
+
+            Assert.Equal(0, requests);
+            using var client = new HttpClient();
+            using var message = new HttpRequestMessage(HttpMethod.Post, origin + "/a") { Content = new StringContent("{}") };
+            message.Content.Headers.ContentType = new("application/json");
+            if (headerName != "Content-Type")
+            {
+                message.Headers.Add(headerName, "application/json");
+            }
+
+            using var response = await client.SendAsync(message);
+            Assert.Equal(loops ? 508 : 404, (int)response.StatusCode);
+            Assert.Equal(loops ? 1 : 2, requests);
+            Assert.Equal(loops ? null : "{}", forwardedBody);
+            await app.StopAsync();
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
+    [Theory]
     [InlineData(1)]
     [InlineData(2)]
     [InlineData(3)]

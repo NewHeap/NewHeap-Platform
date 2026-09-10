@@ -97,7 +97,7 @@ public sealed partial class NhProxyRuntime
                 target = message.RequestUri ?? RequestUtilities.MakeDestinationAddress(destination, request.Request.Path, request.Request.QueryString);
                 request.Request.Method = message.Method.Method;
                 request.Request.Headers.Clear();
-                foreach (var header in message.Headers.Where(header => NhProxyConfigurationValidator.IsSafeHeader(header.Key)))
+                foreach (var header in GetSafeHeaders(message))
                 {
                     request.Request.Headers[header.Key] = new StringValues(header.Value.ToArray());
                 }
@@ -125,6 +125,13 @@ public sealed partial class NhProxyRuntime
 
     private static bool SameOrigin(Uri target, Uri origin) => string.Equals(target.Scheme, origin.Scheme, StringComparison.OrdinalIgnoreCase)
         && string.Equals(target.IdnHost, origin.IdnHost, StringComparison.OrdinalIgnoreCase) && target.Port == origin.Port;
+
+    internal static IEnumerable<KeyValuePair<string, IEnumerable<string>>> GetSafeHeaders(HttpRequestMessage message)
+    {
+        // Native YARP transforms create empty content for content headers without reading the request body.
+        return message.Headers.Concat(message.Content?.Headers.AsEnumerable() ?? [])
+            .Where(header => NhProxyConfigurationValidator.IsSafeHeader(header.Key));
+    }
 
     private static DefaultHttpContext CopyRequest(HttpContext input)
     {

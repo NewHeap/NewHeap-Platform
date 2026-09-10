@@ -52,7 +52,13 @@ runtime, administration and a hosted lifecycle initializer. StartingAsync loads
 and publishes the persisted snapshot before the HTTP server accepts requests.
 Use reserves /newheap-proxy in its own MVC branch, installs redirects and maps YARP.
 Do not also call MapNewHeapProxy; that remains a lower-level YARP-only alternative.
-Put trusted forwarded headers and UsePathBase before UseNewHeapProxy.
+Put trusted forwarded headers before UseNewHeapProxy. Host the proxy at the
+origin root with an empty PathBase; subdirectory hosting is not supported.
+Do not recommend UsePathBase or mounting the proxy under a prefix such as
+/proxy. The URL/draft tester does not model the mount prefix and can disagree
+with runtime matching. Support is deferred until a concrete use case requires
+it, outside the current production scope. Existing PathBase-specific cookie
+and administration tests do not establish support for the complete proxy.
 
 For live environments, recommend deployment-secret injection through environment
 variables NewHeapProxy__Administrator__UserName and NewHeapProxy__Administrator__Password.
@@ -231,6 +237,11 @@ chain without outbound calls; each redirect or rewrite counts once. Exactly the
 configured number is allowed; a further match returns HTTP 508, no-store, no
 Location and no backend request. This also refuses legitimate overlong chains.
 The tester uses the same check and returns NhProxyErrorCodes.MaximumChainDepth.
+Carry both general and content headers from native transforms into the next
+match and the preview's SafeRequestHeaders, preserving multiple values and
+honoring header replacement/removal. Native YARP creates empty content for
+content headers; simulation never reads the incoming body. Existing secret and
+framing-header exclusions still apply.
 Rules are still saved normally; refusal uses the concrete request at runtime.
 Follow only the original scheme/host/port and current PathBase; reserved paths,
 external destinations and native routes from other sources end analysis. Host
