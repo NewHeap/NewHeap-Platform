@@ -1,13 +1,8 @@
 # NewHeap Proxy demo
 
-To run with the full sample, select `SampleProjectManagement.AppHost` as the
-startup project. Open the `sample-project-management-proxy` resource URL in the
-Aspire dashboard to reach the administration panel. Aspire selects the **Proxy demo**
-profile and assigns an available port. The account and SQLite storage are the same
-as below. Run one instance at a time because the SQLite file has exclusive ownership.
+Try redirects, rewrites and the administration panel with a local SQLite database.
 
-Select this project as the startup project and choose the **Proxy demo** launch
-profile in Visual Studio or Rider. No database server or credential setup is needed.
+## Run locally
 
 From this directory:
 
@@ -15,17 +10,27 @@ From this directory:
 dotnet run --launch-profile "Proxy demo"
 ```
 
-Open http://localhost:5289/newheap-proxy. Sign in as `administrator` with password
-`NewHeap123!`. This fixed test credential is used only in the explicit
-Development-only, loopback-only demo mode.
+Or select this project and the **Proxy demo** profile in Visual Studio or Rider.
 
-The first run creates `App_Data/proxy-demo.db` and a literal 302 redirect from
-`/old-projects` to `/projects?source=proxy`. Visit
-http://localhost:5289/old-projects?campaign=demo to try it. Use the panel to edit,
-test, disable or delete rules and view login activity. Changes survive restarts;
-the example rule is not recreated after editing or deleting it.
+| Setting | Value |
+| --- | --- |
+| Administration | [Open the panel](http://localhost:5289/newheap-proxy) |
+| Username | `info@newheap.com` |
+| Password | `NewHeap123!` |
+| Example redirect | [Try `/old-projects`](http://localhost:5289/old-projects?campaign=demo) |
 
-Choose **Configured proxy** to use your own account and storage settings instead.
-See [configuration and verification](../../../../docs/proxy-administration.md)
-for the complete setup and the runnable smoke check. The demo covers literal
-redirects and administration; managed rewrite editing is still a library gap.
+The fixed account is for the local Development demo. Changes persist in
+`App_Data/proxy-demo.db`; editing or deleting a rule is preserved after restart.
+Run one instance per database file.
+
+## Run with Aspire
+
+Select `SampleProjectManagement.AppHost` as the startup project. Open
+`sample-project-management-proxy` in the dashboard; Aspire assigns the port.
+The account and database are the same as above. Stop any standalone proxy first.
+
+## Next steps
+
+- [Follow the walkthrough](../../../../docs/proxy-administration.md) to edit a redirect and preview a rewrite.
+- [Use your own account](../../../../docs/proxy-administration.md#configure-your-own-account) with the **Configured proxy** profile.
+- [Browse configuration options](../../../../../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/README.md#configuration).

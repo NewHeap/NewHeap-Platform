@@ -1,81 +1,42 @@
 # NewHeap ASP.NET Proxy SQLite
 
-Store proxy redirects, rewrites and login activity in a local SQLite database.
-`AddNewHeapProxy` sets up storage and loads saved rules at startup.
+Store redirects, rewrites and login activity in a local SQLite database.
+No separate database server is required.
+
+[Install the proxy](../NewHeap.Platform.AspNet.Proxy/README.md#installation) · [Configuration](../NewHeap.Platform.AspNet.Proxy/README.md#configuration) · [Usage reference](../../../../docs/how-to/use-newheap-proxy.md)
 
 ## Storage configuration
 
-See [Configuration](../NewHeap.Platform.AspNet.Proxy/README.md#configuration) for
-all proxy and SQLite options, their defaults and explanations.
+`AddNewHeapProxy` creates the database and loads saved rules at startup.
+Configure `Sqlite:DatabasePath` and `Sqlite:BusyTimeout` under `NewHeapProxy`;
+see the configuration table for defaults. Restart after changing settings.
 
-Install `NewHeap.Platform.AspNet.Proxy.Sqlite` from nuget.org. It brings in
-`NewHeap.Platform.AspNet.Proxy` automatically.
+| Requirement | What to do |
+| --- | --- |
+| Location | Use writable, persistent local storage outside the webroot. Network and in-memory databases are unsupported. |
+| Relative paths | Paths are relative to the application's content root. |
+| Containers | Mount persistent local storage for the database directory. |
+| Ownership | Run one proxy instance per database file. Stop it before opening an offline store. |
+| Live changes | Use the administration panel or configuration service. Direct database edits and multiple writers are unsupported. |
 
-`AddNewHeapProxy()` uses `App_Data/newheap-proxy.db` relative to the host content
-root and a five-second busy timeout. Overloads accept `NhProxyOptions` and
-`NhProxySqliteOptions` callbacks, or a configuration section with SQLite options
-in its `Sqlite` child. Restart the host after changing these settings.
-The timeout is rounded up to whole seconds for the SQLite provider.
+## Backups and upgrades
 
-Startup creates missing parent directories and a missing database, acquires
-exclusive application ownership through `<database>.lock`, and loads the stored
-redirect and rewrite snapshots before the server starts accepting requests. The database must
-be a file outside the webroot on writable, durable local storage. In-memory and
-network deployments are unsupported. A second NewHeap owner of the same file fails.
-The lock file may remain after shutdown; ownership is its open file handle, not
-its existence. Never delete it to bypass ownership while a host is running.
+- Back up after a clean shutdown, or use SQLite's backup API while running.
+- Do not copy only the main database while the proxy is running; recent changes
+  may be in the write-ahead log.
+- Back up before upgrading. Database upgrades preserve rules and login activity,
+  but older proxy versions may not reopen the upgraded file.
 
-The database is created and upgraded automatically while preserving existing
-rules and login activity. Invalid or incompatible data prevents startup instead
-of resetting the database. Back up before upgrading: older proxy versions may
-not be able to reopen an upgraded database.
+## Startup problems
 
-Back up after a clean shutdown or with SQLite's backup API. Do not copy only the
-main database while the proxy is running; recent changes may be in SQLite's
-write-ahead log. Use the administration panel or configuration service to edit
-live rules. Direct database edits and multiple writers are unsupported.
+| Problem | Action |
+| --- | --- |
+| Database cannot be opened | Check the directory, file permissions and available storage. |
+| Another instance owns the database | Stop that instance or use a separate database file. |
+| A `.lock` file remains after shutdown | Its presence alone does not mean the database is in use. Never delete it to bypass a running instance. |
+| Invalid or incompatible database | Check application diagnostics and restore a compatible backup if needed. Startup fails instead of resetting stored rules. |
 
-## Seed a redirect before starting the host
+## Seed rules offline
 
-Prefer the administration panel or `INhProxyConfigurationService` for live changes. The
-following lower-level storage alternative supports offline setup. Choose an absolute path outside the webroot and use the same path for the
-host. Read the current revision before replacing its complete rule collection:
-
-```csharp
-using Microsoft.Extensions.Options;
-using NewHeap.Platform.AspNet.Proxy;
-using NewHeap.Platform.AspNet.Proxy.Sqlite;
-
-var storageOptions = new NhProxySqliteOptions { DatabasePath = databasePath };
-await using (var store = new NhProxySqliteConfigurationStore(Options.Create(storageOptions)))
-{
-    await store.InitializeAsync();
-    var current = await store.LoadRedirectsAsync();
-    var rule = new NhProxyRedirectRule
-    {
-        Id = Guid.NewGuid(),
-        Name = "Moved page",
-        Match = new NhProxyRedirectMatch { Path = "/old" },
-        Target = "/new"
-    };
-    var result = await store.SaveRedirectsAsync(
-        new NhProxyRedirectSaveRequest(current.Revision, current.Rules.Add(rule)));
-    if (!result.Success)
-    {
-        // Handle validation or revision conflicts before starting the host.
-        return;
-    }
-}
-
-builder.Services.AddNewHeapProxy(configureStorage: options =>
-    options.DatabasePath = databasePath);
-var app = builder.Build();
-app.UseNewHeapProxy();
-app.Run();
-```
-
-Dispose the offline store before starting the host so it can acquire ownership.
-The store saves rules but does not activate them. Use
-`INhProxyConfigurationService` to save and activate changes in a running proxy.
-See the [proxy README](../NewHeap.Platform.AspNet.Proxy/README.md) for exact and regex matching
-and query behavior.
+See [Seed a redirect before starting the host](../../../../docs/how-to/use-newheap-proxy.md#seed-a-redirect-before-starting-the-host)
+for an example that retains existing rules and checks save failures.

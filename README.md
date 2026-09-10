@@ -130,10 +130,10 @@ The main implementation areas are:
 - `skills` and `plugins/newheap-platform` — versioned development guidance;
 - `release/manifest.json` — package groups and protected release definitions.
 
-Planned library work is documented in the
-[NewHeap Proxy design](docs/plans/newheap-proxy-design.md), a proposal for a YARP
-proxy with rewrite and redirect rules, testing before save, embedded administration,
-and SQLite persistence; it is not yet implemented.
+[NewHeap Proxy](src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/README.md)
+provides redirects, YARP forwarding, rule previews and an administration panel
+with SQLite storage. Start with its installation guide or
+[try the local demo](examples/SampleProjectManagement/docs/proxy-administration.md).
 
 ## Built for human and AI-assisted development
 

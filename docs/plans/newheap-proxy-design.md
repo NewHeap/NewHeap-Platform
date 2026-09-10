@@ -1,87 +1,36 @@
 # NewHeap Proxy Library Design
 
-Status: stored rewrites, exact/regex redirects, MVC administration, independent activation, isolated testing and bounded local rule-chain checks implemented; rewrites from other sources are covered by native YARP APIs/configuration; external/backend response cycles are outside local analysis
+This document records architectural decisions and the original implementation
+plan. For current setup and usage, start with the
+[proxy README](../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/README.md)
+or [usage reference](../how-to/use-newheap-proxy.md).
 
-Date: 2026-09-07  
-Scope: an ASP.NET Core proxy and redirect library with embedded administration, draft rule testing, and SQLite persistence
+## Implementation status
 
-## Project foundation and contract stage
+Reviewed against the implementation on 2026-09-10.
 
-The backend solution now contains the .NET 10 project scaffolds
-`NewHeap.Platform.AspNet.Proxy` (Razor SDK with MVC support),
-`NewHeap.Platform.AspNet.Proxy.Sqlite`, and a corresponding non-packable
-`*.Tests` project for each library. The SQLite project references the neutral
-proxy project. `AddNewHeapProxy` registers SQLite storage for both engines,
-validation, runtime, isolated draft testing and startup loading through a dedicated native YARP provider.
-`UseNewHeapProxy` installs literal redirect middleware and calls `MapNewHeapProxy`
-internally. Microsoft.Data.Sqlite owns storage in the SQLite project; no consumer
-DAL migrations are used. MVC management, login auditing and single-rule local
-draft previews are implemented. Stored rewrite persistence, independent confirmed
-activation and isolated testing against both managed engines are also implemented.
+| Area | Current status |
+| --- | --- |
+| Redirects | Exact and regex matching, query modes and local chain limits are implemented. |
+| Rewrites | Stored YARP routes, transforms, shared destinations and independent activation are implemented. |
+| Administration | Rule editing, login activity, IP restrictions and activation retry are implemented. |
+| Testing | Unsaved-rule tests and saved-rule URL previews are implemented without backend requests. |
+| Storage | Local SQLite is supported. SQL Server, PostgreSQL and multi-instance storage are not implemented. |
+| Additional YARP configuration | Available through `ConfigureYarp`; managed editing and preview cover stored rules only. |
 
-See the [project README](../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/README.md)
-for the contract map and verification commands. Library tests cover host startup,
-request continuation, native route creation, literal matching, real SQLite persistence,
-exclusive ownership, invalid data, and restart behavior. SPM-238 demonstrates the
-two-call Add/Use flow, real SQLite-backed HTTP redirects, and consumer contracts;
-SPM-239 demonstrates stored rewrite preview and real forwarding. The projects are not yet part
-of a release unit, and existing release versions are unchanged.
+Executable evidence is registered under SPM-238 and SPM-239 in the
+[sample registry](../../examples/SampleProjectManagement/docs/cases/sample-case-registry.json).
+Use the [demo walkthrough](../../examples/SampleProjectManagement/docs/proxy-administration.md)
+for setup and focused verification commands, and the
+[configuration table](../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/README.md#configuration)
+for current defaults.
 
-The initial options choose configurable defaults: eight-hour sessions, five login
-attempts per minute, 90-day login audit retention, cleanup batches of 1,000 events,
-audit pages capped at 100, 1,000 rules per engine, and draft inputs capped at 64 KiB
-with a five-second test budget. SQLite defaults to `App_Data/newheap-proxy.db` and
-a five-second busy timeout. The literal rule-count limit and SQLite timeout are
-enforced. Session/rate/audit settings and a 64 KiB administration form limit are
-also enforced. Isolated testing enforces the input limit and a cooperative deadline. The fixed account
-uses a username, ASP.NET Identity hash and optional credential version;
-there are no usable default credentials. Live deployments should inject
-NewHeapProxy__Administrator__UserName and NewHeapProxy__Administrator__Password
-through their secret-backed environment settings. Password is hashed at startup;
-PasswordHash remains an alternative, and configuring both is rejected.
+## Original design and implementation plan
 
-## Administration implementation milestone
-
-The current panel includes literal redirect CRUD, enable/disable, ordering,
-search, host/method restrictions, status/query options, local single-rule draft
-preview, deletion confirmation, revision conflicts and activation retry. It is a
-Razor class library with compiled views and no external frontend dependencies.
-
-The reserved MVC branch isolates administration from host fallback/YARP routes.
-Every request checks the optional IP allowlist; production requires HTTPS. A
-separate cookie scheme preserves host authentication defaults, scopes the session
-to the administration PathBase, uses CSRF-protected POST forms, and invalidates
-sessions when the configured credentials/version change. Missing credentials close
-the panel without disrupting proxy traffic. Account throttling uses one bounded
-fixed-window budget. Login auditing occurs before cookie issuance and fails closed;
-retention deletes bounded batches on attempts rather than on a background timer.
-The effective client address is recorded; an original peer replaced by host
-forwarding middleware is left unavailable rather than inferred from untrusted headers.
-
-SQLite schema 2 adds audit events and an ordered index through a transactional
-upgrade from schema 1, preserving redirects. INhProxyConfigurationService commits
-before publishing; publication survives HTTP cancellation, and failed activation
-retains the committed revision in TaskResult.Data. The UI exposes retry without
-saving a second configuration. The redirect editor tests one unsaved rule; the
-rewrite editor tests its candidate against both stored engines. Schema 3 adds the
-rewrite document while retaining redirects and audit events. The rewrite runtime
-correlates YARP configuration-applied events with a unique publication token;
-rejected reloads retain the active revision and a missing confirmation is explicit.
-
-SPM-238 provides the runnable SampleProjectManagement.Proxy host, public-service
-consumer evidence and real HTTP/SQLite regression coverage. See
-[administration setup](../../examples/SampleProjectManagement/docs/proxy-administration.md).
-SPM-239 adds native routing/transform parity, real backend forwarding, rewrite
-CRUD, shared destinations and isolated previews. Advanced matching/transforms and
-policy/health settings use typed configuration JSON as the agreed developer interface,
-with contextual links to YARP documentation; dedicated form controls are not planned. The
-remaining sections describe the broader target design; exhaustive condition-by-condition
-diagnostics remain deferred. A configurable MaximumChainDepth (default 2) refuses
-overlong local chains before execution and in the tester. Regex with capture
-groups satisfies prefix and route-template redirect requirements; separate match
-modes are not planned. Rewrites from appsettings or other sources are considered covered
-by native YARP APIs/configuration through the host. Managed editing and testing
-intentionally cover stored rules only; external-source preview is not a planned requirement.
+The following sections retain the original requirements and design rationale.
+Future-tense instructions and implementation stages describe that plan; they do
+not mean those features are still missing. The status table above identifies
+what is available today. Technical detail here is intended for library maintainers.
 
 ## Objective and agreed direction
 
@@ -779,21 +728,18 @@ PostgreSQL capability gaps at handoff.
 The contract stage updates public API snapshots, sample metadata, and generated
 guidance. It does not implement migrations or change release versions.
 
-## Remaining technical decisions before implementation
+## Resolved implementation decisions
 
-The account count, login IP auditing, redirect-before-rewrite order, single
-destination per cluster, `302` default, MVC interface at `/newheap-proxy`,
-independent activation, and dry-run testing are settled product requirements.
-Remaining work concerns implementation mechanisms and operational defaults:
+These questions from the original plan have been resolved:
 
-- Finalize package/API names and packaged MVC registration.
-- Define fixed-account password-hash provisioning, rotation/session revocation,
-  session duration, and login audit retention/cleanup defaults.
-- Which supported YARP mechanism confirms activation for a specific revision?
-- Which supported ASP.NET Core/YARP facilities provide isolated draft matching
-  and transform evaluation with runtime parity and no network side effects?
-- Choose concrete store ownership, startup ordering, schema management, and
-  destination restriction mechanisms after inspecting existing suite helpers.
+| Decision | Implementation |
+| --- | --- |
+| Package and registration names | `NewHeap.Platform.AspNet.Proxy.Sqlite`, `AddNewHeapProxy` and `UseNewHeapProxy`. |
+| Credentials and operational defaults | Password or ASP.NET Identity hash, credential version and configurable session/audit limits; see the configuration table. |
+| Rewrite activation | YARP configuration-applied confirmation identifies the published revision. |
+| Isolated preview | Native routing and transforms evaluate synthetic requests without contacting backends. |
+| Storage and startup | A local SQLite file with exclusive ownership; saved rules load before requests are accepted. |
+| Destination restrictions | `AllowedDestinationHosts` limits stored rewrite backend hosts. |
 
 ## Technical references
 
