@@ -16,6 +16,7 @@
     <EmbeddedResource Include="Assets/newheap-logo.webp" LogicalName="NewHeap.Proxy.Logo" />
     <InternalsVisibleTo Include="NewHeap.Platform.AspNet.Proxy.Sqlite" />
     <InternalsVisibleTo Include="NewHeap.Platform.AspNet.Proxy.Tests" />
+    <InternalsVisibleTo Include="NewHeap.Platform.AspNet.Proxy.Benchmarks" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Yarp.ReverseProxy" />
   </ItemGroup>

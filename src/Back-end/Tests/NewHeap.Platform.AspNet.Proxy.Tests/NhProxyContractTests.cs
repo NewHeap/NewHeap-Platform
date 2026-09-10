@@ -10,6 +10,51 @@ namespace NewHeap.Platform.AspNet.Proxy.Tests;
 
 public sealed class NhProxyContractTests
 {
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("X Invalid", false)]
+    [InlineData("X-Invalid\r\nInjected", false)]
+    [InlineData("X-Ünicode", false)]
+    [InlineData("X:Invalid", false)]
+    [InlineData("!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", true)]
+    [InlineData("aUtHoRiZaTiOn", false)]
+    [InlineData("COOKIE", false)]
+    [InlineData("x-api-key", false)]
+    [InlineData("x-forwarded-for", false)]
+    [InlineData("ACCESS-CONTROL-ALLOW-ORIGIN", false)]
+    [InlineData("Forwarded", false)]
+    [InlineData("Content-Type", true)]
+    [InlineData("X-Request-Id", true)]
+    public void Header_filter_preserves_token_validation_and_case_insensitive_restrictions(string? name, bool expected)
+    {
+        Assert.Equal(expected, NhProxyConfigurationValidator.IsSafeHeader(name));
+    }
+
+    [Theory]
+    [InlineData("Host", false)]
+    [InlineData("X-Request-Id", true)]
+    public void Repeated_header_checks_do_not_allocate(string name, bool expected)
+    {
+        for (var index = 0; index < 1000; index++)
+        {
+            _ = NhProxyConfigurationValidator.IsSafeHeader(name);
+        }
+
+        const int iterations = 10000;
+        var accepted = 0;
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var index = 0; index < iterations; index++)
+        {
+            accepted += NhProxyConfigurationValidator.IsSafeHeader(name) ? 1 : 0;
+        }
+
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.Equal(expected ? iterations : 0, accepted);
+        Console.WriteLine($"{name}: {allocated / (double)iterations:F1} bytes allocated per header check.");
+        Assert.Equal(0, allocated);
+    }
+
     [Fact]
     public void Rewrite_editor_shows_complete_configuration_and_replaces_the_first_path_transform_once()
     {

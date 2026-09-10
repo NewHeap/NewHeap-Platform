@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RunWorkingDirectory>$(MSBuildProjectDirectory)/../..</RunWorkingDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="Yarp.ReverseProxy" />
+    <ProjectReference Include="../../Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/NewHeap.Platform.AspNet.Proxy.Sqlite.csproj" />
+  </ItemGroup>
+</Project>

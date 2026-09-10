@@ -273,3 +273,11 @@ app.Run();
 Dispose the offline store before starting the host so it can acquire the database.
 See [backups and upgrades](../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/README.md#backups-and-upgrades)
 before working with an existing database.
+
+## Measure forwarding overhead
+
+Run `npm run benchmark:proxy` from the repository root to measure full-request
+time (ms) with BenchmarkDotNet and a standard YARP app as its baseline.
+Use `npm run benchmark:proxy:load` for the separate requests/sec load test.
+See the [proxy benchmark](../../src/Back-end/Benchmarks/NewHeap.Platform.AspNet.Proxy.Benchmarks/README.md)
+for the workload, baseline ratios, reports and reproducible checks.

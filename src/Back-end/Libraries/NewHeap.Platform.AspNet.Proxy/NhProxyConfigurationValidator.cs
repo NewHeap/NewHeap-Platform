@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -13,6 +14,9 @@ namespace NewHeap.Platform.AspNet.Proxy;
 public sealed class NhProxyConfigurationValidator(IOptions<NhProxyOptions> options, IConfigValidator? yarp = null,
     IInlineConstraintResolver? constraints = null) : INhProxyConfigurationValidator
 {
+    private static readonly SearchValues<char> TokenCharacters =
+        SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&'*+-.^_`|~");
+
     public NhProxyConfigurationValidator(IOptions<NhProxyOptions> options) : this(options, null)
     {
     }
@@ -103,7 +107,7 @@ public sealed class NhProxyConfigurationValidator(IOptions<NhProxyOptions> optio
     }
 
     internal static bool IsToken(string? value) => !string.IsNullOrEmpty(value)
-        && value.All(c => char.IsAsciiLetterOrDigit(c) || "!#$%&'*+-.^_`|~".Contains(c));
+        && !value.AsSpan().ContainsAnyExcept(TokenCharacters);
 
     internal static bool IsSafeHeader(string? name) => IsToken(name)
         && !new[] { "Authorization", "Proxy-Authorization", "Cookie", "Set-Cookie", "Host", "Content-Length", "Transfer-Encoding",

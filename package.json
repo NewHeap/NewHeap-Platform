@@ -6,6 +6,8 @@
     "node": ">=22.0.0"
   },
   "scripts": {
+    "benchmark:proxy": "cd src/Back-end && dotnet run --project Benchmarks/NewHeap.Platform.AspNet.Proxy.Benchmarks -c Release --no-launch-profile --",
+    "benchmark:proxy:load": "npm run benchmark:proxy -- --load",
     "guidance:generate": "node tools/guidance/generate-guidance.mjs",
     "guidance:check": "node tools/guidance/generate-guidance.mjs --check",
     "guidance:snapshot": "node tools/guidance/snapshot-public-api.mjs",
