@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.28",
   "backEnd": {
-    "hash": "fcba84084ed4e432deb2a75a0ecd34798071a79cb47ba7c98afaf38759ce5811",
-    "declarationCount": 3980,
+    "hash": "c9b59f1e3e4e41cd5c4d90a39b8dbdefcb68208db3d27d9d942659cb7abe6e70",
+    "declarationCount": 3981,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -10636,6 +10636,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
         "declaration": "public string UserName { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "[JsonIgnore] public string Password { get; set; } = string.Empty;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",

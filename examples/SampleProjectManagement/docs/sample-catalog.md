@@ -42,6 +42,9 @@ isolated demo storage and one example redirect. The PowerShell smoke check verif
 the actual executable, health endpoints and persistence across restarts. The Aspire
 AppHost also starts this profile as `sample-project-management-proxy`, with a
 dashboard link to the panel, an assigned port and an independent SQLite file.
+`ProxyAdministrationSamplesTests` also demonstrates administrator credentials bound
+from environment variables, the recommended production setup. `Password` is hashed
+at startup; a precomputed `PasswordHash` remains an alternative.
 SPM-239 is exercised by `ProxyRewriteSamplesTests` and the embedded Rewrites panel.
 It demonstrates isolated managed-rule previews, SQLite rewrite persistence, native
 YARP route/transform parity, independent confirmed activation and real forwarding.

@@ -25,6 +25,22 @@ public sealed class NhProxyAdministrationService : INhProxyAdministrationService
         _options = options.Value;
         _audit = audit;
         var administrator = _options.Administrator;
+        if (!string.IsNullOrEmpty(administrator.Password))
+        {
+            if (!string.IsNullOrEmpty(administrator.PasswordHash))
+            {
+                throw new ArgumentException("Configure either Administrator.Password or Administrator.PasswordHash, not both.", nameof(options));
+            }
+
+            if (string.IsNullOrWhiteSpace(administrator.Password) || administrator.Password.Length > 1024)
+            {
+                throw new ArgumentException("Administrator.Password must contain a non-whitespace character and be at most 1024 characters.", nameof(options));
+            }
+
+            administrator.PasswordHash = _hasher.HashPassword(administrator.UserName, administrator.Password);
+            administrator.Password = string.Empty;
+        }
+
         if (!string.IsNullOrWhiteSpace(administrator.PasswordHash))
         {
             try

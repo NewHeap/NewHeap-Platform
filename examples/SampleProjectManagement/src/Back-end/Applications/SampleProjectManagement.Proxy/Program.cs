@@ -52,7 +52,8 @@ builder.Services.AddNewHeapProxy(options =>
     {
         // These overrides belong to the opt-in sample, never to the library defaults.
         options.Administrator.UserName = "info@newheap.com";
-        options.Administrator.PasswordHash = new PasswordHasher<string>().HashPassword("info@newheap.com", "NewHeap123!");
+        options.Administrator.Password = "NewHeap123!";
+        options.Administrator.PasswordHash = "";
         options.IpAllowlist.Enabled = true;
         options.IpAllowlist.Entries = ["127.0.0.1", "::1"];
     }

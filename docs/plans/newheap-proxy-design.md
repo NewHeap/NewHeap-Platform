@@ -35,7 +35,10 @@ a five-second busy timeout. The literal rule-count limit and SQLite timeout are
 enforced. Session/rate/audit settings and a 64 KiB administration form limit are
 also enforced. Isolated testing enforces the input limit and a cooperative deadline. The fixed account
 uses a username, ASP.NET Identity hash and optional credential version;
-there are no usable default credentials.
+there are no usable default credentials. Live deployments should inject
+NewHeapProxy__Administrator__UserName and NewHeapProxy__Administrator__Password
+through their secret-backed environment settings. Password is hashed at startup;
+PasswordHash remains an alternative, and configuring both is rejected.
 
 ## Administration implementation milestone
 

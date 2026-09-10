@@ -39,6 +39,9 @@ public sealed class NhProxyOptions
 public sealed class NhProxyAdministratorOptions
 {
     public string UserName { get; set; } = string.Empty;
+    /// <summary>Optional plaintext password, hashed and cleared from these options at startup. Configure either Password or PasswordHash.</summary>
+    [JsonIgnore]
+    public string Password { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
 
     /// <summary>Change when rotating credentials to invalidate existing sessions.</summary>

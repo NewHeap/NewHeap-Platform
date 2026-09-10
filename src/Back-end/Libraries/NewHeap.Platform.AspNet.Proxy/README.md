@@ -15,7 +15,7 @@ using NewHeap.Platform.AspNet.Proxy;
 using NewHeap.Platform.AspNet.Proxy.Sqlite;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddNewHeapProxy();
+builder.Services.AddNewHeapProxy(builder.Configuration.GetSection("NewHeapProxy"));
 
 var app = builder.Build();
 app.UseNewHeapProxy();
@@ -47,20 +47,36 @@ same runtime matcher, without storage writes or outbound requests. It does not
 simulate the full ordered rule set. The separate rewrite editor tests a candidate
 against both saved managed engines using `INhProxyDraftTester`.
 
-Configure the single account through host-owned options:
+For live environments, inject the single administrator account through environment
+variables supplied by the deployment platform's secret settings. This is the
+recommended setup:
 
-```csharp
-builder.Services.AddNewHeapProxy(options =>
-{
-    options.Administrator.UserName = builder.Configuration["ProxyAdmin:UserName"]!;
-    options.Administrator.PasswordHash = builder.Configuration["ProxyAdmin:PasswordHash"]!;
-    options.Administrator.CredentialVersion = "1";
-    options.IpAllowlist.Enabled = true;
-    options.IpAllowlist.Entries = ["192.0.2.0/24"];
-});
+```text
+NewHeapProxy__Administrator__UserName=administrator
+NewHeapProxy__Administrator__Password=<password supplied by your deployment secret>
 ```
 
-Use an ASP.NET Identity `PasswordHasher<string>` hash from your secret provider.
+Bind the section using the standard ASP.NET Core configuration pipeline:
+
+```csharp
+builder.Services.AddNewHeapProxy(builder.Configuration.GetSection("NewHeapProxy"));
+```
+
+The default environment provider maps `__` to configuration sections and overrides
+appsettings values. Configure either `Password` or `PasswordHash`; setting both
+fails startup. `Password` is hashed once using ASP.NET Identity at startup and
+cleared from the proxy options. It is excluded from JSON serialization and never
+written to SQLite or the login audit. Its value still exists in the host's
+configuration/environment. Passwords must contain a non-whitespace character and
+be at most 1024 characters; leading/trailing spaces are preserved.
+
+Alternatively, inject a precomputed ASP.NET Identity `PasswordHasher<string>` hash
+through `NewHeapProxy__Administrator__PasswordHash` and leave `Password` unset.
+Do not commit credentials to appsettings or source control. Use user-secrets for
+local development. Restart after changing credentials. With `Password`, each
+startup generates a fresh salted hash and existing administration sessions must
+sign in again; a stable `PasswordHash` retains the existing session behavior.
+
 No default account is created; missing credentials return 503 for the panel while
 ordinary proxy traffic continues. HTTPS is required outside Development. The panel
 uses a dedicated HttpOnly, SameSite=Strict session cookie scoped to its PathBase,

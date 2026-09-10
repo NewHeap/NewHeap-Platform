@@ -1,7 +1,7 @@
 using System.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Proxy;
 using NewHeap.Platform.AspNet.Proxy.Sqlite;
@@ -17,15 +17,18 @@ public sealed class ProxyAdministrationSamplesTests
     {
         var directory = Directory.CreateTempSubdirectory("newheap-proxy-administration-sample-");
         var cancellationToken = TestContext.Current.CancellationToken;
+        var environmentPrefix = "SPM_PROXY_" + Guid.NewGuid().ToString("N") + "_";
         try
         {
+            // The unique test prefix isolates process environment state; live deployments use the names without it.
+            Environment.SetEnvironmentVariable(environmentPrefix + "NewHeapProxy__Administrator__UserName", "info@newheap.com");
+            Environment.SetEnvironmentVariable(environmentPrefix + "NewHeapProxy__Administrator__Password", "sample-test-only-password");
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+            builder.Configuration.AddEnvironmentVariables(environmentPrefix);
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Services.AddNewHeapProxy(options =>
             {
-                // Test credential only. Real hosts load a precomputed hash from their secret provider.
-                options.Administrator.UserName = "info@newheap.com";
-                options.Administrator.PasswordHash = new PasswordHasher<string>().HashPassword("info@newheap.com", "sample-test-only-password");
+                builder.Configuration.GetSection("NewHeapProxy").Bind(options);
                 options.IpAllowlist.Enabled = true;
                 options.IpAllowlist.Entries = ["127.0.0.1/32", "::1/128"];
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
@@ -122,6 +125,8 @@ public sealed class ProxyAdministrationSamplesTests
         }
         finally
         {
+            Environment.SetEnvironmentVariable(environmentPrefix + "NewHeapProxy__Administrator__UserName", null);
+            Environment.SetEnvironmentVariable(environmentPrefix + "NewHeapProxy__Administrator__Password", null);
             directory.Delete(true);
         }
     }

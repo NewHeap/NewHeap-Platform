@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Forwarder;
 using Xunit;
@@ -11,6 +12,55 @@ namespace NewHeap.Platform.AspNet.Proxy.Sqlite.Tests;
 
 public sealed class NhProxySqliteContractTests
 {
+    [Fact]
+    public void Password_configuration_is_bound_hashed_once_and_cleared_from_options()
+    {
+        const string password = " test-only-password with spaces ";
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["NewHeapProxy:Administrator:UserName"] = "proxy-admin",
+            ["NewHeapProxy:Administrator:Password"] = password
+        }).Build();
+        var services = new ServiceCollection();
+        services.AddNewHeapProxy(configuration.GetSection("NewHeapProxy"));
+        using var provider = services.BuildServiceProvider();
+        var administrator = provider.GetRequiredService<IOptions<NhProxyOptions>>().Value.Administrator;
+        Assert.DoesNotContain(password, System.Text.Json.JsonSerializer.Serialize(administrator));
+
+        var administration = provider.GetRequiredService<INhProxyAdministrationService>();
+        Assert.Empty(administrator.Password);
+        var hash = administrator.PasswordHash;
+        var hasher = new PasswordHasher<string>();
+        Assert.NotEqual(PasswordVerificationResult.Failed, hasher.VerifyHashedPassword(administrator.UserName, hash, password));
+        Assert.Equal(PasswordVerificationResult.Failed, hasher.VerifyHashedPassword(administrator.UserName, hash, password.Trim()));
+        Assert.Same(administration, provider.GetRequiredService<INhProxyAdministrationService>());
+        Assert.Equal(hash, administrator.PasswordHash);
+    }
+
+    [Theory]
+    [InlineData("both")]
+    [InlineData("whitespace")]
+    [InlineData("too-long")]
+    public void Invalid_password_configuration_is_rejected_without_disclosing_credentials(string scenario)
+    {
+        var services = new ServiceCollection();
+        services.AddNewHeapProxy(options =>
+        {
+            options.Administrator.UserName = "proxy-admin";
+            options.Administrator.Password = scenario switch
+            {
+                "whitespace" => "   ",
+                "too-long" => new string('x', 1025),
+                _ => "test-only-password"
+            };
+            options.Administrator.PasswordHash = scenario == "both" ? "test-only-hash" : "";
+        });
+        using var provider = services.BuildServiceProvider();
+        var failure = Assert.Throws<ArgumentException>(() => provider.GetRequiredService<INhProxyAdministrationService>());
+        Assert.DoesNotContain("test-only-password", failure.Message);
+        Assert.DoesNotContain("test-only-hash", failure.Message);
+    }
+
     [Fact]
     public async Task Registration_starts_an_empty_host_and_invokes_callbacks_once()
     {

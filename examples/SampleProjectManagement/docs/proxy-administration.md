@@ -49,7 +49,34 @@ references to other resources.
 
 ## Configure your own account
 
-From `examples/SampleProjectManagement/src/Back-end`:
+For a live environment, the recommended approach is to inject credentials through
+environment variables using the deployment platform's secret settings:
+
+```text
+NewHeapProxy__Administrator__UserName=administrator
+NewHeapProxy__Administrator__Password=<password supplied by your deployment secret>
+```
+
+The sample binds the `NewHeapProxy` configuration section. A consuming host uses
+`AddNewHeapProxy(builder.Configuration.GetSection("NewHeapProxy"))`. The standard
+environment provider maps `__` to configuration sections and overrides appsettings.
+Keep credential values out of committed files. Live administration requires HTTPS.
+Run without `ProxyDemo`; the Development-only demo deliberately overrides credentials.
+
+`Password` is hashed once at startup and cleared from the proxy options; it is not
+saved in SQLite, the login audit or serialized options. The original environment
+value remains managed by the host. Passwords must contain a non-whitespace character
+and be at most 1024 characters; spaces are preserved. Restart after changing the
+environment. Each startup with `Password` creates a fresh salted hash, requiring
+administrators to sign in again.
+
+For local development, user-secrets can supply the same `UserName` and `Password`
+keys. Alternatively, configure a precomputed ASP.NET Identity hash using
+`NewHeapProxy__Administrator__PasswordHash` and leave `Password` unset. Setting
+both fails startup. A stable hash retains the existing session behavior.
+
+To use the precomputed-hash alternative locally, run from
+`examples/SampleProjectManagement/src/Back-end`:
 
 ```text
 dotnet run --project Applications/SampleProjectManagement.Proxy -- --hash-password
@@ -60,7 +87,7 @@ dotnet run --project Applications/SampleProjectManagement.Proxy --launch-profile
 
 The hash command reads the password without displaying it and prints an ASP.NET
 Identity password hash. Do not commit credentials or hashes. User secrets are a
-local development facility; production uses the host's secret provider and HTTPS.
+local development facility; use the environment-variable setup above for production.
 The configured profile has no default account. Set `NewHeapProxy:Sqlite:DatabasePath` to change
 the database path, which otherwise defaults to `App_Data/newheap-proxy.db` beneath
 the application's content root.

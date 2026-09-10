@@ -20,8 +20,19 @@ Use reserves /newheap-proxy in its own MVC branch, installs redirects and maps Y
 Do not also call MapNewHeapProxy; that remains a lower-level YARP-only alternative.
 Put trusted forwarded headers and UsePathBase before UseNewHeapProxy.
 
-Configure one host-owned Administrator.UserName and ASP.NET Identity PasswordHash
-from a secret provider. Missing credentials leave administration unavailable with
+For live environments, recommend deployment-secret injection through environment
+variables NewHeapProxy__Administrator__UserName and NewHeapProxy__Administrator__Password.
+Bind builder.Configuration.GetSection("NewHeapProxy") through AddNewHeapProxy;
+the default ASP.NET Core environment provider overrides appsettings values.
+Alternatively inject NewHeapProxy__Administrator__PasswordHash with a precomputed
+ASP.NET Identity hash and leave Password unset. Configuring both fails startup.
+Password is hashed once at startup, cleared from proxy options and excluded from
+JSON serialization; never persist it in SQLite, audit events or committed settings.
+The original environment/configuration value remains host-owned. Preserve spaces;
+reject whitespace-only passwords and passwords longer than 1024 characters.
+Restart after rotation. Password generates a fresh salted hash each startup, so
+sessions must sign in again; PasswordHash keeps existing session continuity.
+Use user-secrets for local development. Missing credentials leave administration unavailable with
 503 while normal requests continue. Production requires HTTPS; HTTP administration
 is accepted only in Development. The session cookie is HttpOnly, SameSite=Strict
 and scoped to the administration PathBase. CredentialVersion or credential changes
@@ -199,7 +210,7 @@ selection and standard transforms without executing endpoint delegates.
 - Querying SQLite per request, mutating live snapshots or bypassing revision checks.
 - Treating a low-level storage save as automatic runtime publication.
 - Calling MapNewHeapProxy again after UseNewHeapProxy.
-- Storing plaintext credentials or enabling a default administrator password.
+- Persisting plaintext credentials in rule storage, logs or committed settings, or enabling a default administrator password.
 - Trusting forwarding headers from arbitrary clients or exposing administration over production HTTP.
 - Issuing a login cookie when the audit write failed.
 - Discarding failed TaskResult values, including failed activation after commit.
