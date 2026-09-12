@@ -20,6 +20,8 @@ Reference only the relational provider that the application uses. The PostgreSQL
 
 Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup hashes, folder operations and file operations. Test the selected blob adapter separately with the same storage contract tests.
 
+Configure the PostgreSQL media schema through `FileStructureDbContextOptions.Scheme`. The provider applies it to the model, migration history, historical migration operations and lookup-hash backfills. Upgrade existing media databases with the provider migrations before serving media requests; retain file and folder records and let the migration recompute lookup hashes from their original paths and names.
+
 ## Avoid
 
 - Storage-provider choices in controllers or frontend code.
@@ -30,6 +32,8 @@ Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup h
 ## Verification
 
 Test the folder lifecycle, upload and download, search and sorting, metadata, thumbnails, authorization, and events. Check missing blobs, oversized uploads, forbidden access, and consistent cleanup after failures. For provider lookup indexes, use `EXPLAIN (ANALYZE, FORMAT JSON)` against a real provider and assert the expected index scan without a sequential scan.
+
+Exercise upgrades from the initial PostgreSQL media migration with populated files and folders in both the default and a custom schema, including long paths. Verify folder listing, existing-file lookup, new uploads and renames after migration. Check forward and rollback scripts with quoted schema identifiers and verify that different configured schemas do not share an EF model.
 
 ## Executable evidence
 
