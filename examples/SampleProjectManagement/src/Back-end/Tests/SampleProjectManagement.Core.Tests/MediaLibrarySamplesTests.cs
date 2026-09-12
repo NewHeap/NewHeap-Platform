@@ -1,8 +1,12 @@
 using Amazon;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Media;
 using NewHeap.Media.EventHandlers;
+using NewHeap.Media.FileStructureStorage.SqlServer;
 using NewHeap.Media.Modules;
 using NewHeap.Platform.Media.MediaStorage.FileSystem;
 using NewHeap.Platform.Media.MediaStorage.S3Bucket;
@@ -31,7 +35,11 @@ public class MediaLibrarySamplesTests
             {
                 media.UsePostgreSqlFileStructureStorage(
                     "Host=localhost;Database=sample-media-registration;Username=postgres;Password=postgres",
-                    options => options.RunMigrations = false);
+                    options =>
+                    {
+                        options.Scheme = "project_media";
+                        options.RunMigrations = false;
+                    });
                 media.UseFileSystemMediaStorage(storagePath, true);
                 media.AddAuthentication<ProjectMediaAuthorizationModule>();
                 media.AddThumbnailService<ProjectMediaThumbnailService>();
@@ -46,6 +54,12 @@ public class MediaLibrarySamplesTests
             using var scope = provider.CreateScope();
 
             Assert.IsType<DefaultMediaStorage>(scope.ServiceProvider.GetRequiredService<IMediaStorage>());
+            var context = scope.ServiceProvider.GetRequiredService<FileStructureDbContext>();
+            Assert.Equal("project_media", context.Model.GetDefaultSchema());
+            var script = context.GetService<IMigrator>().GenerateScript();
+            Assert.Contains("UPDATE project_media.\"Files\"", script);
+            Assert.DoesNotContain("\"nhmedia\".", script);
+            Assert.DoesNotContain("nhmedia.", script);
             Assert.Contains("PostgreSqlFileStructureStorage",
                 scope.ServiceProvider.GetRequiredService<IFileStructureStorage>().GetType().Name);
             Assert.IsType<ProjectMediaAuthorizationModule>(

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.29",
   "backEnd": {
-    "hash": "f00160d6d94f2c0ecfe82ca96d352187235151c1d06678cd6638cec0ad3c3278",
-    "declarationCount": 3981,
+    "hash": "19854407f8a66c5deca5885f31f027c4eab20cfdbb79fff0e61f76eb5aeb3084",
+    "declarationCount": 3983,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -15410,8 +15410,16 @@
         "declaration": "public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlMediaMigrationsSqlGenerator.cs",
+        "declaration": "public override IReadOnlyList<MigrationCommand> Generate( IReadOnlyList<MigrationOperation> operations, IModel? model = null, MigrationsSqlGenerationOptions options = MigrationsSqlGenerationOptions.Default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlMediaModelCacheKeyFactory.cs",
+        "declaration": "public object Create(DbContext context, bool designTime) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlMigrateDatabaseHostedService.cs",
-        "declaration": "public PostgreSqlMigrateDatabaseHostedService( IServiceProvider serviceProvider, ILogger<PostgreSqlMigrateDatabaseHostedService> logger, FileStructureDbContextOptions dbContextOptions) {"
+        "declaration": "public PostgreSqlMigrateDatabaseHostedService( IServiceProvider serviceProvider, ILogger<PostgreSqlMigrateDatabaseHostedService> logger) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlMigrateDatabaseHostedService.cs",

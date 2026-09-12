@@ -2363,7 +2363,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Media composition root",
     "category": "Media",
     "surface": "AddNhMedia / context",
-    "outcome": "Storage, structure, and authorization modules are registered together.",
+    "outcome": "Storage, structure, and authorization modules are registered together; PostgreSQL model and upgrade migrations honor the configured media schema.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
