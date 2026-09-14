@@ -149,7 +149,9 @@ public static class NewHeapDatabaseReadApplication
         }
         catch (DatabaseReadExpectedException exception)
         {
-            await WriteErrorAsync(output, requestId, exception.Code, exception.Message, cancellationToken);
+            await WriteErrorAsync(output, requestId, exception.Code, exception.Message,
+                null, exception.VerificationCheck is null ? null : executionContext.GetResponseStage(),
+                cancellationToken, exception.VerificationCheck);
             return (int)exception.ExitCode;
         }
         catch (DbException exception)
@@ -297,7 +299,8 @@ public static class NewHeapDatabaseReadApplication
         string message,
         DatabaseReadProviderFailure? providerFailure,
         string? stage,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? verificationCheck = null)
     {
         return DatabaseReadJson.WriteAsync(
             output,
@@ -308,6 +311,7 @@ public static class NewHeapDatabaseReadApplication
                 {
                     Code = code,
                     Message = message,
+                    VerificationCheck = verificationCheck,
                     Classification = providerFailure?.Classification,
                     Provider = providerFailure?.Provider,
                     ProviderCode = providerFailure?.ProviderCode,

@@ -3,11 +3,14 @@ namespace NewHeap.Platform.DatabaseRead;
 internal sealed class DatabaseReadExpectedException(
     string code,
     string message,
-    DatabaseReadExitCode exitCode) : Exception(message)
+    DatabaseReadExitCode exitCode,
+    string? verificationCheck = null) : Exception(message)
 {
     public string Code { get; } = code;
 
     public DatabaseReadExitCode ExitCode { get; } = exitCode;
+
+    public string? VerificationCheck { get; } = verificationCheck;
 }
 
 internal enum DatabaseReadExitCode

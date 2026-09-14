@@ -63,7 +63,7 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
         return new NpgsqlConnection(builder.ConnectionString);
     }
 
-    public async Task<bool> VerifyReadOnlyPrincipalAsync(
+    public async Task<DatabaseReadPrincipalVerification> VerifyReadOnlyPrincipalAsync(
         DbConnection connection,
         DatabaseReadLimits limits,
         CancellationToken cancellationToken)
@@ -73,7 +73,7 @@ internal sealed class PostgreSqlDatabaseReadProvider : IDatabaseReadProvider
         command.CommandTimeout = limits.TimeoutSeconds;
         var value = await command.ExecuteScalarAsync(cancellationToken);
 
-        return value is true;
+        return new DatabaseReadPrincipalVerification(value is true);
     }
 
     public async Task ConfigureReadOnlyTransactionAsync(

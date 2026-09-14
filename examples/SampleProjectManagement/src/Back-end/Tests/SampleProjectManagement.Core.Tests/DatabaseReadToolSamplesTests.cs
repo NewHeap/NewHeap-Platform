@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using NewHeap.Platform.DatabaseRead;
+using SampleProjectManagement.DatabaseRead.Mcp;
 using Xunit;
 
 namespace SampleProjectManagement.Core.Tests;
@@ -12,6 +13,31 @@ namespace SampleProjectManagement.Core.Tests;
 /// </summary>
 public sealed class DatabaseReadToolSamplesTests
 {
+    [Theory]
+    [InlineData("function-select", true)]
+    [InlineData("database-role-db_owner", true)]
+    [InlineData("private-canary", false)]
+    [InlineData(null, false)]
+    public void McpPreservesOnlyKnownVerificationChecks(string? check, bool expected)
+    {
+        using var response = JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            error = new { code = "read-only-principal-not-verified", verificationCheck = check,
+                message = "Password=private-canary" }
+        }));
+        var result = NewHeapSampleDatabaseReadExecutor.SafeFailure(response.RootElement);
+        Assert.False(result.Success);
+        var error = Assert.Single(result.GetResultItems());
+        Assert.Equal("read-only-principal-not-verified", error.Name);
+        var message = Assert.Single(error.ErrorMessages).ToString();
+        Assert.DoesNotContain("private-canary", message);
+        Assert.Equal(expected, message.Contains("Rejected verification check:", StringComparison.Ordinal));
+        if (expected)
+        {
+            Assert.Contains(check!, message);
+        }
+    }
+
     [Fact]
     public void CheckedInCatalogProvidesOneAuthoritativeDiagnosticRoute()
     {

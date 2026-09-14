@@ -23,12 +23,14 @@ internal static class DatabaseSchemaReader
             cancellationToken);
 
         executionContext.Enter(DatabaseReadExecutionStage.ReadOnlyVerification);
-        if (!await provider.VerifyReadOnlyPrincipalAsync(connection, limits, cancellationToken))
+        var verification = await provider.VerifyReadOnlyPrincipalAsync(connection, limits, cancellationToken);
+        if (!verification.IsReadOnly)
         {
             throw new DatabaseReadExpectedException(
                 "read-only-principal-not-verified",
-                "The database principal has write, DDL or elevated permissions. Use a dedicated read-only credential.",
-                DatabaseReadExitCode.PolicyRejected);
+                "The database principal did not pass the read-only permission policy.",
+                DatabaseReadExitCode.PolicyRejected,
+                verification.FailedCheck);
         }
 
         await using var transaction = await connection.BeginTransactionAsync(

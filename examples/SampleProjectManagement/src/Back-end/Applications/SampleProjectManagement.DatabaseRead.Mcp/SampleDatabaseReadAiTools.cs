@@ -339,7 +339,7 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
         }
     }
 
-    private static TaskResult<JsonElement> SafeFailure(JsonElement result)
+    internal static TaskResult<JsonElement> SafeFailure(JsonElement result)
     {
         if (!result.TryGetProperty("error", out var error)
             || error.ValueKind != JsonValueKind.Object)
@@ -353,6 +353,9 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
         var stage = SafeToken(error, "stage", 32);
         var retryHint = SafeToken(error, "retryHint", 64);
         var code = classification ?? SafeToken(error, "code", 64) ?? "sample-database-rejected";
+        var verificationCheck = code == "read-only-principal-not-verified"
+            ? KnownVerificationCheck(SafeToken(error, "verificationCheck", 80))
+            : null;
         var message = classification switch
         {
             "object-not-found" => "A referenced database object does not exist. Inspect the live schema before retrying.",
@@ -385,8 +388,46 @@ public sealed class NewHeapSampleDatabaseReadExecutor(
             message = $"{message} Retry hint {retryHint}.";
         }
 
+        if (verificationCheck is not null)
+        {
+            message = $"{message} Rejected verification check: {verificationCheck}.";
+        }
+
         return TaskResult<JsonElement>.Failed(code, message);
     }
+
+    private static string? KnownVerificationCheck(string? check) => check switch
+    {
+        "server-role-sysadmin" or
+        "database-role-db_owner" or
+        "database-role-db_accessadmin" or
+        "database-role-db_securityadmin" or
+        "database-role-db_backupoperator" or
+        "database-role-db_datawriter" or
+        "database-role-db_ddladmin" or
+        "server-permission-control-server" or
+        "server-permission-alter-any-login" or
+        "server-permission-alter-any-database" or
+        "server-permission-create-any-database" or
+        "server-permission-administer-bulk-operations" or
+        "database-permission-control" or
+        "database-permission-alter" or
+        "database-permission-create-table" or
+        "database-permission-create-procedure" or
+        "database-permission-execute" or
+        "table-view-insert" or
+        "table-view-update" or
+        "table-view-delete" or
+        "procedure-execute" or
+        "function-execute" or
+        "function-select" or
+        "table" or
+        "view" or
+        "table" or
+        "view" or
+        "verification-result-invalid" => check,
+        _ => null
+    };
 
     private static TaskResult<JsonElement> Rejected() =>
         TaskResult<JsonElement>.Failed(
