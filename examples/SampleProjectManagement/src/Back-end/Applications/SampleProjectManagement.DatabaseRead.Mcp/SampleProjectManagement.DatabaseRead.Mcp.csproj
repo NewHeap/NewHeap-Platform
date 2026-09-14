@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup><InternalsVisibleTo Include="SampleProjectManagement.Core.Tests" /></ItemGroup>
   <PropertyGroup>
     <OutputType>Exe</OutputType>
   </PropertyGroup>

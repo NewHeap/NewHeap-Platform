@@ -11,7 +11,7 @@ internal interface IDatabaseReadProvider
         string requestId,
         DatabaseReadLimits limits);
 
-    Task<bool> VerifyReadOnlyPrincipalAsync(
+    Task<DatabaseReadPrincipalVerification> VerifyReadOnlyPrincipalAsync(
         DbConnection connection,
         DatabaseReadLimits limits,
         CancellationToken cancellationToken);
@@ -46,3 +46,5 @@ internal static class DatabaseReadProviderFactory
         };
     }
 }
+
+internal sealed record DatabaseReadPrincipalVerification(bool IsReadOnly, string? FailedCheck = null);
