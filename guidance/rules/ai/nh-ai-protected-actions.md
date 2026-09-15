@@ -4,8 +4,8 @@ title: "Protect AI mutations with exact approval and verification"
 area: backend
 reference: ai-protected-actions
 summary: "Route material AI actions through scoped capabilities, canonical proposals, bound approvals, budgets, concurrency, idempotency, and independent verification before reporting success."
-sample-cases: ["SPM-224"]
-public-symbols: ["INhAiApprovalEvidenceProvider", "INhAiApprovalValidator", "INhAiAuthoritativeExecutionEvidenceValidator", "INhAiBudgetManager", "INhAiCapabilityResolver", "INhAiEffectPolicy", "INhAiIdempotencyManager", "INhAiProposalFactory", "INhAiToolConcurrencyLimiter", "INhAiToolVerifier", "NhAiActionBudget", "NhAiApproval", "NhAiApprovalEvidence", "NhAiAuthoritativeExecutionEvidence", "NhAiCapabilityGrant", "NhAiCapabilityResolution", "NhAiIdempotencyRequest", "NhAiProposal", "NhAiProposalCreateRequest", "NhAiToolEffect", "NhAiVerificationResult"]
+sample-cases: ["SPM-224", "SPM-240"]
+public-symbols: ["INhAiApprovalEvidenceProvider", "INhAiApprovalValidator", "INhAiAuthoritativeExecutionEvidenceValidator", "INhAiBudgetManager", "INhAiCapabilityResolver", "INhAiEffectPolicy", "INhAiIdempotencyManager", "INhAiProposalFactory", "INhAiToolConcurrencyLimiter", "INhAiToolVerifier", "NhAiActionBudget", "NhAiApproval", "NhAiApprovalEvidence", "NhAiApprovalRequirement", "NhAiAuditRecord", "NhAiAuthoritativeExecutionEvidence", "NhAiCapabilityGrant", "NhAiCapabilityResolution", "NhAiEffectDecisionKind", "NhAiIdempotencyRequest", "NhAiIdempotencySupport", "NhAiProposal", "NhAiProposalCreateRequest", "NhAiToolEffect", "NhAiVerificationResult"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -31,7 +31,29 @@ register one `INhAiAuthoritativeExecutionEvidenceValidator`. Validate the
 consumer-owned evidence there and return only the bounded normalized attestation;
 do not translate it into a second Platform proposal. The shared invoker still
 performs authorization, capability, budget, concurrency, idempotency lease,
-execution, verification, and audit handling.
+execution, verification, and audit handling. When an expected denial must reach
+the caller as the domain's own typed receipt, return a failed `TaskResult` whose
+data is `NhAiAuthoritativeExecutionEvidence.Denied(payload, evidenceReference)`;
+the invoker copies the payload into the failed `TaskResult<T>.Data` and audits
+the failure code as the approval code.
+
+When the application must validate approval and reconcile replays inside the
+write itself—for example an engine that returns a receipt with a stable denial
+code, burns the grant on every mismatch, and answers a replayed idempotency key
+with the reconciled receipt—declare `Approval = NhAiApprovalRequirement.ConsumerAuthoritative`
+and `Idempotency = NhAiIdempotencySupport.ConsumerAuthoritative` on that tool.
+The descriptor then states honestly that the consumer owns those steps: the
+default effect policy returns `NhAiEffectDecisionKind.ConsumerAuthoritativeApproval`,
+the invoker skips the Platform approval evidence and idempotency lease for that
+tool only, and the audit record carries `ApprovalCode` and `IdempotencyCode`
+`consumer-authoritative` plus the `ResultCode` of a failed invocation. Return an
+expected denial as `TaskResult<T>.Failed(code, message).WithData(receipt)`.
+Tools that do not opt in keep Platform approval and leases, an effect policy
+cannot delegate approval to a tool that did not opt in, and destructive effects
+always require Platform approval and a verifier. Do not use these values to
+weaken a tool that has no authoritative engine of its own; use
+`NotRequired`, an attesting `ApprovalValidated = true`, or an always-acquiring
+lease manager only when that is literally true.
 
 Resolve short-lived capabilities again at discovery and invocation. Bind grants
 to subject, purpose, tool selector, execution scope, issuer, expiry, optional
@@ -57,6 +79,11 @@ and evidence references—never arguments, results, prompts, or credentials.
 - Trusting the tool response as independent verification.
 - Using the in-process concurrency limiter or sample memory store as distributed durability.
 - Logging proposal arguments, execution results, provider bodies, or retrieved content.
+- Declaring `NotRequired` approval, attesting `ApprovalValidated = true` before validation, or
+  registering an always-acquiring lease manager to bypass governance for a tool whose
+  application does not actually own approval or replay reconciliation.
+- Declaring `ConsumerAuthoritative` approval or idempotency on a tool that does not validate
+  its own grant and reconcile replays inside the invocation.
 
 ## Verification
 
@@ -65,5 +92,11 @@ self-approval, revoked or expired capabilities, omitted/denied budget reservatio
 concurrency saturation, duplicate and conflicting idempotency keys, fencing,
 verifier disagreement, timeout, and bounded results. Prove the application
 service executes once across a retry and that a verification failure remains
-distinguishable from an execution failure. SPM-224 and
-`NewHeap.Platform.AI.Tests` are the executable references.
+distinguishable from an execution failure. For a consumer-authoritative tool,
+prove that an invalid or burned grant returns the typed denial receipt as failed
+`TaskResult<T>.Data` without executing, that a replayed key reaches the engine
+and returns the reconciled receipt while the Platform idempotency manager is
+never asked for a lease, that the audit record carries the consumer-attested
+codes, and that a delegating effect decision is rejected for a tool that did not
+opt in. SPM-224, SPM-240 and `NewHeap.Platform.AI.Tests` are the executable
+references.

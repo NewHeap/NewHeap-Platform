@@ -318,15 +318,34 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
             cancellationToken);
         if (!authoritativeEvidence.Success)
         {
+            var denial = authoritativeEvidence.Data;
+            var denialCode = FirstResultCode(authoritativeEvidence);
             activity?.SetTag("newheap.ai.tool.outcome", "execution-evidence-invalid");
+            activity?.SetTag("newheap.ai.tool.approval_code", denialCode);
             await WriteAuditAsync(
                 descriptor,
                 context,
                 NhAiOutcomeKind.AuthorizationDenied,
-                cancellationToken);
-            return TaskResult<T>.Failed(authoritativeEvidence);
+                cancellationToken,
+                approvalCode: denialCode ?? "execution-evidence-invalid",
+                approvalEvidenceReference: SafeEvidenceReference(denial?.EvidenceReference),
+                resultCode: denialCode);
+
+            var deniedResult = TaskResult<T>.Failed(authoritativeEvidence);
+            if (denial?.DenialPayload is { } denialPayload)
+            {
+                if (denialPayload is not T typedDenialPayload)
+                {
+                    throw new InvalidOperationException(
+                        $"AI tool '{descriptor.Id}' received an authoritative denial payload of type '{denialPayload.GetType()}' that is not assignable to '{typeof(T)}'.");
+                }
+                deniedResult.WithData(typedDenialPayload);
+            }
+            return deniedResult;
         }
         var validatedEvidence = authoritativeEvidence.Data;
+        string? approvalCode = null;
+        string? approvalEvidenceReference = null;
         if ((validatedEvidence.ApprovalValidated || validatedEvidence.IdempotencyKeyValidated)
                 && string.IsNullOrWhiteSpace(validatedEvidence.EvidenceReference)
             || validatedEvidence.EvidenceReference is { Length: > 256 }
@@ -344,6 +363,11 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
         {
             context = context with { IdempotencyKey = validatedEvidence.IdempotencyKey };
         }
+        if (validatedEvidence.ApprovalValidated)
+        {
+            approvalCode = "authoritative-evidence-validated";
+            approvalEvidenceReference = SafeEvidenceReference(validatedEvidence.EvidenceReference);
+        }
 
         var effectDecision = await _effectPolicy.EvaluateAsync(
             descriptor,
@@ -360,7 +384,26 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                 cancellationToken);
             return TaskResult<T>.Failed("AI tool effect policy denied execution.");
         }
-        if (effectDecision.Kind == NhAiEffectDecisionKind.RequireApproval
+        if (effectDecision.Kind == NhAiEffectDecisionKind.ConsumerAuthoritativeApproval)
+        {
+            if (descriptor.Approval != NhAiApprovalRequirement.ConsumerAuthoritative)
+            {
+                activity?.SetTag("newheap.ai.tool.outcome", "approval-delegation-invalid");
+                await WriteAuditAsync(
+                    descriptor,
+                    context,
+                    NhAiOutcomeKind.AuthorizationDenied,
+                    cancellationToken,
+                    approvalCode: "approval-delegation-invalid");
+                return TaskResult<T>.Failed(
+                    "AI tool effect policy delegated approval to a tool that does not declare consumer-authoritative approval.");
+            }
+            if (!validatedEvidence.ApprovalValidated)
+            {
+                approvalCode = "consumer-authoritative";
+            }
+        }
+        else if (effectDecision.Kind == NhAiEffectDecisionKind.RequireApproval
             && !validatedEvidence.ApprovalValidated)
         {
             var evidence = await _approvalEvidenceProvider.GetAsync(
@@ -393,10 +436,12 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                     descriptor,
                     context,
                     NhAiOutcomeKind.ApprovalRequired,
-                    cancellationToken);
+                    cancellationToken,
+                    approvalCode: SafeCode(validation.Code) ?? "approval-invalid");
                 return TaskResult<T>.Failed(
                     $"AI tool approval validation failed with code '{validation.Code}'.");
             }
+            approvalCode = SafeCode(validation.Code) ?? "approval-validated";
         }
 
         if (context.RemainingBudget is { } remainingBudget
@@ -410,7 +455,9 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                 descriptor,
                 context,
                 NhAiOutcomeKind.BudgetExhausted,
-                cancellationToken);
+                cancellationToken,
+                approvalCode: approvalCode,
+                approvalEvidenceReference: approvalEvidenceReference);
             return TaskResult<T>.Failed("AI tool execution budget is exhausted.");
         }
 
@@ -430,7 +477,9 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                 descriptor,
                 context,
                 NhAiOutcomeKind.BudgetExhausted,
-                cancellationToken);
+                cancellationToken,
+                approvalCode: approvalCode,
+                approvalEvidenceReference: approvalEvidenceReference);
             return TaskResult<T>.Failed("AI tool execution budget could not be reserved.");
         }
         activity?.SetTag("newheap.ai.tool.budget", "reserved");
@@ -449,7 +498,9 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                 descriptor,
                 context,
                 NhAiOutcomeKind.Conflict,
-                cancellationToken);
+                cancellationToken,
+                approvalCode: approvalCode,
+                approvalEvidenceReference: approvalEvidenceReference);
             return TaskResult<T>.Failed("AI tool concurrency limit was reached.");
         }
         await using var concurrencyLease = concurrency.Lease;
@@ -462,13 +513,23 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                 descriptor,
                 context,
                 NhAiOutcomeKind.BudgetExhausted,
-                cancellationToken);
+                cancellationToken,
+                approvalCode: approvalCode,
+                approvalEvidenceReference: approvalEvidenceReference);
             return TaskResult<T>.Failed("AI tool execution deadline has expired.");
         }
 
         NhAiIdempotencyLease? idempotencyLease = null;
         var idempotencyCompleted = false;
-        if (descriptor.Idempotency == NhAiIdempotencySupport.Required
+        string? idempotencyCode = null;
+        if (descriptor.Idempotency == NhAiIdempotencySupport.ConsumerAuthoritative)
+        {
+            // The consuming engine reconciles replays itself and returns its receipt;
+            // the invoker records the delegation instead of acquiring a Platform lease.
+            idempotencyCode = "consumer-authoritative";
+            activity?.SetTag("newheap.ai.tool.idempotency", idempotencyCode);
+        }
+        else if (descriptor.Idempotency == NhAiIdempotencySupport.Required
             || (descriptor.Idempotency == NhAiIdempotencySupport.Supported
                 && !string.IsNullOrWhiteSpace(context.IdempotencyKey)))
         {
@@ -481,6 +542,8 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                     context,
                     NhAiOutcomeKind.Conflict,
                     cancellationToken,
+                    approvalCode: approvalCode,
+                    approvalEvidenceReference: approvalEvidenceReference,
                     idempotencyCode: "idempotency-key-invalid");
                 return TaskResult<T>.Failed(
                     "AI tool execution requires a valid idempotency key.");
@@ -496,7 +559,7 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                     NhAiCanonicalJson.ComputeHash(arguments),
                     context.FencingToken),
                 cancellationToken);
-            var idempotencyCode = SafeCode(idempotencyLease.Code);
+            idempotencyCode = SafeCode(idempotencyLease.Code);
             activity?.SetTag("newheap.ai.tool.idempotency", idempotencyCode);
             if (idempotencyLease.Decision != NhAiIdempotencyDecisionKind.Acquired)
             {
@@ -506,6 +569,8 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                     context,
                     NhAiOutcomeKind.Conflict,
                     cancellationToken,
+                    approvalCode: approvalCode,
+                    approvalEvidenceReference: approvalEvidenceReference,
                     idempotencyCode: idempotencyCode);
                 return TaskResult<T>.Failed(
                     "AI tool idempotency policy denied execution.");
@@ -541,7 +606,9 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                     context,
                     NhAiOutcomeKind.TerminalFailure,
                     cancellationToken,
-                    idempotencyCode: SafeCode(idempotencyLease?.Code));
+                    approvalCode: approvalCode,
+                    approvalEvidenceReference: approvalEvidenceReference,
+                    idempotencyCode: idempotencyCode);
                 return TaskResult<T>.Failed("AI tool result exceeded its configured size limit.");
             }
 
@@ -572,7 +639,9 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                         context,
                         NhAiOutcomeKind.TerminalFailure,
                         cancellationToken,
-                        idempotencyCode: SafeCode(idempotencyLease?.Code),
+                        approvalCode: approvalCode,
+                        approvalEvidenceReference: approvalEvidenceReference,
+                        idempotencyCode: idempotencyCode,
                         verificationCode: verificationCode,
                         verificationEvidenceReference: verificationEvidenceReference);
                     return TaskResult<T>
@@ -584,16 +653,21 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
             var outcome = result.Success
                 ? NhAiOutcomeKind.Succeeded
                 : NhAiOutcomeKind.TerminalFailure;
+            var resultCode = result.Success ? null : FirstResultCode(result);
             await CompleteIdempotencyOnceAsync(outcome);
             activity?.SetTag("newheap.ai.tool.outcome", result.Success ? "succeeded" : "failed");
+            activity?.SetTag("newheap.ai.tool.result_code", resultCode);
             await WriteAuditAsync(
                 descriptor,
                 context,
                 outcome,
                 cancellationToken,
-                idempotencyCode: SafeCode(idempotencyLease?.Code),
+                approvalCode: approvalCode,
+                approvalEvidenceReference: approvalEvidenceReference,
+                idempotencyCode: idempotencyCode,
                 verificationCode: verificationCode,
-                verificationEvidenceReference: verificationEvidenceReference);
+                verificationEvidenceReference: verificationEvidenceReference,
+                resultCode: resultCode);
             return result;
         }
         catch (OperationCanceledException)
@@ -611,7 +685,9 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
                 context,
                 NhAiOutcomeKind.TerminalFailure,
                 CancellationToken.None,
-                idempotencyCode: SafeCode(idempotencyLease?.Code));
+                approvalCode: approvalCode,
+                approvalEvidenceReference: approvalEvidenceReference,
+                idempotencyCode: idempotencyCode);
             throw;
         }
     }
@@ -621,9 +697,12 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
         NhAiInvocationContext? context,
         NhAiOutcomeKind outcome,
         CancellationToken cancellationToken,
+        string? approvalCode = null,
+        string? approvalEvidenceReference = null,
         string? idempotencyCode = null,
         string? verificationCode = null,
-        string? verificationEvidenceReference = null)
+        string? verificationEvidenceReference = null,
+        string? resultCode = null)
     {
         if (_auditSinks.Count == 0)
         {
@@ -642,9 +721,12 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
             RunId = context?.RunId,
             CorrelationId = context?.CorrelationId,
             ApprovalId = context?.ApprovalId,
+            ApprovalCode = approvalCode,
+            ApprovalEvidenceReference = approvalEvidenceReference,
             IdempotencyCode = idempotencyCode,
             VerificationCode = verificationCode,
-            VerificationEvidenceReference = verificationEvidenceReference
+            VerificationEvidenceReference = verificationEvidenceReference,
+            ResultCode = resultCode
         };
         foreach (var sink in _auditSinks)
         {
@@ -730,6 +812,14 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
     private static string? SafeCode(string? code)
     {
         return NhAiNames.IsSegment(code) ? code : null;
+    }
+
+    private static string? FirstResultCode(TaskResult result)
+    {
+        var name = result.GetResultItems()
+            .Select(item => item.Name)
+            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
+        return SafeCode(name);
     }
 
     private sealed class NhAiBoundedWriteStream(int maximumBytes) : Stream

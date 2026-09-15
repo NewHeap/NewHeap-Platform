@@ -150,6 +150,97 @@ public sealed class NhAiAspNetMcpTests
         Assert.Contains("conflicts with a NewHeap AI export name", exception.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Flat_export_schema_publishes_unwrapped_arguments_and_typed_denials()
+    {
+        var context = new NhAiInvocationContext(
+            "agent-1",
+            "order-maintenance",
+            new Dictionary<string, string>());
+        var services = new ServiceCollection();
+        services.AddScoped<FlatMcpTools>();
+        services.AddScoped<INhAiToolInvocationGate>(
+            _ => NhAiTestInvocationGate.Authorized(context));
+        services.AddScoped<INhAiToolDiscoveryPolicy>(
+            _ => NhAiTestDiscoveryPolicy.Allowed());
+        services.AddScoped<INhAiBudgetManager>(_ => new NhAiTestBudgetManager());
+        services.AddNewHeapPlatformAI(ai =>
+            ai.AddGeneratedToolCatalog<FlatMcpToolsNhAiCatalog>());
+        services.AddNewHeapPlatformAIMcp();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var mcpTools = await scope.ServiceProvider
+            .GetRequiredService<INhAiMcpToolAdapter>()
+            .CreateToolsAsync(scope.ServiceProvider, context);
+        var clientToServer = new Pipe();
+        var serverToClient = new Pipe();
+        await using var server = McpServer.Create(
+            new StreamServerTransport(
+                clientToServer.Reader.AsStream(),
+                serverToClient.Writer.AsStream()),
+            new McpServerOptions
+            {
+                ScopeRequests = false,
+                ToolCollection = [.. mcpTools]
+            },
+            serviceProvider: scope.ServiceProvider);
+        _ = server.RunAsync();
+        await using var client = await McpClient.CreateAsync(
+            new StreamClientTransport(
+                clientToServer.Writer.AsStream(),
+                serverToClient.Reader.AsStream()));
+
+        var tool = Assert.Single(await client.ListToolsAsync());
+        Assert.Equal("orders.apply-status-receipt", tool.Name);
+        Assert.True(tool.JsonSchema.GetProperty("properties").TryGetProperty("orderId", out _));
+        Assert.False(tool.JsonSchema.GetProperty("properties").TryGetProperty("input", out _));
+        Assert.NotNull(tool.ReturnJsonSchema);
+        Assert.True(tool.ReturnJsonSchema.Value.GetProperty("properties").TryGetProperty("execution", out _));
+
+        var receipt = await client.CallNewHeapFlatToolAsync<FlatReceiptInput, FlatReceipt>(
+            tool.Name,
+            new FlatReceiptInput("order-1", "valid-grant", "key-1"));
+        Assert.Equal("executed", receipt.Execution);
+        Assert.Equal("agent-1", receipt.ActorId);
+
+        // The official client contract: top-level arguments, structured content is the receipt.
+        var rawResult = await tool.CallAsync(new Dictionary<string, object?>
+        {
+            ["orderId"] = "order-1",
+            ["approvalGrant"] = "valid-grant",
+            ["idempotencyKey"] = "key-1"
+        });
+        Assert.NotEqual(true, rawResult.IsError);
+        Assert.Equal(
+            "executed",
+            rawResult.StructuredContent!.Value.GetProperty("execution").GetString());
+        Assert.False(rawResult.StructuredContent.Value.TryGetProperty("success", out _));
+
+        var denied = await Assert.ThrowsAsync<NhAiMcpToolException>(async () =>
+            await client.CallNewHeapFlatToolAsync<FlatReceiptInput, FlatReceipt>(
+                tool.Name,
+                new FlatReceiptInput("order-1", "burned-grant", "key-2")));
+        Assert.True(denied.Result.IsError);
+        var denial = denied.Result.StructuredContent!.Value;
+        Assert.Equal("deny", denial.GetProperty("execution").GetString());
+        Assert.Equal(
+            "approval-invalid-expired-or-replayed",
+            denial.GetProperty("code").GetString());
+        Assert.Contains(
+            "approval-invalid-expired-or-replayed",
+            denied.Message,
+            StringComparison.Ordinal);
+
+        var failedWithoutPayload = await tool.CallAsync(new Dictionary<string, object?>
+        {
+            ["orderId"] = "order-1",
+            ["approvalGrant"] = "crash",
+            ["idempotencyKey"] = "key-3"
+        });
+        Assert.True(failedWithoutPayload.IsError);
+        Assert.Null(failedWithoutPayload.StructuredContent);
+    }
+
     private static DefaultHttpContext CreateContext(
         string subject,
         string tenant,
@@ -268,6 +359,57 @@ public sealed class AuthenticatedMcpTools
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
         }
         return TaskResult<string>.Succeeded($"{input}:{context.Subject}:{context.TenantId}");
+    }
+}
+
+public sealed record FlatReceiptInput(
+    string OrderId,
+    string ApprovalGrant,
+    string IdempotencyKey);
+
+public sealed record FlatReceipt(
+    string Execution,
+    string Code,
+    string ActorId);
+
+[NhAiToolSet("orders")]
+public sealed class FlatMcpTools
+{
+    [NhAiTool(
+        "apply-status-receipt",
+        1,
+        NhAiToolEffect.Mutation,
+        NhAiToolExposure.Mcp,
+        Approval = NhAiApprovalRequirement.ConsumerAuthoritative,
+        Idempotency = NhAiIdempotencySupport.ConsumerAuthoritative,
+        ExportSchema = NhAiToolExportSchema.Flat)]
+    [NhAiToolExportName("orders.apply-status-receipt")]
+    [Authorize(Policy = "order-manage")]
+    [Description("Apply an approved order status change and return the domain receipt.")]
+    public Task<TaskResult<FlatReceipt>> ApplyAsync(
+        FlatReceiptInput input,
+        NhAiInvocationContext context,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.Equals(input.ApprovalGrant, "crash", StringComparison.Ordinal))
+        {
+            return Task.FromResult(TaskResult<FlatReceipt>.Failed(
+                "engine-unavailable",
+                "The order engine returned no receipt."));
+        }
+        if (!string.Equals(input.ApprovalGrant, "valid-grant", StringComparison.Ordinal))
+        {
+            return Task.FromResult(
+                TaskResult<FlatReceipt>
+                    .Failed("approval-invalid-expired-or-replayed", "The approval grant is invalid.")
+                    .WithData(new FlatReceipt(
+                        "deny",
+                        "approval-invalid-expired-or-replayed",
+                        context.ActorId)));
+        }
+        return Task.FromResult(TaskResult<FlatReceipt>.Succeeded(
+            new FlatReceipt("executed", "status-updated", context.ActorId)));
     }
 }
 

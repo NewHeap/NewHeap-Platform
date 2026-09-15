@@ -3288,6 +3288,25 @@
         "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs",
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyApiSamplesTests.cs"
       ]
+    },
+    {
+      "id": "SPM-240",
+      "categoryId": "18",
+      "title": "Consumer-authoritative AI write with a flat MCP schema",
+      "surface": "`NhAiApprovalRequirement.ConsumerAuthoritative`, `NhAiIdempotencySupport.ConsumerAuthoritative`, `NhAiEffectDecisionKind.ConsumerAuthoritativeApproval`, `NhAiToolExportSchema.Flat`, `NhAiAuthoritativeExecutionEvidence.Denied`, `NhAiAuditRecord.ApprovalCode`/`ApprovalEvidenceReference`/`ResultCode`, `CallNewHeapFlatToolAsync<TInput, TOutput>` and the shared invocation pipeline",
+      "outcome": "A generated write tool declares that the consuming application owns approval and idempotency inside the governed invocation. The application validates its own single-use approval grant, burns the grant on any mismatch and returns an expected denial as its typed domain receipt with execution `deny`, database completion `not-executed` and the stable code `approval-invalid-expired-or-replayed`; the invoker copies that typed payload into the failed `TaskResult<T>.Data` and audits `consumer-authoritative` approval and idempotency codes plus the result code. A replayed idempotency key reaches the application engine and returns the reconciled receipt with `idempotentReplay: true` while the Platform idempotency manager is never asked for a lease. An `INhAiAuthoritativeExecutionEvidenceValidator` can return the same typed denial payload before execution. The MCP export publishes the input properties as top-level arguments and the receipt as the structured result, so the domain wire contract stays flat and typed denials remain structured MCP tool errors. The shared invoker still authorizes, resolves capabilities, reserves budget, bounds execution, verifies and audits; tools that do not opt in keep Platform approval and leases, an effect policy cannot delegate approval to a tool that did not opt in, and destructive effects still require Platform approval and a verifier.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusReceiptService.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Models/AI/ProjectAiModels.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiConsumerAuthoritativeTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs"
+      ]
     }
   ]
 }

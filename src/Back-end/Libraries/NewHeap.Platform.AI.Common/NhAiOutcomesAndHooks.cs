@@ -87,9 +87,30 @@ public sealed record NhAiAuditRecord(
     public string? RunId { get; init; }
     public string? CorrelationId { get; init; }
     public string? ApprovalId { get; init; }
+
+    /// <summary>
+    /// Which approval step governed the invocation: the Platform validator code,
+    /// <c>authoritative-evidence-validated</c> for consumer-validated evidence,
+    /// <c>consumer-authoritative</c> when the tool validates approval inside the
+    /// governed invocation, or the failure code of a rejected approval.
+    /// </summary>
+    public string? ApprovalCode { get; init; }
+
+    /// <summary>
+    /// Bounded evidence reference supplied by the authoritative execution evidence validator.
+    /// </summary>
+    public string? ApprovalEvidenceReference { get; init; }
+
     public string? IdempotencyCode { get; init; }
     public string? VerificationCode { get; init; }
     public string? VerificationEvidenceReference { get; init; }
+
+    /// <summary>
+    /// Bounded first failure code of a failed invocation result, so consumer-attested
+    /// approval or replay outcomes remain visible in the audit trail.
+    /// </summary>
+    public string? ResultCode { get; init; }
+
     public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.ToolActionAudit;
 }
 

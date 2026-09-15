@@ -122,6 +122,31 @@ public sealed record NhAiAuthoritativeExecutionEvidence(
 {
     public static NhAiAuthoritativeExecutionEvidence None { get; } =
         new(false, false, null, null);
+
+    /// <summary>
+    /// A typed domain payload that describes an expected denial. The invoker copies
+    /// it into <c>TaskResult&lt;T&gt;.Data</c> of the failed invocation result when
+    /// the validator returns a failed result carrying this evidence, so a consumer
+    /// can publish its own receipt for an invalid, expired or replayed approval.
+    /// The payload must be assignable to the tool output type.
+    /// </summary>
+    public object? DenialPayload { get; init; }
+
+    /// <summary>
+    /// Creates the evidence value for a failed validation that still returns a typed
+    /// domain payload. Attach it to a failed <c>TaskResult</c> through
+    /// <c>WithData</c>; the failure code of that result becomes the audited approval code.
+    /// </summary>
+    public static NhAiAuthoritativeExecutionEvidence Denied(
+        object denialPayload,
+        string? evidenceReference = null)
+    {
+        ArgumentNullException.ThrowIfNull(denialPayload);
+        return new NhAiAuthoritativeExecutionEvidence(false, false, null, evidenceReference)
+        {
+            DenialPayload = denialPayload
+        };
+    }
 }
 
 public interface INhAiAuthoritativeExecutionEvidenceValidator

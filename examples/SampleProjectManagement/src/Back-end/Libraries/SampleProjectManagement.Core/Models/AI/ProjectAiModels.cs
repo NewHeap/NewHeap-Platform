@@ -16,6 +16,37 @@ public sealed record ProjectAiStatusChangeReport(
     ProjectStatus CurrentStatus,
     bool Accepted);
 
+/// <summary>
+/// Flat wire input of the consumer-authoritative status receipt tool. The approval
+/// grant and idempotency key are ordinary domain arguments: the application validates
+/// them itself inside the governed invocation.
+/// </summary>
+public sealed record ProjectAiStatusReceiptRequest(
+    Guid ProjectId,
+    ProjectStatus Status,
+    string ApprovalGrant,
+    string IdempotencyKey);
+
+/// <summary>
+/// Domain receipt returned for every status receipt request, including expected
+/// approval denials, so remote callers always receive the same typed wire contract.
+/// </summary>
+public sealed record ProjectAiStatusReceipt(
+    Guid ProjectId,
+    string Execution,
+    string DatabaseCompletion,
+    string Code,
+    bool IdempotentReplay,
+    string EvidenceReference)
+{
+    public const string ExecutedExecution = "executed";
+    public const string DenyExecution = "deny";
+    public const string CommittedCompletion = "committed";
+    public const string NotExecutedCompletion = "not-executed";
+    public const string StatusUpdatedCode = "status-updated";
+    public const string ApprovalInvalidCode = "approval-invalid-expired-or-replayed";
+}
+
 public sealed record ProjectAiContextDocument(
     Guid ProjectId,
     string Key,
