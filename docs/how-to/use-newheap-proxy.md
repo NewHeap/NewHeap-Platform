@@ -5,6 +5,7 @@ or follow the [local demo](../../examples/SampleProjectManagement/docs/proxy-adm
 
 - [Connect the proxy to your application](#host-integration)
 - [Secure administration](#administration)
+- [Customize UI and API authentication](#custom-authentication)
 - [Enable the server-to-server API](#optional-management-api)
 - [Match exact paths](#literal-redirects)
 - [Match variable paths](#regex-redirects)
@@ -24,7 +25,7 @@ The database is created and rules are loaded before requests are accepted.
 | If your application uses… | Integration |
 | --- | --- |
 | An upstream proxy | Configure trusted forwarded headers before `UseNewHeapProxy` so client IPs and public URLs are correct. |
-| Its own authentication | Keep its authentication scheme as the default. Administration uses the separate `NewHeapProxy` scheme. |
+| Its own authentication | Keep its authentication defaults. Opt into host schemes for the panel and API independently; otherwise the built-in schemes remain in use. |
 | CORS, rate limiting or request timeouts | Place the required middleware after route selection and before endpoint execution. |
 | Catch-all routes | `/newheap-proxy` remains reserved for administration. |
 
@@ -55,7 +56,7 @@ Omit the call to keep these endpoints unavailable.
 
 ### Authentication and limits
 
-Send `Authorization: Basic <base64(UTF-8 username:password)>` on every request,
+By default, send `Authorization: Basic <base64(UTF-8 username:password)>` on every request,
 using the configured `Administrator:UserName` and `Password` or `PasswordHash`.
 The username cannot contain a colon; the password may contain colons. The API
 does not issue or accept the administration session cookie. Host authentication
@@ -77,6 +78,10 @@ After that budget is exhausted, API authentication returns `429` until the windo
 resets; browser login has its own independent budget. Requests carrying an `Origin` header
 are rejected: this interface is for server clients, not browser JavaScript.
 Cookie/antiforgery-based browser management remains in the existing panel.
+
+For host-issued tokens, use [custom authentication](#custom-authentication).
+The Basic failure budget applies only to the built-in Basic handler. A custom
+handler and its host own credential validation and authentication rate limits.
 
 JSON bodies use the existing `Limits:MaximumTestRequestBytes` limit (64 KiB by
 default), including configuration saves. Unknown JSON members, missing required
@@ -216,6 +221,155 @@ the panel. Their default `AuthenticateAsync` denies API access; implement cookie
 credential validation without login auditing explicitly to opt in. Custom configuration
 stores must honor the server-owned save-request `Audit` context and persist the event
 atomically with the snapshot. API clients cannot supply this context.
+
+## Custom authentication
+
+Use standard ASP.NET Core authentication handlers and authorization policies to
+customize the UI and API independently. The host registers the handlers through
+`AddAuthentication()` and policies through `AddAuthorization()`. NewHeap selects
+the explicit schemes below without changing the host's authentication defaults.
+No Microsoft-specific dependency is added to the proxy.
+
+### Register and select host schemes
+
+For a host that already owns session and token issuance, a minimal registration is:
+
+```csharp
+const string AdministrationScheme = "CompanyCookie";
+const string ApiScheme = "CompanyBearer";
+
+builder.Services.AddAuthentication()
+    .AddCookie(AdministrationScheme, cookie => cookie.LoginPath = "/account/login")
+    .AddBearerToken(ApiScheme);
+
+builder.Services.AddAuthorization(authorization =>
+{
+    authorization.AddPolicy("ProxyAdministrators", policy =>
+        policy.RequireRole("proxy-administrator"));
+    authorization.AddPolicy("ProxyApiAccess", policy =>
+        policy.RequireClaim("permission", "proxy.manage"));
+});
+
+builder.Services.AddNewHeapProxy(options =>
+{
+    builder.Configuration.GetSection("NewHeapProxy").Bind(options);
+    options.ConfigureAdministrationAuthentication(auth =>
+    {
+        auth.AuthenticationScheme = AdministrationScheme;
+        auth.ChallengeScheme = AdministrationScheme;
+        auth.SignOutScheme = AdministrationScheme;
+        auth.AuthorizationPolicy = "ProxyAdministrators";
+    });
+    options.ConfigureApiAuthentication(auth =>
+    {
+        auth.AuthenticationScheme = ApiScheme;
+        auth.AuthorizationPolicy = "ProxyApiAccess";
+    });
+}, storage => builder.Configuration.GetSection("NewHeapProxy:Sqlite").Bind(storage));
+
+var app = builder.Build();
+// Trusted forwarded headers belong before authentication when required by the deployment.
+app.UseAuthentication();
+app.MapProxyEndpoints();
+app.UseNewHeapProxy();
+app.Run();
+```
+
+The host must implement `/account/login` and validate credentials before issuing
+sessions or tokens. `AddBearerToken` uses ASP.NET-protected opaque tokens; it does
+not validate Microsoft-issued JWTs. To accept JWTs, register the host's JWT bearer
+handler under `CompanyBearer` instead, validating issuer, audience, signature and
+lifetime. Issuance and provider configuration remain host responsibilities.
+
+For Microsoft/Entra or another OpenID Connect provider, the host registers its
+remote handler as, for example, `CompanyLogin`, with `CompanyCookie` as its local
+sign-in scheme. Set the proxy's `ChallengeScheme` to `CompanyLogin`. The host owns
+the provider credentials, callback path, correlation/nonce cookies, claim mapping,
+session lifetime and session revocation. Keep authentication middleware before
+both proxy branches so it can process callbacks before proxy redirects or rewrites.
+Use a callback outside `/newheap-proxy`, such as `/signin-company`.
+
+| Setting | Purpose |
+| --- | --- |
+| UI `AuthenticationScheme` | Reads and validates the host session. |
+| UI `ChallengeScheme` | Starts login; NewHeap supplies a local panel return URL. |
+| UI `SignOutScheme` | Ends the session using the host handler. |
+| UI `AuthorizationPolicy` | Requires the host's administrator role or permission. |
+| API `AuthenticationScheme` | Validates each server request and supplies its challenge. |
+| API `AuthorizationPolicy` | Requires the host's automation permission. |
+
+The configuration methods are code-only opt-ins. All scheme and policy names are
+required and checked before requests are accepted. Policies are resolved at startup;
+their requirements and handlers run on every authorization check. A policy may omit
+authentication schemes or name only the selected scheme. A policy that also selects
+another scheme is rejected to prevent accidental cross-surface access. Each proxy
+policy additionally requires an authenticated user, even if the host policy does not.
+
+Anonymous UI requests start the selected login. Authenticated users without the
+required permission receive `403`. The API invokes its selected handler's challenge
+(preserving headers such as `WWW-Authenticate`); login redirects are converted to
+`401` without a `Location` header. API authorization denials return `403` without a
+redirect. Configure API handlers to produce normal `401` challenges directly.
+
+In host mode, the UI's local password POST is unavailable. Logout remains an
+antiforgery-protected POST and invokes the configured sign-out scheme. Selecting
+the cookie scheme performs local logout. For federated logout, the host must
+provide a sign-out handler/forwarding configuration that clears the local session
+and performs any desired provider logout. Clearing a cookie shared with other
+host pages also signs the user out of those pages.
+
+### Compatibility and security boundaries
+
+| Configuration | Panel | Optional API |
+| --- | --- | --- |
+| Neither opt-in | Existing password login and cookie | Existing Basic authentication |
+| UI opt-in only | Host session/login/policy | Existing Basic authentication |
+| API opt-in only | Existing password login and cookie | Host authentication/policy |
+| Both opt-ins | Host session/login/policy | Host authentication/policy |
+
+Existing registration calls, credentials, cookies, public administration-service
+interfaces and defaults remain supported. Keep administrator credentials while
+either active surface still uses built-in authentication. With both opt-ins, no
+local administrator credentials are required. The API remains unavailable unless
+`MapProxyEndpoints()` is called.
+
+Both modes retain the IP allowlist, HTTPS requirement, request limits and security
+headers. The UI retains antiforgery protection. The API remains server-to-server:
+requests with `Origin` are denied, including when bearer authentication is selected.
+Host authentication for other endpoints and authorization on YARP routes remain
+independent. These opt-ins do not protect traffic forwarded to backend services.
+
+### Identity and auditing
+
+For custom API identities, supply a stable `ClaimTypes.NameIdentifier` or `sub`;
+`Identity.Name` is the fallback. The selected value becomes the actor's `UserName`
+in the existing atomic API change audit. Ensure it uniquely identifies users or
+service principals across every accepted issuer/tenant. Map provider claims in
+the host when their original values are not globally unique. A write without any
+actor identifier fails instead of creating an unattributed change.
+
+Built-in login attempts keep their existing audit behavior. A host session or API
+request does not synthesize a login event. External authentication events belong
+to the host/provider: use the existing `INhProxyLoginAuditStore.AppendAsync` from
+host authentication events if those events should appear in the panel's Login
+activity page. Supply the timestamp, outcome, correlation id and trusted client IP;
+never include tokens or passwords. Record success before completing session
+issuance and propagate audit failures if login auditing is required. The host also
+owns retention cleanup for these events via `DeleteExpiredAsync`; custom requests
+do not trigger the built-in password-login cleanup. API configuration-change
+auditing continues automatically, regardless of authentication mode.
+
+### Executable evidence
+
+SPM-238's `ProxyHostAuthenticationSamplesTests` runs real ASP.NET cookie and bearer
+handlers with SQLite. It demonstrates independent policies, login challenges,
+antiforgery-protected logout, cross-surface isolation and an attributed API save.
+Its session/token issuance endpoints exist only in the test host, not the runnable
+demo. Run from the repository root:
+
+```text
+dotnet test examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/SampleProjectManagement.Core.Tests.csproj --filter FullyQualifiedName~ProxyHostAuthenticationSamplesTests
+```
 
 ## Administration
 

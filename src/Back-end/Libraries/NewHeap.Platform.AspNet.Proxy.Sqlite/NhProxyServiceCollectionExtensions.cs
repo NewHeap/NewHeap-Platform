@@ -95,6 +95,18 @@ public static class NhProxyServiceCollectionExtensions
                 }
             };
         });
+        if (options.AdministrationAuthentication is { } panelAuthentication)
+        {
+            services.AddAuthentication().AddScheme<AuthenticationSchemeOptions, NhProxyHostAuthenticationHandler>(
+                NhProxyHostAuthenticationHandler.AdministrationScheme, scheme => scheme.ForwardAuthenticate = panelAuthentication.AuthenticationScheme);
+        }
+
+        if (options.ApiAuthentication is { } apiAuthentication)
+        {
+            services.AddAuthentication().AddScheme<AuthenticationSchemeOptions, NhProxyHostAuthenticationHandler>(
+                NhProxyHostAuthenticationHandler.ApiScheme, scheme => scheme.ForwardAuthenticate = apiAuthentication.AuthenticationScheme);
+        }
+
         var schemeProvider = services.LastOrDefault(service => service.ServiceType == typeof(IAuthenticationSchemeProvider));
         if (schemeProvider?.ImplementationType == typeof(AuthenticationSchemeProvider))
         {
@@ -102,8 +114,13 @@ public static class NhProxyServiceCollectionExtensions
             services.AddSingleton<IAuthenticationSchemeProvider, NhProxyAuthenticationSchemeProvider>();
         }
 
-        services.AddAuthorization(authorization => authorization.AddPolicy(NhProxyOptions.AdministrationPolicy,
-            policy => policy.AddAuthenticationSchemes(NhProxyOptions.AuthenticationScheme).RequireAuthenticatedUser()));
+        services.AddAuthorization(authorization =>
+        {
+            authorization.AddPolicy(NhProxyOptions.AdministrationPolicy,
+                policy => policy.AddAuthenticationSchemes(NhProxyOptions.AuthenticationScheme).RequireAuthenticatedUser());
+            authorization.AddPolicy(NhProxyOptions.ApiPolicy,
+                policy => policy.AddAuthenticationSchemes(NhProxyOptions.ApiAuthenticationScheme).RequireAuthenticatedUser());
+        });
 
         var managedProvider = new InMemoryConfigProvider([], []);
         services.AddSingleton<IProxyConfigProvider>(managedProvider);

@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -65,9 +66,18 @@ public sealed partial class NhProxyAdminController(INhProxyConfigurationService 
 
     [HttpGet, AllowAnonymous]
     [EndpointSummary("Open administrator sign-in")]
-    [EndpointDescription("Displays the dedicated NewHeap Proxy login form.")]
+    [EndpointDescription("Displays the built-in login form or starts the configured host login.")]
     [ProducesResponseType(typeof(NhProxyLoginRequest), StatusCodes.Status200OK)]
-    public IActionResult Login() => View();
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    public IActionResult Login()
+    {
+        if (options.Value.AdministrationAuthentication is not null)
+        {
+            return Challenge(NhProxyHostAuthenticationHandler.AdministrationScheme);
+        }
+
+        return View();
+    }
 
     [HttpPost, AllowAnonymous]
     [EndpointSummary("Sign in to NewHeap Proxy")]
@@ -76,8 +86,14 @@ public sealed partial class NhProxyAdminController(INhProxyConfigurationService 
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status302Found)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Login([FromForm] NhProxyLoginRequest request, CancellationToken cancellationToken)
     {
+        if (options.Value.AdministrationAuthentication is not null)
+        {
+            return NotFound();
+        }
+
         if (!ModelState.IsValid)
         {
             Response.StatusCode = 400;
@@ -98,10 +114,16 @@ public sealed partial class NhProxyAdminController(INhProxyConfigurationService 
 
     [HttpPost]
     [EndpointSummary("Sign out of NewHeap Proxy")]
-    [EndpointDescription("Removes the scoped administrator session cookie.")]
+    [EndpointDescription("Ends the built-in session or invokes the configured host sign-out scheme.")]
     [ProducesResponseType(StatusCodes.Status302Found)]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
+        if (options.Value.AdministrationAuthentication is not null)
+        {
+            return SignOut(new AuthenticationProperties { RedirectUri = Request.PathBase + "/Login" },
+                NhProxyHostAuthenticationHandler.AdministrationScheme);
+        }
+
         await administration.SignOutAsync(HttpContext, cancellationToken);
         return RedirectToAction(nameof(Login));
     }

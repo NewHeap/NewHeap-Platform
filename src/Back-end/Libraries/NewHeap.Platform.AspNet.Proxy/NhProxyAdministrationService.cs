@@ -26,7 +26,8 @@ public sealed class NhProxyAdministrationService : INhProxyAdministrationService
         _options = options.Value;
         _audit = audit;
         var administrator = _options.Administrator;
-        if (!string.IsNullOrEmpty(administrator.Password))
+        var usesCredentials = _options.AdministrationAuthentication is null || _options.ApiAuthentication is null;
+        if (usesCredentials && !string.IsNullOrEmpty(administrator.Password))
         {
             if (!string.IsNullOrEmpty(administrator.PasswordHash))
             {
@@ -42,7 +43,7 @@ public sealed class NhProxyAdministrationService : INhProxyAdministrationService
             administrator.Password = string.Empty;
         }
 
-        if (!string.IsNullOrWhiteSpace(administrator.PasswordHash))
+        if (usesCredentials && !string.IsNullOrWhiteSpace(administrator.PasswordHash))
         {
             try
             {
@@ -211,7 +212,9 @@ internal sealed class NhProxyAuthenticationSchemeProvider : AuthenticationScheme
         }
 
         var candidates = (await GetAllSchemesAsync()).Where(scheme => scheme.Name != NhProxyOptions.AuthenticationScheme
-            && scheme.Name != NhProxyOptions.ApiAuthenticationScheme).Take(2).ToArray();
+            && scheme.Name != NhProxyOptions.ApiAuthenticationScheme
+            && scheme.Name != NhProxyHostAuthenticationHandler.AdministrationScheme
+            && scheme.Name != NhProxyHostAuthenticationHandler.ApiScheme).Take(2).ToArray();
         return candidates.Length == 1 ? candidates[0] : null;
     }
 

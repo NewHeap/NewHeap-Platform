@@ -3,6 +3,11 @@
 Run the administration panel locally, test a redirect, and preview a rewrite.
 The demo uses SQLite and needs no separate database server.
 
+For host-owned authentication, see [custom UI and API authentication](../../../docs/how-to/use-newheap-proxy.md#custom-authentication).
+SPM-238's `ProxyHostAuthenticationSamplesTests` demonstrates real ASP.NET cookie
+and bearer handlers, independent policies, logout and attributed API writes.
+The runnable demo keeps its existing local-account defaults.
+
 [Configuration options](../../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/README.md#configuration) · [Usage reference](../../../docs/how-to/use-newheap-proxy.md)
 
 ## Run the demo

@@ -1,3 +1,4 @@
+@using Microsoft.AspNetCore.Http
 @functions {
     private static readonly string LogoDataUri = LoadLogo();
 
@@ -446,7 +447,8 @@
 <body>
 <header><div class="shell bar">
     <a class="brand" asp-action="Index"><img src="@LogoDataUri" alt="NewHeap" width="160" height="34" /><span>Proxy</span></a>
-    @if (User.Identity?.AuthenticationType == NhProxyOptions.AuthenticationScheme)
+    @if (User.Identity?.IsAuthenticated == true
+        && Context.GetEndpoint()?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() is null)
     {
         <nav aria-label="Administration">
             <a asp-action="Index">Redirects</a><a asp-action="Rewrites">Rewrites</a><a asp-action="Activity">Login activity</a>

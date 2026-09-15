@@ -18,6 +18,12 @@ public static class NhProxyApplicationExtensions
         ArgumentNullException.ThrowIfNull(app);
 
         ((IApplicationBuilder)app).Properties[typeof(NhProxyApplicationExtensions).FullName!] = true;
+        var hostAuthentication = app.Services.GetRequiredService<IOptions<NhProxyOptions>>().Value.AdministrationAuthentication is not null;
+        if (hostAuthentication)
+        {
+            // Remote callbacks and cookie paths belong to the host, before the panel changes PathBase.
+            app.UseAuthentication();
+        }
 
         ((IApplicationBuilder)app).Map(NhProxyOptions.AdministrationPath, panel =>
         {
@@ -40,7 +46,8 @@ public static class NhProxyApplicationExtensions
                     return;
                 }
 
-                if (string.IsNullOrWhiteSpace(options.Administrator.UserName) || string.IsNullOrWhiteSpace(options.Administrator.PasswordHash))
+                if (options.AdministrationAuthentication is null
+                    && (string.IsNullOrWhiteSpace(options.Administrator.UserName) || string.IsNullOrWhiteSpace(options.Administrator.PasswordHash)))
                 {
                     context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
                     await context.Response.WriteAsync("Administration is unavailable. Configure the administrator account in the host settings.");
@@ -53,7 +60,8 @@ public static class NhProxyApplicationExtensions
                     var access = await administration.CheckIpAccessAsync(context, context.RequestAborted);
                     if (!access.Success)
                     {
-                        if (HttpMethods.IsPost(context.Request.Method) && context.Request.Path.Equals(new PathString("/Login")))
+                        if (options.AdministrationAuthentication is null && HttpMethods.IsPost(context.Request.Method)
+                            && context.Request.Path.Equals(new PathString("/Login")))
                         {
                             await administration.SignInAsync(context, new NhProxyLoginRequest { UserName = "", Password = "" }, context.RequestAborted);
                         }
@@ -83,7 +91,10 @@ public static class NhProxyApplicationExtensions
 
                 await next(context);
             });
-            panel.UseAuthentication();
+            if (!hostAuthentication)
+            {
+                panel.UseAuthentication();
+            }
             panel.UseAuthorization();
             panel.UseEndpoints(endpoints => endpoints.MapAreaControllerRoute("newheap-proxy", "NewHeapProxy", "{action=Index}/{id?}",
                 new { controller = "NhProxyAdmin" }));

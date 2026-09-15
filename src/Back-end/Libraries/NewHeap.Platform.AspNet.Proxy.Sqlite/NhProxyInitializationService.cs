@@ -2,12 +2,14 @@ using Microsoft.Extensions.Hosting;
 
 namespace NewHeap.Platform.AspNet.Proxy.Sqlite;
 
-internal sealed class NhProxyInitializationService(INhProxyConfigurationService configuration, INhProxyAdministrationService administration) : IHostedLifecycleService
+internal sealed class NhProxyInitializationService(INhProxyConfigurationService configuration, INhProxyAdministrationService administration,
+    IServiceProvider services) : IHostedLifecycleService
 {
     public async Task StartingAsync(CancellationToken cancellationToken)
     {
         // Resolve and validate host-owned security settings before accepting requests.
         _ = administration;
+        await NhProxyHostAuthentication.InitializeAsync(services);
         await configuration.InitializeAsync(cancellationToken);
     }
 

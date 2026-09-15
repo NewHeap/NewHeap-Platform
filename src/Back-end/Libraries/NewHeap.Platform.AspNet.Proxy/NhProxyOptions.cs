@@ -12,6 +12,31 @@ public sealed class NhProxyOptions
     public const string AdministrationPolicy = "NewHeapProxy.Administrator";
     public const string ApiPath = AdministrationPath + "/api";
     public const string ApiAuthenticationScheme = "NewHeapProxy.Basic";
+    public const string ApiPolicy = "NewHeapProxy.Api";
+
+    /// <summary>Optional host authentication for the panel. Omit to retain the built-in password login.</summary>
+    [JsonIgnore]
+    public NhProxyAdministrationAuthenticationOptions? AdministrationAuthentication { get; private set; }
+
+    /// <summary>Optional host authentication for the API. Omit to retain Basic authentication.</summary>
+    [JsonIgnore]
+    public NhProxyApiAuthenticationOptions? ApiAuthentication { get; private set; }
+
+    public void ConfigureAdministrationAuthentication(Action<NhProxyAdministrationAuthenticationOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var authentication = new NhProxyAdministrationAuthenticationOptions();
+        configure(authentication);
+        AdministrationAuthentication = authentication;
+    }
+
+    public void ConfigureApiAuthentication(Action<NhProxyApiAuthenticationOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var authentication = new NhProxyApiAuthenticationOptions();
+        configure(authentication);
+        ApiAuthentication = authentication;
+    }
 
     public NhProxyAdministratorOptions Administrator { get; set; } = new();
     public NhProxyIpAllowlistOptions IpAllowlist { get; set; } = new();
@@ -36,6 +61,20 @@ public sealed class NhProxyOptions
 
     /// <summary>Empty permits configured HTTP(S) destinations; entries restrict their hosts.</summary>
     public string[] AllowedDestinationHosts { get; set; } = [];
+}
+
+/// <summary>Names of host registrations; the policy may only select the same authentication scheme.</summary>
+public class NhProxyApiAuthenticationOptions
+{
+    public string AuthenticationScheme { get; set; } = string.Empty;
+    public string AuthorizationPolicy { get; set; } = string.Empty;
+}
+
+/// <summary>The host owns login callbacks, session validation and sign-out.</summary>
+public sealed class NhProxyAdministrationAuthenticationOptions : NhProxyApiAuthenticationOptions
+{
+    public string ChallengeScheme { get; set; } = string.Empty;
+    public string SignOutScheme { get; set; } = string.Empty;
 }
 
 public sealed class NhProxyAdministratorOptions

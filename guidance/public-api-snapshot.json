@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.32",
   "backEnd": {
-    "hash": "bf207c762b0cec6d884ed22ee49f29409a6a06e757a1d6d083626a3bdef7e692",
-    "declarationCount": 4042,
+    "hash": "292d92bc2cbe27c14ca5edbc4d0ea468faffa62c625d58c6aaa083042b7484fd",
+    "declarationCount": 4056,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -10195,15 +10195,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "[HttpGet, AllowAnonymous] [EndpointSummary(\"Open administrator sign-in\")] [EndpointDescription(\"Displays the dedicated NewHeap Proxy login form.\")] [ProducesResponseType(typeof(NhProxyLoginRequest), StatusCodes.Status200OK)] public IActionResult Login() => View();"
+        "declaration": "[HttpGet, AllowAnonymous] [EndpointSummary(\"Open administrator sign-in\")] [EndpointDescription(\"Displays the built-in login form or starts the configured host login.\")] [ProducesResponseType(typeof(NhProxyLoginRequest), StatusCodes.Status200OK)] [ProducesResponseType(StatusCodes.Status302Found)] public IActionResult Login() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "[HttpPost, AllowAnonymous] [EndpointSummary(\"Sign in to NewHeap Proxy\")] [EndpointDescription(\"Checks credentials, audits the attempt and issues a dedicated administration session.\")] [ProducesResponseType(StatusCodes.Status400BadRequest)] [ProducesResponseType(StatusCodes.Status401Unauthorized)] [ProducesResponseType(StatusCodes.Status302Found)] [ProducesResponseType(StatusCodes.Status429TooManyRequests)] public async Task<IActionResult> Login([FromForm] NhProxyLoginRequest request, CancellationToken cancellationToken) {"
+        "declaration": "[HttpPost, AllowAnonymous] [EndpointSummary(\"Sign in to NewHeap Proxy\")] [EndpointDescription(\"Checks credentials, audits the attempt and issues a dedicated administration session.\")] [ProducesResponseType(StatusCodes.Status400BadRequest)] [ProducesResponseType(StatusCodes.Status401Unauthorized)] [ProducesResponseType(StatusCodes.Status302Found)] [ProducesResponseType(StatusCodes.Status429TooManyRequests)] [ProducesResponseType(StatusCodes.Status404NotFound)] public async Task<IActionResult> Login([FromForm] NhProxyLoginRequest request, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "[HttpPost] [EndpointSummary(\"Sign out of NewHeap Proxy\")] [EndpointDescription(\"Removes the scoped administrator session cookie.\")] [ProducesResponseType(StatusCodes.Status302Found)] public async Task<IActionResult> Logout(CancellationToken cancellationToken) {"
+        "declaration": "[HttpPost] [EndpointSummary(\"Sign out of NewHeap Proxy\")] [EndpointDescription(\"Ends the built-in session or invokes the configured host sign-out scheme.\")] [ProducesResponseType(StatusCodes.Status302Found)] public async Task<IActionResult> Logout(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
@@ -10802,6 +10802,18 @@
         "declaration": "public interface INhProxyDraftTester {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyHostAuthentication.cs",
+        "declaration": "protected override Task<AuthenticateResult> HandleAuthenticateAsync() => Task.FromResult(AuthenticateResult.NoResult());"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyHostAuthentication.cs",
+        "declaration": "protected override async Task HandleChallengeAsync(AuthenticationProperties properties) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyHostAuthentication.cs",
+        "declaration": "public Task SignOutAsync(AuthenticationProperties? properties) =>"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
         "declaration": "public sealed class NhProxyOptions {"
       },
@@ -10831,6 +10843,26 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public const string ApiPolicy = \"NewHeapProxy.Api\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "[JsonIgnore] public NhProxyAdministrationAuthenticationOptions? AdministrationAuthentication { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "[JsonIgnore] public NhProxyApiAuthenticationOptions? ApiAuthentication { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public void ConfigureAdministrationAuthentication(Action<NhProxyAdministrationAuthenticationOptions> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public void ConfigureApiAuthentication(Action<NhProxyApiAuthenticationOptions> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
         "declaration": "public NhProxyAdministratorOptions Administrator { get; set; } = new();"
       },
       {
@@ -10856,6 +10888,30 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
         "declaration": "public string[] AllowedDestinationHosts { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public class NhProxyApiAuthenticationOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public string AuthenticationScheme { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public string AuthorizationPolicy { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public sealed class NhProxyAdministrationAuthenticationOptions : NhProxyApiAuthenticationOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public string ChallengeScheme { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
+        "declaration": "public string SignOutScheme { get; set; } = string.Empty;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
@@ -19609,7 +19665,11 @@
       "AuthenticateAsync",
       "NhProxyChangeAuditEvent",
       "INhProxyChangeAuditStore",
-      "NhProxySqliteChangeAuditStore"
+      "NhProxySqliteChangeAuditStore",
+      "ConfigureAdministrationAuthentication",
+      "ConfigureApiAuthentication",
+      "NhProxyAdministrationAuthenticationOptions",
+      "NhProxyApiAuthenticationOptions"
     ],
     "nh-reusable-test-helper-boundaries": [
       "NhTestingContext",

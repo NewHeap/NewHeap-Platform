@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
@@ -22,7 +23,7 @@ public sealed record NhProxyApiResult<T>(bool Success, T? Data, ImmutableArray<N
 
 public sealed record NhProxySavedTestRequest(NhProxyRevisions ExpectedRevisions, NhProxyTestRequest Request);
 
-/// <summary>Opt-in server-to-server management API using the configured administrator's Basic credentials.</summary>
+/// <summary>Opt-in server-to-server management API using Basic credentials or host authentication.</summary>
 public static class NhProxyApiEndpoints
 {
     private static readonly JsonSerializerOptions RequestJsonOptions = CreateRequestJsonOptions();
@@ -51,13 +52,14 @@ public static class NhProxyApiEndpoints
 
     /// <summary>
     /// Maps /newheap-proxy/api. Call before UseNewHeapProxy, after trusted forwarded headers and PathBase.
-    /// Requires HTTPS outside Development, Basic credentials and the administration IP allowlist.
+    /// Requires HTTPS outside Development, the configured API authentication and the administration IP allowlist.
     /// API authentication does not create logins. Configuration saves are audited atomically; no cookies are issued.
     /// </summary>
     public static WebApplication MapProxyEndpoints(this WebApplication app)
     {
         ArgumentNullException.ThrowIfNull(app);
-        if (app.Services.GetRequiredService<IOptions<NhProxyOptions>>().Value.Administrator.UserName.Contains(':'))
+        var options = app.Services.GetRequiredService<IOptions<NhProxyOptions>>().Value;
+        if (options.ApiAuthentication is null && options.Administrator.UserName.Contains(':'))
         {
             throw new InvalidOperationException("Basic authentication requires an administrator username without a colon.");
         }
@@ -103,6 +105,13 @@ public static class NhProxyApiEndpoints
 
                 try
                 {
+                    var administration = context.RequestServices.GetRequiredService<INhProxyAdministrationService>();
+                    if (!(await administration.CheckIpAccessAsync(context, context.RequestAborted)).Success)
+                    {
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        return;
+                    }
+
                     await next(context);
                 }
                 catch (BadHttpRequestException exception) when (!context.Response.HasStarted)
@@ -132,7 +141,7 @@ public static class NhProxyApiEndpoints
             api.UseEndpoints(endpoints =>
             {
                 var group = endpoints.MapGroup(NhProxyOptions.ApiPath).WithTags("NewHeap Proxy")
-                    .RequireAuthorization(new AuthorizationPolicyBuilder(NhProxyOptions.ApiAuthenticationScheme).RequireAuthenticatedUser().Build());
+                    .RequireAuthorization(NhProxyOptions.ApiPolicy);
                 group.WithMetadata(new ProducesResponseTypeMetadata(StatusCodes.Status401Unauthorized, typeof(void)),
                     new ProducesResponseTypeMetadata(StatusCodes.Status403Forbidden, typeof(void)),
                     new ProducesResponseTypeMetadata(StatusCodes.Status429TooManyRequests, typeof(void)),
@@ -141,14 +150,14 @@ public static class NhProxyApiEndpoints
                 group.MapGet("/redirects", async ([FromServices] INhProxyConfigurationService configuration, CancellationToken token) =>
                     await configuration.GetRedirectsAsync(token))
                     .WithSummary("Read managed redirects")
-                    .WithDescription("Returns the complete saved redirect configuration and its revision. Requires Basic authentication.");
+                    .WithDescription("Returns the complete saved redirect configuration and its revision. Requires the configured API authentication and authorization policy.");
                 group.MapGet("/rewrites", async ([FromServices] INhProxyConfigurationService configuration, CancellationToken token) =>
                     await configuration.GetRewritesAsync(token))
                     .WithSummary("Read managed rewrites")
-                    .WithDescription("Returns saved rewrite rules, shared single-destination clusters and their revision. Requires Basic authentication.");
+                    .WithDescription("Returns saved rewrite rules, shared single-destination clusters and their revision. Requires the configured API authentication and authorization policy.");
                 group.MapGet("/status", ([FromServices] INhProxyConfigurationService configuration) => configuration.GetStatus())
                     .WithSummary("Read activation status")
-                    .WithDescription("Returns independent desired and active revisions for redirects and rewrites. Requires Basic authentication.");
+                    .WithDescription("Returns independent desired and active revisions for redirects and rewrites. Requires the configured API authentication and authorization policy.");
                 group.MapGet("/audit", async ([FromServices] INhProxyChangeAuditStore audit,
                     [FromQuery] NhProxyEngine? engine, [FromQuery] DateTimeOffset? fromUtc, [FromQuery] DateTimeOffset? toUtc,
                     [FromQuery] int? offset, [FromQuery] int? pageSize, CancellationToken token) =>
@@ -157,7 +166,7 @@ public static class NhProxyApiEndpoints
                         Engine = engine, FromUtc = fromUtc, ToUtc = toUtc, Offset = offset ?? 0, PageSize = pageSize ?? 50
                     }, token)))
                     .WithSummary("Read the API change audit")
-                    .WithDescription("Returns durable configuration changes and activation requests, newest first. Filters by engine and inclusive UTC timestamps; pageSize is 1–100. Saved events contain before/after configuration and revisions, never credentials. Requires Basic authentication.")
+                    .WithDescription("Returns durable configuration changes and activation requests, newest first. Filters by engine and inclusive UTC timestamps; pageSize is 1–100. Saved events contain before/after configuration and revisions, never credentials. Requires the configured API authentication and authorization policy.")
                     .Produces<NhProxyApiResult<NhProxyChangeAuditPage>>()
                     .Produces<NhProxyApiResult<NhProxyChangeAuditPage>>(StatusCodes.Status400BadRequest);
 
@@ -200,7 +209,7 @@ public static class NhProxyApiEndpoints
                             return Result(await configuration.RetryActivationAsync(engine, CancellationToken.None));
                         })
                         .WithSummary($"Retry {engine.ToString().ToLowerInvariant()} activation")
-                        .WithDescription("Records activation intent durably before retrying this engine's latest persisted revision. Does not increment the revision or publish the other engine. The audit entry records the request, not successful activation. Requires Basic authentication.")
+                        .WithDescription("Records activation intent durably before retrying this engine's latest persisted revision. Does not increment the revision or publish the other engine. The audit entry records the request, not successful activation. Requires the configured API authentication and authorization policy.")
                         .Produces<NhProxyApiResult<NhProxyEngineStatus>>()
                         .Produces<NhProxyApiResult<NhProxyEngineStatus>>(StatusCodes.Status400BadRequest)
                         .Produces<NhProxyApiResult<NhProxyEngineStatus>>(StatusCodes.Status409Conflict)
@@ -219,7 +228,7 @@ public static class NhProxyApiEndpoints
 
     private static void Document<TRequest, TResponse>(RouteHandlerBuilder endpoint, string summary, string description) where TRequest : notnull
     {
-        endpoint.WithSummary(summary).WithDescription(description + " Requires Basic authentication. Invalid input returns 400 with issue descriptions and a JSON field path when available. Failed activation retains the committed saved revision in Data.")
+        endpoint.WithSummary(summary).WithDescription(description + " Requires the configured API authentication and authorization policy. Invalid input returns 400 with issue descriptions and a JSON field path when available. Failed activation retains the committed saved revision in Data.")
             .Accepts<TRequest>("application/json").Produces<NhProxyApiResult<TResponse>>()
             .Produces<NhProxyApiResult<TResponse>>(StatusCodes.Status400BadRequest)
             .Produces<NhProxyApiResult<TResponse>>(StatusCodes.Status409Conflict)
@@ -229,7 +238,8 @@ public static class NhProxyApiEndpoints
 
     private static NhProxyChangeAuditContext Actor(HttpContext context)
     {
-        return new NhProxyChangeAuditContext(context.User.Identity?.Name ?? throw new InvalidOperationException("Missing API identity."),
+        return new NhProxyChangeAuditContext(context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? context.User.FindFirstValue("sub") ?? context.User.Identity?.Name ?? throw new InvalidOperationException("Missing API identity."),
             context.Connection.RemoteIpAddress is { } ip ? NhProxyAdministrationService.Normalize(ip).ToString() : null,
             context.TraceIdentifier);
     }

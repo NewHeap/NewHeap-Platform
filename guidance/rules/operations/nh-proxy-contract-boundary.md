@@ -5,12 +5,37 @@ area: configuration
 reference: runtime-configuration
 summary: "The two-call proxy loads exact and opt-in regex redirects before requests and provides secured MVC management, local draft testing, login IP auditing and revision-checked save/activation. Regex targets use captures without automatic query merging. Stored rewrites use native YARP matching/transforms and an isolated managed-rule test tool."
 sample-cases: ["SPM-238", "SPM-239"]
-public-symbols: ["NhProxyRewriteRule", "NhProxyDraftTester", "INhProxyDraftTester", "SaveRewritesAsync", "NhProxyRedirectRule", "NhProxyConfigurationValidator", "NhProxyRuntime", "RedirectResolutionTimeoutMilliseconds", "NhProxySqliteConfigurationStore", "NhProxySqliteLoginAuditStore", "INhProxyConfigurationService", "INhProxyAdministrationService", "ConfigureYarp", "INhProxyConfigurationStore", "INhProxyRuntime", "AddNewHeapProxy", "UseNewHeapProxy", "MapNewHeapProxy", "MapProxyEndpoints", "NhProxyApiResult", "NhProxySavedTestRequest", "AuthenticateAsync", "NhProxyChangeAuditEvent", "INhProxyChangeAuditStore", "NhProxySqliteChangeAuditStore"]
+public-symbols: ["NhProxyRewriteRule", "NhProxyDraftTester", "INhProxyDraftTester", "SaveRewritesAsync", "NhProxyRedirectRule", "NhProxyConfigurationValidator", "NhProxyRuntime", "RedirectResolutionTimeoutMilliseconds", "NhProxySqliteConfigurationStore", "NhProxySqliteLoginAuditStore", "INhProxyConfigurationService", "INhProxyAdministrationService", "ConfigureYarp", "INhProxyConfigurationStore", "INhProxyRuntime", "AddNewHeapProxy", "UseNewHeapProxy", "MapNewHeapProxy", "MapProxyEndpoints", "NhProxyApiResult", "NhProxySavedTestRequest", "AuthenticateAsync", "NhProxyChangeAuditEvent", "INhProxyChangeAuditStore", "NhProxySqliteChangeAuditStore", "ConfigureAdministrationAuthentication", "ConfigureApiAuthentication", "NhProxyAdministrationAuthenticationOptions", "NhProxyApiAuthenticationOptions"]
 skills: ["newheap-runtime-configuration"]
 providers: ["provider-neutral", "sqlite"]
 risk: high
 ---
 ## Preferred approach
+
+For host-owned identity, opt into ConfigureAdministrationAuthentication and
+ConfigureApiAuthentication independently. Register the named schemes through
+AddAuthentication and named policies through AddAuthorization. The panel requires
+explicit AuthenticationScheme, ChallengeScheme, SignOutScheme and AuthorizationPolicy;
+the API requires AuthenticationScheme and AuthorizationPolicy. The host owns
+provider configuration, claims, callbacks, session/token issuance, revocation and
+login auditing. Missing registrations fail startup; policies may omit schemes or
+select only the configured scheme. Host defaults must remain unchanged. Policies
+are resolved at startup, with their requirements evaluated per request.
+Keep host authentication middleware before proxy branches so external callbacks
+and cookie paths retain the host path. The panel starts host login and preserves
+antiforgery protection on logout; the host sign-out scheme must implement the
+desired local/federated logout. The API invokes its selected challenge handler,
+converts login redirects to 401 and returns 403 for insufficient permissions.
+IP allowlists, HTTPS and server-only Origin restrictions remain enforced.
+Existing local-account login and Basic API remain defaults; keep credentials for
+any surface still using them. Only built-in credentials use the built-in failure
+budgets. Custom API change audits select NameIdentifier, then sub, then Identity.Name;
+the host must provide an identifier unique across its accepted issuers/tenants.
+Host login events can use INhProxyLoginAuditStore; audit before session issuance
+and schedule retention cleanup when required. API requests never synthesize login
+events. Follow docs/how-to/use-newheap-proxy.md#custom-authentication and the
+executable ProxyHostAuthenticationSamplesTests evidence for SPM-238.
+
 
 Install NewHeap.Platform.AspNet.Proxy.Sqlite, which also brings in the
 neutral NewHeap.Platform.AspNet.Proxy package. Both packages belong to the
@@ -25,7 +50,7 @@ Do not also call MapNewHeapProxy; that remains a lower-level YARP-only alternati
 Server-to-server management is disabled by default. Explicitly call
 MapProxyEndpoints() before UseNewHeapProxy() to expose /newheap-proxy/api. This
 isolated branch cannot be intercepted by redirect or catch-all rewrite rules.
-Use Basic authentication with the configured administrator credentials (UTF-8,
+By default, use Basic authentication with the configured administrator credentials (UTF-8,
 username without a colon), HTTPS outside Development and the existing IP allowlist.
 No session cookie is issued or accepted; host authentication defaults remain intact.
 Origin-bearing requests are rejected because the API is for server clients.

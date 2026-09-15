@@ -37,6 +37,11 @@ without restart. Real SQLite and HTTP tests cover persistence, conflicts,
 authentication, CSRF, audit failure, PathBase and activation retry.
 
 See [proxy administration setup](proxy-administration.md) for the runnable sample.
+`ProxyHostAuthenticationSamplesTests` extends SPM-238 with host-owned ASP.NET
+cookies and bearer tokens, independent UI/API policies, logout, scheme isolation
+and API change auditing without local administrator credentials. Existing account
+and Basic authentication remain defaults; either surface can migrate independently.
+See [custom authentication](../../../docs/how-to/use-newheap-proxy.md#custom-authentication).
 The **Proxy demo** launch profile needs no setup: it supplies a local test account,
 isolated demo storage and one example redirect. The PowerShell smoke check verifies
 the actual executable, health endpoints and persistence across restarts. The Aspire

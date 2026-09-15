@@ -14,9 +14,9 @@ for accepted scope, implementation choices and future-work boundaries.
 - Redirect moved pages using exact paths or regular expressions.
 - Forward requests to backend services with path, header and query transforms.
 - Create, test and activate rules from the administration panel.
-- Protect administration with an account, IP restrictions and login activity.
+- Protect administration with an account or host ASP.NET authentication, IP restrictions and login activity.
 - Keep rules across restarts without a separate database server.
-- Optionally manage rules from another server through a Basic-authenticated API.
+- Optionally manage rules from another server through Basic or host ASP.NET authentication.
 
 ## Installation
 
@@ -54,6 +54,15 @@ The SQLite database is created automatically. Use persistent local storage and
 run one proxy instance per database file. See [storage and backups](../NewHeap.Platform.AspNet.Proxy.Sqlite/README.md#storage-configuration).
 
 ## Usage
+
+### Customize authentication
+
+The existing configured account and Basic API remain the defaults. Use
+`ConfigureAdministrationAuthentication` and `ConfigureApiAuthentication` on
+`NhProxyOptions` to select host-owned ASP.NET schemes and policies independently.
+See [custom UI and API authentication](../../../../docs/how-to/use-newheap-proxy.md#custom-authentication)
+for registration, Microsoft/OpenID Connect integration, compatibility, logout and
+auditing responsibilities.
 
 ### Redirect a page
 
