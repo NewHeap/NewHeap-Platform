@@ -33,13 +33,13 @@ public sealed class NhProxyApiTests
             builder.Services.AddNewHeapProxy(options =>
             {
                 options.Administrator.UserName = "api-admin";
-                options.Administrator.Password = "password";
+                options.Administrator.Password = "test-password";
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
             await using var app = builder.Build();
             app.MapProxyEndpoints().UseNewHeapProxy();
             await app.StartAsync();
             using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single() + NhProxyOptions.ApiPath + "/") };
-            client.DefaultRequestHeaders.Authorization = Basic("api-admin:password");
+            client.DefaultRequestHeaders.Authorization = Basic("api-admin:test-password");
             var cluster = new NhProxyCluster { Id = Guid.NewGuid(), Name = "Backend", Destination = new("backend", new Uri("https://backend.example/")) };
             var validRule = new NhProxyRewriteRule
             {
@@ -98,13 +98,13 @@ public sealed class NhProxyApiTests
             builder.Services.AddNewHeapProxy(options =>
             {
                 options.Administrator.UserName = "api-admin";
-                options.Administrator.Password = "password";
+                options.Administrator.Password = "test-password";
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
             await using var app = builder.Build();
             app.MapProxyEndpoints().UseNewHeapProxy();
             await app.StartAsync();
             using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single() + NhProxyOptions.ApiPath + "/") };
-            client.DefaultRequestHeaders.Authorization = Basic("api-admin:password");
+            client.DefaultRequestHeaders.Authorization = Basic("api-admin:test-password");
             var cluster = new NhProxyCluster { Id = Guid.NewGuid(), Name = "Backend", Destination = new("backend", new Uri("https://backend.example/")) };
             var rewrite = new NhProxyRewriteRule
             {
@@ -181,13 +181,13 @@ public sealed class NhProxyApiTests
             builder.Services.AddNewHeapProxy(options =>
             {
                 options.Administrator.UserName = "api-admin";
-                options.Administrator.Password = "password";
+                options.Administrator.Password = "test-password";
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
             await using var app = builder.Build();
             app.MapProxyEndpoints().UseNewHeapProxy();
             await app.StartAsync();
             using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single() + NhProxyOptions.ApiPath + "/") };
-            client.DefaultRequestHeaders.Authorization = Basic("api-admin:password");
+            client.DefaultRequestHeaders.Authorization = Basic("api-admin:test-password");
 
             var redirects = $$$"""
                 {"expectedRevision":0,"rules":[{"id":"11111111-1111-1111-1111-111111111111","name":"Moved",
@@ -246,7 +246,7 @@ public sealed class NhProxyApiTests
             builder.Services.AddNewHeapProxy(options =>
             {
                 options.Administrator.UserName = "api-admin";
-                options.Administrator.Password = "test:password";
+                options.Administrator.Password = "<test:password>";
                 options.Administrator.LoginAttemptLimit = 1;
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
             await using var app = builder.Build();
@@ -271,7 +271,7 @@ public sealed class NhProxyApiTests
             var anonymous = await client.GetAsync("redirects");
             Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
             Assert.Equal("Basic", Assert.Single(anonymous.Headers.WwwAuthenticate).Scheme);
-            client.DefaultRequestHeaders.Authorization = Basic("api-admin:test:password");
+            client.DefaultRequestHeaders.Authorization = Basic("api-admin:<test:password>");
             var initial = await client.GetAsync("redirects");
             Assert.Equal(HttpStatusCode.OK, initial.StatusCode);
             Assert.False(initial.Headers.Contains("Set-Cookie"));
@@ -316,7 +316,7 @@ public sealed class NhProxyApiTests
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", "invalid-base64");
             Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("redirects")).StatusCode);
             Assert.Equal(3, (await app.Services.GetRequiredService<INhProxyConfigurationService>().GetRedirectsAsync()).Revision);
-            client.DefaultRequestHeaders.Authorization = Basic("api-admin:test:password");
+            client.DefaultRequestHeaders.Authorization = Basic("api-admin:<test:password>");
             var auditResponse = await client.GetAsync("audit");
             var auditJson = await auditResponse.Content.ReadAsStringAsync();
             Assert.DoesNotContain("test:password", auditJson);
@@ -363,7 +363,7 @@ public sealed class NhProxyApiTests
             builder.Services.AddNewHeapProxy(options =>
             {
                 options.Administrator.UserName = "api-admin";
-                options.Administrator.Password = "password";
+                options.Administrator.Password = "test-password";
                 options.Administrator.LoginAttemptLimit = limit;
                 options.IpAllowlist.Enabled = denyIp;
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
@@ -376,7 +376,7 @@ public sealed class NhProxyApiTests
             app.MapProxyEndpoints().UseNewHeapProxy();
             await app.StartAsync();
             using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
-            client.DefaultRequestHeaders.Authorization = Basic("api-admin:password");
+            client.DefaultRequestHeaders.Authorization = Basic("api-admin:test-password");
             await client.GetAsync(NhProxyOptions.ApiPath + "/status");
             var response = await client.GetAsync(NhProxyOptions.ApiPath + "/status");
             Assert.Equal(expected, response.StatusCode);
@@ -408,7 +408,7 @@ public sealed class NhProxyApiTests
             builder.Services.AddNewHeapProxy(options =>
             {
                 options.Administrator.UserName = "api-admin";
-                options.Administrator.Password = "password";
+                options.Administrator.Password = "test-password";
                 options.Administrator.LoginAttemptLimit = 30;
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
             builder.Services.AddSingleton<INhProxyRuntime>(services => new FailingRuntime(services.GetRequiredService<NhProxyRuntime>()));
@@ -418,7 +418,7 @@ public sealed class NhProxyApiTests
             var runtime = (FailingRuntime)app.Services.GetRequiredService<INhProxyRuntime>();
             runtime.Fail = true;
             using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single() + NhProxyOptions.ApiPath + "/") };
-            client.DefaultRequestHeaders.Authorization = Basic("api-admin:password");
+            client.DefaultRequestHeaders.Authorization = Basic("api-admin:test-password");
             var response = await client.PutAsJsonAsync("redirects", new NhProxyRedirectSaveRequest(0, []));
             Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
             var result = (await response.Content.ReadFromJsonAsync<NhProxyApiResult<NhProxySaveResult>>())!;
@@ -453,7 +453,7 @@ public sealed class NhProxyApiTests
             builder.Services.AddNewHeapProxy(options =>
             {
                 options.Administrator.UserName = "api-admin";
-                options.Administrator.Password = "password";
+                options.Administrator.Password = "test-password";
                 options.Administrator.LoginAttemptLimit = 1;
                 options.Administrator.ApiAuthenticationFailureLimit = 1;
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
@@ -461,7 +461,7 @@ public sealed class NhProxyApiTests
             app.MapProxyEndpoints().UseNewHeapProxy();
             await app.StartAsync();
             using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { BaseAddress = new Uri(app.Urls.Single()) };
-            client.DefaultRequestHeaders.Authorization = Basic("api-admin:password");
+            client.DefaultRequestHeaders.Authorization = Basic("api-admin:test-password");
             for (var index = 0; index < 6; index++)
             {
                 Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(NhProxyOptions.ApiPath + "/status")).StatusCode);
@@ -477,7 +477,7 @@ public sealed class NhProxyApiTests
             Assert.NotEmpty(token);
             var signedIn = await client.PostAsync("/newheap-proxy/Login", new FormUrlEncodedContent(new Dictionary<string, string>
             {
-                ["__RequestVerificationToken"] = WebUtility.HtmlDecode(token), ["UserName"] = "api-admin", ["Password"] = "password"
+                ["__RequestVerificationToken"] = WebUtility.HtmlDecode(token), ["UserName"] = "api-admin", ["Password"] = "test-password"
             }));
             Assert.Equal(HttpStatusCode.Found, signedIn.StatusCode);
             Assert.Equal(1, (await app.Services.GetRequiredService<INhProxyLoginAuditStore>().QueryAsync(new())).Data!.TotalCount);
@@ -501,7 +501,7 @@ public sealed class NhProxyApiTests
             builder.Services.AddNewHeapProxy(options =>
             {
                 options.Administrator.UserName = "api-admin";
-                options.Administrator.Password = "password";
+                options.Administrator.Password = "test-password";
             }, storage => storage.DatabasePath = database);
             await using var app = builder.Build();
             app.MapProxyEndpoints().UseNewHeapProxy();
@@ -512,7 +512,7 @@ public sealed class NhProxyApiTests
             command.CommandText = "CREATE TRIGGER RejectAudit BEFORE INSERT ON NhProxyChangeAudit BEGIN SELECT RAISE(ABORT, 'private audit failure'); END;";
             await command.ExecuteNonQueryAsync();
             using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single() + NhProxyOptions.ApiPath + "/") };
-            client.DefaultRequestHeaders.Authorization = Basic("api-admin:password");
+            client.DefaultRequestHeaders.Authorization = Basic("api-admin:test-password");
             var failedSave = await client.PutAsJsonAsync("redirects", new NhProxyRedirectSaveRequest(0, []));
             Assert.Equal(HttpStatusCode.ServiceUnavailable, failedSave.StatusCode);
             Assert.DoesNotContain("private audit failure", await failedSave.Content.ReadAsStringAsync());
