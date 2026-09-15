@@ -86,7 +86,8 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
         return TryRedirect(context, out failure, out _);
     }
 
-    internal bool TryRedirect(HttpContext context, out string? failure, out Guid? selectedRuleId)
+    internal bool TryRedirect(HttpContext context, out string? failure, out Guid? selectedRuleId,
+        List<NhProxyRuleMatchDiagnostic>? diagnostics = null)
     {
         selectedRuleId = null;
         failure = null;
@@ -96,7 +97,7 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
         }
 
         var started = Stopwatch.GetTimestamp();
-        var rule = ResolveRedirect(context, started, out var location, out failure);
+        var rule = ResolveRedirect(context, started, out var location, out failure, diagnostics);
         if (HasResolutionTimedOut(started))
         {
             failure = ResolutionTimeoutFailure;
@@ -114,7 +115,8 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
         return true;
     }
 
-    private NhProxyRedirectRule? ResolveRedirect(HttpContext context, long started, out string? location, out string? failure)
+    private NhProxyRedirectRule? ResolveRedirect(HttpContext context, long started, out string? location, out string? failure,
+        List<NhProxyRuleMatchDiagnostic>? diagnostics = null)
     {
         var snapshot = context.Items.TryGetValue(typeof(Snapshot), out var checkedSnapshot) ? (Snapshot)checkedSnapshot! : Volatile.Read(ref _redirects);
         if (snapshot is null)
@@ -122,10 +124,11 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
             throw new InvalidOperationException("NewHeap Proxy redirects have not been initialized. Start the host before processing requests.");
         }
 
-        return ResolveRedirect(snapshot, context, started, out location, out failure);
+        return ResolveRedirect(snapshot, context, started, out location, out failure, diagnostics: diagnostics);
     }
 
-    private NhProxyRedirectRule? ResolveRedirect(Snapshot snapshot, HttpContext context, long started, out string? location, out string? failure, bool allowSelfRedirect = false)
+    private NhProxyRedirectRule? ResolveRedirect(Snapshot snapshot, HttpContext context, long started, out string? location, out string? failure,
+        bool allowSelfRedirect = false, List<NhProxyRuleMatchDiagnostic>? diagnostics = null)
     {
         location = null;
         failure = null;
@@ -140,9 +143,15 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
                 return null;
             }
 
-            if ((!rule.Match.Methods.IsEmpty && !rule.Match.Methods.Contains(context.Request.Method, StringComparer.Ordinal))
-                || (!rule.Match.Hosts.IsEmpty && !rule.Match.Hosts.Any(host => MatchesHost(host, context.Request.Host))))
+            if (!rule.Match.Methods.IsEmpty && !rule.Match.Methods.Contains(context.Request.Method, StringComparer.Ordinal))
             {
+                diagnostics?.Add(RedirectMismatch(rule, "method-mismatch"));
+                continue;
+            }
+
+            if (!rule.Match.Hosts.IsEmpty && !rule.Match.Hosts.Any(host => MatchesHost(host, context.Request.Host)))
+            {
+                diagnostics?.Add(RedirectMismatch(rule, "host-mismatch"));
                 continue;
             }
 
@@ -150,6 +159,7 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
             {
                 if (!string.Equals(context.Request.Path.Value, rule.Match.Path, StringComparison.Ordinal))
                 {
+                    diagnostics?.Add(RedirectMismatch(rule, "path-mismatch"));
                     continue;
                 }
 
@@ -188,6 +198,7 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
                     var match = pattern.Match(input);
                     if (!match.Success)
                     {
+                        diagnostics?.Add(RedirectMismatch(rule, "regex-mismatch"));
                         continue;
                     }
 
@@ -224,6 +235,7 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
                 }
             }
 
+            diagnostics?.Add(new(NhProxyEngine.Redirect, rule.Id, true, true, []));
             return rule;
         }
 
@@ -233,6 +245,12 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
     private bool HasResolutionTimedOut(long started)
     {
         return Stopwatch.GetElapsedTime(started) >= _resolutionTimeout;
+    }
+
+    private static NhProxyRuleMatchDiagnostic RedirectMismatch(NhProxyRedirectRule rule, string reason)
+    {
+        var key = "newheap-proxy." + reason;
+        return new(NhProxyEngine.Redirect, rule.Id, false, false, [new(key, key)]);
     }
 
     internal static Regex? GetRegexForBudget(ConcurrentDictionary<int, Regex> patterns, string pattern, TimeSpan remaining)

@@ -185,6 +185,14 @@ TestSavedAsync accepts the expected revisions and synthetic input without a draf
 The administration top-bar URL tester uses this API for a GET preview of saved
 rules, shows the selected rule and target with an edit link, and distinguishes
 no-match and reserved paths. It warns when saved and active revisions differ.
+Matches includes rule names and paths, selected rules, concrete mismatch reasons
+and explicit skips for disabled rules, reserved paths and redirect precedence.
+Redirects report the first failing condition in evaluation order; later redirects
+are skipped after a winner. Rewrite diagnostics use native routing to check path
+constraints, hosts/ports, methods and individual header/query conditions. Matching
+rewrites that lose on priority or specificity are distinguished from mismatches.
+These diagnostics describe the entered URL, not subsequent chain steps or upstream
+responses. The URL results and rewrite draft editor render them with rule edit links.
 An input such as /foo?s=1 uses the administration request's scheme, host and port;
 an absolute HTTP(S) URL keeps its own origin. The result displays the resolved URL.
 No administration path or PathBase is prepended. Configure trusted forwarding

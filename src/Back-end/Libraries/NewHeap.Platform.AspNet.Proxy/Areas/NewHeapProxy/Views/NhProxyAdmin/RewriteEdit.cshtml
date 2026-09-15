@@ -87,6 +87,8 @@
                 }
                 <p class="help">Preview checks matching and standard transforms. It does not verify connectivity, health, authorization, rate limiting, upstream responses or host-specific YARP customizations and other configuration sources.</p>
             </div>
+            ViewData["DraftRuleId"] = Model.Id;
+            <partial name="_RuleDiagnostics" model="result" />
         }
     </div>
     <div class="actions"><a asp-action="Rewrites">Cancel</a><button class="primary" type="submit" name="operation" value="save">Save and activate</button></div>

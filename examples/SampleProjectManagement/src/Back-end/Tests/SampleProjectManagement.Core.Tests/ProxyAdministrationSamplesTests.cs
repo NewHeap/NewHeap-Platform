@@ -116,6 +116,20 @@ public sealed class ProxyAdministrationSamplesTests
                 Assert.Contains("GET " + app.Urls.Single() + "/old-projects?source=quick-test", previewHtml);
                 Assert.Contains("Redirect match", previewHtml);
                 Assert.Contains("/projects?source=quick-test", previewHtml);
+                Assert.Contains("Rule evaluation", previewHtml);
+                Assert.Contains("A redirect was selected; rewrites were not tested.", previewHtml);
+                Assert.Contains("Rewrite: Projects", previewHtml);
+                using var noMatch = await client.PostAsync("/newheap-proxy/TestUrl", new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["url"] = "/missing",
+                    ["__RequestVerificationToken"] = WebUtility.HtmlDecode(panelToken.Groups[1].Value)
+                }), cancellationToken);
+                Assert.Equal(HttpStatusCode.OK, noMatch.StatusCode);
+                var noMatchHtml = await noMatch.Content.ReadAsStringAsync(cancellationToken);
+                Assert.Contains("No matching rule", noMatchHtml);
+                Assert.Contains("Rule evaluation", noMatchHtml);
+                Assert.Contains("request path does not match", noMatchHtml);
+                Assert.Contains("/newheap-proxy/RewriteEdit/" + rewrite.Id, noMatchHtml);
                 Assert.False((await configuration.SaveRedirectsAsync(new(snapshot.Revision, []), cancellationToken)).Success);
             }
             finally

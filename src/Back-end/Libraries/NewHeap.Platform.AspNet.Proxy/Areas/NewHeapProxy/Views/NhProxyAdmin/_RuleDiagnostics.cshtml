@@ -1,0 +1,42 @@
+@model NhProxyRuleTestResult
+<section aria-labelledby="rule-diagnostics-title">
+    <h2 id="rule-diagnostics-title">Rule evaluation</h2>
+    <p class="help">Results for the entered URL. Redirects are checked first, in priority order. Skipped rules are not tested. Rewrite conditions use native routing; matching rewrites compete by priority and route specificity.</p>
+    @if (Model.Matches.IsEmpty)
+    {
+        <p>No managed rules are configured.</p>
+    }
+    @foreach (var rule in Model.Matches)
+    {
+        var skipped = rule.Reasons.Any(reason => reason.Code is "newheap-proxy.rule-disabled" or "newheap-proxy.reserved-path"
+            or "newheap-proxy.earlier-redirect" or "newheap-proxy.redirect-precedence");
+        <div class="card">
+            <h3>@rule.Engine: @(rule.RuleName ?? rule.RuleId.ToString())</h3>
+            <p><code class="rule-path">@(rule.RulePath ?? "Any path")</code></p>
+            <p><strong>@(rule.Selected ? "Selected" : skipped ? "Skipped" : rule.Matched ? "Matched, not selected" : "No match")</strong></p>
+            @foreach (var reason in rule.Reasons)
+            {
+                var explanation = reason.Code switch
+                {
+                    "newheap-proxy.rule-disabled" => "This rule is disabled.",
+                    "newheap-proxy.reserved-path" => "The administration path bypasses managed rules.",
+                    "newheap-proxy.earlier-redirect" => "An earlier redirect was selected; this rule was not tested.",
+                    "newheap-proxy.redirect-precedence" => "A redirect was selected; rewrites were not tested.",
+                    "newheap-proxy.rewrite-precedence" => "Another matching rewrite takes precedence by priority or route specificity.",
+                    "newheap-proxy.method-mismatch" => "The request method does not match the rule's allowed methods.",
+                    "newheap-proxy.host-mismatch" => "The request host or port does not match the rule's host conditions.",
+                    "newheap-proxy.path-mismatch" => "The request path does not match the rule's path or route constraints.",
+                    "newheap-proxy.regex-mismatch" => "The escaped request path and query do not match the regular expression.",
+                    "newheap-proxy.header-mismatch" => $"Request header '{reason.Field}' does not satisfy its condition.",
+                    "newheap-proxy.query-mismatch" => $"Query parameter '{reason.Field}' does not satisfy its condition.",
+                    _ => "The request does not satisfy this rule's combined routing conditions."
+                };
+                <p>@explanation</p>
+            }
+            @if (rule.Engine != NhProxyEngine.Rewrite || !Equals(ViewData["DraftRuleId"], rule.RuleId))
+            {
+                <a asp-action="@(rule.Engine == NhProxyEngine.Redirect ? "Edit" : "RewriteEdit")" asp-route-id="@rule.RuleId">Review rule</a>
+            }
+        </div>
+    }
+</section>

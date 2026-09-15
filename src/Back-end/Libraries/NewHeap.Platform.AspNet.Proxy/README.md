@@ -7,6 +7,10 @@ administration panel, SQLite storage and YARP forwarding.
 
 ## Overview
 
+Version one is functionally complete for single-instance deployments with local
+SQLite storage. See the [completion record](../../../../docs/plans/newheap-proxy-design.md#version-one-completion)
+for accepted scope, implementation choices and future-work boundaries.
+
 - Redirect moved pages using exact paths or regular expressions.
 - Forward requests to backend services with path, header and query transforms.
 - Create, test and activate rules from the administration panel.

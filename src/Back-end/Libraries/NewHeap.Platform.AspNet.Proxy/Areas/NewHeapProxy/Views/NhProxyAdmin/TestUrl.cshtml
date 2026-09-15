@@ -44,6 +44,7 @@
         {
             <p class="notice" role="alert">The saved rules differ from the active configuration. Live requests may behave differently; check activation on the rule lists.</p>
         }
+        <partial name="_RuleDiagnostics" model="Model" />
         <p class="footer-note">Tested saved revisions: redirects @Model.TestedRevisions.Redirect, rewrites @Model.TestedRevisions.Rewrite.</p>
     }
     <p class="help">No request is sent to the destination. This preview excludes browser cache, backend responses, host middleware and other configuration sources. For custom methods or headers, use the rewrite editor’s draft test.</p>

@@ -562,3 +562,11 @@ incorrectly presented as implemented.
 ## Explicit ASP.NET database providers
 
 SPM-051 selects `NewHeap.Platform.AspNet.Common.SqlServer` or `.PostgreSql` through `UseNewHeapSqlServer` and `UseNewHeapPostgreSql` in API composition. SPM-053 uses the same per-context registration for native bulk upsert. Common remains free of both database provider stacks. Hangfire storage is configured explicitly in its callback. `DatabaseProviderSamplesTests` verifies both composition variants; the library boundary tests and real-provider scenarios cover package isolation, bulk execution, locks, and identity-context configuration. See `docs/release-notes/v-next.md` for the required upgrade changes.
+
+## Proxy URL diagnostics
+
+SPM-239 demonstrates saved URL and rewrite draft tests with per-rule diagnostics.
+The panel shows rule names, paths, mismatch reasons and explicit skips; native
+routing checks rewrite conditions and identifies matching alternatives that lose
+on priority or specificity. SPM-238/239 exercise the embedded panel and SQLite.
+SQL Server and PostgreSQL proxy stores remain explicit provider gaps.

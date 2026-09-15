@@ -117,7 +117,7 @@ public sealed partial class NhProxyAdminController(INhProxyConfigurationService 
 
     [HttpPost]
     [EndpointSummary("Test a URL against saved proxy rules")]
-    [EndpointDescription("Previews a synthetic GET request against saved redirects, then rewrites. A path starting with / uses the administration request's scheme, host and port. Identifies the selected rule without contacting the destination. Requires an administrator session and antiforgery token.")]
+    [EndpointDescription("Previews a synthetic GET request against saved redirects, then rewrites. A path starting with / uses the administration request's scheme, host and port. Shows the selected rule, mismatch reasons and skipped rules without contacting the destination. Requires an administrator session and antiforgery token.")]
     [ProducesResponseType(typeof(NhProxyRuleTestResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status302Found)]

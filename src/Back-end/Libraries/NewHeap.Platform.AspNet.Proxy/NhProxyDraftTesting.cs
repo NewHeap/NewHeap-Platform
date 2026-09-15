@@ -43,7 +43,11 @@ public sealed record NhProxyRuleMatchDiagnostic(
     Guid RuleId,
     bool Matched,
     bool Selected,
-    ImmutableArray<NhProxyIssue> Reasons);
+    ImmutableArray<NhProxyIssue> Reasons)
+{
+    public string? RuleName { get; init; }
+    public string? RulePath { get; init; }
+}
 
 public sealed record NhProxyRewritePreview(
     Guid ClusterId,
@@ -66,6 +70,7 @@ public sealed record NhProxyRuleTestResult
     public Guid? SelectedRuleId { get; init; }
     public bool SimulatedEnabled { get; init; }
     public ImmutableDictionary<string, string> RouteValues { get; init; } = ImmutableDictionary<string, string>.Empty;
+    /// <summary>Rule outcomes for the input URL, including mismatches and explicitly skipped rules.</summary>
     public ImmutableArray<NhProxyRuleMatchDiagnostic> Matches { get; init; } = [];
     public ImmutableArray<NhProxyIssue> Warnings { get; init; } = [];
     public NhProxyRewritePreview? Rewrite { get; init; }

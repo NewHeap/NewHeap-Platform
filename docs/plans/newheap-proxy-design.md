@@ -5,9 +5,17 @@ plan. For current setup and usage, start with the
 [proxy README](../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/README.md)
 or [usage reference](../how-to/use-newheap-proxy.md).
 
-## Implementation status
+## Version-one completion
 
-Reviewed against the implementation on 2026-09-10.
+Version one is accepted as functionally complete as of 2026-09-15. The agreed
+scope is a single-instance, SQLite-backed proxy with embedded administration,
+managed redirects and YARP rewrites, independent activation, and isolated rule
+previews. The original implementation sequence below is historical, not an open
+feature backlog.
+
+This acceptance records the completed product scope; it does not claim that every
+original acceptance check was rerun on this date. Existing executable evidence
+remains in SPM-238, SPM-239 and the focused proxy test projects.
 
 | Area | Current status |
 | --- | --- |
@@ -17,6 +25,28 @@ Reviewed against the implementation on 2026-09-10.
 | Testing | Unsaved-rule tests and saved-rule URL previews are implemented without backend requests. |
 | Storage | Local SQLite is supported. SQL Server, PostgreSQL and multi-instance storage are not implemented. |
 | Additional YARP configuration | Available through `ConfigureYarp`; managed editing and preview cover stored rules only. |
+
+### Accepted implementation choices and boundaries
+
+- Advanced rewrite settings use validated NewHeap JSON in the editor alongside
+  basic form controls. Dedicated controls for every advanced setting are not
+  required for v1. This supersedes the original all-typed-controls requirement.
+- Exact and regex redirects cover the agreed matching requirements. Prefix and
+  route-template behavior use regex captures; separate matching modes are not
+  planned for v1.
+- Desired and active revisions, activation outcomes and explicit retry provide
+  configuration-management status. A dedicated health-check integration that
+  reports management failures as degraded is a possible follow-up, not a v1 blocker.
+- Multiple destinations, load balancing, failover, session affinity, distributed
+  storage and SQL Server/PostgreSQL providers remain outside v1.
+- External/backend redirect-cycle analysis, live connectivity probes and preview
+  of external YARP configuration sources remain outside v1. Host option changes
+  require a restart.
+
+The acceptance checklist below remains a reference for regression and release
+verification, including published-package installation, protocol forwarding and
+browser accessibility checks. Functional completion does not replace that
+verification or imply that packages have been released.
 
 Executable evidence is registered under SPM-238 and SPM-239 in the
 [sample registry](../../examples/SampleProjectManagement/docs/cases/sample-case-registry.json).
@@ -60,10 +90,9 @@ The agreed architecture is:
 - Administrators can test unsaved rules against example requests without saving
   them, activating them, or affecting live traffic.
 
-These product choices are agreed. Public names and the technical mechanisms
-identified at the end of this document remain to be finalized.
-This document does not make any capability available or count as executable
-sample evidence.
+These product choices are agreed. Public names and technical mechanisms are
+recorded under resolved implementation decisions below. This design document is
+not itself executable sample evidence.
 
 ## Scope and terminology
 
@@ -372,9 +401,10 @@ SQLite requirements:
 ## Rewrite rule features
 
 The agreed scope is common YARP capabilities with exactly one destination per
-cluster, exposed through typed controls. Use existing
-YARP facilities rather than implementing substitutes. Keep simple destination
-setup prominent and group advanced cluster options separately.
+cluster. Basic settings use form controls; advanced settings use validated NewHeap
+JSON, as accepted for v1. Use existing YARP facilities rather than implementing
+substitutes. Keep simple destination setup prominent and group advanced cluster
+options separately.
 
 | Capability | Version-one support |
 | --- | --- |
@@ -401,9 +431,11 @@ deletion, and include all affected routes in a candidate test snapshot.
 Keep normal YARP defaults unless the product explicitly documents an override.
 Restrict header changes that could undermine administration credential isolation,
 trusted forwarded headers, or HTTP framing. Host policy remains authoritative.
-Arbitrary scripts, raw configuration JSON, body rewriting, custom balancing
-plugins, and editor-managed secrets are outside the first feature set. Changes
-to these boundaries must have explicit validation and sample evidence.
+Arbitrary scripts, unrestricted native YARP configuration JSON, body rewriting,
+custom balancing plugins, and editor-managed secrets are outside the first
+feature set. The advanced editor accepts the supported NewHeap configuration
+model, not arbitrary YARP configuration. Changes to these boundaries must have
+explicit validation and sample evidence.
 
 ## Redirect rule features
 
@@ -651,11 +683,16 @@ request bodies, or raw user-facing exceptions. Operational logs complement the
 required persistent login audit; they do not replace it. General configuration
 history and rule-change auditing remain outside the initial scope.
 
-Expose configuration health without disclosing routes or security settings.
+The original operational target was to expose configuration health without
+disclosing routes or security settings.
 Startup readiness requires initialized routing. A runtime persistence or
-activation failure must be visible as degraded configuration management while
+activation failure should be visible as degraded configuration management while
 last-known-good forwarding can continue. Do not automatically withdraw a working
 proxy from service merely because an administration save failed.
+
+V1 exposes management outcomes through authenticated desired/active status and
+activation retry. A dedicated degraded health-check integration is deferred, as
+recorded in the completion boundaries above.
 
 ## Implementation sequence and acceptance evidence
 

@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Matching;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -17,7 +18,7 @@ using Yarp.ReverseProxy.Model;
 namespace NewHeap.Platform.AspNet.Proxy;
 
 /// <summary>Tests persisted-rule candidates with native routing and transforms, without starting a server or contacting destinations.</summary>
-public sealed class NhProxyDraftTester(INhProxyConfigurationService configuration, INhProxyConfigurationValidator validator,
+public sealed partial class NhProxyDraftTester(INhProxyConfigurationService configuration, INhProxyConfigurationValidator validator,
     IOptions<NhProxyOptions> options) : INhProxyDraftTester
 {
     public Task<TaskResult<NhProxyRuleTestResult>> TestSavedAsync(NhProxyRevisions expectedRevisions, NhProxyTestRequest request, CancellationToken cancellationToken = default)
@@ -101,7 +102,11 @@ public sealed class NhProxyDraftTester(INhProxyConfigurationService configuratio
             };
             if (context.Request.Path.StartsWithSegments(NhProxyOptions.AdministrationPath, StringComparison.OrdinalIgnoreCase))
             {
-                return TaskResult<NhProxyRuleTestResult>.Succeeded(result with { Outcome = NhProxyTestOutcome.ReservedAdministrationPath });
+                result = result with { Outcome = NhProxyTestOutcome.ReservedAdministrationPath };
+                return TaskResult<NhProxyRuleTestResult>.Succeeded(result with
+                {
+                    Matches = await DiagnoseAsync(rewrites, redirects, input, result, [], timeout.Token)
+                });
             }
 
             await using var previewApp = CreatePreviewApplication(rewrites);
@@ -120,14 +125,14 @@ public sealed class NhProxyDraftTester(INhProxyConfigurationService configuratio
                     ? NhProxyRuntime.ChainDepthFailure : NhProxyErrorCodes.Validation, chainFailure);
             }
 
-            if (redirectRuntime.TryRedirect(context, out var failure, out var redirectId))
+            var redirectDiagnostics = new List<NhProxyRuleMatchDiagnostic>();
+            if (redirectRuntime.TryRedirect(context, out var failure, out var redirectId, redirectDiagnostics))
             {
                 result = result with
                 {
                     Outcome = NhProxyTestOutcome.Redirect, SelectedRuleId = redirectId,
                     Redirect = new((NhProxyRedirectStatus)context.Response.StatusCode, context.Response.Headers.Location.ToString(),
-                        context.Response.StatusCode is 307 or 308),
-                    Matches = [new(NhProxyEngine.Redirect, redirectId!.Value, true, true, [])]
+                        context.Response.StatusCode is 307 or 308)
                 };
             }
             else if (failure is not null)
@@ -146,16 +151,10 @@ public sealed class NhProxyDraftTester(INhProxyConfigurationService configuratio
             }
 
             timeout.Token.ThrowIfCancellationRequested();
-            var draftId = rewrite?.Draft.Id ?? redirect?.Draft.Id;
-            if (result.Outcome == NhProxyTestOutcome.NoMatch && draftId is not null)
+            result = result with
             {
-                var enabled = rewrite?.Draft.Enabled ?? redirect!.Draft.Enabled;
-                var reason = !enabled && !result.SimulatedEnabled ? "newheap-proxy.draft-disabled" : "newheap-proxy.no-matching-rule";
-                result = result with
-                {
-                    Matches = [new(rewrite is null ? NhProxyEngine.Redirect : NhProxyEngine.Rewrite, draftId.Value, false, false, [new(reason, reason)])]
-                };
-            }
+                Matches = await DiagnoseAsync(rewrites, redirects, input, result, redirectDiagnostics, timeout.Token)
+            };
             if (Stopwatch.GetElapsedTime(started) > options.Value.Limits.TestTimeout)
             {
                 return TaskResult<NhProxyRuleTestResult>.Failed(NhProxyErrorCodes.Validation, "newheap-proxy.test-timeout");
@@ -198,7 +197,7 @@ public sealed class NhProxyDraftTester(INhProxyConfigurationService configuratio
         return context;
     }
 
-    private static WebApplication CreatePreviewApplication(NhProxyRewriteConfiguration configuration)
+    private static WebApplication CreatePreviewApplication(NhProxyRewriteConfiguration configuration, EndpointSelector? selector = null)
     {
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
         {
@@ -206,6 +205,10 @@ public sealed class NhProxyDraftTester(INhProxyConfigurationService configuratio
         });
         builder.Configuration.Sources.Clear();
         builder.Logging.ClearProviders();
+        if (selector is not null)
+        {
+            builder.Services.AddSingleton(selector);
+        }
         builder.Services.AddReverseProxy().LoadFromMemory(configuration.Rules.Where(rule => rule.Enabled)
             .Select(NhProxyYarpConfiguration.Route).Select(route => route with
             {
@@ -241,7 +244,6 @@ public sealed class NhProxyDraftTester(INhProxyConfigurationService configuratio
                 Outcome = NhProxyTestOutcome.Rewrite, SelectedRuleId = rule.Id,
                 RouteValues = request.Request.RouteValues.ToImmutableDictionary(pair => pair.Key,
                     pair => Convert.ToString(pair.Value, CultureInfo.InvariantCulture) ?? ""),
-                Matches = [new(NhProxyEngine.Rewrite, rule.Id, true, true, [])],
                 Rewrite = new(rule.ClusterId, cluster.Destination.Address, target,
                     NhProxyRuntime.GetSafeHeaders(message)
                         .ToImmutableDictionary(header => header.Key, header => header.Value.ToImmutableArray()),

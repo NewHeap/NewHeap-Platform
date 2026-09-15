@@ -129,3 +129,12 @@ dotnet test Tests/SampleProjectManagement.Core.Tests --filter FullyQualifiedName
 
 The existing sample cases cover SQLite redirects and administration (SPM-238),
 and rewrite preview and forwarding to a local backend (SPM-239).
+
+The URL test and rewrite draft test include a **Rule evaluation** section. Each
+rule shows its name and path, whether it was selected, rejected or skipped, and
+a reason such as a path/regex, method, host/port, header or query mismatch.
+Redirects stop at the first match; subsequent redirects and all rewrites are
+shown as skipped. When rewrites are evaluated, matching alternatives explain
+that another rule wins by priority or route specificity. Review links open the
+corresponding rule. Results describe the entered URL, not later chain steps or
+backend responses. No destination request is made.

@@ -331,9 +331,11 @@ public sealed class NhProxyRewriteTests
                 var noMatch = await tester.TestRewriteAsync(new(new(1, 0), rule, new() { Url = new("https://public.example/public/not-an-int/a") }));
                 Assert.True(noMatch.Success);
                 Assert.Equal(NhProxyTestOutcome.NoMatch, noMatch.Data!.Outcome);
+                Assert.Equal("newheap-proxy.path-mismatch", Assert.Single(Assert.Single(noMatch.Data.Matches).Reasons).Code);
                 Assert.False((await tester.TestRewriteAsync(new(new(0, 0), rule, new() { Url = new("https://public.example/public/42/a") }))).Success);
                 var disabled = await tester.TestRewriteAsync(new(new(1, 0), rule with { Enabled = false }, new() { Url = new("https://public.example/public/42/a") }));
                 Assert.Equal(NhProxyTestOutcome.NoMatch, disabled.Data!.Outcome);
+                Assert.Equal("newheap-proxy.rule-disabled", Assert.Single(Assert.Single(disabled.Data.Matches).Reasons).Code);
                 var simulated = await tester.TestRewriteAsync(new(new(1, 0), rule with { Enabled = false }, new() { Url = new("https://public.example/public/42/a") }) { SimulateEnabled = true });
                 Assert.Equal(NhProxyTestOutcome.Rewrite, simulated.Data!.Outcome);
                 var ambiguous = await tester.TestRewriteAsync(new(new(1, 0), rule with
@@ -384,11 +386,31 @@ public sealed class NhProxyRewriteTests
                 Url = new("https://public.example:8443/public/42/a?preview=yes"), Method = "PUT",
                 Headers = ImmutableDictionary<string, ImmutableArray<string>>.Empty.Add("X-Mode", ["test"])
             };
-            Assert.Equal(NhProxyTestOutcome.Rewrite, (await tester.TestRewriteAsync(new(new(1, 0), rule, input))).Data!.Outcome);
-            foreach (var invalid in new[] { input with { Method = "GET" }, input with { Headers = input.Headers.Clear() },
-                input with { Url = new("https://public.example/public/42/a?preview=yes") }, input with { Url = new("https://public.example:8443/public/42/a") } })
+            var matched = (await tester.TestRewriteAsync(new(new(1, 0), rule, input))).Data!;
+            Assert.Equal(NhProxyTestOutcome.Rewrite, matched.Outcome);
+            Assert.True(Assert.Single(matched.Matches).Matched);
+            Assert.True(Assert.Single(matched.Matches).Selected);
+            Assert.Empty(Assert.Single(matched.Matches).Reasons);
+            foreach (var (invalid, reason, field) in new (NhProxyTestRequest, string, string?)[]
             {
-                Assert.Equal(NhProxyTestOutcome.NoMatch, (await tester.TestRewriteAsync(new(new(1, 0), rule, invalid))).Data!.Outcome);
+                (input with { Method = "GET" }, "method-mismatch", null),
+                (input with { Headers = input.Headers.Clear() }, "header-mismatch", "X-Mode"),
+                (input with { Url = new("https://public.example/public/42/a?preview=yes") }, "host-mismatch", null),
+                (input with { Url = new("https://public.example:8443/public/42/a") }, "query-mismatch", "preview")
+            })
+            {
+                var tested = (await tester.TestRewriteAsync(new(new(1, 0), rule, invalid))).Data!;
+                Assert.Equal(NhProxyTestOutcome.NoMatch, tested.Outcome);
+                var diagnostic = Assert.Single(tested.Matches);
+                Assert.Equal(rule.Id, diagnostic.RuleId);
+                Assert.Equal(rule.Name, diagnostic.RuleName);
+                Assert.Equal(rule.Match.Path, diagnostic.RulePath);
+                Assert.False(diagnostic.Matched);
+                Assert.False(diagnostic.Selected);
+                var issue = Assert.Single(diagnostic.Reasons);
+                Assert.Equal("newheap-proxy." + reason, issue.Code);
+                Assert.Equal(issue.Code, issue.LocalizationKey);
+                Assert.Equal(field, issue.Field);
             }
 
             var redirect = new NhProxyRedirectRule { Id = Guid.NewGuid(), Name = "Moved", Match = new() { Path = "/public/42/a" }, Target = "/moved" };
@@ -399,8 +421,11 @@ public sealed class NhProxyRewriteTests
             Assert.True(shadowed.Success);
             Assert.Equal(NhProxyTestOutcome.Redirect, shadowed.Data!.Outcome);
             Assert.Equal(redirect.Id, shadowed.Data.SelectedRuleId);
+            Assert.Equal(2, shadowed.Data.Matches.Length);
+            Assert.Equal("newheap-proxy.redirect-precedence", Assert.Single(shadowed.Data.Matches.Single(item => item.RuleId == rule.Id).Reasons).Code);
             var reserved = await tester.TestRewriteAsync(new(new(1, 1), rule, input with { Url = new("https://public.example/newheap-proxy/Edit") }));
             Assert.Equal(NhProxyTestOutcome.ReservedAdministrationPath, reserved.Data!.Outcome);
+            Assert.All(reserved.Data.Matches, item => Assert.Equal("newheap-proxy.reserved-path", Assert.Single(item.Reasons).Code));
             Assert.True((await configuration.SaveRewritesAsync(new(1, [], []))).Success);
             Assert.Equal(2, configuration.GetStatus().Rewrite.ActiveRevision);
             Assert.Equal(1, configuration.GetStatus().Redirect.ActiveRevision);
@@ -413,6 +438,69 @@ public sealed class NhProxyRewriteTests
             Assert.Equal(HttpStatusCode.Found, response.StatusCode);
             Assert.Equal("/moved", response.Headers.Location!.OriginalString);
             await proxy.StopAsync();
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
+    [Fact]
+    public async Task Saved_test_lists_redirect_rejections_skips_and_matching_rewrite_alternatives()
+    {
+        var directory = Directory.CreateTempSubdirectory("nh-proxy-diagnostics-");
+        try
+        {
+            var builder = WebApplication.CreateBuilder();
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+            builder.Services.AddNewHeapProxy(configureStorage: storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
+            await using var app = builder.Build();
+            app.UseNewHeapProxy();
+            await app.StartAsync();
+            var configuration = app.Services.GetRequiredService<INhProxyConfigurationService>();
+            var tester = app.Services.GetRequiredService<INhProxyDraftTester>();
+            NhProxyRedirectRule Redirect(int priority, NhProxyRedirectMatch match) => new()
+            {
+                Id = Guid.NewGuid(), Name = "Redirect " + priority, Priority = priority, Match = match, Target = "https://other.example/target"
+            };
+            var rules = new[]
+            {
+                Redirect(0, new() { Path = "/value" }) with { Enabled = false },
+                Redirect(1, new() { Path = "/value", Methods = ["POST"] }),
+                Redirect(2, new() { Path = "/value", Hosts = ["other.example"] }),
+                Redirect(3, new() { Path = "/Value" }),
+                Redirect(4, new() { Path = "^/value\\?yes=1$", PathMode = NhProxyRedirectPathMatchMode.Regex }),
+                Redirect(5, new() { Path = "/value" }),
+                Redirect(6, new() { Path = "/value", Hosts = ["public.example"] })
+            };
+            Assert.True((await configuration.SaveRedirectsAsync(new(0, rules.Reverse().ToImmutableArray()))).Success);
+            var cluster = Cluster(new("https://backend.example/"));
+            var catchAll = Rule(cluster) with { Match = new() { Path = "/{**rest}" }, Transforms = [] };
+            var specific = catchAll with { Id = Guid.NewGuid(), Name = "Specific", Match = new() { Path = "/value" } };
+            Assert.True((await configuration.SaveRewritesAsync(new(0, [catchAll, specific], [cluster]))).Success);
+            var input = new NhProxyTestRequest { Url = new("https://public.example/value") };
+            var redirected = await tester.TestSavedAsync(new(1, 1), input);
+            Assert.True(redirected.Success);
+            Assert.Equal(rules.Select(rule => rule.Id), redirected.Data!.Matches.Take(rules.Length).Select(item => item.RuleId));
+            var reasons = new[] { "rule-disabled", "method-mismatch", "host-mismatch", "path-mismatch", "regex-mismatch", null, "earlier-redirect" };
+            for (var index = 0; index < rules.Length; index++)
+            {
+                var diagnostic = redirected.Data.Matches[index];
+                Assert.Equal(index == 5, diagnostic.Selected);
+                Assert.Equal(index == 5, diagnostic.Matched);
+                if (reasons[index] is { } reason)
+                {
+                    Assert.Equal("newheap-proxy." + reason, Assert.Single(diagnostic.Reasons).Code);
+                }
+            }
+
+            Assert.True((await configuration.SaveRedirectsAsync(new(1, []))).Success);
+            var rewritten = await tester.TestSavedAsync(new(1, 2), input);
+            Assert.True(rewritten.Success);
+            Assert.Equal(specific.Id, rewritten.Data!.SelectedRuleId);
+            Assert.All(rewritten.Data.Matches, item => Assert.True(item.Matched));
+            Assert.Equal("newheap-proxy.rewrite-precedence", Assert.Single(rewritten.Data.Matches.Single(item => item.RuleId == catchAll.Id).Reasons).Code);
+            await app.StopAsync();
         }
         finally
         {

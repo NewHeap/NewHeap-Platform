@@ -89,6 +89,11 @@ public sealed class ProxyRewriteSamplesTests
             var savedTest = await tester.TestSavedAsync(revisions, input, cancellationToken);
             Assert.True(savedTest.Success, string.Join("; ", savedTest.AllErrorMessages));
             Assert.Equal(rule.Id, savedTest.Data!.SelectedRuleId);
+            var selectedDiagnostic = Assert.Single(savedTest.Data.Matches);
+            Assert.True(selectedDiagnostic.Matched);
+            Assert.True(selectedDiagnostic.Selected);
+            Assert.Equal(rule.Name, selectedDiagnostic.RuleName);
+            Assert.Empty(selectedDiagnostic.Reasons);
             Assert.Equal(tested.Data.Rewrite.TargetUrl, savedTest.Data.Rewrite!.TargetUrl);
             Assert.Equal(0, backendRequests);
             Assert.Equal(revisions.Rewrite, (await configuration.GetRewritesAsync(cancellationToken)).Revision);
@@ -96,6 +101,10 @@ public sealed class ProxyRewriteSamplesTests
             Assert.True(noMatch.Success);
             Assert.Equal(NhProxyTestOutcome.NoMatch, noMatch.Data!.Outcome);
             Assert.Null(noMatch.Data.SelectedRuleId);
+            var rejectedRule = Assert.Single(noMatch.Data.Matches);
+            Assert.Equal(rule.Id, rejectedRule.RuleId);
+            Assert.False(rejectedRule.Matched);
+            Assert.Equal("newheap-proxy.path-mismatch", Assert.Single(rejectedRule.Reasons).Code);
             var staleTest = await tester.TestSavedAsync(new(rewrites.Revision, redirects.Revision),
                 new() { Url = new("https://public.example/api/projects/42") }, cancellationToken);
             Assert.False(staleTest.Success);
