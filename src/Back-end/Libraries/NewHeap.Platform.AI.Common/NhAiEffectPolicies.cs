@@ -4,7 +4,14 @@ public enum NhAiEffectDecisionKind
 {
     Allow = 0,
     Deny = 1,
-    RequireApproval = 2
+    RequireApproval = 2,
+
+    /// <summary>
+    /// Approval is delegated to the tool itself. The invoker accepts this decision
+    /// only for descriptors that declare
+    /// <see cref="NhAiApprovalRequirement.ConsumerAuthoritative"/>.
+    /// </summary>
+    ConsumerAuthoritativeApproval = 3
 }
 
 public sealed record NhAiEffectDecision(
@@ -32,6 +39,12 @@ internal sealed class NhAiDefaultEffectPolicy : INhAiEffectPolicy
             return ValueTask.FromResult(new NhAiEffectDecision(
                 NhAiEffectDecisionKind.RequireApproval,
                 "approval-required"));
+        }
+        if (descriptor.Approval == NhAiApprovalRequirement.ConsumerAuthoritative)
+        {
+            return ValueTask.FromResult(new NhAiEffectDecision(
+                NhAiEffectDecisionKind.ConsumerAuthoritativeApproval,
+                "consumer-authoritative-approval"));
         }
         if (descriptor.Effect == NhAiToolEffect.ReadOnly)
         {

@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ModelContextProtocol.Client;
@@ -93,6 +95,12 @@ internal sealed class NhAiMcpToolAdapter(
                         $"AI MCP export name '{descriptor.ExportName}' is registered more than once.");
                 }
 
+                if (descriptor.ExportSchema == NhAiToolExportSchema.Flat)
+                {
+                    result.Add(new NhAiFlatSchemaMcpServerTool(functions[index], descriptor));
+                    continue;
+                }
+
                 var inner = McpServerTool.Create(
                     functions[index],
                     new McpServerToolCreateOptions
@@ -111,6 +119,168 @@ internal sealed class NhAiMcpToolAdapter(
         }
 
         return result;
+    }
+}
+
+/// <summary>
+/// Publishes a generated tool with <see cref="NhAiToolExportSchema.Flat"/>: the input
+/// type's properties are the top-level MCP arguments and the output type is the
+/// structured result. The governed <see cref="AIFunction"/> still runs through the
+/// shared invoker; only the wire shape changes.
+/// </summary>
+internal sealed class NhAiFlatSchemaMcpServerTool : McpServerTool
+{
+    private static readonly JsonSerializerOptions SerializerOptions =
+        new(JsonSerializerDefaults.Web);
+    private readonly AIFunction _function;
+    private readonly NhAiToolDescriptor _descriptor;
+    private readonly Tool _protocolTool;
+    private readonly IReadOnlyList<object> _metadata;
+
+    public NhAiFlatSchemaMcpServerTool(
+        AIFunction function,
+        NhAiToolDescriptor descriptor)
+    {
+        ArgumentNullException.ThrowIfNull(function);
+        ArgumentNullException.ThrowIfNull(descriptor);
+        _function = function;
+        _descriptor = descriptor;
+        _metadata = [descriptor];
+
+        var inputSchema = ParseSchema(descriptor.InputSchemaJson);
+        if (!IsObjectSchema(inputSchema))
+        {
+            throw new InvalidOperationException(
+                $"AI tool '{descriptor.Id}' declares a flat export schema but its input schema is not a JSON object.");
+        }
+        var outputSchema = ParseSchema(descriptor.OutputSchemaJson);
+        _protocolTool = new Tool
+        {
+            Name = descriptor.ExportName,
+            Description = descriptor.Description,
+            InputSchema = inputSchema,
+            OutputSchema = IsObjectSchema(outputSchema) ? outputSchema : null,
+            Annotations = new ToolAnnotations
+            {
+                ReadOnlyHint = descriptor.Effect == NhAiToolEffect.ReadOnly,
+                DestructiveHint = descriptor.Effect == NhAiToolEffect.Destructive,
+                IdempotentHint = descriptor.Effect is NhAiToolEffect.ReadOnly
+                    or NhAiToolEffect.IdempotentMutation,
+                OpenWorldHint = descriptor.Effect == NhAiToolEffect.ExternalSideEffect
+            }
+        };
+    }
+
+    public override Tool ProtocolTool => _protocolTool;
+
+    public override IReadOnlyList<object> Metadata => _metadata;
+
+    public override async ValueTask<CallToolResult> InvokeAsync(
+        RequestContext<CallToolRequestParams> request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var arguments = new AIFunctionArguments
+        {
+            ["input"] = BuildInputElement(request.Params?.Arguments)
+        };
+        if (request.Services is not null)
+        {
+            arguments.Services = request.Services;
+        }
+
+        var output = await _function.InvokeAsync(arguments, cancellationToken);
+        var envelope = output is JsonElement element
+            ? element
+            : JsonSerializer.SerializeToElement(output, SerializerOptions);
+        if (envelope.ValueKind != JsonValueKind.Object
+            || !envelope.TryGetProperty("success", out var success)
+            || success.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            throw new InvalidOperationException(
+                $"AI tool '{_descriptor.Id}' did not return a TaskResult envelope.");
+        }
+
+        var hasData = envelope.TryGetProperty("data", out var data)
+            && data.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined);
+        if (success.ValueKind == JsonValueKind.True)
+        {
+            return new CallToolResult
+            {
+                Content = [new TextContentBlock { Text = hasData ? data.GetRawText() : "null" }],
+                StructuredContent = hasData ? data : null
+            };
+        }
+
+        // A failed result with typed data publishes that domain payload as the structured
+        // error payload; a failure without data becomes a plain MCP tool error.
+        return new CallToolResult
+        {
+            IsError = true,
+            Content = [new TextContentBlock { Text = hasData ? data.GetRawText() : FailureText(envelope) }],
+            StructuredContent = hasData ? data : null
+        };
+    }
+
+    private static JsonElement BuildInputElement(
+        IEnumerable<KeyValuePair<string, JsonElement>>? arguments)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            if (arguments is not null)
+            {
+                foreach (var argument in arguments)
+                {
+                    writer.WritePropertyName(argument.Key);
+                    argument.Value.WriteTo(writer);
+                }
+            }
+            writer.WriteEndObject();
+        }
+        using var document = JsonDocument.Parse(stream.ToArray());
+        return document.RootElement.Clone();
+    }
+
+    private static string FailureText(JsonElement envelope)
+    {
+        var messages = new List<string>();
+        if (envelope.TryGetProperty("allErrorMessages", out var errorMessages)
+            && errorMessages.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var message in errorMessages.EnumerateArray())
+            {
+                if (message.ValueKind == JsonValueKind.String)
+                {
+                    messages.Add(message.GetString()!);
+                }
+                else if (message.ValueKind == JsonValueKind.Object
+                    && message.TryGetProperty("format", out var format)
+                    && format.ValueKind == JsonValueKind.String)
+                {
+                    messages.Add(format.GetString()!);
+                }
+            }
+        }
+        return messages.Count == 0
+            ? "The AI tool returned a failed result."
+            : string.Join(" ", messages);
+    }
+
+    private static JsonElement ParseSchema(string schemaJson)
+    {
+        using var document = JsonDocument.Parse(
+            string.IsNullOrWhiteSpace(schemaJson) ? "{}" : schemaJson);
+        return document.RootElement.Clone();
+    }
+
+    private static bool IsObjectSchema(JsonElement schema)
+    {
+        return schema.ValueKind == JsonValueKind.Object
+            && schema.TryGetProperty("type", out var type)
+            && type.ValueKind == JsonValueKind.String
+            && string.Equals(type.GetString(), "object", StringComparison.Ordinal);
     }
 }
 

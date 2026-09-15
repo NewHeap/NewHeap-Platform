@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.31",
   "backEnd": {
-    "hash": "878f2baafb53696eb746f74f9560bc622bf2912fb34531b036c524d387e23db7",
-    "declarationCount": 3988,
+    "hash": "86137f027964017ebcf05479c584c69f2a5d0f8bf297a76b9ff520ef11d8ff77",
+    "declarationCount": 4003,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1199,6 +1199,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? ApprovalCode { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? ApprovalEvidenceReference { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
         "declaration": "public string? IdempotencyCode { get; init; }"
       },
       {
@@ -1208,6 +1216,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
         "declaration": "public string? VerificationEvidenceReference { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? ResultCode { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
@@ -1403,6 +1415,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public object? DenialPayload { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
+        "declaration": "public static NhAiAuthoritativeExecutionEvidence Denied( object denialPayload, string? evidenceReference = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalsAndApprovals.cs",
         "declaration": "public interface INhAiAuthoritativeExecutionEvidenceValidator {"
       },
       {
@@ -1583,6 +1603,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public enum NhAiToolExportSchema {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public enum NhAiToolCatalogGovernance {"
       },
       {
@@ -1628,6 +1652,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public NhAiIdempotencySupport Idempotency { get; set; } = NhAiIdempotencySupport.None;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolExportSchema ExportSchema { get; set; } = NhAiToolExportSchema.Enveloped;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
@@ -1712,6 +1740,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public NhAiIdempotencySupport Idempotency { get; init; } = NhAiIdempotencySupport.None;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolExportSchema ExportSchema { get; init; } = NhAiToolExportSchema.Enveloped;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
@@ -2067,7 +2099,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
-        "declaration": "public ToolModel( IMethodSymbol method, string setId, string toolId, string? explicitExportName, int version, int effect, int exposure, string description, string inputType, string outputType, string? jsonSerializerContextType, string inputSchema, string outputSchema, string schemaHash, string contractHash, int approval, int idempotency, string? verifierId, int timeoutSeconds, int maxConcurrency, int maxInputBytes, int maxResultBytes, int dataClassification, int retentionCategory, ImmutableArray<string> requiredCapabilities, bool requiresAuthorization, ImmutableArray<string?> authorizationPolicies) {"
+        "declaration": "public ToolModel( IMethodSymbol method, string setId, string toolId, string? explicitExportName, int version, int effect, int exposure, string description, string inputType, string outputType, string? jsonSerializerContextType, string inputSchema, string outputSchema, string schemaHash, string contractHash, int approval, int idempotency, int exportSchema, string? verifierId, int timeoutSeconds, int maxConcurrency, int maxInputBytes, int maxResultBytes, int dataClassification, int retentionCategory, ImmutableArray<string> requiredCapabilities, bool requiresAuthorization, ImmutableArray<string?> authorizationPolicies) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
@@ -2143,6 +2175,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int ExportSchema { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
         "declaration": "public string? VerifierId { get; }"
       },
       {
@@ -2192,6 +2228,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
         "declaration": "public static async ValueTask<TOutput> CallNewHeapToolAsync<TInput, TOutput>( this McpClient client, string toolName, TInput input, JsonSerializerOptions serializerOptions, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public static ValueTask<TOutput> CallNewHeapFlatToolAsync<TInput, TOutput>( this McpClient client, string toolName, TInput input, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public static async ValueTask<TOutput> CallNewHeapFlatToolAsync<TInput, TOutput>( this McpClient client, string toolName, TInput input, JsonSerializerOptions serializerOptions, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
@@ -2340,6 +2384,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
         "declaration": "public async ValueTask<IReadOnlyList<McpServerTool>> CreateToolsAsync( IServiceProvider services, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public NhAiFlatSchemaMcpServerTool( AIFunction function, NhAiToolDescriptor descriptor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public override Tool ProtocolTool => _protocolTool;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public override IReadOnlyList<object> Metadata => _metadata;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public override async ValueTask<CallToolResult> InvokeAsync( RequestContext<CallToolRequestParams> request, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
@@ -19106,7 +19166,9 @@
       "INhAiMcpToolAdapter",
       "WithNewHeapPlatformAITools",
       "CallNewHeapToolAsync",
-      "NhAiMcpToolException"
+      "CallNewHeapFlatToolAsync",
+      "NhAiMcpToolException",
+      "NhAiToolExportSchema"
     ],
     "nh-ai-model-profiles": [
       "INhAiModelProfileRegistry",
@@ -19150,10 +19212,14 @@
       "NhAiActionBudget",
       "NhAiApproval",
       "NhAiApprovalEvidence",
+      "NhAiApprovalRequirement",
+      "NhAiAuditRecord",
       "NhAiAuthoritativeExecutionEvidence",
       "NhAiCapabilityGrant",
       "NhAiCapabilityResolution",
+      "NhAiEffectDecisionKind",
       "NhAiIdempotencyRequest",
+      "NhAiIdempotencySupport",
       "NhAiProposal",
       "NhAiProposalCreateRequest",
       "NhAiToolEffect",

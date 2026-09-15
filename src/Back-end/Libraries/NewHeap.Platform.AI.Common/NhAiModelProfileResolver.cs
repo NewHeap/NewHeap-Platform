@@ -341,7 +341,8 @@ internal sealed class NhAiStartupValidator(
                         $"AI tool descriptor '{identity}' declares invalid execution bounds.");
                 }
                 if (descriptor.Effect != NhAiToolEffect.ReadOnly
-                    && descriptor.Idempotency != NhAiIdempotencySupport.Required)
+                    && descriptor.Idempotency is not (NhAiIdempotencySupport.Required
+                        or NhAiIdempotencySupport.ConsumerAuthoritative))
                 {
                     throw new InvalidOperationException(
                         $"AI tool descriptor '{identity}' must require idempotency for side effects.");
@@ -349,8 +350,12 @@ internal sealed class NhAiStartupValidator(
                 var requiresApproval = descriptor.Effect is NhAiToolEffect.Mutation
                     or NhAiToolEffect.ExternalSideEffect
                     or NhAiToolEffect.Destructive;
+                var consumerAuthoritativeApprovalAllowed =
+                    descriptor.Approval == NhAiApprovalRequirement.ConsumerAuthoritative
+                    && descriptor.Effect != NhAiToolEffect.Destructive;
                 if (requiresApproval
-                    && descriptor.Approval != NhAiApprovalRequirement.Required)
+                    && descriptor.Approval != NhAiApprovalRequirement.Required
+                    && !consumerAuthoritativeApprovalAllowed)
                 {
                     throw new InvalidOperationException(
                         $"AI tool descriptor '{identity}' must require approval for its side effect.");

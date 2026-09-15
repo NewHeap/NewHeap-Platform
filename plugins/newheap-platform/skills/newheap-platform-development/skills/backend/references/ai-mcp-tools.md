@@ -45,6 +45,18 @@ including consumer-owned write tools that do not use the generated NewHeap
 contract. Supply explicit serializer options when a source-generated JSON
 context or null-omission policy owns the wire schema.
 
+When an external wire contract already owns the argument and result shape of a
+generated tool, declare `ExportSchema = NhAiToolExportSchema.Flat` on that tool
+next to its `NhAiToolExportName`. The MCP export then publishes the input type's
+properties as the top-level arguments and the output type as the structured
+result; a failed `TaskResult<T>` that carries typed data publishes that data as
+the structured error payload, and a failure without data becomes a plain MCP tool
+error. The input type must be an object; the generator rejects other input types
+with `NHAI012`. Local and agent execution keep the generated envelope, and the
+governed `AIFunction` still runs through the shared invoker. Call a flat tool
+through `CallNewHeapFlatToolAsync<TInput, TOutput>` or the official
+`CallToolAsync` with the input properties as arguments.
+
 Other libraries may register independently governed MCP tools through
 `WithTools`, `WithToolsFromAssembly`, or manual `McpServerTool` services. Keep
 their export names distinct from every NewHeap-managed export. Startup rejects
@@ -57,6 +69,9 @@ NewHeap tool, because those form a second publication path. Only source-generate
 - Adding separate MCP methods that copy generated domain tool implementations.
 - Maintaining application-specific lists of generated tool names solely to wrap
   input and unwrap `TaskResult<T>` responses.
+- Registering a consumer-owned write through the MCP SDK because the generated
+  export envelope does not match its wire contract; declare a flat export schema
+  on the generated tool instead.
 - Calling independently registered MCP tools through the NewHeap client helper.
 - Publishing a NewHeap tool both through its generated catalog and through SDK tool registration.
 - Giving an external MCP tool the same wire name as a NewHeap-managed export.
@@ -77,7 +92,11 @@ fails at startup. Also call the generated tool through
 `CallNewHeapToolAsync<TInput, TOutput>`, omit an optional null property through
 explicit serializer options, assert the typed data is returned, and assert a
 failed result becomes `NhAiMcpToolException` without changing direct SDK calls.
-SPM-222 is the executable reference.
+For a flat export, assert the listed input schema exposes the input properties
+without an `input` wrapper, that the structured result is the output type without
+a `success` envelope, and that a typed denial remains available as the structured
+content of the failed `CallToolResult`. SPM-222 and SPM-240 are the executable
+references.
 
 ## Optional source evidence
 

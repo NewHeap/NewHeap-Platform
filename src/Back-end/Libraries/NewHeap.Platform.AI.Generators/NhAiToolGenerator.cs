@@ -110,6 +110,14 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         DiagnosticSeverity.Error,
         true);
 
+    private static readonly DiagnosticDescriptor FlatExportRequiresObjectInput = new(
+        "NHAI012",
+        "AI tool flat export schema requires an object input type",
+        "AI tool '{0}' declares a flat export schema, so its input parameter must be an object type whose properties become the top-level arguments",
+        "NewHeap.AI",
+        DiagnosticSeverity.Error,
+        true);
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var attributedMethods = context.SyntaxProvider.CreateSyntaxProvider(
@@ -212,6 +220,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             var exposure = (int)(toolAttribute.ConstructorArguments[3].Value ?? 0);
             var approval = GetNamedInt(toolAttribute, "Approval", 0);
             var idempotency = GetNamedInt(toolAttribute, "Idempotency", 0);
+            var exportSchema = GetNamedInt(toolAttribute, "ExportSchema", 0);
             var verifierId = GetNamedString(toolAttribute, "VerifierId");
             var timeoutSeconds = GetNamedInt(toolAttribute, "TimeoutSeconds", 60);
             var maxConcurrency = GetNamedInt(toolAttribute, "MaxConcurrency", 1);
@@ -277,9 +286,12 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                     verifierId));
                 continue;
             }
-            var unsafeSideEffect = effect != 0 && idempotency != 2;
-            var unsafeMutation = effect == 2 && approval != 1;
-            var unsafeExternalEffect = effect == 3 && approval != 1;
+            // Idempotency 2 = Required, 3 = ConsumerAuthoritative (the tool reconciles replays itself).
+            // Approval 1 = Required, 3 = ConsumerAuthoritative (the tool validates its own approval).
+            // Destructive effects always require Platform approval and a verifier.
+            var unsafeSideEffect = effect != 0 && idempotency != 2 && idempotency != 3;
+            var unsafeMutation = effect == 2 && approval != 1 && approval != 3;
+            var unsafeExternalEffect = effect == 3 && approval != 1 && approval != 3;
             var unsafeDestructive = effect == 4
                 && (approval != 1 || string.IsNullOrWhiteSpace(verifierId));
             if (unsafeSideEffect || unsafeMutation || unsafeExternalEffect || unsafeDestructive)
@@ -294,6 +306,14 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
 
             var inputSchema = SchemaWriter.Create(inputTypeSymbol!);
             var outputSchema = SchemaWriter.Create(outputTypeSymbol!);
+            if (exportSchema == 1 && !inputSchema.StartsWith("{\"type\":\"object\",\"properties\"", StringComparison.Ordinal))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    FlatExportRequiresObjectInput,
+                    location,
+                    setId + "." + toolId));
+                continue;
+            }
             var schemaHash = ComputeHash(inputSchema + "\n" + outputSchema);
             var contractMaterial = string.Join(
                 "\n",
@@ -319,6 +339,12 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             {
                 contractMaterial += "\nexport:" + explicitExportName;
             }
+            if (exportSchema != 0)
+            {
+                // Only a non-default export schema enters the contract hash so existing
+                // enveloped contracts keep their published hashes.
+                contractMaterial += "\nexport-schema:" + exportSchema.ToString(global::System.Globalization.CultureInfo.InvariantCulture);
+            }
             var contractHash = ComputeHash(contractMaterial);
 
             tools.Add(new ToolModel(
@@ -339,6 +365,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 contractHash,
                 approval,
                 idempotency,
+                exportSchema,
                 verifierId,
                 timeoutSeconds,
                 maxConcurrency,
@@ -557,6 +584,8 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             .Append(tool.Approval).AppendLine(",");
         builder.Append("        Idempotency = (global::NewHeap.Platform.AI.NhAiIdempotencySupport)")
             .Append(tool.Idempotency).AppendLine(",");
+        builder.Append("        ExportSchema = (global::NewHeap.Platform.AI.NhAiToolExportSchema)")
+            .Append(tool.ExportSchema).AppendLine(",");
         if (tool.VerifierId is not null)
         {
             builder.Append("        VerifierId = ").Append(Literal(tool.VerifierId)).AppendLine(",");
@@ -1054,6 +1083,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             string contractHash,
             int approval,
             int idempotency,
+            int exportSchema,
             string? verifierId,
             int timeoutSeconds,
             int maxConcurrency,
@@ -1082,6 +1112,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             ContractHash = contractHash;
             Approval = approval;
             Idempotency = idempotency;
+            ExportSchema = exportSchema;
             VerifierId = verifierId;
             TimeoutSeconds = timeoutSeconds;
             MaxConcurrency = maxConcurrency;
@@ -1112,6 +1143,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         public string ContractHash { get; }
         public int Approval { get; }
         public int Idempotency { get; }
+        public int ExportSchema { get; }
         public string? VerifierId { get; }
         public int TimeoutSeconds { get; }
         public int MaxConcurrency { get; }

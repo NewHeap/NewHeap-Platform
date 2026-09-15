@@ -235,7 +235,8 @@
     "SPM-235",
     "SPM-236",
     "SPM-238",
-    "SPM-239"
+    "SPM-239",
+    "SPM-240"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -1536,6 +1537,17 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyRewriteSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyAdministrationSamplesTests.cs",
       "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs"
+    ],
+    "SPM-240": [
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusReceiptService.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Models/AI/ProjectAiModels.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiConsumerAuthoritativeTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs"
     ]
   }
 }

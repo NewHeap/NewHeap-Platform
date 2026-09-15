@@ -17,14 +17,49 @@ public enum NhAiApprovalRequirement
 {
     PolicyControlled = 0,
     Required = 1,
-    NotRequired = 2
+    NotRequired = 2,
+
+    /// <summary>
+    /// Approval is required, but the consuming application validates its own
+    /// authoritative approval evidence inside the governed invocation and returns
+    /// its typed domain outcome. The invoker records the consumer-attested step in
+    /// the audit record instead of demanding a Platform proposal and approval.
+    /// </summary>
+    ConsumerAuthoritative = 3
 }
 
 public enum NhAiIdempotencySupport
 {
     None = 0,
     Supported = 1,
-    Required = 2
+    Required = 2,
+
+    /// <summary>
+    /// The consuming application owns idempotency inside the governed invocation:
+    /// a replayed key reaches the application engine, which reconciles and returns
+    /// its receipt. The invoker records the consumer-attested step instead of
+    /// acquiring a Platform idempotency lease.
+    /// </summary>
+    ConsumerAuthoritative = 3
+}
+
+/// <summary>
+/// Describes the wire shape of a generated tool when it is exported through MCP.
+/// </summary>
+public enum NhAiToolExportSchema
+{
+    /// <summary>
+    /// Arguments travel in the <c>input</c> envelope and results in the
+    /// <c>TaskResult&lt;T&gt;</c> envelope.
+    /// </summary>
+    Enveloped = 0,
+
+    /// <summary>
+    /// The input type's properties are the top-level arguments and the output
+    /// type is the structured result. A failed result with typed data publishes
+    /// that data as the structured error payload.
+    /// </summary>
+    Flat = 1
 }
 
 public enum NhAiToolCatalogGovernance
@@ -62,6 +97,7 @@ public sealed class NhAiToolAttribute(
     public NhAiToolExposure Exposure { get; } = exposure;
     public NhAiApprovalRequirement Approval { get; set; } = NhAiApprovalRequirement.PolicyControlled;
     public NhAiIdempotencySupport Idempotency { get; set; } = NhAiIdempotencySupport.None;
+    public NhAiToolExportSchema ExportSchema { get; set; } = NhAiToolExportSchema.Enveloped;
     public string? VerifierId { get; set; }
     public int TimeoutSeconds { get; set; } = 60;
     public int MaxConcurrency { get; set; } = 1;
@@ -99,6 +135,7 @@ public sealed record NhAiToolDescriptor(
     public string ContractHash { get; init; } = string.Empty;
     public NhAiApprovalRequirement Approval { get; init; } = NhAiApprovalRequirement.PolicyControlled;
     public NhAiIdempotencySupport Idempotency { get; init; } = NhAiIdempotencySupport.None;
+    public NhAiToolExportSchema ExportSchema { get; init; } = NhAiToolExportSchema.Enveloped;
     public string? VerifierId { get; init; }
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(60);
     public int MaxConcurrency { get; init; } = 1;

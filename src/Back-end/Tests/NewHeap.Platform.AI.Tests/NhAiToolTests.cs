@@ -290,6 +290,14 @@ public sealed class NhAiToolTests
         "NhAiToolEffect.Destructive",
         "Approval = NhAiApprovalRequirement.Required, VerifierId = \"BadVerifier\"",
         "NHAI002")]
+    [InlineData(
+        "NhAiToolEffect.Destructive",
+        "Approval = NhAiApprovalRequirement.ConsumerAuthoritative, Idempotency = NhAiIdempotencySupport.Required, VerifierId = \"verifier\"",
+        "NHAI008")]
+    [InlineData(
+        "NhAiToolEffect.IdempotentMutation",
+        "Idempotency = NhAiIdempotencySupport.ConsumerAuthoritative, ExportSchema = NhAiToolExportSchema.Flat",
+        "NHAI012")]
     public void Generator_rejects_unsafe_effects_bounds_and_verifier_ids(
         string effect,
         string namedArguments,
@@ -333,6 +341,74 @@ public sealed class NhAiToolTests
         Assert.Contains(
             driver.GetRunResult().Diagnostics,
             diagnostic => diagnostic.Id == expectedDiagnostic);
+    }
+
+    [Fact]
+    public void Generator_accepts_consumer_authoritative_safeguards_with_a_flat_export_schema()
+    {
+        const string source = """
+            using System;
+            using System.ComponentModel;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using NewHeap.Platform.AI;
+            using NewHeap.Platform.Common.Models;
+
+            public sealed record ReceiptInput(Guid OrderId, string ApprovalGrant, string IdempotencyKey);
+
+            public sealed record Receipt(string Execution, string Code);
+
+            [NhAiToolSet("orders")]
+            public sealed class ConsumerAuthoritativeTool
+            {
+                [NhAiTool(
+                    "apply-status-receipt",
+                    1,
+                    NhAiToolEffect.Mutation,
+                    NhAiToolExposure.Local,
+                    Approval = NhAiApprovalRequirement.ConsumerAuthoritative,
+                    Idempotency = NhAiIdempotencySupport.ConsumerAuthoritative,
+                    ExportSchema = NhAiToolExportSchema.Flat)]
+                [Description("Apply an approved status change and return the domain receipt.")]
+                public Task<TaskResult<Receipt>> ApplyAsync(
+                    ReceiptInput input,
+                    NhAiInvocationContext context,
+                    CancellationToken cancellationToken) => throw new NotImplementedException();
+            }
+            """;
+        var syntaxTree = CSharpSyntaxTree.ParseText(source);
+        var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+            .Split(Path.PathSeparator)
+            .Select(path => MetadataReference.CreateFromFile(path));
+        var references = trustedAssemblies
+            .Append(MetadataReference.CreateFromFile(typeof(NhAiToolAttribute).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(TaskResult<>).Assembly.Location));
+        var compilation = CSharpCompilation.Create(
+            "GeneratorConsumerAuthoritative",
+            [syntaxTree],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new NhAiToolGenerator());
+
+        driver = driver.RunGenerators(compilation);
+
+        var runResult = driver.GetRunResult();
+        Assert.DoesNotContain(
+            runResult.Diagnostics,
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var generated = Assert.Single(runResult.GeneratedTrees).ToString();
+        Assert.Contains(
+            "Approval = (global::NewHeap.Platform.AI.NhAiApprovalRequirement)3",
+            generated,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Idempotency = (global::NewHeap.Platform.AI.NhAiIdempotencySupport)3",
+            generated,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "ExportSchema = (global::NewHeap.Platform.AI.NhAiToolExportSchema)1",
+            generated,
+            StringComparison.Ordinal);
     }
 
     [Theory]
