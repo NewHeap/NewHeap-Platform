@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.33",
   "backEnd": {
-    "hash": "aa75621f99e373e5aca2ca0a913715e7ad9ff643ce6bdca7dfacef6017bdeeae",
-    "declarationCount": 4139,
+    "hash": "601c1741f83003223ecb69d29bd307548f92ae63384e1623769ae5fc2309392e",
+    "declarationCount": 4152,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7980,6 +7980,58 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeapPlatformAspNetCommonConfigurator.cs",
         "declaration": "public INewHeapNotificationConfigurator< TUser, TUserRole, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TLog, TLogMessageArgument, TLogFile, TLogMessageTranslated, TDbLogService, TDbContext, TUserManager, TDivisionService, TDivisionMutateModel, TDivisionUserService, TDivisionUserMutateModel> ConfigureEmailNotificationSettings(Action<NhEmailNotificationSettings> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+        "declaration": "public static IServiceCollection AddNewHeapHangfire( this IServiceCollection services, Action<IGlobalConfiguration> hangfireOptionsAction, Action<ConsoleOptions>? consoleOptionsAction) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+        "declaration": "public void Capture(JobStorage? storage, JobActivator activator) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+        "declaration": "public void RegisterLogging(ILoggerFactory loggerFactory) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+        "declaration": "public JobStorage GetStorage(IServiceProvider serviceProvider) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+        "declaration": "public JobActivator GetActivator(IServiceProvider serviceProvider) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+        "declaration": "public static NhHangfireLogProvider Instance { get; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+        "declaration": "public IDisposable Register(ILoggerFactory loggerFactory) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+        "declaration": "public ILog GetLogger(string name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+        "declaration": "public bool Log(Hangfire.Logging.LogLevel logLevel, Func<string>? messageFunc, Exception? exception = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+        "declaration": "public ILog GetLogger(string name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+        "declaration": "public static IGlobalConfiguration Configure( IServiceProvider serviceProvider, Action<IGlobalConfiguration> hangfireOptionsAction, Action<ConsoleOptions>? consoleOptionsAction) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/OpenApiSchemaTransformers/OneOfSchemaTransformer.cs",

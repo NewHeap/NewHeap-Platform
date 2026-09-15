@@ -860,14 +860,9 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         ArgumentNullException.ThrowIfNull(hangfireOptionsAction);
         _serviceCollection.TryAddSingleton<INhHangfireQueueNameResolver, NhHangfireQueueNameResolver>();
 
-        _serviceCollection.AddHangfire(options =>
-        {
-            hangfireOptionsAction(options);
-
-            var consoleOptions = new ConsoleOptions();
-            consoleOptionsAction?.Invoke(consoleOptions);
-            options.UseConsole(consoleOptions);
-        });
+        // Hangfire configuration is process-wide. This registration supports several hosts per
+        // process, registers Hangfire.Console once, and keeps storage and activation per host.
+        _serviceCollection.AddNewHeapHangfire(hangfireOptionsAction, consoleOptionsAction);
 
         _serviceCollection.AddHangfireServer((serviceProvider, options) =>
         {

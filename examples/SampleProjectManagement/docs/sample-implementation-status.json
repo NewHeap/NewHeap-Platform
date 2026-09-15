@@ -236,7 +236,8 @@
     "SPM-236",
     "SPM-238",
     "SPM-239",
-    "SPM-240"
+    "SPM-240",
+    "SPM-241"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -1557,6 +1558,13 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolSchemaContractTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs"
+    ],
+    "SPM-241": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/HangfireProcessSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeapPlatformAspNetCommonConfigurator.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhHangfireMultiHostTests.cs"
     ]
   }
 }

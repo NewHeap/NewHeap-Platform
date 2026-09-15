@@ -3253,5 +3253,20 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs"
     ]
+  },
+  {
+    "id": "SPM-241",
+    "title": "Hangfire hosts in one process",
+    "category": "Events, jobs, email, and notifications",
+    "surface": "WithHangfire, its consoleOptionsAction, Hangfire.Console, per-host JobStorage, JobActivator and IBackgroundJobClient, and process-wide Hangfire configuration",
+    "outcome": "Hosts composed with `WithHangfire` start one after another, after earlier hosts were stopped and disposed, and side by side in one process. Each host runs its jobs against its own storage with its own services and still attaches job console output, because Hangfire.Console is registered once per process and reused. A later host that requests different console options fails with a Platform error naming the conflicting option instead of the Hangfire.Console initialization exception. Single-host applications keep their existing behavior.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/HangfireProcessSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeapPlatformAspNetCommonConfigurator.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhHangfireMultiHostTests.cs"
+    ]
   }
 ] as const;
