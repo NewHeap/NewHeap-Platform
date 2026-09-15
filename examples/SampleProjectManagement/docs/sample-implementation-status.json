@@ -1530,12 +1530,14 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyAdministrationSamplesTests.cs",
       "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs",
       "src/Back-end/Applications/SampleProjectManagement.Proxy/Properties/launchSettings.json",
-      "src/Back-end/Orchestration/SampleProjectManagement.AppHost/Program.cs"
+      "src/Back-end/Orchestration/SampleProjectManagement.AppHost/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyApiSamplesTests.cs"
     ],
     "SPM-239": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyRewriteSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyAdministrationSamplesTests.cs",
-      "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs"
+      "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyApiSamplesTests.cs"
     ]
   }
 }

@@ -5,7 +5,7 @@ area: configuration
 reference: runtime-configuration
 summary: "The two-call proxy loads exact and opt-in regex redirects before requests and provides secured MVC management, local draft testing, login IP auditing and revision-checked save/activation. Regex targets use captures without automatic query merging. Stored rewrites use native YARP matching/transforms and an isolated managed-rule test tool."
 sample-cases: ["SPM-238", "SPM-239"]
-public-symbols: ["NhProxyRewriteRule", "NhProxyDraftTester", "INhProxyDraftTester", "SaveRewritesAsync", "NhProxyRedirectRule", "NhProxyConfigurationValidator", "NhProxyRuntime", "RedirectResolutionTimeoutMilliseconds", "NhProxySqliteConfigurationStore", "NhProxySqliteLoginAuditStore", "INhProxyConfigurationService", "INhProxyAdministrationService", "ConfigureYarp", "INhProxyConfigurationStore", "INhProxyRuntime", "AddNewHeapProxy", "UseNewHeapProxy", "MapNewHeapProxy"]
+public-symbols: ["NhProxyRewriteRule", "NhProxyDraftTester", "INhProxyDraftTester", "SaveRewritesAsync", "NhProxyRedirectRule", "NhProxyConfigurationValidator", "NhProxyRuntime", "RedirectResolutionTimeoutMilliseconds", "NhProxySqliteConfigurationStore", "NhProxySqliteLoginAuditStore", "INhProxyConfigurationService", "INhProxyAdministrationService", "ConfigureYarp", "INhProxyConfigurationStore", "INhProxyRuntime", "AddNewHeapProxy", "UseNewHeapProxy", "MapNewHeapProxy", "MapProxyEndpoints", "NhProxyApiResult", "NhProxySavedTestRequest", "AuthenticateAsync", "NhProxyChangeAuditEvent", "INhProxyChangeAuditStore", "NhProxySqliteChangeAuditStore"]
 skills: ["newheap-runtime-configuration"]
 providers: ["provider-neutral", "sqlite"]
 risk: high
@@ -22,6 +22,63 @@ runtime, administration and a hosted lifecycle initializer. StartingAsync loads
 and publishes the persisted snapshot before the HTTP server accepts requests.
 Use reserves /newheap-proxy in its own MVC branch, installs redirects and maps YARP.
 Do not also call MapNewHeapProxy; that remains a lower-level YARP-only alternative.
+Server-to-server management is disabled by default. Explicitly call
+MapProxyEndpoints() before UseNewHeapProxy() to expose /newheap-proxy/api. This
+isolated branch cannot be intercepted by redirect or catch-all rewrite rules.
+Use Basic authentication with the configured administrator credentials (UTF-8,
+username without a colon), HTTPS outside Development and the existing IP allowlist.
+No session cookie is issued or accepted; host authentication defaults remain intact.
+Origin-bearing requests are rejected because the API is for server clients.
+API credential checks create no login events and do not consume LoginAttemptLimit.
+Only bad API credentials consume the independent ApiAuthenticationFailureLimit /
+ApiAuthenticationFailureWindow budget (five failures per minute by default).
+Once exhausted, API authentication returns 429 until reset; browser login remains
+independent. Existing custom administration services deny API access by default
+until they implement cookie-free AuthenticateAsync without login auditing.
+GET redirects/rewrites returns full snapshots. PUT replaces the entire engine
+configuration using ExpectedRevision; retain existing rules/clusters unless they
+should be deleted. Reuse stable IDs, edit Enabled to toggle rules, and reconcile
+409 conflicts. Status and per-engine activation retry remain independent. Save,
+retry and test return NhProxyApiResult<T> with safe issues; a committed activation
+failure returns 503 with the saved revision retained in Data. Retry activation,
+not the stale save. JSON bodies are bounded by MaximumTestRequestBytes, reject
+unknown members and require constructor fields. JSON enum fields accept names or
+numeric values, including in both snapshot PUT endpoints. Enum names are
+case-insensitive; unknown names and
+unsupported numeric values return 400. This includes nested transform enums.
+Invalid input returns 400 with readable issue messages; JSON errors include the
+field path. A missing transform kind is a client input error in both saves and
+draft tests. Preserve issue codes/localization keys and keep infrastructure
+exception details out of responses. Invalid input must not save, activate or audit.
+Before persistence, the shared validator builds the candidate's native YARP
+transforms and forces regex route constraints to compile, including disabled rules.
+Reject invalid Pattern transform values and route regex with TaskResult validation
+failures before changing configuration, revisions or audit. Reuse this check in
+API/panel/direct saves and previews; it needs no test URL or outbound request.
+This is configuration validation, not a backend availability or response check.
+Before persistence, the shared validator builds the candidate's native YARP
+transforms and forces regex route constraints to compile, including disabled rules.
+Reject invalid Pattern transform values and route regex with TaskResult validation
+failures before changing configuration, revisions or audit. Reuse this check in
+API/panel/direct saves and previews; it needs no test URL or outbound request.
+This is configuration validation, not a backend availability or response check.
+The test, redirects/test and rewrites/test endpoints use the existing isolated
+evaluator without outbound calls.
+API saves attach server-owned Audit attribution. The SQLite store commits the
+ConfigurationSaved audit event and configuration update in one transaction, including
+actor, effective IP, correlation ID, UTC time, engine, revisions and normalized
+before/after snapshots. Never include credentials or authentication headers. Audit
+insert failure rolls back the save; activation failure after commit retains its audit.
+GET /audit supports engine/fromUtc/toUtc filters and offset/pageSize (default 50,
+maximum 100), newest first, with a filtered total. Records survive restarts with
+no automatic expiration. Reads, previews, API authentication, invalid saves and
+revision conflicts create no change events. Activation retry records an
+ActivationRequested intent before running; it does not claim a successful outcome
+or a revision. Audit write failure prevents retry. Custom stores must preserve
+atomic audited saves; request-body clients cannot set the Audit context.
+ProxyApiSamplesTests verifies the HTTP/OpenAPI contracts and real SQLite workflow
+for SPM-238/SPM-239. The runnable proxy sample enables this mapping only when
+ProxyApi=true; see docs/how-to/use-newheap-proxy.md for the endpoint table.
 Put trusted forwarded headers before UseNewHeapProxy. Host the proxy at the
 origin root with an empty PathBase; subdirectory hosting is not supported.
 Do not recommend UsePathBase or mounting the proxy under a prefix such as
@@ -126,7 +183,10 @@ stay Exact, and no schema migration is needed. Older runtimes cannot load new re
 
 Keep the SQLite file on durable local storage outside the webroot. Its default is
 App_Data/newheap-proxy.db under the host content root. One lock-file handle enforces
-exclusive NewHeap ownership. Schema version 3 transactionally adds a separate rewrite document after the version-2 login-audit upgrade, retaining redirect documents and audit data. Back up before upgrading; old schema-2 runtimes cannot reopen the upgraded database. Unknown/corrupt state
+exclusive NewHeap ownership. Schema version 4 adds the API change-audit table after
+the version-3 rewrite-document and version-2 login-audit upgrades, retaining all
+existing configuration and login data. Back up before upgrading; older runtimes
+cannot reopen schema 4. Unknown/corrupt state
 fails rather than resetting. WAL, parameterized conditional writes, filtered audit
 queries and bounded retention SQL stay in the SQLite project. SQL Server and
 PostgreSQL are explicit v1 capability gaps.

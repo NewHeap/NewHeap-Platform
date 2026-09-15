@@ -68,6 +68,12 @@ builder.Services.AddNewHeapProxy(options =>
 
 await using var app = builder.Build();
 app.MapDefaultEndpoints();
+// SPM-238/SPM-239: opt-in server-to-server management; absent by default.
+if (builder.Configuration.GetValue<bool>("ProxyApi"))
+{
+    app.MapProxyEndpoints();
+}
+
 app.UseNewHeapProxy();
 app.MapGet("/", () => Results.Redirect(NhProxyOptions.AdministrationPath))
     .WithSummary("Open proxy administration")

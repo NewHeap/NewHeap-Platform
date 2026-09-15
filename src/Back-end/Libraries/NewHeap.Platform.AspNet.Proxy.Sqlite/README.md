@@ -1,6 +1,6 @@
 # NewHeap ASP.NET Proxy SQLite
 
-Store redirects, rewrites and login activity in a local SQLite database.
+Store redirects, rewrites, login activity and API change audits in a local SQLite database.
 No separate database server is required.
 
 [Install the proxy](../NewHeap.Platform.AspNet.Proxy/README.md#installation) · [Configuration](../NewHeap.Platform.AspNet.Proxy/README.md#configuration) · [Usage reference](../../../../docs/how-to/use-newheap-proxy.md)
@@ -28,6 +28,15 @@ see the configuration table for defaults. Restart after changing settings.
   but older proxy versions may not reopen the upgraded file.
 
 ## Startup problems
+
+Schema 4 adds the append-only `NhProxyChangeAudit` table. API saves insert the
+authenticated actor, UTC time, engine, revisions and normalized before/after
+configuration in the same transaction as the snapshot update. An audit insert
+failure rolls back the save. Activation retry records intent before execution.
+Read the audit through the authenticated `GET /newheap-proxy/api/audit` endpoint;
+records are retained without automatic expiration and survive restarts. Existing
+configuration and login-audit data are preserved during the upgrade. Older binaries
+cannot reopen schema 4; restoring a pre-upgrade backup is required for a downgrade.
 
 | Problem | Action |
 | --- | --- |

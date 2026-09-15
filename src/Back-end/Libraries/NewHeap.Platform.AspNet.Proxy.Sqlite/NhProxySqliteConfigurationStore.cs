@@ -91,7 +91,7 @@ public sealed class NhProxySqliteConfigurationStore : INhProxyConfigurationStore
                 using var command = _connection.CreateCommand();
                 command.CommandText = "PRAGMA user_version;";
                 var version = (long)(await command.ExecuteScalarAsync(cancellationToken))!;
-                if (version is < 0 or > 3)
+                if (version is < 0 or > 4)
                 {
                     throw new InvalidDataException($"Unsupported NewHeap Proxy SQLite schema version {version}.");
                 }
@@ -160,6 +160,32 @@ public sealed class NhProxySqliteConfigurationStore : INhProxyConfigurationStore
                         PRAGMA user_version=3;
                         """;
                     command.Parameters.AddWithValue("$document", JsonSerializer.Serialize(new NhProxyRewriteConfiguration(), JsonOptions));
+                    await command.ExecuteNonQueryAsync(cancellationToken);
+                    await transaction.CommitAsync(cancellationToken);
+                }
+
+                if (version < 4)
+                {
+                    using var transaction = _connection.BeginTransaction();
+                    command.Transaction = transaction;
+                    command.Parameters.Clear();
+                    command.CommandText = """
+                        CREATE TABLE NhProxyChangeAudit (
+                            Id TEXT PRIMARY KEY NOT NULL,
+                            OccurredAtUtc INTEGER NOT NULL,
+                            UserName TEXT NOT NULL,
+                            ClientIp TEXT,
+                            CorrelationId TEXT NOT NULL,
+                            Engine INTEGER NOT NULL,
+                            Action INTEGER NOT NULL,
+                            PreviousRevision INTEGER,
+                            Revision INTEGER,
+                            BeforeJson TEXT,
+                            AfterJson TEXT
+                        );
+                        CREATE INDEX IX_NhProxyChangeAudit_Time ON NhProxyChangeAudit (OccurredAtUtc DESC);
+                        PRAGMA user_version=4;
+                        """;
                     await command.ExecuteNonQueryAsync(cancellationToken);
                     await transaction.CommitAsync(cancellationToken);
                 }
@@ -285,7 +311,10 @@ public sealed class NhProxySqliteConfigurationStore : INhProxyConfigurationStore
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            using var transaction = GetConnection().BeginTransaction();
+            var before = request.Audit is null ? null : await LoadAuditSnapshotAsync(transaction, NhProxyEngine.Rewrite, cancellationToken);
             using var command = GetConnection().CreateCommand();
+            command.Transaction = transaction;
             command.CommandText = """
                 UPDATE NhProxyConfiguration SET Revision=$revision, FormatVersion=1, Document=$document
                 WHERE Engine='Rewrite' AND Revision=$expected AND FormatVersion=1;
@@ -293,12 +322,14 @@ public sealed class NhProxySqliteConfigurationStore : INhProxyConfigurationStore
             command.Parameters.AddWithValue("$revision", snapshot.Revision);
             command.Parameters.AddWithValue("$expected", request.ExpectedRevision);
             command.Parameters.AddWithValue("$document", json);
-            // One conditional UPDATE is an atomic SQLite transaction; no read-then-write race.
+            // The revision guard and optional audit commit together; an audit failure rolls back the configuration.
             if (await command.ExecuteNonQueryAsync(cancellationToken) != 1)
             {
                 return TaskResult<NhProxyRewriteConfiguration>.Failed(NhProxyErrorCodes.RevisionConflict, NhProxyErrorCodes.RevisionConflict);
             }
 
+            await AppendSaveAuditAsync(transaction, request.Audit, NhProxyEngine.Rewrite, snapshot.Revision, before, json, cancellationToken);
+            await transaction.CommitAsync(CancellationToken.None);
             return TaskResult<NhProxyRewriteConfiguration>.Succeeded(snapshot);
         }
         finally
@@ -327,7 +358,10 @@ public sealed class NhProxySqliteConfigurationStore : INhProxyConfigurationStore
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            using var transaction = GetConnection().BeginTransaction();
+            var before = request.Audit is null ? null : await LoadAuditSnapshotAsync(transaction, NhProxyEngine.Redirect, cancellationToken);
             using var command = GetConnection().CreateCommand();
+            command.Transaction = transaction;
             command.CommandText = """
                 UPDATE NhProxyConfiguration SET Revision=$revision, FormatVersion=1, Document=$document
                 WHERE Engine='Redirect' AND Revision=$expected AND FormatVersion=1;
@@ -335,18 +369,46 @@ public sealed class NhProxySqliteConfigurationStore : INhProxyConfigurationStore
             command.Parameters.AddWithValue("$revision", snapshot.Revision);
             command.Parameters.AddWithValue("$expected", request.ExpectedRevision);
             command.Parameters.AddWithValue("$document", json);
-            // One conditional UPDATE is an atomic SQLite transaction; no read-then-write race.
+            // The revision guard and optional audit commit together; an audit failure rolls back the configuration.
             if (await command.ExecuteNonQueryAsync(cancellationToken) != 1)
             {
                 return TaskResult<NhProxyRedirectConfiguration>.Failed(NhProxyErrorCodes.RevisionConflict, NhProxyErrorCodes.RevisionConflict);
             }
 
+            await AppendSaveAuditAsync(transaction, request.Audit, NhProxyEngine.Redirect, snapshot.Revision, before, json, cancellationToken);
+            await transaction.CommitAsync(CancellationToken.None);
             return TaskResult<NhProxyRedirectConfiguration>.Succeeded(snapshot);
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    private async Task<string> LoadAuditSnapshotAsync(SqliteTransaction transaction, NhProxyEngine engine, CancellationToken cancellationToken)
+    {
+        using var command = GetConnection().CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT Document FROM NhProxyConfiguration WHERE Engine=$engine;";
+        command.Parameters.AddWithValue("$engine", engine.ToString());
+        return (string?)await command.ExecuteScalarAsync(cancellationToken)
+            ?? throw new InvalidDataException("The persisted configuration is missing.");
+    }
+
+    private Task AppendSaveAuditAsync(SqliteTransaction transaction, NhProxyChangeAuditContext? actor, NhProxyEngine engine,
+        long revision, string? before, string after, CancellationToken cancellationToken)
+    {
+        if (actor is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return NhProxySqliteChangeAuditStore.AppendAsync(GetConnection(), transaction, new NhProxyChangeAuditEvent
+        {
+            Id = Guid.NewGuid(), OccurredAtUtc = DateTimeOffset.UtcNow, Actor = actor, Engine = engine,
+            Action = NhProxyChangeAuditAction.ConfigurationSaved, PreviousRevision = revision - 1, Revision = revision,
+            Before = JsonSerializer.Deserialize<JsonElement>(before!), After = JsonSerializer.Deserialize<JsonElement>(after)
+        }, cancellationToken);
     }
 
     public async ValueTask DisposeAsync()

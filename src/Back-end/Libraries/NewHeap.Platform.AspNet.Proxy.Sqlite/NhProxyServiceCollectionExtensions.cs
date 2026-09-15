@@ -51,12 +51,14 @@ public static class NhProxyServiceCollectionExtensions
         services.AddSingleton<INhProxyConfigurationStore, NhProxySqliteConfigurationStore>();
         services.AddSingleton<INhProxyConfigurationService, NhProxyConfigurationService>();
         services.AddSingleton<INhProxyLoginAuditStore, NhProxySqliteLoginAuditStore>();
+        services.AddSingleton<INhProxyChangeAuditStore, NhProxySqliteChangeAuditStore>();
         services.AddSingleton<INhProxyAdministrationService, NhProxyAdministrationService>();
         services.AddSingleton<NhProxyRuntime>();
         services.AddSingleton<INhProxyRuntime>(provider => provider.GetRequiredService<NhProxyRuntime>());
         services.AddHostedService<NhProxyInitializationService>();
 
         services.AddControllersWithViews().AddApplicationPart(typeof(NhProxyAdminController).Assembly);
+        services.AddAuthentication().AddScheme<AuthenticationSchemeOptions, NhProxyBasicAuthenticationHandler>(NhProxyOptions.ApiAuthenticationScheme, _ => { });
         services.AddAuthentication().AddCookie(NhProxyOptions.AuthenticationScheme, cookie =>
         {
             cookie.Cookie.Name = "NewHeapProxy.Session";

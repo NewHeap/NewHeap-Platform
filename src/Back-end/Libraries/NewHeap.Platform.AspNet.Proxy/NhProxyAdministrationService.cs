@@ -17,6 +17,7 @@ public sealed class NhProxyAdministrationService : INhProxyAdministrationService
     private readonly NhProxyOptions _options;
     private readonly INhProxyLoginAuditStore _audit;
     private readonly FixedWindowRateLimiter _limiter;
+    private readonly FixedWindowRateLimiter _apiFailures;
     private readonly System.Net.IPNetwork[] _networks;
     private readonly PasswordHasher<string> _hasher = new();
 
@@ -54,7 +55,8 @@ public sealed class NhProxyAdministrationService : INhProxyAdministrationService
         }
 
         if (administrator.SessionDuration <= TimeSpan.Zero || administrator.LoginAttemptLimit <= 0
-            || administrator.LoginAttemptWindow <= TimeSpan.Zero || _options.LoginAudit.Retention <= TimeSpan.Zero
+            || administrator.LoginAttemptWindow <= TimeSpan.Zero || administrator.ApiAuthenticationFailureLimit <= 0
+            || administrator.ApiAuthenticationFailureWindow <= TimeSpan.Zero || _options.LoginAudit.Retention <= TimeSpan.Zero
             || _options.LoginAudit.CleanupBatchSize <= 0 || _options.LoginAudit.MaximumPageSize <= 0)
         {
             throw new ArgumentException("Proxy session, rate limit and audit limits must be positive.");
@@ -76,6 +78,11 @@ public sealed class NhProxyAdministrationService : INhProxyAdministrationService
             PermitLimit = administrator.LoginAttemptLimit, Window = administrator.LoginAttemptWindow,
             QueueLimit = 0, AutoReplenishment = true
         });
+        _apiFailures = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = administrator.ApiAuthenticationFailureLimit, Window = administrator.ApiAuthenticationFailureWindow,
+            QueueLimit = 0, AutoReplenishment = true
+        });
     }
 
     internal static string CredentialStamp(NhProxyAdministratorOptions options) =>
@@ -91,6 +98,40 @@ public sealed class NhProxyAdministrationService : INhProxyAdministrationService
         return Task.FromResult(allowed ? TaskResult.Succeeded() : TaskResult.Failed(NhProxyErrorCodes.AccessDenied, NhProxyErrorCodes.AccessDenied));
     }
 
+    public async Task<TaskResult> AuthenticateAsync(HttpContext context, NhProxyLoginRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var access = await CheckIpAccessAsync(context, cancellationToken);
+        if (!access.Success)
+        {
+            return access;
+        }
+
+        using var available = _apiFailures.AttemptAcquire(0);
+        if (!available.IsAcquired)
+        {
+            return TaskResult.Failed(NhProxyErrorCodes.Throttled, NhProxyErrorCodes.Throttled);
+        }
+
+        if (VerifyCredentials(request))
+        {
+            return TaskResult.Succeeded();
+        }
+
+        using var failure = _apiFailures.AttemptAcquire();
+        var code = failure.IsAcquired ? NhProxyErrorCodes.InvalidCredentials : NhProxyErrorCodes.Throttled;
+        return TaskResult.Failed(code, code);
+    }
+
+    private bool VerifyCredentials(NhProxyLoginRequest request)
+    {
+        var administrator = _options.Administrator;
+        return !string.IsNullOrWhiteSpace(administrator.UserName) && !string.IsNullOrWhiteSpace(administrator.PasswordHash)
+            && request.Password is { Length: <= 1024 }
+            && _hasher.VerifyHashedPassword(administrator.UserName, administrator.PasswordHash, request.Password) != PasswordVerificationResult.Failed
+            && string.Equals(request.UserName, administrator.UserName, StringComparison.Ordinal);
+    }
+
     public async Task<TaskResult> SignInAsync(HttpContext context, NhProxyLoginRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -99,14 +140,9 @@ public sealed class NhProxyAdministrationService : INhProxyAdministrationService
         var administrator = _options.Administrator;
         var outcome = !access.Success ? NhProxyLoginOutcome.IpDenied
             : !lease.IsAcquired ? NhProxyLoginOutcome.Throttled : NhProxyLoginOutcome.InvalidCredentials;
-        if (access.Success && lease.IsAcquired && !string.IsNullOrWhiteSpace(administrator.UserName)
-            && !string.IsNullOrWhiteSpace(administrator.PasswordHash) && request.Password.Length <= 1024)
+        if (access.Success && lease.IsAcquired && VerifyCredentials(request))
         {
-            var verified = _hasher.VerifyHashedPassword(administrator.UserName, administrator.PasswordHash, request.Password);
-            if (verified != PasswordVerificationResult.Failed && string.Equals(request.UserName, administrator.UserName, StringComparison.Ordinal))
-            {
-                outcome = NhProxyLoginOutcome.Success;
-            }
+            outcome = NhProxyLoginOutcome.Success;
         }
 
         await _audit.AppendAsync(new NhProxyLoginAuditEvent
@@ -145,7 +181,11 @@ public sealed class NhProxyAdministrationService : INhProxyAdministrationService
         return context.SignOutAsync(NhProxyOptions.AuthenticationScheme);
     }
 
-    public void Dispose() => _limiter.Dispose();
+    public void Dispose()
+    {
+        _limiter.Dispose();
+        _apiFailures.Dispose();
+    }
 }
 
 // Adding the isolated panel scheme must not change ASP.NET's implicit default for the host application.
@@ -170,7 +210,8 @@ internal sealed class NhProxyAuthenticationSchemeProvider : AuthenticationScheme
             return null;
         }
 
-        var candidates = (await GetAllSchemesAsync()).Where(scheme => scheme.Name != NhProxyOptions.AuthenticationScheme).Take(2).ToArray();
+        var candidates = (await GetAllSchemesAsync()).Where(scheme => scheme.Name != NhProxyOptions.AuthenticationScheme
+            && scheme.Name != NhProxyOptions.ApiAuthenticationScheme).Take(2).ToArray();
         return candidates.Length == 1 ? candidates[0] : null;
     }
 

@@ -119,12 +119,43 @@ when using `PasswordHash`; never commit either value. Then select **Configured p
 
 ## Verification
 
+### Optional server-to-server API
+
+The sample leaves the API off unless `ProxyApi=true` is supplied. For example:
+
+```text
+dotnet run --project Applications/SampleProjectManagement.Proxy --launch-profile "Proxy demo" -- --ProxyApi=true
+```
+
+The sample then calls `MapProxyEndpoints()` before `UseNewHeapProxy()`. Call
+`GET /newheap-proxy/api/status` with Basic authentication using the selected
+profile's administrator account. Use HTTPS outside Development. The same IP
+allowlist applies. API requests do not create logins or consume login attempts;
+incorrect API credentials have an independent failure budget. Configuration changes
+are audited atomically in SQLite and can be queried through `GET /newheap-proxy/api/audit`.
+Reads and previews create no change events. No cookies are issued. See the [API reference](../../../docs/how-to/use-newheap-proxy.md#optional-management-api)
+for revision-checked snapshot updates, activation retry and draft testing.
+
+`ProxyApiSamplesTests` is executable SPM-238/SPM-239 evidence for Basic
+authentication without login records, redirect and rewrite saves, durable change
+audit, conflict handling, safe preview and
+the generated OpenAPI route/response contracts using real SQLite. The same workflow
+runs with enum names and numeric values, including nested rewrite transforms.
+It also submits a transform without `kind` and verifies a `400` response containing
+the JSON field path and an explanation, without persisting the rejected change.
+The example also rejects invalid path-transform templates and route regex before
+saving, including disabled rules. Native configuration construction runs locally;
+no backend is contacted and rejected candidates create no change-audit events.
+
+### Contributor checks
+
 For contributors, these commands run from the sample backend directory:
 
 ```text
 dotnet build Applications/SampleProjectManagement.Proxy --configuration Release
 dotnet test Tests/SampleProjectManagement.Core.Tests --filter FullyQualifiedName~ProxyAdministrationSamplesTests
 dotnet test Tests/SampleProjectManagement.Core.Tests --filter FullyQualifiedName~ProxyRewriteSamplesTests
+dotnet test Tests/SampleProjectManagement.Core.Tests --filter FullyQualifiedName~ProxyApiSamplesTests
 ```
 
 The existing sample cases cover SQLite redirects and administration (SPM-238),

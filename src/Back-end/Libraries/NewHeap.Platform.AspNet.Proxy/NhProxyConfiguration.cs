@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 
 namespace NewHeap.Platform.AspNet.Proxy;
 
@@ -28,11 +29,21 @@ public sealed record NhProxyRedirectConfiguration
 public sealed record NhProxyRewriteSaveRequest(
     long ExpectedRevision,
     ImmutableArray<NhProxyRewriteRule> Rules,
-    ImmutableArray<NhProxyCluster> Clusters);
+    ImmutableArray<NhProxyCluster> Clusters)
+{
+    /// <summary>When present, the store must atomically persist the change audit alongside the new snapshot.</summary>
+    [JsonIgnore]
+    public NhProxyChangeAuditContext? Audit { get; init; }
+}
 
 public sealed record NhProxyRedirectSaveRequest(
     long ExpectedRevision,
-    ImmutableArray<NhProxyRedirectRule> Rules);
+    ImmutableArray<NhProxyRedirectRule> Rules)
+{
+    /// <summary>Server-owned attribution for an atomic audit; excluded from configuration JSON.</summary>
+    [JsonIgnore]
+    public NhProxyChangeAuditContext? Audit { get; init; }
+}
 
 public enum NhProxyActivationState
 {
@@ -44,7 +55,12 @@ public enum NhProxyActivationState
 }
 
 /// <summary>Codes and localization keys are safe; exceptions and diagnostics stay in logs.</summary>
-public sealed record NhProxyIssue(string Code, string LocalizationKey, string? Field = null);
+public sealed record NhProxyIssue(string Code, string LocalizationKey, string? Field = null)
+{
+    /// <summary>A readable description of invalid API input, when available.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Message { get; init; }
+}
 
 public sealed record NhProxyEngineStatus(
     NhProxyEngine Engine,

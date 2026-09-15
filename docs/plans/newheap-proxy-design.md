@@ -25,6 +25,7 @@ remains in SPM-238, SPM-239 and the focused proxy test projects.
 | Testing | Unsaved-rule tests and saved-rule URL previews are implemented without backend requests. |
 | Storage | Local SQLite is supported. SQL Server, PostgreSQL and multi-instance storage are not implemented. |
 | Additional YARP configuration | Available through `ConfigureYarp`; managed editing and preview cover stored rules only. |
+| Optional management API | Post-v1 addition: `MapProxyEndpoints()` opts into Basic-authenticated server-to-server management; disabled by default. |
 
 ### Accepted implementation choices and boundaries
 

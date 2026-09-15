@@ -248,7 +248,7 @@ public sealed class NhProxyAdministrationTests
             {
                 await connection.OpenAsync();
                 using var command = connection.CreateCommand();
-                command.CommandText = "DROP TABLE NhProxyLoginAudit; DELETE FROM NhProxyConfiguration WHERE Engine='Rewrite'; PRAGMA user_version=1;";
+                command.CommandText = "DROP TABLE NhProxyLoginAudit; DROP TABLE NhProxyChangeAudit; DELETE FROM NhProxyConfiguration WHERE Engine='Rewrite'; PRAGMA user_version=1;";
                 await command.ExecuteNonQueryAsync();
             }
 

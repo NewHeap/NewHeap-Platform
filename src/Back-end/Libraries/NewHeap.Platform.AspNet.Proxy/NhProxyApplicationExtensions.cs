@@ -17,6 +17,8 @@ public static class NhProxyApplicationExtensions
     {
         ArgumentNullException.ThrowIfNull(app);
 
+        ((IApplicationBuilder)app).Properties[typeof(NhProxyApplicationExtensions).FullName!] = true;
+
         ((IApplicationBuilder)app).Map(NhProxyOptions.AdministrationPath, panel =>
         {
             panel.Use(async (context, next) =>

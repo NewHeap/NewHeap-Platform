@@ -2,11 +2,13 @@ using System.Buffers;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.Common.Models;
 using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Transforms.Builder;
 
 namespace NewHeap.Platform.AspNet.Proxy;
 
@@ -14,11 +16,19 @@ namespace NewHeap.Platform.AspNet.Proxy;
 public sealed class NhProxyConfigurationValidator(IOptions<NhProxyOptions> options, IConfigValidator? yarp = null,
     IInlineConstraintResolver? constraints = null) : INhProxyConfigurationValidator
 {
+    private readonly ITransformBuilder? _transformBuilder;
+
     private static readonly SearchValues<char> TokenCharacters =
         SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&'*+-.^_`|~");
 
     public NhProxyConfigurationValidator(IOptions<NhProxyOptions> options) : this(options, null)
     {
+    }
+
+    public NhProxyConfigurationValidator(IOptions<NhProxyOptions> options, IConfigValidator yarp,
+        IInlineConstraintResolver constraints, ITransformBuilder transformBuilder) : this(options, yarp, constraints)
+    {
+        _transformBuilder = transformBuilder;
     }
 
     public async Task<TaskResult> ValidateRewritesAsync(NhProxyRewriteSaveRequest request, CancellationToken cancellationToken = default)
@@ -33,9 +43,11 @@ public sealed class NhProxyConfigurationValidator(IOptions<NhProxyOptions> optio
         }
 
         // Offline stores use the same native validators with the default host policies.
-        using var defaults = yarp is null || constraints is null ? new ServiceCollection().AddLogging().AddReverseProxy().Services.BuildServiceProvider() : null;
+        using var defaults = yarp is null || constraints is null || _transformBuilder is null
+            ? new ServiceCollection().AddLogging().AddReverseProxy().Services.BuildServiceProvider() : null;
         var native = yarp ?? defaults!.GetRequiredService<IConfigValidator>();
         var resolver = constraints ?? defaults!.GetRequiredService<IInlineConstraintResolver>();
+        var transforms = _transformBuilder ?? defaults!.GetRequiredService<ITransformBuilder>();
         var clusters = new HashSet<Guid>();
         foreach (var cluster in request.Clusters)
         {
@@ -59,6 +71,7 @@ public sealed class NhProxyConfigurationValidator(IOptions<NhProxyOptions> optio
             }
         }
 
+        var clusterConfigurations = request.Clusters.ToDictionary(cluster => cluster.Id, NhProxyYarpConfiguration.Cluster);
         var ids = new HashSet<Guid>();
         var matches = new HashSet<(int Priority, RouteMatch Match)>();
         foreach (var rule in request.Rules)
@@ -81,10 +94,25 @@ public sealed class NhProxyConfigurationValidator(IOptions<NhProxyOptions> optio
             }
 
             var route = NhProxyYarpConfiguration.Route(rule);
+            if (!HasSupportedConstraints(rule.Match.Path, resolver))
+            {
+                return TaskResult.Failed(NhProxyErrorCodes.Validation, "newheap-proxy.invalid-rewrite-route-pattern");
+            }
+
             if ((rule.Enabled && !matches.Add((rule.Priority, route.Match)))
-                || (await native.ValidateRouteAsync(route)).Count > 0 || !HasSupportedConstraints(rule.Match.Path, resolver))
+                || (await native.ValidateRouteAsync(route)).Count > 0)
             {
                 return InvalidRewrite();
+            }
+
+            try
+            {
+                // Build without publishing or forwarding: YARP's validation alone does not parse path-transform templates.
+                _ = transforms.Build(route, clusterConfigurations[rule.ClusterId]);
+            }
+            catch (RoutePatternException)
+            {
+                return TaskResult.Failed(NhProxyErrorCodes.Validation, "newheap-proxy.invalid-rewrite-transform-pattern");
             }
         }
 
@@ -97,10 +125,24 @@ public sealed class NhProxyConfigurationValidator(IOptions<NhProxyOptions> optio
     {
         try
         {
-            return RoutePatternFactory.Parse(path ?? "/{**rest}").Parameters.SelectMany(parameter => parameter.ParameterPolicies)
-                .All(policy => policy.Content is { } content && resolver.ResolveConstraint(content) is not null);
+            var policies = RoutePatternFactory.Parse(path ?? "/{**rest}").Parameters.SelectMany(parameter => parameter.ParameterPolicies);
+            foreach (var policy in policies)
+            {
+                if (policy.Content is not { } content || resolver.ResolveConstraint(content) is not { } constraint)
+                {
+                    return false;
+                }
+
+                if (constraint is RegexRouteConstraint regex)
+                {
+                    // ASP.NET defers regex construction until use; force syntax validation before persisting the rule.
+                    _ = regex.Constraint;
+                }
+            }
+
+            return true;
         }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or RoutePatternException)
         {
             return false;
         }

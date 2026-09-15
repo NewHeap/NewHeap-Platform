@@ -565,6 +565,20 @@ SPM-051 selects `NewHeap.Platform.AspNet.Common.SqlServer` or `.PostgreSql` thro
 
 ## Proxy URL diagnostics
 
+SPM-238 and SPM-239 also demonstrate an optional server-to-server management API
+in `ProxyApiSamplesTests`. `MapProxyEndpoints()` opts into Basic authentication,
+revision-checked redirect/rewrite snapshot updates, status, activation retry and
+isolated previews. The standalone proxy maps it only with `ProxyApi=true`;
+otherwise the API remains unavailable. The tests use real SQLite and verify
+OpenAPI contracts. See [API setup](proxy-administration.md#optional-server-to-server-api).
+API requests do not create login records or consume browser login attempts.
+Configuration changes are stored with before/after snapshots and actor attribution
+in the same SQLite transaction, with a separate persistent audit accessible through
+`GET /newheap-proxy/api/audit`. Reads, previews and rejected saves create no changes.
+SPM-239 also verifies native transform construction and regex constraint compilation
+before saving: malformed patterns are rejected, including in disabled rules, while
+persisted revisions and change-audit counts remain unchanged.
+
 SPM-239 demonstrates saved URL and rewrite draft tests with per-rule diagnostics.
 The panel shows rule names, paths, mismatch reasons and explicit skips; native
 routing checks rewrite conditions and identifies matching alternatives that lose

@@ -5,6 +5,7 @@ or follow the [local demo](../../examples/SampleProjectManagement/docs/proxy-adm
 
 - [Connect the proxy to your application](#host-integration)
 - [Secure administration](#administration)
+- [Enable the server-to-server API](#optional-management-api)
 - [Match exact paths](#literal-redirects)
 - [Match variable paths](#regex-redirects)
 - [Create and test rewrites](#stored-rewrites-and-the-test-tool)
@@ -30,6 +31,191 @@ The database is created and rules are loaded before requests are accepted.
 `UseNewHeapProxy` already maps the proxy endpoints; do not also call `MapNewHeapProxy`.
 The lower-level `MapNewHeapProxy` alternative maps YARP endpoints only and does not
 install redirect processing or administration.
+
+## Optional management API
+
+The management API is disabled by default. Enable it explicitly before installing
+the proxy middleware:
+
+```csharp
+builder.Services.AddNewHeapProxy(builder.Configuration.GetSection("NewHeapProxy"));
+var app = builder.Build();
+
+// Configure trusted forwarded headers here when deployed behind a trusted proxy.
+app.MapProxyEndpoints();
+app.UseNewHeapProxy();
+app.Run();
+```
+
+`MapProxyEndpoints` is separate from `MapNewHeapProxy`, which maps YARP forwarding.
+Call `MapProxyEndpoints` once, before `UseNewHeapProxy`; calling it afterwards
+throws a configuration error. The API occupies `/newheap-proxy/api` in an isolated
+branch, so neither redirects nor catch-all rewrites can intercept its requests.
+Omit the call to keep these endpoints unavailable.
+
+### Authentication and limits
+
+Send `Authorization: Basic <base64(UTF-8 username:password)>` on every request,
+using the configured `Administrator:UserName` and `Password` or `PasswordHash`.
+The username cannot contain a colon; the password may contain colons. The API
+does not issue or accept the administration session cookie. Host authentication
+defaults remain unchanged. HTTPS is required outside Development; configure
+trusted forwarded headers before the API when HTTPS terminates at an upstream
+proxy. The same administration IP allowlist applies.
+
+For example, curl prompts for the password without putting it in the command:
+
+```sh
+curl --user automation https://proxy.example/newheap-proxy/api/status
+```
+
+API authentication does not create a login record or consume a browser login
+attempt. Successful calls do not consume the API failure budget either. Only
+incorrect or malformed credentials consume `Administrator:ApiAuthenticationFailureLimit`
+per `Administrator:ApiAuthenticationFailureWindow` (defaults: 5 failures per minute).
+After that budget is exhausted, API authentication returns `429` until the window
+resets; browser login has its own independent budget. Requests carrying an `Origin` header
+are rejected: this interface is for server clients, not browser JavaScript.
+Cookie/antiforgery-based browser management remains in the existing panel.
+
+JSON bodies use the existing `Limits:MaximumTestRequestBytes` limit (64 KiB by
+default), including configuration saves. Unknown JSON members, missing required
+constructor fields and malformed JSON are rejected. This API uses the NewHeap
+configuration model, not raw YARP configuration.
+
+Enum fields accept both names and numeric values, including nested rewrite
+transforms. For example, redirect `status` accepts `"Found"` or `302`; a path
+transform's `operation` accepts `"AddPrefix"` or `0`. Names are case-insensitive.
+Unknown names and unsupported numeric values return `400`.
+
+### Endpoints
+
+All paths below are relative to `/newheap-proxy/api`.
+
+| Method | Path | Contract |
+| --- | --- | --- |
+| GET | `/redirects` | Returns `NhProxyRedirectConfiguration`. |
+| PUT | `/redirects` | Accepts `NhProxyRedirectSaveRequest`; replaces and activates the redirect snapshot. |
+| GET | `/rewrites` | Returns `NhProxyRewriteConfiguration`, including shared clusters. |
+| PUT | `/rewrites` | Accepts `NhProxyRewriteSaveRequest`; replaces and activates the rewrite snapshot. |
+| GET | `/status` | Returns `NhProxyStatus` with independent desired/active revisions. |
+| GET | `/audit` | Returns a paged `NhProxyChangeAuditPage` inside `NhProxyApiResult<T>`. |
+| POST | `/redirects/activate` | Retries the latest saved redirect revision; no body. |
+| POST | `/rewrites/activate` | Retries the latest saved rewrite revision; no body. |
+| POST | `/test` | Accepts `NhProxySavedTestRequest` to preview saved rules. |
+| POST | `/redirects/test` | Accepts `NhProxyRedirectTestRequest` to preview a draft. |
+| POST | `/rewrites/test` | Accepts `NhProxyRewriteTestRequest` to preview a draft and optional clusters. |
+
+### Read, modify, replace
+
+Read the current engine configuration, retain rules that should remain, and
+submit the changed snapshot with its revision as `ExpectedRevision`. Add a rule
+with a stable new ID to create it; replace it to edit it; change `Enabled` to
+toggle it; omit it to delete it. Rewrite saves include the complete cluster list.
+**PUT replaces the entire engine configuration; omitted rules are deleted.**
+
+Before saving, the shared validator checks the complete candidate snapshot,
+builds its YARP transforms and compiles regex route constraints. This includes
+disabled rules. Invalid route or transform patterns return `400` with a readable
+description before any configuration, revision, active rules or audit event changes.
+The same check applies to panel saves, direct configuration-store saves and draft
+previews. It requires no test URL and makes no backend requests; use the preview
+endpoints to check which rule matches a particular URL. Backend availability and
+responses are not part of this validation.
+
+Before saving, the shared validator checks the complete candidate snapshot,
+builds its YARP transforms and compiles regex route constraints. This includes
+disabled rules. Invalid route or transform patterns return `400` with a readable
+description before any configuration, revision, active rules or audit event changes.
+The same check applies to panel saves, direct configuration-store saves and draft
+previews. It requires no test URL and makes no backend requests; use the preview
+endpoints to check which rule matches a particular URL. Backend availability and
+responses are not part of this validation.
+
+Example body for an empty redirect store at revision zero:
+
+```json
+{
+  "expectedRevision": 0,
+  "rules": [
+    {
+      "id": "9b02c0ac-26c5-47bf-894f-540b7c63e57f",
+      "name": "Moved projects",
+      "match": { "path": "/old-projects" },
+      "target": "/projects"
+    }
+  ]
+}
+```
+
+Save, retry and test responses use `NhProxyApiResult<T>` with `success`, `data`
+and safe `issues` containing codes/localization keys. A successful save returns
+`NhProxySaveResult` in `data`; inspect its activation state. Validation errors
+return `400`; stale revisions return `409`. Reload and reconcile after a conflict.
+After a committed save with failed/unconfirmed activation, `503` retains the
+saved revision and activation status in `data`: retry activation, not the old PUT.
+Infrastructure failures return a safe `503` without diagnostic details.
+
+Invalid input returns `400` with `success: false` and an `issues` array. Each
+input issue includes a readable English `message`; JSON errors also identify
+`field` using a JSON path. For example, a transform without `kind` returns:
+
+```json
+{
+  "success": false,
+  "data": null,
+  "issues": [{
+    "code": "newheap-proxy.validation",
+    "localizationKey": "newheap-proxy.invalid-json",
+    "field": "$.rules[0].transforms[0]",
+    "message": "A transform must specify 'kind': 'path', 'query', 'header', 'original-host' or 'forwarded-headers'."
+  }]
+}
+```
+
+Malformed JSON, missing required fields, unknown members and invalid enum values
+also return input descriptions. Invalid saves and draft tests do not change
+configuration, active revisions or the change audit. Infrastructure exceptions
+remain `503`; their messages and stack traces are not returned to the caller.
+
+Authentication failures return `401` with a Basic challenge, IP/HTTPS/origin
+restrictions return `403`, throttling returns `429`, oversized bodies return
+`413`, and unsupported body content types return `415`. Protocol/security errors
+may have no response body. Responses are marked `no-store`.
+Previews never contact a backend, persist changes, activate rules or return an
+actual redirect response. External YARP sources remain outside their scope.
+
+### Durable change audit
+
+Successful API saves write a `ConfigurationSaved` event to SQLite **in the same
+transaction as the configuration**. Each entry contains the UTC timestamp,
+authenticated account, effective client IP, correlation ID, engine, previous/new
+revisions and normalized configuration snapshots before and after the save. Account
+credentials, authentication headers and raw HTTP requests are excluded. If the audit
+insert fails, the save rolls back and the active configuration remains unchanged.
+A committed save remains in the audit even when subsequent activation fails.
+
+Reads, previews, authentication checks, validation failures and revision conflicts
+create no change events. Activation retry writes an `ActivationRequested` event
+before running; this records intent, not successful activation, and has no claimed
+revision or before/after snapshots. Failure to record the request prevents retry.
+Inspect the retry response and `/status` for activation outcome.
+
+Query `/audit?engine=Redirect&offset=0&pageSize=50`. Optional `fromUtc` and `toUtc`
+are inclusive timestamp filters. The default page size is 50, maximum 100; results
+are newest first and include the filtered total count. Records survive restarts
+and have no automatic expiration or API edit/delete endpoint. They are separate
+from the panel's login audit, whose existing retention still applies.
+
+Startup upgrades the SQLite store to schema 4 without rewriting existing rules or
+login events. Existing history cannot be reconstructed; change auditing begins with
+new API saves. Back up before upgrading: older binaries cannot open schema 4.
+
+Existing custom `INhProxyAdministrationService` implementations keep working for
+the panel. Their default `AuthenticateAsync` denies API access; implement cookie-free
+credential validation without login auditing explicitly to opt in. Custom configuration
+stores must honor the server-owned save-request `Audit` context and persist the event
+atomically with the snapshot. API clients cannot supply this context.
 
 ## Administration
 

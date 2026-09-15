@@ -15,6 +15,16 @@ public sealed class NhProxyLoginRequest
 /// <summary>Owns allowlist checks, throttling, credential validation, auditing, and cookie issuance.</summary>
 public interface INhProxyAdministrationService
 {
+    /// <summary>
+    /// Validates API credentials without a cookie or login audit. Only failed API authentication consumes its separate budget.
+    /// Existing custom implementations deny API access until they explicitly implement credential authentication.
+    /// </summary>
+    Task<TaskResult> AuthenticateAsync(HttpContext context, NhProxyLoginRequest request, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(TaskResult.Failed(NhProxyErrorCodes.AccessDenied, NhProxyErrorCodes.AccessDenied));
+    }
+
     /// <summary>A successful audit write must precede issuing a session. Audit failures cannot grant access.</summary>
     Task<TaskResult> SignInAsync(HttpContext context, NhProxyLoginRequest request, CancellationToken cancellationToken = default);
     Task SignOutAsync(HttpContext context, CancellationToken cancellationToken = default);

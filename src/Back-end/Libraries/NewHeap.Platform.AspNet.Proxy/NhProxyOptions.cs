@@ -10,6 +10,8 @@ public sealed class NhProxyOptions
     public const string AdministrationPath = "/newheap-proxy";
     public const string AuthenticationScheme = "NewHeapProxy";
     public const string AdministrationPolicy = "NewHeapProxy.Administrator";
+    public const string ApiPath = AdministrationPath + "/api";
+    public const string ApiAuthenticationScheme = "NewHeapProxy.Basic";
 
     public NhProxyAdministratorOptions Administrator { get; set; } = new();
     public NhProxyIpAllowlistOptions IpAllowlist { get; set; } = new();
@@ -50,6 +52,8 @@ public sealed class NhProxyAdministratorOptions
     public TimeSpan SessionDuration { get; set; } = TimeSpan.FromHours(8);
     public int LoginAttemptLimit { get; set; } = 5;
     public TimeSpan LoginAttemptWindow { get; set; } = TimeSpan.FromMinutes(1);
+    public int ApiAuthenticationFailureLimit { get; set; } = 5;
+    public TimeSpan ApiAuthenticationFailureWindow { get; set; } = TimeSpan.FromMinutes(1);
 }
 
 public sealed class NhProxyIpAllowlistOptions

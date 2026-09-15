@@ -16,6 +16,7 @@ for accepted scope, implementation choices and future-work boundaries.
 - Create, test and activate rules from the administration panel.
 - Protect administration with an account, IP restrictions and login activity.
 - Keep rules across restarts without a separate database server.
+- Optionally manage rules from another server through a Basic-authenticated API.
 
 ## Installation
 
@@ -99,6 +100,14 @@ the backend. They do not verify backend availability or responses.
 
 ## Configuration
 
+The server-to-server management API is off by default. Call
+`app.MapProxyEndpoints()` **before** `app.UseNewHeapProxy()` to enable
+`/newheap-proxy/api`. It uses the configured administrator credentials with Basic
+authentication and HTTPS, without cookies. See the
+[API contracts and limits](../../../../docs/how-to/use-newheap-proxy.md#optional-management-api).
+API requests do not count as logins. Configuration changes are audited durably in
+SQLite and are available through `GET /newheap-proxy/api/audit`.
+
 Options below belong under `NewHeapProxy` in `appsettings.json`.
 For environment variables, use `__` instead of `:` and prefix with `NewHeapProxy__`:
 
@@ -120,6 +129,8 @@ All durations, counts and size limits must be positive.
 | `Administrator:SessionDuration` | `08:00:00` | Maximum administration session duration. |
 | `Administrator:LoginAttemptLimit` | `5` | Login attempts allowed per window, shared across all clients. |
 | `Administrator:LoginAttemptWindow` | `00:01:00` | Time window for the login attempt limit. |
+| `Administrator:ApiAuthenticationFailureLimit` | `5` | Failed API credential checks allowed per window, independent of browser logins. Successful API calls consume no allowance. |
+| `Administrator:ApiAuthenticationFailureWindow` | `00:01:00` | Window for failed API authentication; after exhaustion API authentication returns 429 until reset. |
 | `IpAllowlist:Enabled` | `false` | Restrict administration to allowed IPs. An enabled, empty list blocks all access. |
 | `IpAllowlist:Entries` | `[]` | Allowed IPv4/IPv6 addresses or CIDR ranges. |
 | `LoginAudit:Retention` | `90.00:00:00` | Retain login activity for 90 days; expired records are cleaned up on login attempts. |
