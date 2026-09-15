@@ -3231,21 +3231,27 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
   },
   {
     "id": "SPM-240",
-    "title": "Consumer-authoritative AI write with a flat MCP schema",
+    "title": "Consumer-authoritative AI writes with issued grants and a flat MCP schema",
     "category": "AI tools and generated catalogs",
-    "surface": "NhAiApprovalRequirement.ConsumerAuthoritative, NhAiIdempotencySupport.ConsumerAuthoritative, NhAiEffectDecisionKind.ConsumerAuthoritativeApproval, NhAiToolExportSchema.Flat, NhAiAuthoritativeExecutionEvidence.Denied, NhAiAuditRecord.ApprovalCode/ApprovalEvidenceReference/ResultCode, CallNewHeapFlatToolAsync<TInput, TOutput> and the shared invocation pipeline",
-    "outcome": "A generated write tool declares that the consuming application owns approval and idempotency inside the governed invocation. The application validates its own single-use approval grant, burns the grant on any mismatch and returns an expected denial as its typed domain receipt with execution `deny`, database completion `not-executed` and the stable code `approval-invalid-expired-or-replayed`; the invoker copies that typed payload into the failed `TaskResult<T>.Data` and audits `consumer-authoritative` approval and idempotency codes plus the result code. A replayed idempotency key reaches the application engine and returns the reconciled receipt with `idempotentReplay: true` while the Platform idempotency manager is never asked for a lease. An `INhAiAuthoritativeExecutionEvidenceValidator` can return the same typed denial payload before execution. The MCP export publishes the input properties as top-level arguments and the receipt as the structured result, so the domain wire contract stays flat and typed denials remain structured MCP tool errors. The shared invoker still authorizes, resolves capabilities, reserves budget, bounds execution, verifies and audits; tools that do not opt in keep Platform approval and leases, an effect policy cannot delegate approval to a tool that did not opt in, and destructive effects still require Platform approval and a verifier.",
+    "surface": "NhAiApprovalRequirement.ConsumerAuthoritative and Issuer, NhAiApprovalRole, NhAiIdempotencySupport.ConsumerAuthoritative, NhAiEffectDecisionKind.ConsumerAuthoritativeApproval, NhAiAuthoritativeExecutionEvidence.Denied, NhAiToolExportSchema.Flat with NhAiToolJsonSerializerOptions.FlatExport, NhAiToolHint annotation overrides and NhAiToolAnnotationHints, serializer-contract-aware generated schemas, NhAiToolFailureCodes and NhAiMcpResultMetadata, NhAiAuditRecord.ApprovalCode, ApprovalEvidenceReference, ResultCode and AnnotationOverrides, CallNewHeapFlatToolAsync<TInput, TOutput> with NhAiMcpToolException<TPayload>, and the shared invocation pipeline",
+    "outcome": "An issuer tool creates a single-use project status grant under the application's own manage authorization; it declares the Issuer approval role, takes no Platform idempotency lease and is audited with the approval code `issuer`. The consuming write declares consumer-authoritative approval and idempotency. Its authoritative evidence validator burns every presented grant and returns an invalid, expired or replayed grant as the typed domain receipt with execution `deny`, database completion `not-executed`, the stable code `approval-invalid-expired-or-replayed` and a bounded evidence reference; the invoker copies that receipt into the failed `TaskResult<T>.Data` and audits the denial code and evidence reference. A replayed idempotency key passes the validator, reaches the engine and returns the reconciled receipt with `idempotentReplay: true` while the Platform idempotency manager is never asked for a lease. The flat MCP export publishes the input properties as top-level arguments and the receipt as the structured result, written compactly with every property including null `committedAt`, and a generated schema whose names, string enum values and optional properties match that serializer contract. The consuming write publishes `destructiveHint: true` through a narrowing hint override without changing its governance; widening overrides fail at generation and publication. Every failed call publishes its code, message and evidence reference in `_meta`; failures without data publish `{ code, message }` and the text `code: message`; the typed client throws `NhAiMcpToolException<ProjectAiStatusReceipt>` with `Code`, `FailureMessage`, `EvidenceReference` and the typed `Payload`. Tools that do not opt in keep Platform approval and leases, an effect policy cannot delegate approval to a tool that did not opt in, and destructive effects still require Platform approval and a verifier.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusReceiptService.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Models/AI/ProjectAiModels.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiConsumerAuthoritativeTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpPublicationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolSchemaContractTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs"
     ]
   }
 ] as const;

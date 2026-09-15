@@ -35,6 +35,14 @@ its `TaskResult<TOutput>`. Set that context through
 serialization reflection-free after trimming; omitting required metadata can
 make function creation or invocation fail only in the published executable.
 
+The generated schema describes the serializer contract the function actually
+uses. Without a context that is the Microsoft.Extensions.AI default: camelCase
+names, string enum member names and omitted nulls. A declared context contributes
+its naming policy, default ignore condition and string enum converter. Property
+names honor `JsonPropertyName`, and `JsonIgnore` conditions keep or remove
+properties per direction. Keep the schema and the wire in agreement through these
+serializer attributes rather than by editing the generated schema.
+
 Register an `INhAiToolInvocationGate` and `INhAiToolInvoker` before creating
 functions. The gate must validate the current actor and derive tenant, division,
 or resource scope server-side. The tool receives that authorized scope through

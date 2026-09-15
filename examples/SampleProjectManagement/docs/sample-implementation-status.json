@@ -1545,12 +1545,18 @@
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusReceiptService.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Models/AI/ProjectAiModels.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiConsumerAuthoritativeTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpPublicationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolSchemaContractTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs"
     ]
   }
 }

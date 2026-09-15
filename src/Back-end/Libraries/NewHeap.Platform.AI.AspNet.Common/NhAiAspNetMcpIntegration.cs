@@ -106,10 +106,15 @@ internal static class NhAiMcpRequestHandlers
         return new CallToolResult
         {
             IsError = true,
-            Content = [new TextContentBlock { Text = message }],
+            Content = [new TextContentBlock { Text = $"{code}: {message}" }],
             StructuredContent = JsonSerializer.SerializeToElement(
                 new NhAiMcpError(code, message),
-                SerializerOptions)
+                SerializerOptions),
+            Meta = new System.Text.Json.Nodes.JsonObject
+            {
+                [NhAiMcpResultMetadata.CodeKey] = code,
+                [NhAiMcpResultMetadata.MessageKey] = message
+            }
         };
     }
 }

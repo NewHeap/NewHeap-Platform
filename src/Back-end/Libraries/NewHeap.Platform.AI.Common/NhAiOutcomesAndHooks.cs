@@ -111,6 +111,12 @@ public sealed record NhAiAuditRecord(
     /// </summary>
     public string? ResultCode { get; init; }
 
+    /// <summary>
+    /// Bounded list of explicit protocol annotation hint overrides declared by the tool, such as
+    /// <c>destructive-hint=true</c>, so a hint that differs from the effect remains reviewable.
+    /// </summary>
+    public string? AnnotationOverrides { get; init; }
+
     public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.ToolActionAudit;
 }
 

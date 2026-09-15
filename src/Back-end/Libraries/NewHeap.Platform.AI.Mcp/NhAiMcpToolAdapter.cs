@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -95,9 +96,10 @@ internal sealed class NhAiMcpToolAdapter(
                         $"AI MCP export name '{descriptor.ExportName}' is registered more than once.");
                 }
 
+                var hints = NhAiToolAnnotationHints.Resolve(descriptor);
                 if (descriptor.ExportSchema == NhAiToolExportSchema.Flat)
                 {
-                    result.Add(new NhAiFlatSchemaMcpServerTool(functions[index], descriptor));
+                    result.Add(new NhAiFlatSchemaMcpServerTool(functions[index], descriptor, hints));
                     continue;
                 }
 
@@ -108,11 +110,10 @@ internal sealed class NhAiMcpToolAdapter(
                         Name = functions[index].Name,
                         Description = descriptor.Description,
                         UseStructuredContent = true,
-                        ReadOnly = descriptor.Effect == NhAiToolEffect.ReadOnly,
-                        Destructive = descriptor.Effect == NhAiToolEffect.Destructive,
-                        Idempotent = descriptor.Effect is NhAiToolEffect.ReadOnly
-                            or NhAiToolEffect.IdempotentMutation,
-                        OpenWorld = descriptor.Effect == NhAiToolEffect.ExternalSideEffect
+                        ReadOnly = hints.ReadOnly,
+                        Destructive = hints.Destructive,
+                        Idempotent = hints.Idempotent,
+                        OpenWorld = hints.OpenWorld
                     });
                 result.Add(new NhAiOutcomeAwareMcpServerTool(inner, descriptor));
             }
@@ -123,15 +124,114 @@ internal sealed class NhAiMcpToolAdapter(
 }
 
 /// <summary>
+/// Structured error payload of a failed governed MCP tool call without a typed payload.
+/// </summary>
+internal sealed record NhAiMcpToolError(
+    string Code,
+    string Message,
+    string? EvidenceReference);
+
+/// <summary>
+/// Metadata keys NewHeap adds to the <c>_meta</c> object of a failed MCP tool result. The
+/// domain payload stays untouched; the stable failure detail travels as protocol metadata.
+/// </summary>
+public static class NhAiMcpResultMetadata
+{
+    /// <summary>The stable failure code of the failed governed invocation.</summary>
+    public const string CodeKey = "newheap.com/code";
+
+    /// <summary>The safe failure message of the failed governed invocation.</summary>
+    public const string MessageKey = "newheap.com/message";
+
+    /// <summary>The bounded evidence reference attached to the failure, when one exists.</summary>
+    public const string EvidenceReferenceKey = "newheap.com/evidence-reference";
+
+    /// <summary>
+    /// <c>true</c> when the structured content of the failed result is the tool's typed failure
+    /// payload; <c>false</c> when it is the NewHeap <c>{ code, message }</c> error payload.
+    /// </summary>
+    public const string TypedPayloadKey = "newheap.com/typed-payload";
+
+    private const string DefaultFailureMessage = "The AI tool invocation failed.";
+
+    private static readonly JsonSerializerOptions ErrorSerializerOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
+
+    /// <summary>
+    /// Builds the result of a failed invocation that carries no typed payload: a structured
+    /// <c>{ code, message, evidenceReference }</c> error, a <c>code: message</c> text block and
+    /// the same detail as protocol metadata.
+    /// </summary>
+    internal static CallToolResult CreateDatalessFailure(
+        string code,
+        string? message,
+        string? evidenceReference)
+    {
+        var safeMessage = string.IsNullOrWhiteSpace(message) ? DefaultFailureMessage : message;
+        var result = new CallToolResult
+        {
+            IsError = true,
+            Content = [new TextContentBlock { Text = $"{code}: {safeMessage}" }],
+            StructuredContent = JsonSerializer.SerializeToElement(
+                new NhAiMcpToolError(code, safeMessage, evidenceReference),
+                ErrorSerializerOptions)
+        };
+        ApplyFailure(result, code, safeMessage, evidenceReference, typedPayload: false);
+        return result;
+    }
+
+    internal static void ApplyFailure(
+        CallToolResult result,
+        string code,
+        string? message,
+        string? evidenceReference,
+        bool typedPayload)
+    {
+        var meta = result.Meta ?? new JsonObject();
+        meta[CodeKey] = code;
+        meta[TypedPayloadKey] = typedPayload;
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            meta[MessageKey] = message;
+        }
+        if (!string.IsNullOrWhiteSpace(evidenceReference))
+        {
+            meta[EvidenceReferenceKey] = evidenceReference;
+        }
+        result.Meta = meta;
+    }
+
+    internal static bool TryGetEnvelopeProperty(
+        JsonElement envelope,
+        string name,
+        out JsonElement value)
+    {
+        // A declared serializer context may apply any naming policy to the envelope.
+        foreach (var property in envelope.EnumerateObject())
+        {
+            if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                value = property.Value;
+                return true;
+            }
+        }
+        value = default;
+        return false;
+    }
+}
+
+/// <summary>
 /// Publishes a generated tool with <see cref="NhAiToolExportSchema.Flat"/>: the input
 /// type's properties are the top-level MCP arguments and the output type is the
 /// structured result. The governed <see cref="AIFunction"/> still runs through the
-/// shared invoker; only the wire shape changes.
+/// shared invoker; only the wire shape changes. Results and error payloads are written
+/// with the function's JSON options: the tool set's declared context, or
+/// <see cref="NhAiToolJsonSerializerOptions.FlatExport"/> when none is declared.
 /// </summary>
 internal sealed class NhAiFlatSchemaMcpServerTool : McpServerTool
 {
-    private static readonly JsonSerializerOptions SerializerOptions =
-        new(JsonSerializerDefaults.Web);
     private readonly AIFunction _function;
     private readonly NhAiToolDescriptor _descriptor;
     private readonly Tool _protocolTool;
@@ -139,10 +239,12 @@ internal sealed class NhAiFlatSchemaMcpServerTool : McpServerTool
 
     public NhAiFlatSchemaMcpServerTool(
         AIFunction function,
-        NhAiToolDescriptor descriptor)
+        NhAiToolDescriptor descriptor,
+        NhAiToolAnnotationHints hints)
     {
         ArgumentNullException.ThrowIfNull(function);
         ArgumentNullException.ThrowIfNull(descriptor);
+        ArgumentNullException.ThrowIfNull(hints);
         _function = function;
         _descriptor = descriptor;
         _metadata = [descriptor];
@@ -162,11 +264,10 @@ internal sealed class NhAiFlatSchemaMcpServerTool : McpServerTool
             OutputSchema = IsObjectSchema(outputSchema) ? outputSchema : null,
             Annotations = new ToolAnnotations
             {
-                ReadOnlyHint = descriptor.Effect == NhAiToolEffect.ReadOnly,
-                DestructiveHint = descriptor.Effect == NhAiToolEffect.Destructive,
-                IdempotentHint = descriptor.Effect is NhAiToolEffect.ReadOnly
-                    or NhAiToolEffect.IdempotentMutation,
-                OpenWorldHint = descriptor.Effect == NhAiToolEffect.ExternalSideEffect
+                ReadOnlyHint = hints.ReadOnly,
+                DestructiveHint = hints.Destructive,
+                IdempotentHint = hints.Idempotent,
+                OpenWorldHint = hints.OpenWorld
             }
         };
     }
@@ -189,37 +290,71 @@ internal sealed class NhAiFlatSchemaMcpServerTool : McpServerTool
             arguments.Services = request.Services;
         }
 
+        var capture = NhAiToolOutcomeCapture.Begin();
         var output = await _function.InvokeAsync(arguments, cancellationToken);
         var envelope = output is JsonElement element
             ? element
-            : JsonSerializer.SerializeToElement(output, SerializerOptions);
+            : JsonSerializer.SerializeToElement(output, _function.JsonSerializerOptions);
         if (envelope.ValueKind != JsonValueKind.Object
-            || !envelope.TryGetProperty("success", out var success)
+            || !NhAiMcpResultMetadata.TryGetEnvelopeProperty(envelope, "success", out var success)
             || success.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
         {
             throw new InvalidOperationException(
                 $"AI tool '{_descriptor.Id}' did not return a TaskResult envelope.");
         }
 
-        var hasData = envelope.TryGetProperty("data", out var data)
+        var hasData = NhAiMcpResultMetadata.TryGetEnvelopeProperty(envelope, "data", out var data)
             && data.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined);
+        var dataText = hasData ? WriteJson(data) : null;
         if (success.ValueKind == JsonValueKind.True)
         {
             return new CallToolResult
             {
-                Content = [new TextContentBlock { Text = hasData ? data.GetRawText() : "null" }],
+                Content = [new TextContentBlock { Text = dataText ?? "null" }],
                 StructuredContent = hasData ? data : null
             };
         }
 
         // A failed result with typed data publishes that domain payload as the structured
-        // error payload; a failure without data becomes a plain MCP tool error.
-        return new CallToolResult
+        // error payload; a failure without data publishes a structured code and message.
+        // The stable failure detail is added as protocol metadata in both cases.
+        var code = capture.Recorded && !capture.Succeeded
+            ? capture.Code ?? NhAiToolFailureCodes.Failed
+            : NhAiToolFailureCodes.Failed;
+        var message = capture.Recorded ? capture.Message : null;
+        var evidenceReference = capture.Recorded ? capture.EvidenceReference : null;
+        if (!hasData)
+        {
+            return NhAiMcpResultMetadata.CreateDatalessFailure(code, message, evidenceReference);
+        }
+
+        var failure = new CallToolResult
         {
             IsError = true,
-            Content = [new TextContentBlock { Text = hasData ? data.GetRawText() : FailureText(envelope) }],
-            StructuredContent = hasData ? data : null
+            Content = [new TextContentBlock { Text = dataText! }],
+            StructuredContent = data
         };
+        NhAiMcpResultMetadata.ApplyFailure(failure, code, message, evidenceReference, typedPayload: true);
+        return failure;
+    }
+
+    private string WriteJson(JsonElement value)
+    {
+        var options = _function.JsonSerializerOptions;
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions
+        {
+            Encoder = options.Encoder,
+            Indented = options.WriteIndented,
+            IndentCharacter = options.IndentCharacter,
+            IndentSize = options.IndentSize,
+            NewLine = options.NewLine,
+            MaxDepth = options.MaxDepth
+        }))
+        {
+            value.WriteTo(writer);
+        }
+        return System.Text.Encoding.UTF8.GetString(stream.ToArray());
     }
 
     private static JsonElement BuildInputElement(
@@ -241,31 +376,6 @@ internal sealed class NhAiFlatSchemaMcpServerTool : McpServerTool
         }
         using var document = JsonDocument.Parse(stream.ToArray());
         return document.RootElement.Clone();
-    }
-
-    private static string FailureText(JsonElement envelope)
-    {
-        var messages = new List<string>();
-        if (envelope.TryGetProperty("allErrorMessages", out var errorMessages)
-            && errorMessages.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var message in errorMessages.EnumerateArray())
-            {
-                if (message.ValueKind == JsonValueKind.String)
-                {
-                    messages.Add(message.GetString()!);
-                }
-                else if (message.ValueKind == JsonValueKind.Object
-                    && message.TryGetProperty("format", out var format)
-                    && format.ValueKind == JsonValueKind.String)
-                {
-                    messages.Add(format.GetString()!);
-                }
-            }
-        }
-        return messages.Count == 0
-            ? "The AI tool returned a failed result."
-            : string.Join(" ", messages);
     }
 
     private static JsonElement ParseSchema(string schemaJson)
@@ -298,13 +408,30 @@ internal sealed class NhAiOutcomeAwareMcpServerTool(
         RequestContext<CallToolRequestParams> request,
         CancellationToken cancellationToken = default)
     {
+        var capture = NhAiToolOutcomeCapture.Begin();
         var result = await inner.InvokeAsync(request, cancellationToken);
-        if (result.StructuredContent is { ValueKind: System.Text.Json.JsonValueKind.Object } content
-            && content.TryGetProperty("success", out var success)
-            && success.ValueKind is System.Text.Json.JsonValueKind.False)
+        if (result.StructuredContent is not { ValueKind: JsonValueKind.Object } content
+            || !NhAiMcpResultMetadata.TryGetEnvelopeProperty(content, "success", out var success)
+            || success.ValueKind is not JsonValueKind.False)
         {
-            result.IsError = true;
+            return result;
         }
+
+        var code = capture.Recorded && !capture.Succeeded
+            ? capture.Code ?? NhAiToolFailureCodes.Failed
+            : NhAiToolFailureCodes.Failed;
+        var message = capture.Recorded ? capture.Message : null;
+        var evidenceReference = capture.Recorded ? capture.EvidenceReference : null;
+        var hasData = NhAiMcpResultMetadata.TryGetEnvelopeProperty(content, "data", out var data)
+            && data.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined);
+        if (!hasData)
+        {
+            return NhAiMcpResultMetadata.CreateDatalessFailure(code, message, evidenceReference);
+        }
+
+        // A failed envelope with data keeps the TaskResult envelope as structured content.
+        result.IsError = true;
+        NhAiMcpResultMetadata.ApplyFailure(result, code, message, evidenceReference, typedPayload: true);
         return result;
     }
 }

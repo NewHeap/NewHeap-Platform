@@ -37,7 +37,8 @@ public sealed record ProjectAiStatusReceipt(
     string DatabaseCompletion,
     string Code,
     bool IdempotentReplay,
-    string EvidenceReference)
+    string EvidenceReference,
+    DateTimeOffset? CommittedAt)
 {
     public const string ExecutedExecution = "executed";
     public const string DenyExecution = "deny";
@@ -46,6 +47,24 @@ public sealed record ProjectAiStatusReceipt(
     public const string StatusUpdatedCode = "status-updated";
     public const string ApprovalInvalidCode = "approval-invalid-expired-or-replayed";
 }
+
+/// <summary>
+/// Flat wire input of the approval-issuing tool.
+/// </summary>
+public sealed record ProjectAiStatusApprovalRequest(
+    Guid ProjectId,
+    ProjectStatus Status);
+
+/// <summary>
+/// A single-use approval grant for exactly one project status change. The grant value is
+/// the grant id that the consuming status receipt request presents.
+/// </summary>
+public sealed record ProjectAiStatusApprovalGrant(
+    Guid ProjectId,
+    ProjectStatus Status,
+    string ApprovalGrant,
+    DateTimeOffset ExpiresAt,
+    string EvidenceReference);
 
 public sealed record ProjectAiContextDocument(
     Guid ProjectId,

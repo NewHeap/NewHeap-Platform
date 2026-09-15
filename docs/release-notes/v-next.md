@@ -1,1 +1,21 @@
 # v-next
+
+## NewHeap.Platform.AI.Generators
+
+| Breaking change | Required action |
+|---|---|
+| Generated schemas now follow the effective serializer contract: string enum names for tools without a context, System.Text.Json naming policies including acronyms, a declared context's naming, ignore and enum options, and every `JsonIgnore` condition. Schema and contract hashes change for affected tools. | Regenerate and review pinned manifests; recreate proposals and approvals bound to the previous contract hash. |
+| Flat exports without a declared `JsonSerializerContext` now serialize with `NhAiToolJsonSerializerOptions.FlatExport`, which writes nulls and compact JSON. | Declare a context on the tool set when the wire contract must omit nulls or use other options. |
+
+## NewHeap.Platform.AI.Common
+
+| Breaking change | Required action |
+|---|---|
+| Failures owned by the shared invoker now carry named `NhAiToolFailureCodes`, so `AllErrorMessages` text is prefixed with the code; keyless gate or evidence failures receive a pipeline code. | Match on result item names instead of message text. |
+
+## NewHeap.Platform.AI.Mcp
+
+| Breaking change | Required action |
+|---|---|
+| Failures without typed data now publish structured `{ code, message }` content and the text `code: message` instead of the `TaskResult` envelope or template text. | Read the code from structured content, `_meta` or `NhAiMcpToolException.Code`. |
+| The client helpers throw `NhAiMcpToolException<TPayload>` when the failure carries a typed payload. | Catch `NhAiMcpToolException`; replace exact-type assertions with the base or generic type. |

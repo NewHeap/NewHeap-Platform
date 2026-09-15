@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.32",
   "backEnd": {
-    "hash": "292d92bc2cbe27c14ca5edbc4d0ea468faffa62c625d58c6aaa083042b7484fd",
-    "declarationCount": 4056,
+    "hash": "aa75621f99e373e5aca2ca0a913715e7ad9ff643ce6bdca7dfacef6017bdeeae",
+    "declarationCount": 4139,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1223,6 +1223,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? AnnotationOverrides { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
         "declaration": "public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.ToolActionAudit;"
       },
       {
@@ -1599,6 +1603,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public enum NhAiApprovalRole {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public enum NhAiToolHint {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public enum NhAiIdempotencySupport {"
       },
       {
@@ -1656,6 +1668,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public NhAiToolExportSchema ExportSchema { get; set; } = NhAiToolExportSchema.Enveloped;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolHint ReadOnlyHint { get; set; } = NhAiToolHint.Inherit;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolHint DestructiveHint { get; set; } = NhAiToolHint.Inherit;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolHint IdempotentHint { get; set; } = NhAiToolHint.Inherit;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolHint OpenWorldHint { get; set; } = NhAiToolHint.Inherit;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
@@ -1747,6 +1775,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolHint ReadOnlyHint { get; init; } = NhAiToolHint.Inherit;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolHint DestructiveHint { get; init; } = NhAiToolHint.Inherit;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolHint IdempotentHint { get; init; } = NhAiToolHint.Inherit;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiToolHint OpenWorldHint { get; init; } = NhAiToolHint.Inherit;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public string? VerifierId { get; init; }"
       },
       {
@@ -1776,6 +1820,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public IReadOnlyList<string> RequiredCapabilities { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public NhAiApprovalRole ApprovalRole => Approval switch"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
@@ -2035,6 +2083,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "declaration": "public string? EvidenceReference { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
         "declaration": "public override bool CanRead => false;"
       },
       {
@@ -2086,6 +2138,134 @@
         "declaration": "public static TaskResult<T> WithExecutionData<T>(this TaskResult<T> result, T? data) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public sealed record NhAiToolAnnotationHints( bool ReadOnly, bool Destructive, bool Idempotent, bool OpenWorld) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public static NhAiToolAnnotationHints Resolve(NhAiToolDescriptor descriptor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public static NhAiToolAnnotationHints FromEffect(NhAiToolEffect effect) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public static string? FindWideningOverride(NhAiToolDescriptor descriptor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public static string? DescribeOverrides(NhAiToolDescriptor descriptor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public static class NhAiToolJsonSerializerOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public static JsonSerializerOptions FlatExport { get; } = CreateFlatExport();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public bool Recorded { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public bool Succeeded { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public string? Code { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public string? Message { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public string? EvidenceReference { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public static NhAiToolOutcomeCapture Begin() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public static void Record(TaskResult result, string? evidenceReference) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public static class NhAiToolFailureCodes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string Failed = \"ai-tool-failed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string AuthorizationDenied = \"ai-tool-authorization-denied\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string InputTooLarge = \"ai-tool-input-too-large\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string CapabilityDenied = \"ai-tool-capability-denied\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string ExecutionEvidenceInvalid = \"ai-tool-execution-evidence-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string EffectDenied = \"ai-tool-effect-denied\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string ApprovalDelegationInvalid = \"ai-tool-approval-delegation-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string ApprovalRequired = \"ai-tool-approval-required\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string ApprovalInvalid = \"ai-tool-approval-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string BudgetExhausted = \"ai-tool-budget-exhausted\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string BudgetDenied = \"ai-tool-budget-denied\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string ConcurrencyLimited = \"ai-tool-concurrency-limited\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string DeadlineExpired = \"ai-tool-deadline-expired\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string IdempotencyKeyInvalid = \"ai-tool-idempotency-key-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string IdempotencyDenied = \"ai-tool-idempotency-denied\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string ResultTooLarge = \"ai-tool-result-too-large\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string VerificationFailed = \"ai-tool-verification-failed\";"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
         "declaration": "[Generator(LanguageNames.CSharp)] public sealed class NhAiToolGenerator : IIncrementalGenerator {"
       },
@@ -2095,11 +2275,91 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
-        "declaration": "public static string Create(ITypeSymbol type) {"
+        "declaration": "public const int Never = 0;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
-        "declaration": "public ToolModel( IMethodSymbol method, string setId, string toolId, string? explicitExportName, int version, int effect, int exposure, string description, string inputType, string outputType, string? jsonSerializerContextType, string inputSchema, string outputSchema, string schemaHash, string contractHash, int approval, int idempotency, int exportSchema, string? verifierId, int timeoutSeconds, int maxConcurrency, int maxInputBytes, int maxResultBytes, int dataClassification, int retentionCategory, ImmutableArray<string> requiredCapabilities, bool requiresAuthorization, ImmutableArray<string?> authorizationPolicies) {"
+        "declaration": "public const int Always = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public const int WhenWritingDefault = 2;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public const int WhenWritingNull = 3;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public const int WhenWriting = 4;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public const int WhenReading = 5;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public const int Unspecified = 0;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public const int CamelCase = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public const int SnakeCaseLower = 2;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public const int SnakeCaseUpper = 3;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public const int KebabCaseLower = 4;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public const int KebabCaseUpper = 5;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int NamingPolicy { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int DefaultIgnoreCondition { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public bool StringEnums { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public static SerializerContract MicrosoftExtensionsAIDefaults { get; } = new( NhAiToolGenerator.NamingPolicy.CamelCase, IgnoreCondition.WhenWritingNull, true);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public static SerializerContract FlatExportDefaults { get; } = new( NhAiToolGenerator.NamingPolicy.CamelCase, IgnoreCondition.Never, true);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public static SerializerContract FromContext(INamedTypeSymbol? contextType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public static string Create( ITypeSymbol type, SerializerContract contract, SchemaDirection direction) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public static string ToCamelCase(string name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public static string ToSeparated(string name, char separator, bool lowercase) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public ToolModel( IMethodSymbol method, string setId, string toolId, string? explicitExportName, int version, int effect, int exposure, string description, string inputType, string outputType, string? jsonSerializerContextType, string inputSchema, string outputSchema, string schemaHash, string contractHash, int approval, int idempotency, int exportSchema, bool usesFlatExportDefaults, int readOnlyHint, int destructiveHint, int idempotentHint, int openWorldHint, string? verifierId, int timeoutSeconds, int maxConcurrency, int maxInputBytes, int maxResultBytes, int dataClassification, int retentionCategory,"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
@@ -2179,6 +2439,26 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public bool UsesFlatExportDefaults { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int ReadOnlyHint { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int DestructiveHint { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int IdempotentHint { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "declaration": "public int OpenWorldHint { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
         "declaration": "public string? VerifierId { get; }"
       },
       {
@@ -2239,7 +2519,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
-        "declaration": "public sealed class NhAiMcpToolException : McpException {"
+        "declaration": "public static NhAiMcpToolFailureDetail From(CallToolResult result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public static bool CarriesTypedPayload(CallToolResult result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public class NhAiMcpToolException : McpException {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
@@ -2248,6 +2536,30 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
         "declaration": "public CallToolResult Result { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public string? Code { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public string? FailureMessage { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public string? EvidenceReference { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public JsonElement? PayloadJson { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public sealed class NhAiMcpToolException<TPayload> : NhAiMcpToolException {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
+        "declaration": "public TPayload? Payload { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
@@ -2387,7 +2699,27 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
-        "declaration": "public NhAiFlatSchemaMcpServerTool( AIFunction function, NhAiToolDescriptor descriptor) {"
+        "declaration": "public static class NhAiMcpResultMetadata {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public const string CodeKey = \"newheap.com/code\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public const string MessageKey = \"newheap.com/message\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public const string EvidenceReferenceKey = \"newheap.com/evidence-reference\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public const string TypedPayloadKey = \"newheap.com/typed-payload\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "declaration": "public NhAiFlatSchemaMcpServerTool( AIFunction function, NhAiToolDescriptor descriptor, NhAiToolAnnotationHints hints) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
@@ -19380,7 +19712,11 @@
       "CallNewHeapToolAsync",
       "CallNewHeapFlatToolAsync",
       "NhAiMcpToolException",
-      "NhAiToolExportSchema"
+      "NhAiMcpResultMetadata",
+      "NhAiToolAnnotationHints",
+      "NhAiToolExportSchema",
+      "NhAiToolHint",
+      "NhAiToolJsonSerializerOptions"
     ],
     "nh-ai-model-profiles": [
       "INhAiModelProfileRegistry",
@@ -19425,6 +19761,7 @@
       "NhAiApproval",
       "NhAiApprovalEvidence",
       "NhAiApprovalRequirement",
+      "NhAiApprovalRole",
       "NhAiAuditRecord",
       "NhAiAuthoritativeExecutionEvidence",
       "NhAiCapabilityGrant",
@@ -19435,6 +19772,7 @@
       "NhAiProposal",
       "NhAiProposalCreateRequest",
       "NhAiToolEffect",
+      "NhAiToolFailureCodes",
       "NhAiVerificationResult"
     ],
     "nh-auth-override-hydration": [
