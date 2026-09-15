@@ -255,7 +255,7 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
     {
         path = NormalizePath(path);
         MediaLibraryPath.Split(path, out var folderPath, out var folderName);
-        var id = await WhereFolderPathAndName(_dbContext.Folders, path, folderName)
+        var id = await WhereFolderPathAndName(_dbContext.Folders, folderPath, folderName)
             .Select(x => (Guid?)x.Id)
             .FirstOrDefaultAsync();
 

@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Media;
 using NewHeap.Media.FileStructureStorage.SqlServer;
@@ -16,6 +19,95 @@ namespace NewHeap.Platform.Media.Tests;
 
 public sealed class FileStructureStorageProviderTests
 {
+    [Theory]
+    [InlineData("project_media")]
+    [InlineData("media\"archive")]
+    public async Task PostgreSqlMigrationScriptsUseTheConfiguredSchema(string schema)
+    {
+        var services = new ServiceCollection();
+        services.AddMediaPostgreSqlStorage("Host=localhost;Database=nh_media", options =>
+        {
+            options.Scheme = schema;
+            options.RunMigrations = false;
+        });
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<FileStructureDbContext>();
+        var migrator = context.GetService<IMigrator>();
+        var script = migrator.GenerateScript();
+        var quotedSchema = context.GetService<ISqlGenerationHelper>().DelimitIdentifier(schema);
+
+        Assert.Equal(schema, context.Model.GetDefaultSchema());
+        Assert.Contains($"CREATE TABLE {quotedSchema}.\"Files\"", script);
+        Assert.Contains($"UPDATE {quotedSchema}.\"Files\"", script);
+        Assert.DoesNotContain("\"nhmedia\".", script);
+        Assert.DoesNotContain("nhmedia.", script);
+        var rollback = migrator.GenerateScript("20260903141415_UseFixedLookupHashes", "0");
+        Assert.Contains($"DROP TABLE {quotedSchema}.\"Files\"", rollback);
+        Assert.DoesNotContain("nhmedia.", rollback);
+        Assert.DoesNotContain("\"nhmedia\".", rollback);
+    }
+
+    [Theory]
+    [InlineData("nhmedia")]
+    [InlineData("project_media")]
+    [InlineData("media\"archive")]
+    public async Task PostgreSqlUpgradesOriginalSchemaAndPreservesFilesAndFolders(string schema)
+    {
+        await using var database = new PostgreSqlBuilder("postgres:15.1").Build();
+        await database.StartAsync();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddMediaPostgreSqlStorage(database.GetConnectionString(), options =>
+        {
+            options.Scheme = schema;
+            options.RunMigrations = false;
+        });
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<FileStructureDbContext>();
+        await context.Database.MigrateAsync("20260805125944_InitialPostgreSql");
+        var qualifiedSchema = context.GetService<ISqlGenerationHelper>().DelimitIdentifier(schema);
+        var fileId = Guid.NewGuid();
+        var folderId = Guid.NewGuid();
+        var folderName = "Archive-" + new string('x', 300);
+        var path = "/" + folderName;
+        await context.Database.OpenConnectionAsync();
+        try
+        {
+            await using var command = context.Database.GetDbConnection().CreateCommand();
+            command.CommandText = $"""
+                INSERT INTO {qualifiedSchema}."Folders" ("Id", "Path", "Name", "PathLookupHash", "PathNameLookupHash")
+                VALUES (@folderId, '/', @folderName, decode(md5('/'), 'hex'), decode(md5(@path), 'hex'));
+                INSERT INTO {qualifiedSchema}."Files"
+                    ("Id", "Path", "Name", "CreationDateTime", "Tags", "PathLookupHash", "PathNameLookupHash")
+                VALUES (@fileId, @path, 'Existing.TXT', CURRENT_TIMESTAMP, ARRAY['archive'],
+                    decode(md5(@path), 'hex'), decode(md5(@path), 'hex'));
+                """;
+            AddParameter(command, "folderId", folderId);
+            AddParameter(command, "fileId", fileId);
+            AddParameter(command, "folderName", folderName);
+            AddParameter(command, "path", path);
+            await command.ExecuteNonQueryAsync();
+        }
+        finally
+        {
+            await context.Database.CloseConnectionAsync();
+        }
+
+        await context.Database.MigrateAsync();
+        Assert.Empty(await context.Database.GetPendingMigrationsAsync());
+        var storage = scope.ServiceProvider.GetRequiredService<IFileStructureStorage>();
+        Assert.Equal(folderId, (await storage.GetFolderReferenceAsync(path)).Id);
+        Assert.Equal(fileId, (await storage.GetFileAsync(path, "Existing.TXT", null))?.Id);
+        Assert.Equal(fileId, Assert.Single((await storage.GetFolderAsync(path, null, null)).Files).Id);
+        var uploadedId = Guid.NewGuid();
+        Assert.True((await storage.CreateFileAsync(new FileModel { Path = path, Name = "new.txt" }, uploadedId)).Success);
+        Assert.Equal(uploadedId, (await storage.GetFileAsync(path, "new.txt", null))?.Id);
+        Assert.True((await storage.UpdateFileAsync(uploadedId, new FileModel { Path = path, Name = "renamed.txt" })).Success);
+        Assert.Equal(uploadedId, (await storage.GetFileAsync(path, "renamed.txt", null))?.Id);
+    }
+
     [Fact]
     public async Task ProvidersConfigureOnlyTheirOwnLookupColumns()
     {
@@ -85,6 +177,7 @@ public sealed class FileStructureStorageProviderTests
         var storage = scope.ServiceProvider.GetRequiredService<IFileStructureStorage>();
         var folder = await storage.CreateFolderAsync("/", "documents");
         Assert.Equal("/documents", folder.FullPath);
+        Assert.NotNull(folder.Id);
 
         var fileId = Guid.NewGuid();
         var created = await storage.CreateFileAsync(new FileModel

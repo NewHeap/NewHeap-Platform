@@ -32,6 +32,8 @@ When table size, predicate selectivity, or ordering cost is uncertain, optionall
 
 Treat schema filtering, the query parser, SQL Server `ApplicationIntent=ReadOnly`, PostgreSQL read-only transactions, timeouts, row limits, output limits, and rollback as defense in depth. The database permission model is the security boundary. An environment override changes only runtime configuration resolution; schema and query still reject a connection whose principal has write, DDL or elevated permissions. Provider failures return only stable classifications and allowlisted PostgreSQL SQLSTATE or SQL Server numbers; never expose the raw provider message. Prefer a read replica or masked diagnostic views when production data is sensitive.
 
+For SQL Server principal rejection, the stable code remains `read-only-principal-not-verified` and exit code remains 4. The optional `error.verificationCheck` identifies the first rejected permission-policy check, for example `database-role-db_owner`, `procedure-execute` or `function-select`, with stage `readonly-verification`. It does not enumerate all rejected checks or expose principal, object or connection names. Consumers may preserve known check identifiers in diagnostics; accept an absent field from older tools and discard unknown identifiers instead of forwarding arbitrary text. A function SELECT rejection describes the existing conservative policy, not proof of write access.
+
 ## Avoid
 
 - Passing SQL data values, connection strings, passwords, tokens, or secrets in command-line arguments.

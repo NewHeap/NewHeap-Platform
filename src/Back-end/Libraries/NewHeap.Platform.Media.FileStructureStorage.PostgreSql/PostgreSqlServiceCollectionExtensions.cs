@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NewHeap.Media.FileStructureStorage.PostgreSql;
@@ -19,15 +21,22 @@ public static class PostgreSqlServiceCollectionExtensions
     {
         var options = new FileStructureDbContextOptions();
         configureDbSet?.Invoke(options);
+        if (string.IsNullOrWhiteSpace(options.Scheme))
+        {
+            options.Scheme = "nhmedia";
+        }
         PostgreSqlFileStructureModelConfiguration.Apply(options);
         var lookupHashInterceptor = new PostgreSqlLookupHashSaveChangesInterceptor();
 
         services.AddSingleton(options);
         services.AddDbContextPool<FileStructureDbContext>(opt =>
         {
+            opt.ReplaceService<IModelCacheKeyFactory, PostgreSqlMediaModelCacheKeyFactory>();
+            opt.ReplaceService<IMigrationsSqlGenerator, PostgreSqlMediaMigrationsSqlGenerator>();
             opt.AddInterceptors(lookupHashInterceptor);
 
-            if (options.RunMigrations)
+            // The checked-in snapshot uses the default schema; a custom schema is an intentional model difference.
+            if (options.RunMigrations || options.Scheme != "nhmedia")
             {
                 opt.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             }
@@ -40,8 +49,7 @@ public static class PostgreSqlServiceCollectionExtensions
 
             opt.UseNpgsql(connectionString, efOptions =>
             {
-                var scheme = string.IsNullOrWhiteSpace(options.Scheme) ? "medialibrary" : options.Scheme;
-                efOptions.MigrationsHistoryTable("_migrations", scheme);
+                efOptions.MigrationsHistoryTable("_migrations", options.Scheme);
                 efOptions.MigrationsAssembly(typeof(PostgreSqlFileStructureStorage).Assembly.FullName);
             });
         });

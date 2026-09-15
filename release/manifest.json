@@ -14,7 +14,7 @@
     "nuget-common": {
       "displayName": "NewHeap common NuGet packages",
       "kind": "nuget",
-      "version": "7.0.0",
+      "version": "7.1.0",
       "tagPrefix": "nuget-common-v",
       "includeSymbols": true,
       "replaces": "src/Back-end/publish-common.ps1",
@@ -98,7 +98,7 @@
     "nuget-proxy": {
       "displayName": "NewHeap ASP.NET proxy NuGet packages",
       "kind": "nuget",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "tagPrefix": "nuget-proxy-v",
       "includeSymbols": true,
       "projects": [
@@ -115,7 +115,7 @@
     "nuget-media": {
       "displayName": "NewHeap media NuGet packages",
       "kind": "nuget",
-      "version": "3.0.1",
+      "version": "3.0.2",
       "tagPrefix": "nuget-media-v",
       "includeSymbols": true,
       "replaces": "src/Back-end/publish-media.ps1",
@@ -153,7 +153,7 @@
     "npm-platform-common": {
       "displayName": "@newheap/platform-common",
       "kind": "npm",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "tagPrefix": "npm-platform-common-v",
       "packageName": "@newheap/platform-common",
       "packageJson": "src/Front-end/projects/nh-common/package.json",
@@ -164,7 +164,7 @@
     "npm-nh-toastr": {
       "displayName": "@newheap/nh-toastr",
       "kind": "npm",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "tagPrefix": "npm-nh-toastr-v",
       "packageName": "@newheap/nh-toastr",
       "packageJson": "src/Front-end/projects/nh-toastr/package.json",
@@ -175,7 +175,7 @@
     "newheap-platform-plugin": {
       "displayName": "NewHeap Platform AI plugin",
       "kind": "plugin",
-      "version": "1.13.29",
+      "version": "1.13.31",
       "tagPrefix": "newheap-platform-plugin-v",
       "directory": "plugins/newheap-platform",
       "packageName": "newheap-platform"

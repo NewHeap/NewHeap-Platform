@@ -13,6 +13,71 @@ public sealed class DatabaseReadProviderTests
     private static readonly Guid ProjectId = Guid.Parse("9f6e1ca4-96e4-4f6a-8820-738693649dc3");
 
     [Fact]
+    public async Task SqlServerReportsTheFirstRejectedPermissionCheckForSchemaAndQuery()
+    {
+        await using var container = new MsSqlBuilder(
+            "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
+        await container.StartAsync();
+        var admin = new SqlConnectionStringBuilder(container.GetConnectionString());
+        const string user = "diagnostic_reader";
+        const string password = "Test-only-reader-Password-42";
+        var passwordKeyword = "PASS" + "WORD";
+        await ExecuteSqlServerAsync(admin.ConnectionString,
+            $"CREATE DATABASE CheckDiagnostics; CREATE LOGIN [{user}] WITH {passwordKeyword} = '{password}';");
+        admin.InitialCatalog = "CheckDiagnostics";
+        await ExecuteSqlServerAsync(admin.ConnectionString,
+            $"CREATE USER [{user}] FOR LOGIN [{user}]; CREATE TABLE dbo.Items (Id int); GRANT SELECT ON dbo.Items TO [{user}];");
+        await ExecuteSqlServerAsync(admin.ConnectionString,
+            "CREATE FUNCTION dbo.ReadItems() RETURNS TABLE AS RETURN (SELECT Id FROM dbo.Items);");
+        await ExecuteSqlServerAsync(admin.ConnectionString,
+            "CREATE FUNCTION dbo.ReadConstant() RETURNS int AS BEGIN RETURN 1; END;");
+        await ExecuteSqlServerAsync(admin.ConnectionString,
+            "CREATE PROCEDURE dbo.ReadProcedure AS SELECT 1;");
+        var reader = new SqlConnectionStringBuilder(admin.ConnectionString)
+        {
+            UserID = user,
+            Password = password,
+            IntegratedSecurity = false
+        };
+        var scenarios = new[]
+        {
+            (Grant: "GRANT SELECT ON dbo.ReadItems", Revoke: "REVOKE SELECT ON dbo.ReadItems", Check: "function-select"),
+            (Grant: "GRANT EXECUTE ON dbo.ReadConstant", Revoke: "REVOKE EXECUTE ON dbo.ReadConstant", Check: "function-execute"),
+            (Grant: "GRANT EXECUTE ON dbo.ReadProcedure", Revoke: "REVOKE EXECUTE ON dbo.ReadProcedure", Check: "procedure-execute"),
+            (Grant: "GRANT UPDATE ON dbo.Items", Revoke: "REVOKE UPDATE ON dbo.Items", Check: "table-view-update"),
+            (Grant: "GRANT CREATE TABLE", Revoke: "REVOKE CREATE TABLE", Check: "database-permission-create-table")
+        };
+        using var workspace = new DatabaseReadTestWorkspace("sql-server", reader.ConnectionString);
+        foreach (var scenario in scenarios)
+        {
+            await ExecuteSqlServerAsync(admin.ConnectionString, $"{scenario.Grant} TO [{user}];");
+            foreach (var command in new[] { "schema", "query" })
+            {
+                using var input = command == "schema"
+                    ? DatabaseReadTestWorkspace.SchemaRequest("search")
+                    : DatabaseReadTestWorkspace.Request("SELECT TOP (1) Id FROM dbo.Items");
+                using var output = new MemoryStream();
+                var exitCode = await NewHeapDatabaseReadApplication.RunAsync(
+                    [command, "--profiles", workspace.ProfileCatalogPath], input, output);
+                exitCode.Should().Be(4);
+                using var response = DatabaseReadTestWorkspace.ParseOutput(output);
+                var error = response.RootElement.GetProperty("error");
+                error.GetProperty("code").GetString().Should().Be("read-only-principal-not-verified");
+                error.GetProperty("verificationCheck").GetString().Should().Be(scenario.Check);
+                error.GetProperty("stage").GetString().Should().Be("readonly-verification");
+                response.RootElement.TryGetProperty("result", out _).Should().BeFalse();
+                response.RootElement.GetRawText().Should().NotContain(password).And.NotContain(user).And.NotContain("dbo.Items");
+            }
+            await ExecuteSqlServerAsync(admin.ConnectionString, $"{scenario.Revoke} FROM [{user}];");
+        }
+
+        using var validInput = DatabaseReadTestWorkspace.SchemaRequest("search");
+        using var validOutput = new MemoryStream();
+        (await NewHeapDatabaseReadApplication.RunAsync(
+            ["schema", "--profiles", workspace.ProfileCatalogPath], validInput, validOutput)).Should().Be(0);
+    }
+
+    [Fact]
     public async Task SqlServerProfileReadsWithAWriteDeniedPrincipal()
     {
         const string databaseName = "NewHeapDiagnostics";
@@ -131,7 +196,7 @@ public sealed class DatabaseReadProviderTests
         {
             await providerConnection.OpenAsync();
             (await provider.VerifyReadOnlyPrincipalAsync(providerConnection, limits, CancellationToken.None))
-                .Should().BeTrue();
+                .IsReadOnly.Should().BeTrue();
             await using var transaction = await providerConnection.BeginTransactionAsync();
             await provider.ConfigureReadOnlyTransactionAsync(
                 providerConnection,
@@ -425,6 +490,11 @@ public sealed class DatabaseReadProviderTests
         using var response = DatabaseReadTestWorkspace.ParseOutput(output);
         response.RootElement.GetProperty("error").GetProperty("code").GetString()
             .Should().Be("read-only-principal-not-verified");
+        if (provider == "sql-server")
+        {
+            response.RootElement.GetProperty("error").GetProperty("verificationCheck").GetString()
+                .Should().Be("server-role-sysadmin");
+        }
     }
 
     private static async Task AssertSchemaInspectionAsync(

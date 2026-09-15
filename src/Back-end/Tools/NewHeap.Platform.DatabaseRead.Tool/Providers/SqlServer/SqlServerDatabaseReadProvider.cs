@@ -8,69 +8,79 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
 {
     private const string ReadOnlyVerificationSql =
         """
-        SELECT CONVERT(bit, CASE WHEN
-            COALESCE(IS_SRVROLEMEMBER('sysadmin'), 0) = 1 OR
-            COALESCE(IS_MEMBER('db_owner'), 0) = 1 OR
-            COALESCE(IS_MEMBER('db_accessadmin'), 0) = 1 OR
-            COALESCE(IS_MEMBER('db_securityadmin'), 0) = 1 OR
-            COALESCE(IS_MEMBER('db_backupoperator'), 0) = 1 OR
-            COALESCE(IS_MEMBER('db_datawriter'), 0) = 1 OR
-            COALESCE(IS_MEMBER('db_ddladmin'), 0) = 1 OR
-            HAS_PERMS_BY_NAME(NULL, NULL, 'CONTROL SERVER') = 1 OR
-            HAS_PERMS_BY_NAME(NULL, NULL, 'ALTER ANY LOGIN') = 1 OR
-            HAS_PERMS_BY_NAME(NULL, NULL, 'ALTER ANY DATABASE') = 1 OR
-            HAS_PERMS_BY_NAME(NULL, NULL, 'CREATE ANY DATABASE') = 1 OR
-            HAS_PERMS_BY_NAME(NULL, NULL, 'ADMINISTER BULK OPERATIONS') = 1 OR
-            HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'CONTROL') = 1 OR
-            HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'ALTER') = 1 OR
-            HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'CREATE TABLE') = 1 OR
-            HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'CREATE PROCEDURE') = 1 OR
-            HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'EXECUTE') = 1 OR
-            EXISTS (
+        SELECT CASE
+            WHEN COALESCE(IS_SRVROLEMEMBER('sysadmin'), 0) = 1 THEN 'server-role-sysadmin'
+            WHEN COALESCE(IS_MEMBER('db_owner'), 0) = 1 THEN 'database-role-db_owner'
+            WHEN COALESCE(IS_MEMBER('db_accessadmin'), 0) = 1 THEN 'database-role-db_accessadmin'
+            WHEN COALESCE(IS_MEMBER('db_securityadmin'), 0) = 1 THEN 'database-role-db_securityadmin'
+            WHEN COALESCE(IS_MEMBER('db_backupoperator'), 0) = 1 THEN 'database-role-db_backupoperator'
+            WHEN COALESCE(IS_MEMBER('db_datawriter'), 0) = 1 THEN 'database-role-db_datawriter'
+            WHEN COALESCE(IS_MEMBER('db_ddladmin'), 0) = 1 THEN 'database-role-db_ddladmin'
+            WHEN HAS_PERMS_BY_NAME(NULL, NULL, 'CONTROL SERVER') = 1 THEN 'server-permission-control-server'
+            WHEN HAS_PERMS_BY_NAME(NULL, NULL, 'ALTER ANY LOGIN') = 1 THEN 'server-permission-alter-any-login'
+            WHEN HAS_PERMS_BY_NAME(NULL, NULL, 'ALTER ANY DATABASE') = 1 THEN 'server-permission-alter-any-database'
+            WHEN HAS_PERMS_BY_NAME(NULL, NULL, 'CREATE ANY DATABASE') = 1 THEN 'server-permission-create-any-database'
+            WHEN HAS_PERMS_BY_NAME(NULL, NULL, 'ADMINISTER BULK OPERATIONS') = 1 THEN 'server-permission-administer-bulk-operations'
+            WHEN HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'CONTROL') = 1 THEN 'database-permission-control'
+            WHEN HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'ALTER') = 1 THEN 'database-permission-alter'
+            WHEN HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'CREATE TABLE') = 1 THEN 'database-permission-create-table'
+            WHEN HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'CREATE PROCEDURE') = 1 THEN 'database-permission-create-procedure'
+            WHEN HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'EXECUTE') = 1 THEN 'database-permission-execute'
+            WHEN EXISTS (
                 SELECT 1
                 FROM sys.objects AS candidate
                 WHERE candidate.type IN ('U', 'V') AND
-                    candidate.is_ms_shipped = 0 AND (
+                    candidate.is_ms_shipped = 0 AND
                     HAS_PERMS_BY_NAME(
                         QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
-                        'OBJECT',
-                        'INSERT') = 1 OR
+                        'OBJECT', 'INSERT') = 1
+            ) THEN 'table-view-insert'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.objects AS candidate
+                WHERE candidate.type IN ('U', 'V') AND
+                    candidate.is_ms_shipped = 0 AND
                     HAS_PERMS_BY_NAME(
                         QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
-                        'OBJECT',
-                        'UPDATE') = 1 OR
+                        'OBJECT', 'UPDATE') = 1
+            ) THEN 'table-view-update'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.objects AS candidate
+                WHERE candidate.type IN ('U', 'V') AND
+                    candidate.is_ms_shipped = 0 AND
                     HAS_PERMS_BY_NAME(
                         QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
-                        'OBJECT',
-                        'DELETE') = 1
-                    )
-            ) OR
-            EXISTS (
+                        'OBJECT', 'DELETE') = 1
+            ) THEN 'table-view-delete'
+            WHEN EXISTS (
                 SELECT 1
                 FROM sys.objects AS candidate
                 WHERE candidate.type IN ('P', 'PC') AND
                     candidate.is_ms_shipped = 0 AND
                     HAS_PERMS_BY_NAME(
                         QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
-                        'OBJECT',
-                        'EXECUTE') = 1
-            ) OR
-            EXISTS (
+                        'OBJECT', 'EXECUTE') = 1
+            ) THEN 'procedure-execute'
+            WHEN EXISTS (
                 SELECT 1
                 FROM sys.objects AS candidate
                 WHERE candidate.type IN ('FN', 'IF', 'TF', 'FS', 'FT') AND
-                    candidate.is_ms_shipped = 0 AND (
+                    candidate.is_ms_shipped = 0 AND
                     HAS_PERMS_BY_NAME(
                         QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
-                        'OBJECT',
-                        'EXECUTE') = 1 OR
+                        'OBJECT', 'EXECUTE') = 1
+            ) THEN 'function-execute'
+            WHEN EXISTS (
+                SELECT 1
+                FROM sys.objects AS candidate
+                WHERE candidate.type IN ('FN', 'IF', 'TF', 'FS', 'FT') AND
+                    candidate.is_ms_shipped = 0 AND
                     HAS_PERMS_BY_NAME(
                         QUOTENAME(OBJECT_SCHEMA_NAME(candidate.object_id)) + '.' + QUOTENAME(candidate.name),
-                        'OBJECT',
-                        'SELECT') = 1
-                    )
-            )
-        THEN 0 ELSE 1 END);
+                        'OBJECT', 'SELECT') = 1
+            ) THEN 'function-select'
+            ELSE 'verified' END;
         """;
 
     public string Name => "sql-server";
@@ -90,7 +100,7 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
         return new SqlConnection(builder.ConnectionString);
     }
 
-    public async Task<bool> VerifyReadOnlyPrincipalAsync(
+    public async Task<DatabaseReadPrincipalVerification> VerifyReadOnlyPrincipalAsync(
         DbConnection connection,
         DatabaseReadLimits limits,
         CancellationToken cancellationToken)
@@ -100,7 +110,9 @@ internal sealed class SqlServerDatabaseReadProvider : IDatabaseReadProvider
         command.CommandTimeout = limits.TimeoutSeconds;
         var value = await command.ExecuteScalarAsync(cancellationToken);
 
-        return value is true;
+        return value is string check
+            ? new DatabaseReadPrincipalVerification(check == "verified", check == "verified" ? null : check)
+            : new DatabaseReadPrincipalVerification(false, "verification-result-invalid");
     }
 
     public async Task ConfigureReadOnlyTransactionAsync(
