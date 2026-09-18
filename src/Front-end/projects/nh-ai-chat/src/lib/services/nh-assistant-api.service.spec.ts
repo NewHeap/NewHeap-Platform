@@ -1,3 +1,4 @@
+import { inject } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom, toArray } from 'rxjs';
 import { NhAssistantSseEvent } from '../models/assistant-sse.models';
@@ -60,6 +61,22 @@ describe('NhAssistantApiService', () => {
     expect(headers['Accept']).toBe('text/event-stream');
     expect(headers['Content-Type']).toBe('application/json');
     expect(JSON.parse(init.body as string)).toEqual({ text: 'Hello', clientMessageId: 'client-1' });
+  });
+
+  it('resolves the token inside the injection context of the assistant scope', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: 'HOST_TOKEN', useValue: 'injected-token' },
+        provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => inject('HOST_TOKEN' as never) as string }),
+        { provide: NH_ASSISTANT_FETCH, useFactory: () => fetchSpy }
+      ]
+    });
+    fetchSpy.and.returnValue(Promise.resolve(jsonResponse({ enabled: false, agents: [], limits: { maxMessageChars: 1, maxToolCallsPerTurn: 1 } })));
+
+    await firstValueFrom(TestBed.inject(NhAssistantApiService).status());
+
+    const headers = fetchSpy.calls.mostRecent().args[1].headers as Record<string, string>;
+    expect(headers['Authorization']).toBe('Bearer injected-token');
   });
 
   it('omits the Authorization header when the host has no token', async () => {

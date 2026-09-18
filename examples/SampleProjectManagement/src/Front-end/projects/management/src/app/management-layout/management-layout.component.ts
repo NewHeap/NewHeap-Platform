@@ -1,5 +1,6 @@
 import { Component, HostListener, OnDestroy, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NhAssistantLauncherComponent, NhAssistantPanelComponent } from '@newheap/platform-ai-chat';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription, filter } from 'rxjs';
 import {
@@ -10,7 +11,15 @@ import {
 @Component({
   selector: 'app-management-layout',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, TranslateModule, SampleUserMenuComponent],
+  imports: [
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet,
+    TranslateModule,
+    SampleUserMenuComponent,
+    NhAssistantLauncherComponent,
+    NhAssistantPanelComponent
+  ],
   templateUrl: './management-layout.component.html',
   styleUrl: './management-layout.component.scss'
 })

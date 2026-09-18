@@ -271,7 +271,26 @@
       "password-saved": "Je wachtwoord is gewijzigd.",
       "password-mismatch": "Het nieuwe wachtwoord en de herhaling komen niet overeen.",
       "save-failed": "Opslaan is niet gelukt. Controleer de invoer en probeer opnieuw."
-    }
+    },
+    "assistant-playground-nav": "Assistent",
+    "assistant-playground-title": "Assistentpaneel",
+    "assistant-playground-description": "Het herbruikbare assistentpaneel streamt antwoorden, toont toolaanroepen en vraagt om goedkeuring voor een wijziging. Deze pagina draait het op een gescripte mock-API, zodat elke toestand reproduceerbaar is zonder taalmodel.",
+    "assistant-launcher-label": "Launcher",
+    "assistant-launcher-hidden": "Verborgen: de assistent staat uit of is niet toegestaan.",
+    "assistant-controls-title": "Beschikbaarheid",
+    "assistant-controls-description": "De launcher verschijnt alleen als de server de assistent aanzet en het toegangsbeleid de gebruiker toelaat.",
+    "assistant-feature-flag": "Assistent aan op de server",
+    "assistant-access-permission": "Gebruiker heeft de assistentpermissie",
+    "assistant-open-panel": "Assistent openen",
+    "assistant-prompts-title": "Gescripte vragen",
+    "assistant-prompts-description": "Elke vraag speelt een gescripte beurt af in het paneel.",
+    "assistant-prompt-list": "Toolaanroep en tabel",
+    "assistant-prompt-approval": "Goedkeuring",
+    "assistant-prompt-forbidden": "Mislukte toolaanroep",
+    "assistant-prompt-long": "Lang antwoord om te stoppen",
+    "assistant-prompt-unsafe": "Onveilige HTML",
+    "assistant-prompt-error": "Foutmelding",
+    "assistant-state-title": "Store-toestand"
   },
   "nh-background-operations": {
     "operation": "Achtergrondtaak",
@@ -389,6 +408,21 @@
       "search-no-render-text": "Typ om resultaten te laden",
       "default-title": "Selecteren",
       "all-selected": "Alles geselecteerd"
+    }
+  },
+  "nh-assistant": {
+    "agents": {
+      "sample-project-assistant": {
+        "name": "Projectassistent",
+        "description": "Beantwoordt vragen over projecten en stelt statuswijzigingen voor ter goedkeuring."
+      },
+      "sample-catalog-guide": {
+        "name": "Catalogusgids",
+        "description": "Legt de samplecatalogus uit. Alleen lezen."
+      }
+    },
+    "errors": {
+      "assistant-model-unavailable": "Het taalmodel is tijdelijk niet beschikbaar. Probeer het zo opnieuw."
     }
   }
 }

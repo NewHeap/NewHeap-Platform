@@ -59,6 +59,7 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   readonly markdown = this.config.markdown?.enabled ?? true;
   readonly showConversations = signal(false);
   readonly conversation = this.store.activeConversation;
+  private readonly conversationId = computed(() => this.conversation()?.id ?? null);
   readonly messages = computed(() => this.conversation()?.messages ?? []);
   readonly closed = computed(() => {
     const status = this.conversation()?.status;
@@ -72,6 +73,13 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   });
 
   constructor() {
+    // Opening, creating or leaving a conversation returns from the list to the thread.
+    effect(() => {
+      if (this.conversationId() !== undefined) {
+        untracked(() => this.showConversations.set(false));
+      }
+    });
+
     effect(() => {
       if (this.panel.isOpen()) {
         untracked(() => {
@@ -111,6 +119,7 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   }
 
   send(text: string): void {
+    this.showConversations.set(false);
     void this.store.send(text);
   }
 

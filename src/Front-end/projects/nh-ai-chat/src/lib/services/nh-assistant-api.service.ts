@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { EnvironmentInjector, Injectable, inject, runInInjectionContext } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { Observable, Subscriber } from 'rxjs';
 import {
@@ -70,6 +70,7 @@ export class NhAssistantApiService {
   private readonly config = inject(NH_ASSISTANT_CONFIG);
   private readonly fetchFn = inject(NH_ASSISTANT_FETCH);
   private readonly translate = inject(TranslateService, { optional: true });
+  private readonly injector = inject(EnvironmentInjector);
 
   status(): Observable<AssistantStatus> {
     return this.requestJson<AssistantStatus>('GET', 'status');
@@ -263,7 +264,7 @@ export class NhAssistantApiService {
   private async createInit(method: string, accept: string, body: unknown, signal: AbortSignal): Promise<RequestInit> {
     const headers: Record<string, string> = { Accept: accept };
 
-    const token = await this.config.getAccessToken();
+    const token = await runInInjectionContext(this.injector, () => this.config.getAccessToken());
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }

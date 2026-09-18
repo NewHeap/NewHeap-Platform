@@ -71,6 +71,11 @@ export const SAMPLE_ROUTES: Routes = [
           .then(module => module.NotificationPlaygroundComponent)
       },
       {
+        path: 'assistant',
+        loadChildren: () => import('./assistant-playground/assistant-playground.routes')
+          .then(module => module.ASSISTANT_PLAYGROUND_ROUTES)
+      },
+      {
         path: 'platform',
         title: 'Platform',
         loadComponent: () => import('./platform-playground/platform-playground.component')

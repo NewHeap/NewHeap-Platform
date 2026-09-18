@@ -9,7 +9,11 @@ export interface NhAssistantAccessPolicy {
 export interface NhAssistantConfig {
   /** Base URL of the assistant endpoints, for example `environment.api.baseUrl + '/assistant'`. */
   apiBaseUrl: string;
-  /** Returns the caller's bearer token, or null when the request should be anonymous. */
+  /**
+   * Returns the caller's bearer token, or null when the request should be anonymous. It runs
+   * in the injection context of the assistant scope before every request, so it may call
+   * `inject(...)`, for example `() => inject(MyAuthService).getAuthorization()?.token ?? null`.
+   */
   getAccessToken: () => string | null | Promise<string | null>;
   /** Injectable access policy. Default: always allowed. */
   accessPolicy?: Type<NhAssistantAccessPolicy>;

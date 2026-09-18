@@ -7,10 +7,39 @@ import nl from './nl.json';
 /** The library's own translation bundles, keyed by language. All keys live under `nh-assistant.`. */
 export const NH_ASSISTANT_TRANSLATIONS: Readonly<Record<'en' | 'nl', TranslationObject>> = { en, nl };
 
+type TranslationTree = { [key: string]: unknown };
+
+const rootKey = 'nh-assistant';
+
+function isTree(value: unknown): value is TranslationTree {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** Deep merge where values of `override` win. */
+function mergeTrees(base: TranslationTree, override: TranslationTree): TranslationTree {
+  const result: TranslationTree = { ...base };
+  for (const [key, value] of Object.entries(override)) {
+    const current = result[key];
+    result[key] = isTree(current) && isTree(value) ? mergeTrees(current, value) : value;
+  }
+  return result;
+}
+
+function hasAllKeys(bundle: TranslationTree, candidate: unknown): boolean {
+  if (!isTree(candidate)) {
+    return false;
+  }
+
+  return Object.entries(bundle).every(([key, value]) =>
+    isTree(value) ? hasAllKeys(value, candidate[key]) : key in candidate
+  );
+}
+
 /**
  * Merges the bundled texts into `TranslateService` whenever the host loads or replaces a
- * language, so host loaders never overwrite them and the library never pre-empts the host
- * loader. Languages without a bundle receive the English texts.
+ * language. Host loaders never lose the library texts, the library never pre-empts the
+ * host loader, and keys the host defines under `nh-assistant.` (agent names, overrides)
+ * win over the bundle. Languages without a bundle receive the English texts.
  */
 @Injectable({ providedIn: 'root' })
 export class NhAssistantTranslationMerger {
@@ -25,26 +54,29 @@ export class NhAssistantTranslationMerger {
     }
     this.started = true;
 
-    const subscription = merge(translate.onTranslationChange, translate.onLangChange)
-      .subscribe(event => {
-        if (event.lang && event.translations && !('nh-assistant' in event.translations)) {
-          this.mergeBundle(event.lang);
-        }
-      });
+    const subscription = merge(translate.onTranslationChange, translate.onLangChange).subscribe(event => {
+      if (event.lang && isTree(event.translations)) {
+        this.ensure(event.lang, event.translations[rootKey]);
+      }
+    });
     this.destroyRef.onDestroy(() => subscription.unsubscribe());
 
-    // The current and fallback languages are loaded or already requested by the host, so
-    // merging into them never pre-empts the host loader; a later load triggers a new merge.
-    const languages = new Set([translate.getCurrentLang(), translate.getFallbackLang()]);
-    for (const language of languages) {
-      if (language) {
-        this.mergeBundle(language);
-      }
+    // The current language is loaded or already requested by the host, so merging into it
+    // never pre-empts the host loader; a later load triggers a new merge.
+    const current = translate.getCurrentLang();
+    if (current) {
+      this.ensure(current, translate.instant(rootKey));
     }
   }
 
-  private mergeBundle(language: string): void {
-    const bundle = NH_ASSISTANT_TRANSLATIONS[language as 'en' | 'nl'] ?? NH_ASSISTANT_TRANSLATIONS.en;
-    this.translate?.setTranslation(language, bundle, true);
+  private ensure(language: string, existing: unknown): void {
+    const bundle = (NH_ASSISTANT_TRANSLATIONS[language as 'en' | 'nl'] ?? NH_ASSISTANT_TRANSLATIONS.en) as TranslationTree;
+    const bundleRoot = bundle[rootKey] as TranslationTree;
+    if (hasAllKeys(bundleRoot, existing)) {
+      return;
+    }
+
+    const merged = mergeTrees(bundleRoot, isTree(existing) ? existing : {});
+    this.translate?.setTranslation(language, { [rootKey]: merged } as TranslationObject, true);
   }
 }

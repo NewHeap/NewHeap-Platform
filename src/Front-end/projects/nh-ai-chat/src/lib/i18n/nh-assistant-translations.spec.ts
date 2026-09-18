@@ -69,6 +69,19 @@ describe('bundled translations', () => {
     expect(translate.instant('nh-assistant.panel.title')).toBe('Assistant');
   });
 
+  it('keeps host keys under nh-assistant and lets host overrides win', async () => {
+    const translate = setup();
+    await firstValueFrom(translate.use('en'));
+
+    translate.setTranslation('en', {
+      'nh-assistant': { agents: { projects: { name: 'Project assistant' } }, panel: { title: 'Helper' } }
+    });
+
+    expect(translate.instant('nh-assistant.agents.projects.name')).toBe('Project assistant');
+    expect(translate.instant('nh-assistant.panel.title')).toBe('Helper');
+    expect(translate.instant('nh-assistant.panel.close')).toBe('Close assistant');
+  });
+
   it('leaves translations to the host in host mode', async () => {
     const translate = setup('host');
     await firstValueFrom(translate.use('en'));
