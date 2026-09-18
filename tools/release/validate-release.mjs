@@ -13,6 +13,7 @@ import {
 const manifest = await loadReleaseManifest();
 const failures = [];
 const workflowPaths = [
+  '.github/workflows/bootstrap-npm-ai-chat.yml',
   '.github/workflows/release-contract.yml',
   '.github/workflows/prepare-release.yml',
   '.github/workflows/publish-preview.yml',
