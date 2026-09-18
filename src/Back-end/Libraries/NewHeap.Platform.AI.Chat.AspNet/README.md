@@ -20,6 +20,7 @@ services.AddNewHeapAssistant(assistant => assistant
     .UseTurnContextProvider<ApplicationTurnContextProvider>()
     .ConfigureMcp(mcp => mcp.AllowedHosts.Add("planning.example.com"))
     .AddAgent(agent)
+    .AddToolPresenter<ApplicationAssistantToolPresenter>()
     .AddBusinessAuditSink<ApplicationAssistantAuditSink>()
     .WithLimits(limits => limits.MaxToolCallsPerTurn = 8));
 
@@ -31,6 +32,12 @@ policy is missing, or when the invocation gate or a durable manager was replaced
 the assistant. `AddNewHeapAssistant` is idempotent. The assistant relies on the
 registered `INhAiAuthenticatedInvocationContextResolver`; a replaced resolver is used
 as is, and no tenant claim is required.
+
+`INhAssistantToolPresenter` is optional. Use it for application-localized names and
+approval explanations sourced from authorized server-side data. Presentation is
+persisted beside, but never substituted for, the exact proposal evidence. The API
+returns it as optional `approval.presentation`; clients must support `null` for old
+approvals and tools without a presenter.
 
 ## Configuration
 

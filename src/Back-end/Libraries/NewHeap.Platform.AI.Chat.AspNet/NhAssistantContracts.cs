@@ -71,12 +71,21 @@ public sealed record NhAssistantToolCallPartDto(
     string? ResultPreview,
     string? ResultCode) : NhAssistantMessagePartDto;
 
+public sealed record NhAssistantPresentationFieldDto(string Label, string Value);
+
+public sealed record NhAssistantApprovalPresentationDto(
+    string ToolDisplayName,
+    string Summary,
+    IReadOnlyList<NhAssistantPresentationFieldDto> Fields,
+    string? Notice);
+
 public sealed record NhAssistantApprovalPartDto(
     Guid ApprovalId,
     Guid ProposalId,
     string ProposalHash,
     string ToolId,
     string Summary,
+    NhAssistantApprovalPresentationDto? Presentation,
     string ArgumentsPreview,
     IReadOnlyList<string> Targets,
     DateTimeOffset ExpiresAt,

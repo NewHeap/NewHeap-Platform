@@ -81,7 +81,10 @@ export function applyNhAssistantEvent(
 
     case 'approval.required': {
       const approval: ApprovalPart = { ...event.data, type: 'approval' };
-      const withToolAwaiting = markLatestRunningToolAwaiting(conversation, approval.toolId);
+      const withToolAwaiting = markLatestRunningToolAwaiting(
+        conversation,
+        approval.toolId,
+        approval.presentation?.toolDisplayName);
       const exists = withToolAwaiting.messages.some(message =>
         message.parts.some(part => part.type === 'approval' && part.approvalId === approval.approvalId)
       );
@@ -252,13 +255,21 @@ function updateToolCall(
   };
 }
 
-function markLatestRunningToolAwaiting(conversation: Conversation, toolId: string): Conversation {
+function markLatestRunningToolAwaiting(
+  conversation: Conversation,
+  toolId: string,
+  displayName?: string
+): Conversation {
   const running = findLatestToolCall(conversation.messages, part => part.toolId === toolId && part.status === 'running');
   if (!running) {
     return conversation;
   }
 
-  return updateToolCall(conversation, running.invocationId, part => ({ ...part, status: 'awaiting-approval' }));
+  return updateToolCall(conversation, running.invocationId, part => ({
+    ...part,
+    displayName: displayName ?? part.displayName,
+    status: 'awaiting-approval'
+  }));
 }
 
 function replaceApproval(conversation: Conversation, approval: ApprovalPart): Conversation {

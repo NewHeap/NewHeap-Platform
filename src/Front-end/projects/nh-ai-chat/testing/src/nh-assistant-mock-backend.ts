@@ -370,6 +370,7 @@ export class NhAssistantMockBackend {
       proposalHash: `sha256:${this.nextId().replace(/-/g, '')}`,
       toolId: step.toolId,
       summary: step.summary,
+      presentation: step.presentation,
       argumentsPreview: step.argumentsPreview,
       targets: step.targets,
       expiresAt: new Date(Date.now() + (step.expiresInSeconds ?? 300) * 1000).toISOString(),

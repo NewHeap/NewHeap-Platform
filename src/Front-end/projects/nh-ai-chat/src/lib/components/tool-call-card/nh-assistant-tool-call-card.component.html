@@ -27,6 +27,8 @@
 
   @if (hasDetails()) {
     <div class="details" [id]="detailsId" [hidden]="!expanded()">
+      <p class="label">{{ 'nh-assistant.tool-call.tool-id' | translate }}</p>
+      <code>{{ part().toolId }}</code>
       @if (part().argumentsPreview; as argumentsPreview) {
         <p class="label">{{ 'nh-assistant.tool-call.arguments' | translate }}</p>
         <pre>{{ argumentsPreview }}</pre>

@@ -182,6 +182,15 @@ internal static class NhAssistantDtoMapper
                 approval.ProposalHash,
                 approval.ToolId,
                 approval.Summary,
+                approval.Presentation is null
+                    ? null
+                    : new NhAssistantApprovalPresentationDto(
+                        approval.Presentation.ToolDisplayName,
+                        approval.Presentation.Summary,
+                        approval.Presentation.Fields
+                            .Select(field => new NhAssistantPresentationFieldDto(field.Label, field.Value))
+                            .ToArray(),
+                        approval.Presentation.Notice),
                 approval.ArgumentsPreview,
                 approval.Targets,
                 approval.ExpiresAt,

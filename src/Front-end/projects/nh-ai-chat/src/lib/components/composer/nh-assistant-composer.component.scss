@@ -73,13 +73,18 @@ textarea {
   border-color: var(--nha-danger);
 }
 
-.hint {
+.hint,
+.composer-status {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   margin: 6px 2px 0;
   color: var(--nha-text-muted);
   font-size: 11px;
+}
+
+.composer-status {
+  margin-bottom: 0;
 }
 
 .counter {

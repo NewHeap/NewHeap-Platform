@@ -56,6 +56,7 @@ export class NhAssistantApprovalCardComponent {
   readonly actionable = computed(() => this.effectiveStatus() === 'pending');
   readonly disabled = computed(() => !this.actionable() || this.deciding() || this.submitted());
   readonly countdown = computed(() => formatNhAssistantCountdown(this.remainingMs()));
+  readonly presentedSummary = computed(() => this.approval().presentation?.summary ?? null);
 
   constructor() {
     // Tick only while the approval is pending and not yet expired.

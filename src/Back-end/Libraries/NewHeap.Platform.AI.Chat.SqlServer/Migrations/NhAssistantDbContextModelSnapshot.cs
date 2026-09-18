@@ -187,6 +187,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("PresentationJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<string>("ProposalHash")
                         .IsRequired()
                         .HasMaxLength(128)

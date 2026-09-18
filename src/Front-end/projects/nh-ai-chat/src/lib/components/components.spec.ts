@@ -31,6 +31,12 @@ const approval: ApprovalPart = {
   proposalHash: 'hash-1',
   toolId: 'sample-api.project.update-status',
   summary: 'Set Alpha on hold',
+  presentation: {
+    toolDisplayName: 'Change project status',
+    summary: 'Set Alpha on hold',
+    fields: [{ label: 'Project', value: 'Alpha' }],
+    notice: null
+  },
   argumentsPreview: '{"status":"on-hold"}',
   targets: ['Project Alpha'],
   expiresAt: new Date(Date.now() + 125_000).toISOString(),
@@ -178,19 +184,37 @@ describe('NhAssistantComposerComponent', () => {
     expect((fixture.nativeElement.querySelector('button.send') as HTMLButtonElement).disabled).toBeTrue();
   });
 
-  it('is disabled while the assistant runs and offers a stop button', () => {
+  it('keeps drafting available while the assistant runs and preserves a blocked Enter draft', () => {
     let cancelled = 0;
     fixture.componentInstance.cancel.subscribe(() => cancelled++);
-    fixture.componentRef.setInput('disabled', true);
+    fixture.componentRef.setInput('sendDisabled', true);
     fixture.componentRef.setInput('busy', true);
+    fixture.componentRef.setInput('status', 'running');
     fixture.detectChanges();
 
+    const textarea = type('Next question');
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+    fixture.detectChanges();
     const stop = fixture.nativeElement.querySelector('button.stop') as HTMLButtonElement;
     stop.click();
 
-    expect((fixture.nativeElement.querySelector('textarea') as HTMLTextAreaElement).disabled).toBeTrue();
+    expect(textarea.disabled).toBeFalse();
+    expect(textarea.value).toBe('Next question');
+    expect(sent).toEqual([]);
+    expect(fixture.nativeElement.textContent).toContain('You can keep typing while the assistant works.');
     expect(stop.getAttribute('aria-label')).toBe('Stop the assistant');
     expect(cancelled).toBe(1);
+  });
+
+  it('returns focus after the explicit send button is used', async () => {
+    const textarea = type('Hello');
+    const send = fixture.nativeElement.querySelector('button.send') as HTMLButtonElement;
+    send.focus();
+
+    send.click();
+    await flush();
+
+    expect(document.activeElement).toBe(textarea);
   });
 });
 
@@ -215,12 +239,22 @@ describe('NhAssistantApprovalCardComponent', () => {
     const text = fixture.nativeElement.textContent as string;
 
     expect(text).toContain('Set Alpha on hold');
-    expect(text).toContain('Project Alpha');
+    expect(text).toContain('ProjectAlpha');
+    expect((fixture.nativeElement.querySelector('details') as HTMLDetailsElement).open).toBeFalse();
     expect(text).toMatch(/Expires in 2:0\d/);
     expect(buttons().map(button => button.getAttribute('aria-label'))).toEqual([
       'Reject: Set Alpha on hold',
       'Approve: Set Alpha on hold'
     ]);
+  });
+
+  it('uses a localized safe fallback for old approvals without a presentation', () => {
+    fixture.componentRef.setInput('approval', { ...approval, presentation: null, summary: 'Technical descriptor' });
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Review this action before it runs.');
+    expect(text).not.toContain('Technical descriptor');
   });
 
   it('emits one decision on a double click', () => {
@@ -292,6 +326,7 @@ describe('NhAssistantToolCallCardComponent', () => {
 
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect((element.querySelector('.details') as HTMLElement).hidden).toBeFalse();
+    expect(element.textContent).toContain('sample-api.project.get-by-id');
   });
 
   it('uses the error text for assistant result codes such as a rejected approval', () => {

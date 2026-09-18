@@ -1626,6 +1626,8 @@
     ],
     "SPM-246": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
@@ -1633,6 +1635,7 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantApprovalEvidenceProvider.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantInvocationGate.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnRunnerTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolPresentationTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDurableManagerTests.cs"
     ],
     "SPM-247": [

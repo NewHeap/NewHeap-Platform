@@ -5,21 +5,43 @@
     <span class="status">{{ 'nh-assistant.approval.status.' + effectiveStatus() | translate }}</span>
   </header>
 
-  <p class="summary">{{ approval().summary }}</p>
-
-  @if (approval().targets.length > 0) {
-    <p class="label">{{ 'nh-assistant.approval.targets' | translate }}</p>
-    <ul class="targets">
-      @for (target of approval().targets; track $index) {
-        <li>{{ target }}</li>
-      }
-    </ul>
+  @if (approval().presentation; as presentation) {
+    <p class="tool-name">{{ presentation.toolDisplayName }}</p>
+    <p class="summary">{{ presentation.summary }}</p>
+    @if (presentation.fields.length > 0) {
+      <dl class="presentation-fields">
+        @for (field of presentation.fields; track $index) {
+          <div>
+            <dt>{{ field.label }}</dt>
+            <dd>{{ field.value }}</dd>
+          </div>
+        }
+      </dl>
+    }
+    @if (presentation.notice) {
+      <p class="notice">{{ presentation.notice }}</p>
+    }
+  } @else {
+    <p class="summary">{{ 'nh-assistant.approval.fallback-summary' | translate }}</p>
   }
 
-  @if (approval().argumentsPreview) {
-    <p class="label">{{ 'nh-assistant.approval.arguments' | translate }}</p>
-    <pre>{{ approval().argumentsPreview }}</pre>
-  }
+  <details class="technical-details">
+    <summary>{{ 'nh-assistant.approval.technical-details' | translate }}</summary>
+    <p class="label">{{ 'nh-assistant.approval.tool-id' | translate }}</p>
+    <code>{{ approval().toolId }}</code>
+    @if (approval().targets.length > 0) {
+      <p class="label">{{ 'nh-assistant.approval.targets' | translate }}</p>
+      <ul class="targets">
+        @for (target of approval().targets; track $index) {
+          <li>{{ target }}</li>
+        }
+      </ul>
+    }
+    @if (approval().argumentsPreview) {
+      <p class="label">{{ 'nh-assistant.approval.arguments' | translate }}</p>
+      <pre>{{ approval().argumentsPreview }}</pre>
+    }
+  </details>
 
   @if (actionable()) {
     <p class="expiry" aria-live="off">
@@ -31,7 +53,7 @@
         class="reject"
         type="button"
         [disabled]="disabled()"
-        [attr.aria-label]="'nh-assistant.approval.reject-label' | translate: { summary: approval().summary }"
+        [attr.aria-label]="'nh-assistant.approval.reject-label' | translate: { summary: presentedSummary() ?? ('nh-assistant.approval.fallback-summary' | translate) }"
         (click)="choose('reject')">
         {{ 'nh-assistant.approval.reject' | translate }}
       </button>
@@ -39,7 +61,7 @@
         class="approve"
         type="button"
         [disabled]="disabled()"
-        [attr.aria-label]="'nh-assistant.approval.approve-label' | translate: { summary: approval().summary }"
+        [attr.aria-label]="'nh-assistant.approval.approve-label' | translate: { summary: presentedSummary() ?? ('nh-assistant.approval.fallback-summary' | translate) }"
         (click)="choose('approve')">
         {{ 'nh-assistant.approval.approve' | translate }}
       </button>

@@ -72,6 +72,18 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Adds an optional presenter for localized, user-facing tool names and approval explanations.
+    /// Presenters cannot alter authorization, proposal evidence or approval decisions.
+    /// </summary>
+    public NhAssistantBuilder AddToolPresenter<TPresenter>()
+        where TPresenter : class, INhAssistantToolPresenter
+    {
+        Services.TryAddEnumerable(
+            ServiceDescriptor.Scoped<INhAssistantToolPresenter, TPresenter>());
+        return this;
+    }
+
+    /// <summary>
     /// Replaces the default title generator, which uses the first line of the first message.
     /// </summary>
     public NhAssistantBuilder UseTitleGenerator<TGenerator>()

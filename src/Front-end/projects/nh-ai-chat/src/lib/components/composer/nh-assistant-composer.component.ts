@@ -1,12 +1,25 @@
-import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  HostListener,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+  viewChild
+} from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 
 let nextId = 0;
 
 /**
- * Message input. Enter sends, Shift+Enter inserts a new line. While the assistant runs
- * the send button becomes a stop button.
+ * Message input. Enter sends when sending is available; Shift+Enter inserts a new line.
+ * Drafting remains available while the assistant runs or waits for approval.
  */
 @Component({
   selector: 'nh-assistant-composer',
@@ -17,10 +30,14 @@ let nextId = 0;
   styleUrl: './nh-assistant-composer.component.scss'
 })
 export class NhAssistantComposerComponent {
-  /** Disables typing and sending, for example while a turn runs or waits for approval. */
+  /** Disables the editor only when the conversation itself cannot accept a draft. */
   readonly disabled = input(false);
+  /** Blocks sending without disabling the editor or clearing its draft. */
+  readonly sendDisabled = input(false);
   /** Shows the stop button instead of the send button. */
   readonly busy = input(false);
+  /** Announces why sending is temporarily unavailable. */
+  readonly status = input<'running' | 'waiting-for-approval' | null>(null);
   readonly maxLength = input<number | null>(null);
   /** Text to put back into the input, for example a message the server did not accept. */
   readonly restore = input<string | null>(null);
@@ -28,6 +45,11 @@ export class NhAssistantComposerComponent {
   readonly send = output<string>();
   readonly cancel = output<void>();
   readonly restored = output<void>();
+
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly textarea = viewChild.required<ElementRef<HTMLTextAreaElement>>('textarea');
+  private ownedFocus = false;
+  private previousBusy = false;
 
   readonly inputId = `nh-assistant-composer-${nextId++}`;
   readonly hintId = `${this.inputId}-hint`;
@@ -41,7 +63,8 @@ export class NhAssistantComposerComponent {
     const max = this.maxLength();
     return max !== null && this.length() >= max * 0.8;
   });
-  readonly canSend = computed(() => !this.disabled() && this.length() > 0 && !this.tooLong());
+  readonly canSend = computed(() =>
+    !this.disabled() && !this.sendDisabled() && this.length() > 0 && !this.tooLong());
 
   constructor() {
     effect(() => {
@@ -53,6 +76,27 @@ export class NhAssistantComposerComponent {
         });
       }
     });
+
+    effect(() => {
+      const busy = this.busy();
+      if (this.previousBusy && !busy) {
+        queueMicrotask(() => this.restoreOwnedFocus());
+      }
+      this.previousBusy = busy;
+    });
+  }
+
+  @HostListener('focusin')
+  onFocusIn(): void {
+    this.ownedFocus = true;
+  }
+
+  @HostListener('focusout', ['$event'])
+  onFocusOut(event: FocusEvent): void {
+    const next = event.relatedTarget;
+    if (next instanceof Node && !this.host.nativeElement.contains(next)) {
+      this.ownedFocus = false;
+    }
   }
 
   onInput(event: Event): void {
@@ -68,6 +112,12 @@ export class NhAssistantComposerComponent {
     this.submit();
   }
 
+  onSubmit(event: SubmitEvent): void {
+    event.preventDefault();
+    this.submit();
+    queueMicrotask(() => this.textarea().nativeElement.focus({ preventScroll: true }));
+  }
+
   submit(): void {
     if (!this.canSend()) {
       return;
@@ -76,5 +126,16 @@ export class NhAssistantComposerComponent {
     const text = this.text().trim();
     this.text.set('');
     this.send.emit(text);
+  }
+
+  private restoreOwnedFocus(): void {
+    if (!this.ownedFocus || matchMedia('(pointer: coarse)').matches) {
+      return;
+    }
+
+    const active = document.activeElement;
+    if (active === document.body || active === null || !active.isConnected) {
+      this.textarea().nativeElement.focus({ preventScroll: true });
+    }
   }
 }

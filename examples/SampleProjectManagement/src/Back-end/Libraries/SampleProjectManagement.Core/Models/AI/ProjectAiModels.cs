@@ -6,6 +6,12 @@ public sealed record ProjectAiSearchInput(string? Query, int Limit = 10);
 
 public sealed record ProjectAiSearchItem(Guid Id, string Key, string Name);
 
+public sealed record ProjectAiApprovalItem(
+    Guid Id,
+    string Key,
+    string Name,
+    ProjectStatus Status);
+
 public sealed record ProjectAiStatusChangeInput(
     Guid ProjectId,
     ProjectStatus Status);

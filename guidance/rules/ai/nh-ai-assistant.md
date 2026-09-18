@@ -5,7 +5,7 @@ area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, and let administrators manage agents, MCP servers and the application context while users set style preferences."
 sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254"]
-public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone"]
+public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -33,6 +33,7 @@ services.AddNewHeapAssistant(assistant => assistant
         Autonomy: NhAiAutonomyLevel.Execute,
         RequiredPolicy: "app.project.view"))
     .AddBusinessAuditSink<ApplicationAssistantAuditSink>()
+    .AddToolPresenter<ApplicationAssistantToolPresenter>()
     .WithLimits(limits => { limits.MaxToolCallsPerTurn = 8; limits.DailyToolCallBudgetPerActor = 200; }));
 
 endpoints.MapNewHeapAssistant("/api/assistant");
@@ -69,6 +70,15 @@ the invoker with the proposal and approval ids bound to the context, a durable
 idempotency lease keyed by the proposal and the tool's verifier; on reject, the
 model receives a rejected result and may close with one message. Expired
 proposals end with `assistant-approval-expired`.
+
+Use `AddToolPresenter<T>()` when a consumer can explain a tool with localized domain
+names. The presenter receives the exact governed arguments, invocation context and
+request culture. Resolve display data again inside the authorized scope, return a short
+`NhAssistantApprovalPresentation`, and keep `NhAiToolDescriptor.Description` as English
+model metadata. Presentation is bounded, persisted and optional; it never enters the
+proposal hash or grants access. Failure, timeout, oversized output, confidential or
+restricted classification, old stored data and an unhandled tool all use the safe
+fallback. Never log presenter text, arguments or lookup results.
 
 The library replaces `INhAiBudgetManager`, `INhAiIdempotencyManager` and
 `INhAiApprovalEvidenceProvider` with durable implementations on its own tables.

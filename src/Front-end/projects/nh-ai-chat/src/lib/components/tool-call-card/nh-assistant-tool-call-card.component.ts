@@ -32,7 +32,7 @@ export class NhAssistantToolCallCardComponent {
   readonly detailsId = `nh-assistant-tool-call-${nextId++}`;
   readonly expanded = signal(false);
   readonly statusIcon = computed(() => statusIcons[this.part().status]);
-  readonly hasDetails = computed(() => !!this.part().argumentsPreview || !!this.part().resultPreview);
+  readonly hasDetails = computed(() => !!this.part().toolId);
 
   toggle(): void {
     this.expanded.update(expanded => !expanded);

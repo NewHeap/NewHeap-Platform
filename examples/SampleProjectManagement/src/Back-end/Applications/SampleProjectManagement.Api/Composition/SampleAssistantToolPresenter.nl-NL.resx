@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="ToolProjectsSearch" xml:space="preserve"><value>Projecten zoeken</value></data>
+  <data name="ToolProjectStatusChange" xml:space="preserve"><value>Projectstatus wijzigen</value></data>
+  <data name="ApprovalProjectStatusSummary" xml:space="preserve"><value>Wijzig project {0} — {1} naar {2}.</value></data>
+  <data name="ApprovalProjectValue" xml:space="preserve"><value>{0} — {1}</value></data>
+  <data name="ApprovalFieldProject" xml:space="preserve"><value>Project</value></data>
+  <data name="ApprovalFieldCurrentStatus" xml:space="preserve"><value>Huidige status</value></data>
+  <data name="ApprovalFieldNewStatus" xml:space="preserve"><value>Nieuwe status</value></data>
+  <data name="ProjectStatusDraft" xml:space="preserve"><value>Concept</value></data>
+  <data name="ProjectStatusActive" xml:space="preserve"><value>Actief</value></data>
+  <data name="ProjectStatusOnHold" xml:space="preserve"><value>Gepauzeerd</value></data>
+  <data name="ProjectStatusCompleted" xml:space="preserve"><value>Voltooid</value></data>
+  <data name="ProjectStatusArchived" xml:space="preserve"><value>Gearchiveerd</value></data>
+</root>

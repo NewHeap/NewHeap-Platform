@@ -72,6 +72,18 @@ export interface ToolCallPart {
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'expired';
 
+export interface ApprovalPresentationField {
+  label: string;
+  value: string;
+}
+
+export interface ApprovalPresentation {
+  toolDisplayName: string;
+  summary: string;
+  fields: ApprovalPresentationField[];
+  notice: string | null;
+}
+
 export interface ApprovalPart {
   type: 'approval';
   approvalId: string;
@@ -79,6 +91,8 @@ export interface ApprovalPart {
   proposalHash: string;
   toolId: string;
   summary: string;
+  /** Trusted server-side presentation. Missing on old events and when no presenter handled the tool. */
+  presentation?: ApprovalPresentation | null;
   argumentsPreview: string;
   targets: string[];
   expiresAt: string;

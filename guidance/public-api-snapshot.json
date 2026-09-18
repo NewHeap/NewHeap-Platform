@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.35",
   "backEnd": {
-    "hash": "6d23526a7a5d5ca3502e71f765a3cfc1833c151e8c520b7eb53bd0354e9dc5bf",
-    "declarationCount": 5098,
+    "hash": "128f6e970019946d8d97c640d75ca73e29629620ad1dfd8aa537a1029df83b41",
+    "declarationCount": 5126,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1191,7 +1191,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantApprovalPartDto( Guid ApprovalId, Guid ProposalId, string ProposalHash, string ToolId, string Summary, string ArgumentsPreview, IReadOnlyList<string> Targets, DateTimeOffset ExpiresAt, string Status) : NhAssistantMessagePartDto;"
+        "declaration": "public sealed record NhAssistantPresentationFieldDto(string Label, string Value);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantApprovalPresentationDto( string ToolDisplayName, string Summary, IReadOnlyList<NhAssistantPresentationFieldDto> Fields, string? Notice);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantApprovalPartDto( Guid ApprovalId, Guid ProposalId, string ProposalHash, string ToolId, string Summary, NhAssistantApprovalPresentationDto? Presentation, string ArgumentsPreview, IReadOnlyList<string> Targets, DateTimeOffset ExpiresAt, string Status) : NhAssistantMessagePartDto;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -1414,6 +1422,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20260918205206_ApprovalPresentation.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20260918205206_ApprovalPresentation.cs",
+        "declaration": "public partial class ApprovalPresentation : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20260918205206_ApprovalPresentation.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20260918205206_ApprovalPresentation.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -1491,6 +1515,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20260918142236_ClientContext.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20260918205205_ApprovalPresentation.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20260918205205_ApprovalPresentation.cs",
+        "declaration": "public partial class ApprovalPresentation : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20260918205205_ApprovalPresentation.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20260918205205_ApprovalPresentation.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -2123,6 +2163,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
+        "declaration": "public string? PresentationJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
         "declaration": "public string ArgumentsPreview { get; set; } = string.Empty;"
       },
       {
@@ -2336,6 +2380,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder AddBusinessAuditSink<TSink>() where TSink : class, INhAssistantBusinessAuditSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder AddToolPresenter<TPresenter>() where TPresenter : class, INhAssistantToolPresenter {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -3092,6 +3140,26 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantServiceRegistration.cs",
         "declaration": "public static bool IsInvocationGateDecorated(IServiceCollection services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public sealed record NhAssistantToolDisplayNameContext( NhAiToolDescriptor Descriptor, CultureInfo Culture);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public sealed record NhAssistantApprovalPresentationContext( NhAiToolDescriptor Descriptor, object Arguments, NhAiInvocationContext InvocationContext, CultureInfo Culture);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public sealed record NhAssistantPresentationField(string Label, string Value);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public sealed record NhAssistantApprovalPresentation( string ToolDisplayName, string Summary, IReadOnlyList<NhAssistantPresentationField> Fields, string? Notice = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
+        "declaration": "public interface INhAssistantToolPresenter {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
@@ -3895,7 +3963,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
-        "declaration": "public async Task<AssistantToolInvocation> BeginToolCallAsync( NhAiToolDescriptor descriptor, string callId, string functionName, IEnumerable<KeyValuePair<string, object?>>? arguments, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<AssistantToolInvocation> BeginToolCallAsync( NhAiToolDescriptor descriptor, string callId, string functionName, IEnumerable<KeyValuePair<string, object?>>? arguments, string displayName, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -3908,6 +3976,50 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public async Task RecordBusinessEventAsync(NhAssistantAuditEvent evt, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public const int MaxDisplayNameLength = 160;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public const int MaxSummaryLength = 512;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public const int MaxFieldCount = 8;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public const int MaxFieldLabelLength = 80;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public const int MaxFieldValueLength = 256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public const int MaxNoticeLength = 512;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public const int MaxSerializedLength = 4_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public async Task<string> ResolveDisplayNameAsync( NhAiToolDescriptor descriptor, CultureInfo culture, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public async Task<NhAssistantApprovalPresentation?> ResolveApprovalAsync( NhAiToolDescriptor descriptor, object arguments, NhAiInvocationContext invocationContext, CultureInfo culture, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public static string? Serialize(NhAssistantApprovalPresentation? presentation) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public static NhAssistantApprovalPresentation? Deserialize(string? json) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
@@ -23550,7 +23662,11 @@
       "INhAssistantTurnContextProvider",
       "NhAssistantContextFact",
       "UseTurnContextProvider",
-      "UseTimeZone"
+      "UseTimeZone",
+      "INhAssistantToolPresenter",
+      "NhAssistantApprovalPresentation",
+      "NhAssistantPresentationField",
+      "AddToolPresenter"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",

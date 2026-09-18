@@ -73,7 +73,12 @@ public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database)
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId, status = "Active" } }, "call-status")
             .RespondWithText("The project is now active.");
-        await using var host = await AssistantTestHost.CreateAsync(database, provider, model);
+        await using var host = await AssistantTestHost.CreateAsync(
+            database,
+            provider,
+            model,
+            configure: services => services.AddSingleton<ApprovalPresentationCapture>(),
+            assistantBuilder: assistant => assistant.AddToolPresenter<TestApprovalPresenter>());
         var conversation = await host.CreateConversationAsync();
 
         var paused = await host.SendAsync(conversation.Id, "Activate the project.");
@@ -84,9 +89,26 @@ public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database)
         Assert.Empty(host.Tools.StatusChanges);
         Assert.Empty(paused.Events.OfType<NhAssistantToolCompletedEvent>());
         Assert.Equal("projects.change-status", approval.ToolId);
+        Assert.Equal("Approval is required before this tool can run.", approval.Summary);
+        Assert.NotNull(approval.Presentation);
+        Assert.Equal("Change project status", approval.Presentation.ToolDisplayName);
+        Assert.Contains(projectId.ToString(), approval.Presentation.Summary);
         Assert.Equal(NhAssistantApprovalStatuses.Pending, approval.Status);
         Assert.Equal(64, approval.ProposalHash.Length);
         Assert.Contains(projectId.ToString(), approval.ArgumentsPreview);
+        var presentationCapture = host.Services.GetRequiredService<ApprovalPresentationCapture>();
+        Assert.Equal(new ProjectStatusInput(projectId, "Active"), presentationCapture.Arguments);
+        Assert.Equal("assistant-agent:project-assistant", presentationCapture.Context?.ActorId);
+        Assert.Equal(AssistantTestHost.UserId, presentationCapture.Context?.AccountableOwnerId);
+        await using (var dbContext = host.Services
+            .GetRequiredService<NhAssistantDbContextFactory>()
+            .CreateDbContext())
+        {
+            var stored = await dbContext.Approvals.SingleAsync(item => item.Id == approval.ApprovalId);
+            Assert.NotNull(stored.PresentationJson);
+            Assert.DoesNotContain("toolDisplayName", stored.ProposalJson, StringComparison.Ordinal);
+            Assert.Equal(approval.ProposalHash, NhAssistantProposalSerializer.Deserialize(stored.ProposalJson).ProposalHash);
+        }
         Assert.Equal(NhAssistantConversationStatuses.WaitingForApproval, (await host.ReloadAsync(conversation.Id)).Status);
         var busy = await host.SendAsync(conversation.Id, "Hello?");
         Assert.Equal(NhAssistantErrorCodes.ConversationBusy, busy.StartCode);
@@ -113,6 +135,10 @@ public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database)
         Assert.Null(view.PendingApproval);
         var approvalPart = view.Messages.SelectMany(message => message.Parts).OfType<NhAssistantApprovalView>().Single();
         Assert.Equal(NhAssistantApprovalStatuses.Approved, approvalPart.Status);
+        Assert.NotNull(approvalPart.Presentation);
+        Assert.Equal(approval.Presentation.ToolDisplayName, approvalPart.Presentation.ToolDisplayName);
+        Assert.Equal(approval.Presentation.Summary, approvalPart.Presentation.Summary);
+        Assert.Equal(approval.Presentation.Fields, approvalPart.Presentation.Fields);
         var toolPart = view.Messages.SelectMany(message => message.Parts).OfType<NhAssistantToolCallPartView>().Single();
         Assert.Equal(NhAssistantToolCallStatuses.Succeeded, toolPart.Status);
 

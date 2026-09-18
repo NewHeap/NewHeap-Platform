@@ -58,7 +58,11 @@
       "send": "Bericht versturen",
       "stop": "Assistent stoppen",
       "characters": "{{count}} van {{max}} tekens",
-      "too-long": "Het bericht is te lang."
+      "too-long": "Het bericht is te lang.",
+      "status": {
+        "running": "Je kunt verder typen terwijl de assistent bezig is. Versturen is tijdelijk niet mogelijk.",
+        "waiting-for-approval": "Je kunt verder typen terwijl een actie op je goedkeuring wacht. Versturen is tijdelijk niet mogelijk."
+      }
     },
     "tool-call": {
       "label": "Toolaanroep: {{name}}",
@@ -67,6 +71,7 @@
       "arguments": "Invoer",
       "result": "Resultaat",
       "result-code": "Resultaat",
+      "tool-id": "Technisch tool-id",
       "status": {
         "running": "Bezig",
         "succeeded": "Voltooid",
@@ -77,6 +82,9 @@
     },
     "approval": {
       "title": "Goedkeuring nodig",
+      "fallback-summary": "Controleer deze actie voordat ze wordt uitgevoerd.",
+      "technical-details": "Technische details",
+      "tool-id": "Tool-id",
       "targets": "Betreft",
       "arguments": "Voorgestelde wijziging",
       "expires-in": "Verloopt over {{time}}",

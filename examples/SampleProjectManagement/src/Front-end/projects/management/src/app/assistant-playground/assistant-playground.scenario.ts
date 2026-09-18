@@ -47,6 +47,7 @@ export const ASSISTANT_PLAYGROUND_PROMPTS = [
   { key: 'page', text: 'What am I looking at?' },
   { key: 'list', text: 'Which projects are active?' },
   { key: 'approval', text: 'Put project Alpha migration on hold.' },
+  { key: 'legacy-approval', text: 'Show a legacy approval fallback.' },
   { key: 'forbidden', text: 'Delete the archived projects.' },
   { key: 'long', text: 'Write a long status report for all projects.' },
   { key: 'unsafe', text: 'Show me some HTML with a script tag.' },
@@ -170,12 +171,39 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
             toolId: 'sample-api.project.update-status',
             displayName: 'Update project status',
             summary: 'Set project Alpha migration to On hold',
+            presentation: {
+              toolDisplayName: 'Change project status',
+              summary: 'Change project PRJ-ALPHA — Alpha migration to On hold.',
+              fields: [
+                { label: 'Project', value: 'PRJ-ALPHA — Alpha migration' },
+                { label: 'Current status', value: 'Active' },
+                { label: 'New status', value: 'On hold' }
+              ],
+              notice: null
+            },
             argumentsPreview: '{"key":"PRJ-ALPHA","status":"on-hold"}',
             targets: ['PRJ-ALPHA · Alpha migration'],
             expiresInSeconds: 300,
             resultPreview: '{"key":"PRJ-ALPHA","status":"on-hold"}',
             approved: [{ text: 'Done. **Alpha migration** is now *On hold*.' }],
             rejected: [{ text: 'Understood. I left Alpha migration unchanged.' }]
+          }
+        }
+      ]
+    },
+    {
+      match: /legacy approval fallback/i,
+      steps: [
+        {
+          approval: {
+            toolId: 'sample-api.project.update-status',
+            displayName: 'Update project status',
+            summary: 'Technical legacy descriptor',
+            argumentsPreview: '{"key":"PRJ-GAMMA","status":"completed"}',
+            targets: ['project:PRJ-GAMMA'],
+            expiresInSeconds: 300,
+            approved: [{ text: 'The legacy approval was accepted.' }],
+            rejected: [{ text: 'The legacy approval was rejected.' }]
           }
         }
       ]

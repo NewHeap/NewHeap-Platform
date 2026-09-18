@@ -112,6 +112,7 @@ public sealed class NhAssistantDbContext : DbContext
             approval.Property(item => item.ProposalJson).IsRequired();
             approval.Property(item => item.ToolId).HasMaxLength(256).IsRequired();
             approval.Property(item => item.Summary).HasMaxLength(512).IsRequired();
+            approval.Property(item => item.PresentationJson).HasMaxLength(4_000);
             approval.Property(item => item.ArgumentsPreview)
                 .HasMaxLength(NhAssistantLimits.MaxPreviewCharacters)
                 .IsRequired();

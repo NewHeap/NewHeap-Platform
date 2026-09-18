@@ -30,7 +30,7 @@ previously registered implementations.
 
 | Adoption note | Required action |
 |---|---|
-| The assistant owns the `nhai` schema with its own SQL Server and PostgreSQL migrations (`Initial`, `AdminAndPreferences`, `ClientContext`). | Apply them with `RunMigrations = true` or as a deployment step before enabling `NewHeap:AI:Assistant:Enabled`. |
+| The assistant owns the `nhai` schema with its own SQL Server and PostgreSQL migrations (`Initial`, `AdminAndPreferences`, `ClientContext`, `ApprovalPresentation`). | Apply them with `RunMigrations = true` or as a deployment step before enabling `NewHeap:AI:Assistant:Enabled`. |
 | The assistant decorates the ASP.NET AI invocation gate and validates its registration at startup. | Call `AddNewHeapAssistant` after `AddNewHeapPlatformAIAspNet` and the application's own AI registrations. |
 | Startup requires the admin policy (`app.assistant.admin` unless configured). | Register the policy, or call `UseAdminPolicy` with an existing policy. |
 | Turn instructions combine the library rules, the application context, the agent instructions and the user's preferences; pending approvals are bound to those instructions. | Approvals pending during a context or preference change must be decided again. |
@@ -38,6 +38,7 @@ previously registered implementations.
 | A provider error inside the model stream (for example exhausted credits or quota) now ends the turn as failed with `assistant-model-unavailable` instead of an empty completed turn; only the provider error code is logged. | No action. |
 | MCP secrets are protected with ASP.NET Data Protection. | Persist the Data Protection key ring across restarts and nodes; otherwise administrators must enter the secrets again. |
 | Unexpected tool exceptions in a turn are logged as content-free warnings (tool id, version, turn id, exception type); malformed tool arguments return `ai-tool-input-invalid` as the tool-call `resultCode` so the model can retry. | No action. |
+| `AddToolPresenter<T>()` optionally adds bounded, localized tool names and approval explanations from the exact governed arguments and context; presentation is persisted outside proposal evidence and safely falls back on failure, timeout, oversize output, sensitive classification or old rows. | Optional: implement `INhAssistantToolPresenter`, add request localization and apply the new `ApprovalPresentation` migration. |
 
 ## @newheap/platform-ai-chat (new package)
 
@@ -51,3 +52,4 @@ administration page in `@newheap/platform-ai-chat/admin` and a scripted mock API
 | Peer dependencies: Angular 20.3 (`common`, `core`, `router`), `@angular/cdk` 20.2, `@ngx-translate/core` 17, `marked` 18, `dompurify` 3.4. | Install the peers. |
 | The panel is a CDK overlay. | Load `@angular/cdk/overlay-prebuilt.css` in the host. |
 | Messages can carry page context: `NhAssistantConfig.getPageContext` returns `NhAssistantClientContext` (`route`, `title`, `entities`), sent as `clientContext` and truncated to the contract limits; a chip above the message box shows it and lets the user leave it out of the next message. | Optional: provide `getPageContext` from a service that entity pages set and clear. |
+| The composer remains editable while running or awaiting approval, blocked Enter preserves the draft, and approval cards prefer optional trusted presentation while technical ids and previews stay collapsed. | No action; custom layouts should pass `sendDisabled` separately from `disabled` and treat `approval.presentation` as optional. |

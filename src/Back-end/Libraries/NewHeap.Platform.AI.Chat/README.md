@@ -26,6 +26,12 @@ one storage package: `NewHeap.Platform.AI.Chat.SqlServer` or
   evidence (proposal hash, actor and accountable owner, lifetime, decision by a
   different actor). The accountable owner comes from the registered
   `INhAiAuthenticatedInvocationContextResolver`, or the caller when it sets none.
+- **Presentation** — consumers may register `INhAssistantToolPresenter` implementations
+  with `AddToolPresenter<T>()`. A presenter receives the exact governed arguments,
+  invocation context and request culture and may return a localized name, summary and
+  named fields. Output is bounded and stored with the approval; failures, time-outs,
+  oversized output and confidential or restricted tools use a safe generic fallback
+  without changing proposal evidence or rights.
 - **Durable managers** — per-actor, per-UTC-day budgets (`DailyToolCallBudgetPerActor`,
   optional `DailyModelCallBudgetPerActor`) and idempotency leases with expiry takeover
   and fencing. Outside assistant turns, budget and evidence requests are delegated to
@@ -41,7 +47,9 @@ The library owns the `nhai` schema: `AssistantConversation`, `AssistantMessage`,
 `AssistantIdempotencyLease`, `AssistantAgent`, `AssistantAgentMcpServer`,
 `AssistantApplicationContext`, `AssistantMcpServer`, `AssistantMcpTool` and
 `AssistantUserPreference`. User messages keep their bounded page context in
-`AssistantMessage.ClientContextJson`. Message parts are versioned JSON; tool arguments and
+`AssistantMessage.ClientContextJson`. Optional approval presentation is stored in
+`AssistantApproval.PresentationJson`, so old rows remain valid and the selected culture
+survives pause, reload and resume. Message parts are versioned JSON; tool arguments and
 results are bounded to 64 KB and carry the tool's data classification and retention
 category. Status transitions use compare-and-swap updates and a provider-neutral
 concurrency stamp. Configure the schema and migrations through

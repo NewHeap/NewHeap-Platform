@@ -88,6 +88,7 @@ internal sealed record NhAssistantApprovalView(
     string ProposalHash,
     string ToolId,
     string Summary,
+    NhAssistantApprovalPresentation? Presentation,
     string ArgumentsPreview,
     IReadOnlyList<string> Targets,
     DateTimeOffset ExpiresAt,

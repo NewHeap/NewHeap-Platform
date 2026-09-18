@@ -50,6 +50,57 @@ h3 {
   overflow-wrap: anywhere;
 }
 
+.tool-name {
+  margin: 10px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.presentation-fields {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+
+  div {
+    display: grid;
+    grid-template-columns: minmax(90px, .4fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  dt {
+    color: var(--nha-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+  }
+}
+
+.notice {
+  margin: 10px 0 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+}
+
+.technical-details {
+  margin-top: 10px;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+
+  summary {
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  code {
+    overflow-wrap: anywhere;
+  }
+}
+
 .label {
   margin: 10px 0 4px;
   color: var(--nha-text-muted);

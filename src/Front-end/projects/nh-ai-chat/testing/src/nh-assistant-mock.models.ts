@@ -40,6 +40,12 @@ export interface NhAssistantMockApprovalStep {
     displayName: string;
     toolVersion?: number;
     summary: string;
+    presentation?: {
+      toolDisplayName: string;
+      summary: string;
+      fields: { label: string; value: string }[];
+      notice: string | null;
+    } | null;
     argumentsPreview: string;
     targets: string[];
     /** Default 300 seconds. */

@@ -32,6 +32,7 @@ internal sealed class NhAssistantTurnRunner(
     NhAssistantPersonalization personalization,
     INhAssistantMcpToolSource mcpToolSource,
     NhAssistantTurnContextCollector turnContext,
+    NhAssistantToolPresentationResolver toolPresentation,
     ILogger<NhAssistantTurnRunner> logger) : INhAssistantTurnRunner
 {
     private static readonly string[] MessageStartStatuses =
@@ -837,7 +838,13 @@ internal sealed class NhAssistantTurnRunner(
 
     private NhAssistantToolCallInterceptor CreateInterceptor(NhAssistantTurnState state)
     {
-        return new NhAssistantToolCallInterceptor(state, store, proposalFactory, _businessSinks, logger);
+        return new NhAssistantToolCallInterceptor(
+            state,
+            store,
+            proposalFactory,
+            toolPresentation,
+            _businessSinks,
+            logger);
     }
 
     private async Task FinishWithErrorAsync(

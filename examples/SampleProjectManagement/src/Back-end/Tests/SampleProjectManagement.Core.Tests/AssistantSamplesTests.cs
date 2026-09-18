@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Resources;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
@@ -8,6 +10,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -69,12 +72,23 @@ public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IC
                 new { input = new { projectId, status = (int)ProjectStatus.Active } })
             .RespondWithText("The project is active now."));
         using var client = host.CreateClient("spm-246-user");
+        client.DefaultRequestHeaders.AcceptLanguage.Clear();
+        client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("nl-NL");
+        var resources = new ResourceManager(typeof(SampleAssistantToolPresenter));
+        var expectedDisplayName = resources.GetString(
+            "ToolProjectStatusChange",
+            CultureInfo.GetCultureInfo("nl-NL"));
+        Assert.NotNull(expectedDisplayName);
         var conversationId = await host.CreateConversationAsync(client);
 
         var paused = await host.SendAsync(client, conversationId, "Activate the project.");
 
         var approval = paused.Single(evt => evt.Name == "approval.required").Data;
         Assert.Equal("projects.change-status", approval.GetProperty("toolId").GetString());
+        var presentation = approval.GetProperty("presentation");
+        Assert.Equal(expectedDisplayName, presentation.GetProperty("toolDisplayName").GetString());
+        Assert.Contains("PRJ-APPROVAL", presentation.GetProperty("summary").GetString());
+        Assert.Equal(3, presentation.GetProperty("fields").GetArrayLength());
         Assert.Contains($"division:{host.DivisionId}", approval.GetProperty("targets").EnumerateArray().Select(target => target.GetString()));
         Assert.Equal("waiting-for-approval", paused[^1].Data.GetProperty("status").GetString());
         Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == projectId);
@@ -86,6 +100,14 @@ public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IC
         Assert.Equal("completed", resumed[^1].Data.GetProperty("status").GetString());
         Assert.Equal(ProjectStatus.Active, host.Projects.StatusChanges.Single(change => change.ProjectId == projectId).Status);
         Assert.Contains(projectId, host.Projects.VerifiedProjects);
+        var conversation = await host.GetJsonAsync(client, $"/api/assistant/conversations/{conversationId}");
+        var storedApproval = conversation.GetProperty("messages")
+            .EnumerateArray()
+            .SelectMany(message => message.GetProperty("parts").EnumerateArray())
+            .Single(part => part.GetProperty("type").GetString() == "approval");
+        Assert.Equal(
+            expectedDisplayName,
+            storedApproval.GetProperty("presentation").GetProperty("toolDisplayName").GetString());
         var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events;
         Assert.Contains(audit, evt => evt.Kind == NewHeap.Platform.AI.Chat.NhAssistantAuditEventKind.ApprovalApproved);
         Assert.Contains(audit, evt => evt.ToolId == "projects.change-status" && evt.ResultCode == "succeeded");
@@ -213,8 +235,20 @@ public class AssistantSampleHost : IAsyncLifetime
             .AddCapabilityGrant(ProjectAiTools.ManageCapability, ManagePolicy));
         ConfigureServices(services);
         services.AddSampleAssistant();
+        services.Configure<RequestLocalizationOptions>(options =>
+        {
+            var supportedCultures = new[]
+            {
+                CultureInfo.GetCultureInfo("en-US"),
+                CultureInfo.GetCultureInfo("nl-NL")
+            };
+            options.DefaultRequestCulture = new RequestCulture(supportedCultures[0]);
+            options.SupportedCultures = supportedCultures;
+            options.SupportedUICultures = supportedCultures;
+        });
 
         _app = builder.Build();
+        _app.UseRequestLocalization();
         _app.UseAuthentication();
         _app.UseAuthorization();
         _app.MapSampleAssistant();
@@ -265,6 +299,7 @@ public class AssistantSampleHost : IAsyncLifetime
         client.DefaultRequestHeaders.Add(SampleTestAuthenticationHandler.UserHeader, user);
         // The bridge forwards the caller's bearer token to the API; the test scheme ignores it.
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "token-of-" + user);
+        client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US");
         if (admin)
         {
             client.DefaultRequestHeaders.Add(SampleTestAuthenticationHandler.AdminHeader, "true");
@@ -384,6 +419,19 @@ public sealed class FakeProjects : IProjectAiReadService, IProjectAiMutationServ
     public ConcurrentQueue<(Guid ProjectId, ProjectStatus Status)> StatusChanges { get; } = new();
 
     public ConcurrentQueue<Guid> VerifiedProjects { get; } = new();
+
+    public Task<ProjectAiApprovalItem?> GetForAiApprovalAsync(
+        Guid divisionId,
+        Guid projectId,
+        CancellationToken cancellationToken = default)
+    {
+        var status = _statuses.GetValueOrDefault(projectId, ProjectStatus.Draft);
+        return Task.FromResult<ProjectAiApprovalItem?>(new ProjectAiApprovalItem(
+            projectId,
+            "PRJ-APPROVAL",
+            "Approval evidence",
+            status));
+    }
 
     public Task<IReadOnlyList<ProjectAiSearchItem>> SearchForAiAsync(
         Guid divisionId,

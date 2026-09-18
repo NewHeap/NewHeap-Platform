@@ -1,6 +1,7 @@
-<form class="composer" (submit)="$event.preventDefault(); submit()">
+<form class="composer" (submit)="onSubmit($event)">
   <label class="visually-hidden" [for]="inputId">{{ 'nh-assistant.composer.label' | translate }}</label>
   <textarea
+    #textarea
     data-nh-assistant-autofocus
     rows="2"
     [id]="inputId"
@@ -34,6 +35,12 @@
     }
   </div>
 </form>
+
+@if (status(); as status) {
+  <p class="composer-status" role="status" aria-live="polite">
+    {{ 'nh-assistant.composer.status.' + status | translate }}
+  </p>
+}
 
 <p class="hint" [id]="hintId">
   @if (tooLong()) {

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Globalization;
 using System.Threading.Channels;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -111,6 +112,7 @@ internal sealed class NhAssistantToolCallInterceptor(
     NhAssistantTurnState state,
     INhAssistantStore store,
     INhAiProposalFactory proposalFactory,
+    NhAssistantToolPresentationResolver toolPresentation,
     IReadOnlyList<INhAssistantBusinessAuditSink> businessSinks,
     ILogger? logger = null)
 {
@@ -168,11 +170,17 @@ internal sealed class NhAssistantToolCallInterceptor(
             return Refusal(NhAssistantErrorCodes.ToolCallLimitReached);
         }
 
+        var presentationCulture = CultureInfo.CurrentUICulture;
+        var displayName = await toolPresentation.ResolveDisplayNameAsync(
+            descriptor,
+            presentationCulture,
+            cancellationToken);
         var row = await BeginToolCallAsync(
             descriptor,
             context.CallContent.CallId,
             context.Function.Name,
             context.Arguments,
+            displayName,
             cancellationToken);
         var execution = await ExecuteAsync(
             descriptor,
@@ -183,7 +191,12 @@ internal sealed class NhAssistantToolCallInterceptor(
             cancellationToken,
             logger);
         if (execution.Outcome.Kind == NhAssistantToolOutcomeKind.ApprovalMissing
-            && await RequestApprovalAsync(descriptor, row, execution.Call, cancellationToken))
+            && await RequestApprovalAsync(
+                descriptor,
+                row,
+                execution.Call,
+                presentationCulture,
+                cancellationToken))
         {
             context.Terminate = true;
             return execution.Result;
@@ -261,6 +274,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         string callId,
         string functionName,
         IEnumerable<KeyValuePair<string, object?>>? arguments,
+        string displayName,
         CancellationToken cancellationToken)
     {
         var row = new AssistantToolInvocation
@@ -274,7 +288,7 @@ internal sealed class NhAssistantToolCallInterceptor(
             ToolId = descriptor.Id,
             ToolVersion = descriptor.Version,
             ContractHash = NhAssistantContent.Bound(descriptor.ContractHash, 128),
-            DisplayName = descriptor.Id,
+            DisplayName = displayName,
             Status = NhAssistantToolCallStatuses.Running,
             ArgumentsJson = NhAssistantContent.SerializeArguments(arguments),
             DataClassification = descriptor.DataClassification,
@@ -335,6 +349,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         NhAiToolDescriptor descriptor,
         AssistantToolInvocation row,
         NhAssistantToolCallScope call,
+        CultureInfo culture,
         CancellationToken cancellationToken)
     {
         if (call.CapturedArguments is null
@@ -378,6 +393,16 @@ internal sealed class NhAssistantToolCallInterceptor(
         var targetLabels = proposal.Targets
             .Select(target => $"{target.Type}:{target.Id}")
             .ToArray();
+        var presentation = await toolPresentation.ResolveApprovalAsync(
+            descriptor,
+            call.CapturedArguments,
+            context,
+            culture,
+            cancellationToken);
+        if (presentation is not null)
+        {
+            row.DisplayName = presentation.ToolDisplayName;
+        }
         var approval = new AssistantApproval
         {
             Id = Guid.NewGuid(),
@@ -388,7 +413,8 @@ internal sealed class NhAssistantToolCallInterceptor(
             ProposalHash = proposal.ProposalHash,
             ProposalJson = NhAssistantProposalSerializer.Serialize(proposal),
             ToolId = descriptor.Id,
-            Summary = intent,
+            Summary = "Approval is required before this tool can run.",
+            PresentationJson = NhAssistantToolPresentationResolver.Serialize(presentation),
             ArgumentsPreview = NhAssistantContent.Preview(row.ArgumentsJson, row.DataClassification) ?? "{}",
             TargetsJson = JsonSerializer.Serialize(targetLabels, NhAssistantContent.JsonOptions),
             Status = NhAssistantApprovalStatuses.Pending,
@@ -409,6 +435,7 @@ internal sealed class NhAssistantToolCallInterceptor(
             approval.ProposalHash,
             approval.ToolId,
             approval.Summary,
+            presentation,
             approval.ArgumentsPreview,
             targetLabels,
             approval.ExpiresAt,

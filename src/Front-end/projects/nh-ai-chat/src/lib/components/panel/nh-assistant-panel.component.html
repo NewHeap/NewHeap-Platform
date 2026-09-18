@@ -153,8 +153,10 @@
           </div>
         }
         <nh-assistant-composer
-          [disabled]="composerDisabled()"
+          [disabled]="closed()"
+          [sendDisabled]="composerDisabled()"
           [busy]="busy()"
+          [status]="composerStatus()"
           [maxLength]="store.limits()?.maxMessageChars ?? null"
           [restore]="store.restoredDraft()"
           (restored)="store.consumeRestoredDraft()"

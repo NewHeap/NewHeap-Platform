@@ -58,7 +58,11 @@
       "send": "Send message",
       "stop": "Stop the assistant",
       "characters": "{{count}} of {{max}} characters",
-      "too-long": "The message is too long."
+      "too-long": "The message is too long.",
+      "status": {
+        "running": "You can keep typing while the assistant works. Sending is temporarily unavailable.",
+        "waiting-for-approval": "You can keep typing while an action waits for your approval. Sending is temporarily unavailable."
+      }
     },
     "tool-call": {
       "label": "Tool call: {{name}}",
@@ -67,6 +71,7 @@
       "arguments": "Input",
       "result": "Result",
       "result-code": "Result",
+      "tool-id": "Technical tool id",
       "status": {
         "running": "Running",
         "succeeded": "Completed",
@@ -77,6 +82,9 @@
     },
     "approval": {
       "title": "Approval required",
+      "fallback-summary": "Review this action before it runs.",
+      "technical-details": "Technical details",
+      "tool-id": "Tool id",
       "targets": "Affects",
       "arguments": "Proposed change",
       "expires-in": "Expires in {{time}}",

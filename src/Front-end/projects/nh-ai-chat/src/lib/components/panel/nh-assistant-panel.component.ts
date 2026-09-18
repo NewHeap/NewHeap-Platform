@@ -76,6 +76,12 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   });
   readonly busy = computed(() => this.store.streaming() || this.conversation()?.status === 'running');
   readonly composerDisabled = computed(() => !this.store.canSend());
+  readonly composerStatus = computed<'running' | 'waiting-for-approval' | null>(() => {
+    if (this.store.streaming() || this.conversation()?.status === 'running') {
+      return 'running';
+    }
+    return this.conversation()?.status === 'waiting-for-approval' ? 'waiting-for-approval' : null;
+  });
   readonly errorKeys = computed(() => {
     const error = this.store.error();
     return error ? [error.messageKey, `nh-assistant.errors.${error.code}`, 'nh-assistant.errors.generic'] : [];

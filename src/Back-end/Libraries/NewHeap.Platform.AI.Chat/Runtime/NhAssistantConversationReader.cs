@@ -119,6 +119,7 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
             approval.ProposalHash,
             approval.ToolId,
             approval.Summary,
+            NhAssistantToolPresentationResolver.Deserialize(approval.PresentationJson),
             approval.ArgumentsPreview,
             targets,
             approval.ExpiresAt,

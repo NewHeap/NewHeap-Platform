@@ -111,6 +111,18 @@ inject(NhAssistantPanelService).open(conversationId);
 The drawer is 420 px wide on the right and fills the screen below 600 px. Escape
 closes it and focus returns to the element that opened it.
 
+The composer stays editable while a turn runs or waits for approval. Sending is
+temporarily blocked, so Enter preserves the draft; explicit send returns focus to the
+editor. Automatic focus restoration happens only when a disappearing composer control
+owned focus, never after the user chose another control, and is skipped for coarse
+pointer devices to avoid opening a mobile keyboard unexpectedly.
+
+Approval cards use optional trusted server `presentation` for the friendly tool name,
+summary and named fields. Without it—including stored events from an older server—they
+show a localized generic explanation. Tool ids, scope targets and bounded, redacted
+argument previews stay inside collapsed technical details and never become the
+authorization basis.
+
 `NhAssistantStore` exposes the state as signals (`enabled`, `agents`,
 `conversations`, `activeConversation`, `streaming`, `pendingApproval`, `error` and
 more) and the actions `send`, `decide`, `cancel`, `openConversation`,

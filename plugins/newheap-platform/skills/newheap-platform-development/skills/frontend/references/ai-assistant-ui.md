@@ -63,6 +63,18 @@ which the panel shows as is. Theme the panel through the `--nh-assistant-*` cust
 properties mapped onto the host's tokens, and pass the host icon library through
 `NH_ASSISTANT_ICONS`.
 
+Keep the composer editable while `running` or `waiting-for-approval`, but disable the
+send action. Enter must preserve the draft while sending is blocked. Return focus after
+an explicit send and restore it after a disappearing composer-owned control only when
+the user has not moved focus elsewhere; skip automatic restoration on coarse pointers.
+Announce the temporary state through a localized polite status.
+
+Render `approval.presentation` as the primary explanation. When it is absent, use the
+bundled localized fallback instead of `summary` or a tool descriptor. Keep tool ids,
+targets and bounded/redacted argument previews in collapsed technical details. A
+presentation is explanatory only: always decide with the approval id and exact proposal
+hash supplied by the server.
+
 Test hosts and demos with `provideNhAssistantMockApi(script)` from
 `@newheap/platform-ai-chat/testing`, registered after `provideNhAssistant` in the
 same injector. The mock plays scripted turns as contract events over a real
@@ -88,6 +100,10 @@ the administration route under the same parent to share that scope.
   event and fall back to the code.
 - Deciding approvals outside the approval card or without the proposal hash of
   the pending approval.
+- Disabling the message editor while a turn runs, clearing a draft when blocked Enter
+  is pressed, or stealing focus after the user moved to another control.
+- Showing `approval.summary`, raw scope ids or argument JSON as the primary approval
+  explanation.
 - Replacing library translations wholesale in the host files; override single
   keys only.
 - Putting permissions, tokens, personal data or free text from forms into the page

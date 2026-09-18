@@ -35,6 +35,8 @@ using SampleProjectManagement.Core.Events;
 using SampleProjectManagement.Core.Utilities;
 using SampleProjectManagement.DAL;
 using System.Security.Claims;
+using System.Globalization;
+using Microsoft.AspNetCore.Localization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,6 +49,17 @@ builder.AddNewHeapPlatformCachingDefault(options =>
 });
 builder.Services.AddOpenApi("v1", options =>
     options.AddSchemaTransformer<OneOfSchemaTransformer>());
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    var supportedCultures = new[]
+    {
+        CultureInfo.GetCultureInfo("en-US"),
+        CultureInfo.GetCultureInfo("nl-NL")
+    };
+    options.DefaultRequestCulture = new RequestCulture(supportedCultures[0]);
+    options.SupportedCultures = supportedCultures;
+    options.SupportedUICultures = supportedCultures;
+});
 
 var databaseProvider = builder.Configuration.GetDatabaseProvider();
 var connectionString = builder.Configuration.GetDatabaseConnectionString();
@@ -304,6 +317,8 @@ builder.Services.AddScoped<
     SampleProjectManagementApiService>();
 
 var app = builder.Build();
+
+app.UseRequestLocalization();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {

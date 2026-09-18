@@ -56,6 +56,7 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantAgentAdministration>();
         services.TryAddScoped<NhAssistantPersonalization>();
         services.TryAddScoped<NhAssistantTurnContextCollector>();
+        services.TryAddScoped<NhAssistantToolPresentationResolver>();
         services.TryAddScoped<INhAssistantMcpToolSource, NhAssistantNoMcpToolSource>();
         services.TryAddSingleton<NhAssistantTurnCancellationRegistry>();
         services.TryAddScoped<INhAssistantTurnRunner, NhAssistantTurnRunner>();

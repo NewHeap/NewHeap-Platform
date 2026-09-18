@@ -5,10 +5,12 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Localization;
 using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AspNet.Common.DAL;
+using SampleProjectManagement.Core.Models.AI;
 using SampleProjectManagement.Core.Services;
 
 namespace SampleProjectManagement.Api.Composition;
@@ -62,6 +64,7 @@ public static class SampleAssistantComposition
         // hosts and tests register their own keyed client before this call to replace it.
         services.TryAddKeyedSingleton<IChatClient, SampleAssistantChatClient>(ModelKey);
         services.TryAddSingleton<SampleAssistantAuditLog>();
+        services.AddLocalization();
         services.AddNewHeapPlatformAI(ai => ai
             .AddChatProfile(ProfileName, profile => profile
                 .UseKeyedClient(ModelKey)
@@ -99,6 +102,7 @@ public static class SampleAssistantComposition
             // does not need a tool call to learn them.
             .UseTimeZone("Europe/Amsterdam")
             .UseTurnContextProvider<SampleAssistantTurnContextProvider>()
+            .AddToolPresenter<SampleAssistantToolPresenter>()
             .AddAgent(new NhAssistantAgentDefinition(
                 Id: AgentId,
                 Version: 1,
@@ -124,6 +128,68 @@ public static class SampleAssistantComposition
     {
         endpoints.MapNewHeapAssistant("/api/assistant");
         return endpoints;
+    }
+}
+
+/// <summary>
+/// Localizes assistant tool names and explains a governed project status proposal with data read
+/// inside the same authorized division. The technical descriptor remains model-facing metadata.
+/// </summary>
+public sealed class SampleAssistantToolPresenter(
+    IProjectAiReadService projects,
+    IStringLocalizer<SampleAssistantToolPresenter> localizer) : INhAssistantToolPresenter
+{
+    public ValueTask<string?> GetDisplayNameAsync(
+        NhAssistantToolDisplayNameContext context,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var name = context.Descriptor.Id switch
+        {
+            "projects.search" => localizer["ToolProjectsSearch"].Value,
+            "projects.change-status" => localizer["ToolProjectStatusChange"].Value,
+            _ => null
+        };
+        return ValueTask.FromResult(name);
+    }
+
+    public async ValueTask<NhAssistantApprovalPresentation?> PresentApprovalAsync(
+        NhAssistantApprovalPresentationContext context,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(context.Descriptor.Id, "projects.change-status", StringComparison.Ordinal)
+            || context.Arguments is not ProjectAiStatusChangeInput input
+            || !context.InvocationContext.TryGetScopeValue(ProjectAiTools.DivisionScopeKey, out var divisionValue)
+            || !Guid.TryParse(divisionValue, out var divisionId))
+        {
+            return null;
+        }
+
+        var project = await projects.GetForAiApprovalAsync(
+            divisionId,
+            input.ProjectId,
+            cancellationToken);
+        if (project is null)
+        {
+            return null;
+        }
+
+        var currentStatus = localizer[$"ProjectStatus{project.Status}"].Value;
+        var newStatus = localizer[$"ProjectStatus{input.Status}"].Value;
+        return new NhAssistantApprovalPresentation(
+            localizer["ToolProjectStatusChange"].Value,
+            localizer["ApprovalProjectStatusSummary", project.Key, project.Name, newStatus].Value,
+            [
+                new NhAssistantPresentationField(
+                    localizer["ApprovalFieldProject"].Value,
+                    localizer["ApprovalProjectValue", project.Key, project.Name].Value),
+                new NhAssistantPresentationField(
+                    localizer["ApprovalFieldCurrentStatus"].Value,
+                    currentStatus),
+                new NhAssistantPresentationField(
+                    localizer["ApprovalFieldNewStatus"].Value,
+                    newStatus)
+            ]);
     }
 }
 

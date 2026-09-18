@@ -161,6 +161,8 @@ public sealed class AssistantApproval
 
     public string Summary { get; set; } = string.Empty;
 
+    public string? PresentationJson { get; set; }
+
     public string ArgumentsPreview { get; set; } = string.Empty;
 
     public string TargetsJson { get; set; } = "[]";
