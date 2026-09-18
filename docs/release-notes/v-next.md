@@ -35,6 +35,24 @@ previously registered implementations.
 | The assistant owns the `nhai` schema with its own SQL Server and PostgreSQL migrations. | Apply them with `RunMigrations = true` or as a deployment step before enabling `NewHeap:AI:Assistant:Enabled`. |
 | The assistant decorates the ASP.NET AI invocation gate and validates its registration at startup. | Call `AddNewHeapAssistant` after `AddNewHeapPlatformAIAspNet` and the application's own AI registrations. |
 
+#### Administration and personalization
+
+Agents, MCP servers, the application context and user preferences are stored in
+`nhai` tables added by the `AdminAndPreferences` migration. Code agents from
+`AddAgent` are upserted at startup. Administrators can override, disable and reset
+them, create their own agents, connect MCP servers and edit the application context
+through the `admin/*` endpoints. Users set style preferences through `preferences`.
+`GET status` adds `canAdminister`. New builder methods: `UseAdminPolicy`,
+`UseDefaultApplicationContext` and `ConfigureMcp`. New configuration keys:
+`NewHeap:AI:Assistant:AdminPolicy` and `NewHeap:AI:Assistant:Mcp:*`.
+
+| Adoption note | Required action |
+|---|---|
+| Startup requires the admin policy (`app.assistant.admin` unless configured). | Register the policy, or call `UseAdminPolicy` with an existing policy. |
+| Turn instructions now combine the library rules, the application context, the agent instructions and the user's preferences. The prompt version and hash change accordingly. | Re-run evaluations whose baseline depends on the exact instructions. Approvals pending during a context or preference change must be decided again. |
+| The `AdminAndPreferences` migration adds tables. | Apply it with `RunMigrations = true` or as a deployment step. |
+| MCP secrets are protected with ASP.NET Data Protection. | Persist the Data Protection key ring across restarts and nodes; otherwise administrators must enter the secrets again. |
+
 ### NewHeap.Platform.AI.Test
 
 Added `NhAiScriptedChatClient` for scripted text and function-call responses in

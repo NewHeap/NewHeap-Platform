@@ -37,12 +37,32 @@ one storage package: `NewHeap.Platform.AI.Chat.SqlServer` or
 ## Storage
 
 The library owns the `nhai` schema: `AssistantConversation`, `AssistantMessage`,
-`AssistantToolInvocation`, `AssistantApproval`, `AssistantBudgetLedger` and
-`AssistantIdempotencyLease`. Message parts are versioned JSON; tool arguments and
+`AssistantToolInvocation`, `AssistantApproval`, `AssistantBudgetLedger`,
+`AssistantIdempotencyLease`, `AssistantAgent`, `AssistantAgentMcpServer`,
+`AssistantApplicationContext`, `AssistantMcpServer`, `AssistantMcpTool` and
+`AssistantUserPreference`. Message parts are versioned JSON; tool arguments and
 results are bounded to 64 KB and carry the tool's data classification and retention
 category. Status transitions use compare-and-swap updates and a provider-neutral
 concurrency stamp. Configure the schema and migrations through
 `NhAssistantDbContextOptions`; `RunMigrations` is off by default.
+
+## Administration and personalization
+
+Agents added with `AddAgent` are code agents: they are upserted into `AssistantAgent`
+at startup and stay the default. Administrators override, disable and reset them and
+create their own agents; every change carries an expected version. MCP servers are
+assigned per agent, and their enabled tools are imported per turn through
+`INhAiMcpClientToolImporter` as `mcp.<server>.<tool>`, so approval, idempotency,
+budget and audit apply unchanged. Synced tools start disabled as approval-required
+mutations.
+
+Each turn composes its instructions in order of authority: the fixed library rules,
+the application context (`UseDefaultApplicationContext` seeds version 1 once), the
+agent instructions and the user's style preferences. Preferences become fixed English
+or Dutch lines; custom instructions are bounded, neutralized and treated as style
+wishes only. The composed identity and hash flow into the invocation context and the
+separate versions and hashes into `NhAssistantAuditEvent`. Every administration change
+is a content-free audit event.
 
 ## Content boundaries
 
@@ -58,4 +78,4 @@ redacted for confidential and restricted tools.
 daily budgets, approval lifetime, offered tools, replayed history and lease duration.
 `POST cancel` reaches turns in the same process only; an abandoned running turn is
 taken over after its deadline. See the `nh-ai-assistant` guidance rule and sample
-cases SPM-245, SPM-246 and SPM-247.
+cases SPM-245, SPM-246, SPM-247, SPM-250, SPM-251 and SPM-252.

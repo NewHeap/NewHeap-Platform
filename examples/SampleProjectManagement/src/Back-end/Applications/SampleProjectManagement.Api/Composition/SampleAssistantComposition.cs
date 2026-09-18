@@ -25,6 +25,34 @@ public static class SampleAssistantComposition
     public const string ModelKey = "project-assistant-chat-model";
     public const string AccessPolicy = "app.active-division.project.view";
 
+    /// <summary>
+    /// Administrators (manage permission or the administrator role) manage agents, MCP servers and
+    /// the application context.
+    /// </summary>
+    public const string AdminPolicy = "app.project.edit-or-admin";
+
+    /// <summary>
+    /// Seeded once as version 1 of the application context; administrators edit it afterwards.
+    /// </summary>
+    public static NhAiTextAsset DefaultApplicationContext { get; } = NhAiTextAssetFactory.Create(
+        "sample-application-context",
+        1,
+        """
+        Sample Project Management tracks projects per division. A project has a key, a name, a
+        description and a status: Draft, Active, OnHold, Completed or Archived. Users only see and
+        change projects of their active division. Status changes are governed actions that the user
+        approves in the chat.
+        """,
+        "embedded:SampleProjectManagement.Api/SampleAssistantComposition",
+        NhAiAssetRole.SystemInstructions,
+        NhAiContextTrust.TrustedApplication,
+        NhAiModelCapability.Chat,
+        [],
+        "default",
+        NhAiDataClassification.Internal,
+        NhAiRetentionCategory.Operational,
+        "sample-application-context-v1");
+
     public static IServiceCollection AddSampleAssistant(this IServiceCollection services)
     {
         // The sample has no model provider. A deterministic local model drives the agent;
@@ -53,6 +81,16 @@ public static class SampleAssistantComposition
                     options.RunMigrations = true;
                 })
             .UseAccessPolicy(AccessPolicy)
+            .UseAdminPolicy(AdminPolicy)
+            .UseDefaultApplicationContext(DefaultApplicationContext)
+            .ConfigureMcp(mcp =>
+            {
+                // Administrators may connect any https host that is not blocked; plain http is only
+                // accepted for loopback in Development. No host receives forwarded user tokens.
+                mcp.RequireHttps = true;
+                mcp.ToolListCacheDuration = TimeSpan.FromMinutes(5);
+                mcp.ConnectTimeout = TimeSpan.FromSeconds(10);
+            })
             .UseChatProfile(ProfileName)
             .AddAgent(new NhAssistantAgentDefinition(
                 Id: AgentId,

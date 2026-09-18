@@ -3,9 +3,9 @@ id: nh-ai-assistant
 title: "Add a governed assistant with durable conversations and in-chat approvals"
 area: backend
 reference: ai-assistant
-summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events and let the user approve exact NewHeap proposals in the chat."
-sample-cases: ["SPM-245", "SPM-246", "SPM-247"]
-public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient"]
+summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, and let administrators manage agents, MCP servers and the application context while users set style preferences."
+sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-250", "SPM-251", "SPM-252"]
+public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -75,6 +75,44 @@ The library replaces `INhAiBudgetManager`, `INhAiIdempotencyManager` and
 Budget and evidence requests outside an assistant turn are delegated to the
 implementations registered before `AddNewHeapAssistant`.
 
+## Administration and personalization
+
+Register an admin policy with `UseAdminPolicy` (or `NewHeap:AI:Assistant:AdminPolicy`,
+default `app.assistant.admin`); startup fails when it does not exist, because
+`MapNewHeapAssistant` also maps the `admin/*` endpoints behind the access and admin
+policies. `GET status` reports `canAdminister`.
+
+- **Agents.** Agents added with `AddAgent` are code agents: they are upserted into
+  `AssistantAgent` at startup and stay the default. Administrators override, disable
+  and reset them (the source stays `code`) and create their own agents. Every change
+  carries `expectedVersion`; a stale version returns `409`. Tool selectors apply to
+  local and bridge tools; MCP tools are assigned per server with `mcpServerIds`.
+- **Application context.** `UseDefaultApplicationContext` seeds version 1 once; a
+  changed seed never replaces an existing context. Administrators edit it with
+  `expectedVersion`, and the history is kept.
+- **Instructions.** Each turn composes, in order of authority, the fixed library
+  rules, the application context, the agent instructions and the user's style
+  preferences. Preferences (`style`, `addressForm`, `responseLength`) become fixed
+  English or Dutch lines chosen from `Accept-Language`; custom instructions are
+  bounded, neutralized and treated as style wishes only. The identity
+  (`default@<version>+<asset>@<version>+preferences@<hash>`) and the SHA-256 of the
+  composed text flow into the invocation context; the separate versions and hashes
+  flow into `NhAssistantAuditEvent`. Editing the context or preferences while an
+  approval is pending invalidates that approval.
+- **MCP servers.** Configure `ConfigureMcp`: `RequireHttps` (plain http only to
+  loopback in Development), optional `AllowedHosts`, exact `ForwardUserTokenHosts`,
+  `ToolListCacheDuration` and `ConnectTimeout`. Secrets for `bearer` and `api-key`
+  are protected with ASP.NET Data Protection and never returned (`hasSecret`), logged
+  or audited; `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
+  allow-listed hosts. Synced tools start disabled as approval-required mutations;
+  administrators activate them and may mark them read-only, and a changed input
+  schema disables a tool again. Enabled tools of the servers assigned to an agent are
+  imported per turn with `INhAiMcpClientToolImporter` (`mcp.<server>.<tool>`), so
+  approval, idempotency, budget and audit apply unchanged. An unreachable server is
+  skipped for the turn.
+- Every administration change is a content-free audit event
+  (`AdminContextUpdated`, `AdminAgent*`, `AdminMcpServer*`, `AdminMcpToolUpdated`).
+
 ## Avoid
 
 - Calling `AddNewHeapAssistant` before `AddNewHeapPlatformAIAspNet` or replacing the
@@ -90,6 +128,12 @@ implementations registered before `AddNewHeapAssistant`.
   deployment decision; `RunMigrations` is off by default.
 - Relying on `POST cancel` across nodes; it reaches turns in the same process, and
   an abandoned running turn is recovered after its deadline.
+- Trusting remote MCP annotations such as `readOnlyHint`; they are hints for the
+  administrator only. Mark a remote tool read-only only after reviewing it.
+- Forwarding user tokens to hosts outside `ForwardUserTokenHosts`, or allowing plain
+  http, link-local or metadata addresses for MCP servers.
+- Putting permissions, approval rules or scope decisions in the application context or
+  the preferences; they explain the domain and shape style only.
 
 ## Verification
 
@@ -100,4 +144,10 @@ proposal, an exhausted daily budget, the tool-call limit, cancel and a disabled
 flag. Assert that no prompt, argument, result or answer text reaches the audit,
 usage and business sinks or logs, that approval is bound to the proposal hash and
 owner, and that the SSE event and JSON property names match the contract.
-SPM-245, SPM-246 and SPM-247 are the executable references.
+For administration, assert version conflicts, the admin policy, the seed behavior and
+the composed instruction order with an injection attempt in the custom instructions.
+For MCP, use an official SDK server (in memory or Streamable HTTP): tools are off after
+sync and visible only to the assigned agent after activation, mutations pause for
+approval, schema changes disable tools, blocked hosts are rejected and secrets are
+absent from responses, logs and audit. SPM-245, SPM-246, SPM-247, SPM-250, SPM-251 and
+SPM-252 are the executable references.
