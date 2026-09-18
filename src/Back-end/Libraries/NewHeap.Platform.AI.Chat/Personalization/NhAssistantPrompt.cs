@@ -193,13 +193,13 @@ internal sealed class NhAssistantPersonalization(
         CancellationToken cancellationToken)
     {
         var normalized = text?.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
-        if (string.IsNullOrEmpty(normalized)
-            || normalized.Length > NhAssistantApplicationContexts.MaxTextLength
-            || expectedVersion < 0)
+        var errors = new NhAssistantValidationErrors()
+            .Require(!string.IsNullOrEmpty(normalized), "text", NhAssistantFieldErrors.Required)
+            .Require(normalized is not { Length: > NhAssistantApplicationContexts.MaxTextLength }, "text", NhAssistantFieldErrors.TooLong)
+            .Require(expectedVersion >= 0, "expectedVersion", NhAssistantFieldErrors.Invalid);
+        if (!errors.IsEmpty)
         {
-            return TaskResult<AssistantApplicationContext>.Failed(
-                NhAssistantAdminErrorCodes.ValidationFailed,
-                "The application context must contain 1 to 20,000 characters.");
+            return TaskResult<AssistantApplicationContext>.Failed(errors.ToResult());
         }
         await seeder.EnsureSeededAsync(cancellationToken);
         var saved = await store.AddApplicationContextVersionAsync(
@@ -240,11 +240,17 @@ internal sealed class NhAssistantPersonalization(
             ? null
             : preferences.CustomInstructions.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
         var normalized = preferences with { CustomInstructions = custom };
-        if (!normalized.IsValid)
+        var errors = new NhAssistantValidationErrors()
+            .Require(NhAssistantStyles.IsValid(normalized.Style), "style", NhAssistantFieldErrors.Invalid)
+            .Require(NhAssistantAddressForms.IsValid(normalized.AddressForm), "addressForm", NhAssistantFieldErrors.Invalid)
+            .Require(NhAssistantResponseLengths.IsValid(normalized.ResponseLength), "responseLength", NhAssistantFieldErrors.Invalid)
+            .Require(
+                normalized.CustomInstructions is not { Length: > NhAssistantPreferences.MaxCustomInstructionsLength },
+                "customInstructions",
+                NhAssistantFieldErrors.TooLong);
+        if (!errors.IsEmpty)
         {
-            return TaskResult<NhAssistantPreferences>.Failed(
-                NhAssistantAdminErrorCodes.ValidationFailed,
-                "The assistant preferences are invalid.");
+            return TaskResult<NhAssistantPreferences>.Failed(errors.ToResult());
         }
         await store.SavePreferenceAsync(
             new AssistantUserPreference

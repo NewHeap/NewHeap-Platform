@@ -80,7 +80,9 @@ implementations registered before `AddNewHeapAssistant`.
 Register an admin policy with `UseAdminPolicy` (or `NewHeap:AI:Assistant:AdminPolicy`,
 default `app.assistant.admin`); startup fails when it does not exist, because
 `MapNewHeapAssistant` also maps the `admin/*` endpoints behind the access and admin
-policies. `GET status` reports `canAdminister`.
+policies. `GET status` reports `canAdminister`. Errors of `preferences` and `admin/*`
+carry `{ code, messageKey, errors? }`: `assistant-validation` (`400`, camelCase field
+keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` codes (`404`).
 
 - **Agents.** Agents added with `AddAgent` are code agents: they are upserted into
   `AssistantAgent` at startup and stay the default. Administrators override, disable

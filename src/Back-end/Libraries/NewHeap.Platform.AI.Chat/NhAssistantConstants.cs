@@ -186,7 +186,12 @@ public static class NhAssistantResponseLengths
 public static class NhAssistantAdminErrorCodes
 {
     public const string VersionConflict = "assistant-version-conflict";
-    public const string ValidationFailed = "assistant-validation-failed";
+    /// <summary>
+    /// Invalid input; the error body lists field errors in <c>errors</c> with camelCase keys.
+    /// </summary>
+    public const string ValidationFailed = "assistant-validation";
+    public const string Forbidden = "assistant-forbidden";
+    public const string NotFound = "assistant-not-found";
     public const string AgentExists = "assistant-agent-exists";
     public const string CodeAgentNotDeletable = "assistant-code-agent-not-deletable";
     public const string NotCodeAgent = "assistant-agent-not-code";
@@ -200,4 +205,65 @@ public static class NhAssistantAdminErrorCodes
     public const string McpToolDisabled = "assistant-mcp-tool-disabled";
     public const string InstructionsTooLong = "assistant-instructions-too-long";
     public const string ContextNotFound = "assistant-context-not-found";
+}
+
+/// <summary>
+/// Stable, content-free field error values in the <c>errors</c> object of an
+/// <c>assistant-validation</c> response.
+/// </summary>
+public static class NhAssistantFieldErrors
+{
+    public const string Required = "required";
+    public const string Invalid = "invalid";
+    public const string TooLong = "too-long";
+    public const string NotFound = "not-found";
+}
+
+/// <summary>
+/// Collects field errors (camelCase field names) and turns them into one
+/// <c>assistant-validation</c> failure. Field errors travel as result items named
+/// <c>field:&lt;name&gt;</c> after the code item.
+/// </summary>
+internal sealed class NhAssistantValidationErrors
+{
+    public const string FieldPrefix = "field:";
+
+    private readonly Dictionary<string, List<string>> _errors = new(StringComparer.Ordinal);
+
+    public bool IsEmpty => _errors.Count == 0;
+
+    public NhAssistantValidationErrors Add(string field, string error)
+    {
+        if (!_errors.TryGetValue(field, out var list))
+        {
+            _errors[field] = list = [];
+        }
+        if (!list.Contains(error, StringComparer.Ordinal))
+        {
+            list.Add(error);
+        }
+        return this;
+    }
+
+    public NhAssistantValidationErrors Require(bool valid, string field, string error)
+    {
+        return valid ? this : Add(field, error);
+    }
+
+    public NewHeap.Platform.Common.Models.TaskResult ToResult()
+    {
+        var result = NewHeap.Platform.Common.Models.TaskResult.Failed(
+            NhAssistantAdminErrorCodes.ValidationFailed,
+            "The input is invalid.");
+        foreach (var (field, errors) in _errors)
+        {
+            result.AddError(FieldPrefix + field, errors.ToArray());
+        }
+        return result;
+    }
+
+    public static NewHeap.Platform.Common.Models.TaskResult Failed(string field, string error)
+    {
+        return new NhAssistantValidationErrors().Add(field, error).ToResult();
+    }
 }

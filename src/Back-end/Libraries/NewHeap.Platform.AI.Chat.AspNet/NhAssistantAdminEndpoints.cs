@@ -33,7 +33,18 @@ internal static class NhAssistantAdminEndpoints
             .Produces<NhAssistantPreferencesDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
 
-        var admin = enabled.MapGroup("admin").RequireAuthorization(adminPolicy);
+        var admin = enabled.MapGroup("admin");
+        admin.AddEndpointFilter(async (context, next) =>
+        {
+            // Authorized in a filter instead of RequireAuthorization, so that a caller without
+            // the admin policy receives the contract body { code: "assistant-forbidden", messageKey }.
+            var httpContext = context.HttpContext;
+            var authorization = httpContext.RequestServices.GetRequiredService<IAuthorizationService>();
+            var allowed = await authorization.AuthorizeAsync(httpContext.User, adminPolicy);
+            return allowed.Succeeded
+                ? await next(context)
+                : Error(StatusCodes.Status403Forbidden, NhAssistantAdminErrorCodes.Forbidden);
+        });
         admin.MapGet("context", GetContextAsync)
             .WithName("NhAssistantAdminGetContext")
             .WithSummary("Get the application context")
@@ -198,9 +209,13 @@ internal static class NhAssistantAdminEndpoints
             return ContextUnavailable();
         }
         var body = await ReadAsync(httpContext, Context.NhAssistantUpdateContextRequest);
-        if (body?.ExpectedVersion is not { } expectedVersion)
+        if (body is null)
         {
             return Validation();
+        }
+        if (body.ExpectedVersion is not { } expectedVersion)
+        {
+            return MissingField("expectedVersion");
         }
         var saved = await personalization.UpdateApplicationContextAsync(body.Text, expectedVersion, actor, httpContext.RequestAborted);
         return saved.Success ? Json(ToDto(saved.Data!), Context.NhAssistantApplicationContextDto) : Failure(saved);
@@ -261,10 +276,15 @@ internal static class NhAssistantAdminEndpoints
         {
             return ContextUnavailable();
         }
-        var input = await ReadAgentAsync(httpContext, null, policies);
-        if (input is null)
+        var body = await ReadAsync(httpContext, Context.NhAssistantAdminAgentInputDto);
+        if (body is null)
         {
             return Validation();
+        }
+        var (input, errors) = await ToInputAsync(body, policies);
+        if (input is null)
+        {
+            return Failure(errors.ToResult());
         }
         var created = await administration.CreateAsync(input, actor, httpContext.RequestAborted);
         if (!created.Success)
@@ -289,14 +309,18 @@ internal static class NhAssistantAdminEndpoints
             return ContextUnavailable();
         }
         var body = await ReadAsync(httpContext, Context.NhAssistantAdminAgentInputDto);
-        if (body?.ExpectedVersion is not { } expectedVersion)
+        if (body is null)
         {
             return Validation();
         }
-        var input = await ToInputAsync(body with { Id = id }, policies);
-        if (input is null)
+        var (input, errors) = await ToInputAsync(body with { Id = id }, policies);
+        if (body.ExpectedVersion is null)
         {
-            return Validation();
+            errors.Add("expectedVersion", NhAssistantFieldErrors.Required);
+        }
+        if (input is null || body.ExpectedVersion is not { } expectedVersion)
+        {
+            return Failure(errors.ToResult());
         }
         var updated = await administration.UpdateAsync(input, expectedVersion, actor, httpContext.RequestAborted);
         return updated.Success ? Json(ToDto(updated.Data!), Context.NhAssistantAdminAgentDto) : Failure(updated);
@@ -339,10 +363,15 @@ internal static class NhAssistantAdminEndpoints
         {
             return ContextUnavailable();
         }
-        var input = ToInput(await ReadAsync(httpContext, Context.NhAssistantMcpServerInputDto), null);
-        if (input is null)
+        var body = await ReadAsync(httpContext, Context.NhAssistantMcpServerInputDto);
+        if (body is null)
         {
             return Validation();
+        }
+        var (input, errors) = ToInput(body, null);
+        if (input is null)
+        {
+            return Failure(errors.ToResult());
         }
         var created = await administration.CreateAsync(input, actor, httpContext.RequestAborted);
         if (!created.Success)
@@ -362,10 +391,15 @@ internal static class NhAssistantAdminEndpoints
         {
             return ContextUnavailable();
         }
-        var input = ToInput(await ReadAsync(httpContext, Context.NhAssistantMcpServerInputDto), id);
-        if (input is null)
+        var body = await ReadAsync(httpContext, Context.NhAssistantMcpServerInputDto);
+        if (body is null)
         {
             return Validation();
+        }
+        var (input, errors) = ToInput(body, id);
+        if (input is null)
+        {
+            return Failure(errors.ToResult());
         }
         var updated = await administration.UpdateAsync(input, actor, httpContext.RequestAborted);
         if (!updated.Success)
@@ -425,9 +459,13 @@ internal static class NhAssistantAdminEndpoints
             return ContextUnavailable();
         }
         var body = await ReadAsync(httpContext, Context.NhAssistantUpdateMcpToolRequest);
-        if (body?.IsEnabled is not { } isEnabled)
+        if (body is null)
         {
             return Validation();
+        }
+        if (body.IsEnabled is not { } isEnabled)
+        {
+            return MissingField("isEnabled");
         }
         var updated = await administration.UpdateToolAsync(
             id,
@@ -444,63 +482,66 @@ internal static class NhAssistantAdminEndpoints
 
     private static NhAssistantJsonSerializerContext Context => NhAssistantJsonSerializerContext.Default;
 
-    private static async Task<NhAssistantAgentInput?> ReadAgentAsync(
-        HttpContext httpContext,
-        string? id,
-        IAuthorizationPolicyProvider policies)
-    {
-        var body = await ReadAsync(httpContext, Context.NhAssistantAdminAgentInputDto);
-        return body is null ? null : await ToInputAsync(id is null ? body : body with { Id = id }, policies);
-    }
-
-    private static async Task<NhAssistantAgentInput?> ToInputAsync(
+    private static async Task<(NhAssistantAgentInput? Input, NhAssistantValidationErrors Errors)> ToInputAsync(
         NhAssistantAdminAgentInputDto body,
         IAuthorizationPolicyProvider policies)
     {
-        if (body.Id is null
-            || body.DisplayName is null
-            || body.Description is null
-            || body.Instructions is null
-            || body.ToolSelectors is null
-            || body.IsEnabled is null
-            || !Enum.TryParse<NhAiAutonomyLevel>(body.Autonomy, ignoreCase: true, out var autonomy)
-            || !string.Equals(body.Autonomy, autonomy.ToString(), StringComparison.OrdinalIgnoreCase)
-            || body.Autonomy.Any(char.IsUpper))
-        {
-            return null;
-        }
+        var autonomyValid = Enum.TryParse<NhAiAutonomyLevel>(body.Autonomy, ignoreCase: true, out var autonomy)
+            && string.Equals(body.Autonomy, autonomy.ToString(), StringComparison.OrdinalIgnoreCase)
+            && !body.Autonomy.Any(char.IsUpper);
         var requiredPolicy = string.IsNullOrWhiteSpace(body.RequiredPolicy) ? null : body.RequiredPolicy;
+        var errors = new NhAssistantValidationErrors()
+            .Require(body.Id is not null, "id", NhAssistantFieldErrors.Required)
+            .Require(body.DisplayName is not null, "displayName", NhAssistantFieldErrors.Required)
+            .Require(body.Description is not null, "description", NhAssistantFieldErrors.Required)
+            .Require(body.Instructions is not null, "instructions", NhAssistantFieldErrors.Required)
+            .Require(body.ToolSelectors is not null, "toolSelectors", NhAssistantFieldErrors.Required)
+            .Require(body.IsEnabled is not null, "isEnabled", NhAssistantFieldErrors.Required)
+            .Require(body.Autonomy is not null, "autonomy", NhAssistantFieldErrors.Required)
+            .Require(body.Autonomy is null || autonomyValid, "autonomy", NhAssistantFieldErrors.Invalid);
         if (requiredPolicy is not null && await policies.GetPolicyAsync(requiredPolicy) is null)
         {
-            return null;
+            errors.Add("requiredPolicy", NhAssistantFieldErrors.NotFound);
         }
-        return new NhAssistantAgentInput(
-            body.Id,
-            body.DisplayName,
-            body.Description,
-            body.Instructions,
-            body.ToolSelectors,
+        if (!errors.IsEmpty)
+        {
+            return (null, errors);
+        }
+        return (new NhAssistantAgentInput(
+            body.Id!,
+            body.DisplayName!,
+            body.Description!,
+            body.Instructions!,
+            body.ToolSelectors!,
             body.McpServerIds ?? [],
             requiredPolicy,
             autonomy,
-            body.IsEnabled.Value);
+            body.IsEnabled!.Value), errors);
     }
 
-    private static NhAssistantMcpServerInput? ToInput(NhAssistantMcpServerInputDto? body, string? id)
+    private static (NhAssistantMcpServerInput? Input, NhAssistantValidationErrors Errors) ToInput(
+        NhAssistantMcpServerInputDto body,
+        string? id)
     {
-        if (body is null || (id ?? body.Id) is null || body.DisplayName is null || body.Url is null || body.AuthMode is null || body.IsEnabled is null)
+        var errors = new NhAssistantValidationErrors()
+            .Require((id ?? body.Id) is not null, "id", NhAssistantFieldErrors.Required)
+            .Require(body.DisplayName is not null, "displayName", NhAssistantFieldErrors.Required)
+            .Require(body.Url is not null, "url", NhAssistantFieldErrors.Required)
+            .Require(body.AuthMode is not null, "authMode", NhAssistantFieldErrors.Required)
+            .Require(body.IsEnabled is not null, "isEnabled", NhAssistantFieldErrors.Required);
+        if (!errors.IsEmpty)
         {
-            return null;
+            return (null, errors);
         }
-        return new NhAssistantMcpServerInput(
+        return (new NhAssistantMcpServerInput(
             id ?? body.Id!,
-            body.DisplayName,
-            body.Url,
-            body.AuthMode,
+            body.DisplayName!,
+            body.Url!,
+            body.AuthMode!,
             string.IsNullOrWhiteSpace(body.HeaderName) ? null : body.HeaderName,
             body.Secret,
             string.IsNullOrWhiteSpace(body.RequiredPolicy) ? null : body.RequiredPolicy,
-            body.IsEnabled.Value);
+            body.IsEnabled!.Value), errors);
     }
 
     private static NhAssistantPreferencesDto ToDto(NhAssistantPreferences preferences)
@@ -600,13 +641,28 @@ internal static class NhAssistantAdminEndpoints
 
     private static IResult Failure(TaskResult result)
     {
-        var code = result.GetResultItems()
+        var items = result.GetResultItems();
+        var code = items
             .Select(item => item.Name)
-            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
+            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)
+                && !name.StartsWith(NhAssistantValidationErrors.FieldPrefix, StringComparison.Ordinal))
             ?? NhAssistantAdminErrorCodes.ValidationFailed;
+        var fieldErrors = items
+            .Where(item => item.Name.StartsWith(NhAssistantValidationErrors.FieldPrefix, StringComparison.Ordinal))
+            .GroupBy(item => item.Name[NhAssistantValidationErrors.FieldPrefix.Length..], StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .SelectMany(item => item.ErrorMessages)
+                    .Select(message => message.ToString())
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray(),
+                StringComparer.Ordinal);
         var status = code switch
         {
             NhAssistantErrorCodes.AgentNotFound
+                or NhAssistantAdminErrorCodes.NotFound
+                or NhAssistantAdminErrorCodes.ContextNotFound
                 or NhAssistantAdminErrorCodes.McpServerNotFound
                 or NhAssistantAdminErrorCodes.McpToolNotFound => StatusCodes.Status404NotFound,
             NhAssistantAdminErrorCodes.VersionConflict
@@ -618,7 +674,7 @@ internal static class NhAssistantAdminEndpoints
                 or NhAssistantAdminErrorCodes.McpUnauthorized => StatusCodes.Status502BadGateway,
             _ => StatusCodes.Status400BadRequest
         };
-        return Error(status, code);
+        return Error(status, code, fieldErrors.Count == 0 ? null : fieldErrors);
     }
 
     private static IResult Validation()
@@ -626,15 +682,20 @@ internal static class NhAssistantAdminEndpoints
         return Error(StatusCodes.Status400BadRequest, NhAssistantAdminErrorCodes.ValidationFailed);
     }
 
+    private static IResult MissingField(string field)
+    {
+        return Failure(NhAssistantValidationErrors.Failed(field, NhAssistantFieldErrors.Required));
+    }
+
     private static IResult ContextUnavailable()
     {
         return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.ContextUnavailable);
     }
 
-    private static IResult Error(int statusCode, string code)
+    private static IResult Error(int statusCode, string code, IReadOnlyDictionary<string, string[]>? errors = null)
     {
         return TypedResults.Json(
-            new NhAssistantErrorDto(code, NhAssistantErrorCodes.MessageKey(code)),
+            new NhAssistantErrorDto(code, NhAssistantErrorCodes.MessageKey(code), errors),
             Context.NhAssistantErrorDto,
             statusCode: statusCode);
     }

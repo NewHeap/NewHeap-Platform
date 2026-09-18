@@ -97,7 +97,9 @@ public sealed record NhAssistantDecideApprovalRequest(
 
 public sealed record NhAssistantErrorDto(
     string Code,
-    string MessageKey);
+    string MessageKey,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyDictionary<string, string[]>? Errors = null);
 
 public sealed record NhAssistantTurnStartedDto(
     Guid TurnId,

@@ -192,10 +192,12 @@ internal sealed partial class NhAssistantMcpAdministration(
         string actorId,
         CancellationToken cancellationToken)
     {
-        if (effect is not (NhAssistantMcpToolEffects.ReadOnly or NhAssistantMcpToolEffects.Mutation)
-            || descriptionOverride is { Length: > 1_000 })
+        var errors = new NhAssistantValidationErrors()
+            .Require(effect is NhAssistantMcpToolEffects.ReadOnly or NhAssistantMcpToolEffects.Mutation, "effect", NhAssistantFieldErrors.Invalid)
+            .Require(descriptionOverride is not { Length: > 1_000 }, "descriptionOverride", NhAssistantFieldErrors.TooLong);
+        if (!errors.IsEmpty)
         {
-            return TaskResult<AssistantMcpTool>.Failed(NhAssistantAdminErrorCodes.ValidationFailed, "The tool settings are invalid.");
+            return TaskResult<AssistantMcpTool>.Failed(errors.ToResult());
         }
         var tools = await store.ListMcpToolsAsync(serverId, cancellationToken);
         var current = tools.FirstOrDefault(tool => tool.RemoteName == remoteName);
@@ -240,23 +242,29 @@ internal sealed partial class NhAssistantMcpAdministration(
         bool hasStoredSecret,
         CancellationToken cancellationToken)
     {
-        var validShape = ServerIdPattern().IsMatch(input.Id ?? string.Empty)
-            && input.Id!.Length <= 40
-            && !string.IsNullOrWhiteSpace(input.DisplayName)
-            && input.DisplayName.Length <= 200
-            && !string.IsNullOrWhiteSpace(input.Url)
-            && input.Url.Length <= 2_048
+        var urlValid = !string.IsNullOrWhiteSpace(input.Url)
             && Uri.TryCreate(input.Url, UriKind.Absolute, out var uri)
-            && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)
-            && NhAssistantMcpAuthModes.IsValid(input.AuthMode)
-            && (input.AuthMode == NhAssistantMcpAuthModes.ApiKey
-                ? input.HeaderName is null || HeaderPattern().IsMatch(input.HeaderName)
-                : input.HeaderName is null)
-            && input.Secret is not { Length: > 2_000 }
-            && input.RequiredPolicy is not { Length: 0 or > 256 };
-        if (!validShape)
+            && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
+        var errors = new NhAssistantValidationErrors()
+            .Require(ServerIdPattern().IsMatch(input.Id ?? string.Empty), "id", NhAssistantFieldErrors.Invalid)
+            .Require(input.Id is not { Length: > 40 }, "id", NhAssistantFieldErrors.TooLong)
+            .Require(!string.IsNullOrWhiteSpace(input.DisplayName), "displayName", NhAssistantFieldErrors.Required)
+            .Require(input.DisplayName is not { Length: > 200 }, "displayName", NhAssistantFieldErrors.TooLong)
+            .Require(!string.IsNullOrWhiteSpace(input.Url), "url", NhAssistantFieldErrors.Required)
+            .Require(input.Url is not { Length: > 2_048 }, "url", NhAssistantFieldErrors.TooLong)
+            .Require(string.IsNullOrWhiteSpace(input.Url) || urlValid, "url", NhAssistantFieldErrors.Invalid)
+            .Require(NhAssistantMcpAuthModes.IsValid(input.AuthMode), "authMode", NhAssistantFieldErrors.Invalid)
+            .Require(
+                input.AuthMode == NhAssistantMcpAuthModes.ApiKey
+                    ? input.HeaderName is null || HeaderPattern().IsMatch(input.HeaderName)
+                    : input.HeaderName is null,
+                "headerName",
+                NhAssistantFieldErrors.Invalid)
+            .Require(input.Secret is not { Length: > 2_000 }, "secret", NhAssistantFieldErrors.TooLong)
+            .Require(input.RequiredPolicy is not { Length: 0 or > 256 }, "requiredPolicy", NhAssistantFieldErrors.Invalid);
+        if (!errors.IsEmpty)
         {
-            return TaskResult.Failed(NhAssistantAdminErrorCodes.ValidationFailed, "The MCP server settings are invalid.");
+            return errors.ToResult();
         }
         if (guard.CheckUri(new Uri(input.Url)) is { } blocked)
         {
@@ -266,11 +274,11 @@ internal sealed partial class NhAssistantMcpAdministration(
         var willHaveSecret = input.Secret is null ? hasStoredSecret : input.Secret.Length > 0;
         if (needsSecret && !willHaveSecret)
         {
-            return TaskResult.Failed(NhAssistantAdminErrorCodes.ValidationFailed, "This authentication mode needs a secret.");
+            return NhAssistantValidationErrors.Failed("secret", NhAssistantFieldErrors.Required);
         }
         if (input.RequiredPolicy is { } policy && await policies.GetPolicyAsync(policy) is null)
         {
-            return TaskResult.Failed(NhAssistantAdminErrorCodes.ValidationFailed, "The required policy does not exist.");
+            return NhAssistantValidationErrors.Failed("requiredPolicy", NhAssistantFieldErrors.NotFound);
         }
         return TaskResult.Succeeded();
     }

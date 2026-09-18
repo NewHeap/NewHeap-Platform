@@ -48,7 +48,9 @@ internal sealed class NhAssistantAgentAdministration(
         var profileName = DefaultProfileName();
         if (profileName is null)
         {
-            return Failed(NhAssistantAdminErrorCodes.ValidationFailed, "Administrator agents require UseChatProfile.");
+            return TaskResult<NhAssistantAgent>.Failed(
+                NhAssistantAdminErrorCodes.ValidationFailed,
+                "Administrator agents require UseChatProfile.");
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -179,20 +181,22 @@ internal sealed class NhAssistantAgentAdministration(
 
     private async Task<TaskResult> ValidateAsync(NhAssistantAgentInput input, CancellationToken cancellationToken)
     {
-        if (!NhAssistantNames.IsSegment(input.Id)
-            || string.IsNullOrWhiteSpace(input.DisplayName)
-            || input.DisplayName.Length > 256
-            || string.IsNullOrWhiteSpace(input.Description)
-            || input.Description.Length > 512
-            || string.IsNullOrWhiteSpace(input.Instructions)
-            || input.Instructions.Length > MaxInstructionsLength
-            || input.ToolSelectors.Count > 128
-            || input.ToolSelectors.Any(selector => !NhAssistantAgentDefinition.IsValidSelector(selector))
-            || input.McpServerIds.Count > 32
-            || input.RequiredPolicy is { Length: 0 or > 256 }
-            || !Enum.IsDefined(input.Autonomy))
+        var errors = new NhAssistantValidationErrors()
+            .Require(NhAssistantNames.IsSegment(input.Id), "id", NhAssistantFieldErrors.Invalid)
+            .Require(!string.IsNullOrWhiteSpace(input.DisplayName), "displayName", NhAssistantFieldErrors.Required)
+            .Require(input.DisplayName is not { Length: > 256 }, "displayName", NhAssistantFieldErrors.TooLong)
+            .Require(!string.IsNullOrWhiteSpace(input.Description), "description", NhAssistantFieldErrors.Required)
+            .Require(input.Description is not { Length: > 512 }, "description", NhAssistantFieldErrors.TooLong)
+            .Require(!string.IsNullOrWhiteSpace(input.Instructions), "instructions", NhAssistantFieldErrors.Required)
+            .Require(input.Instructions is not { Length: > MaxInstructionsLength }, "instructions", NhAssistantFieldErrors.TooLong)
+            .Require(input.ToolSelectors.Count <= 128, "toolSelectors", NhAssistantFieldErrors.TooLong)
+            .Require(input.ToolSelectors.All(NhAssistantAgentDefinition.IsValidSelector), "toolSelectors", NhAssistantFieldErrors.Invalid)
+            .Require(input.McpServerIds.Count <= 32, "mcpServerIds", NhAssistantFieldErrors.TooLong)
+            .Require(input.RequiredPolicy is not { Length: 0 or > 256 }, "requiredPolicy", NhAssistantFieldErrors.Invalid)
+            .Require(Enum.IsDefined(input.Autonomy), "autonomy", NhAssistantFieldErrors.Invalid);
+        if (!errors.IsEmpty)
         {
-            return TaskResult.Failed(NhAssistantAdminErrorCodes.ValidationFailed, "The agent definition is invalid.");
+            return errors.ToResult();
         }
         var serverIds = input.McpServerIds.Distinct(StringComparer.Ordinal).ToArray();
         var existing = await store.FindExistingMcpServerIdsAsync(serverIds, cancellationToken);

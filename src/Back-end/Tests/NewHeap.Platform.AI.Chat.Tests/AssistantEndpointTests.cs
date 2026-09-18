@@ -246,6 +246,9 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database)
                 1),
             context.NhAssistantConversationListDto);
         var error = JsonSerializer.SerializeToElement(new NhAssistantErrorDto("code", "key"), context.NhAssistantErrorDto);
+        var validation = JsonSerializer.SerializeToElement(
+            new NhAssistantErrorDto("code", "key", new Dictionary<string, string[]> { ["displayName"] = ["required"] }),
+            context.NhAssistantErrorDto);
 
         AssertNames(status, "enabled", "agents", "limits", "canAdminister");
         AssertNames(status.GetProperty("agents")[0], "id", "version", "displayNameKey", "descriptionKey", "canMutate");
@@ -253,6 +256,8 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database)
         AssertNames(summary, "items", "total");
         AssertNames(summary.GetProperty("items")[0], "id", "agentId", "title", "status", "createdAt", "updatedAt");
         AssertNames(error, "code", "messageKey");
+        AssertNames(validation, "code", "messageKey", "errors");
+        AssertNames(validation.GetProperty("errors"), "displayName");
     }
 
     private static async Task<string> CreateConversationAsync(HttpClient client)

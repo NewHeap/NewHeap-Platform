@@ -69,8 +69,12 @@ Administration endpoints additionally require the admin policy:
 | `POST mcp-servers/{id}/test`, `POST mcp-servers/{id}/sync` | connection test and tool sync; sync returns `502` when the server is unreachable or rejects the credentials |
 | `GET mcp-servers/{id}/tools`, `PUT mcp-servers/{id}/tools/{remoteName}` | synced tools; activate them and set their effect |
 
-Validation errors and blocked hosts return `400`, unknown objects `404` and stale
-versions `409`. MCP secrets are protected with ASP.NET Data Protection; persist the key
+Every error of `preferences` and `admin/*` has the body `{ code, messageKey, errors? }`.
+Validation errors return `400` with code `assistant-validation` and `errors` keyed by
+camelCase field name (values `required`, `invalid`, `too-long`, `not-found`); blocked
+hosts return `400` with `assistant-mcp-host-blocked`. A caller without the admin policy
+receives `403` with `assistant-forbidden`, unknown objects `404` with a specific
+`*-not-found` code and stale versions `409`. MCP secrets are protected with ASP.NET Data Protection; persist the key
 ring across restarts and nodes.
 
 JSON is camelCase through one source-generated `NhAssistantJsonSerializerContext`.

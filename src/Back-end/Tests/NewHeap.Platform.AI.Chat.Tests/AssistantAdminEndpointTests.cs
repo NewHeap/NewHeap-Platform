@@ -44,6 +44,11 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
         Assert.Equal("Use bullet points.", (await ReadJsonAsync(saved)).GetProperty("customInstructions").GetString());
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        var invalidBody = await ReadJsonAsync(invalid);
+        Assert.Equal("assistant-validation", invalidBody.GetProperty("code").GetString());
+        Assert.Equal("nh-assistant.errors.assistant-validation", invalidBody.GetProperty("messageKey").GetString());
+        AssertNames(invalidBody.GetProperty("errors"), "style");
+        Assert.Equal("invalid", invalidBody.GetProperty("errors").GetProperty("style")[0].GetString());
         Assert.Equal("default", otherDefaults.GetProperty("style").GetString());
     }
 
@@ -56,7 +61,15 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         using var admin = app.CreateClient(admin: true);
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/assistant/admin/agents")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await user.GetAsync("/api/assistant/admin/agents")).StatusCode);
+        using var forbidden = await user.GetAsync("/api/assistant/admin/agents");
+        using var forbiddenWrite = await user.PutAsync("/api/assistant/admin/context", Json(new { text = "x", expectedVersion = 0 }));
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        var forbiddenBody = await ReadJsonAsync(forbidden);
+        AssertNames(forbiddenBody, "code", "messageKey");
+        Assert.Equal("assistant-forbidden", forbiddenBody.GetProperty("code").GetString());
+        Assert.Equal("nh-assistant.errors.assistant-forbidden", forbiddenBody.GetProperty("messageKey").GetString());
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenWrite.StatusCode);
+        Assert.Equal("assistant-forbidden", (await ReadJsonAsync(forbiddenWrite)).GetProperty("code").GetString());
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/api/assistant/admin/agents")).StatusCode);
         Assert.False((await ReadJsonAsync(await user.GetAsync("/api/assistant/status"))).GetProperty("canAdminister").GetBoolean());
         Assert.True((await ReadJsonAsync(await admin.GetAsync("/api/assistant/status"))).GetProperty("canAdminister").GetBoolean());
@@ -80,13 +93,20 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         await using var app = await StartAsync();
         using var admin = app.CreateClient(admin: true);
 
-        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/assistant/admin/context")).StatusCode);
+        using var missing = await admin.GetAsync("/api/assistant/admin/context");
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+        Assert.Equal("assistant-context-not-found", (await ReadJsonAsync(missing)).GetProperty("code").GetString());
+        using var tooLong = await admin.PutAsync("/api/assistant/admin/context", Json(new { text = new string('x', 20_001), expectedVersion = 0 }));
+        using var withoutVersion = await admin.PutAsync("/api/assistant/admin/context", Json(new { text = "Projects." }));
         using var first = await admin.PutAsync("/api/assistant/admin/context", Json(new { text = "Projects belong to divisions.", expectedVersion = 0 }));
         using var stale = await admin.PutAsync("/api/assistant/admin/context", Json(new { text = "Stale.", expectedVersion = 0 }));
         using var second = await admin.PutAsync("/api/assistant/admin/context", Json(new { text = "Projects and tasks belong to divisions.", expectedVersion = 1 }));
         var current = await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/context"));
         var versions = await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/context/versions"));
 
+        Assert.Equal(HttpStatusCode.BadRequest, tooLong.StatusCode);
+        Assert.Equal("too-long", (await ReadJsonAsync(tooLong)).GetProperty("errors").GetProperty("text")[0].GetString());
+        Assert.Equal("required", (await ReadJsonAsync(withoutVersion)).GetProperty("errors").GetProperty("expectedVersion")[0].GetString());
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
         Assert.Equal("assistant-version-conflict", (await ReadJsonAsync(stale)).GetProperty("code").GetString());
@@ -137,6 +157,12 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         using var resetAdmin = await admin.PostAsync("/api/assistant/admin/agents/budget-helper/reset", null);
         using var resetCode = await admin.PostAsync("/api/assistant/admin/agents/project-assistant/reset", null);
         using var deleteCode = await admin.DeleteAsync("/api/assistant/admin/agents/project-assistant");
+        using var unknown = await admin.PutAsync("/api/assistant/admin/agents/no-such-agent", Json(new
+        {
+            agentInput.id, agentInput.displayName, agentInput.description, agentInput.instructions,
+            agentInput.toolSelectors, agentInput.mcpServerIds, agentInput.requiredPolicy, agentInput.autonomy, agentInput.isEnabled,
+            expectedVersion = 1
+        }));
         var visible = await ReadJsonAsync(await admin.GetAsync("/api/assistant/agents"));
         using var deleteAdmin = await admin.DeleteAsync("/api/assistant/admin/agents/budget-helper");
 
@@ -149,14 +175,24 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.Equal("admin", (await ReadJsonAsync(created)).GetProperty("source").GetString());
         Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, badSelector.StatusCode);
+        var badSelectorBody = await ReadJsonAsync(badSelector);
+        Assert.Equal("assistant-validation", badSelectorBody.GetProperty("code").GetString());
+        AssertNames(badSelectorBody.GetProperty("errors"), "toolSelectors");
         Assert.Equal(HttpStatusCode.BadRequest, unknownPolicy.StatusCode);
+        Assert.Equal("not-found", (await ReadJsonAsync(unknownPolicy)).GetProperty("errors").GetProperty("requiredPolicy")[0].GetString());
         Assert.Equal(HttpStatusCode.BadRequest, noVersion.StatusCode);
+        AssertNames((await ReadJsonAsync(noVersion)).GetProperty("errors"), "expectedVersion");
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
         Assert.Equal(2, (await ReadJsonAsync(updated)).GetProperty("version").GetInt32());
         Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, resetAdmin.StatusCode);
         Assert.Equal(HttpStatusCode.OK, resetCode.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, deleteCode.StatusCode);
+        Assert.Equal("assistant-code-agent-not-deletable", (await ReadJsonAsync(deleteCode)).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+        var unknownBody = await ReadJsonAsync(unknown);
+        AssertNames(unknownBody, "code", "messageKey");
+        Assert.EndsWith("-not-found", unknownBody.GetProperty("code").GetString());
         Assert.Contains(visible.EnumerateArray(), agent => agent.GetProperty("displayNameKey").GetString() == "Budget helper");
         Assert.Equal(HttpStatusCode.NoContent, deleteAdmin.StatusCode);
     }
