@@ -129,7 +129,9 @@ public sealed class AssistantRegistrationTests
                 || property.PropertyType == typeof(DateTimeOffset)
                 || property.PropertyType == typeof(DateTimeOffset?)
                 || property.PropertyType == typeof(NhAssistantAuditEventKind)
-                || property.Name is "ActorId" or "AgentId" or "ToolId" or "ResultCode" or "EqualityContract",
+                || property.Name is "ActorId" or "AgentId" or "ToolId" or "ResultCode" or "ObjectId"
+                    or "ApplicationContextVersion" or "ApplicationContextHash" or "InstructionsVersion"
+                    or "InstructionsHash" or "PreferencesHash" or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }
 
@@ -160,6 +162,7 @@ public sealed class AssistantRegistrationTests
         {
             options.AddPolicy(NhAssistantOptions.DefaultAccessPolicy, policy => policy.RequireAuthenticatedUser());
             options.AddPolicy("app.custom.access", policy => policy.RequireAuthenticatedUser());
+            options.AddPolicy(NhAssistantOptions.DefaultAdminPolicy, policy => policy.RequireAuthenticatedUser());
         });
         builder.Services.AddSingleton<TestProjectToolRecorder>();
         builder.Services.AddKeyedSingleton<IChatClient>("project-chat-model", new NhAiScriptedChatClient());

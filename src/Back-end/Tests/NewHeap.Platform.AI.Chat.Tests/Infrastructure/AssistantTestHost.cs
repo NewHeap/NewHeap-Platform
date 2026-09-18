@@ -58,7 +58,8 @@ internal sealed class AssistantTestHost : IAsyncDisposable
         AssistantTestProvider provider,
         IChatClient model,
         Action<NhAssistantLimits>? limits = null,
-        Action<IServiceCollection>? configure = null)
+        Action<IServiceCollection>? configure = null,
+        Action<NhAssistantBuilder>? assistantBuilder = null)
     {
         var services = new ServiceCollection();
         var audit = new NhAiCapturedAuditSink();
@@ -79,7 +80,14 @@ internal sealed class AssistantTestHost : IAsyncDisposable
             options.AddPolicy(TestProjectToolCatalog.ReadPolicy, policy => policy.RequireAuthenticatedUser());
             options.AddPolicy(TestProjectToolCatalog.ManagePolicy, policy => policy.RequireAuthenticatedUser());
             options.AddPolicy(AccessPolicy, policy => policy.RequireAuthenticatedUser());
+            options.AddPolicy("app.assistant.admin", policy => policy.RequireAuthenticatedUser());
             options.AddPolicy("app.project.manage", policy => policy.RequireClaim("permission", "app.project.manage"));
+        });
+        services.AddSingleton<Microsoft.Extensions.Hosting.IHostEnvironment>(new Microsoft.Extensions.Hosting.Internal.HostingEnvironment
+        {
+            EnvironmentName = "Development",
+            ApplicationName = "assistant-tests",
+            ContentRootPath = AppContext.BaseDirectory
         });
         services.AddSingleton<TestProjectToolRecorder>();
         services.AddKeyedSingleton("project-chat-model", model);
@@ -117,6 +125,7 @@ internal sealed class AssistantTestHost : IAsyncDisposable
                 .AddAgent(AssistantTestData.Agent() with { ProfileName = "project-chat" })
                 .AddBusinessAuditSink<CapturedBusinessAuditSinkAdapter>()
                 .WithLimits(configured => limits?.Invoke(configured));
+            assistantBuilder?.Invoke(assistant);
         });
         services.AddSingleton(business);
         configure?.Invoke(services);
@@ -153,10 +162,10 @@ internal sealed class AssistantTestHost : IAsyncDisposable
         return conversation;
     }
 
-    public Task<TurnResult> SendAsync(Guid conversationId, string text, string? userId = null)
+    public Task<TurnResult> SendAsync(Guid conversationId, string text, string? userId = null, string language = "en")
     {
         return RunAsync(userId, (runner, context) => runner.StartMessageTurnAsync(
-            new NhAssistantMessageTurnRequest(conversationId, context, text, Guid.NewGuid().ToString("N"), CancellationToken.None),
+            new NhAssistantMessageTurnRequest(conversationId, context, text, Guid.NewGuid().ToString("N"), CancellationToken.None, language),
             CancellationToken.None));
     }
 
@@ -253,7 +262,7 @@ internal sealed class AssistantTestHost : IAsyncDisposable
     /// Sets the request user synchronously: the accessor is AsyncLocal-based, so it must be set in the
     /// calling flow rather than inside an awaited helper.
     /// </summary>
-    private static HttpContext EnterUser(IServiceProvider services, string userId)
+    internal static HttpContext EnterUser(IServiceProvider services, string userId)
     {
         var httpContext = new DefaultHttpContext
         {
@@ -262,6 +271,7 @@ internal sealed class AssistantTestHost : IAsyncDisposable
                 [new Claim(ClaimTypes.NameIdentifier, userId)],
                 "test"))
         };
+        httpContext.Request.Headers.Authorization = "Bearer token-of-" + userId;
         services.GetRequiredService<IHttpContextAccessor>().HttpContext = httpContext;
         return httpContext;
     }

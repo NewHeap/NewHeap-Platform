@@ -102,3 +102,168 @@ public static class NhAssistantErrorCodes
         return "nh-assistant.errors." + code;
     }
 }
+
+/// <summary>
+/// Agent source values: from code (<c>AddAgent</c>) or created by an administrator.
+/// </summary>
+public static class NhAssistantAgentSources
+{
+    public const string Code = "code";
+    public const string Admin = "admin";
+}
+
+public static class NhAssistantApplicationContexts
+{
+    public const string DefaultId = "default";
+    public const int MaxTextLength = 20_000;
+}
+
+public static class NhAssistantMcpAuthModes
+{
+    public const string None = "none";
+    public const string Bearer = "bearer";
+    public const string ApiKey = "api-key";
+    public const string ForwardUserToken = "forward-user-token";
+
+    public static bool IsValid(string? value)
+    {
+        return value is None or Bearer or ApiKey or ForwardUserToken;
+    }
+}
+
+public static class NhAssistantMcpToolEffects
+{
+    public const string ReadOnly = "read-only";
+    public const string Mutation = "mutation";
+}
+
+public static class NhAssistantMcpToolStatuses
+{
+    public const string Available = "available";
+    public const string SchemaChanged = "schema-changed";
+    public const string Missing = "missing";
+}
+
+public static class NhAssistantStyles
+{
+    public const string Default = "default";
+    public const string Direct = "direct";
+    public const string Personal = "personal";
+    public const string Detailed = "detailed";
+
+    public static bool IsValid(string? value)
+    {
+        return value is Default or Direct or Personal or Detailed;
+    }
+}
+
+public static class NhAssistantAddressForms
+{
+    public const string Informal = "informal";
+    public const string Formal = "formal";
+
+    public static bool IsValid(string? value)
+    {
+        return value is Informal or Formal;
+    }
+}
+
+public static class NhAssistantResponseLengths
+{
+    public const string Short = "short";
+    public const string Normal = "normal";
+    public const string Long = "long";
+
+    public static bool IsValid(string? value)
+    {
+        return value is Short or Normal or Long;
+    }
+}
+
+/// <summary>
+/// Stable, content-free failure codes of the administration and MCP surface.
+/// </summary>
+public static class NhAssistantAdminErrorCodes
+{
+    public const string VersionConflict = "assistant-version-conflict";
+    /// <summary>
+    /// Invalid input; the error body lists field errors in <c>errors</c> with camelCase keys.
+    /// </summary>
+    public const string ValidationFailed = "assistant-validation";
+    public const string Forbidden = "assistant-forbidden";
+    public const string NotFound = "assistant-not-found";
+    public const string AgentExists = "assistant-agent-exists";
+    public const string CodeAgentNotDeletable = "assistant-code-agent-not-deletable";
+    public const string NotCodeAgent = "assistant-agent-not-code";
+    public const string McpServerNotFound = "assistant-mcp-server-not-found";
+    public const string McpServerExists = "assistant-mcp-server-exists";
+    public const string McpToolNotFound = "assistant-mcp-tool-not-found";
+    public const string McpUnreachable = "assistant-mcp-unreachable";
+    public const string McpUnauthorized = "assistant-mcp-unauthorized";
+    public const string McpHostBlocked = "assistant-mcp-host-blocked";
+    public const string McpSchemaChanged = "assistant-mcp-schema-changed";
+    public const string McpToolDisabled = "assistant-mcp-tool-disabled";
+    public const string InstructionsTooLong = "assistant-instructions-too-long";
+    public const string ContextNotFound = "assistant-context-not-found";
+}
+
+/// <summary>
+/// Stable, content-free field error values in the <c>errors</c> object of an
+/// <c>assistant-validation</c> response.
+/// </summary>
+public static class NhAssistantFieldErrors
+{
+    public const string Required = "required";
+    public const string Invalid = "invalid";
+    public const string TooLong = "too-long";
+    public const string NotFound = "not-found";
+}
+
+/// <summary>
+/// Collects field errors (camelCase field names) and turns them into one
+/// <c>assistant-validation</c> failure. Field errors travel as result items named
+/// <c>field:&lt;name&gt;</c> after the code item.
+/// </summary>
+internal sealed class NhAssistantValidationErrors
+{
+    public const string FieldPrefix = "field:";
+
+    private readonly Dictionary<string, List<string>> _errors = new(StringComparer.Ordinal);
+
+    public bool IsEmpty => _errors.Count == 0;
+
+    public NhAssistantValidationErrors Add(string field, string error)
+    {
+        if (!_errors.TryGetValue(field, out var list))
+        {
+            _errors[field] = list = [];
+        }
+        if (!list.Contains(error, StringComparer.Ordinal))
+        {
+            list.Add(error);
+        }
+        return this;
+    }
+
+    public NhAssistantValidationErrors Require(bool valid, string field, string error)
+    {
+        return valid ? this : Add(field, error);
+    }
+
+    public NewHeap.Platform.Common.Models.TaskResult ToResult()
+    {
+        var result = NewHeap.Platform.Common.Models.TaskResult.Failed(
+            NhAssistantAdminErrorCodes.ValidationFailed,
+            "The input is invalid.");
+        foreach (var (field, errors) in _errors)
+        {
+            result.AddError(FieldPrefix + field, errors.ToArray());
+        }
+        return result;
+    }
+
+    public static NewHeap.Platform.Common.Models.TaskResult Failed(string field, string error)
+    {
+        return new NhAssistantValidationErrors().Add(field, error).ToResult();
+    }
+}

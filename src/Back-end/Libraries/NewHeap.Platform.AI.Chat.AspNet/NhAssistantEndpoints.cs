@@ -105,6 +105,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             .WithDescription("Cancels the running turn in this process or dismisses a pending approval.")
             .Produces(StatusCodes.Status202Accepted)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        NhAssistantAdminEndpoints.Map(enabled, NhAssistantEndpointOptions.ResolveAdminPolicy(state, options));
         return group;
     }
 
@@ -131,11 +132,12 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         var limits = new NhAssistantLimitsDto(state.Limits.MaxMessageChars, state.Limits.MaxToolCallsPerTurn);
         if (!options.CurrentValue.Enabled)
         {
-            return Json(new NhAssistantStatusDto(false, [], limits), NhAssistantJsonSerializerContext.Default.NhAssistantStatusDto);
+            return Json(new NhAssistantStatusDto(false, [], limits, false), NhAssistantJsonSerializerContext.Default.NhAssistantStatusDto);
         }
         var agents = await access.GetVisibleAgentsAsync(httpContext.User, httpContext.RequestAborted);
+        var canAdminister = await access.CanAdministerAsync(httpContext.User);
         return Json(
-            new NhAssistantStatusDto(true, agents.Select(NhAssistantDtoMapper.ToDto).ToArray(), limits),
+            new NhAssistantStatusDto(true, agents.Select(NhAssistantDtoMapper.ToDto).ToArray(), limits, canAdminister),
             NhAssistantJsonSerializerContext.Default.NhAssistantStatusDto);
     }
 
@@ -177,7 +179,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
     private static async Task<IResult> CreateConversationAsync(
         HttpContext httpContext,
         INhAssistantStore store,
-        NhAssistantAgentRegistry registry,
+        NhAssistantAgentCatalog registry,
         NhAssistantAgentAccess access,
         NhAssistantConversationReader reader)
     {
@@ -196,10 +198,12 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         {
             return Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.TitleInvalid);
         }
-        if (!registry.TryGet(request.AgentId, out var agent))
+        var effective = await registry.FindAsync(request.AgentId, includeDisabled: false, httpContext.RequestAborted);
+        if (effective is null)
         {
             return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
         }
+        var agent = effective.Definition;
         if (!await access.CanUseAsync(httpContext.User, agent))
         {
             return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);
@@ -268,7 +272,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         Guid id,
         HttpContext httpContext,
         INhAssistantStore store,
-        NhAssistantAgentRegistry registry,
+        NhAssistantAgentCatalog registry,
         NhAssistantAgentAccess access,
         INhAssistantTurnRunner runner)
     {
@@ -294,7 +298,8 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 caller.Data,
                 request.Text ?? string.Empty,
                 request.ClientMessageId,
-                httpContext.RequestAborted),
+                httpContext.RequestAborted,
+                RequestLanguage(httpContext)),
             httpContext.RequestAborted);
         return started.Success
             ? new NhAssistantServerSentEventsResult(started.Data)
@@ -306,7 +311,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         Guid approvalId,
         HttpContext httpContext,
         INhAssistantStore store,
-        NhAssistantAgentRegistry registry,
+        NhAssistantAgentCatalog registry,
         NhAssistantAgentAccess access,
         INhAssistantTurnRunner runner)
     {
@@ -336,7 +341,8 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 request.Decision == "approve",
                 request.ExpectedProposalHash,
                 string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim(),
-                httpContext.RequestAborted),
+                httpContext.RequestAborted,
+                RequestLanguage(httpContext)),
             httpContext.RequestAborted);
         return started.Success
             ? new NhAssistantServerSentEventsResult(started.Data)
@@ -370,7 +376,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         Guid conversationId,
         string ownerActorId,
         INhAssistantStore store,
-        NhAssistantAgentRegistry registry,
+        NhAssistantAgentCatalog registry,
         NhAssistantAgentAccess access)
     {
         var conversation = await store.FindConversationAsync(conversationId, ownerActorId, httpContext.RequestAborted);
@@ -378,10 +384,12 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         {
             return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ConversationNotFound);
         }
-        if (!registry.TryGet(conversation.AgentId, out var agent))
+        var effective = await registry.FindAsync(conversation.AgentId, includeDisabled: false, httpContext.RequestAborted);
+        if (effective is null)
         {
             return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
         }
+        var agent = effective.Definition;
         return await access.CanUseAsync(httpContext.User, agent)
             ? null
             : Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);
@@ -429,6 +437,18 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             _ => StatusCodes.Status400BadRequest
         };
         return Error(status, code);
+    }
+
+    /// <summary>
+    /// The preference language: <c>nl</c> when the preferred <c>Accept-Language</c> is Dutch, otherwise <c>en</c>.
+    /// </summary>
+    internal static string RequestLanguage(HttpContext httpContext)
+    {
+        var preferred = httpContext.Request.GetTypedHeaders().AcceptLanguage
+            .OrderByDescending(item => item.Quality ?? 1)
+            .Select(item => item.Value.Value)
+            .FirstOrDefault();
+        return preferred is not null && preferred.StartsWith("nl", StringComparison.OrdinalIgnoreCase) ? "nl" : "en";
     }
 
     private static IResult ContextUnavailable()

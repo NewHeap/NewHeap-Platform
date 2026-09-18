@@ -95,6 +95,50 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Sets the authorization policy the administration endpoints require in addition to the
+    /// access policy. Overrides <c>NewHeap:AI:Assistant:AdminPolicy</c> (default <c>app.assistant.admin</c>).
+    /// </summary>
+    public NhAssistantBuilder UseAdminPolicy(string policyName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
+        if (policyName.Length > 256)
+        {
+            throw new ArgumentOutOfRangeException(nameof(policyName));
+        }
+        _state.AdminPolicy = policyName;
+        return this;
+    }
+
+    /// <summary>
+    /// Seeds the application context as version 1 when no context is stored yet. A changed seed never
+    /// replaces a context that already exists, including one an administrator edited.
+    /// </summary>
+    public NhAssistantBuilder UseDefaultApplicationContext(NhAiTextAsset context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        if (string.IsNullOrWhiteSpace(context.Content)
+            || context.Content.Length > NhAssistantApplicationContexts.MaxTextLength)
+        {
+            throw new ArgumentException(
+                "The default application context must contain at most 20,000 characters.",
+                nameof(context));
+        }
+        _state.DefaultApplicationContext = context;
+        return this;
+    }
+
+    /// <summary>
+    /// Configures the connection rules for administrator-connected MCP servers. Applied after the
+    /// <c>NewHeap:AI:Assistant:Mcp</c> configuration.
+    /// </summary>
+    public NhAssistantBuilder ConfigureMcp(Action<NhAssistantMcpOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        Services.PostConfigure<NhAssistantOptions>(options => configure(options.Mcp));
+        return this;
+    }
+
+    /// <summary>
     /// Sets the execution region every agent model call must be permitted to run in. Defaults to
     /// <c>local</c>, the NewHeap agent default; the chat profile must permit the region.
     /// </summary>
@@ -132,6 +176,10 @@ internal sealed class NhAssistantRegistrationState
     public string? StorageProvider { get; set; }
 
     public string ExecutionRegion { get; set; } = "local";
+
+    public string? AdminPolicy { get; set; }
+
+    public NhAiTextAsset? DefaultApplicationContext { get; set; }
 
     public NhAssistantLimits Limits { get; set; } = new();
 

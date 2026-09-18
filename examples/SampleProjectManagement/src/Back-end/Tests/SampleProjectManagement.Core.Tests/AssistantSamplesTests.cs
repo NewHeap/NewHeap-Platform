@@ -31,8 +31,10 @@ namespace SampleProjectManagement.Core.Tests;
 /// composition runs on a real ASP.NET Core host over PostgreSQL, a scripted model drives the
 /// curated <c>projects.*</c> tools, and every call goes through the assistant HTTP API.
 /// </summary>
-public sealed class AssistantSamplesTests(AssistantSampleHost host) : IClassFixture<AssistantSampleHost>
+public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IClassFixture<AssistantSampleHost>
 {
+    private AssistantSampleHost Host => host;
+
     [Fact]
     public async Task SPM_245_a_conversation_streams_a_turn_that_searches_projects()
     {
@@ -189,6 +191,7 @@ public sealed class AssistantSampleHost : IAsyncLifetime
         {
             options.AddPolicy(SampleAssistantComposition.AccessPolicy, policy => policy.RequireAuthenticatedUser());
             options.AddPolicy(ManagePolicy, policy => policy.RequireAuthenticatedUser());
+            options.AddPolicy(SampleAssistantComposition.AdminPolicy, policy => policy.RequireClaim("permission", "app.project.manage"));
         });
         services.AddSingleton(Projects);
         services.AddSingleton<IProjectAiReadService>(Projects);
@@ -224,10 +227,14 @@ public sealed class AssistantSampleHost : IAsyncLifetime
         await _database.DisposeAsync();
     }
 
-    public HttpClient CreateClient(string user)
+    public HttpClient CreateClient(string user, bool admin = false)
     {
         var client = new HttpClient { BaseAddress = _baseAddress, Timeout = TimeSpan.FromMinutes(2) };
         client.DefaultRequestHeaders.Add(SampleTestAuthenticationHandler.UserHeader, user);
+        if (admin)
+        {
+            client.DefaultRequestHeaders.Add(SampleTestAuthenticationHandler.AdminHeader, "true");
+        }
         client.DefaultRequestHeaders.Add("X-NH-ActiveDivisionId", DivisionId.ToString());
         return client;
     }
@@ -272,7 +279,7 @@ public sealed class AssistantSampleHost : IAsyncLifetime
         return await ReadJsonAsync(response);
     }
 
-    private static async Task<JsonElement> ReadJsonAsync(HttpResponseMessage response)
+    public static async Task<JsonElement> ReadJsonAsync(HttpResponseMessage response)
     {
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         return document.RootElement.Clone();
@@ -299,7 +306,7 @@ public sealed class AssistantSampleHost : IAsyncLifetime
         return events;
     }
 
-    private static StringContent Json(object body)
+    public static StringContent Json(object body)
     {
         var content = new StringContent(JsonSerializer.Serialize(body, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
@@ -413,6 +420,7 @@ internal sealed class SampleTestAuthenticationHandler(
 {
     public const string Scheme = "sample-test";
     public const string UserHeader = "X-Sample-User";
+    public const string AdminHeader = "X-Sample-Admin";
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
@@ -421,7 +429,12 @@ internal sealed class SampleTestAuthenticationHandler(
         {
             return Task.FromResult(AuthenticateResult.NoResult());
         }
-        var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, user)], Scheme);
+        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, user) };
+        if (Request.Headers.ContainsKey(AdminHeader))
+        {
+            claims.Add(new Claim("permission", "app.project.manage"));
+        }
+        var identity = new ClaimsIdentity(claims, Scheme);
         return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme)));
     }
 }

@@ -4,7 +4,11 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet.Mcp;
 using NewHeap.Platform.AI.Chat.Governance;
+using NewHeap.Platform.AI.Chat.Runtime;
+using NewHeap.Platform.AI.Mcp;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace NewHeap.Platform.AI.Chat.AspNet;
 
@@ -30,6 +34,15 @@ public static class NhAssistantServiceCollectionExtensions
         {
             services.AddOptions<NhAssistantOptions>().BindConfiguration(NhAssistantOptions.SectionName);
             services.TryAddScoped<NhAssistantAgentAccess>();
+            services.AddDataProtection();
+            services.AddNewHeapPlatformAIMcp();
+            services.TryAddSingleton<NhAssistantMcpSecretProtector>();
+            services.TryAddSingleton<NhAssistantMcpHostGuard>();
+            services.TryAddSingleton<INhAssistantMcpClientFactory, NhAssistantHttpMcpClientFactory>();
+            services.TryAddSingleton<NhAssistantMcpConnectionCache>();
+            services.TryAddScoped<NhAssistantMcpConnectionPlanner>();
+            services.TryAddScoped<NhAssistantMcpAdministration>();
+            services.Replace(ServiceDescriptor.Scoped<INhAssistantMcpToolSource, NhAssistantMcpToolSource>());
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantStartupValidator>());
         }
 
@@ -42,16 +55,30 @@ public static class NhAssistantServiceCollectionExtensions
 /// Evaluates the agent and access policies for the current user.
 /// </summary>
 internal sealed class NhAssistantAgentAccess(
-    NhAssistantAgentRegistry registry,
-    IAuthorizationService authorizationService)
+    NhAssistantAgentCatalog catalog,
+    IAuthorizationService authorizationService,
+    NhAssistantRegistrationState state,
+    IOptionsMonitor<NhAssistantOptions> options)
 {
-    public Task<IReadOnlyList<NhAssistantAgentDefinition>> GetVisibleAgentsAsync(
+    public async Task<bool> CanAdministerAsync(System.Security.Claims.ClaimsPrincipal user)
+    {
+        var policy = NhAssistantEndpointOptions.ResolveAdminPolicy(state, options.CurrentValue);
+        return (await authorizationService.AuthorizeAsync(user, policy)).Succeeded;
+    }
+
+    public async Task<IReadOnlyList<NhAssistantAgentDefinition>> GetVisibleAgentsAsync(
         System.Security.Claims.ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        return registry.GetVisibleAsync(
-            async policy => (await authorizationService.AuthorizeAsync(user, policy)).Succeeded,
-            cancellationToken);
+        var visible = new List<NhAssistantAgentDefinition>();
+        foreach (var agent in await catalog.ListAsync(includeDisabled: false, cancellationToken))
+        {
+            if (await CanUseAsync(user, agent.Definition))
+            {
+                visible.Add(agent.Definition);
+            }
+        }
+        return visible;
     }
 
     public async Task<bool> CanUseAsync(
@@ -104,6 +131,13 @@ internal sealed class NhAssistantStartupValidator(
                 $"The assistant access policy '{accessPolicy}' is not registered.");
         }
 
+        var adminPolicy = NhAssistantEndpointOptions.ResolveAdminPolicy(state, options.Value);
+        if (await policyProvider.GetPolicyAsync(adminPolicy) is null)
+        {
+            throw new InvalidOperationException(
+                $"The assistant admin policy '{adminPolicy}' is not registered. Register it or call UseAdminPolicy.");
+        }
+
         await registry.ValidateAsync(
             profiles,
             async policy => await policyProvider.GetPolicyAsync(policy) is not null,
@@ -118,6 +152,14 @@ internal sealed class NhAssistantStartupValidator(
 
 internal static class NhAssistantEndpointOptions
 {
+    public static string ResolveAdminPolicy(NhAssistantRegistrationState state, NhAssistantOptions options)
+    {
+        return state.AdminPolicy
+            ?? (string.IsNullOrWhiteSpace(options.AdminPolicy)
+                ? NhAssistantOptions.DefaultAdminPolicy
+                : options.AdminPolicy);
+    }
+
     public static string ResolveAccessPolicy(NhAssistantRegistrationState state, NhAssistantOptions options)
     {
         return state.AccessPolicy

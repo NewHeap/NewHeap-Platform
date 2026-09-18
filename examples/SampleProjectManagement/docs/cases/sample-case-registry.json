@@ -3469,6 +3469,55 @@
       "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
       "implementation": "planned",
       "evidence": []
+    },
+    {
+      "id": "SPM-250",
+      "categoryId": "18",
+      "title": "Administrator-managed assistant agents",
+      "surface": "`AddAgent` code agents persisted in `AssistantAgent`, `UseAdminPolicy`, `GET/POST admin/agents`, `PUT admin/agents/{id}` with `expectedVersion`, `POST admin/agents/{id}/reset`, `DELETE admin/agents/{id}`, `GET admin/tools`, `AssistantStatus.canAdminister`, `NhAssistantAuditEventKind.AdminAgentCreated|Updated|Deleted|Reset`",
+      "outcome": "Code agents are upserted into the library-owned `nhai` schema at startup and remain the default; an administrator can override, disable and reset them without changing their `code` source, and create own agents with a display name, instructions, tool selectors, an optional required policy and an autonomy level. In the sample an administrator creates a read-only portfolio agent; users see it with its literal display name, start a conversation and the agent searches projects with the curated tool while mutating tools stay out of reach. Users without the admin policy receive `403`, every change is versioned (`409` on a stale version) and reported as a content-free audit event.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentAdministrationTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-251",
+      "categoryId": "18",
+      "title": "Administrator-connected MCP servers assigned to agents",
+      "surface": "`ConfigureMcp` (`AllowedHosts`, `ForwardUserTokenHosts`, `RequireHttps`, `ToolListCacheDuration`, `ConnectTimeout`), `admin/mcp-servers` with `test`, `sync` and tool activation, auth modes `none`, `bearer`, `api-key` and `forward-user-token`, `INhAiMcpClientToolImporter`, `INhAiCallerCredentialAccessor`, agent `mcpServerIds`",
+      "outcome": "An administrator connects a Streamable HTTP MCP server with an API key that is protected with ASP.NET Data Protection and never returned, synchronizes its tools, which start disabled as approval-required mutations, activates one tool as read-only and assigns the server to one agent. That agent calls the remote tool through the governed MCP importer and the shared invoker; other agents never see it. A changed remote input schema disables a tool until it is activated again, the user token is forwarded only to allow-listed hosts, link-local, metadata and non-development loopback hosts are blocked after DNS resolution and again at connect time, and an unreachable server is skipped without breaking the turn.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-252",
+      "categoryId": "18",
+      "title": "Editable application context and personal assistant preferences",
+      "surface": "`UseDefaultApplicationContext`, `GET/PUT admin/context`, `GET admin/context/versions`, `GET/PUT preferences` (`style`, `addressForm`, `responseLength`, `customInstructions`), instruction composition in order of authority, prompt identity in the invocation context and `NhAssistantAuditEvent`",
+      "outcome": "The sample seeds its application context once as version 1; an administrator edits it with the expected version and a later seed never overwrites the edit. A user stores personal style preferences; the next turn uses library rules, the edited application context, the agent instructions and, last and explicitly bounded, the Dutch style lines and custom instructions chosen from `Accept-Language`. Custom instructions cannot change tools or approvals, and the context and preference texts never reach logs or audit, which carry their versions and hashes instead.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPersonalizationTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs"
+      ]
     }
   ]
 }
