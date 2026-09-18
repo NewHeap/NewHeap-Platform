@@ -94,6 +94,21 @@ public sealed class NhAssistantBuilder
         return this;
     }
 
+    /// <summary>
+    /// Sets the execution region every agent model call must be permitted to run in. Defaults to
+    /// <c>local</c>, the NewHeap agent default; the chat profile must permit the region.
+    /// </summary>
+    public NhAssistantBuilder UseExecutionRegion(string region)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(region);
+        if (region.Length > 64)
+        {
+            throw new ArgumentOutOfRangeException(nameof(region));
+        }
+        _state.ExecutionRegion = region;
+        return this;
+    }
+
     internal NhAssistantBuilder UseStorage(NhAssistantStorageRegistration registration)
     {
         ArgumentNullException.ThrowIfNull(registration);
@@ -115,6 +130,8 @@ internal sealed class NhAssistantRegistrationState
     public string? ChatProfileName { get; set; }
 
     public string? StorageProvider { get; set; }
+
+    public string ExecutionRegion { get; set; } = "local";
 
     public NhAssistantLimits Limits { get; set; } = new();
 

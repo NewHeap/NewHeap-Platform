@@ -328,4 +328,37 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
                 cancellationToken);
         return affected == 1;
     }
+
+    public async Task<int> GetToolCallsAsync(
+        string actorId,
+        DateOnly day,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.BudgetLedgers
+            .Where(ledger => ledger.ActorId == actorId && ledger.Day == day)
+            .Select(ledger => (int?)ledger.ToolCalls)
+            .SingleOrDefaultAsync(cancellationToken) ?? 0;
+    }
+
+    public async Task<bool> TryReleaseWaitingConversationAsync(
+        Guid conversationId,
+        string ownerActorId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        var affected = await context.Conversations
+            .Where(conversation => conversation.Id == conversationId
+                && conversation.OwnerActorId == ownerActorId
+                && conversation.Status == NhAssistantConversationStatuses.WaitingForApproval)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(conversation => conversation.Status, NhAssistantConversationStatuses.Idle)
+                    .SetProperty(conversation => conversation.ActiveTurnId, (Guid?)null)
+                    .SetProperty(conversation => conversation.UpdatedAt, now)
+                    .SetProperty(conversation => conversation.ConcurrencyStamp, Guid.NewGuid()),
+                cancellationToken);
+        return affected == 1;
+    }
 }

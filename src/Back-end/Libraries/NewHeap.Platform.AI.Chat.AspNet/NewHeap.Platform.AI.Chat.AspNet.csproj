@@ -18,4 +18,7 @@
     <ProjectReference Include="..\NewHeap.Platform.AI.Chat\NewHeap.Platform.AI.Chat.csproj" />
     <ProjectReference Include="..\NewHeap.Platform.AI.AspNet.Common\NewHeap.Platform.AI.AspNet.Common.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.Tests" />
+  </ItemGroup>
 </Project>

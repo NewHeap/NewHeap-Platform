@@ -35,6 +35,16 @@ internal sealed class NhAssistantTurnScope
 
     public int ToolCalls => Volatile.Read(ref _toolCalls);
 
+    /// <summary>
+    /// Set when the durable daily budget of the accountable actor refused a reservation in this turn.
+    /// </summary>
+    public bool BudgetExhausted { get; private set; }
+
+    public void MarkBudgetExhausted()
+    {
+        BudgetExhausted = true;
+    }
+
     public int IncrementToolCalls()
     {
         return Interlocked.Increment(ref _toolCalls);

@@ -47,6 +47,7 @@ internal sealed class NhAssistantBudgetManager(
         var booked = await BookAsync(turn.OwnerActorId, day, isToolCall, request, limit, now, cancellationToken);
         if (booked is null)
         {
+            turn.MarkBudgetExhausted();
             return TaskResult<NhAiBudgetReservation>.Failed(
                 ExhaustedCode,
                 "The daily assistant budget of the accountable actor is exhausted.");

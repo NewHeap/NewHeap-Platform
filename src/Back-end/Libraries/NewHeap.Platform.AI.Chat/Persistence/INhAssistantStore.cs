@@ -128,4 +128,17 @@ internal interface INhAssistantStore
         DateTimeOffset? approvalExpiresAt,
         string? reason,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Moves a conversation that waits for approval back to idle. Returns false when it is not waiting.
+    /// </summary>
+    Task<bool> TryReleaseWaitingConversationAsync(
+        Guid conversationId,
+        string ownerActorId,
+        CancellationToken cancellationToken);
+
+    Task<int> GetToolCallsAsync(
+        string actorId,
+        DateOnly day,
+        CancellationToken cancellationToken);
 }
