@@ -23,6 +23,9 @@ public sealed class TestProjectToolRecorder
     public ConcurrentQueue<NhAiInvocationContext> Contexts { get; } = new();
 
     public string SearchResultName { get; set; } = "Roadmap project";
+
+    /// <summary>When set, the search tool throws this exception inside the governed invocation.</summary>
+    public Exception? SearchException { get; set; }
 }
 
 /// <summary>
@@ -94,6 +97,10 @@ public sealed class TestProjectToolCatalog : INhAiToolCatalog
                 (context, _) =>
                 {
                     recorder.Contexts.Enqueue(context);
+                    if (recorder.SearchException is { } exception)
+                    {
+                        throw exception;
+                    }
                     IReadOnlyList<ProjectSearchItem> items = [new ProjectSearchItem(Guid.Empty, recorder.SearchResultName)];
                     return Task.FromResult(TaskResult<IReadOnlyList<ProjectSearchItem>>.Succeeded(items));
                 },
@@ -115,10 +122,12 @@ public sealed class TestProjectToolCatalog : INhAiToolCatalog
         [
             NhAiGovernedAIFunction.Create(
                 Search,
-                AIFunctionFactory.Create(search, new AIFunctionFactoryOptions { Name = Search.ExportName, Description = Search.Description })),
+                AIFunctionFactory.Create(search, new AIFunctionFactoryOptions { Name = Search.ExportName, Description = Search.Description }),
+                services),
             NhAiGovernedAIFunction.Create(
                 ChangeStatus,
-                AIFunctionFactory.Create(changeStatus, new AIFunctionFactoryOptions { Name = ChangeStatus.ExportName, Description = ChangeStatus.Description }))
+                AIFunctionFactory.Create(changeStatus, new AIFunctionFactoryOptions { Name = ChangeStatus.ExportName, Description = ChangeStatus.Description }),
+                services)
         ];
     }
 }

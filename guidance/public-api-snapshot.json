@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.34",
   "backEnd": {
-    "hash": "ae25ff784c53242b80b5ed8667bbe4b8407e560515f43a690bfcedda4238d904",
-    "declarationCount": 4999,
+    "hash": "cffd6b22df9a6cf4dde2bdd774f4fc9da6c862d1e4d26d223f16d9b6c6c7b9db",
+    "declarationCount": 5008,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3531,7 +3531,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
-        "declaration": "public static async Task<NhAssistantToolExecution> ExecuteAsync( NhAiToolDescriptor descriptor, AssistantToolInvocation row, Guid? proposalId, Guid? approvalId, Func<CancellationToken, ValueTask<object?>> invoke, CancellationToken cancellationToken) {"
+        "declaration": "public static async Task<NhAssistantToolExecution> ExecuteAsync( NhAiToolDescriptor descriptor, AssistantToolInvocation row, Guid? proposalId, Guid? approvalId, Func<CancellationToken, ValueTask<object?>> invoke, CancellationToken cancellationToken, ILogger? logger = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -4926,6 +4926,34 @@
         "declaration": "public void AddStartupRequirement( string profileName, NhAiModelCapability requiredCapabilities) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolArguments.cs",
+        "declaration": "public const string InputPropertyName = \"input\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolArguments.cs",
+        "declaration": "public static bool HasInputEnvelope(JsonElement schema) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolArguments.cs",
+        "declaration": "public static NhAiToolArgumentShape Normalize(AIFunctionArguments arguments, bool enveloped) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolArguments.cs",
+        "declaration": "public static BindingScope BeginBinding() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolArguments.cs",
+        "declaration": "public static void MarkInvokerEntered() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolArguments.cs",
+        "declaration": "public static async ValueTask<object?> RejectAsync( NhAiToolDescriptor descriptor, IReadOnlyList<string> unexpectedNames, IServiceProvider? services, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolArguments.cs",
+        "declaration": "public bool InvokerEntered { get; set; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public enum NhAiToolEffect {"
       },
@@ -5339,7 +5367,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
-        "declaration": "protected override ValueTask<object?> InvokeCoreAsync( AIFunctionArguments arguments, CancellationToken cancellationToken) {"
+        "declaration": "public static AIFunction Create( NhAiToolDescriptor descriptor, AIFunction governedFunction, IServiceProvider services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "protected override async ValueTask<object?> InvokeCoreAsync( AIFunctionArguments arguments, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
@@ -5371,7 +5403,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
-        "declaration": "public sealed class NhAiToolInvoker : INhAiToolInvoker {"
+        "declaration": "public sealed partial class NhAiToolInvoker : INhAiToolInvoker {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
@@ -5415,7 +5447,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
-        "declaration": "public NhAiToolInvoker( INhAiToolInvocationGate invocationGate, IEnumerable<INhAiAuditSink> auditSinks, INhAiEffectPolicy effectPolicy, INhAiApprovalEvidenceProvider approvalEvidenceProvider, INhAiApprovalValidator approvalValidator, INhAiIdempotencyManager idempotencyManager, IEnumerable<INhAiToolVerifier> verifiers, INhAiCapabilityResolver capabilityResolver, INhAiBudgetManager budgetManager, INhAiToolConcurrencyLimiter concurrencyLimiter, INhAiAuthoritativeExecutionEvidenceValidator? authoritativeEvidenceValidator = null)"
+        "declaration": "public NhAiToolInvoker( INhAiToolInvocationGate invocationGate, IEnumerable<INhAiAuditSink> auditSinks, INhAiEffectPolicy effectPolicy, INhAiApprovalEvidenceProvider approvalEvidenceProvider, INhAiApprovalValidator approvalValidator, INhAiIdempotencyManager idempotencyManager, IEnumerable<INhAiToolVerifier> verifiers, INhAiCapabilityResolver capabilityResolver, INhAiBudgetManager budgetManager, INhAiToolConcurrencyLimiter concurrencyLimiter, INhAiAuthoritativeExecutionEvidenceValidator? authoritativeEvidenceValidator = null, ILogger<NhAiToolInvoker>? logger = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
@@ -5608,6 +5640,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
         "declaration": "public const string VerificationFailed = \"ai-tool-verification-failed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolPublication.cs",
+        "declaration": "public const string InputInvalid = \"ai-tool-input-invalid\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",

@@ -227,4 +227,10 @@ public static class NhAiToolFailureCodes
     public const string IdempotencyDenied = "ai-tool-idempotency-denied";
     public const string ResultTooLarge = "ai-tool-result-too-large";
     public const string VerificationFailed = "ai-tool-verification-failed";
+
+    /// <summary>
+    /// The tool arguments did not have the expected <c>{"input": {...}}</c> shape or could not be
+    /// bound to the tool input. The tool did not run; the caller may retry with corrected arguments.
+    /// </summary>
+    public const string InputInvalid = "ai-tool-input-invalid";
 }

@@ -429,18 +429,32 @@ public interface INhAiGovernedAIFunction
     NhAiToolDescriptor Descriptor { get; }
 }
 
+/// <summary>
+/// Wraps the function of one governed descriptor. Arguments are normalized to the shared
+/// <c>input</c> envelope before binding: when the function's schema has <c>input</c> as its only
+/// property and the caller sent the input properties at the top level instead, the whole argument
+/// object becomes <c>input</c>. Nothing is merged or dropped: <c>input</c> next to other
+/// top-level properties, or arguments that cannot be bound, return the structured failure
+/// <see cref="NhAiToolFailureCodes.InputInvalid"/> without executing the tool. Normalized
+/// arguments still pass through the function's own binding and the shared invoker.
+/// </summary>
 public sealed class NhAiGovernedAIFunction : AIFunction, INhAiGovernedAIFunction
 {
     private readonly AIFunction _inner;
+    private readonly IServiceProvider? _services;
+    private readonly bool _enveloped;
 
     private NhAiGovernedAIFunction(
         NhAiToolDescriptor descriptor,
-        AIFunction inner)
+        AIFunction inner,
+        IServiceProvider? services)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
         ArgumentNullException.ThrowIfNull(inner);
         Descriptor = descriptor;
         _inner = inner;
+        _services = services;
+        _enveloped = NhAiToolArguments.HasInputEnvelope(inner.JsonSchema);
     }
 
     public NhAiToolDescriptor Descriptor { get; }
@@ -459,14 +473,52 @@ public sealed class NhAiGovernedAIFunction : AIFunction, INhAiGovernedAIFunction
         NhAiToolDescriptor descriptor,
         AIFunction governedFunction)
     {
-        return new NhAiGovernedAIFunction(descriptor, governedFunction);
+        return new NhAiGovernedAIFunction(descriptor, governedFunction, null);
     }
 
-    protected override ValueTask<object?> InvokeCoreAsync(
+    /// <summary>
+    /// Creates the governed function with the services of the catalog scope. They are used to
+    /// audit a rejected argument shape through the registered <see cref="INhAiAuditSink"/>
+    /// instances; without them the function falls back to <see cref="AIFunctionArguments.Services"/>.
+    /// </summary>
+    public static AIFunction Create(
+        NhAiToolDescriptor descriptor,
+        AIFunction governedFunction,
+        IServiceProvider services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return new NhAiGovernedAIFunction(descriptor, governedFunction, services);
+    }
+
+    protected override async ValueTask<object?> InvokeCoreAsync(
         AIFunctionArguments arguments,
         CancellationToken cancellationToken)
     {
-        return _inner.InvokeAsync(arguments, cancellationToken);
+        var shape = NhAiToolArguments.Normalize(arguments, _enveloped);
+        if (shape.Arguments is null)
+        {
+            return await NhAiToolArguments.RejectAsync(
+                Descriptor,
+                shape.UnexpectedNames,
+                _services ?? arguments.Services,
+                cancellationToken);
+        }
+
+        var binding = NhAiToolArguments.BeginBinding();
+        try
+        {
+            return await _inner.InvokeAsync(shape.Arguments, cancellationToken);
+        }
+        catch (Exception exception) when (!binding.InvokerEntered
+            && exception is ArgumentException or JsonException)
+        {
+            // The arguments could not be bound to the tool input before the shared invoker ran.
+            return await NhAiToolArguments.RejectAsync(
+                Descriptor,
+                [],
+                _services ?? arguments.Services,
+                cancellationToken);
+        }
     }
 }
 

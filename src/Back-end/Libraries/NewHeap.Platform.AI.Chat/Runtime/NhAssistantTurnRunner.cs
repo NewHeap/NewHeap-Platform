@@ -431,7 +431,8 @@ internal sealed class NhAssistantTurnRunner(
             approval.ProposalId,
             approval.Id,
             token => aiFunction.InvokeAsync(arguments, token),
-            cancellationToken);
+            cancellationToken,
+            logger);
         await interceptor.CompleteToolCallAsync(invocation, execution, CancellationToken.None);
         return execution;
     }
@@ -799,7 +800,7 @@ internal sealed class NhAssistantTurnRunner(
 
     private NhAssistantToolCallInterceptor CreateInterceptor(NhAssistantTurnState state)
     {
-        return new NhAssistantToolCallInterceptor(state, store, proposalFactory, _businessSinks);
+        return new NhAssistantToolCallInterceptor(state, store, proposalFactory, _businessSinks, logger);
     }
 
     private async Task FinishWithErrorAsync(

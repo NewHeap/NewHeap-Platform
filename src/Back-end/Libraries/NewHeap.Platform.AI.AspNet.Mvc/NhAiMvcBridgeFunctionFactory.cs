@@ -31,7 +31,8 @@ internal static class NhAiMvcBridgeFunctionFactory
         });
         return NhAiGovernedAIFunction.Create(
             descriptor,
-            new NhAiBridgeSchemaFunction(inner, CreateEnvelopeSchema(descriptor.InputSchemaJson)));
+            new NhAiBridgeSchemaFunction(inner, CreateEnvelopeSchema(descriptor.InputSchemaJson)),
+            services);
     }
 
     private static async Task<TaskResult<NhAiBridgeResponse>> InvokeAsync(

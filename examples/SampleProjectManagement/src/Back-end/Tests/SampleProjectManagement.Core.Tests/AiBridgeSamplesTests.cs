@@ -111,6 +111,34 @@ public sealed class AiBridgeSamplesTests
     }
 
     [Fact]
+    public async Task Flat_arguments_call_the_api_once_and_a_mixed_shape_never_reaches_it()
+    {
+        await using var sample = await BridgeSample.StartAsync();
+        var projectId = Guid.NewGuid();
+
+        var flat = await sample.InvokeRawAsync(
+            ManagerToken,
+            ManagerPermissions,
+            "sample-api_project_get-by-id_v1",
+            new AIFunctionArguments { ["id"] = JsonSerializer.SerializeToElement(projectId) });
+        var mixed = await sample.InvokeRawAsync(
+            ManagerToken,
+            ManagerPermissions,
+            "sample-api_project_get-by-id_v1",
+            new AIFunctionArguments
+            {
+                ["input"] = JsonSerializer.SerializeToElement(new { id = projectId }),
+                ["id"] = JsonSerializer.SerializeToElement(projectId)
+            });
+
+        Assert.True(flat.GetProperty("success").GetBoolean());
+        Assert.False(mixed.GetProperty("success").GetBoolean());
+        Assert.Equal(NhAiToolFailureCodes.InputInvalid, mixed.GetProperty("code").GetString());
+        var request = Assert.Single(sample.Requests);
+        Assert.Equal($"http://sample.test/projects/{projectId}", request.RequestUri!.ToString());
+    }
+
+    [Fact]
     public async Task Mcp_listing_contains_the_bridge_tools()
     {
         await using var sample = await BridgeSample.StartAsync();
@@ -242,6 +270,21 @@ public sealed class AiBridgeSamplesTests
                     ["input"] = JsonSerializer.SerializeToElement(input)
                 });
                 return (JsonElement)output!;
+            });
+        }
+
+        public Task<JsonElement> InvokeRawAsync(
+            string token,
+            string[] permissions,
+            string exportName,
+            AIFunctionArguments arguments)
+        {
+            return AsUserAsync(token, permissions, async services =>
+            {
+                var function = services.GetRequiredService<NhAiMvcBridgeToolCatalog>()
+                    .CreateFunctions(services)
+                    .Single(item => item.Name == exportName);
+                return (JsonElement)(await function.InvokeAsync(arguments))!;
             });
         }
 

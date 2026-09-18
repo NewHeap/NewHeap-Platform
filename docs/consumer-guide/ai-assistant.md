@@ -117,6 +117,13 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
 - Every administration change is a content-free audit event
   (`AdminContextUpdated`, `AdminAgent*`, `AdminMcpServer*`, `AdminMcpToolUpdated`).
 
+Tool calls whose arguments arrive without the `input` envelope still run through the
+governed function once. An envelope mixed with other properties, or arguments that
+cannot be bound, completes the tool call with `resultCode` `ai-tool-input-invalid` and
+a message that names only the unexpected property names, so the model can retry in
+the same turn. Unexpected tool exceptions complete with `ai-tool-failed` and are
+logged as warnings with tool ID, version, turn ID and exception type only.
+
 ## Avoid
 
 - Calling `AddNewHeapAssistant` before `AddNewHeapPlatformAIAspNet` or replacing the
@@ -145,7 +152,9 @@ Drive turns with `NhAiScriptedChatClient` against real SQL Server and PostgreSQL
 a read-only turn with one tool call, a mutation that pauses for approval and
 resumes after approve, a reject that closes without executing, an expired
 proposal, an exhausted daily budget, the tool-call limit, cancel and a disabled
-flag. Assert that no prompt, argument, result or answer text reaches the audit,
+flag. Send one call with flat arguments and one with `input` mixed with another
+property, and assert the first succeeds and the second returns `ai-tool-input-invalid`
+before a corrected retry succeeds. Assert that no prompt, argument, result or answer text reaches the audit,
 usage and business sinks or logs, that approval is bound to the proposal hash and
 owner, and that the SSE event and JSON property names match the contract.
 For administration, assert version conflicts, the admin policy, the seed behavior and
@@ -164,7 +173,7 @@ viewer who is offered no mutating tools.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs)
-  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantToolArgumentSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantToolArgumentSamplesTests.cs)
 - SPM-246 — Assistant mutation paused for approval and resumed
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs)

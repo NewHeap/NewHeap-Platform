@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Threading.Channels;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Governance;
 using NewHeap.Platform.AI.Chat.Persistence;
@@ -110,7 +111,8 @@ internal sealed class NhAssistantToolCallInterceptor(
     NhAssistantTurnState state,
     INhAssistantStore store,
     INhAiProposalFactory proposalFactory,
-    IReadOnlyList<INhAssistantBusinessAuditSink> businessSinks)
+    IReadOnlyList<INhAssistantBusinessAuditSink> businessSinks,
+    ILogger? logger = null)
 {
     public const string ToolsDisabledCode = "assistant-tools-disabled";
 
@@ -178,7 +180,8 @@ internal sealed class NhAssistantToolCallInterceptor(
             null,
             null,
             token => next(context, token),
-            cancellationToken);
+            cancellationToken,
+            logger);
         if (execution.Outcome.Kind == NhAssistantToolOutcomeKind.ApprovalMissing
             && await RequestApprovalAsync(descriptor, row, execution.Call, cancellationToken))
         {
@@ -204,7 +207,8 @@ internal sealed class NhAssistantToolCallInterceptor(
         Guid? proposalId,
         Guid? approvalId,
         Func<CancellationToken, ValueTask<object?>> invoke,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ILogger? logger = null)
     {
         var call = new NhAssistantToolCallScope
         {
@@ -224,6 +228,17 @@ internal sealed class NhAssistantToolCallInterceptor(
             catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
             {
                 // Transport or remote failures end this tool call only; the model receives a stable code.
+                // The log is content-free: tool identity, turn and exception type, never arguments,
+                // results, exception messages or stack traces.
+                if (logger is not null)
+                {
+                    LogUnexpectedToolException(
+                        logger,
+                        descriptor.Id,
+                        descriptor.Version,
+                        NhAssistantExecutionScope.CurrentTurn?.TurnId,
+                        exception.GetType().FullName ?? exception.GetType().Name);
+                }
                 var code = descriptor.Id.StartsWith("mcp.", StringComparison.Ordinal)
                     ? NhAssistantAdminErrorCodes.McpUnreachable
                     : NhAiToolFailureCodes.Failed;
@@ -465,6 +480,22 @@ internal sealed class NhAssistantToolCallInterceptor(
                 ["code"] = code
             },
             NhAssistantContent.JsonOptions);
+    }
+
+    private static readonly Action<ILogger, string, int, Guid?, string, Exception?> UnexpectedToolException =
+        LoggerMessage.Define<string, int, Guid?, string>(
+            LogLevel.Warning,
+            new EventId(1, "AssistantToolUnexpectedException"),
+            "Assistant tool {ToolId} v{ToolVersion} failed unexpectedly in turn {TurnId} with {ExceptionType}.");
+
+    private static void LogUnexpectedToolException(
+        ILogger logger,
+        string toolId,
+        int toolVersion,
+        Guid? turnId,
+        string exceptionType)
+    {
+        UnexpectedToolException(logger, toolId, toolVersion, turnId, exceptionType, null);
     }
 
     private static string EffectCode(NhAiToolEffect effect)
