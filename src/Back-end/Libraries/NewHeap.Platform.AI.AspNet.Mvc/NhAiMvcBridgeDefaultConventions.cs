@@ -255,7 +255,8 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
         ArgumentNullException.ThrowIfNull(type);
         var schema = InputSerializerOptions.GetJsonSchemaAsNode(type, new JsonSchemaExporterOptions
         {
-            TreatNullObliviousAsNonNullable = true
+            TreatNullObliviousAsNonNullable = true,
+            TransformSchemaNode = ApplyAnnotations
         });
         RebaseReferences(schema, pointer);
         return schema;
@@ -592,11 +593,58 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
         }
     }
 
+    /// <summary>
+    /// Adds <c>[Required]</c> properties to the object's <c>required</c> list and
+    /// <c>[Description]</c> text to the property schema, so the model sees the same contract as
+    /// the API's own validation.
+    /// </summary>
+    private static JsonNode ApplyAnnotations(JsonSchemaExporterContext context, JsonNode schema)
+    {
+        if (schema is not JsonObject schemaObject)
+        {
+            return schema;
+        }
+
+        var description = context.PropertyInfo?.AttributeProvider?
+            .GetCustomAttributes(typeof(System.ComponentModel.DescriptionAttribute), inherit: true)
+            .OfType<System.ComponentModel.DescriptionAttribute>()
+            .FirstOrDefault()?.Description;
+        if (!string.IsNullOrWhiteSpace(description) && !schemaObject.ContainsKey("description"))
+        {
+            schemaObject["description"] = description;
+        }
+
+        if (context.PropertyInfo is null && context.TypeInfo.Kind == JsonTypeInfoKind.Object)
+        {
+            var required = context.TypeInfo.Properties
+                .Where(property => property.IsRequired
+                    || (property.AttributeProvider?.IsDefined(
+                        typeof(System.ComponentModel.DataAnnotations.RequiredAttribute),
+                        inherit: true) ?? false))
+                .Select(property => property.Name)
+                .ToArray();
+            if (required.Length > 0)
+            {
+                var list = schemaObject["required"] as JsonArray ?? new JsonArray();
+                foreach (var name in required)
+                {
+                    if (!list.Any(item => item?.GetValue<string>() == name))
+                    {
+                        list.Add(name);
+                    }
+                }
+                schemaObject["required"] = list;
+            }
+        }
+        return schemaObject;
+    }
+
     private static JsonSerializerOptions CreateInputSerializerOptions()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
+            NumberHandling = JsonNumberHandling.Strict
         };
         options.Converters.Add(new JsonStringEnumConverter());
         options.MakeReadOnly();

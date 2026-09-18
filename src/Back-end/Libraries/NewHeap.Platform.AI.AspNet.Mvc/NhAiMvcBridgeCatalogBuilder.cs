@@ -495,17 +495,21 @@ internal sealed class NhAiMvcBridgeCatalogBuilder(
         ParameterInfo? parameterInfo,
         bool forceOptional)
     {
-        var hasDefault = parameter.DefaultValue is not null
-            || (parameterInfo is not null
-                && string.Equals(parameterInfo.Name, parameter.Name, StringComparison.OrdinalIgnoreCase)
-                && parameterInfo.HasDefaultValue);
+        // A top-level action parameter (not a flattened model property) is required when it
+        // has no default value and is not nullable, matching MVC's implicit required rules.
+        var ownParameter = parameterInfo is not null
+            && string.Equals(parameterInfo.Name, parameter.Name, StringComparison.OrdinalIgnoreCase)
+            ? parameterInfo
+            : null;
+        var hasDefault = parameter.DefaultValue is not null || (ownParameter?.HasDefaultValue ?? false);
+        var implicitlyRequired = ownParameter is not null && !IsNullable(ownParameter);
         return new NhAiBridgeParameterInfo
         {
             Name = parameter.Name,
             InputName = ToCamelCase(parameter.Name),
             Source = source,
             ParameterType = parameter.Type!,
-            IsRequired = !forceOptional && parameter.IsRequired && !hasDefault
+            IsRequired = !forceOptional && !hasDefault && (parameter.IsRequired || implicitlyRequired)
         };
     }
 
