@@ -21,7 +21,7 @@
 
   @if (part().resultCode; as resultCode) {
     <p class="result-code">
-      {{ ['nh-assistant.result-codes.' + resultCode] | nhAssistantTranslate: resultCode }}
+      {{ ['nh-assistant.result-codes.' + resultCode, 'nh-assistant.errors.' + resultCode] | nhAssistantTranslate: resultCode }}
     </p>
   }
 

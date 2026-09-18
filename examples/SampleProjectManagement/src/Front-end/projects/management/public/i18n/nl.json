@@ -428,9 +428,6 @@
         "name": "Catalogusgids",
         "description": "Legt de samplecatalogus uit. Alleen lezen."
       }
-    },
-    "errors": {
-      "assistant-model-unavailable": "Het taalmodel is tijdelijk niet beschikbaar. Probeer het zo opnieuw."
     }
   }
 }

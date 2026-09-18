@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { provideNhAssistant } from '../provide-nh-assistant';
+import { NH_ASSISTANT_ERROR_CODES } from './nh-assistant-error-codes';
 import { NH_ASSISTANT_TRANSLATIONS } from './nh-assistant-translations';
 
 function flatten(value: Record<string, unknown>, prefix = ''): Map<string, unknown> {
@@ -40,23 +41,38 @@ describe('NH_ASSISTANT_TRANSLATIONS', () => {
 });
 
 describe('error translations', () => {
-  /** Every failure code of the preference and admin endpoints (contract 12.8). */
-  const adminCodes = [
-    'assistant-validation', 'assistant-instructions-too-long', 'assistant-mcp-host-blocked',
-    'assistant-forbidden',
-    'assistant-not-found', 'assistant-context-not-found', 'assistant-mcp-server-not-found', 'assistant-mcp-tool-not-found',
-    'assistant-version-conflict', 'assistant-agent-exists', 'assistant-mcp-server-exists', 'assistant-code-agent-not-deletable',
-    'assistant-agent-not-code',
-    'assistant-mcp-unreachable', 'assistant-mcp-unauthorized'
-  ];
-
-  it('translates every admin failure code in en and nl', () => {
+  it('translates every assistant failure code in en and nl', () => {
     for (const language of ['en', 'nl'] as const) {
       const keys = flatten(NH_ASSISTANT_TRANSLATIONS[language]);
-      for (const code of adminCodes) {
+      for (const code of NH_ASSISTANT_ERROR_CODES) {
         expect(keys.has(`nh-assistant.errors.${code}`)).withContext(`${language}: ${code}`).toBeTrue();
       }
     }
+  });
+
+  it('covers the admin codes of contract 12.8 and the chat codes of the back-end', () => {
+    const required = [
+      'assistant-validation', 'assistant-instructions-too-long', 'assistant-mcp-host-blocked', 'assistant-forbidden',
+      'assistant-not-found', 'assistant-context-not-found', 'assistant-mcp-server-not-found', 'assistant-mcp-tool-not-found',
+      'assistant-version-conflict', 'assistant-agent-exists', 'assistant-mcp-server-exists', 'assistant-code-agent-not-deletable',
+      'assistant-agent-not-code', 'assistant-mcp-unreachable', 'assistant-mcp-unauthorized',
+      'assistant-actor-mismatch', 'assistant-agent-forbidden', 'assistant-agent-not-found', 'assistant-approval-decision-invalid',
+      'assistant-approval-expired', 'assistant-approval-invalid', 'assistant-approval-not-found', 'assistant-approval-not-pending',
+      'assistant-approval-rejected', 'assistant-budget-exhausted', 'assistant-context-unavailable',
+      'assistant-conversation-not-found', 'assistant-disabled', 'assistant-message-duplicate', 'assistant-message-invalid',
+      'assistant-message-too-long', 'assistant-model-unavailable', 'assistant-proposal-hash-mismatch', 'assistant-title-invalid',
+      'assistant-tool-call-limit-reached', 'assistant-tools-disabled', 'assistant-turn-failed', 'assistant-turn-timeout'
+    ];
+
+    expect(required.filter(code => !NH_ASSISTANT_ERROR_CODES.includes(code))).toEqual([]);
+  });
+
+  it('has no error text without a known code', () => {
+    const texts = [...flatten(NH_ASSISTANT_TRANSLATIONS.en).keys()]
+      .filter(key => key.startsWith('nh-assistant.errors.') && key !== 'nh-assistant.errors.generic')
+      .map(key => key.slice('nh-assistant.errors.'.length));
+
+    expect(texts.filter(code => !NH_ASSISTANT_ERROR_CODES.includes(code))).toEqual([]);
   });
 });
 

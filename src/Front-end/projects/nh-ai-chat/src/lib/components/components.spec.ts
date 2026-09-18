@@ -294,6 +294,14 @@ describe('NhAssistantToolCallCardComponent', () => {
     expect((element.querySelector('.details') as HTMLElement).hidden).toBeFalse();
   });
 
+  it('uses the error text for assistant result codes such as a rejected approval', () => {
+    const fixture = TestBed.createComponent(NhAssistantToolCallCardComponent);
+    fixture.componentRef.setInput('part', { ...part, status: 'rejected', resultCode: 'assistant-approval-rejected' });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.result-code').textContent.trim()).toBe('You rejected this action, so nothing was changed.');
+  });
+
   it('falls back to the raw code for an unknown result code', () => {
     const fixture = TestBed.createComponent(NhAssistantToolCallCardComponent);
     fixture.componentRef.setInput('part', { ...part, resultCode: 'custom-failure' });
