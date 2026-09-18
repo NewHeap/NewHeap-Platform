@@ -31,6 +31,7 @@ as the calling user.
 | DELETE, anonymous, upload and policy-less actions are never published; `IncludeDeleteActions(true)` fails at startup in this version. | Expose deletions through a curated tool with a verifier. |
 | `EnableGateway` adds the read-only gateway tools `search-resources`, `describe-resource`, `query` and `get` over the read-only bridge actions per resource; `INhAiBridgeConventions` gains `DescribeQuery` with a default implementation that describes no fields. | No action; override `DescribeQuery` to have filter and order keys validated before the HTTP call. |
 | Bridge tools share the governed-function argument handling: flat arguments run once, a mixed `input` shape returns `ai-tool-input-invalid` before any HTTP call, and unknown flat properties still fail as `api-bridge-validation`. | No action. |
+| `INhAiBridgeConventions` gains `IsCollectionAction` (default: the action binds a NewHeap collection request model); the gateway uses it to choose between `query` and `get`, and for recognized actions without a model the default conventions add the collection fragment to the input schema and query string. | No action; override `IsCollectionAction` for list endpoints that read `page`, `itemsPerPage`, `search`, `orderBy` and `filter` from the query string themselves. |
 
 ## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql, NewHeap.Platform.AI.Chat.AspNet (new packages)
 

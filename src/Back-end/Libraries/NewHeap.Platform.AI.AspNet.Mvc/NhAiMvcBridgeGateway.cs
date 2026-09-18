@@ -288,12 +288,12 @@ internal static class NhAiMvcBridgeGatewayBuilderLogic
             var baseName = NhAiMvcBridgeNames.ToKebabCase(controller.Key);
             var baseTitle = Humanize(controller.Key);
             var queries = controller
-                .Where(candidate => IsQuery(candidate.Action))
+                .Where(candidate => IsQuery(candidate.Action, conventions))
                 .OrderBy(candidate => IsPrimaryName(candidate.Action.ActionName) ? 0 : 1)
                 .ThenBy(candidate => candidate.Action.ActionName, StringComparer.Ordinal)
                 .ToArray();
             var gets = controller
-                .Where(candidate => IsGet(candidate.Action))
+                .Where(candidate => IsGet(candidate.Action, conventions))
                 .OrderBy(candidate => IsPrimaryName(candidate.Action.ActionName) ? 0 : 1)
                 .ThenBy(candidate => candidate.Action.ActionName, StringComparer.Ordinal)
                 .ToArray();
@@ -408,18 +408,18 @@ internal static class NhAiMvcBridgeGatewayBuilderLogic
         return CollectionInputNames.Contains(name, StringComparer.Ordinal);
     }
 
-    private static bool IsQuery(NhAiBridgeActionInfo action)
+    private static bool IsQuery(NhAiBridgeActionInfo action, INhAiBridgeConventions conventions)
     {
-        return action.Parameters.Any(parameter => parameter.IsCollectionRequest)
+        return conventions.IsCollectionAction(action)
             && !action.RouteParameters.Any()
             && action.BodyParameter is null;
     }
 
-    private static bool IsGet(NhAiBridgeActionInfo action)
+    private static bool IsGet(NhAiBridgeActionInfo action, INhAiBridgeConventions conventions)
     {
         return action.RouteParameters.Count() == 1
             && action.BodyParameter is null
-            && !action.Parameters.Any(parameter => parameter.IsCollectionRequest);
+            && !conventions.IsCollectionAction(action);
     }
 
     private static bool IsPrimaryName(string actionName)

@@ -97,7 +97,10 @@ Resources group the read-only bridge actions per controller (`order`, `order-gro
 extra collection or detail actions get a suffix such as `project-mine`). `query` and
 `get` run the underlying bridge descriptor through `INhAiToolInvoker`: the gate,
 policies, budget, audit (with the underlying tool id) and the self-HTTP request are
-exactly those of the bridge tool. Override `INhAiBridgeConventions.DescribeQuery` to
+exactly those of the bridge tool. An action is offered as `query` when `INhAiBridgeConventions.IsCollectionAction`
+recognizes it (default: it binds a NewHeap collection request model); override it for
+list endpoints that read the collection values from the query string themselves.
+Override `INhAiBridgeConventions.DescribeQuery` to
 describe filter, order and result fields; described filter and order keys are
 enforced before the HTTP call (`api-bridge-validation`). Unknown and unauthorized
 resources fail identically with `ai-tool-not-found`. Reads that require approval and

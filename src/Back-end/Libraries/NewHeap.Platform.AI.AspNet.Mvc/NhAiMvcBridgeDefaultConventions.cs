@@ -46,6 +46,18 @@ public interface INhAiBridgeConventions
     {
         return NhAiBridgeQueryDescription.Empty;
     }
+
+    /// <summary>
+    /// Whether the action is a paged collection that accepts <c>page</c>, <c>itemsPerPage</c>,
+    /// <c>search</c>, <c>orderBy</c> and <c>filter</c>. The gateway offers such actions as
+    /// <c>query</c>. The default recognizes actions that bind a NewHeap collection request model;
+    /// override it for actions that read the collection values from the query string themselves.
+    /// </summary>
+    bool IsCollectionAction(NhAiBridgeActionInfo action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        return action.Parameters.Any(parameter => parameter.IsCollectionRequest);
+    }
 }
 
 /// <summary>
@@ -128,8 +140,22 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
         ArgumentNullException.ThrowIfNull(action);
         var properties = new JsonObject();
         var required = new JsonArray();
+        var queryStringCollection = UsesQueryStringCollection(action);
+        if (queryStringCollection)
+        {
+            // The action reads the collection values from the query string itself.
+            foreach (var property in CreateCollectionSchemaProperties())
+            {
+                properties[property.Key] = property.Value;
+            }
+        }
         foreach (var parameter in action.Parameters)
         {
+            if (queryStringCollection && IsCollectionPropertyName(parameter.InputName))
+            {
+                // The collection fragment owns paging, search, ordering and filters.
+                continue;
+            }
             if (parameter.IsCollectionRequest)
             {
                 foreach (var property in CreateCollectionSchemaProperties())
@@ -177,7 +203,8 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
             throw new NhAiBridgeInputException("The tool input must be a JSON object.");
         }
 
-        var known = KnownInputNames(action);
+        var queryStringCollection = UsesQueryStringCollection(action);
+        var known = KnownInputNames(action, queryStringCollection);
         foreach (var property in input.EnumerateObject())
         {
             if (!known.Contains(property.Name))
@@ -189,6 +216,11 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
         var request = new NhAiBridgeHttpRequest(action.HttpMethod, BuildPath(action, input));
         foreach (var parameter in action.Parameters)
         {
+            if (queryStringCollection && IsCollectionPropertyName(parameter.InputName))
+            {
+                continue;
+            }
+
             switch (parameter.Source)
             {
                 case NhAiBridgeParameterSource.Query when parameter.IsCollectionRequest:
@@ -208,7 +240,23 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
                     break;
             }
         }
+        if (queryStringCollection)
+        {
+            AppendCollectionQuery(request, input);
+        }
         return request;
+    }
+
+    /// <summary>
+    /// The default: an action that binds a NewHeap collection request model. Override for
+    /// actions that read <c>page</c>, <c>itemsPerPage</c>, <c>search</c>, <c>orderBy</c> and
+    /// <c>filter</c> from the query string themselves; the default input schema and request then
+    /// add the collection fragment in the NewHeap query contract.
+    /// </summary>
+    public virtual bool IsCollectionAction(NhAiBridgeActionInfo action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        return action.Parameters.Any(parameter => parameter.IsCollectionRequest);
     }
 
     /// <summary>
@@ -220,7 +268,7 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
         ArgumentNullException.ThrowIfNull(action);
         return NhAiBridgeQueryDescription.Empty with
         {
-            Searchable = action.Parameters.Any(parameter => parameter.IsCollectionRequest)
+            Searchable = IsCollectionAction(action)
         };
     }
 
@@ -358,9 +406,20 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
             : file;
     }
 
-    private static HashSet<string> KnownInputNames(NhAiBridgeActionInfo action)
+    /// <summary>A collection action without a bound collection model.</summary>
+    private bool UsesQueryStringCollection(NhAiBridgeActionInfo action)
+    {
+        return !action.Parameters.Any(parameter => parameter.IsCollectionRequest)
+            && IsCollectionAction(action);
+    }
+
+    private static HashSet<string> KnownInputNames(NhAiBridgeActionInfo action, bool queryStringCollection)
     {
         var names = new HashSet<string>(StringComparer.Ordinal);
+        if (queryStringCollection)
+        {
+            names.UnionWith(["page", "itemsPerPage", "search", "orderBy", "filter"]);
+        }
         foreach (var parameter in action.Parameters)
         {
             if (parameter.IsCollectionRequest)

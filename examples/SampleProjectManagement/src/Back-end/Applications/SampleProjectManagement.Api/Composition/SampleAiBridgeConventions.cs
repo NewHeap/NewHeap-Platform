@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using NewHeap.Platform.AI.AspNet.Mvc;
+using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Attributes;
 
 namespace SampleProjectManagement.Api.Composition;
@@ -14,6 +15,21 @@ public sealed class SampleAiBridgeConventions : NhAiMvcBridgeDefaultConventions
 {
     /// <summary>The operators of the NewHeap collection contract.</summary>
     private static readonly string[] FilterOperators = ["==", "!=", ">", ">=", "<", "<=", "IS", "IS NOT", "IN", "NOT IN", "LIKE"];
+
+    /// <summary>
+    /// A GET without route values that returns a NewHeap <c>CollectionResultModel&lt;T&gt;</c> is a
+    /// paged collection, also when it reads the collection values from the query string itself
+    /// instead of binding a collection request model.
+    /// </summary>
+    public override bool IsCollectionAction(NhAiBridgeActionInfo action)
+    {
+        return base.IsCollectionAction(action)
+            || (action.HttpMethod == "GET"
+                && !action.RouteParameters.Any()
+                && action.BodyParameter is null
+                && action.ResponseType is { IsGenericType: true } responseType
+                && responseType.GetGenericTypeDefinition() == typeof(CollectionResultModel<>));
+    }
 
     public override NhAiBridgeQueryDescription DescribeQuery(NhAiBridgeActionInfo action)
     {

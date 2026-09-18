@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.34",
   "backEnd": {
-    "hash": "e2d79f4c0256a7d402bf217f590dcc01ff454dd77c2dd5592faf6adef455fb1b",
-    "declarationCount": 5097,
+    "hash": "6d23526a7a5d5ca3502e71f765a3cfc1833c151e8c520b7eb53bd0354e9dc5bf",
+    "declarationCount": 5098,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -528,6 +528,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDefaultConventions.cs",
         "declaration": "public virtual NhAiBridgeHttpRequest BuildRequest(NhAiBridgeActionInfo action, JsonElement input) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDefaultConventions.cs",
+        "declaration": "public virtual bool IsCollectionAction(NhAiBridgeActionInfo action) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDefaultConventions.cs",
