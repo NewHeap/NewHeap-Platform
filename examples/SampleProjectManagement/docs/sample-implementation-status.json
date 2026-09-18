@@ -1652,7 +1652,8 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/components.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-api.spec.ts",
-      "../../src/Front-end/projects/nh-ai-chat/testing/src/provide-nh-assistant-mock-api.ts"
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/provide-nh-assistant-mock-api.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-page-context.spec.ts"
     ],
     "SPM-249": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs",

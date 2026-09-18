@@ -1,6 +1,7 @@
 import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import {
   ApprovalPart,
+  ClientContext,
   Conversation,
   ConversationSummary,
   CreateConversationRequest,
@@ -10,7 +11,8 @@ import {
   SendMessageRequest,
   TurnUsage,
   applyNhAssistantApprovalDecision,
-  applyNhAssistantEvent
+  applyNhAssistantEvent,
+  normalizeNhAssistantClientContext
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdmin } from './nh-assistant-mock-admin';
 import {
@@ -54,6 +56,8 @@ export class NhAssistantMockBackend {
   private readonly conversations = new Map<string, Conversation>();
   private readonly pendingApprovals = new Map<string, PendingApproval>();
   private readonly runs = new Map<string, ActiveRun>();
+  /** Page context of the latest message per conversation, as the server stores it. */
+  private readonly pageContexts = new Map<string, ClientContext | null>();
   private readonly enabledState = signal(this.scenario.enabled ?? true);
   private readonly admin = new NhAssistantMockAdmin(this.scenario, () => new Date().toISOString());
   private readonly canAdministerState = signal(this.admin.administers);
@@ -215,7 +219,10 @@ export class NhAssistantMockBackend {
       return this.empty(409);
     }
 
-    const turn = this.findTurn(text, conversation.agentId);
+    // Like the server: an invalid page context is dropped, never a 400.
+    const pageContext = normalizeNhAssistantClientContext(request.clientContext);
+    this.pageContexts.set(conversation.id, pageContext);
+    const turn = this.findTurn(text, conversation.agentId, pageContext);
     const userMessageId = this.nextId();
     const assistantMessageId = this.nextId();
     this.update(conversation.id, current => ({
@@ -292,7 +299,8 @@ export class NhAssistantMockBackend {
 
     for (const step of steps) {
       if ('text' in step) {
-        for (const piece of step.text.match(/\S+\s*|\s+/g) ?? []) {
+        const text = typeof step.text === 'function' ? step.text(this.pageContexts.get(conversationId) ?? null) : step.text;
+        for (const piece of text.match(/\S+\s*|\s+/g) ?? []) {
           usage.outputTokens++;
           await emit({ type: 'message.delta', data: { messageId: assistantMessageId, text: piece } });
         }
@@ -435,7 +443,7 @@ export class NhAssistantMockBackend {
     }), { status: 200, headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache' } });
   }
 
-  private findTurn(text: string, agentId: string): NhAssistantMockTurn | undefined {
+  private findTurn(text: string, agentId: string, pageContext: ClientContext | null): NhAssistantMockTurn | undefined {
     return this.scenario.turns.find(turn => {
       const match = turn.match;
       if (match === undefined) {
@@ -447,7 +455,7 @@ export class NhAssistantMockBackend {
       if (match instanceof RegExp) {
         return match.test(text);
       }
-      return match(text, agentId);
+      return match(text, agentId, pageContext);
     });
   }
 

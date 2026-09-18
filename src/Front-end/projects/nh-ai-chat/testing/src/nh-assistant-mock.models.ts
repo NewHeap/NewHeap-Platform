@@ -3,6 +3,7 @@ import {
   AgentSummary,
   AssistantPreferences,
   AssistantStatus,
+  ClientContext,
   Conversation,
   McpServerInput,
   ToolCatalogEntry
@@ -10,7 +11,8 @@ import {
 
 /** Streams text as `message.delta` events, split into word-sized pieces. */
 export interface NhAssistantMockTextStep {
-  text: string;
+  /** Fixed text, or text built from the page context the client sent with the message. */
+  text: string | ((pageContext: ClientContext | null) => string);
 }
 
 /** Runs one tool: `tool.started` followed by `tool.completed`. */
@@ -74,7 +76,7 @@ export type NhAssistantMockStep =
 /** A scripted assistant turn, chosen by matching the user's message. */
 export interface NhAssistantMockTurn {
   /** Case-insensitive substring, regular expression or predicate. Omit to match every message. */
-  match?: string | RegExp | ((text: string, agentId: string) => boolean);
+  match?: string | RegExp | ((text: string, agentId: string, pageContext: ClientContext | null) => boolean);
   steps: NhAssistantMockStep[];
 }
 

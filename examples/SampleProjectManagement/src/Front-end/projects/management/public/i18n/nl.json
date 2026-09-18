@@ -298,7 +298,13 @@
     "assistant-admin-hidden": "Verborgen: de gebruiker heeft geen beheerpermissie.",
     "assistant-simulate-schema-change": "Gewijzigde MCP-tool simuleren",
     "assistant-schema-change-simulated": "De zoektool voor documenten meldt nu een nieuw invoerschema. Synchroniseer de server op het tabblad MCP-servers om te zien dat hij uitgaat.",
-    "assistant-admin-back": "Terug naar de assistent-playground"
+    "assistant-admin-back": "Terug naar de assistent-playground",
+    "assistant-prompt-page": "Paginacontext",
+    "assistant-page-title": "Projectpagina",
+    "assistant-page-description": "Open een project alsof je op de projectpagina bent. Het paneel toont het project boven het berichtveld en stuurt het mee met het volgende bericht; met het kruisje laat je het weg.",
+    "assistant-page-close": "Projectpagina sluiten",
+    "assistant-page-current": "Nu open: {{page}}",
+    "assistant-page-none": "Er is geen projectpagina open; het paneel stuurt de huidige route en titel mee."
   },
   "nh-background-operations": {
     "operation": "Achtergrondtaak",

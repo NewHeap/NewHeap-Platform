@@ -3383,7 +3383,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Assistant panel in the management portal",
     "category": "AI tools and generated catalogs",
     "surface": "@newheap/platform-ai-chat: provideNhAssistant, NhAssistantAccessPolicy, NhAssistantApiService (fetch-based SSE), NhAssistantStore, NhAssistantPanelService, the nh-assistant-* launcher, panel, conversation list, thread, composer, tool-call card, approval card and agent picker, NH_ASSISTANT_ICONS, and provideNhAssistantMockApi from @newheap/platform-ai-chat/testing",
-    "outcome": "The management portal registers the assistant once with the NewHeap session token and an `app.assistant.access` permission policy, shows the launcher in the header and one CDK overlay panel in the layout. The Assistant playground runs the same panel on a scripted mock API: a new conversation streams Markdown answers, tool calls show status and translated result codes, a mutation pauses on an approval card that sends the expected proposal hash once for approve or reject, a running turn can be stopped, server errors appear as translated messages, and switching agents starts a new conversation. The launcher disappears when the server reports the assistant disabled or the access policy denies the user, model text never renders HTML or script, and the English and Dutch texts have identical keys.",
+    "outcome": "The management portal registers the assistant once with the NewHeap session token and an `app.assistant.access` permission policy, shows the launcher in the header and one CDK overlay panel in the layout. The Assistant playground runs the same panel on a scripted mock API: a new conversation streams Markdown answers, tool calls show status and translated result codes, a mutation pauses on an approval card that sends the expected proposal hash once for approve or reject, a running turn can be stopped, server errors appear as translated messages, and switching agents starts a new conversation. The launcher disappears when the server reports the assistant disabled or the access policy denies the user, model text never renders HTML or script, and the English and Dutch texts have identical keys. With `getPageContext` each message carries what the user has open, such as the simulated project page of the playground; a chip above the message box shows it, the user can leave it out of the next message, and a failing getter never blocks sending.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts",
@@ -3397,7 +3397,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/components.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-api.spec.ts",
-      "../../src/Front-end/projects/nh-ai-chat/testing/src/provide-nh-assistant-mock-api.ts"
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/provide-nh-assistant-mock-api.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-page-context.spec.ts"
     ]
   },
   {
@@ -3485,6 +3486,22 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts"
+    ]
+  },
+  {
+    "id": "SPM-254",
+    "title": "Situational and page context for assistant turns",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAssistantTurnContextProvider, NhAssistantContextFact, UseTurnContextProvider<T>(), UseTimeZone(...), clientContext in POST conversations/{id}/messages (route, title, entities), NhAssistantAuditEvent.ContextFactCount|PageEntityCount|HadPageContext",
+    "outcome": "Every assistant turn starts with a \"Situation\" data block: the library's date, weekday and time in Europe/Amsterdam plus the signed-in sample user's name and roles from `SampleAssistantTurnContextProvider`. When the client sends the page it has open, a \"User's screen\" block lists the route, title and up to five entities. Both blocks follow the instructions, are marked as data rather than instructions, are bounded (20 facts and 2,000 characters; route 200, title 120, five entities) and do not change the prompt hash, so pending approvals stay valid. A page context of the wrong shape is ignored instead of rejecting the message. Audit events carry only the fact and entity counts and whether page context was present.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantContextSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnContextTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantEndpointTests.cs"
     ]
   }
 ] as const;

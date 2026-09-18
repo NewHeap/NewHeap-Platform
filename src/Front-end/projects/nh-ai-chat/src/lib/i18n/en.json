@@ -365,6 +365,12 @@
         "save": "Save tool",
         "back": "Back to the servers"
       }
+    },
+    "page-context": {
+      "included": "Sent with your message: {{page}}",
+      "excluded": "Not sent with this message: {{page}}",
+      "exclude": "Do not send {{page}} with this message",
+      "include": "Send {{page}} with this message again"
     }
   }
 }

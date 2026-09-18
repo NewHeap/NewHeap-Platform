@@ -298,7 +298,13 @@
     "assistant-admin-hidden": "Hidden: the user lacks the admin permission.",
     "assistant-simulate-schema-change": "Simulate a changed MCP tool",
     "assistant-schema-change-simulated": "The document search tool now reports a new input schema. Sync the server on the MCP servers tab to see it disabled.",
-    "assistant-admin-back": "Back to the assistant playground"
+    "assistant-admin-back": "Back to the assistant playground",
+    "assistant-prompt-page": "Page context",
+    "assistant-page-title": "Project page",
+    "assistant-page-description": "Open a project as if you were on its page. The panel shows the project above the message box and sends it with the next message; the cross leaves it out.",
+    "assistant-page-close": "Close the project page",
+    "assistant-page-current": "Open now: {{page}}",
+    "assistant-page-none": "No project page is open; the panel sends the current route and title."
   },
   "nh-background-operations": {
     "operation": "Background operation",

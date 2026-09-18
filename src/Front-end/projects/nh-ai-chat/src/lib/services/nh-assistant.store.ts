@@ -1,9 +1,10 @@
-import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, EnvironmentInjector, Injectable, computed, inject, runInInjectionContext, signal } from '@angular/core';
 import { Observable, Subscription, firstValueFrom, isObservable } from 'rxjs';
 import {
   AgentSummary,
   ApprovalDecision,
   AssistantStatus,
+  ClientContext,
   Conversation,
   ConversationSummary
 } from '../models/assistant-api.models';
@@ -11,6 +12,7 @@ import { NhAssistantClientErrorCodes, NhAssistantSseEvent, TurnUsage } from '../
 import { NH_ASSISTANT_ACCESS_POLICY, NH_ASSISTANT_CONFIG } from '../nh-assistant.config';
 import { NhAssistantApiError, NhAssistantApiService, nhAssistantErrorMessageKey } from './nh-assistant-api.service';
 import { applyNhAssistantApprovalDecision, applyNhAssistantEvent } from './nh-assistant-reducer';
+import { normalizeNhAssistantClientContext } from './nh-assistant-page-context';
 
 /** A user-facing assistant failure: a stable code and a translation key, never raw server text. */
 export interface NhAssistantError {
@@ -29,6 +31,7 @@ const cancelGracePeriodMs = 5_000;
 export class NhAssistantStore {
   private readonly api = inject(NhAssistantApiService);
   private readonly config = inject(NH_ASSISTANT_CONFIG);
+  private readonly injector = inject(EnvironmentInjector);
   private readonly accessPolicy = inject(NH_ASSISTANT_ACCESS_POLICY);
 
   private readonly accessGrantedState = signal<boolean | null>(null);
@@ -45,6 +48,8 @@ export class NhAssistantStore {
   private readonly errorState = signal<NhAssistantError | null>(null);
   private readonly lastUsageState = signal<TurnUsage | null>(null);
   private readonly restoredDraftState = signal<string | null>(null);
+  private readonly pageContextState = signal<ClientContext | null>(null);
+  private readonly pageContextExcludedState = signal(false);
 
   private accessSubscription?: Subscription;
   private streamSubscription?: Subscription;
@@ -75,6 +80,10 @@ export class NhAssistantStore {
   readonly lastUsage = this.lastUsageState.asReadonly();
   /** Text of a message the server did not accept, so the composer can offer it again. */
   readonly restoredDraft = this.restoredDraftState.asReadonly();
+  /** Page context that the next message would send, for the transparency chip. */
+  readonly pageContext = this.pageContextState.asReadonly();
+  /** True when the user left the page context out of the next message. */
+  readonly pageContextExcluded = this.pageContextExcludedState.asReadonly();
   /** True while the user can send: enabled, an agent is chosen and no turn runs or waits. */
   readonly canSend = computed(() => {
     const conversation = this.activeConversationState();
@@ -220,6 +229,7 @@ export class NhAssistantStore {
       }
     }
 
+    const clientContext = await this.contextForMessage();
     const clientMessageId = createClientMessageId();
     const previousStatus = conversation.status;
     this.activeConversationState.set({
@@ -236,7 +246,11 @@ export class NhAssistantStore {
       let started = false;
       let failedAfterStart = false;
 
-      this.runStream(this.api.sendMessage(conversationId, { text: trimmed, clientMessageId }), {
+      this.runStream(this.api.sendMessage(conversationId, {
+        text: trimmed,
+        clientMessageId,
+        ...(clientContext === undefined ? {} : { clientContext })
+      }), {
         next: event => {
           if (event.type === 'error' && !started) {
             this.removeMessage(clientMessageId, previousStatus);
@@ -338,11 +352,58 @@ export class NhAssistantStore {
     this.errorState.set(null);
   }
 
+  /** Reads the host's page context again so the chip shows what the next message sends. */
+  async refreshPageContext(): Promise<void> {
+    this.pageContextState.set((await this.readPageContext()) ?? null);
+  }
+
+  /** Leaves the page context out of the next message only, or includes it again. */
+  setPageContextExcluded(excluded: boolean): void {
+    this.pageContextExcludedState.set(excluded);
+  }
+
   /** Returns and clears the draft of a message that was not accepted. */
   consumeRestoredDraft(): string | null {
     const draft = this.restoredDraftState();
     this.restoredDraftState.set(null);
     return draft;
+  }
+
+  /**
+   * Page context for one message: `undefined` omits the field (no getter, getter failed or
+   * invalid shape), `null` sends an explicit "none" (no context or left out by the user).
+   */
+  private async contextForMessage(): Promise<ClientContext | null | undefined> {
+    if (!this.config.getPageContext) {
+      return undefined;
+    }
+
+    if (this.pageContextExcludedState()) {
+      this.pageContextExcludedState.set(false);
+      return null;
+    }
+
+    const context = await this.readPageContext();
+    this.pageContextState.set(context ?? null);
+    return context;
+  }
+
+  private async readPageContext(): Promise<ClientContext | null | undefined> {
+    const getter = this.config.getPageContext;
+    if (!getter) {
+      return undefined;
+    }
+
+    try {
+      const value = await runInInjectionContext(this.injector, () => getter());
+      if (value === null || value === undefined) {
+        return null;
+      }
+      return normalizeNhAssistantClientContext(value) ?? undefined;
+    } catch {
+      // A failing host getter never blocks sending; the message goes without page context.
+      return undefined;
+    }
   }
 
   private async startInitialization(): Promise<void> {

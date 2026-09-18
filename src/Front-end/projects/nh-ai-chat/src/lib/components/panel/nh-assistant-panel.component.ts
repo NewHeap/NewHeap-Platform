@@ -3,6 +3,7 @@ import {
   AfterViewInit,
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnDestroy,
   TemplateRef,
   ViewContainerRef,
@@ -13,14 +14,15 @@ import {
   untracked,
   viewChild
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import { ApprovalDecision } from '../../models/assistant-api.models';
+import { ApprovalDecision, ClientContext } from '../../models/assistant-api.models';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NH_ASSISTANT_CONFIG } from '../../nh-assistant.config';
 import { NhAssistantPanelService } from '../../services/nh-assistant-panel.service';
 import { NhAssistantStore } from '../../services/nh-assistant.store';
+import { describeNhAssistantClientContext } from '../../services/nh-assistant-page-context';
 import { NhAssistantAgentPickerComponent } from '../agent-picker/nh-assistant-agent-picker.component';
 import { NhAssistantComposerComponent } from '../composer/nh-assistant-composer.component';
 import { NhAssistantConversationListComponent } from '../conversation-list/nh-assistant-conversation-list.component';
@@ -56,6 +58,7 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   readonly panel = inject(NhAssistantPanelService);
   private readonly config = inject(NH_ASSISTANT_CONFIG);
   private readonly viewContainerRef = inject(ViewContainerRef);
+  private readonly router = inject(Router, { optional: true });
   private readonly drawer = viewChild.required<TemplateRef<unknown>>('drawer');
   private portal?: TemplatePortal;
 
@@ -93,9 +96,18 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
       if (this.panel.isOpen()) {
         untracked(() => {
           void this.store.initialize().then(() => this.store.refreshConversations());
+          this.refreshPageContext();
         });
       }
     });
+
+    // The drawer stays open while the user navigates; keep the page-context chip current.
+    const navigation = this.router?.events.subscribe(event => {
+      if (event instanceof NavigationEnd && this.panel.isOpen()) {
+        this.refreshPageContext();
+      }
+    });
+    inject(DestroyRef).onDestroy(() => navigation?.unsubscribe());
   }
 
   ngAfterViewInit(): void {
@@ -107,6 +119,14 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
     if (this.portal) {
       this.panel.unregisterPanel(this.portal);
     }
+  }
+
+  refreshPageContext(): void {
+    void this.store.refreshPageContext();
+  }
+
+  describeContext(context: ClientContext): string {
+    return describeNhAssistantClientContext(context);
   }
 
   toggleConversations(): void {

@@ -1,3 +1,4 @@
+import { ClientContext } from '@newheap/platform-ai-chat';
 import { NhAssistantMockRemoteTool, NhAssistantMockScenario } from '@newheap/platform-ai-chat/testing';
 
 export const PROJECT_ASSISTANT_ID = 'sample-project-assistant';
@@ -15,8 +16,35 @@ export const PLAYGROUND_CHANGED_REMOTE_TOOLS: NhAssistantMockRemoteTool[] = PLAY
   tool.remoteName === 'searchDocuments' ? { ...tool, inputSchemaHash: 'search-v2' } : tool);
 export const CATALOG_GUIDE_ID = 'sample-catalog-guide';
 
+/** Projects the playground can open as a simulated project page. */
+export const PLAYGROUND_PROJECT_PAGES: readonly ClientContext[] = [
+  {
+    route: '/management/projects/PRJ-ALPHA',
+    title: 'Alpha migration',
+    entities: [{ type: 'project', id: 'PRJ-ALPHA', label: 'Project PRJ-ALPHA · Alpha migration' }]
+  },
+  {
+    route: '/management/projects/PRJ-GAMMA',
+    title: 'Gamma analytics',
+    entities: [{ type: 'project', id: 'PRJ-GAMMA', label: 'Project PRJ-GAMMA · Gamma analytics' }]
+  }
+];
+
+/** The mock answer that reflects the page context the panel sent. */
+function describePageContext(context: ClientContext | null): string {
+  if (!context) {
+    return 'You did not send page context with this message, so I only know what you tell me.';
+  }
+
+  const entity = context.entities?.[0];
+  return entity
+    ? `You have **${entity.label ?? entity.id}** open (${entity.type} \`${entity.id}\`). I use it only as a search hint; the API still checks your permissions.`
+    : `You are on \`${context.route}\`${context.title ? ` (${context.title})` : ''}.`;
+}
+
 /** Prompts that exercise each scripted turn of the playground scenario. */
 export const ASSISTANT_PLAYGROUND_PROMPTS = [
+  { key: 'page', text: 'What am I looking at?' },
   { key: 'list', text: 'Which projects are active?' },
   { key: 'approval', text: 'Put project Alpha migration on hold.' },
   { key: 'forbidden', text: 'Delete the archived projects.' },
@@ -120,6 +148,10 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
   },
   timing: { firstEventDelayMs: 350, eventDelayMs: 45 },
   turns: [
+    {
+      match: /looking at|this page/i,
+      steps: [{ text: describePageContext }]
+    },
     {
       match: /\b(hold|pause|status of)\b/i,
       steps: [

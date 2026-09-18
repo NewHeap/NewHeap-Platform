@@ -131,9 +131,26 @@
     }
 
     @if (store.enabled() && !showPreferences()) {
-      <footer class="footer">
+      <footer class="footer" (focusin)="refreshPageContext()">
         @if (closed()) {
           <p class="notice">{{ 'nh-assistant.panel.conversation-closed' | translate }}</p>
+        }
+        @if (store.pageContext(); as context) {
+          <div class="context-chip" [class.excluded]="store.pageContextExcluded()" [attr.title]="context.route">
+            <nh-assistant-icon name="page" />
+            <span class="context-text">
+              {{ (store.pageContextExcluded() ? 'nh-assistant.page-context.excluded' : 'nh-assistant.page-context.included') | translate: { page: describeContext(context) } }}
+            </span>
+            <button
+              class="icon-button small"
+              type="button"
+              [attr.aria-pressed]="store.pageContextExcluded()"
+              [attr.aria-label]="(store.pageContextExcluded() ? 'nh-assistant.page-context.include' : 'nh-assistant.page-context.exclude') | translate: { page: describeContext(context) }"
+              [attr.title]="(store.pageContextExcluded() ? 'nh-assistant.page-context.include' : 'nh-assistant.page-context.exclude') | translate: { page: describeContext(context) }"
+              (click)="store.setPageContextExcluded(!store.pageContextExcluded())">
+              <nh-assistant-icon [name]="store.pageContextExcluded() ? 'plus' : 'x'" />
+            </button>
+          </div>
         }
         <nh-assistant-composer
           [disabled]="composerDisabled()"
