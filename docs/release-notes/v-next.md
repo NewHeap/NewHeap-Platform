@@ -19,12 +19,6 @@ as the calling user.
 | Discovery now rejects an invocation context whose actor/accountable owner does not match the signed-in principal. | Pass the context built for the current authenticated principal; do not reuse another actor's context. |
 | Trusted query bindings and localized gateway resource presentation are composable bridge options. | Resolve trusted values from invocation scope and keep resource ids invariant while moving presentation text to consumer resources. |
 
-## NewHeap.Platform.Common
-
-`NhCollectionContractMetadata` exposes canonical filter, order, search and result
-metadata and is the single operator vocabulary used by collection validation and
-AI bridge description.
-
 ## NewHeap.Platform.AI.Common and NewHeap.Platform.AI.AspNet.Common
 
 `NhAiInMemoryBudgetManager` provides bounded process-local per-actor budgets for
