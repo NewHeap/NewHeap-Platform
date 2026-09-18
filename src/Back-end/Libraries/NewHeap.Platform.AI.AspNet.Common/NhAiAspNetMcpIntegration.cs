@@ -123,7 +123,8 @@ internal sealed record NhAiMcpError(string Code, string Message);
 
 internal sealed class NhAiMcpAuthorityStartupValidator(
     IEnumerable<McpServerTool> registeredSdkTools,
-    IEnumerable<INhAiToolCatalog> newHeapCatalogs) : IHostedService
+    IEnumerable<INhAiToolCatalog> newHeapCatalogs,
+    IServiceScopeFactory serviceScopeFactory) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -133,11 +134,17 @@ internal sealed class NhAiMcpAuthorityStartupValidator(
         foreach (var catalog in newHeapCatalogs)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (catalog is not INhAiGeneratedToolCatalog
+            if (catalog is not (INhAiGeneratedToolCatalog or INhAiAttestedToolCatalog)
                 || catalog.Governance != NhAiToolCatalogGovernance.SharedInvoker)
             {
                 throw new InvalidOperationException(
-                    $"AI catalog '{catalog.Manifest.CatalogId}' is not a generated catalog governed by INhAiToolInvoker.");
+                    $"AI catalog '{catalog.Manifest.CatalogId}' is not a generated or attested catalog governed by INhAiToolInvoker.");
+            }
+            if (catalog is INhAiAttestedToolCatalog)
+            {
+                // A runtime catalog only enters the MCP export path after its attestation holds.
+                using var scope = serviceScopeFactory.CreateScope();
+                NhAiToolCatalogAttestation.Validate(catalog, scope.ServiceProvider);
             }
 
             foreach (var descriptor in catalog.Descriptors.Where(descriptor =>

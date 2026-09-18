@@ -53,11 +53,14 @@ internal sealed class NhAiMcpToolAdapter(
         foreach (var catalog in catalogs.OrderBy(item => item.Manifest.CatalogId, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (catalog is not INhAiGeneratedToolCatalog
+            // Generated catalogs are governed by construction; attested runtime catalogs are
+            // validated with NhAiToolCatalogAttestation at startup. Every function of both is
+            // re-checked against its descriptor below.
+            if (catalog is not (INhAiGeneratedToolCatalog or INhAiAttestedToolCatalog)
                 || catalog.Governance != NhAiToolCatalogGovernance.SharedInvoker)
             {
                 throw new InvalidOperationException(
-                    $"AI catalog '{catalog.Manifest.CatalogId}' is not a generated catalog governed by INhAiToolInvoker.");
+                    $"AI catalog '{catalog.Manifest.CatalogId}' is not a generated or attested catalog governed by INhAiToolInvoker.");
             }
             var descriptors = catalog.Descriptors;
             var functions = catalog.CreateFunctions(services);
