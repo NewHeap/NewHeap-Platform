@@ -54,6 +54,7 @@ previously registered implementations.
 | Startup requires the admin policy (`app.assistant.admin` unless configured). | Register the policy, or call `UseAdminPolicy` with an existing policy. |
 | Turn instructions combine the library rules, the application context, the agent instructions and the user's preferences; pending approvals are bound to those instructions. | Approvals pending during a context or preference change must be decided again. |
 | Situational and page context are optional and non-breaking: without providers a turn gets only the date and time (UTC unless `UseTimeZone` is set), and without `clientContext` no screen block. Neither block changes the prompt hash, so pending approvals stay valid. | No action; add providers or send `clientContext` to use them. |
+| A provider error inside the model stream (for example exhausted credits or quota) now ends the turn as failed with `assistant-model-unavailable` instead of an empty completed turn; only the provider error code is logged. | No action. |
 | MCP secrets are protected with ASP.NET Data Protection. | Persist the Data Protection key ring across restarts and nodes; otherwise administrators must enter the secrets again. |
 | Unexpected tool exceptions in a turn are logged as content-free warnings (tool id, version, turn id, exception type); malformed tool arguments return `ai-tool-input-invalid` as the tool-call `resultCode` so the model can retry. | No action. |
 

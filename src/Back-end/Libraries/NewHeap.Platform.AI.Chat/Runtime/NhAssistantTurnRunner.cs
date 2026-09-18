@@ -558,6 +558,22 @@ internal sealed class NhAssistantTurnRunner(
                         state.InputTokens += (int)Math.Clamp(usage.Details.InputTokenCount ?? 0, 0, int.MaxValue);
                         state.OutputTokens += (int)Math.Clamp(usage.Details.OutputTokenCount ?? 0, 0, int.MaxValue);
                     }
+
+                    // A provider failure inside the stream (quota, credits, content filter) ends the turn as failed.
+                    // Log the provider error code only; the message can carry content.
+                    var providerError = update.Contents.OfType<ErrorContent>().FirstOrDefault();
+                    if (providerError is not null)
+                    {
+                        logger.LogWarning(
+                            "Assistant turn {TurnId} of agent {AgentId} received a provider error ({ProviderErrorCode}).",
+                            state.Scope.TurnId,
+                            state.Scope.Agent.Id,
+                            providerError.ErrorCode ?? "unknown");
+                        outcomeStatus = NhAssistantTurnStatuses.Failed;
+                        errorCode = NhAssistantErrorCodes.ModelUnavailable;
+                        break;
+                    }
+
                     var delta = update.Text;
                     if (!string.IsNullOrEmpty(delta) && update.Role != ChatRole.Tool)
                     {
