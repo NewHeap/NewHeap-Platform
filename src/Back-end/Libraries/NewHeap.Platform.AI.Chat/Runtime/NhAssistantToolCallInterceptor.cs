@@ -20,6 +20,13 @@ internal sealed class NhAssistantTurnState
 
     public required AssistantConversation Conversation { get; init; }
 
+    public required NhAssistantAgent EffectiveAgent { get; init; }
+
+    /// <summary>
+    /// Tools of the MCP servers assigned to the agent, loaded once per turn.
+    /// </summary>
+    public NhAssistantMcpToolSet? McpTools { get; set; }
+
     public required Guid UserMessageId { get; init; }
 
     public required Guid AssistantMessageId { get; init; }
@@ -210,7 +217,21 @@ internal sealed class NhAssistantToolCallInterceptor(
         object? result;
         using (NhAssistantExecutionScope.EnterCall(call))
         {
-            result = await invoke(cancellationToken);
+            try
+            {
+                result = await invoke(cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+            {
+                // Transport or remote failures end this tool call only; the model receives a stable code.
+                var code = descriptor.Id.StartsWith("mcp.", StringComparison.Ordinal)
+                    ? NhAssistantAdminErrorCodes.McpUnreachable
+                    : NhAiToolFailureCodes.Failed;
+                return new NhAssistantToolExecution(
+                    Refusal(code),
+                    new NhAssistantToolOutcome(NhAssistantToolOutcomeKind.Failed, code),
+                    call);
+            }
         }
 
         var records = call.AuditRecords;

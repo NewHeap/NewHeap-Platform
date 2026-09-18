@@ -4,7 +4,11 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet.Mcp;
 using NewHeap.Platform.AI.Chat.Governance;
+using NewHeap.Platform.AI.Chat.Runtime;
+using NewHeap.Platform.AI.Mcp;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace NewHeap.Platform.AI.Chat.AspNet;
 
@@ -30,6 +34,15 @@ public static class NhAssistantServiceCollectionExtensions
         {
             services.AddOptions<NhAssistantOptions>().BindConfiguration(NhAssistantOptions.SectionName);
             services.TryAddScoped<NhAssistantAgentAccess>();
+            services.AddDataProtection();
+            services.AddNewHeapPlatformAIMcp();
+            services.TryAddSingleton<NhAssistantMcpSecretProtector>();
+            services.TryAddSingleton<NhAssistantMcpHostGuard>();
+            services.TryAddSingleton<INhAssistantMcpClientFactory, NhAssistantHttpMcpClientFactory>();
+            services.TryAddSingleton<NhAssistantMcpConnectionCache>();
+            services.TryAddScoped<NhAssistantMcpConnectionPlanner>();
+            services.TryAddScoped<NhAssistantMcpAdministration>();
+            services.Replace(ServiceDescriptor.Scoped<INhAssistantMcpToolSource, NhAssistantMcpToolSource>());
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantStartupValidator>());
         }
 

@@ -82,6 +82,12 @@ internal sealed class AssistantTestHost : IAsyncDisposable
             options.AddPolicy(AccessPolicy, policy => policy.RequireAuthenticatedUser());
             options.AddPolicy("app.project.manage", policy => policy.RequireClaim("permission", "app.project.manage"));
         });
+        services.AddSingleton<Microsoft.Extensions.Hosting.IHostEnvironment>(new Microsoft.Extensions.Hosting.Internal.HostingEnvironment
+        {
+            EnvironmentName = "Development",
+            ApplicationName = "assistant-tests",
+            ContentRootPath = AppContext.BaseDirectory
+        });
         services.AddSingleton<TestProjectToolRecorder>();
         services.AddKeyedSingleton("project-chat-model", model);
         services.AddSingleton<INhAiAuditSink>(audit);
@@ -255,7 +261,7 @@ internal sealed class AssistantTestHost : IAsyncDisposable
     /// Sets the request user synchronously: the accessor is AsyncLocal-based, so it must be set in the
     /// calling flow rather than inside an awaited helper.
     /// </summary>
-    private static HttpContext EnterUser(IServiceProvider services, string userId)
+    internal static HttpContext EnterUser(IServiceProvider services, string userId)
     {
         var httpContext = new DefaultHttpContext
         {
@@ -264,6 +270,7 @@ internal sealed class AssistantTestHost : IAsyncDisposable
                 [new Claim(ClaimTypes.NameIdentifier, userId)],
                 "test"))
         };
+        httpContext.Request.Headers.Authorization = "Bearer token-of-" + userId;
         services.GetRequiredService<IHttpContextAccessor>().HttpContext = httpContext;
         return httpContext;
     }

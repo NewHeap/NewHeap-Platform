@@ -30,6 +30,7 @@ internal sealed class NhAssistantTurnRunner(
     IEnumerable<INhAssistantBusinessAuditSink> businessSinks,
     INhAssistantTitleGenerator titleGenerator,
     NhAssistantPersonalization personalization,
+    INhAssistantMcpToolSource mcpToolSource,
     ILogger<NhAssistantTurnRunner> logger) : INhAssistantTurnRunner
 {
     private static readonly string[] MessageStartStatuses =
@@ -97,7 +98,7 @@ internal sealed class NhAssistantTurnRunner(
             conversation,
             turnId,
             request.RequestAborted,
-            (events, token) => RunMessageTurnAsync(conversation, agent, turnId, request, text, events, token));
+            (events, token) => RunMessageTurnAsync(conversation, effectiveAgent, turnId, request, text, events, token));
     }
 
     public async Task<TaskResult<NhAssistantTurnHandle>> StartDecisionTurnAsync(
@@ -159,7 +160,7 @@ internal sealed class NhAssistantTurnRunner(
             conversation,
             approval.TurnId,
             request.RequestAborted,
-            (events, token) => RunDecisionTurnAsync(conversation, agent, approval, request, events, token));
+            (events, token) => RunDecisionTurnAsync(conversation, effectiveAgent, approval, request, events, token));
     }
 
     public async Task CancelAsync(
@@ -235,13 +236,14 @@ internal sealed class NhAssistantTurnRunner(
 
     private async Task RunMessageTurnAsync(
         AssistantConversation conversation,
-        NhAssistantAgentDefinition agent,
+        NhAssistantAgent effectiveAgent,
         Guid turnId,
         NhAssistantMessageTurnRequest request,
         string text,
         ChannelWriter<NhAssistantTurnEvent> events,
         CancellationToken cancellationToken)
     {
+        var agent = effectiveAgent.Definition;
         var history = await store.GetMessagesAsync(
             conversation.Id,
             registration.Limits.MaxHistoryMessages,
@@ -262,7 +264,7 @@ internal sealed class NhAssistantTurnRunner(
             await GenerateTitleAsync(conversation, agent, text);
         }
 
-        var state = await CreateStateAsync(conversation, agent, turnId, userMessage.Id, request.CallerContext, request.Language, events);
+        var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, events);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(turnId, userMessage.Id, state.AssistantMessageId));
 
         var toolCallsToday = await store.GetToolCallsAsync(
@@ -282,12 +284,13 @@ internal sealed class NhAssistantTurnRunner(
 
     private async Task RunDecisionTurnAsync(
         AssistantConversation conversation,
-        NhAssistantAgentDefinition agent,
+        NhAssistantAgent effectiveAgent,
         AssistantApproval approval,
         NhAssistantDecisionTurnRequest request,
         ChannelWriter<NhAssistantTurnEvent> events,
         CancellationToken cancellationToken)
     {
+        var agent = effectiveAgent.Definition;
         var history = await store.GetMessagesAsync(
             conversation.Id,
             registration.Limits.MaxHistoryMessages,
@@ -295,7 +298,7 @@ internal sealed class NhAssistantTurnRunner(
         var userMessageId = history
             .LastOrDefault(message => message.TurnId == approval.TurnId && message.Role == NhAssistantMessageRoles.User)
             ?.Id ?? Guid.Empty;
-        var state = await CreateStateAsync(conversation, agent, approval.TurnId, userMessageId, request.CallerContext, request.Language, events);
+        var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, request.CallerContext, request.Language, events);
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(approval.TurnId, userMessageId, state.AssistantMessageId));
 
@@ -392,7 +395,8 @@ internal sealed class NhAssistantTurnRunner(
         AssistantToolInvocation invocation,
         CancellationToken cancellationToken)
     {
-        var function = FindGovernedFunction(invocation);
+        var function = FindGovernedFunction(invocation)
+            ?? await FindMcpFunctionAsync(state, invocation, cancellationToken);
         if (function is null)
         {
             invocation.Status = NhAssistantToolCallStatuses.Failed;
@@ -452,6 +456,65 @@ internal sealed class NhAssistantTurnRunner(
         return null;
     }
 
+    /// <summary>
+    /// Loads the MCP tools of the agent once per turn. Mutating tools are offered only to agents
+    /// with execute autonomy.
+    /// </summary>
+    private async Task<NhAssistantMcpToolSet> LoadMcpToolsAsync(NhAssistantTurnState state, CancellationToken cancellationToken)
+    {
+        if (state.EffectiveAgent.McpServerIds.Count == 0)
+        {
+            return NhAssistantMcpToolSet.Empty;
+        }
+        var loaded = await mcpToolSource.GetToolsAsync(state.EffectiveAgent, cancellationToken);
+        if (state.Scope.Agent.CanMutate)
+        {
+            return loaded;
+        }
+        var readOnly = loaded.Functions
+            .Where(function => function is INhAiGovernedAIFunction { Descriptor.Effect: NhAiToolEffect.ReadOnly })
+            .ToArray();
+        return new NhAssistantMcpToolSet(readOnly, loaded.DisposeAsync);
+    }
+
+    private async Task<(AIFunction Function, NhAiToolDescriptor Descriptor)?> FindMcpFunctionAsync(
+        NhAssistantTurnState state,
+        AssistantToolInvocation invocation,
+        CancellationToken cancellationToken)
+    {
+        if (!invocation.ToolId.StartsWith("mcp.", StringComparison.Ordinal))
+        {
+            return null;
+        }
+        state.McpTools ??= await LoadMcpToolsAsync(state, cancellationToken);
+        foreach (var function in state.McpTools.Functions)
+        {
+            if (function is INhAiGovernedAIFunction governed && Matches(governed.Descriptor, invocation))
+            {
+                return (function, governed.Descriptor);
+            }
+        }
+        return null;
+    }
+
+    private static AgentRunOptions? McpRunOptions(NhAssistantTurnState state)
+    {
+        if (state.McpTools is not { Functions.Count: > 0 } tools)
+        {
+            return null;
+        }
+        return new ChatClientAgentRunOptions(new ChatOptions { Tools = [.. tools.Functions] });
+    }
+
+    private static async Task ReleaseMcpToolsAsync(NhAssistantTurnState state)
+    {
+        if (state.McpTools is { } tools)
+        {
+            state.McpTools = null;
+            await tools.DisposeAsync();
+        }
+    }
+
     private static bool Matches(NhAiToolDescriptor descriptor, AssistantToolInvocation invocation)
     {
         return string.Equals(descriptor.Id, invocation.ToolId, StringComparison.Ordinal)
@@ -483,7 +546,7 @@ internal sealed class NhAssistantTurnRunner(
             }
             else
             {
-                await foreach (var update in agent.RunStreamingAsync(messages, null, null, timeout.Token))
+                await foreach (var update in agent.RunStreamingAsync(messages, null, McpRunOptions(state), timeout.Token))
                 {
                     foreach (var usage in update.Contents.OfType<UsageContent>())
                     {
@@ -533,6 +596,7 @@ internal sealed class NhAssistantTurnRunner(
                 : NhAssistantErrorCodes.TurnFailed;
         }
 
+        await ReleaseMcpToolsAsync(state);
         await interceptor.FlushAsync(CancellationToken.None);
         if (state.Scope.BudgetExhausted && state.PendingApproval is null)
         {
@@ -633,7 +697,8 @@ internal sealed class NhAssistantTurnRunner(
             return null;
         }
 
-        interceptor.UseOfferedTools(created.Data.Tools);
+        state.McpTools ??= await LoadMcpToolsAsync(state, cancellationToken);
+        interceptor.UseOfferedTools(created.Data.Tools.Concat(state.McpTools.Descriptors));
         return created.Data.Agent
             .AsBuilder()
             .Use(interceptor.InvokeAsync)
@@ -682,13 +747,14 @@ internal sealed class NhAssistantTurnRunner(
 
     private async Task<NhAssistantTurnState> CreateStateAsync(
         AssistantConversation conversation,
-        NhAssistantAgentDefinition agent,
+        NhAssistantAgent effectiveAgent,
         Guid turnId,
         Guid userMessageId,
         NhAiInvocationContext callerContext,
         string language,
         ChannelWriter<NhAssistantTurnEvent> events)
     {
+        var agent = effectiveAgent.Definition;
         var applicationContext = await personalization.GetApplicationContextAsync(CancellationToken.None);
         var preferences = await personalization.GetPreferencesAsync(callerContext.ActorId, CancellationToken.None);
         var prompt = NhAssistantPromptComposer.Compose(agent, applicationContext, preferences, language);
@@ -724,6 +790,7 @@ internal sealed class NhAssistantTurnRunner(
                 Limits = limits
             },
             Conversation = conversation,
+            EffectiveAgent = effectiveAgent,
             UserMessageId = userMessageId,
             AssistantMessageId = assistantMessage.Id,
             Events = events
@@ -740,6 +807,7 @@ internal sealed class NhAssistantTurnRunner(
         string code,
         string conversationStatus)
     {
+        await ReleaseMcpToolsAsync(state);
         await CreateInterceptor(state).FlushAsync(CancellationToken.None);
         await store.TryEndTurnAsync(state.Conversation.Id, state.Scope.TurnId, conversationStatus, CancellationToken.None);
         logger.LogInformation(
