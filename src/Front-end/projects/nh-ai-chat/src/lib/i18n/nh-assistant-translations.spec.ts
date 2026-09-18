@@ -39,6 +39,27 @@ describe('NH_ASSISTANT_TRANSLATIONS', () => {
   });
 });
 
+describe('error translations', () => {
+  /** Every failure code of the preference and admin endpoints (contract 12.8). */
+  const adminCodes = [
+    'assistant-validation', 'assistant-instructions-too-long', 'assistant-mcp-host-blocked',
+    'assistant-forbidden',
+    'assistant-not-found', 'assistant-context-not-found', 'assistant-mcp-server-not-found', 'assistant-mcp-tool-not-found',
+    'assistant-version-conflict', 'assistant-agent-exists', 'assistant-mcp-server-exists', 'assistant-code-agent-not-deletable',
+    'assistant-agent-not-code',
+    'assistant-mcp-unreachable', 'assistant-mcp-unauthorized'
+  ];
+
+  it('translates every admin failure code in en and nl', () => {
+    for (const language of ['en', 'nl'] as const) {
+      const keys = flatten(NH_ASSISTANT_TRANSLATIONS[language]);
+      for (const code of adminCodes) {
+        expect(keys.has(`nh-assistant.errors.${code}`)).withContext(`${language}: ${code}`).toBeTrue();
+      }
+    }
+  });
+});
+
 describe('bundled translations', () => {
   function setup(translations?: 'bundled' | 'host'): TranslateService {
     TestBed.configureTestingModule({

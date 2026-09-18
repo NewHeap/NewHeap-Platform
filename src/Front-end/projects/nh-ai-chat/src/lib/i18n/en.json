@@ -107,7 +107,7 @@
       "assistant-network": "The assistant cannot be reached. Check your connection and try again.",
       "assistant-unauthenticated": "Your session has ended. Sign in again to use the assistant.",
       "assistant-forbidden": "You do not have access to the assistant.",
-      "assistant-not-found": "The conversation no longer exists.",
+      "assistant-not-found": "The item no longer exists. Reload and try again.",
       "assistant-conversation-busy": "The assistant is still busy with this conversation. Try again in a moment.",
       "assistant-invalid-response": "The assistant sent an unexpected response.",
       "assistant-stream-interrupted": "The connection to the assistant was interrupted.",
@@ -118,7 +118,15 @@
       "assistant-mcp-unauthorized": "The MCP server rejected the credentials.",
       "assistant-mcp-host-blocked": "This host is not allowed for MCP servers or for forwarding the user's token.",
       "assistant-mcp-schema-changed": "The tool's input changed on the server. Review it and enable it again.",
-      "assistant-mcp-tool-disabled": "This tool is disabled."
+      "assistant-mcp-tool-disabled": "This tool is disabled.",
+      "assistant-instructions-too-long": "The text is too long. Shorten it to at most 20,000 characters.",
+      "assistant-context-not-found": "The application context was not found. Reload the page.",
+      "assistant-mcp-server-not-found": "The MCP server no longer exists. Reload the list.",
+      "assistant-mcp-tool-not-found": "The MCP tool no longer exists. Sync the server and try again.",
+      "assistant-agent-exists": "An agent with this id already exists. Choose another id.",
+      "assistant-mcp-server-exists": "An MCP server with this id already exists. Choose another id.",
+      "assistant-code-agent-not-deletable": "Agents from the application code cannot be deleted. Disable the agent instead.",
+      "assistant-agent-not-code": "Only agents from the application code can be reset."
     },
     "preferences": {
       "title": "Your preferences",

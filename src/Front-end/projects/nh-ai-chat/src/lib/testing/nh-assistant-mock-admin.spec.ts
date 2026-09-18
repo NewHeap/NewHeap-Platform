@@ -118,7 +118,7 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(stale.code).toBe('assistant-version-conflict');
     expect(overridden).toEqual(jasmine.objectContaining({ source: 'code', isOverridden: true }));
     expect(reset).toEqual(jasmine.objectContaining({ source: 'code', isOverridden: false, instructions: '' }));
-    expect(deleteCode.code).toBe('assistant-version-conflict');
+    expect(deleteCode.code).toBe('assistant-code-agent-not-deletable');
     expect((await firstValueFrom(admin.getAgents())).map(agent => agent.id)).toEqual(['projects']);
   });
 
@@ -137,13 +137,14 @@ describe('provideNhAssistantMockApi administration', () => {
     const invalid = [
       { ...newAgent, id: 'Not Dash Case' },
       { ...newAgent, mcpServerIds: ['unknown'] },
-      { ...newAgent, requiredPolicy: 'app.unknown' },
-      { ...newAgent, instructions: 'x'.repeat(20_001) }
+      { ...newAgent, requiredPolicy: 'app.unknown' }
     ];
 
     for (const input of invalid) {
       expect((await failure(firstValueFrom(admin.createAgent(input)))).code).toBe('assistant-validation');
     }
+    expect((await failure(firstValueFrom(admin.createAgent({ ...newAgent, instructions: 'x'.repeat(20_001) })))).code)
+      .toBe('assistant-instructions-too-long');
   });
 
   it('never returns a secret and keeps, replaces or clears it on update', async () => {
@@ -197,9 +198,37 @@ describe('provideNhAssistantMockApi administration', () => {
     expect(results.map(result => result.code)).toEqual([
       'assistant-mcp-host-blocked', 'assistant-mcp-unreachable', 'assistant-mcp-host-blocked', 'assistant-mcp-unauthorized', null
     ]);
-    expect(syncFailure.code).toBe('assistant-mcp-unreachable');
+    const blockedSync = await failure(firstValueFrom(admin.syncMcpServer('blocked')));
+
+    expect(syncFailure).toEqual(jasmine.objectContaining({ status: 502, code: 'assistant-mcp-unreachable' }));
+    expect(blockedSync).toEqual(jasmine.objectContaining({ status: 400, code: 'assistant-mcp-host-blocked' }));
     expect((await firstValueFrom(admin.getMcpServers())).find(server => server.id === 'down')?.lastSyncStatus).toBe('failed');
     expect((await firstValueFrom(admin.getMcpServers())).find(server => server.id === 'keyless')?.headerName).toBe('X-Api-Key');
+  });
+
+  it('answers with the specific contract codes for duplicates, missing items and resets', async () => {
+    await firstValueFrom(admin.createAgent(newAgent));
+    const [server] = await firstValueFrom(admin.getMcpServers());
+    const { hasSecret, lastSyncAt, lastSyncStatus, assignedAgentIds, ...serverInput } = server;
+
+    const failures = await Promise.all([
+      failure(firstValueFrom(admin.createAgent(newAgent))),
+      failure(firstValueFrom(admin.createMcpServer(serverInput))),
+      failure(firstValueFrom(admin.resetAgent(newAgent.id))),
+      failure(firstValueFrom(admin.getMcpTools('unknown'))),
+      failure(firstValueFrom(admin.updateMcpTool('files', 'unknown', { isEnabled: false, effect: 'mutation', descriptionOverride: null }))),
+      failure(firstValueFrom(admin.resetAgent('unknown')))
+    ]);
+
+    expect(failures.map(item => [item.status, item.code])).toEqual([
+      [409, 'assistant-agent-exists'],
+      [409, 'assistant-mcp-server-exists'],
+      [409, 'assistant-agent-not-code'],
+      [404, 'assistant-mcp-server-not-found'],
+      [404, 'assistant-mcp-tool-not-found'],
+      [404, 'assistant-not-found']
+    ]);
+    expect(failures.every(item => item.messageKey === `nh-assistant.errors.${item.code}`)).toBeTrue();
   });
 
   it('removes agent assignments when a server is deleted', async () => {

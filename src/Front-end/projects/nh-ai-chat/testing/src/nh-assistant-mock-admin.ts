@@ -153,7 +153,7 @@ export class NhAssistantMockAdmin {
 
   handleAdmin(method: string, segments: string[], body: unknown): NhAssistantMockResult {
     if (!this.canAdminister) {
-      return { status: 403 };
+      return failure(403, 'assistant-forbidden');
     }
 
     const [, area, id, action, child] = segments;
@@ -161,13 +161,13 @@ export class NhAssistantMockAdmin {
       case 'context':
         return this.context(method, id, body);
       case 'tools':
-        return method === 'GET' && segments.length === 2 ? { status: 200, body: this.toolCatalog() } : { status: 404 };
+        return method === 'GET' && segments.length === 2 ? { status: 200, body: this.toolCatalog() } : failure(404, 'assistant-not-found');
       case 'agents':
         return this.agentsEndpoint(method, id, action, body, segments.length);
       case 'mcp-servers':
         return this.serversEndpoint(method, id, action, child, body, segments.length);
       default:
-        return { status: 404 };
+        return failure(404, 'assistant-not-found');
     }
   }
 
@@ -177,7 +177,7 @@ export class NhAssistantMockAdmin {
       return { status: 200, body: [...this.contextVersions].reverse().map(({ text, ...version }) => version) };
     }
     if (sub !== undefined) {
-      return { status: 404 };
+      return failure(404, 'assistant-not-found');
     }
     if (method === 'GET') {
       return { status: 200, body: toContext(current) };
@@ -187,11 +187,14 @@ export class NhAssistantMockAdmin {
     }
 
     const input = body as { text?: unknown; expectedVersion?: unknown } | undefined;
-    if (typeof input?.text !== 'string' || input.text.length > maxInstructions || typeof input.expectedVersion !== 'number') {
+    if (typeof input?.text !== 'string' || typeof input.expectedVersion !== 'number') {
       return validationFailure();
     }
+    if (input.text.length > maxInstructions) {
+      return failure(400, 'assistant-instructions-too-long');
+    }
     if (input.expectedVersion !== current.version) {
-      return { status: 409 };
+      return failure(409, 'assistant-version-conflict');
     }
 
     const next = { version: current.version + 1, hash: hashText(input.text), updatedAt: this.now(), updatedBy: 'current-user', text: input.text };
@@ -221,11 +224,12 @@ export class NhAssistantMockAdmin {
       }
 
       const input = body as AdminAgentInput;
-      if (!this.validAgent(input)) {
-        return validationFailure();
+      const invalid = this.agentFailure(input);
+      if (invalid) {
+        return invalid;
       }
       if (this.agents.has(input.id)) {
-        return { status: 409 };
+        return failure(409, 'assistant-agent-exists');
       }
 
       const agent = this.toAgent(input, 'admin', 1, false);
@@ -235,27 +239,28 @@ export class NhAssistantMockAdmin {
 
     const stored = this.agents.get(id);
     if (!stored) {
-      return { status: 404 };
+      return failure(404, 'assistant-not-found');
     }
 
     if (length === 4 && action === 'reset' && method === 'POST') {
       if (!stored.codeDefinition) {
-        return { status: 409 };
+        return failure(409, 'assistant-agent-not-code');
       }
       stored.agent = this.toAgent(stored.codeDefinition, 'code', stored.agent.version + 1, false);
       return { status: 200, body: stored.agent };
     }
     if (length !== 3) {
-      return { status: 404 };
+      return failure(404, 'assistant-not-found');
     }
 
     if (method === 'PUT') {
       const input = body as AdminAgentInput & { expectedVersion?: number };
-      if (!this.validAgent(input) || input.id !== id) {
-        return validationFailure();
+      const invalid = input?.id !== id ? validationFailure() : this.agentFailure(input);
+      if (invalid) {
+        return invalid;
       }
       if (input.expectedVersion !== stored.agent.version) {
-        return { status: 409 };
+        return failure(409, 'assistant-version-conflict');
       }
 
       const { expectedVersion, ...definition } = input;
@@ -264,7 +269,7 @@ export class NhAssistantMockAdmin {
     }
     if (method === 'DELETE') {
       if (stored.agent.source === 'code') {
-        return { status: 409 };
+        return failure(409, 'assistant-code-agent-not-deletable');
       }
       this.agents.delete(id);
       return { status: 204 };
@@ -294,7 +299,7 @@ export class NhAssistantMockAdmin {
         return validationFailure();
       }
       if (this.servers.has(input.id)) {
-        return { status: 409 };
+        return failure(409, 'assistant-mcp-server-exists');
       }
 
       const stored: StoredServer = {
@@ -309,7 +314,7 @@ export class NhAssistantMockAdmin {
 
     const stored = this.servers.get(id);
     if (!stored) {
-      return { status: 404 };
+      return failure(404, 'assistant-mcp-server-not-found');
     }
 
     if (length === 3) {
@@ -345,7 +350,8 @@ export class NhAssistantMockAdmin {
       const code = this.connectionFailure(stored);
       stored.server = { ...stored.server, lastSyncAt: this.now(), lastSyncStatus: code ? 'failed' : 'ok' };
       if (code) {
-        return { status: 502, body: { code } };
+        // A blocked host is a configuration error; connection failures are upstream errors.
+        return failure(code === 'assistant-mcp-host-blocked' ? 400 : 502, code);
       }
       this.sync(stored);
       return { status: 200, body: toTools(stored) };
@@ -357,14 +363,14 @@ export class NhAssistantMockAdmin {
       const tool = stored.tools.get(child);
       const input = body as { isEnabled?: unknown; effect?: unknown; descriptionOverride?: unknown } | undefined;
       if (!tool) {
-        return { status: 404 };
+        return failure(404, 'assistant-mcp-tool-not-found');
       }
       if (typeof input?.isEnabled !== 'boolean' || (input.effect !== 'read-only' && input.effect !== 'mutation') ||
         (input.descriptionOverride !== null && typeof input.descriptionOverride !== 'string')) {
         return validationFailure();
       }
       if (input.isEnabled && tool.status === 'missing') {
-        return { status: 409 };
+        return validationFailure('isEnabled');
       }
 
       const override = typeof input.descriptionOverride === 'string' && input.descriptionOverride.trim().length > 0
@@ -381,7 +387,7 @@ export class NhAssistantMockAdmin {
       return { status: 200, body: toTool(updated) };
     }
 
-    return { status: 404 };
+    return failure(404, 'assistant-not-found');
   }
 
   private sync(stored: StoredServer): void {
@@ -445,6 +451,15 @@ export class NhAssistantMockAdmin {
       return 'assistant-mcp-unauthorized';
     }
     return null;
+  }
+
+  /** The contract failure for an invalid agent, or null when the agent is valid. */
+  private agentFailure(input: AdminAgentInput | undefined): NhAssistantMockResult | null {
+    if (typeof input?.instructions === 'string' && input.instructions.length > maxInstructions) {
+      return failure(400, 'assistant-instructions-too-long');
+    }
+
+    return this.validAgent(input) ? null : validationFailure();
   }
 
   private validAgent(input: AdminAgentInput | undefined): boolean {
@@ -536,8 +551,13 @@ function toContext(version: ApplicationContextVersion & { text: string }): Appli
   return { text: version.text, version: version.version, hash: version.hash, updatedAt: version.updatedAt, updatedBy: version.updatedBy };
 }
 
-function validationFailure(): NhAssistantMockResult {
-  return { status: 400, body: { code: 'assistant-validation' } };
+/** A contract error response: `{ code, messageKey, errors? }`, never free text. */
+function failure(status: number, code: string, errors?: Record<string, string[]>): NhAssistantMockResult {
+  return { status, body: { code, messageKey: `nh-assistant.errors.${code}`, ...(errors ? { errors } : {}) } };
+}
+
+function validationFailure(field?: string): NhAssistantMockResult {
+  return failure(400, 'assistant-validation', field ? { [field]: ['invalid'] } : undefined);
 }
 
 function kebab(value: string): string {

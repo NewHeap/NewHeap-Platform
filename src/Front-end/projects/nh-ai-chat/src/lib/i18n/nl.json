@@ -107,7 +107,7 @@
       "assistant-network": "De assistent is niet bereikbaar. Controleer je verbinding en probeer het opnieuw.",
       "assistant-unauthenticated": "Je sessie is verlopen. Log opnieuw in om de assistent te gebruiken.",
       "assistant-forbidden": "Je hebt geen toegang tot de assistent.",
-      "assistant-not-found": "Het gesprek bestaat niet meer.",
+      "assistant-not-found": "Het item bestaat niet meer. Laad opnieuw en probeer het nog eens.",
       "assistant-conversation-busy": "De assistent is nog bezig met dit gesprek. Probeer het zo opnieuw.",
       "assistant-invalid-response": "De assistent gaf een onverwacht antwoord.",
       "assistant-stream-interrupted": "De verbinding met de assistent is onderbroken.",
@@ -118,7 +118,15 @@
       "assistant-mcp-unauthorized": "De MCP-server weigert de inloggegevens.",
       "assistant-mcp-host-blocked": "Deze host is niet toegestaan voor MCP-servers of voor het doorsturen van het gebruikerstoken.",
       "assistant-mcp-schema-changed": "De invoer van de tool is op de server gewijzigd. Controleer hem en zet hem opnieuw aan.",
-      "assistant-mcp-tool-disabled": "Deze tool staat uit."
+      "assistant-mcp-tool-disabled": "Deze tool staat uit.",
+      "assistant-instructions-too-long": "De tekst is te lang. Maak hem korter dan 20.000 tekens.",
+      "assistant-context-not-found": "De applicatiecontext is niet gevonden. Laad de pagina opnieuw.",
+      "assistant-mcp-server-not-found": "De MCP-server bestaat niet meer. Laad de lijst opnieuw.",
+      "assistant-mcp-tool-not-found": "De MCP-tool bestaat niet meer. Synchroniseer de server en probeer het opnieuw.",
+      "assistant-agent-exists": "Er bestaat al een agent met dit id. Kies een ander id.",
+      "assistant-mcp-server-exists": "Er bestaat al een MCP-server met dit id. Kies een ander id.",
+      "assistant-code-agent-not-deletable": "Agents uit de applicatiecode kunnen niet worden verwijderd. Zet de agent uit.",
+      "assistant-agent-not-code": "Alleen agents uit de applicatiecode kunnen worden teruggezet."
     },
     "preferences": {
       "title": "Je voorkeuren",
