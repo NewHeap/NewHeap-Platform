@@ -14,9 +14,11 @@ namespace SampleProjectManagement.Api.Composition;
 
 /// <summary>
 /// Composes the assistant sample: a streaming chat profile, one agent over the curated
-/// <c>projects.*</c> tools, PostgreSQL storage in the library-owned <c>nhai</c> schema and a
-/// business audit sink that keeps content-free events in <see cref="SampleAssistantAuditLog"/>.
-/// Call it after <c>AddSampleProjectManagementAi</c> and <c>AddNewHeapPlatformAIAspNet</c>.
+/// <c>projects.*</c> tools and the <c>sample-api.*</c> bridge tools, PostgreSQL storage in the
+/// library-owned <c>nhai</c> schema and a business audit sink that keeps content-free events in
+/// <see cref="SampleAssistantAuditLog"/>. Call it after <c>AddSampleProjectManagementAi</c>,
+/// <c>AddNewHeapPlatformAIAspNet</c> and <c>AddSampleAiBridge</c>. Discovery decides per user
+/// which of those tools the agent is offered.
 /// </summary>
 public static class SampleAssistantComposition
 {
@@ -99,7 +101,7 @@ public static class SampleAssistantComposition
                 DescriptionKey: "nh-assistant.agents.sample-project-assistant.description",
                 ProfileName: ProfileName,
                 Instructions: ProjectAiAssets.ProjectAgentInstructions,
-                ToolSelectors: ["projects.*"],
+                ToolSelectors: ["projects.*", SampleAiBridgeComposition.ToolSetId + ".*"],
                 Autonomy: NhAiAutonomyLevel.Execute,
                 RequiredPolicy: AccessPolicy))
             .AddBusinessAuditSink<SampleAssistantAuditSink>()
