@@ -19,7 +19,7 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 internal sealed class NhAssistantTurnRunner(
     IServiceProvider services,
     INhAssistantStore store,
-    NhAssistantAgentRegistry agents,
+    NhAssistantAgentCatalog agents,
     NhAssistantRegistrationState registration,
     NhAssistantTurnCancellationRegistry cancellations,
     INhAiModelProfileRegistry profiles,
@@ -67,10 +67,12 @@ internal sealed class NhAssistantTurnRunner(
         {
             return Failed(NhAssistantErrorCodes.ConversationNotFound, "The assistant conversation was not found.");
         }
-        if (!agents.TryGet(conversation.AgentId, out var agent))
+        var effectiveAgent = await agents.FindAsync(conversation.AgentId, includeDisabled: false, cancellationToken);
+        if (effectiveAgent is null)
         {
             return Failed(NhAssistantErrorCodes.AgentNotFound, "The assistant agent is no longer available.");
         }
+        var agent = effectiveAgent.Definition;
         if (!string.IsNullOrWhiteSpace(request.ClientMessageId)
             && await store.ClientMessageExistsAsync(conversation.Id, request.ClientMessageId, cancellationToken))
         {
@@ -128,10 +130,12 @@ internal sealed class NhAssistantTurnRunner(
         {
             return Failed(NhAssistantErrorCodes.ProposalHashMismatch, "The approval does not match the expected proposal.");
         }
-        if (!agents.TryGet(conversation.AgentId, out var agent))
+        var effectiveAgent = await agents.FindAsync(conversation.AgentId, includeDisabled: false, cancellationToken);
+        if (effectiveAgent is null)
         {
             return Failed(NhAssistantErrorCodes.AgentNotFound, "The assistant agent is no longer available.");
         }
+        var agent = effectiveAgent.Definition;
         if (string.Equals(owner, agent.ActorId, StringComparison.Ordinal))
         {
             // An agent identity can never decide about its own proposal.

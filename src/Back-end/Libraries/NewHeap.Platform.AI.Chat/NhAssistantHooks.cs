@@ -9,7 +9,17 @@ public enum NhAssistantAuditEventKind
     ApprovalRequested = 1,
     ApprovalApproved = 2,
     ApprovalRejected = 3,
-    ApprovalExpired = 4
+    ApprovalExpired = 4,
+    AdminContextUpdated = 10,
+    AdminAgentCreated = 11,
+    AdminAgentUpdated = 12,
+    AdminAgentDeleted = 13,
+    AdminAgentReset = 14,
+    AdminMcpServerCreated = 15,
+    AdminMcpServerUpdated = 16,
+    AdminMcpServerDeleted = 17,
+    AdminMcpServerSynced = 18,
+    AdminMcpToolUpdated = 19
 }
 
 /// <summary>
@@ -43,6 +53,30 @@ public sealed record NhAssistantAuditEvent(
     public DateTimeOffset? StartedAt { get; init; }
 
     public DateTimeOffset? CompletedAt { get; init; }
+
+    /// <summary>
+    /// Identifier of the administered object (agent, MCP server, tool or context) for administration events.
+    /// </summary>
+    public string? ObjectId { get; init; }
+
+    /// <summary>
+    /// Identity of the application context used by the turn: <c>default@&lt;version&gt;</c> and its hash.
+    /// </summary>
+    public string? ApplicationContextVersion { get; init; }
+
+    public string? ApplicationContextHash { get; init; }
+
+    /// <summary>
+    /// Identity of the agent instructions: <c>&lt;asset-id&gt;@&lt;version&gt;</c> and their hash.
+    /// </summary>
+    public string? InstructionsVersion { get; init; }
+
+    public string? InstructionsHash { get; init; }
+
+    /// <summary>
+    /// Hash of the user preferences applied to the turn, never their text.
+    /// </summary>
+    public string? PreferencesHash { get; init; }
 }
 
 /// <summary>

@@ -177,7 +177,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
     private static async Task<IResult> CreateConversationAsync(
         HttpContext httpContext,
         INhAssistantStore store,
-        NhAssistantAgentRegistry registry,
+        NhAssistantAgentCatalog registry,
         NhAssistantAgentAccess access,
         NhAssistantConversationReader reader)
     {
@@ -196,10 +196,12 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         {
             return Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.TitleInvalid);
         }
-        if (!registry.TryGet(request.AgentId, out var agent))
+        var effective = await registry.FindAsync(request.AgentId, includeDisabled: false, httpContext.RequestAborted);
+        if (effective is null)
         {
             return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
         }
+        var agent = effective.Definition;
         if (!await access.CanUseAsync(httpContext.User, agent))
         {
             return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);
@@ -268,7 +270,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         Guid id,
         HttpContext httpContext,
         INhAssistantStore store,
-        NhAssistantAgentRegistry registry,
+        NhAssistantAgentCatalog registry,
         NhAssistantAgentAccess access,
         INhAssistantTurnRunner runner)
     {
@@ -306,7 +308,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         Guid approvalId,
         HttpContext httpContext,
         INhAssistantStore store,
-        NhAssistantAgentRegistry registry,
+        NhAssistantAgentCatalog registry,
         NhAssistantAgentAccess access,
         INhAssistantTurnRunner runner)
     {
@@ -370,7 +372,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         Guid conversationId,
         string ownerActorId,
         INhAssistantStore store,
-        NhAssistantAgentRegistry registry,
+        NhAssistantAgentCatalog registry,
         NhAssistantAgentAccess access)
     {
         var conversation = await store.FindConversationAsync(conversationId, ownerActorId, httpContext.RequestAborted);
@@ -378,10 +380,12 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         {
             return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ConversationNotFound);
         }
-        if (!registry.TryGet(conversation.AgentId, out var agent))
+        var effective = await registry.FindAsync(conversation.AgentId, includeDisabled: false, httpContext.RequestAborted);
+        if (effective is null)
         {
             return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound);
         }
+        var agent = effective.Definition;
         return await access.CanUseAsync(httpContext.User, agent)
             ? null
             : Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden);

@@ -254,5 +254,11 @@ public sealed class AssistantPersistenceTests(AssistantDatabaseFixture database)
         Assert.Equal(0, await context.Approvals.CountAsync());
         Assert.Equal(0, await context.BudgetLedgers.CountAsync());
         Assert.Equal(0, await context.IdempotencyLeases.CountAsync());
+        Assert.Equal(0, await context.Agents.CountAsync());
+        Assert.Equal(0, await context.AgentMcpServers.CountAsync());
+        Assert.Equal(0, await context.ApplicationContexts.CountAsync());
+        Assert.Equal(0, await context.McpServers.CountAsync());
+        Assert.Equal(0, await context.McpTools.CountAsync());
+        Assert.Equal(0, await context.UserPreferences.CountAsync());
     }
 }

@@ -102,3 +102,101 @@ public static class NhAssistantErrorCodes
         return "nh-assistant.errors." + code;
     }
 }
+
+/// <summary>
+/// Agent source values: from code (<c>AddAgent</c>) or created by an administrator.
+/// </summary>
+public static class NhAssistantAgentSources
+{
+    public const string Code = "code";
+    public const string Admin = "admin";
+}
+
+public static class NhAssistantApplicationContexts
+{
+    public const string DefaultId = "default";
+    public const int MaxTextLength = 20_000;
+}
+
+public static class NhAssistantMcpAuthModes
+{
+    public const string None = "none";
+    public const string Bearer = "bearer";
+    public const string ApiKey = "api-key";
+    public const string ForwardUserToken = "forward-user-token";
+
+    public static bool IsValid(string? value)
+    {
+        return value is None or Bearer or ApiKey or ForwardUserToken;
+    }
+}
+
+public static class NhAssistantMcpToolEffects
+{
+    public const string ReadOnly = "read-only";
+    public const string Mutation = "mutation";
+}
+
+public static class NhAssistantMcpToolStatuses
+{
+    public const string Available = "available";
+    public const string SchemaChanged = "schema-changed";
+    public const string Missing = "missing";
+}
+
+public static class NhAssistantStyles
+{
+    public const string Default = "default";
+    public const string Direct = "direct";
+    public const string Personal = "personal";
+    public const string Detailed = "detailed";
+
+    public static bool IsValid(string? value)
+    {
+        return value is Default or Direct or Personal or Detailed;
+    }
+}
+
+public static class NhAssistantAddressForms
+{
+    public const string Informal = "informal";
+    public const string Formal = "formal";
+
+    public static bool IsValid(string? value)
+    {
+        return value is Informal or Formal;
+    }
+}
+
+public static class NhAssistantResponseLengths
+{
+    public const string Short = "short";
+    public const string Normal = "normal";
+    public const string Long = "long";
+
+    public static bool IsValid(string? value)
+    {
+        return value is Short or Normal or Long;
+    }
+}
+
+/// <summary>
+/// Stable, content-free failure codes of the administration and MCP surface.
+/// </summary>
+public static class NhAssistantAdminErrorCodes
+{
+    public const string VersionConflict = "assistant-version-conflict";
+    public const string ValidationFailed = "assistant-validation-failed";
+    public const string AgentExists = "assistant-agent-exists";
+    public const string CodeAgentNotDeletable = "assistant-code-agent-not-deletable";
+    public const string NotCodeAgent = "assistant-agent-not-code";
+    public const string McpServerNotFound = "assistant-mcp-server-not-found";
+    public const string McpServerExists = "assistant-mcp-server-exists";
+    public const string McpToolNotFound = "assistant-mcp-tool-not-found";
+    public const string McpUnreachable = "assistant-mcp-unreachable";
+    public const string McpUnauthorized = "assistant-mcp-unauthorized";
+    public const string McpHostBlocked = "assistant-mcp-host-blocked";
+    public const string McpSchemaChanged = "assistant-mcp-schema-changed";
+    public const string McpToolDisabled = "assistant-mcp-tool-disabled";
+    public const string InstructionsTooLong = "assistant-instructions-too-long";
+}

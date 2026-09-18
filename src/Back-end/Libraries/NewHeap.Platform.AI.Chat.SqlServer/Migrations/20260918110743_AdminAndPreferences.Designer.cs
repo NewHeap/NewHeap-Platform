@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NewHeap.Platform.AI.Chat.Persistence;
 
@@ -11,9 +12,11 @@ using NewHeap.Platform.AI.Chat.Persistence;
 namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
 {
     [DbContext(typeof(NhAssistantDbContext))]
-    partial class NhAssistantDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260918110743_AdminAndPreferences")]
+    partial class AdminAndPreferences
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -113,6 +113,8 @@ internal static class NhAssistantStorage
             services.TryAddEnumerable(
                 ServiceDescriptor.Singleton<IHostedService, NhAssistantMigrationHostedService>());
         }
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IHostedService, NhAssistantSeedHostedService>());
     }
 
     internal static void ValidateSchema(string schema)
@@ -141,6 +143,39 @@ internal sealed class NhAssistantMigrationHostedService(
         await using var context = contextFactory.CreateDbContext();
         logger.LogInformation("Applying NewHeap assistant storage migrations.");
         await context.Database.MigrateAsync(cancellationToken);
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>
+/// Upserts code agents and seeds the application context while the host starts, after the
+/// migrations. A failure is logged and retried on the first request that needs the agents.
+/// </summary>
+internal sealed class NhAssistantSeedHostedService(
+    IServiceProvider services,
+    ILogger<NhAssistantSeedHostedService> logger) : IHostedService
+{
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        var seeder = services.GetService<NhAssistantSeeder>();
+        if (seeder is null)
+        {
+            return;
+        }
+        try
+        {
+            await seeder.EnsureSeededAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                "Assistant agents and application context could not be seeded at startup ({ExceptionType}); seeding is retried on first use.",
+                exception.GetType().Name);
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken)

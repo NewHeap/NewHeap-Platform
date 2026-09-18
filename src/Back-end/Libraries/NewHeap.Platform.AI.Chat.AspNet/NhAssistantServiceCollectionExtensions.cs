@@ -42,16 +42,22 @@ public static class NhAssistantServiceCollectionExtensions
 /// Evaluates the agent and access policies for the current user.
 /// </summary>
 internal sealed class NhAssistantAgentAccess(
-    NhAssistantAgentRegistry registry,
+    NhAssistantAgentCatalog catalog,
     IAuthorizationService authorizationService)
 {
-    public Task<IReadOnlyList<NhAssistantAgentDefinition>> GetVisibleAgentsAsync(
+    public async Task<IReadOnlyList<NhAssistantAgentDefinition>> GetVisibleAgentsAsync(
         System.Security.Claims.ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        return registry.GetVisibleAsync(
-            async policy => (await authorizationService.AuthorizeAsync(user, policy)).Succeeded,
-            cancellationToken);
+        var visible = new List<NhAssistantAgentDefinition>();
+        foreach (var agent in await catalog.ListAsync(includeDisabled: false, cancellationToken))
+        {
+            if (await CanUseAsync(user, agent.Definition))
+            {
+                visible.Add(agent.Definition);
+            }
+        }
+        return visible;
     }
 
     public async Task<bool> CanUseAsync(
