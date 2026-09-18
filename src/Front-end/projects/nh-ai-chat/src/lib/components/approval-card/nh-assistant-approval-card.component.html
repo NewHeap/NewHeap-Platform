@@ -1,0 +1,53 @@
+<section class="card" [attr.aria-label]="'nh-assistant.approval.title' | translate">
+  <header class="header">
+    <nh-assistant-icon [name]="actionable() ? 'warning' : effectiveStatus() === 'approved' ? 'check' : 'x'" />
+    <h3>{{ 'nh-assistant.approval.title' | translate }}</h3>
+    <span class="status">{{ 'nh-assistant.approval.status.' + effectiveStatus() | translate }}</span>
+  </header>
+
+  <p class="summary">{{ approval().summary }}</p>
+
+  @if (approval().targets.length > 0) {
+    <p class="label">{{ 'nh-assistant.approval.targets' | translate }}</p>
+    <ul class="targets">
+      @for (target of approval().targets; track $index) {
+        <li>{{ target }}</li>
+      }
+    </ul>
+  }
+
+  @if (approval().argumentsPreview) {
+    <p class="label">{{ 'nh-assistant.approval.arguments' | translate }}</p>
+    <pre>{{ approval().argumentsPreview }}</pre>
+  }
+
+  @if (actionable()) {
+    <p class="expiry" aria-live="off">
+      <nh-assistant-icon name="clock" />
+      {{ 'nh-assistant.approval.expires-in' | translate: { time: countdown() } }}
+    </p>
+    <div class="actions">
+      <button
+        class="reject"
+        type="button"
+        [disabled]="disabled()"
+        [attr.aria-label]="'nh-assistant.approval.reject-label' | translate: { summary: approval().summary }"
+        (click)="choose('reject')">
+        {{ 'nh-assistant.approval.reject' | translate }}
+      </button>
+      <button
+        class="approve"
+        type="button"
+        [disabled]="disabled()"
+        [attr.aria-label]="'nh-assistant.approval.approve-label' | translate: { summary: approval().summary }"
+        (click)="choose('approve')">
+        {{ 'nh-assistant.approval.approve' | translate }}
+      </button>
+    </div>
+    @if (deciding()) {
+      <p class="deciding" role="status">{{ 'nh-assistant.approval.deciding' | translate }}</p>
+    }
+  } @else if (expired()) {
+    <p class="expiry">{{ 'nh-assistant.approval.expired' | translate }}</p>
+  }
+</section>

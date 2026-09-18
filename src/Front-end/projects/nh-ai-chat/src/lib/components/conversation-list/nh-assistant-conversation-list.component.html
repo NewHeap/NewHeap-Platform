@@ -1,0 +1,51 @@
+<nav class="list" [attr.aria-label]="'nh-assistant.conversation-list.title' | translate" [attr.aria-busy]="loading()">
+  <header class="header">
+    <h3>{{ 'nh-assistant.conversation-list.title' | translate }}</h3>
+    @if (conversations().length > 0 && total() > conversations().length) {
+      <span class="count">{{ 'nh-assistant.conversation-list.count' | translate: { count: conversations().length, total: total() } }}</span>
+    }
+    <button
+      class="icon-button"
+      type="button"
+      [disabled]="disabled()"
+      [attr.aria-label]="'nh-assistant.panel.new-conversation' | translate"
+      [attr.title]="'nh-assistant.panel.new-conversation' | translate"
+      (click)="conversationCreate.emit()">
+      <nh-assistant-icon name="plus" />
+    </button>
+  </header>
+
+  @if (loading() && conversations().length === 0) {
+    <p class="state" role="status">{{ 'nh-assistant.conversation-list.loading' | translate }}</p>
+  } @else if (conversations().length === 0) {
+    <p class="state">{{ 'nh-assistant.conversation-list.empty' | translate }}</p>
+  } @else {
+    <ul>
+      @for (conversation of conversations(); track conversation.id) {
+        <li [class.active]="conversation.id === activeConversationId()">
+          <button
+            class="item"
+            type="button"
+            [disabled]="disabled()"
+            [attr.aria-current]="conversation.id === activeConversationId() ? 'true' : null"
+            (click)="conversationSelect.emit(conversation.id)">
+            <span class="title">{{ conversation.title || ('nh-assistant.conversation-list.untitled' | translate) }}</span>
+            <span class="meta">
+              <span class="status" [attr.data-status]="conversation.status">{{ 'nh-assistant.conversation-list.status.' + conversation.status | translate }}</span>
+              <time [attr.datetime]="conversation.updatedAt">{{ conversation.updatedAt | date: 'short' }}</time>
+            </span>
+          </button>
+          <button
+            class="icon-button delete"
+            type="button"
+            [disabled]="disabled()"
+            [attr.aria-label]="('nh-assistant.conversation-list.delete' | translate) + ': ' + (conversation.title || ('nh-assistant.conversation-list.untitled' | translate))"
+            [attr.title]="'nh-assistant.conversation-list.delete' | translate"
+            (click)="conversationDelete.emit(conversation.id)">
+            <nh-assistant-icon name="trash" />
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</nav>

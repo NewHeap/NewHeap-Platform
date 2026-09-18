@@ -1,0 +1,40 @@
+<article class="card" [attr.aria-label]="'nh-assistant.tool-call.label' | translate: { name: part().displayName }">
+  <header class="header">
+    <span class="status-icon" [class.spinning]="part().status === 'running'">
+      <nh-assistant-icon [name]="statusIcon()" />
+    </span>
+    <span class="title">{{ part().displayName }}</span>
+    <span class="status">{{ 'nh-assistant.tool-call.status.' + part().status | translate }}</span>
+    @if (hasDetails()) {
+      <button
+        class="toggle"
+        type="button"
+        [attr.aria-expanded]="expanded()"
+        [attr.aria-controls]="detailsId"
+        [attr.aria-label]="(expanded() ? 'nh-assistant.tool-call.hide-details' : 'nh-assistant.tool-call.show-details') | translate"
+        [attr.title]="(expanded() ? 'nh-assistant.tool-call.hide-details' : 'nh-assistant.tool-call.show-details') | translate"
+        (click)="toggle()">
+        <nh-assistant-icon name="chevron-down" [class.rotated]="expanded()" />
+      </button>
+    }
+  </header>
+
+  @if (part().resultCode; as resultCode) {
+    <p class="result-code">
+      {{ ['nh-assistant.result-codes.' + resultCode] | nhAssistantTranslate: resultCode }}
+    </p>
+  }
+
+  @if (hasDetails()) {
+    <div class="details" [id]="detailsId" [hidden]="!expanded()">
+      @if (part().argumentsPreview; as argumentsPreview) {
+        <p class="label">{{ 'nh-assistant.tool-call.arguments' | translate }}</p>
+        <pre>{{ argumentsPreview }}</pre>
+      }
+      @if (part().resultPreview; as resultPreview) {
+        <p class="label">{{ 'nh-assistant.tool-call.result' | translate }}</p>
+        <pre>{{ resultPreview }}</pre>
+      }
+    </div>
+  }
+</article>

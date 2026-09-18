@@ -1,4 +1,5 @@
-import { EnvironmentProviders, makeEnvironmentProviders } from '@angular/core';
+import { EnvironmentProviders, inject, makeEnvironmentProviders, provideEnvironmentInitializer } from '@angular/core';
+import { NhAssistantTranslationMerger } from './i18n/nh-assistant-translations';
 import {
   NH_ASSISTANT_ACCESS_POLICY,
   NH_ASSISTANT_CONFIG,
@@ -20,6 +21,9 @@ export function provideNhAssistant(config: NhAssistantConfig): EnvironmentProvid
     { provide: NH_ASSISTANT_ACCESS_POLICY, useClass: config.accessPolicy ?? NhAssistantAllowAllAccessPolicy },
     NhAssistantApiService,
     NhAssistantStore,
-    NhAssistantPanelService
+    NhAssistantPanelService,
+    ...(config.translations === 'host'
+      ? []
+      : [provideEnvironmentInitializer(() => inject(NhAssistantTranslationMerger).start())])
   ]);
 }
