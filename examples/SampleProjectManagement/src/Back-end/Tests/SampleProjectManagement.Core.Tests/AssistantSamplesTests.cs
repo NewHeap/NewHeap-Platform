@@ -153,10 +153,11 @@ public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IC
 /// <summary>
 /// One PostgreSQL container and one Kestrel host with the sample assistant composition.
 /// Project data is served by an in-memory fake so the evidence focuses on the assistant.
+/// Derived hosts add compositions (such as the API bridge) through the protected hooks.
 /// </summary>
-public sealed class AssistantSampleHost : IAsyncLifetime
+public class AssistantSampleHost : IAsyncLifetime
 {
-    private const string ManagePolicy = "app.active-division.project.manage";
+    protected const string ManagePolicy = "app.active-division.project.manage";
 
     private readonly PostgreSqlContainer _database = new PostgreSqlBuilder("postgres:16-alpine").Build();
     private WebApplication? _app;
@@ -178,20 +179,23 @@ public sealed class AssistantSampleHost : IAsyncLifetime
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         builder.Logging.ClearProviders();
-        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        ConfigureLogging(builder.Logging);
+        var settings = new Dictionary<string, string?>
         {
             ["Database:ConnectionStringName"] = "DefaultConnection",
             ["ConnectionStrings:DefaultConnection"] = _database.GetConnectionString(),
             ["NewHeap:AI:Assistant:Enabled"] = "true"
-        });
+        };
+        ConfigureSettings(settings);
+        builder.Configuration.AddInMemoryCollection(settings);
         var services = builder.Services;
         services.AddAuthentication(SampleTestAuthenticationHandler.Scheme)
             .AddScheme<AuthenticationSchemeOptions, SampleTestAuthenticationHandler>(SampleTestAuthenticationHandler.Scheme, _ => { });
         services.AddAuthorization(options =>
         {
             options.AddPolicy(SampleAssistantComposition.AccessPolicy, policy => policy.RequireAuthenticatedUser());
-            options.AddPolicy(ManagePolicy, policy => policy.RequireAuthenticatedUser());
             options.AddPolicy(SampleAssistantComposition.AdminPolicy, policy => policy.RequireClaim("permission", "app.project.manage"));
+            ConfigureAuthorization(options);
         });
         services.AddSingleton(Projects);
         services.AddSingleton<IProjectAiReadService>(Projects);
@@ -207,6 +211,7 @@ public sealed class AssistantSampleHost : IAsyncLifetime
             .AddActiveDivisionScope(SampleAssistantComposition.AccessPolicy)
             .AddCapabilityGrant(ProjectAiTools.ReadCapability, SampleAssistantComposition.AccessPolicy)
             .AddCapabilityGrant(ProjectAiTools.ManageCapability, ManagePolicy));
+        ConfigureServices(services);
         services.AddSampleAssistant();
 
         _app = builder.Build();
@@ -215,6 +220,33 @@ public sealed class AssistantSampleHost : IAsyncLifetime
         _app.MapSampleAssistant();
         await _app.StartAsync();
         _baseAddress = new Uri(_app.Urls.First());
+    }
+
+    /// <summary>Adds logging providers; the base host logs nothing.</summary>
+    protected virtual void ConfigureLogging(ILoggingBuilder logging)
+    {
+    }
+
+    /// <summary>Adds configuration values before the host is built.</summary>
+    protected virtual void ConfigureSettings(IDictionary<string, string?> settings)
+    {
+    }
+
+    /// <summary>
+    /// Registers the manage policy. The base host lets every signed-in user manage projects of
+    /// the active division; derived hosts can tie it to a permission.
+    /// </summary>
+    protected virtual void ConfigureAuthorization(Microsoft.AspNetCore.Authorization.AuthorizationOptions options)
+    {
+        options.AddPolicy(ManagePolicy, policy => policy.RequireAuthenticatedUser());
+    }
+
+    /// <summary>
+    /// Adds services after <c>AddNewHeapPlatformAIAspNet</c> and before <c>AddSampleAssistant</c>,
+    /// the position of <c>AddSampleAiBridge</c> in Program.cs.
+    /// </summary>
+    protected virtual void ConfigureServices(IServiceCollection services)
+    {
     }
 
     public async ValueTask DisposeAsync()
@@ -227,13 +259,19 @@ public sealed class AssistantSampleHost : IAsyncLifetime
         await _database.DisposeAsync();
     }
 
-    public HttpClient CreateClient(string user, bool admin = false)
+    public HttpClient CreateClient(string user, bool admin = false, params string[] permissions)
     {
         var client = new HttpClient { BaseAddress = _baseAddress, Timeout = TimeSpan.FromMinutes(2) };
         client.DefaultRequestHeaders.Add(SampleTestAuthenticationHandler.UserHeader, user);
+        // The bridge forwards the caller's bearer token to the API; the test scheme ignores it.
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "token-of-" + user);
         if (admin)
         {
             client.DefaultRequestHeaders.Add(SampleTestAuthenticationHandler.AdminHeader, "true");
+        }
+        if (permissions.Length > 0)
+        {
+            client.DefaultRequestHeaders.Add(SampleTestAuthenticationHandler.PermissionsHeader, string.Join(',', permissions));
         }
         client.DefaultRequestHeaders.Add("X-NH-ActiveDivisionId", DivisionId.ToString());
         return client;
@@ -421,6 +459,7 @@ internal sealed class SampleTestAuthenticationHandler(
     public const string Scheme = "sample-test";
     public const string UserHeader = "X-Sample-User";
     public const string AdminHeader = "X-Sample-Admin";
+    public const string PermissionsHeader = "X-Sample-Permissions";
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
@@ -433,6 +472,11 @@ internal sealed class SampleTestAuthenticationHandler(
         if (Request.Headers.ContainsKey(AdminHeader))
         {
             claims.Add(new Claim("permission", "app.project.manage"));
+        }
+        foreach (var permission in Request.Headers[PermissionsHeader].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            claims.Add(new Claim("permission", permission));
         }
         var identity = new ClaimsIdentity(claims, Scheme);
         return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme)));

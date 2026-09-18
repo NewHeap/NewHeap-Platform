@@ -4,7 +4,7 @@ title: "Add a governed assistant with durable conversations and in-chat approval
 area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, and let administrators manage agents, MCP servers and the application context while users set style preferences."
-sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-250", "SPM-251", "SPM-252"]
+sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252"]
 public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
@@ -152,4 +152,6 @@ For MCP, use an official SDK server (in memory or Streamable HTTP): tools are of
 sync and visible only to the assigned agent after activation, mutations pause for
 approval, schema changes disable tools, blocked hosts are rejected and secrets are
 absent from responses, logs and audit. SPM-245, SPM-246, SPM-247, SPM-250, SPM-251 and
-SPM-252 are the executable references.
+SPM-252 are the executable references. SPM-249 is the end-to-end reference: one agent
+over the API bridge and curated tools, an administrator agent with an MCP tool, and a
+viewer who is offered no mutating tools.
