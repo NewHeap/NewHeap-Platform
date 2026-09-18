@@ -3552,6 +3552,22 @@
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts",
         "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts"
       ]
+    },
+    {
+      "id": "SPM-254",
+      "categoryId": "18",
+      "title": "API bridge gateway over read-only resources",
+      "surface": "`NhAiMvcBridgeBuilder.EnableGateway`, `NhAiMvcBridgeGatewayBuilder` (`UseGatewayToolSetId`, `IncludeReadOnlyOnly`, `UseResourceDescriber`), `INhAiBridgeConventions.DescribeQuery`, `NhAiBridgeQueryDescription`, `INhAiBridgeResourceDescriber`, the `<set>.search-resources`, `.describe-resource`, `.query` and `.get` tools and `NhAiBridgeFailureCodes.ResourceNotFound`",
+      "outcome": "Instead of one tool per action, the sample publishes four read-only gateway tools over the read-only project and project-task resources. A user searches only the resources whose actions the controllers' own policies allow, describes a resource with the filter, order and result fields derived from the `[Filterable]`, `[Orderable]` and `[Searchable]` view-model attributes, and queries or gets it. `query` and `get` run the underlying bridge descriptor through the shared invoker, so the gate, policies, budget, audit (with the underlying tool id) and the self-HTTP request are exactly those of the bridge tool; unknown filter or order keys fail as `api-bridge-validation` before the HTTP call, unknown and unauthorized resources fail identically as `ai-tool-not-found`, and mutations are never reachable through the gateway. The gateway tools live in the attested bridge catalog and are exported through MCP.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeConventions.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiBridgeSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDiscoveryPolicy.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeGatewayTests.cs"
+      ]
     }
   ]
 }

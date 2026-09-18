@@ -57,6 +57,9 @@ public sealed class NhAiMvcBridgeOptions
     public Type? InnerDiscoveryPolicyType { get; internal set; }
 
     public NhAiMvcBridgeToolDefaults ToolDefaults { get; } = new();
+
+    /// <summary>The gateway configuration, or null when <c>EnableGateway</c> was not called.</summary>
+    public NhAiMvcBridgeGatewayOptions? Gateway { get; internal set; }
 }
 
 /// <summary>
@@ -186,6 +189,19 @@ public sealed class NhAiMvcBridgeBuilder
     {
         ArgumentNullException.ThrowIfNull(configure);
         configure(_options.ToolDefaults);
+        return this;
+    }
+
+    /// <summary>
+    /// Publishes the gateway tools <c>search-resources</c>, <c>describe-resource</c>, <c>query</c>
+    /// and <c>get</c> over the read-only bridge actions, grouped per resource. Mutations are never
+    /// reachable through the gateway.
+    /// </summary>
+    public NhAiMvcBridgeBuilder EnableGateway(Action<NhAiMvcBridgeGatewayBuilder>? configure = null)
+    {
+        var gateway = _options.Gateway ?? new NhAiMvcBridgeGatewayOptions();
+        _options.Gateway = gateway;
+        configure?.Invoke(new NhAiMvcBridgeGatewayBuilder(_services, gateway));
         return this;
     }
 

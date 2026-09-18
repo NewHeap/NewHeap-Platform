@@ -4,8 +4,8 @@ title: "Expose authorized MVC actions as governed AI tools"
 area: backend
 reference: ai-api-bridge
 summary: "Publish existing controller actions as governed NewHeap tools that run through the shared invoker and the application's own HTTP pipeline as the calling user, with the controller authorization as the boundary."
-sample-cases: ["SPM-242", "SPM-243", "SPM-244"]
-public-symbols: ["AddNewHeapPlatformAIMvcBridge", "INhAiAttestedToolCatalog", "INhAiBridgeConventions", "INhAiCallerCredentialAccessor", "INhAiMvcBridgeExecutor", "NhAiBridgeActionInfo", "NhAiBridgeFailureCodes", "NhAiBridgeHttpRequest", "NhAiBridgeInputException", "NhAiBridgeResponse", "NhAiBridgeToolAttribute", "NhAiMvcBridgeBuilder", "NhAiMvcBridgeDefaultConventions", "NhAiMvcBridgeDefaults", "NhAiMvcBridgeDiscoveryPolicy", "NhAiMvcBridgeToolCatalog", "NhAiMvcBridgeToolDefaults", "NhAiToolCatalogAttestation"]
+sample-cases: ["SPM-242", "SPM-243", "SPM-244", "SPM-254"]
+public-symbols: ["AddNewHeapPlatformAIMvcBridge", "INhAiAttestedToolCatalog", "INhAiBridgeConventions", "INhAiCallerCredentialAccessor", "INhAiMvcBridgeExecutor", "NhAiBridgeActionInfo", "NhAiBridgeFailureCodes", "NhAiBridgeHttpRequest", "NhAiBridgeInputException", "NhAiBridgeResponse", "NhAiBridgeToolAttribute", "NhAiMvcBridgeBuilder", "NhAiMvcBridgeDefaultConventions", "NhAiMvcBridgeDefaults", "NhAiMvcBridgeDiscoveryPolicy", "NhAiMvcBridgeToolCatalog", "NhAiMvcBridgeToolDefaults", "NhAiToolCatalogAttestation", "NhAiMvcBridgeGatewayBuilder", "NhAiMvcBridgeGatewayOptions", "NhAiBridgeQueryDescription", "NhAiBridgeFilterField", "NhAiBridgeResultField", "INhAiBridgeResourceDescriber", "NhAiBridgeResourceDescription", "NhAiBridgeResourceSummary"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -74,6 +74,23 @@ keeps the model state as data, and no failure message contains response text.
 Derive from `NhAiMvcBridgeDefaultConventions` when an API uses another collection
 query encoding or body serializer, and register it with `UseConventions`.
 
+For a large API, call `EnableGateway` instead of offering the model one tool per
+action. The gateway publishes four read-only tools, `<set>.search-resources`,
+`.describe-resource`, `.query` and `.get`, over the read-only bridge actions grouped
+per resource (`order`, `order-group`, ...). `search-resources` does a deterministic
+text match on names, titles, summaries and field names and returns only resources
+the current user may use. Describe the filter, order and result fields by
+overriding `INhAiBridgeConventions.DescribeQuery`, for example from `[Filterable]`,
+`[Orderable]` and `[Searchable]` view-model attributes; described filter and order
+keys are then enforced before the HTTP call with `api-bridge-validation`. Add titles
+or text per resource with `UseResourceDescriber`. `query` and `get` run the
+underlying bridge descriptor through the shared invoker, so gate, policies, budget,
+audit (with the underlying tool id) and the self-HTTP request are exactly those of
+the bridge tool. Unknown and unauthorized resources fail identically with
+`ai-tool-not-found`. Mutations are never reachable through the gateway; keep them
+as explicit bridge or curated tools with approval, and combine both in agent tool
+selectors such as `app-api-gateway.*` plus `orders.*`.
+
 Prefer a curated generated tool when an operation spans several endpoints, needs
 a domain-specific approval summary or verifier, is destructive, returns data that
 must be reshaped or redacted for a model, or is a high-volume workflow that
@@ -89,6 +106,8 @@ product boundary.
 - Including DELETE actions or declaring a destructive effect through the bridge.
 - Replacing the discovery policy after `AddNewHeapPlatformAIMvcBridge`; use `UseInnerDiscoveryPolicy`.
 - Returning response body text in failure messages or logs.
+- Expecting the gateway to validate filter or order keys without describing them in `DescribeQuery`; the default describes no fields.
+- Routing mutations through the gateway or revealing in a message whether an unavailable resource exists.
 - Hand-building a runtime catalog for MCP export without implementing `INhAiAttestedToolCatalog` and passing attestation.
 
 ## Verification
@@ -103,5 +122,9 @@ truncation stays below the result limit, that a timeout returns
 `api-bridge-timeout`, and that the outgoing request carries only the contracted
 headers while context, audit and logs never contain the token. List and call the
 tools through the in-memory MCP transport and assert an ungoverned attested
-catalog fails validation. SPM-242, SPM-243 and SPM-244 are the executable
+catalog fails validation. With the gateway enabled, assert per-user resource lists,
+the described fields, that `query` and `get` send exactly the request of the bridge
+tool and audit its id, that unknown and unauthorized resources fail identically,
+that an unknown filter key fails before the HTTP call and that the gateway tools
+are exported through MCP. SPM-242, SPM-243, SPM-244 and SPM-254 are the executable
 references.

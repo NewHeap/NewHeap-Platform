@@ -277,6 +277,25 @@ public sealed class CollisionController : ControllerBase
     }
 }
 
+/// <summary>Read-only resource that only order managers may use.</summary>
+[ApiController]
+[Route("order-audits")]
+[Authorize(Policy = TestPolicies.OrderManage)]
+public sealed class OrderAuditController : ControllerBase
+{
+    [HttpGet]
+    public ActionResult<IReadOnlyList<TestOrder>> Get([FromQuery] TestOrderCollectionRequest request)
+    {
+        return Ok(new[] { new TestOrder(1, "audit", TestOrderStatus.Draft) });
+    }
+
+    [HttpGet("{id:int}")]
+    public ActionResult<TestOrder> Get(int id)
+    {
+        return Ok(new TestOrder(id, "audit-" + id, TestOrderStatus.Draft));
+    }
+}
+
 public static class TestPolicies
 {
     public const string OrderView = "order.view";

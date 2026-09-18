@@ -75,6 +75,35 @@ tool ids, descriptions, the query encoding or the body serializer.
 `[NhAiBridgeTool]` may only narrow a tool: `Exclude`, a stricter `Effect`, lower
 `MaxResultBytes` or `TimeoutSeconds`, or `RequireApproval = true` on a read.
 
+## Gateway
+
+A large API can publish a small, searchable toolset instead of one tool per action:
+
+```csharp
+bridge.EnableGateway(gateway => gateway
+    .UseGatewayToolSetId("sample-api-gateway")
+    .IncludeReadOnlyOnly()
+    .UseResourceDescriber<SampleResourceDescriber>());   // optional
+```
+
+| Tool | Input | Output |
+| --- | --- | --- |
+| `<set>.search-resources` | `{ query, limit? (1..20) }` | resources the user may use, with title, summary and `query`/`get` |
+| `<set>.describe-resource` | `{ resource }` | filter, order, search and result fields, extra parameters, the id parameter |
+| `<set>.query` | `{ resource, page?, itemsPerPage? (max 100), search?, filter?, orderBy?, parameters? }` | the bridge result envelope |
+| `<set>.get` | `{ resource, id, parameters? }` | the bridge result envelope |
+
+Resources group the read-only bridge actions per controller (`order`, `order-group`;
+extra collection or detail actions get a suffix such as `project-mine`). `query` and
+`get` run the underlying bridge descriptor through `INhAiToolInvoker`: the gate,
+policies, budget, audit (with the underlying tool id) and the self-HTTP request are
+exactly those of the bridge tool. Override `INhAiBridgeConventions.DescribeQuery` to
+describe filter, order and result fields; described filter and order keys are
+enforced before the HTTP call (`api-bridge-validation`). Unknown and unauthorized
+resources fail identically with `ai-tool-not-found`. Reads that require approval and
+all mutations are never reachable through the gateway. The gateway tools are part of
+the attested bridge catalog and follow its exposure, including MCP.
+
 ## Result
 
 Tools return `TaskResult<NhAiBridgeResponse>`:

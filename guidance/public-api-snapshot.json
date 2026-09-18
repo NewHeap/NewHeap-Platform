@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.34",
   "backEnd": {
-    "hash": "cffd6b22df9a6cf4dde2bdd774f4fc9da6c862d1e4d26d223f16d9b6c6c7b9db",
-    "declarationCount": 5008,
+    "hash": "5621ea5f1d8a3129fe24b046ab8bbc0e9f5920e198a0d5c98008af65eb61df6a",
+    "declarationCount": 5056,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -443,6 +443,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeActionInfo.cs",
+        "declaration": "public const string ResourceNotFound = \"ai-tool-not-found\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeActionInfo.cs",
         "declaration": "public sealed class NhAiBridgeInputException(string message) : Exception(message) {"
       },
       {
@@ -527,6 +531,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDefaultConventions.cs",
+        "declaration": "public virtual NhAiBridgeQueryDescription DescribeQuery(NhAiBridgeActionInfo action) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDefaultConventions.cs",
         "declaration": "public virtual string SerializeBody(object body) {"
       },
       {
@@ -548,6 +556,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDiscoveryPolicy.cs",
         "declaration": "public async ValueTask<bool> CanDiscoverAsync( NhAiToolDescriptor descriptor, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDiscoveryPolicy.cs",
+        "declaration": "public static async ValueTask<bool> CanUseAsync( ClaimsPrincipal? user, NhAiToolDescriptor descriptor, IAuthorizationService authorizationService, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDiscoveryPolicy.cs",
+        "declaration": "public static async ValueTask<bool> CanUseAsync( ClaimsPrincipal? user, NhAiBridgeGatewayResource resource, IAuthorizationService authorizationService, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeExecutor.cs",
@@ -608,6 +624,170 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeFunctionFactory.cs",
         "declaration": "protected override ValueTask<object?> InvokeCoreAsync( AIFunctionArguments arguments, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public sealed class NhAiMvcBridgeGatewayOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public string? ToolSetId { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public Type? ResourceDescriberType { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public sealed class NhAiMvcBridgeGatewayBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public NhAiMvcBridgeGatewayBuilder UseGatewayToolSetId(string toolSetId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public NhAiMvcBridgeGatewayBuilder IncludeReadOnlyOnly() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public NhAiMvcBridgeGatewayBuilder UseResourceDescriber<TDescriber>() where TDescriber : class, INhAiBridgeResourceDescriber {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public interface INhAiBridgeResourceDescriber {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public sealed record NhAiBridgeFilterField( string Key, string Type, IReadOnlyList<string> Operators, IReadOnlyList<string>? EnumValues = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public sealed record NhAiBridgeResultField( string Key, string Type, string? Description = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public sealed record NhAiBridgeQueryDescription {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public static NhAiBridgeQueryDescription Empty { get; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public IReadOnlyList<NhAiBridgeFilterField> FilterFields { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public bool Searchable { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public IReadOnlyList<string> OrderFields { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public IReadOnlyList<NhAiBridgeResultField> ResultFields { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public sealed record NhAiBridgeResourceSummary( string Resource, string Title, string Summary, IReadOnlyList<string> Operations);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public sealed record NhAiBridgeResourceQuery {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public IReadOnlyList<NhAiBridgeFilterField> FilterFields { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public bool Searchable { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public IReadOnlyList<string> OrderFields { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public JsonElement? ExtraParameters { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public sealed record NhAiBridgeResourceGet(string IdParameter) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public JsonElement? ExtraParameters { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public sealed record NhAiBridgeResourceDescription {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public required string Resource { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public required string Title { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public required string Description { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAiBridgeResourceQuery? Query { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAiBridgeResourceGet? Get { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public IReadOnlyList<NhAiBridgeResultField> ResultFields { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public NhAiBridgeGatewayOperation? Find(string kind) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public const string SearchResources = \"search-resources\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public const string DescribeResource = \"describe-resource\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public const string Query = \"query\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public const string Get = \"get\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public static NhAiMvcBridgeGatewayModel Build( NhAiMvcBridgeOptions options, IReadOnlyList<NhAiToolDescriptor> bridgeDescriptors, IReadOnlyDictionary<string, NhAiBridgeActionInfo> actions, INhAiBridgeConventions conventions, NhAiToolExposure exposure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public static JsonElement? ExtraParameters(NhAiBridgeGatewayOperation operation) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public static bool IsCollectionInputName(string name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public const string ResourceUnavailableMessage = \"The resource does not exist or is not available to you.\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public static AIFunction Create( NhAiToolDescriptor descriptor, NhAiMvcBridgeGatewayModel gateway, IServiceProvider services) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
@@ -687,6 +867,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
+        "declaration": "public NhAiMvcBridgeGatewayOptions? Gateway { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
         "declaration": "public sealed class NhAiMvcBridgeBuilder {"
       },
       {
@@ -740,6 +924,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
         "declaration": "public NhAiMvcBridgeBuilder WithToolDefaults(Action<NhAiMvcBridgeToolDefaults> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
+        "declaration": "public NhAiMvcBridgeBuilder EnableGateway(Action<NhAiMvcBridgeGatewayBuilder>? configure = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
@@ -812,6 +1000,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeToolCatalog.cs",
         "declaration": "public IReadOnlyList<AIFunction> CreateFunctions(IServiceProvider services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeToolCatalog.cs",
+        "declaration": "public IReadOnlyCollection<string> GatewayResources =>"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeToolCatalog.cs",
@@ -23145,7 +23337,15 @@
       "NhAiMvcBridgeDiscoveryPolicy",
       "NhAiMvcBridgeToolCatalog",
       "NhAiMvcBridgeToolDefaults",
-      "NhAiToolCatalogAttestation"
+      "NhAiToolCatalogAttestation",
+      "NhAiMvcBridgeGatewayBuilder",
+      "NhAiMvcBridgeGatewayOptions",
+      "NhAiBridgeQueryDescription",
+      "NhAiBridgeFilterField",
+      "NhAiBridgeResultField",
+      "INhAiBridgeResourceDescriber",
+      "NhAiBridgeResourceDescription",
+      "NhAiBridgeResourceSummary"
     ],
     "nh-ai-aspnet-context": [
       "INhAiAuthenticatedInvocationContextResolver",

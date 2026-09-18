@@ -29,6 +29,7 @@ as the calling user.
 |---|---|
 | The bridge requires `AddNewHeapPlatformAIAspNet`, a budget manager and an idempotency manager, and owns `INhAiToolDiscoveryPolicy`. | Configure your own discovery policy with `UseInnerDiscoveryPolicy` instead of `UseDiscoveryPolicy`. |
 | DELETE, anonymous, upload and policy-less actions are never published; `IncludeDeleteActions(true)` fails at startup in this version. | Expose deletions through a curated tool with a verifier. |
+| `EnableGateway` adds the read-only gateway tools `search-resources`, `describe-resource`, `query` and `get` over the read-only bridge actions per resource; `INhAiBridgeConventions` gains `DescribeQuery` with a default implementation that describes no fields. | No action; override `DescribeQuery` to have filter and order keys validated before the HTTP call. |
 | Bridge tools share the governed-function argument handling: flat arguments run once, a mixed `input` shape returns `ai-tool-input-invalid` before any HTTP call, and unknown flat properties still fail as `api-bridge-validation`. | No action. |
 
 ## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql, NewHeap.Platform.AI.Chat.AspNet (new packages)
