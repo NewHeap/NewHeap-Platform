@@ -52,7 +52,7 @@ internal sealed class NhAssistantAuditRelay(
         };
         foreach (var sink in _businessSinks)
         {
-            await sink.RecordAsync(evt, cancellationToken);
+            await sink.RecordAsync(turn.WithPromptIdentity(evt), cancellationToken);
         }
     }
 }

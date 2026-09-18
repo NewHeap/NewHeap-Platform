@@ -29,6 +29,7 @@ internal sealed class NhAssistantTurnRunner(
     INhAiProposalFactory proposalFactory,
     IEnumerable<INhAssistantBusinessAuditSink> businessSinks,
     INhAssistantTitleGenerator titleGenerator,
+    NhAssistantPersonalization personalization,
     ILogger<NhAssistantTurnRunner> logger) : INhAssistantTurnRunner
 {
     private static readonly string[] MessageStartStatuses =
@@ -261,7 +262,7 @@ internal sealed class NhAssistantTurnRunner(
             await GenerateTitleAsync(conversation, agent, text);
         }
 
-        var state = await CreateStateAsync(conversation, agent, turnId, userMessage.Id, request.CallerContext, events);
+        var state = await CreateStateAsync(conversation, agent, turnId, userMessage.Id, request.CallerContext, request.Language, events);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(turnId, userMessage.Id, state.AssistantMessageId));
 
         var toolCallsToday = await store.GetToolCallsAsync(
@@ -294,7 +295,7 @@ internal sealed class NhAssistantTurnRunner(
         var userMessageId = history
             .LastOrDefault(message => message.TurnId == approval.TurnId && message.Role == NhAssistantMessageRoles.User)
             ?.Id ?? Guid.Empty;
-        var state = await CreateStateAsync(conversation, agent, approval.TurnId, userMessageId, request.CallerContext, events);
+        var state = await CreateStateAsync(conversation, agent, approval.TurnId, userMessageId, request.CallerContext, request.Language, events);
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(approval.TurnId, userMessageId, state.AssistantMessageId));
 
@@ -476,7 +477,9 @@ internal sealed class NhAssistantTurnRunner(
             if (agent is null)
             {
                 outcomeStatus = NhAssistantTurnStatuses.Failed;
-                errorCode = NhAssistantErrorCodes.ModelUnavailable;
+                errorCode = state.InstructionsTooLong
+                    ? NhAssistantAdminErrorCodes.InstructionsTooLong
+                    : NhAssistantErrorCodes.ModelUnavailable;
             }
             else
             {
@@ -605,9 +608,19 @@ internal sealed class NhAssistantTurnRunner(
         // level. The assistant pipeline gets no logger factory so conversation content never reaches logs.
         var agentServices = new NhAssistantContentSafeServiceProvider(services);
         var selectors = await SelectToolsAsync(agent, context, cancellationToken);
-        var descriptor = NhAssistantAgentRegistry.CreateDescriptor(agent, profile, selectors);
+        var prompt = state.Scope.Prompt!;
+        if (prompt.Instructions.Length > NhAssistantPromptComposer.MaxInstructionsLength)
+        {
+            state.InstructionsTooLong = true;
+            return null;
+        }
+        var descriptor = NhAssistantAgentRegistry.CreateDescriptor(agent, profile, selectors) with
+        {
+            PromptVersion = prompt.PromptVersion,
+            PromptHash = prompt.PromptHash
+        };
         var created = await adapter.CreateAsync(
-            new NhAiAgentCreateRequest(descriptor, context, agent.Instructions.Content, registration.ExecutionRegion),
+            new NhAiAgentCreateRequest(descriptor, context, prompt.Instructions, registration.ExecutionRegion),
             agentServices,
             cancellationToken);
         if (!created.Success)
@@ -673,8 +686,12 @@ internal sealed class NhAssistantTurnRunner(
         Guid turnId,
         Guid userMessageId,
         NhAiInvocationContext callerContext,
+        string language,
         ChannelWriter<NhAssistantTurnEvent> events)
     {
+        var applicationContext = await personalization.GetApplicationContextAsync(CancellationToken.None);
+        var preferences = await personalization.GetPreferencesAsync(callerContext.ActorId, CancellationToken.None);
+        var prompt = NhAssistantPromptComposer.Compose(agent, applicationContext, preferences, language);
         var assistantMessage = new AssistantMessage
         {
             Id = Guid.NewGuid(),
@@ -700,8 +717,9 @@ internal sealed class NhAssistantTurnRunner(
                     : callerContext.AccountableOwnerId,
                 TenantId = callerContext.TenantId,
                 ModelProfileName = agent.ProfileName,
-                PromptVersion = NhAssistantAgentRegistry.PromptVersion(agent),
-                PromptHash = agent.Instructions.Manifest.ContentHash,
+                PromptVersion = prompt.PromptVersion,
+                PromptHash = prompt.PromptHash,
+                Prompt = prompt,
                 Deadline = DateTimeOffset.UtcNow.Add(limits.TurnTimeout),
                 Limits = limits
             },

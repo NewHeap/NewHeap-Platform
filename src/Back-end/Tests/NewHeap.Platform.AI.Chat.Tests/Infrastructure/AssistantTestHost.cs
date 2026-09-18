@@ -58,7 +58,8 @@ internal sealed class AssistantTestHost : IAsyncDisposable
         AssistantTestProvider provider,
         IChatClient model,
         Action<NhAssistantLimits>? limits = null,
-        Action<IServiceCollection>? configure = null)
+        Action<IServiceCollection>? configure = null,
+        Action<NhAssistantBuilder>? assistantBuilder = null)
     {
         var services = new ServiceCollection();
         var audit = new NhAiCapturedAuditSink();
@@ -117,6 +118,7 @@ internal sealed class AssistantTestHost : IAsyncDisposable
                 .AddAgent(AssistantTestData.Agent() with { ProfileName = "project-chat" })
                 .AddBusinessAuditSink<CapturedBusinessAuditSinkAdapter>()
                 .WithLimits(configured => limits?.Invoke(configured));
+            assistantBuilder?.Invoke(assistant);
         });
         services.AddSingleton(business);
         configure?.Invoke(services);
@@ -153,10 +155,10 @@ internal sealed class AssistantTestHost : IAsyncDisposable
         return conversation;
     }
 
-    public Task<TurnResult> SendAsync(Guid conversationId, string text, string? userId = null)
+    public Task<TurnResult> SendAsync(Guid conversationId, string text, string? userId = null, string language = "en")
     {
         return RunAsync(userId, (runner, context) => runner.StartMessageTurnAsync(
-            new NhAssistantMessageTurnRequest(conversationId, context, text, Guid.NewGuid().ToString("N"), CancellationToken.None),
+            new NhAssistantMessageTurnRequest(conversationId, context, text, Guid.NewGuid().ToString("N"), CancellationToken.None, language),
             CancellationToken.None));
     }
 

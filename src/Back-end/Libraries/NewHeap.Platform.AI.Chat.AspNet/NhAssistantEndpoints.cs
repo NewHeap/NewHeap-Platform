@@ -296,7 +296,8 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 caller.Data,
                 request.Text ?? string.Empty,
                 request.ClientMessageId,
-                httpContext.RequestAborted),
+                httpContext.RequestAborted,
+                RequestLanguage(httpContext)),
             httpContext.RequestAborted);
         return started.Success
             ? new NhAssistantServerSentEventsResult(started.Data)
@@ -338,7 +339,8 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 request.Decision == "approve",
                 request.ExpectedProposalHash,
                 string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim(),
-                httpContext.RequestAborted),
+                httpContext.RequestAborted,
+                RequestLanguage(httpContext)),
             httpContext.RequestAborted);
         return started.Success
             ? new NhAssistantServerSentEventsResult(started.Data)
@@ -433,6 +435,18 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             _ => StatusCodes.Status400BadRequest
         };
         return Error(status, code);
+    }
+
+    /// <summary>
+    /// The preference language: <c>nl</c> when the preferred <c>Accept-Language</c> is Dutch, otherwise <c>en</c>.
+    /// </summary>
+    internal static string RequestLanguage(HttpContext httpContext)
+    {
+        var preferred = httpContext.Request.GetTypedHeaders().AcceptLanguage
+            .OrderByDescending(item => item.Quality ?? 1)
+            .Select(item => item.Value.Value)
+            .FirstOrDefault();
+        return preferred is not null && preferred.StartsWith("nl", StringComparison.OrdinalIgnoreCase) ? "nl" : "en";
     }
 
     private static IResult ContextUnavailable()

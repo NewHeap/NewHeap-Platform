@@ -46,7 +46,8 @@ internal sealed record NhAssistantMessageTurnRequest(
     NhAiInvocationContext CallerContext,
     string Text,
     string? ClientMessageId,
-    CancellationToken RequestAborted);
+    CancellationToken RequestAborted,
+    string Language = "en");
 
 internal sealed record NhAssistantDecisionTurnRequest(
     Guid ConversationId,
@@ -55,7 +56,8 @@ internal sealed record NhAssistantDecisionTurnRequest(
     bool Approve,
     string ExpectedProposalHash,
     string? Reason,
-    CancellationToken RequestAborted);
+    CancellationToken RequestAborted,
+    string Language = "en");
 
 /// <summary>
 /// A started turn: its event stream and its completion.

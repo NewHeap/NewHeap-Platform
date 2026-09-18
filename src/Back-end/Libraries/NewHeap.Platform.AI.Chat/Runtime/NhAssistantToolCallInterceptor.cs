@@ -30,6 +30,8 @@ internal sealed class NhAssistantTurnState
 
     public bool ToolCallLimitReached { get; set; }
 
+    public bool InstructionsTooLong { get; set; }
+
     /// <summary>
     /// Set after a rejected approval: the model may give one closing message but call no more tools.
     /// </summary>
@@ -289,7 +291,7 @@ internal sealed class NhAssistantToolCallInterceptor(
     {
         foreach (var sink in businessSinks)
         {
-            await sink.RecordAsync(evt, cancellationToken);
+            await sink.RecordAsync(state.Scope.WithPromptIdentity(evt), cancellationToken);
         }
     }
 

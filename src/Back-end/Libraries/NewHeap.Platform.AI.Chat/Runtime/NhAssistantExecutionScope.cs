@@ -37,6 +37,28 @@ internal sealed class NhAssistantTurnScope
 
     public required NhAssistantLimits Limits { get; init; }
 
+    /// <summary>
+    /// The composed instructions of the turn and their content-free identity.
+    /// </summary>
+    public NhAssistantComposedPrompt? Prompt { get; init; }
+
+    /// <summary>
+    /// Adds the content-free prompt identity of this turn to an audit event.
+    /// </summary>
+    public NhAssistantAuditEvent WithPromptIdentity(NhAssistantAuditEvent evt)
+    {
+        return Prompt is null
+            ? evt
+            : evt with
+            {
+                ApplicationContextVersion = Prompt.ApplicationContextVersion,
+                ApplicationContextHash = Prompt.ApplicationContextHash,
+                InstructionsVersion = Prompt.InstructionsVersion,
+                InstructionsHash = Prompt.InstructionsHash,
+                PreferencesHash = Prompt.PreferencesHash
+            };
+    }
+
     public string? TenantId { get; init; }
 
     public int ToolCalls => Volatile.Read(ref _toolCalls);
