@@ -46,7 +46,7 @@ internal sealed class NhAssistantInvocationGate(INhAiToolInvocationGate inner) :
             InvocationId = call.InvocationId,
             ActorId = turn.Agent.ActorId,
             ActorKind = NhAiActorKind.Agent,
-            AccountableOwnerId = turn.OwnerActorId,
+            AccountableOwnerId = turn.AccountableOwnerId,
             Purpose = Purpose,
             RunId = turn.TurnId.ToString(),
             CorrelationId = context.CorrelationId ?? turn.TurnId.ToString(),

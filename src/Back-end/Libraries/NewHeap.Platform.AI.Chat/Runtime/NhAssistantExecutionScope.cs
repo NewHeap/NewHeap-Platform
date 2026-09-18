@@ -21,6 +21,12 @@ internal sealed class NhAssistantTurnScope
     /// </summary>
     public required string OwnerActorId { get; init; }
 
+    /// <summary>
+    /// The accountable owner taken from the caller's invocation context, or the owner actor when the
+    /// context resolver does not set one. Proposals and tool contexts use this value.
+    /// </summary>
+    public required string AccountableOwnerId { get; init; }
+
     public required string ModelProfileName { get; init; }
 
     public required string PromptVersion { get; init; }

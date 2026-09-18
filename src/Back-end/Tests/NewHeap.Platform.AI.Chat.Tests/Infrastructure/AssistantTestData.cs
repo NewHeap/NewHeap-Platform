@@ -47,6 +47,7 @@ internal static class AssistantTestData
             TurnId = Guid.NewGuid(),
             Agent = Agent(),
             OwnerActorId = ownerActorId,
+            AccountableOwnerId = ownerActorId,
             ModelProfileName = "project-chat",
             PromptVersion = "1",
             PromptHash = Instructions.Manifest.ContentHash,

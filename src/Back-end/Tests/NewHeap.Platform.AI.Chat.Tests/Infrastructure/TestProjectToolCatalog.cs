@@ -61,7 +61,7 @@ public sealed class TestProjectToolCatalog : INhAiToolCatalog
         true,
         [ManagePolicy])
     {
-        ExportName = "projects_change-status_v1",
+        ExportName = "projects_change_status_v1",
         CatalogId = "projects",
         ContractHash = new string('2', 64),
         SchemaHash = new string('2', 64),

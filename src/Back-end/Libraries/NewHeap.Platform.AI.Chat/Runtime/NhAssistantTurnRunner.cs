@@ -583,7 +583,7 @@ internal sealed class NhAssistantTurnRunner(
             InvocationId = Guid.NewGuid(),
             ActorId = agent.ActorId,
             ActorKind = NhAiActorKind.Agent,
-            AccountableOwnerId = state.Scope.OwnerActorId,
+            AccountableOwnerId = state.Scope.AccountableOwnerId,
             Purpose = NhAssistantInvocationGate.Purpose,
             RunId = state.Scope.TurnId.ToString(),
             CorrelationId = callerContext.CorrelationId ?? state.Scope.TurnId.ToString(),
@@ -691,6 +691,9 @@ internal sealed class NhAssistantTurnRunner(
                 TurnId = turnId,
                 Agent = agent,
                 OwnerActorId = callerContext.ActorId,
+                AccountableOwnerId = string.IsNullOrWhiteSpace(callerContext.AccountableOwnerId)
+                    ? callerContext.ActorId
+                    : callerContext.AccountableOwnerId,
                 TenantId = callerContext.TenantId,
                 ModelProfileName = agent.ProfileName,
                 PromptVersion = NhAssistantAgentRegistry.PromptVersion(agent),

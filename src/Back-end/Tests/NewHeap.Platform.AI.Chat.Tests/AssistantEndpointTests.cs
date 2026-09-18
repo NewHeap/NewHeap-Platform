@@ -101,7 +101,7 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database)
         var projectId = Guid.NewGuid();
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap" } })
-            .RespondWithFunctionCall("projects_change-status_v1", new { input = new { projectId, status = "Active" } })
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId, status = "Active" } })
             .RespondWithText("Done: the project is active.");
         await using var app = await AssistantWebApplication.StartAsync(database, model);
         using var client = app.CreateClient();

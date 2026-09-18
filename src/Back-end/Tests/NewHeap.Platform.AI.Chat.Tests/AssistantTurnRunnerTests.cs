@@ -3,7 +3,9 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.AI.Chat.Governance;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Test;
@@ -15,7 +17,7 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database)
 {
     private const string SearchFunction = "projects_search_v1";
-    private const string ChangeStatusFunction = "projects_change-status_v1";
+    private const string ChangeStatusFunction = "projects_change_status_v1";
 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
@@ -295,6 +297,52 @@ public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database)
         Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.ToolInvoked && evt.ResultCode == "succeeded");
         Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.ApprovalRequested);
         Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.ApprovalApproved);
+    }
+
+    [Fact]
+    public async Task The_accountable_owner_comes_from_the_registered_context_resolver()
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId = Guid.NewGuid(), status = "Active" } })
+            .RespondWithText("Done.");
+        await using var host = await AssistantTestHost.CreateAsync(
+            database,
+            AssistantTestProvider.PostgreSql,
+            model,
+            configure: services => services.AddNewHeapPlatformAIAspNet(ai => ai
+                .UseAuthenticatedInvocationContextResolver<OwnerSettingContextResolver>()));
+        var conversation = await host.CreateConversationAsync();
+
+        var paused = await host.SendAsync(conversation.Id, "Activate the project.");
+        var approval = paused.Single<NhAssistantApprovalRequiredEvent>().Approval;
+        await host.DecideAsync(conversation.Id, approval, approve: true);
+
+        var context = Assert.Single(host.Tools.Contexts);
+        Assert.Equal(OwnerSettingContextResolver.AccountableOwner, context.AccountableOwnerId);
+        Assert.Null(context.TenantId);
+        await using var storage = host.Services.GetRequiredService<NhAssistantDbContextFactory>().CreateDbContext();
+        var stored = await storage.Approvals.SingleAsync(item => item.Id == approval.ApprovalId);
+        Assert.Equal(
+            OwnerSettingContextResolver.AccountableOwner,
+            NhAssistantProposalSerializer.Deserialize(stored.ProposalJson).AccountableOwnerId);
+        Assert.Single(host.Tools.StatusChanges);
+    }
+
+    private sealed class OwnerSettingContextResolver : NewHeap.Platform.AI.AspNet.INhAiAuthenticatedInvocationContextResolver
+    {
+        public const string AccountableOwner = "accountable-owner-1";
+
+        public ValueTask<NewHeap.Platform.Common.Models.TaskResult<NhAiInvocationContext>> ResolveAsync(
+            Microsoft.AspNetCore.Http.HttpContext httpContext,
+            CancellationToken cancellationToken = default)
+        {
+            var actorId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value;
+            return ValueTask.FromResult(NewHeap.Platform.Common.Models.TaskResult<NhAiInvocationContext>.Succeeded(
+                new NhAiInvocationContext(actorId, "project-assistance", new Dictionary<string, string>())
+                {
+                    AccountableOwnerId = AccountableOwner
+                }));
+        }
     }
 
     private sealed class BlockingChatClient : IChatClient
