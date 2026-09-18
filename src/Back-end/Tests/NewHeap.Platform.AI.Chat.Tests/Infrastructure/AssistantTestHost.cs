@@ -164,8 +164,25 @@ internal sealed class AssistantTestHost : IAsyncDisposable
 
     public Task<TurnResult> SendAsync(Guid conversationId, string text, string? userId = null, string language = "en")
     {
+        return SendWithContextAsync(conversationId, text, null, userId, language);
+    }
+
+    internal Task<TurnResult> SendWithContextAsync(
+        Guid conversationId,
+        string text,
+        NhAssistantClientContext? clientContext,
+        string? userId = null,
+        string language = "en")
+    {
         return RunAsync(userId, (runner, context) => runner.StartMessageTurnAsync(
-            new NhAssistantMessageTurnRequest(conversationId, context, text, Guid.NewGuid().ToString("N"), CancellationToken.None, language),
+            new NhAssistantMessageTurnRequest(
+                conversationId,
+                context,
+                text,
+                Guid.NewGuid().ToString("N"),
+                CancellationToken.None,
+                language,
+                clientContext),
             CancellationToken.None));
     }
 

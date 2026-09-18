@@ -153,6 +153,29 @@ public sealed class NhAssistantBuilder
         return this;
     }
 
+    /// <summary>
+    /// Adds a provider of situational facts (such as the user's name, roles or active division) for
+    /// the "Situation" block of every turn. Several providers are allowed; they run in registration
+    /// order. A failing provider is skipped for the turn.
+    /// </summary>
+    public NhAssistantBuilder UseTurnContextProvider<TProvider>()
+        where TProvider : class, INhAssistantTurnContextProvider
+    {
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAssistantTurnContextProvider, TProvider>());
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the time zone of the date, weekday and time the library adds to every turn, such as
+    /// <c>Europe/Amsterdam</c>. The default is UTC.
+    /// </summary>
+    public NhAssistantBuilder UseTimeZone(string timeZoneId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(timeZoneId);
+        _state.TimeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        return this;
+    }
+
     internal NhAssistantBuilder UseStorage(NhAssistantStorageRegistration registration)
     {
         ArgumentNullException.ThrowIfNull(registration);
@@ -182,6 +205,8 @@ internal sealed class NhAssistantRegistrationState
     public NhAiTextAsset? DefaultApplicationContext { get; set; }
 
     public NhAssistantLimits Limits { get; set; } = new();
+
+    public TimeZoneInfo TimeZone { get; set; } = TimeZoneInfo.Utc;
 
     public IReadOnlyCollection<NhAssistantAgentDefinition> Agents => _agents.Values;
 

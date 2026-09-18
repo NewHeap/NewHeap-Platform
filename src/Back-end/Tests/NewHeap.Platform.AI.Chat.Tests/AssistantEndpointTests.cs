@@ -234,6 +234,44 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database)
     }
 
     [Fact]
+    public async Task Client_context_is_passed_to_the_model_and_an_invalid_shape_is_ignored_without_400()
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithText("First.")
+            .RespondWithText("Second.")
+            .RespondWithText("Third.");
+        await using var app = await AssistantWebApplication.StartAsync(database, model);
+        using var client = app.CreateClient();
+        var id = await CreateConversationAsync(client);
+
+        using var valid = await client.PostAsync(
+            $"/api/assistant/conversations/{id}/messages",
+            Json(new
+            {
+                text = "What is open?",
+                clientMessageId = "ctx-1",
+                clientContext = new { route = "/projects/7", title = "Project 7", entities = new[] { new { type = "project", id = "7", label = "Roadmap" } } }
+            }));
+        await ReadAllAsync(valid);
+        using var invalid = await client.PostAsync(
+            $"/api/assistant/conversations/{id}/messages",
+            Json(new { text = "And now?", clientMessageId = "ctx-2", clientContext = new { route = 42, entities = "none" } }));
+        await ReadAllAsync(invalid);
+        using var wrongType = await client.PostAsync(
+            $"/api/assistant/conversations/{id}/messages",
+            Json(new { text = "Still?", clientMessageId = "ctx-3", clientContext = "just text" }));
+        await ReadAllAsync(wrongType);
+
+        Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, invalid.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, wrongType.StatusCode);
+        Assert.Contains("<page-data>\n- Route: /projects/7\n- Title: Project 7\n- Entity: project 7 (Roadmap)\n</page-data>", model.Requests[0].Options!.Instructions);
+        Assert.DoesNotContain("<page-data>", model.Requests[1].Options!.Instructions);
+        Assert.DoesNotContain("<page-data>", model.Requests[2].Options!.Instructions);
+        Assert.Contains("<situation-data>", model.Requests[2].Options!.Instructions);
+    }
+
+    [Fact]
     public void The_json_contract_uses_the_exact_property_names()
     {
         var context = NhAssistantJsonSerializerContext.Default;
@@ -258,6 +296,20 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database)
         AssertNames(error, "code", "messageKey");
         AssertNames(validation, "code", "messageKey", "errors");
         AssertNames(validation.GetProperty("errors"), "displayName");
+
+        var clientContext = JsonSerializer.SerializeToElement(
+            new NhAssistantClientContextDto("/projects/7", "Project 7", [new NhAssistantClientEntityDto("project", "7", "Roadmap")]),
+            context.NhAssistantClientContextDto);
+        var message = JsonSerializer.SerializeToElement(
+            new NhAssistantSendMessageRequest("Hi", "c-1", clientContext),
+            context.NhAssistantSendMessageRequest);
+        AssertNames(clientContext, "route", "title", "entities");
+        AssertNames(clientContext.GetProperty("entities")[0], "type", "id", "label");
+        AssertNames(message, "text", "clientMessageId", "clientContext");
+        var read = JsonSerializer.Deserialize(
+            """{ "text": "Hi", "clientMessageId": "c-1", "clientContext": { "route": "/x" } }""",
+            context.NhAssistantSendMessageRequest)!;
+        Assert.Equal("/x", read.ClientContext!.Value.GetProperty("route").GetString());
     }
 
     private static async Task<string> CreateConversationAsync(HttpClient client)

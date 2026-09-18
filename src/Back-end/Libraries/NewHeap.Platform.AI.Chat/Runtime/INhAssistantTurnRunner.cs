@@ -41,13 +41,15 @@ internal interface INhAssistantTurnRunner
 /// <param name="Text">User message text.</param>
 /// <param name="ClientMessageId">Client-generated id that makes a retried POST detectable.</param>
 /// <param name="RequestAborted">Token that fires when the client disconnects.</param>
+/// <param name="ClientContext">Validated page context of the client, or <see langword="null"/>.</param>
 internal sealed record NhAssistantMessageTurnRequest(
     Guid ConversationId,
     NhAiInvocationContext CallerContext,
     string Text,
     string? ClientMessageId,
     CancellationToken RequestAborted,
-    string Language = "en");
+    string Language = "en",
+    NhAssistantClientContext? ClientContext = null);
 
 internal sealed record NhAssistantDecisionTurnRequest(
     Guid ConversationId,

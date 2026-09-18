@@ -77,6 +77,7 @@ public sealed class NhAssistantDbContext : DbContext
             message.Property(item => item.Role).HasMaxLength(16).IsRequired();
             message.Property(item => item.PartsJson).IsRequired();
             message.Property(item => item.ClientMessageId).HasMaxLength(128);
+            message.Property(item => item.ClientContextJson).HasMaxLength(4000);
             message.HasIndex(item => new { item.ConversationId, item.CreatedAt });
         });
 

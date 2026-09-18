@@ -86,9 +86,31 @@ public sealed record NhAssistantCreateConversationRequest(
     string? AgentId,
     string? Title);
 
+/// <param name="ClientContext">
+/// Optional page context (<see cref="NhAssistantClientContextDto"/>). It is read leniently: a value of
+/// the wrong shape is ignored instead of rejecting the message.
+/// </param>
 public sealed record NhAssistantSendMessageRequest(
     string? Text,
-    string? ClientMessageId);
+    string? ClientMessageId,
+    JsonElement? ClientContext = null);
+
+/// <summary>
+/// What the user has open: route (max 200), title (max 120) and at most 5 entities. Untrusted data
+/// for the model; it never grants access.
+/// </summary>
+public sealed record NhAssistantClientContextDto(
+    string Route,
+    string? Title,
+    IReadOnlyList<NhAssistantClientEntityDto>? Entities);
+
+/// <summary>
+/// An entity on the user's screen: dash-case type, id (max 64) and optional label (max 120).
+/// </summary>
+public sealed record NhAssistantClientEntityDto(
+    string Type,
+    string Id,
+    string? Label);
 
 public sealed record NhAssistantDecideApprovalRequest(
     string? Decision,
@@ -147,6 +169,7 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantMessagePartDto))]
 [JsonSerializable(typeof(NhAssistantCreateConversationRequest))]
 [JsonSerializable(typeof(NhAssistantSendMessageRequest))]
+[JsonSerializable(typeof(NhAssistantClientContextDto))]
 [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))]
 [JsonSerializable(typeof(NhAssistantErrorDto))]
 [JsonSerializable(typeof(NhAssistantTurnStartedDto))]

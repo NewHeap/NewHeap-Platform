@@ -287,11 +287,20 @@ public class AssistantSampleHost : IAsyncLifetime
         return (await ReadJsonAsync(response)).GetProperty("id").GetGuid();
     }
 
-    public async Task<IReadOnlyList<SampleServerSentEvent>> SendAsync(HttpClient client, Guid conversationId, string text)
+    public Task<IReadOnlyList<SampleServerSentEvent>> SendAsync(HttpClient client, Guid conversationId, string text)
+    {
+        return SendAsync(client, conversationId, text, null);
+    }
+
+    public async Task<IReadOnlyList<SampleServerSentEvent>> SendAsync(
+        HttpClient client,
+        Guid conversationId,
+        string text,
+        object? clientContext)
     {
         using var response = await client.PostAsync(
             $"/api/assistant/conversations/{conversationId}/messages",
-            Json(new { text, clientMessageId = Guid.NewGuid().ToString("N") }),
+            Json(new { text, clientMessageId = Guid.NewGuid().ToString("N"), clientContext }),
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await ReadEventsAsync(response);
@@ -460,6 +469,8 @@ internal sealed class SampleTestAuthenticationHandler(
     public const string UserHeader = "X-Sample-User";
     public const string AdminHeader = "X-Sample-Admin";
     public const string PermissionsHeader = "X-Sample-Permissions";
+    public const string NameHeader = "X-Sample-Name";
+    public const string RolesHeader = "X-Sample-Roles";
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
@@ -472,6 +483,15 @@ internal sealed class SampleTestAuthenticationHandler(
         if (Request.Headers.ContainsKey(AdminHeader))
         {
             claims.Add(new Claim("permission", "app.project.manage"));
+        }
+        if (Request.Headers[NameHeader].ToString() is { Length: > 0 } name)
+        {
+            claims.Add(new Claim(ClaimTypes.Name, name));
+        }
+        foreach (var role in Request.Headers[RolesHeader].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
         }
         foreach (var permission in Request.Headers[PermissionsHeader].ToString()
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))

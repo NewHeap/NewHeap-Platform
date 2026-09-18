@@ -4,8 +4,8 @@ title: "Add a governed assistant with durable conversations and in-chat approval
 area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, and let administrators manage agents, MCP servers and the application context while users set style preferences."
-sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252"]
-public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind"]
+sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254"]
+public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -115,6 +115,29 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
 - Every administration change is a content-free audit event
   (`AdminContextUpdated`, `AdminAgent*`, `AdminMcpServer*`, `AdminMcpToolUpdated`).
 
+## Situational and page context
+
+Give the model the moment and the user without a tool call. `UseTimeZone("Europe/Amsterdam")`
+sets the zone of the date, weekday and time the library adds to every turn (UTC by
+default). Implement `INhAssistantTurnContextProvider` for short facts such as the user's
+name, roles or active division, built from the authenticated context and the
+application's own data only, and register it with `UseTurnContextProvider<T>()`; several
+providers are allowed. Facts are cut off at 20 per turn, 2,000 characters in total, 60
+characters per label and 300 per value. A failing provider is skipped for the turn and
+logged with its exception type only.
+
+Clients send the page they show as `clientContext` with `POST messages`: `route` (200
+characters), optional `title` (120) and at most five `entities` (`type` in dash-case, `id`
+of at most 64 characters, optional `label` of 120). The server validates again, cuts off
+long text and drops a value of the wrong shape without answering `400`. The context is
+stored with the user message and used again when the turn resumes after an approval.
+
+Both arrive as the "Situation" and "User's screen" blocks after the composed instructions,
+marked as data, not instructions. They are not part of the
+prompt hash or the approval binding, so another moment or page never invalidates a
+pending approval. Audit events carry only `ContextFactCount`, `PageEntityCount` and
+`HadPageContext`.
+
 ## Avoid
 
 - Calling `AddNewHeapAssistant` before `AddNewHeapPlatformAIAspNet` or replacing the
@@ -136,6 +159,9 @@ keys in `errors`), `assistant-forbidden` (`403`) and specific `*-not-found` code
   http, link-local or metadata addresses for MCP servers.
 - Putting permissions, approval rules or scope decisions in the application context or
   the preferences; they explain the domain and shape style only.
+- Deciding access from page context or provider facts. Entity ids on the user's screen are
+  search hints; authorization and division scope stay with the tools and the gate.
+- Putting secrets, tokens or model input into provider facts.
 
 ## Verification
 
@@ -148,10 +174,14 @@ usage and business sinks or logs, that approval is bound to the proposal hash an
 owner, and that the SSE event and JSON property names match the contract.
 For administration, assert version conflicts, the admin policy, the seed behavior and
 the composed instruction order with an injection attempt in the custom instructions.
+For situational and page context, assert the block order and markers, the limits, that
+an invalid `clientContext` is ignored, that a failing provider does not stop the turn,
+that the prompt hash and a pending approval survive another page, and that facts and
+page text never reach audit or logs (SPM-254).
 For MCP, use an official SDK server (in memory or Streamable HTTP): tools are off after
 sync and visible only to the assigned agent after activation, mutations pause for
 approval, schema changes disable tools, blocked hosts are rejected and secrets are
 absent from responses, logs and audit. SPM-245, SPM-246, SPM-247, SPM-250, SPM-251 and
-SPM-252 are the executable references. SPM-249 is the end-to-end reference: one agent
+SPM-252 and SPM-254 are the executable references. SPM-249 is the end-to-end reference: one agent
 over the API bridge and curated tools, an administrator agent with an MCP tool, and a
 viewer who is offered no mutating tools.

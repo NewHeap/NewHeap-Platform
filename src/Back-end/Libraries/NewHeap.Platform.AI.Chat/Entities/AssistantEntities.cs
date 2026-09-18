@@ -64,6 +64,12 @@ public sealed class AssistantMessage
 
     public string? ClientMessageId { get; set; }
 
+    /// <summary>
+    /// The bounded page context the client sent with a user message, used again when the turn resumes
+    /// after an approval. Never logged or audited.
+    /// </summary>
+    public string? ClientContextJson { get; set; }
+
     public int InputTokens { get; set; }
 
     public int OutputTokens { get; set; }
