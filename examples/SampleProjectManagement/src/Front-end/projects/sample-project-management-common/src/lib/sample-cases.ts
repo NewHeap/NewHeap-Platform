@@ -3274,7 +3274,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "API bridge catalog over MVC controllers",
     "category": "AI tools and generated catalogs",
     "surface": "AddNewHeapPlatformAIMvcBridge, NhAiMvcBridgeBuilder (UseToolSetId, UseSelfBaseUrl, IncludeControllers, RequireExplicitPolicy, UseInnerDiscoveryPolicy, EnableMcpExposure, WithToolDefaults), NhAiMvcBridgeToolCatalog, NhAiMvcBridgeDiscoveryPolicy, INhAiBridgeConventions/NhAiMvcBridgeDefaultConventions, [NhAiBridgeTool] and the self-HTTP INhAiMvcBridgeExecutor",
-    "outcome": "The API publishes its project and project-task controller actions as the `sample-api` tool set without writing tool classes. Descriptors come from ApiExplorer: GET actions are read-only, PUT/PATCH are idempotent mutations and POST actions are mutations; every non-read tool requires approval and an idempotency key, while DELETE, anonymous, upload and policy-less actions are never published. A user discovers a tool only when the controller's own `[Authorize(Policy = ...)]` policies succeed for that user, so a viewer sees only reads and a project manager also sees create and update; the curated `projects.*` tools keep their existing discovery policy as the inner policy. Calls run through `INhAiToolInvoker` and then through the API's own HTTP pipeline as the signed-in user with only the caller's bearer token, `Accept-Language`, `Idempotency-Key` and the invocation id forwarded; a denied mutation stops before any HTTP call and HTTP failures return stable `api-bridge-*` codes without response text.",
+    "outcome": "The API publishes its project and project-task controller actions as the `sample-api` tool set without writing tool classes. Descriptors come from ApiExplorer: GET actions are read-only, PUT/PATCH are idempotent mutations and POST actions are mutations; every non-read tool requires approval and an idempotency key, while DELETE, anonymous, upload and policy-less actions are never published. A user discovers a tool only when the controller's own `[Authorize(Policy = ...)]` policies succeed for that user, so a viewer sees only reads and a project manager also sees create and update; the curated `projects.*` tools keep their existing discovery policy as the inner policy. Calls run through `INhAiToolInvoker` and then through the API's own HTTP pipeline as the signed-in user with only the caller's bearer token, `Accept-Language`, `Idempotency-Key` and the invocation id forwarded; a denied mutation stops before any HTTP call and HTTP failures return stable `api-bridge-*` codes without response text. Arguments sent without the `input` envelope run once with the same request, while `input` mixed with other properties returns `ai-tool-input-invalid` and never reaches the API.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
@@ -3285,7 +3285,9 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeExecutor.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeCatalogTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeExecutionTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeDiscoveryTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeDiscoveryTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeArgumentEnvelopeTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolArgumentEnvelopeTests.cs"
     ]
   },
   {
@@ -3325,19 +3327,22 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Assistant conversation with streamed turn",
     "category": "AI tools and generated catalogs",
     "surface": "AddNewHeapAssistant, NhAssistantBuilder (UsePostgreSql, UseSqlServer, UseAccessPolicy, UseChatProfile, AddAgent, AddBusinessAuditSink, WithLimits), NhAssistantAgentDefinition, MapNewHeapAssistant, NhAssistantOptions (NewHeap:AI:Assistant:Enabled, AccessPolicy), the assistant HTTP API and server-sent events, NhAiScriptedChatClient",
-    "outcome": "The sample registers one agent over the curated `projects.*` tools with a streaming chat profile, PostgreSQL storage in the library-owned `nhai` schema and the `app.active-division.project.view` access policy. A signed-in user creates a conversation and posts a message; the turn streams `turn.started`, a governed `projects.search` call as `tool.started` and `tool.completed` with a bounded result preview, `message.delta` text and `turn.completed` with usage. The tool runs through the shared invoker as the agent on behalf of the accountable user in the active division, the conversation returns to `idle` and its messages and tool-call parts are persisted. The flag, the access policy and the agent's required policy gate every endpoint.",
+    "outcome": "The sample registers one agent over the curated `projects.*` tools with a streaming chat profile, PostgreSQL storage in the library-owned `nhai` schema and the `app.active-division.project.view` access policy. A signed-in user creates a conversation and posts a message; the turn streams `turn.started`, a governed `projects.search` call as `tool.started` and `tool.completed` with a bounded result preview, `message.delta` text and `turn.completed` with usage. The tool runs through the shared invoker as the agent on behalf of the accountable user in the active division, the conversation returns to `idle` and its messages and tool-call parts are persisted. The flag, the access policy and the agent's required policy gate every endpoint. A model that sends the search arguments without the `input` envelope still runs the tool once; an envelope mixed with other properties completes that call with `resultCode` `ai-tool-input-invalid`, and the model's corrected retry succeeds in the same turn.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantToolArgumentSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiScriptedChatClient.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnRunnerTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantEndpointTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRegistrationTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRegistrationTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolArguments.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolArgumentTests.cs"
     ]
   },
   {
@@ -3502,6 +3507,22 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnContextTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantEndpointTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-255",
+    "title": "API bridge gateway over read-only resources",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAiMvcBridgeBuilder.EnableGateway, NhAiMvcBridgeGatewayBuilder (UseGatewayToolSetId, IncludeReadOnlyOnly, UseResourceDescriber), INhAiBridgeConventions.DescribeQuery, NhAiBridgeQueryDescription, INhAiBridgeResourceDescriber, the <set>.search-resources, .describe-resource, .query and .get tools and NhAiBridgeFailureCodes.ResourceNotFound",
+    "outcome": "Instead of one tool per action, the sample publishes four read-only gateway tools over the read-only project and project-task resources. A user searches only the resources whose actions the controllers' own policies allow, describes a resource with the filter, order and result fields derived from the `[Filterable]`, `[Orderable]` and `[Searchable]` view-model attributes, and queries or gets it. `query` and `get` run the underlying bridge descriptor through the shared invoker, so the gate, policies, budget, audit (with the underlying tool id) and the self-HTTP request are exactly those of the bridge tool; unknown filter or order keys fail as `api-bridge-validation` before the HTTP call, unknown and unauthorized resources fail identically as `ai-tool-not-found`, and mutations are never reachable through the gateway. The gateway tools live in the attested bridge catalog and are exported through MCP.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeConventions.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiBridgeSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDiscoveryPolicy.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeGatewayTests.cs"
     ]
   }
 ] as const;

@@ -20,7 +20,8 @@ internal sealed record NhAiMvcBridgeCatalogModel(
     IReadOnlyList<NhAiToolDescriptor> Descriptors,
     IReadOnlyDictionary<string, NhAiBridgeActionInfo> Actions,
     NhAiToolCatalogManifest Manifest,
-    string AttestationHash);
+    string AttestationHash,
+    NhAiMvcBridgeGatewayModel? Gateway = null);
 
 /// <summary>
 /// Reads controller actions from ApiExplorer, applies the bridge filters and creates one
@@ -92,6 +93,26 @@ internal sealed class NhAiMvcBridgeCatalogBuilder(
             descriptors.Add(CreateDescriptor(action, id, exportName));
         }
 
+        NhAiMvcBridgeGatewayModel? gateway = null;
+        if (options.Gateway is not null)
+        {
+            var exposure = NhAiToolExposure.Local | NhAiToolExposure.Agent;
+            if (options.McpExposureEnabled)
+            {
+                exposure |= NhAiToolExposure.Mcp;
+            }
+            gateway = NhAiMvcBridgeGatewayBuilderLogic.Build(options, descriptors, actionsById, conventions, exposure);
+            foreach (var descriptor in gateway.Descriptors)
+            {
+                if (actionsById.ContainsKey(descriptor.Id) || exportNames.ContainsKey(descriptor.ExportName))
+                {
+                    throw new InvalidOperationException(
+                        $"API bridge gateway tool '{descriptor.Id}' conflicts with a bridge tool. Use another gateway tool set id.");
+                }
+            }
+            descriptors.AddRange(gateway.Descriptors);
+        }
+
         var ordered = descriptors
             .OrderBy(descriptor => descriptor.Id, StringComparer.Ordinal)
             .ToArray();
@@ -113,7 +134,7 @@ internal sealed class NhAiMvcBridgeCatalogBuilder(
                     ExportName = descriptor.ExportName
                 })
                 .ToArray());
-        return new NhAiMvcBridgeCatalogModel(ordered, actionsById, manifest, attestationHash);
+        return new NhAiMvcBridgeCatalogModel(ordered, actionsById, manifest, attestationHash, gateway);
     }
 
     private void ValidateOptions()

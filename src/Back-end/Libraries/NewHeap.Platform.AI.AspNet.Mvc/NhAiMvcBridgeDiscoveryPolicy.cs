@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,7 +7,8 @@ namespace NewHeap.Platform.AI.AspNet.Mvc;
 
 /// <summary>
 /// Discovery policy registered by the API bridge. A bridge descriptor is discoverable when the
-/// current user satisfies every authorization policy of its action; every other descriptor is
+/// current user satisfies every authorization policy of its action; a gateway tool is
+/// discoverable when the user may use at least one of its resources; every other descriptor is
 /// decided by the inner policy configured with <c>UseInnerDiscoveryPolicy</c> (default: deny).
 /// </summary>
 public sealed class NhAiMvcBridgeDiscoveryPolicy : INhAiToolDiscoveryPolicy
@@ -45,13 +47,49 @@ public sealed class NhAiMvcBridgeDiscoveryPolicy : INhAiToolDiscoveryPolicy
         ArgumentNullException.ThrowIfNull(context);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!_catalog.TryGetAction(descriptor, out _))
+        var user = _httpContextAccessor.HttpContext?.User;
+        if (_catalog.TryGetAction(descriptor, out _))
         {
-            return _innerPolicy is not null
-                && await _innerPolicy.CanDiscoverAsync(descriptor, context, cancellationToken);
+            return await NhAiMvcBridgeUserAuthorization.CanUseAsync(
+                user,
+                descriptor,
+                _authorizationService,
+                cancellationToken);
         }
 
-        var user = _httpContextAccessor.HttpContext?.User;
+        if (_catalog.TryGetGateway(descriptor, out var gateway))
+        {
+            foreach (var resource in gateway.Resources.Values)
+            {
+                if (await NhAiMvcBridgeUserAuthorization.CanUseAsync(
+                    user,
+                    resource,
+                    _authorizationService,
+                    cancellationToken))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        return _innerPolicy is not null
+            && await _innerPolicy.CanDiscoverAsync(descriptor, context, cancellationToken);
+    }
+}
+
+/// <summary>
+/// The per-request authorization rule shared by bridge discovery and the gateway catalog: an
+/// authenticated user who satisfies every policy of the action.
+/// </summary>
+internal static class NhAiMvcBridgeUserAuthorization
+{
+    public static async ValueTask<bool> CanUseAsync(
+        ClaimsPrincipal? user,
+        NhAiToolDescriptor descriptor,
+        IAuthorizationService authorizationService,
+        CancellationToken cancellationToken)
+    {
         if (user?.Identity?.IsAuthenticated != true)
         {
             return false;
@@ -60,12 +98,28 @@ public sealed class NhAiMvcBridgeDiscoveryPolicy : INhAiToolDiscoveryPolicy
         foreach (var policy in descriptor.AuthorizationPolicies)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var authorization = await _authorizationService.AuthorizeAsync(user, policy);
+            var authorization = await authorizationService.AuthorizeAsync(user, policy);
             if (!authorization.Succeeded)
             {
                 return false;
             }
         }
         return true;
+    }
+
+    public static async ValueTask<bool> CanUseAsync(
+        ClaimsPrincipal? user,
+        NhAiBridgeGatewayResource resource,
+        IAuthorizationService authorizationService,
+        CancellationToken cancellationToken)
+    {
+        foreach (var operation in resource.Operations)
+        {
+            if (await CanUseAsync(user, operation.Descriptor, authorizationService, cancellationToken))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }

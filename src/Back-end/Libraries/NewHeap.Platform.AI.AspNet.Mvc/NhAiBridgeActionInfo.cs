@@ -195,6 +195,12 @@ public static class NhAiBridgeFailureCodes
     public const string Upstream = "api-bridge-upstream";
 
     public const string Timeout = "api-bridge-timeout";
+
+    /// <summary>
+    /// A gateway resource that does not exist or that the user may not use; both are reported the
+    /// same way so the gateway never reveals which resources exist.
+    /// </summary>
+    public const string ResourceNotFound = "ai-tool-not-found";
 }
 
 /// <summary>

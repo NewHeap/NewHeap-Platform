@@ -40,11 +40,31 @@ public sealed class NhAiMvcBridgeToolCatalog : INhAiAttestedToolCatalog
         ArgumentNullException.ThrowIfNull(services);
         var model = _model.Value;
         return model.Descriptors
-            .Select(descriptor => NhAiMvcBridgeFunctionFactory.Create(
-                descriptor,
-                model.Actions[descriptor.Id],
-                services))
+            .Select(descriptor => model.Gateway is { } gateway && gateway.ToolKinds.ContainsKey(descriptor.Id)
+                ? NhAiMvcBridgeGatewayFunctions.Create(descriptor, gateway, services)
+                : NhAiMvcBridgeFunctionFactory.Create(descriptor, model.Actions[descriptor.Id], services))
             .ToArray();
+    }
+
+    /// <summary>The gateway resource names, or empty when the gateway is not enabled.</summary>
+    public IReadOnlyCollection<string> GatewayResources =>
+        (IReadOnlyCollection<string>?)_model.Value.Gateway?.Resources.Keys ?? [];
+
+    internal bool TryGetGateway(NhAiToolDescriptor descriptor, out NhAiMvcBridgeGatewayModel gateway)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        var model = _model.Value;
+        if (model.Gateway is { } candidate
+            && candidate.ToolKinds.ContainsKey(descriptor.Id)
+            && candidate.Descriptors.Any(item => string.Equals(item.Id, descriptor.Id, StringComparison.Ordinal)
+                && string.Equals(item.ContractHash, descriptor.ContractHash, StringComparison.Ordinal)))
+        {
+            gateway = candidate;
+            return true;
+        }
+
+        gateway = null!;
+        return false;
     }
 
     /// <summary>

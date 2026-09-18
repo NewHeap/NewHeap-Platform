@@ -36,6 +36,16 @@ public interface INhAiBridgeConventions
 
     /// <summary>Serializes the body; default System.Text.Json web defaults.</summary>
     string SerializeBody(object body);
+
+    /// <summary>
+    /// Describes the filter, search, order and result fields of a read-only action for the
+    /// bridge gateway. Described filter and order keys are enforced before the HTTP call;
+    /// the default describes no fields, so nothing is enforced.
+    /// </summary>
+    NhAiBridgeQueryDescription DescribeQuery(NhAiBridgeActionInfo action)
+    {
+        return NhAiBridgeQueryDescription.Empty;
+    }
 }
 
 /// <summary>
@@ -199,6 +209,19 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
             }
         }
         return request;
+    }
+
+    /// <summary>
+    /// Describes no filter, order or result fields; a collection action is searchable. Override
+    /// to publish the fields the API accepts, for example from view-model attributes.
+    /// </summary>
+    public virtual NhAiBridgeQueryDescription DescribeQuery(NhAiBridgeActionInfo action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        return NhAiBridgeQueryDescription.Empty with
+        {
+            Searchable = action.Parameters.Any(parameter => parameter.IsCollectionRequest)
+        };
     }
 
     public virtual string SerializeBody(object body)

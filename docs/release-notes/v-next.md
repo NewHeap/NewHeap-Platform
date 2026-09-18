@@ -5,6 +5,7 @@
 | Breaking change | Required action |
 |---|---|
 | None. Attested runtime catalogs (`INhAiAttestedToolCatalog`, `NhAiToolCatalogAttestation.Validate`) may now enter the MCP export path. | No action for existing consumers. |
+| None. Governed functions accept tool arguments without the `input` envelope when `input` is the only schema property, and return the recoverable `ai-tool-input-invalid` result (`NhAiToolFailureCodes.InputInvalid`, audited, never executed) for an envelope mixed with other properties or arguments that cannot be bound. `NhAiGovernedAIFunction.Create` gains an overload with the catalog services, and the invoker logs unexpected exceptions content-free. | No action; regenerate tool catalogs by rebuilding with the updated generator so rejections are audited. |
 
 ## NewHeap.Platform.AI.Mcp
 
@@ -28,6 +29,8 @@ as the calling user.
 |---|---|
 | The bridge requires `AddNewHeapPlatformAIAspNet`, a budget manager and an idempotency manager, and owns `INhAiToolDiscoveryPolicy`. | Configure your own discovery policy with `UseInnerDiscoveryPolicy` instead of `UseDiscoveryPolicy`. |
 | DELETE, anonymous, upload and policy-less actions are never published; `IncludeDeleteActions(true)` fails at startup in this version. | Expose deletions through a curated tool with a verifier. |
+| `EnableGateway` adds the read-only gateway tools `search-resources`, `describe-resource`, `query` and `get` over the read-only bridge actions per resource; `INhAiBridgeConventions` gains `DescribeQuery` with a default implementation that describes no fields. | No action; override `DescribeQuery` to have filter and order keys validated before the HTTP call. |
+| Bridge tools share the governed-function argument handling: flat arguments run once, a mixed `input` shape returns `ai-tool-input-invalid` before any HTTP call, and unknown flat properties still fail as `api-bridge-validation`. | No action. |
 
 ## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql, NewHeap.Platform.AI.Chat.AspNet (new packages)
 
@@ -51,6 +54,7 @@ previously registered implementations.
 | Turn instructions combine the library rules, the application context, the agent instructions and the user's preferences; pending approvals are bound to those instructions. | Approvals pending during a context or preference change must be decided again. |
 | Situational and page context are optional and non-breaking: without providers a turn gets only the date and time (UTC unless `UseTimeZone` is set), and without `clientContext` no screen block. Neither block changes the prompt hash, so pending approvals stay valid. | No action; add providers or send `clientContext` to use them. |
 | MCP secrets are protected with ASP.NET Data Protection. | Persist the Data Protection key ring across restarts and nodes; otherwise administrators must enter the secrets again. |
+| Unexpected tool exceptions in a turn are logged as content-free warnings (tool id, version, turn id, exception type); malformed tool arguments return `ai-tool-input-invalid` as the tool-call `resultCode` so the model can retry. | No action. |
 
 ## NewHeap.Platform.AI.Test
 

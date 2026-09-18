@@ -1,10 +1,11 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI;
 
-public sealed class NhAiToolInvoker : INhAiToolInvoker
+public sealed partial class NhAiToolInvoker : INhAiToolInvoker
 {
     public const string ActivitySourceName = "NewHeap.Platform.AI";
 
@@ -22,6 +23,7 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
     private readonly INhAiCapabilityResolver _capabilityResolver;
     private readonly INhAiBudgetManager _budgetManager;
     private readonly INhAiToolConcurrencyLimiter _concurrencyLimiter;
+    private readonly ILogger? _logger;
 
     public NhAiToolInvoker(INhAiToolInvocationGate invocationGate)
         : this(
@@ -213,7 +215,8 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
         INhAiCapabilityResolver capabilityResolver,
         INhAiBudgetManager budgetManager,
         INhAiToolConcurrencyLimiter concurrencyLimiter,
-        INhAiAuthoritativeExecutionEvidenceValidator? authoritativeEvidenceValidator = null)
+        INhAiAuthoritativeExecutionEvidenceValidator? authoritativeEvidenceValidator = null,
+        ILogger<NhAiToolInvoker>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(invocationGate);
         ArgumentNullException.ThrowIfNull(auditSinks);
@@ -237,6 +240,7 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
         _capabilityResolver = capabilityResolver;
         _budgetManager = budgetManager;
         _concurrencyLimiter = concurrencyLimiter;
+        _logger = logger;
     }
 
     public async Task<TaskResult<T>> InvokeAsync<T>(
@@ -261,6 +265,8 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
         ArgumentNullException.ThrowIfNull(arguments);
         ArgumentNullException.ThrowIfNull(invocation);
 
+        // From here on an exception belongs to the governed invocation, not to argument binding.
+        NhAiToolArguments.MarkInvokerEntered();
         var trace = new InvocationTrace();
         var result = await InvokeGovernedAsync(
             descriptor,
@@ -730,10 +736,20 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
             activity?.SetTag("newheap.ai.tool.outcome", "cancelled");
             throw;
         }
-        catch
+        catch (Exception exception)
         {
             await CompleteIdempotencyOnceAsync(NhAiOutcomeKind.TerminalFailure);
             activity?.SetTag("newheap.ai.tool.outcome", "exception");
+            if (_logger is not null)
+            {
+                // Content-free: the identity of the tool and the exception type, never its message.
+                LogUnexpectedException(
+                    _logger,
+                    descriptor.Id,
+                    descriptor.Version,
+                    context.InvocationId,
+                    exception.GetType().FullName ?? exception.GetType().Name);
+            }
             await WriteAuditAsync(
                 descriptor,
                 context,
@@ -891,6 +907,17 @@ public sealed class NhAiToolInvoker : INhAiToolInvoker
         }
         return named;
     }
+
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Warning,
+        Message = "AI tool {ToolId} v{ToolVersion} failed unexpectedly in invocation {InvocationId} with {ExceptionType}; the caller receives ai-tool-failed.")]
+    private static partial void LogUnexpectedException(
+        ILogger logger,
+        string toolId,
+        int toolVersion,
+        Guid invocationId,
+        string exceptionType);
 
     private sealed class InvocationTrace
     {

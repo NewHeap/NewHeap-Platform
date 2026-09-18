@@ -606,7 +606,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             {
                 builder.AppendLine();
             }
-            builder.AppendLine("        })));");
+            builder.AppendLine("        }), services));");
             builder.AppendLine();
         }
 

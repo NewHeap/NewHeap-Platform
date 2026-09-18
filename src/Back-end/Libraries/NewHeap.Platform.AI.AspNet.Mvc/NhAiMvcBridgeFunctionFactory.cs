@@ -22,8 +22,21 @@ internal static class NhAiMvcBridgeFunctionFactory
         ArgumentNullException.ThrowIfNull(action);
         ArgumentNullException.ThrowIfNull(services);
 
-        Func<JsonElement, CancellationToken, Task<TaskResult<NhAiBridgeResponse>>> handler =
-            (input, cancellationToken) => InvokeAsync(descriptor, action, services, input, cancellationToken);
+        return CreateGoverned(
+            descriptor,
+            (input, cancellationToken) => InvokeAsync(descriptor, action, services, input, cancellationToken),
+            services);
+    }
+
+    /// <summary>
+    /// Wraps a JSON-input handler as a governed function that publishes the descriptor's input
+    /// schema inside the shared <c>input</c> envelope.
+    /// </summary>
+    internal static AIFunction CreateGoverned<T>(
+        NhAiToolDescriptor descriptor,
+        Func<JsonElement, CancellationToken, Task<TaskResult<T>>> handler,
+        IServiceProvider services)
+    {
         var inner = AIFunctionFactory.Create(handler, new AIFunctionFactoryOptions
         {
             Name = descriptor.ExportName,
@@ -31,15 +44,21 @@ internal static class NhAiMvcBridgeFunctionFactory
         });
         return NhAiGovernedAIFunction.Create(
             descriptor,
-            new NhAiBridgeSchemaFunction(inner, CreateEnvelopeSchema(descriptor.InputSchemaJson)));
+            new NhAiBridgeSchemaFunction(inner, CreateEnvelopeSchema(descriptor.InputSchemaJson)),
+            services);
     }
 
-    private static async Task<TaskResult<NhAiBridgeResponse>> InvokeAsync(
+    /// <summary>
+    /// Runs one bridge descriptor through the shared invoker and the self-HTTP executor. The
+    /// optional <paramref name="validate"/> runs inside the governed invocation, before the HTTP call.
+    /// </summary>
+    internal static async Task<TaskResult<NhAiBridgeResponse>> InvokeAsync(
         NhAiToolDescriptor descriptor,
         NhAiBridgeActionInfo action,
         IServiceProvider services,
         JsonElement input,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<TaskResult<NhAiBridgeResponse>?>? validate = null)
     {
         var invoker = services.GetRequiredService<INhAiToolInvoker>();
         var executor = services.GetRequiredService<INhAiMvcBridgeExecutor>();
@@ -48,6 +67,11 @@ internal static class NhAiMvcBridgeFunctionFactory
             input,
             async (context, invocationCancellationToken) =>
             {
+                if (validate?.Invoke() is { } rejected)
+                {
+                    return rejected;
+                }
+
                 try
                 {
                     return await executor.ExecuteAsync(

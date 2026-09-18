@@ -10,11 +10,14 @@ namespace SampleProjectManagement.Api.Composition;
 /// authorization boundary. Reads are discoverable with <c>app.project.view</c>; creates and
 /// updates additionally need <c>app.project.manage</c> and always require approval and an
 /// idempotency key. DELETE actions are never published. The curated <c>projects.*</c> tools
-/// keep their own discovery policy as the inner policy.
+/// keep their own discovery policy as the inner policy. The gateway publishes four read-only
+/// tools (search, describe, query and get) over the read-only project resources, described
+/// from the view-model attributes by <see cref="SampleAiBridgeConventions"/>.
 /// </summary>
 public static class SampleAiBridgeComposition
 {
     public const string ToolSetId = "sample-api";
+    public const string GatewayToolSetId = "sample-api-gateway";
     public const string SelfBaseUrlKey = "NewHeap:PlatformAspNetCommon:Settings:SelfBaseUrl";
 
     public static IServiceCollection AddSampleAiBridge(this IServiceCollection services)
@@ -27,6 +30,10 @@ public static class SampleAiBridgeComposition
             .RequireExplicitPolicy(true)
             .EnableMcpExposure()
             .UseInnerDiscoveryPolicy<ProjectAiToolDiscoveryPolicy>()
+            .UseConventions<SampleAiBridgeConventions>()
+            .EnableGateway(gateway => gateway
+                .UseGatewayToolSetId(GatewayToolSetId)
+                .IncludeReadOnlyOnly())
             .WithToolDefaults(defaults =>
             {
                 defaults.MaxResultBytes = 65_536;

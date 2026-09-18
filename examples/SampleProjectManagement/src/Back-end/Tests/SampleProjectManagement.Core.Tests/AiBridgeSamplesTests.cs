@@ -28,7 +28,7 @@ using Xunit;
 namespace SampleProjectManagement.Core.Tests;
 
 /// <summary>
-/// Executable evidence for the API bridge sample (SPM-242, SPM-243, SPM-244): the project and
+/// Executable evidence for the API bridge sample (SPM-242, SPM-243, SPM-244, SPM-255): the project and
 /// project-task controllers become governed tools that are discovered per user from the
 /// controllers' own policies and execute through the API's HTTP pipeline as that user.
 /// </summary>
@@ -111,6 +111,86 @@ public sealed class AiBridgeSamplesTests
     }
 
     [Fact]
+    public async Task Flat_arguments_call_the_api_once_and_a_mixed_shape_never_reaches_it()
+    {
+        await using var sample = await BridgeSample.StartAsync();
+        var projectId = Guid.NewGuid();
+
+        var flat = await sample.InvokeRawAsync(
+            ManagerToken,
+            ManagerPermissions,
+            "sample-api_project_get-by-id_v1",
+            new AIFunctionArguments { ["id"] = JsonSerializer.SerializeToElement(projectId) });
+        var mixed = await sample.InvokeRawAsync(
+            ManagerToken,
+            ManagerPermissions,
+            "sample-api_project_get-by-id_v1",
+            new AIFunctionArguments
+            {
+                ["input"] = JsonSerializer.SerializeToElement(new { id = projectId }),
+                ["id"] = JsonSerializer.SerializeToElement(projectId)
+            });
+
+        Assert.True(flat.GetProperty("success").GetBoolean());
+        Assert.False(mixed.GetProperty("success").GetBoolean());
+        Assert.Equal(NhAiToolFailureCodes.InputInvalid, mixed.GetProperty("code").GetString());
+        var request = Assert.Single(sample.Requests);
+        Assert.Equal($"http://sample.test/projects/{projectId}", request.RequestUri!.ToString());
+    }
+
+    [Fact]
+    public async Task Gateway_lists_describes_and_queries_the_read_only_project_resources()
+    {
+        await using var sample = await BridgeSample.StartAsync();
+
+        var resources = await sample.InvokeAsync(
+            ViewerToken,
+            ViewerPermissions,
+            "sample-api-gateway_search-resources_v1",
+            new { query = "project" });
+        var none = await sample.InvokeAsync(
+            "sample-outsider-token",
+            [],
+            "sample-api-gateway_search-resources_v1",
+            new { query = "project" });
+        var described = await sample.InvokeAsync(
+            ViewerToken,
+            ViewerPermissions,
+            "sample-api-gateway_describe-resource_v1",
+            new { resource = "project" });
+        var rejected = await sample.InvokeAsync(
+            ViewerToken,
+            ViewerPermissions,
+            "sample-api-gateway_query_v1",
+            new { resource = "project", filter = new[] { new { key = "internalScore", @operator = "==", value = "1" } } });
+        var query = await sample.InvokeAsync(
+            ViewerToken,
+            ViewerPermissions,
+            "sample-api-gateway_query_v1",
+            new { resource = "project", itemsPerPage = 5, filter = new[] { new { key = "status", @operator = "==", value = "Active" } } });
+        var direct = await sample.InvokeAsync(
+            ViewerToken,
+            ViewerPermissions,
+            "sample-api_project_get_v1",
+            new { itemsPerPage = 5, filter = new[] { new { key = "status", @operator = "==", value = "Active" } } });
+
+        var names = resources.GetProperty("data").EnumerateArray().Select(item => item.GetProperty("resource").GetString()).ToArray();
+        Assert.Contains("project", names);
+        Assert.Contains("project-task", names);
+        Assert.Empty(none.GetProperty("data").EnumerateArray());
+        var filterFields = described.GetProperty("data").GetProperty("query").GetProperty("filterFields").EnumerateArray().ToArray();
+        Assert.Contains(filterFields, field => field.GetProperty("key").GetString() == "name");
+        var status = Assert.Single(filterFields, field => field.GetProperty("key").GetString() == "status");
+        Assert.Contains("Active", status.GetProperty("enumValues").EnumerateArray().Select(value => value.GetString()));
+        Assert.Equal("id", described.GetProperty("data").GetProperty("get").GetProperty("idParameter").GetString());
+        Assert.False(rejected.GetProperty("success").GetBoolean());
+        Assert.True(query.GetProperty("success").GetBoolean());
+        Assert.True(direct.GetProperty("success").GetBoolean());
+        Assert.Equal(2, sample.Requests.Count);
+        Assert.Equal(sample.Requests[0].RequestUri, sample.Requests[1].RequestUri);
+    }
+
+    [Fact]
     public async Task Mcp_listing_contains_the_bridge_tools()
     {
         await using var sample = await BridgeSample.StartAsync();
@@ -118,6 +198,7 @@ public sealed class AiBridgeSamplesTests
         var names = await sample.ListMcpToolsAsync(ViewerToken, ViewerPermissions);
 
         Assert.Contains("sample-api_project_get_v1", names);
+        Assert.Contains("sample-api-gateway_query_v1", names);
         Assert.DoesNotContain("sample-api_project_create_v1", names);
     }
 
@@ -242,6 +323,21 @@ public sealed class AiBridgeSamplesTests
                     ["input"] = JsonSerializer.SerializeToElement(input)
                 });
                 return (JsonElement)output!;
+            });
+        }
+
+        public Task<JsonElement> InvokeRawAsync(
+            string token,
+            string[] permissions,
+            string exportName,
+            AIFunctionArguments arguments)
+        {
+            return AsUserAsync(token, permissions, async services =>
+            {
+                var function = services.GetRequiredService<NhAiMvcBridgeToolCatalog>()
+                    .CreateFunctions(services)
+                    .Single(item => item.Name == exportName);
+                return (JsonElement)(await function.InvokeAsync(arguments))!;
             });
         }
 

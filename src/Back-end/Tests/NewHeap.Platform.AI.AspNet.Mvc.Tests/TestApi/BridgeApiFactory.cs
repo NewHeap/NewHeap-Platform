@@ -51,6 +51,9 @@ public sealed class BridgeApiFactory : WebApplicationFactory<BridgeApiFactory>
 
     public CapturedLogs Logs { get; } = new();
 
+    /// <summary>Every request the test API received, as <c>METHOD /path?query</c>.</summary>
+    public ConcurrentQueue<string> Requests { get; } = new();
+
     public static void DefaultBridge(NhAiMvcBridgeBuilder bridge)
     {
         bridge
@@ -67,6 +70,11 @@ public sealed class BridgeApiFactory : WebApplicationFactory<BridgeApiFactory>
                 .ConfigureServices(ConfigureApiServices)
                 .Configure(app =>
                 {
+                    app.Use(async (context, next) =>
+                    {
+                        Requests.Enqueue(context.Request.Method + " " + context.Request.Path + context.Request.QueryString);
+                        await next(context);
+                    });
                     app.UseRouting();
                     app.UseAuthentication();
                     app.UseAuthorization();

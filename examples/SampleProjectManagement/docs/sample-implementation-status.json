@@ -250,7 +250,8 @@
     "SPM-251",
     "SPM-252",
     "SPM-253",
-    "SPM-254"
+    "SPM-254",
+    "SPM-255"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -1588,7 +1589,9 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeExecutor.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeCatalogTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeExecutionTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeDiscoveryTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeDiscoveryTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeArgumentEnvelopeTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolArgumentEnvelopeTests.cs"
     ],
     "SPM-243": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
@@ -1610,13 +1613,16 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantToolArgumentSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiScriptedChatClient.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnRunnerTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantEndpointTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRegistrationTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRegistrationTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolArguments.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolArgumentTests.cs"
     ],
     "SPM-246": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
@@ -1709,6 +1715,14 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnContextTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantEndpointTests.cs"
+    ],
+    "SPM-255": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeConventions.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiBridgeSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDiscoveryPolicy.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeGatewayTests.cs"
     ]
   }
 }
