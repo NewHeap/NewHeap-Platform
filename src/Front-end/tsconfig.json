@@ -27,6 +27,9 @@
       ],
       "@newheap/platform-ai-chat/testing": [
         "./projects/nh-ai-chat/testing/src/public-api"
+      ],
+      "@newheap/platform-ai-chat/admin": [
+        "./projects/nh-ai-chat/admin/src/public-api"
       ]
     },
     "esModuleInterop": true,
