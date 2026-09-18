@@ -123,6 +123,7 @@ public sealed partial class AssistantSamplesTests
         Host.Model.Use(model);
         using var admin = Host.CreateClient("spm-252-admin", admin: true);
         using var user = Host.CreateClient("spm-252-user");
+        user.DefaultRequestHeaders.AcceptLanguage.Clear();
         user.DefaultRequestHeaders.AcceptLanguage.ParseAdd("nl-NL");
 
         var seeded = await Host.GetJsonAsync(admin, "/api/assistant/admin/context");

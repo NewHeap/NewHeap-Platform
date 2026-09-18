@@ -121,7 +121,7 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database)
         AssertNames(events[1].Data, "invocationId", "toolId", "toolVersion", "displayName", "argumentsPreview");
         AssertNames(events[2].Data, "invocationId", "status", "resultCode", "resultPreview");
         var approval = events[4].Data;
-        AssertNames(approval, "type", "approvalId", "proposalId", "proposalHash", "toolId", "summary", "argumentsPreview", "targets", "expiresAt", "status");
+        AssertNames(approval, "type", "approvalId", "proposalId", "proposalHash", "toolId", "summary", "argumentsPreview", "presentation", "targets", "expiresAt", "status");
         Assert.Equal("approval", approval.GetProperty("type").GetString());
         var paused = events[5].Data;
         AssertNames(paused, "turnId", "status", "usage", "errorCode");
