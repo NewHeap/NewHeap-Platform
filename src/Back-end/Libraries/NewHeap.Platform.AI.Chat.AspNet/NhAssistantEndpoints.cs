@@ -105,6 +105,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             .WithDescription("Cancels the running turn in this process or dismisses a pending approval.")
             .Produces(StatusCodes.Status202Accepted)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        NhAssistantAdminEndpoints.Map(enabled, NhAssistantEndpointOptions.ResolveAdminPolicy(state, options));
         return group;
     }
 
@@ -131,11 +132,12 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         var limits = new NhAssistantLimitsDto(state.Limits.MaxMessageChars, state.Limits.MaxToolCallsPerTurn);
         if (!options.CurrentValue.Enabled)
         {
-            return Json(new NhAssistantStatusDto(false, [], limits), NhAssistantJsonSerializerContext.Default.NhAssistantStatusDto);
+            return Json(new NhAssistantStatusDto(false, [], limits, false), NhAssistantJsonSerializerContext.Default.NhAssistantStatusDto);
         }
         var agents = await access.GetVisibleAgentsAsync(httpContext.User, httpContext.RequestAborted);
+        var canAdminister = await access.CanAdministerAsync(httpContext.User);
         return Json(
-            new NhAssistantStatusDto(true, agents.Select(NhAssistantDtoMapper.ToDto).ToArray(), limits),
+            new NhAssistantStatusDto(true, agents.Select(NhAssistantDtoMapper.ToDto).ToArray(), limits, canAdminister),
             NhAssistantJsonSerializerContext.Default.NhAssistantStatusDto);
     }
 

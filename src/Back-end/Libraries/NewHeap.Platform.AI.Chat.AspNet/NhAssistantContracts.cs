@@ -10,7 +10,8 @@ public sealed record NhAssistantLimitsDto(
 public sealed record NhAssistantStatusDto(
     bool Enabled,
     IReadOnlyList<NhAssistantAgentSummaryDto> Agents,
-    NhAssistantLimitsDto Limits);
+    NhAssistantLimitsDto Limits,
+    bool CanAdminister);
 
 public sealed record NhAssistantAgentSummaryDto(
     string Id,
@@ -151,4 +152,126 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantToolStartedDto))]
 [JsonSerializable(typeof(NhAssistantToolCompletedDto))]
 [JsonSerializable(typeof(NhAssistantTurnCompletedDto))]
+[JsonSerializable(typeof(NhAssistantPreferencesDto))]
+[JsonSerializable(typeof(NhAssistantApplicationContextDto))]
+[JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))]
+[JsonSerializable(typeof(NhAssistantUpdateContextRequest))]
+[JsonSerializable(typeof(NhAssistantToolCatalogEntryDto[]))]
+[JsonSerializable(typeof(NhAssistantAdminAgentDto))]
+[JsonSerializable(typeof(NhAssistantAdminAgentDto[]))]
+[JsonSerializable(typeof(NhAssistantAdminAgentInputDto))]
+[JsonSerializable(typeof(NhAssistantMcpServerDto))]
+[JsonSerializable(typeof(NhAssistantMcpServerDto[]))]
+[JsonSerializable(typeof(NhAssistantMcpServerInputDto))]
+[JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))]
+[JsonSerializable(typeof(NhAssistantMcpToolDto))]
+[JsonSerializable(typeof(NhAssistantMcpToolDto[]))]
+[JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))]
 public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;
+
+public sealed record NhAssistantPreferencesDto(
+    string? Style,
+    string? AddressForm,
+    string? ResponseLength,
+    string? CustomInstructions);
+
+public sealed record NhAssistantApplicationContextDto(
+    string Text,
+    int Version,
+    string Hash,
+    DateTimeOffset UpdatedAt,
+    string? UpdatedBy);
+
+public sealed record NhAssistantApplicationContextVersionDto(
+    int Version,
+    string Hash,
+    DateTimeOffset UpdatedAt,
+    string? UpdatedBy);
+
+public sealed record NhAssistantUpdateContextRequest(
+    string? Text,
+    int? ExpectedVersion);
+
+public sealed record NhAssistantToolCatalogEntryDto(
+    string Id,
+    string Source,
+    string Effect,
+    string Description);
+
+/// <summary>
+/// Agent input. <see cref="ExpectedVersion"/> is required on update and ignored on create.
+/// </summary>
+public sealed record NhAssistantAdminAgentInputDto(
+    string? Id,
+    string? DisplayName,
+    string? Description,
+    string? Instructions,
+    IReadOnlyList<string>? ToolSelectors,
+    IReadOnlyList<string>? McpServerIds,
+    string? RequiredPolicy,
+    string? Autonomy,
+    bool? IsEnabled,
+    int? ExpectedVersion = null);
+
+public sealed record NhAssistantAdminAgentDto(
+    string Id,
+    string DisplayName,
+    string Description,
+    string Instructions,
+    IReadOnlyList<string> ToolSelectors,
+    IReadOnlyList<string> McpServerIds,
+    string? RequiredPolicy,
+    string Autonomy,
+    bool IsEnabled,
+    int Version,
+    string Source,
+    bool IsOverridden,
+    string InstructionsHash,
+    DateTimeOffset UpdatedAt);
+
+/// <summary>
+/// MCP server input. <see cref="Secret"/>: omitted or null keeps the stored secret, an empty
+/// string clears it, any other value replaces it.
+/// </summary>
+public sealed record NhAssistantMcpServerInputDto(
+    string? Id,
+    string? DisplayName,
+    string? Url,
+    string? AuthMode,
+    string? HeaderName,
+    string? Secret,
+    string? RequiredPolicy,
+    bool? IsEnabled);
+
+public sealed record NhAssistantMcpServerDto(
+    string Id,
+    string DisplayName,
+    string Url,
+    string AuthMode,
+    string? HeaderName,
+    bool HasSecret,
+    string? RequiredPolicy,
+    bool IsEnabled,
+    DateTimeOffset? LastSyncAt,
+    string? LastSyncStatus,
+    IReadOnlyList<string> AssignedAgentIds);
+
+public sealed record NhAssistantMcpServerTestResultDto(
+    bool Ok,
+    string? Code,
+    int? ToolCount);
+
+public sealed record NhAssistantMcpToolDto(
+    string RemoteName,
+    string LocalId,
+    string Description,
+    string? DescriptionOverride,
+    bool IsEnabled,
+    string Effect,
+    string Status,
+    bool? ReadOnlyHint);
+
+public sealed record NhAssistantUpdateMcpToolRequest(
+    bool? IsEnabled,
+    string? Effect,
+    string? DescriptionOverride);

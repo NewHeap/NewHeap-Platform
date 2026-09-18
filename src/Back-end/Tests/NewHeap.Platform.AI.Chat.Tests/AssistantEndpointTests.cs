@@ -238,7 +238,7 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database)
     {
         var context = NhAssistantJsonSerializerContext.Default;
         var status = JsonSerializer.SerializeToElement(
-            new NhAssistantStatusDto(true, [new NhAssistantAgentSummaryDto("a", 1, "n", "d", true)], new NhAssistantLimitsDto(1, 2)),
+            new NhAssistantStatusDto(true, [new NhAssistantAgentSummaryDto("a", 1, "n", "d", true)], new NhAssistantLimitsDto(1, 2), false),
             context.NhAssistantStatusDto);
         var summary = JsonSerializer.SerializeToElement(
             new NhAssistantConversationListDto(
@@ -247,7 +247,7 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database)
             context.NhAssistantConversationListDto);
         var error = JsonSerializer.SerializeToElement(new NhAssistantErrorDto("code", "key"), context.NhAssistantErrorDto);
 
-        AssertNames(status, "enabled", "agents", "limits");
+        AssertNames(status, "enabled", "agents", "limits", "canAdminister");
         AssertNames(status.GetProperty("agents")[0], "id", "version", "displayNameKey", "descriptionKey", "canMutate");
         AssertNames(status.GetProperty("limits"), "maxMessageChars", "maxToolCallsPerTurn");
         AssertNames(summary, "items", "total");

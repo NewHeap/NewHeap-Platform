@@ -24,6 +24,7 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
 {
     public const string UserHeader = "X-Test-User";
     public const string AccessHeader = "X-Test-Access";
+    public const string AdminHeader = "X-Test-Admin";
     public const string AccessPolicy = "app.assistant.access";
 
     private readonly WebApplication _app;
@@ -41,9 +42,11 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
         AssistantDatabaseFixture database,
         IChatClient model,
         bool enabled = true,
-        Action<NhAssistantLimits>? limits = null)
+        Action<NhAssistantLimits>? limits = null,
+        Action<IServiceCollection>? configure = null,
+        Action<NhAssistantBuilder>? assistantBuilder = null)
     {
-        var builder = WebApplication.CreateBuilder();
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
@@ -58,6 +61,7 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
             options.AddPolicy(TestProjectToolCatalog.ReadPolicy, policy => policy.RequireAuthenticatedUser());
             options.AddPolicy(TestProjectToolCatalog.ManagePolicy, policy => policy.RequireAuthenticatedUser());
             options.AddPolicy(AccessPolicy, policy => policy.RequireClaim("permission", "assistant"));
+            options.AddPolicy("app.assistant.admin", policy => policy.RequireClaim("permission", "assistant-admin"));
         });
         services.AddSingleton<TestProjectToolRecorder>();
         services.AddKeyedSingleton("project-chat-model", model);
@@ -88,6 +92,11 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
             .AddAgent(AssistantTestData.Agent() with { ProfileName = "project-chat" })
             .AddAgent(AssistantTestData.Agent("project-manager", requiredPolicy: TestAuthenticationHandler.ManagerPolicy))
             .WithLimits(configured => limits?.Invoke(configured)));
+        if (assistantBuilder is not null)
+        {
+            services.AddNewHeapAssistant(assistantBuilder);
+        }
+        configure?.Invoke(services);
         services.AddAuthorizationBuilder()
             .AddPolicy(TestAuthenticationHandler.ManagerPolicy, policy => policy.RequireClaim("permission", "manager"));
 
@@ -99,9 +108,13 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
         return new AssistantWebApplication(app);
     }
 
-    public HttpClient CreateClient(string? user = "user-1", bool access = true)
+    public HttpClient CreateClient(string? user = "user-1", bool access = true, bool admin = false)
     {
         var client = _app.GetTestClient();
+        if (admin)
+        {
+            client.DefaultRequestHeaders.Add(AdminHeader, "true");
+        }
         if (user is not null)
         {
             client.DefaultRequestHeaders.Add(UserHeader, user);
@@ -139,6 +152,10 @@ internal sealed class TestAuthenticationHandler(
         if (Request.Headers.ContainsKey(AssistantWebApplication.AccessHeader))
         {
             claims.Add(new Claim("permission", "assistant"));
+        }
+        if (Request.Headers.ContainsKey(AssistantWebApplication.AdminHeader))
+        {
+            claims.Add(new Claim("permission", "assistant-admin"));
         }
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme));
         return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, Scheme)));

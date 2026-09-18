@@ -162,6 +162,7 @@ public sealed class AssistantRegistrationTests
         {
             options.AddPolicy(NhAssistantOptions.DefaultAccessPolicy, policy => policy.RequireAuthenticatedUser());
             options.AddPolicy("app.custom.access", policy => policy.RequireAuthenticatedUser());
+            options.AddPolicy(NhAssistantOptions.DefaultAdminPolicy, policy => policy.RequireAuthenticatedUser());
         });
         builder.Services.AddSingleton<TestProjectToolRecorder>();
         builder.Services.AddKeyedSingleton<IChatClient>("project-chat-model", new NhAiScriptedChatClient());

@@ -56,8 +56,16 @@ public static class NhAssistantServiceCollectionExtensions
 /// </summary>
 internal sealed class NhAssistantAgentAccess(
     NhAssistantAgentCatalog catalog,
-    IAuthorizationService authorizationService)
+    IAuthorizationService authorizationService,
+    NhAssistantRegistrationState state,
+    IOptionsMonitor<NhAssistantOptions> options)
 {
+    public async Task<bool> CanAdministerAsync(System.Security.Claims.ClaimsPrincipal user)
+    {
+        var policy = NhAssistantEndpointOptions.ResolveAdminPolicy(state, options.CurrentValue);
+        return (await authorizationService.AuthorizeAsync(user, policy)).Succeeded;
+    }
+
     public async Task<IReadOnlyList<NhAssistantAgentDefinition>> GetVisibleAgentsAsync(
         System.Security.Claims.ClaimsPrincipal user,
         CancellationToken cancellationToken)
@@ -123,6 +131,13 @@ internal sealed class NhAssistantStartupValidator(
                 $"The assistant access policy '{accessPolicy}' is not registered.");
         }
 
+        var adminPolicy = NhAssistantEndpointOptions.ResolveAdminPolicy(state, options.Value);
+        if (await policyProvider.GetPolicyAsync(adminPolicy) is null)
+        {
+            throw new InvalidOperationException(
+                $"The assistant admin policy '{adminPolicy}' is not registered. Register it or call UseAdminPolicy.");
+        }
+
         await registry.ValidateAsync(
             profiles,
             async policy => await policyProvider.GetPolicyAsync(policy) is not null,
@@ -137,6 +152,14 @@ internal sealed class NhAssistantStartupValidator(
 
 internal static class NhAssistantEndpointOptions
 {
+    public static string ResolveAdminPolicy(NhAssistantRegistrationState state, NhAssistantOptions options)
+    {
+        return state.AdminPolicy
+            ?? (string.IsNullOrWhiteSpace(options.AdminPolicy)
+                ? NhAssistantOptions.DefaultAdminPolicy
+                : options.AdminPolicy);
+    }
+
     public static string ResolveAccessPolicy(NhAssistantRegistrationState state, NhAssistantOptions options)
     {
         return state.AccessPolicy

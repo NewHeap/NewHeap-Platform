@@ -80,6 +80,7 @@ internal sealed class AssistantTestHost : IAsyncDisposable
             options.AddPolicy(TestProjectToolCatalog.ReadPolicy, policy => policy.RequireAuthenticatedUser());
             options.AddPolicy(TestProjectToolCatalog.ManagePolicy, policy => policy.RequireAuthenticatedUser());
             options.AddPolicy(AccessPolicy, policy => policy.RequireAuthenticatedUser());
+            options.AddPolicy("app.assistant.admin", policy => policy.RequireAuthenticatedUser());
             options.AddPolicy("app.project.manage", policy => policy.RequireClaim("permission", "app.project.manage"));
         });
         services.AddSingleton<Microsoft.Extensions.Hosting.IHostEnvironment>(new Microsoft.Extensions.Hosting.Internal.HostingEnvironment

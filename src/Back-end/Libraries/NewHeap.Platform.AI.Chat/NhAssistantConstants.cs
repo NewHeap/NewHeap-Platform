@@ -199,4 +199,5 @@ public static class NhAssistantAdminErrorCodes
     public const string McpSchemaChanged = "assistant-mcp-schema-changed";
     public const string McpToolDisabled = "assistant-mcp-tool-disabled";
     public const string InstructionsTooLong = "assistant-instructions-too-long";
+    public const string ContextNotFound = "assistant-context-not-found";
 }
