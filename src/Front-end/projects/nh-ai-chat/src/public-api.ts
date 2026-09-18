@@ -7,3 +7,6 @@ export * from './lib/nh-assistant.config';
 export * from './lib/provide-nh-assistant';
 export * from './lib/services/nh-assistant-sse-parser';
 export * from './lib/services/nh-assistant-api.service';
+export * from './lib/services/nh-assistant-reducer';
+export * from './lib/services/nh-assistant.store';
+export * from './lib/services/nh-assistant-panel.service';
