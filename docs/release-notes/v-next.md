@@ -35,17 +35,21 @@ as the calling user.
 agent turns streamed as server-sent events, in-chat approval of exact NewHeap
 proposals and durable budget and idempotency ledgers. Administrators manage agents,
 MCP servers and the application context through `admin/*`; users set style
-preferences through `preferences`. The assistant replaces `INhAiBudgetManager`,
+preferences through `preferences`. Every turn gets a "Situation" data block (date and
+time in the zone set with `UseTimeZone`, plus facts from `INhAssistantTurnContextProvider`
+implementations registered with `UseTurnContextProvider<T>()`) and, when `POST messages`
+carries an optional `clientContext`, a "User's screen" block. The assistant replaces `INhAiBudgetManager`,
 `INhAiIdempotencyManager` and `INhAiApprovalEvidenceProvider` in hosts that register
 it; budget and evidence requests outside assistant turns are delegated to the
 previously registered implementations.
 
 | Adoption note | Required action |
 |---|---|
-| The assistant owns the `nhai` schema with its own SQL Server and PostgreSQL migrations (`Initial`, `AdminAndPreferences`). | Apply them with `RunMigrations = true` or as a deployment step before enabling `NewHeap:AI:Assistant:Enabled`. |
+| The assistant owns the `nhai` schema with its own SQL Server and PostgreSQL migrations (`Initial`, `AdminAndPreferences`, `ClientContext`). | Apply them with `RunMigrations = true` or as a deployment step before enabling `NewHeap:AI:Assistant:Enabled`. |
 | The assistant decorates the ASP.NET AI invocation gate and validates its registration at startup. | Call `AddNewHeapAssistant` after `AddNewHeapPlatformAIAspNet` and the application's own AI registrations. |
 | Startup requires the admin policy (`app.assistant.admin` unless configured). | Register the policy, or call `UseAdminPolicy` with an existing policy. |
 | Turn instructions combine the library rules, the application context, the agent instructions and the user's preferences; pending approvals are bound to those instructions. | Approvals pending during a context or preference change must be decided again. |
+| Situational and page context are optional and non-breaking: without providers a turn gets only the date and time (UTC unless `UseTimeZone` is set), and without `clientContext` no screen block. Neither block changes the prompt hash, so pending approvals stay valid. | No action; add providers or send `clientContext` to use them. |
 | MCP secrets are protected with ASP.NET Data Protection. | Persist the Data Protection key ring across restarts and nodes; otherwise administrators must enter the secrets again. |
 
 ## NewHeap.Platform.AI.Test

@@ -16,6 +16,8 @@ services.AddNewHeapAssistant(assistant => assistant
     .UseChatProfile("project-assistant-chat")
     .UseAdminPolicy("app.assistant.admin")
     .UseDefaultApplicationContext(applicationContextAsset)
+    .UseTimeZone("Europe/Amsterdam")
+    .UseTurnContextProvider<ApplicationTurnContextProvider>()
     .ConfigureMcp(mcp => mcp.AllowedHosts.Add("planning.example.com"))
     .AddAgent(agent)
     .AddBusinessAuditSink<ApplicationAssistantAuditSink>()
@@ -53,7 +55,7 @@ as is, and no tenant claim is required.
 | `POST conversations` `{ agentId, title? }` | `201` conversation |
 | `GET conversations/{id}` | conversation with messages and pending approval |
 | `DELETE conversations/{id}` | `204`; the conversation is archived and hidden |
-| `POST conversations/{id}/messages` `{ text, clientMessageId }` | `text/event-stream`; `409` when the conversation is not idle |
+| `POST conversations/{id}/messages` `{ text, clientMessageId, clientContext? }` | `text/event-stream`; `409` when the conversation is not idle |
 | `POST conversations/{id}/approvals/{approvalId}/decide` `{ decision, expectedProposalHash, reason? }` | `text/event-stream` of the resumed turn |
 | `POST conversations/{id}/cancel` | `202` |
 | `GET` / `PUT preferences` | the caller's style preferences |
@@ -76,6 +78,10 @@ hosts return `400` with `assistant-mcp-host-blocked`. A caller without the admin
 receives `403` with `assistant-forbidden`, unknown objects `404` with a specific
 `*-not-found` code and stale versions `409`. MCP secrets are protected with ASP.NET Data Protection; persist the key
 ring across restarts and nodes.
+
+`clientContext` is `{ route, title?, entities?: [{ type, id, label? }] }` (route 200,
+title 120, five entities, dash-case type, id 64, label 120 characters). The server cuts
+off long text and ignores a value of the wrong shape instead of answering `400`.
 
 JSON is camelCase through one source-generated `NhAssistantJsonSerializerContext`.
 Errors outside the stream use `{ code, messageKey }` with `messageKey =

@@ -40,7 +40,8 @@ The library owns the `nhai` schema: `AssistantConversation`, `AssistantMessage`,
 `AssistantToolInvocation`, `AssistantApproval`, `AssistantBudgetLedger`,
 `AssistantIdempotencyLease`, `AssistantAgent`, `AssistantAgentMcpServer`,
 `AssistantApplicationContext`, `AssistantMcpServer`, `AssistantMcpTool` and
-`AssistantUserPreference`. Message parts are versioned JSON; tool arguments and
+`AssistantUserPreference`. User messages keep their bounded page context in
+`AssistantMessage.ClientContextJson`. Message parts are versioned JSON; tool arguments and
 results are bounded to 64 KB and carry the tool's data classification and retention
 category. Status transitions use compare-and-swap updates and a provider-neutral
 concurrency stamp. Configure the schema and migrations through
@@ -63,6 +64,18 @@ or Dutch lines; custom instructions are bounded, neutralized and treated as styl
 wishes only. The composed identity and hash flow into the invocation context and the
 separate versions and hashes into `NhAssistantAuditEvent`. Every administration change
 is a content-free audit event.
+
+## Situational and page context
+
+Every turn adds a "Situation" block with the date, weekday and time in the zone set by
+`UseTimeZone` (UTC by default) and the facts of `INhAssistantTurnContextProvider`
+implementations registered with `UseTurnContextProvider<T>()` (at most 20 facts and 2,000
+characters). When the client sends a page context with the message, a "User's screen"
+block lists its route, title and up to five entities. Both blocks follow the instructions,
+are marked as data rather than instructions and are excluded from the prompt hash and the
+approval binding. The page context is stored with the user message (`ClientContext`
+migration) and reused when a turn resumes after an approval. A failing provider is logged
+by exception type and skipped.
 
 ## Content boundaries
 

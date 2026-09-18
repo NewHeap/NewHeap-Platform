@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Security.Claims;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -94,6 +95,10 @@ public static class SampleAssistantComposition
                 mcp.ConnectTimeout = TimeSpan.FromSeconds(10);
             })
             .UseChatProfile(ProfileName)
+            // Every turn starts with the date and time in Amsterdam and who the user is, so the model
+            // does not need a tool call to learn them.
+            .UseTimeZone("Europe/Amsterdam")
+            .UseTurnContextProvider<SampleAssistantTurnContextProvider>()
             .AddAgent(new NhAssistantAgentDefinition(
                 Id: AgentId,
                 Version: 1,
@@ -145,6 +150,31 @@ public sealed class SampleAssistantAuditLog
 /// <summary>
 /// Business audit sink of the sample. It receives identifiers, codes and timestamps only.
 /// </summary>
+/// <summary>
+/// Situational facts for the sample assistant: the signed-in user's display name and roles, read
+/// from the authenticated principal only. The assistant marks them as data, not instructions.
+/// </summary>
+public sealed class SampleAssistantTurnContextProvider(IHttpContextAccessor httpContextAccessor) : INhAssistantTurnContextProvider
+{
+    public ValueTask<IReadOnlyList<NhAssistantContextFact>> GetFactsAsync(
+        NhAiInvocationContext context,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var user = httpContextAccessor.HttpContext?.User;
+        var facts = new List<NhAssistantContextFact>
+        {
+            new("User", user?.FindFirst(ClaimTypes.Name)?.Value ?? context.ActorId)
+        };
+        var roles = user?.FindAll(ClaimTypes.Role).Select(claim => claim.Value).Order(StringComparer.Ordinal).ToArray() ?? [];
+        if (roles.Length > 0)
+        {
+            facts.Add(new NhAssistantContextFact("Roles", string.Join(", ", roles)));
+        }
+        return ValueTask.FromResult<IReadOnlyList<NhAssistantContextFact>>(facts);
+    }
+}
+
 public sealed class SampleAssistantAuditSink(SampleAssistantAuditLog log) : INhAssistantBusinessAuditSink
 {
     public ValueTask RecordAsync(NhAssistantAuditEvent evt, CancellationToken ct)

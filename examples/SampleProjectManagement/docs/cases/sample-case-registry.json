@@ -3547,6 +3547,22 @@
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts",
         "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts"
       ]
+    },
+    {
+      "id": "SPM-254",
+      "categoryId": "18",
+      "title": "Situational and page context for assistant turns",
+      "surface": "`INhAssistantTurnContextProvider`, `NhAssistantContextFact`, `UseTurnContextProvider<T>()`, `UseTimeZone(...)`, `clientContext` in `POST conversations/{id}/messages` (`route`, `title`, `entities`), `NhAssistantAuditEvent.ContextFactCount|PageEntityCount|HadPageContext`",
+      "outcome": "Every assistant turn starts with a \"Situation\" data block: the library's date, weekday and time in Europe/Amsterdam plus the signed-in sample user's name and roles from `SampleAssistantTurnContextProvider`. When the client sends the page it has open, a \"User's screen\" block lists the route, title and up to five entities. Both blocks follow the instructions, are marked as data rather than instructions, are bounded (20 facts and 2,000 characters; route 200, title 120, five entities) and do not change the prompt hash, so pending approvals stay valid. A page context of the wrong shape is ignored instead of rejecting the message. Audit events carry only the fact and entity counts and whether page context was present.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantContextSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnContextTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantEndpointTests.cs"
+      ]
     }
   ]
 }

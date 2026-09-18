@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.34",
   "backEnd": {
-    "hash": "ae25ff784c53242b80b5ed8667bbe4b8407e560515f43a690bfcedda4238d904",
-    "declarationCount": 4999,
+    "hash": "d89e05ff580c97eb95783bff0dc98cbef4b097e94056973ea66d485f7bcb506a",
+    "declarationCount": 5040,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1003,7 +1003,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantSendMessageRequest( string? Text, string? ClientMessageId);"
+        "declaration": "public sealed record NhAssistantSendMessageRequest( string? Text, string? ClientMessageId, JsonElement? ClientContext = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantClientContextDto( string Route, string? Title, IReadOnlyList<NhAssistantClientEntityDto>? Entities);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantClientEntityDto( string Type, string Id, string? Label);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -1039,7 +1047,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "[JsonSerializable(typeof(NhAssistantStatusDto))] [JsonSerializable(typeof(NhAssistantAgentSummaryDto[]))] [JsonSerializable(typeof(NhAssistantConversationListDto))] [JsonSerializable(typeof(NhAssistantConversationDto))] [JsonSerializable(typeof(NhAssistantMessagePartDto))] [JsonSerializable(typeof(NhAssistantCreateConversationRequest))] [JsonSerializable(typeof(NhAssistantSendMessageRequest))] [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))] [JsonSerializable(typeof(NhAssistantErrorDto))] [JsonSerializable(typeof(NhAssistantTurnStartedDto))] [JsonSerializable(typeof(NhAssistantMessageDeltaDto))] [JsonSerializable(typeof(NhAssistantToolStartedDto))] [JsonSerializable(typeof(NhAssistantToolCompletedDto))] [JsonSerializable(typeof(NhAssistantTurnCompletedDto))] [JsonSerializable(typeof(NhAssistantPreferencesDto))] [JsonSerializable(typeof(NhAssistantApplicationContextDto))] [JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateContextRequest))] [JsonSerializable(typeof(NhAssistantToolCatalogEntryDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentDto))] [JsonSerializable(typeof(NhAssistantAdminAgentDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto[]))] [JsonSerializable(typeof(NhAssistantMcpServerInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))] public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;"
+        "declaration": "[JsonSerializable(typeof(NhAssistantStatusDto))] [JsonSerializable(typeof(NhAssistantAgentSummaryDto[]))] [JsonSerializable(typeof(NhAssistantConversationListDto))] [JsonSerializable(typeof(NhAssistantConversationDto))] [JsonSerializable(typeof(NhAssistantMessagePartDto))] [JsonSerializable(typeof(NhAssistantCreateConversationRequest))] [JsonSerializable(typeof(NhAssistantSendMessageRequest))] [JsonSerializable(typeof(NhAssistantClientContextDto))] [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))] [JsonSerializable(typeof(NhAssistantErrorDto))] [JsonSerializable(typeof(NhAssistantTurnStartedDto))] [JsonSerializable(typeof(NhAssistantMessageDeltaDto))] [JsonSerializable(typeof(NhAssistantToolStartedDto))] [JsonSerializable(typeof(NhAssistantToolCompletedDto))] [JsonSerializable(typeof(NhAssistantTurnCompletedDto))] [JsonSerializable(typeof(NhAssistantPreferencesDto))] [JsonSerializable(typeof(NhAssistantApplicationContextDto))] [JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateContextRequest))] [JsonSerializable(typeof(NhAssistantToolCatalogEntryDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentDto))] [JsonSerializable(typeof(NhAssistantAdminAgentDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto[]))] [JsonSerializable(typeof(NhAssistantMcpServerInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))] public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -1194,6 +1202,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20260918142240_ClientContext.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20260918142240_ClientContext.cs",
+        "declaration": "public partial class ClientContext : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20260918142240_ClientContext.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20260918142240_ClientContext.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -1255,6 +1279,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20260918110743_AdminAndPreferences.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20260918142236_ClientContext.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20260918142236_ClientContext.cs",
+        "declaration": "public partial class ClientContext : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20260918142236_ClientContext.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20260918142236_ClientContext.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -1735,6 +1775,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
+        "declaration": "public string? ClientContextJson { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantEntities.cs",
         "declaration": "public int InputTokens { get; set; }"
       },
       {
@@ -2123,6 +2167,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseTurnContextProvider<TProvider>() where TProvider : class, INhAssistantTurnContextProvider {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseTimeZone(string timeZoneId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public string? AccessPolicy { get; set; }"
       },
       {
@@ -2148,6 +2200,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantLimits Limits { get; set; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public TimeZoneInfo TimeZone { get; set; } = TimeZoneInfo.Utc;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -2683,6 +2739,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public int? ContextFactCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public int? PageEntityCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public bool? HadPageContext { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public interface INhAssistantBusinessAuditSink {"
       },
       {
@@ -3151,6 +3219,26 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "declaration": "public string TurnData { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "declaration": "public int FactCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "declaration": "public int PageEntityCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "declaration": "public bool HadPageContext { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "declaration": "public string ModelInstructions => TurnData.Length == 0 ? Instructions : Instructions + \"\\n\\n\" + TurnData;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
         "declaration": "public const int MaxInstructionsLength = 32_768;"
       },
       {
@@ -3160,6 +3248,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
         "declaration": "public static NhAssistantComposedPrompt Compose( NhAssistantAgentDefinition agent, AssistantApplicationContext? applicationContext, NhAssistantPreferences preferences, string language) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "declaration": "public static bool IsDutch(string? language) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "declaration": "public static NhAssistantComposedPrompt WithTurnData( NhAssistantComposedPrompt prompt, NhAssistantTurnFacts facts, NhAssistantClientContext? page, string language) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
@@ -3180,6 +3276,74 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
         "declaration": "public async Task<TaskResult<NhAssistantPreferences>> SavePreferencesAsync( string actorId, NhAssistantPreferences preferences, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public interface INhAssistantTurnContextProvider {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public sealed record NhAssistantContextFact(string Label, string Value);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public const int MaxRouteLength = 200;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public const int MaxTitleLength = 120;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public const int MaxEntities = 5;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public const int MaxEntityIdLength = 64;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public const int MaxEntityTypeLength = 60;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public const int MaxEntityLabelLength = 120;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public static NhAssistantClientContext? From(JsonElement? value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public static NhAssistantClientContext? FromStorage(string? json) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public string ToStorage() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public const int MaxFacts = 20;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public const int MaxTotalCharacters = 2_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public const int MaxLabelLength = 60;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public const int MaxValueLength = 300;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public async Task<NhAssistantTurnFacts> CollectAsync( NhAiInvocationContext context, string language, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs",
+        "declaration": "public static string? Clean(string? value, int maxLength) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
@@ -23142,7 +23306,11 @@
       "UseDefaultApplicationContext",
       "ConfigureMcp",
       "NhAssistantMcpOptions",
-      "NhAssistantAuditEventKind"
+      "NhAssistantAuditEventKind",
+      "INhAssistantTurnContextProvider",
+      "NhAssistantContextFact",
+      "UseTurnContextProvider",
+      "UseTimeZone"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",
