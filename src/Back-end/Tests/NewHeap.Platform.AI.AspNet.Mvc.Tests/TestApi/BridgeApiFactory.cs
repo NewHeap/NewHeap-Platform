@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.IO.Pipelines;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -14,6 +15,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Test;
 
@@ -100,6 +104,8 @@ public sealed class BridgeApiFactory : WebApplicationFactory<BridgeApiFactory>
         services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)
             .ConfigurePrimaryHttpMessageHandler(provider =>
                 ((TestServer)provider.GetRequiredService<IServer>()).CreateHandler());
+        services.AddMcpServer(options => options.ScopeRequests = false)
+            .WithNewHeapPlatformAITools();
         _configureServices?.Invoke(services);
     }
 
@@ -107,7 +113,10 @@ public sealed class BridgeApiFactory : WebApplicationFactory<BridgeApiFactory>
     /// Runs <paramref name="action"/> inside a scope whose current HTTP context belongs to the
     /// user of <paramref name="token"/>, as an incoming assistant or MCP request would.
     /// </summary>
-    public async Task<T> AsUserAsync<T>(string? token, Func<IServiceProvider, Task<T>> action)
+    public async Task<T> AsUserAsync<T>(
+        string? token,
+        Func<IServiceProvider, Task<T>> action,
+        IReadOnlyDictionary<string, string>? headers = null)
     {
         await using var scope = Services.CreateAsyncScope();
         var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
@@ -122,6 +131,10 @@ public sealed class BridgeApiFactory : WebApplicationFactory<BridgeApiFactory>
         }
         httpContext.Request.Headers.AcceptLanguage = "nl-NL";
         httpContext.Request.Headers.Cookie = "session=must-not-be-forwarded";
+        foreach (var header in headers ?? new Dictionary<string, string>())
+        {
+            httpContext.Request.Headers[header.Key] = header.Value;
+        }
         accessor.HttpContext = httpContext;
         try
         {
@@ -131,6 +144,31 @@ public sealed class BridgeApiFactory : WebApplicationFactory<BridgeApiFactory>
         {
             accessor.HttpContext = null;
         }
+    }
+
+    /// <summary>
+    /// Connects an MCP client over an in-memory transport to the application's
+    /// <c>WithNewHeapPlatformAITools</c> server while the given user is the current request user.
+    /// </summary>
+    public Task<T> WithMcpClientAsync<T>(
+        string? token,
+        Func<McpClient, Task<T>> action,
+        IReadOnlyDictionary<string, string>? headers = null)
+    {
+        return AsUserAsync(token, async services =>
+        {
+            var options = services.GetRequiredService<IOptions<McpServerOptions>>().Value;
+            var clientToServer = new Pipe();
+            var serverToClient = new Pipe();
+            await using var server = McpServer.Create(
+                new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()),
+                options,
+                serviceProvider: services);
+            _ = server.RunAsync();
+            await using var client = await McpClient.CreateAsync(
+                new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()));
+            return await action(client);
+        }, headers);
     }
 
     /// <summary>Invokes a bridge tool through its governed function as the given user.</summary>
