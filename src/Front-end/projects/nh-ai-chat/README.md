@@ -21,13 +21,13 @@ registry=https://registry.npmjs.org/
 Install the package with its peer dependencies:
 
 ```bash
-npm install @newheap/platform-ai-chat @angular/cdk marked dompurify
+npm install @newheap/platform-ai-chat @angular/cdk @angular/router marked dompurify
 ```
 
 View available versions on [npmjs.org](https://www.npmjs.com/package/@newheap/platform-ai-chat). For NuGet, npm and AI-plugin installation, see [Consume public packages](../../../../docs/how-to/consume-public-packages.md).
 
 Peer dependencies: Angular `^20.3.28` (`@angular/core`, `@angular/common`),
-`@angular/cdk` `^20.2.14`, `@ngx-translate/core` `^17.0.0`, `marked` `^18.0.0`,
+`@angular/cdk` `^20.2.14`, `@angular/router` `^20.3.28`, `@ngx-translate/core` `^17.0.0`, `marked` `^18.0.0`,
 `dompurify` `^3.4.0` and `rxjs` `~7.8.0`.
 
 The panel is a CDK overlay. Load the CDK overlay styles once, for example in
@@ -64,7 +64,8 @@ export const appConfig: ApplicationConfig = {
       apiBaseUrl: environment.api.baseUrl + '/assistant',
       getAccessToken: () => inject(AppAuthService).getAuthorization()?.token ?? null,
       accessPolicy: AssistantAccessPolicy,
-      defaultAgentId: 'order-assistant'
+      defaultAgentId: 'order-assistant',
+      adminRoute: '/admin/assistant'
     })
   ]
 };
@@ -77,6 +78,7 @@ export const appConfig: ApplicationConfig = {
 | `accessPolicy` | always allowed | Injectable class whose `canUse()` returns a boolean or an observable. |
 | `defaultAgentId` | first agent | Agent selected for new conversations. |
 | `translations` | `'bundled'` | `'bundled'` merges the library's `en` and `nl` texts into `TranslateService`; `'host'` leaves all texts to the host. |
+| `adminRoute` | none | Router link of the host's administration page. The panel links to it only when the server reports `canAdminister`. |
 | `markdown` | `{ enabled: true }` | Renders assistant text as sanitized Markdown; `false` shows plain text. |
 
 Requests use `fetch` instead of the host's `HttpClient`, because `EventSource`
@@ -121,6 +123,48 @@ Assistant text is rendered as Markdown with `marked` and sanitized with DOMPurif
 against a small allow-list. Inline HTML in model text is shown as text, images
 render as their alt text, `javascript:` and `data:` links lose their target, and
 links open in a new tab with `rel="noopener noreferrer"`.
+
+## Preferences
+
+The panel header opens `nh-assistant-preferences`. Users choose a style (standard,
+straight to the point, personal or detailed), the form of address, the answer length
+and optional own instructions of at most 1,000 characters. The component loads and
+saves through `NhAssistantApiService.getPreferences()` and `updatePreferences()`.
+Preferences steer the style only; the server keeps them below the application
+context and the agent instructions and never lets them change approvals or tool
+access.
+
+## Administration
+
+The administration page is a separate entry point, so it stays out of the initial
+bundle. Route to it lazily behind the host's admin permission and pass the route as
+`adminRoute`:
+
+```typescript
+{
+  path: 'admin/assistant',
+  canActivate: [IsAssistantAdministratorGuard],
+  loadComponent: () => import('@newheap/platform-ai-chat/admin').then(module => module.NhAssistantAdminComponent)
+}
+```
+
+`nh-assistant-admin` shows a no-access state unless the server reports
+`canAdminister`, and has three tabs:
+
+- **Context**: the application context with its version and hash, the version
+  history and a conflict message instead of overwriting a newer version.
+- **Agents**: code agents (override, disable, reset) and agents created by
+  administrators (edit, disable, delete). The editor chooses tool selectors from the
+  tool catalog or as patterns and assigns MCP servers.
+- **MCP servers**: server editor, connection test, tool sync and the tool table.
+  The secret is write-only: the page shows only whether one is set and offers to
+  replace or clear it. Synced tools start disabled and are treated as changes until
+  an administrator enables them and chooses the effect; remote annotations such as
+  `readOnlyHint` appear as hints only, and a changed remote input schema disables the
+  tool and shows a warning.
+
+`NhAssistantAdminApiService` (main entry) is the typed client of the `admin/*`
+endpoints. A `409` becomes the code `assistant-version-conflict`.
 
 ## Theme
 
@@ -207,11 +251,16 @@ providers: [
 ]
 ```
 
-Steps are `text`, `tool`, `approval`, `error` and `fail`. The mock answers every
+Steps are `text`, `tool`, `approval`, `error` and `fail`. The optional `preferences`
+and `admin` parts of the scenario seed the preference and administration endpoints:
+context, tool catalog, agents, MCP servers with simulated remote tools, known
+policies and hosts that may receive the user's token. The mock answers every
 endpoint in memory and sends each turn as contract events over a chunked
 `text/event-stream` response, so the real client, parser and store run unchanged.
 Inject `NhAssistantMockBackend` to switch the simulated feature flag with
-`setEnabled(false)` or to assert the received `requests`.
+`setEnabled(false)`, the admin permission with `setCanAdminister(false)`, to change
+the remote tools of a server with `setRemoteTools(...)` or to assert the received
+`requests`.
 
 The SampleProjectManagement management portal shows the complete integration
-(sample case SPM-248).
+(sample cases SPM-248 and SPM-253).

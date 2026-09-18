@@ -3,9 +3,9 @@ id: nh-ai-assistant-ui
 title: "Host the NewHeap assistant panel in an Angular application"
 area: frontend
 reference: ai-assistant-ui
-summary: "Register the assistant once with the host's token and access policy, place the launcher and one panel in the layout, and test against the scripted mock API instead of a live model."
-sample-cases: ["SPM-248"]
-public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend"]
+summary: "Register the assistant once with the host's token and access policy, place the launcher and one panel in the layout, route to the lazily loaded administration page behind the admin permission, and test against the scripted mock API instead of a live model."
+sample-cases: ["SPM-248", "SPM-253"]
+public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantAdminComponent", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend"]
 skills: ["newheap-frontend-development"]
 providers: ["frontend"]
 risk: high
@@ -13,7 +13,7 @@ risk: high
 ## Preferred approach
 
 Install `@newheap/platform-ai-chat` with its peers (`@angular/cdk`,
-`@ngx-translate/core`, `marked`, `dompurify`) and load
+`@angular/router`, `@ngx-translate/core`, `marked`, `dompurify`) and load
 `@angular/cdk/overlay-prebuilt.css` once in the application styles. Call
 `provideNhAssistant(...)` once in the root providers with the assistant base URL,
 `getAccessToken` and an `accessPolicy` class. `getAccessToken` runs in the
@@ -29,19 +29,36 @@ panel through `NhAssistantPanelService.open(conversationId?)`. The launcher stay
 hidden while the server reports the assistant disabled or the policy denies the
 user; do not add a second feature flag in the host.
 
+Personal preferences need no host code: the panel header opens
+`nh-assistant-preferences`, which stores style, form of address, answer length and
+the user's own instructions through the preferences endpoints. Preferences only
+steer style; the server keeps them below the application context and the agent
+instructions.
+
+Route to `NhAssistantAdminComponent` from `@newheap/platform-ai-chat/admin` with a
+lazy route guarded by the host's admin permission (for example
+`app.assistant.admin`), and pass that route as `adminRoute` to
+`provideNhAssistant`. The panel links to it only when the server reports
+`canAdminister`, and the page shows a no-access state otherwise, so the host guard,
+the server status and the admin policy on the endpoints agree. The separate entry
+point keeps the administration out of the initial bundle.
+
 Keep the bundled `en` and `nl` texts (`translations: 'bundled'`) and add only
 host-specific keys under `nh-assistant.`: agent names and descriptions from the
 server's `displayNameKey`/`descriptionKey`, and message keys of host-specific
-error codes. Theme the panel through the `--nh-assistant-*` custom properties
-mapped onto the host's tokens, and pass the host icon library through
+error codes. Agents created by an administrator carry literal text in those fields,
+which the panel shows as is. Theme the panel through the `--nh-assistant-*` custom
+properties mapped onto the host's tokens, and pass the host icon library through
 `NH_ASSISTANT_ICONS`.
 
 Test hosts and demos with `provideNhAssistantMockApi(script)` from
 `@newheap/platform-ai-chat/testing`, registered after `provideNhAssistant` in the
 same injector. The mock plays scripted turns as contract events over a real
-event stream, including approvals, cancellation and the disabled flag, so the
-panel is exercised without a model or assistant back-end. A route may host its
-own assistant scope with route-level providers.
+event stream, including approvals, cancellation and the disabled flag, and serves
+the preference and administration endpoints with the same rules as the server, so
+the panel and the administration page are exercised without a model or assistant
+back-end. A route may host its own assistant scope with route-level providers; put
+the administration route under the same parent to share that scope.
 
 ## Avoid
 
@@ -61,6 +78,15 @@ own assistant scope with route-level providers.
   the pending approval.
 - Replacing library translations wholesale in the host files; override single
   keys only.
+- Importing `NhAssistantAdminComponent` in an eagerly loaded module or showing the
+  administration link from a host permission check alone.
+- Displaying, logging or prefilling an MCP server secret. Omit `secret` to keep it,
+  send `""` to clear it, and send a new value only when the administrator replaces
+  it.
+- Enabling remote MCP tools by default or deriving their effect from remote
+  annotations such as `readOnlyHint`; they are untrusted hints.
+- Retrying an administration save after `assistant-version-conflict` without
+  reloading the latest version.
 
 ## Verification
 
@@ -70,7 +96,12 @@ the store turns a contract event sequence into the expected messages, tool calls
 and approvals and sends the proposal hash exactly once; the launcher disappears for
 `enabled: false` and a denying policy; model text with a script tag renders no
 script; `en` and `nl` have identical keys; and the mock emits exactly the contract
-event fields. In the host, open the assistant playground and walk through a new
-conversation, a streamed answer, a tool call, approve, reject, stop, an error and
-an agent switch at desktop and mobile width in light and dark mode. SPM-248 is the
-executable reference.
+event fields. The preference tests save, validate the 1,000-character limit and show
+failures; the administration tests save context versions and report conflicts,
+create, disable, reset and delete agents after confirmation, never render a stored
+secret and send it only on replace or clear, keep synced MCP tools disabled as
+changes, show remote hints as hints and warn after a remote schema change. In the
+host, open the assistant playground and walk through a new conversation, a
+streamed answer, a tool call, approve, reject, stop, an error, an agent switch,
+the preferences and the administration tabs at desktop and mobile width in light
+and dark mode. SPM-248 and SPM-253 are the executable references.
