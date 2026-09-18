@@ -13,6 +13,11 @@
   "dependencies": {},
   "devDependencies": {},
   "sideEffects": false,
+  "exports": {
+    "./i18n/*.json": {
+      "default": "./i18n/*.json"
+    }
+  },
   "license": "Apache-2.0",
   "description": "Angular assistant panel for NewHeap AI chat endpoints with streaming, tool-call and approval cards.",
   "repository": {
