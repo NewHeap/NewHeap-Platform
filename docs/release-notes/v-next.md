@@ -1,24 +1,5 @@
 # v-next
 
-## NewHeap.Platform.AI.Common
-
-| Breaking change | Required action |
-|---|---|
-| None. Attested runtime catalogs (`INhAiAttestedToolCatalog`, `NhAiToolCatalogAttestation.Validate`) may now enter the MCP export path. | No action for existing consumers. |
-| None. Governed functions accept tool arguments without the `input` envelope when `input` is the only schema property, and return the recoverable `ai-tool-input-invalid` result (`NhAiToolFailureCodes.InputInvalid`, audited, never executed) for an envelope mixed with other properties or arguments that cannot be bound. `NhAiGovernedAIFunction.Create` gains an overload with the catalog services, and the invoker logs unexpected exceptions content-free. | No action; regenerate tool catalogs by rebuilding with the updated generator so rejections are audited. |
-
-## NewHeap.Platform.AI.Mcp
-
-| Breaking change | Required action |
-|---|---|
-| None. `WithNewHeapPlatformAITools` accepts generated and attested catalogs and validates attested catalogs at startup. | No action for existing consumers. |
-
-## NewHeap.Platform.AI.AspNet.Common
-
-| Breaking change | Required action |
-|---|---|
-| None. `AddNewHeapPlatformAIAspNet` registers `INhAiCallerCredentialAccessor` (saved `access_token`, then the `Authorization: Bearer` header) for same-user delegated calls; the token never enters `NhAiInvocationContext`. | No action; register your own implementation before the call to replace it. |
-
 ## NewHeap.Platform.AI.AspNet.Mvc (new package)
 
 `AddNewHeapPlatformAIMvcBridge` publishes policy-protected MVC actions as governed,
@@ -57,12 +38,6 @@ previously registered implementations.
 | A provider error inside the model stream (for example exhausted credits or quota) now ends the turn as failed with `assistant-model-unavailable` instead of an empty completed turn; only the provider error code is logged. | No action. |
 | MCP secrets are protected with ASP.NET Data Protection. | Persist the Data Protection key ring across restarts and nodes; otherwise administrators must enter the secrets again. |
 | Unexpected tool exceptions in a turn are logged as content-free warnings (tool id, version, turn id, exception type); malformed tool arguments return `ai-tool-input-invalid` as the tool-call `resultCode` so the model can retry. | No action. |
-
-## NewHeap.Platform.AI.Test
-
-| Breaking change | Required action |
-|---|---|
-| None. Added `NhAiScriptedChatClient` for scripted text and function-call responses in agent and assistant tests. | No action. |
 
 ## @newheap/platform-ai-chat (new package)
 
