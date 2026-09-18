@@ -26,6 +26,26 @@
           <button
             class="icon-button"
             type="button"
+            [class.active]="showPreferences()"
+            [attr.aria-expanded]="showPreferences()"
+            [attr.aria-label]="'nh-assistant.panel.open-preferences' | translate"
+            [attr.title]="'nh-assistant.panel.open-preferences' | translate"
+            (click)="togglePreferences()">
+            <nh-assistant-icon name="settings" />
+          </button>
+          @if (adminRoute && store.canAdminister()) {
+            <a
+              class="icon-button"
+              [routerLink]="adminRoute"
+              [attr.aria-label]="'nh-assistant.panel.open-admin' | translate"
+              [attr.title]="'nh-assistant.panel.open-admin' | translate"
+              (click)="panel.close()">
+              <nh-assistant-icon name="admin" />
+            </a>
+          }
+          <button
+            class="icon-button"
+            type="button"
             [disabled]="store.streaming()"
             [attr.aria-label]="'nh-assistant.panel.new-conversation' | translate"
             [attr.title]="'nh-assistant.panel.new-conversation' | translate"
@@ -56,9 +76,13 @@
           <p>{{ 'nh-assistant.panel.unavailable-description' | translate }}</p>
         </div>
       } @else {
+        @if (showPreferences()) {
+          <nh-assistant-preferences class="overlay-view" (closed)="showPreferences.set(false)" />
+        }
+
         @if (showConversations()) {
           <nh-assistant-conversation-list
-            class="conversations"
+            class="overlay-view"
             [conversations]="store.conversations()"
             [total]="store.conversationsTotal()"
             [activeConversationId]="conversation()?.id ?? null"
@@ -106,7 +130,7 @@
       </div>
     }
 
-    @if (store.enabled()) {
+    @if (store.enabled() && !showPreferences()) {
       <footer class="footer">
         @if (closed()) {
           <p class="notice">{{ 'nh-assistant.panel.conversation-closed' | translate }}</p>

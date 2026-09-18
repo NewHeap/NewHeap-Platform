@@ -5,6 +5,7 @@
     "@angular/cdk": "^20.2.14",
     "@angular/common": "^20.3.28",
     "@angular/core": "^20.3.28",
+    "@angular/router": "^20.3.28",
     "@ngx-translate/core": "^17.0.0",
     "dompurify": "^3.4.0",
     "marked": "^18.0.0",

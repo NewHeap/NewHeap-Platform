@@ -19,7 +19,9 @@
       "empty-description": "Stel een vraag of beschrijf een taak. Acties die gegevens wijzigen vragen altijd eerst om je goedkeuring.",
       "conversation-closed": "Dit gesprek kan niet verder. Begin een nieuw gesprek.",
       "dismiss-error": "Melding sluiten",
-      "usage": "{{inputTokens}} invoertokens, {{outputTokens}} uitvoertokens, {{toolCalls}} toolaanroepen"
+      "usage": "{{inputTokens}} invoertokens, {{outputTokens}} uitvoertokens, {{toolCalls}} toolaanroepen",
+      "open-preferences": "Je assistentvoorkeuren",
+      "open-admin": "Beheer van de assistent"
     },
     "agent-picker": {
       "label": "Agent",
@@ -109,7 +111,51 @@
       "assistant-conversation-busy": "De assistent is nog bezig met dit gesprek. Probeer het zo opnieuw.",
       "assistant-invalid-response": "De assistent gaf een onverwacht antwoord.",
       "assistant-stream-interrupted": "De verbinding met de assistent is onderbroken.",
-      "assistant-server": "De assistent kon het verzoek niet afronden."
+      "assistant-server": "De assistent kon het verzoek niet afronden.",
+      "assistant-validation": "Sommige waarden zijn niet geldig. Controleer de velden en probeer het opnieuw.",
+      "assistant-version-conflict": "Iemand anders heeft dit intussen gewijzigd. Laad opnieuw en voer je wijziging nogmaals uit.",
+      "assistant-mcp-unreachable": "De MCP-server is niet bereikbaar.",
+      "assistant-mcp-unauthorized": "De MCP-server weigert de inloggegevens.",
+      "assistant-mcp-host-blocked": "Deze host is niet toegestaan voor MCP-servers of voor het doorsturen van het gebruikerstoken.",
+      "assistant-mcp-schema-changed": "De invoer van de tool is op de server gewijzigd. Controleer hem en zet hem opnieuw aan.",
+      "assistant-mcp-tool-disabled": "Deze tool staat uit."
+    },
+    "preferences": {
+      "title": "Je voorkeuren",
+      "description": "Kies hoe de assistent je antwoordt. Voorkeuren veranderen alleen de stijl; ze veranderen nooit wat de assistent mag of welke acties je goedkeuring nodig hebben.",
+      "style-label": "Stijl",
+      "style": {
+        "default": "Standaard",
+        "default-description": "Evenwichtige antwoorden.",
+        "direct": "Recht toe recht aan",
+        "direct-description": "Korte, zakelijke antwoorden zonder omhaal.",
+        "personal": "Persoonlijk",
+        "personal-description": "Een vriendelijke, gemoedelijke toon.",
+        "detailed": "Uitgebreid",
+        "detailed-description": "Grondige antwoorden met achtergrond en uitleg."
+      },
+      "address-form-label": "Aanspreekvorm",
+      "address-form": {
+        "informal": "Je",
+        "formal": "U"
+      },
+      "response-length-label": "Lengte van antwoorden",
+      "response-length": {
+        "short": "Kort",
+        "normal": "Normaal",
+        "long": "Lang"
+      },
+      "custom-instructions-label": "Eigen instructies",
+      "custom-instructions-hint": "Optioneel. Bijvoorbeeld: antwoord met opsommingstekens. Je instructies gaan nooit boven de regels van de assistent.",
+      "characters": "{{count}} van {{max}} tekens",
+      "too-long": "Je instructies zijn te lang.",
+      "save": "Voorkeuren opslaan",
+      "saving": "Je voorkeuren worden opgeslagen",
+      "saved": "Je voorkeuren zijn opgeslagen.",
+      "back": "Terug naar het gesprek",
+      "loading": "Je voorkeuren laden",
+      "load-failed": "Je voorkeuren konden niet worden geladen.",
+      "retry": "Opnieuw proberen"
     }
   }
 }

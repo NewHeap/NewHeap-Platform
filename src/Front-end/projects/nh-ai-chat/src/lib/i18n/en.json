@@ -19,7 +19,9 @@
       "empty-description": "Ask a question or describe a task. Actions that change data always ask for your approval first.",
       "conversation-closed": "This conversation cannot continue. Start a new conversation.",
       "dismiss-error": "Dismiss message",
-      "usage": "{{inputTokens}} input tokens, {{outputTokens}} output tokens, {{toolCalls}} tool calls"
+      "usage": "{{inputTokens}} input tokens, {{outputTokens}} output tokens, {{toolCalls}} tool calls",
+      "open-preferences": "Your assistant preferences",
+      "open-admin": "Assistant administration"
     },
     "agent-picker": {
       "label": "Agent",
@@ -109,7 +111,51 @@
       "assistant-conversation-busy": "The assistant is still busy with this conversation. Try again in a moment.",
       "assistant-invalid-response": "The assistant sent an unexpected response.",
       "assistant-stream-interrupted": "The connection to the assistant was interrupted.",
-      "assistant-server": "The assistant could not complete the request."
+      "assistant-server": "The assistant could not complete the request.",
+      "assistant-validation": "Some values are not valid. Check the fields and try again.",
+      "assistant-version-conflict": "Someone else changed this in the meantime. Reload and apply your change again.",
+      "assistant-mcp-unreachable": "The MCP server cannot be reached.",
+      "assistant-mcp-unauthorized": "The MCP server rejected the credentials.",
+      "assistant-mcp-host-blocked": "This host is not allowed for MCP servers or for forwarding the user's token.",
+      "assistant-mcp-schema-changed": "The tool's input changed on the server. Review it and enable it again.",
+      "assistant-mcp-tool-disabled": "This tool is disabled."
+    },
+    "preferences": {
+      "title": "Your preferences",
+      "description": "Choose how the assistant answers you. Preferences change the style only; they never change what the assistant may do or which actions need your approval.",
+      "style-label": "Style",
+      "style": {
+        "default": "Standard",
+        "default-description": "Balanced answers.",
+        "direct": "Straight to the point",
+        "direct-description": "Short, factual answers without small talk.",
+        "personal": "Personal",
+        "personal-description": "A friendly, conversational tone.",
+        "detailed": "Detailed",
+        "detailed-description": "Thorough answers with background and explanation."
+      },
+      "address-form-label": "Form of address",
+      "address-form": {
+        "informal": "Informal",
+        "formal": "Formal"
+      },
+      "response-length-label": "Answer length",
+      "response-length": {
+        "short": "Short",
+        "normal": "Normal",
+        "long": "Long"
+      },
+      "custom-instructions-label": "Your own instructions",
+      "custom-instructions-hint": "Optional. For example: answer with bullet points. Your instructions never override the assistant's rules.",
+      "characters": "{{count}} of {{max}} characters",
+      "too-long": "Your instructions are too long.",
+      "save": "Save preferences",
+      "saving": "Saving your preferences",
+      "saved": "Your preferences are saved.",
+      "back": "Back to the conversation",
+      "loading": "Loading your preferences",
+      "load-failed": "Your preferences could not be loaded.",
+      "retry": "Try again"
     }
   }
 }

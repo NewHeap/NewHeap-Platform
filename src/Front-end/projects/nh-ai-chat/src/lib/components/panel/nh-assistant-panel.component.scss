@@ -62,6 +62,8 @@ h2 {
 .icon-button {
   @include tokens.icon-button;
 
+  text-decoration: none;
+
   &.active {
     color: var(--nha-highlight);
     background: var(--nha-surface-strong);
@@ -82,7 +84,7 @@ h2 {
   min-height: 0;
 }
 
-.conversations {
+.overlay-view {
   position: absolute;
   z-index: 1;
   inset: 0;
