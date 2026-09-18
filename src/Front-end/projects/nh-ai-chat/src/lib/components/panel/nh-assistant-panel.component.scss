@@ -156,6 +156,39 @@ h2 {
   padding: 12px 16px 14px;
 }
 
+.context-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin: 0 0 8px;
+  border: 1px solid var(--nha-border);
+  border-radius: 999px;
+  padding: 2px 2px 2px 10px;
+  width: fit-content;
+  color: var(--nha-text-muted);
+  background: var(--nha-surface);
+  font-size: 12px;
+
+  &.excluded .context-text {
+    text-decoration: line-through;
+  }
+}
+
+.context-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icon-button.small {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+}
+
 .notice {
   margin: 0 0 8px;
   color: var(--nha-text-muted);

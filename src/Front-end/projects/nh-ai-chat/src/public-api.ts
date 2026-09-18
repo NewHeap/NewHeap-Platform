@@ -12,6 +12,7 @@ export { NhAssistantStatusCodes } from './lib/services/nh-assistant-transport';
 export * from './lib/services/nh-assistant-api.service';
 export * from './lib/services/nh-assistant-admin-api.service';
 export * from './lib/services/nh-assistant-reducer';
+export * from './lib/services/nh-assistant-page-context';
 export * from './lib/services/nh-assistant.store';
 export * from './lib/services/nh-assistant-panel.service';
 export { NH_ASSISTANT_ICONS, NhAssistantIconName } from './lib/internal/nh-assistant-icon.component';

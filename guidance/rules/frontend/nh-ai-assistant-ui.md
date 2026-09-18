@@ -5,7 +5,7 @@ area: frontend
 reference: ai-assistant-ui
 summary: "Register the assistant once with the host's token and access policy, place the launcher and one panel in the layout, route to the lazily loaded administration page behind the admin permission, and test against the scripted mock API instead of a live model."
 sample-cases: ["SPM-248", "SPM-253"]
-public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantAdminComponent", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend"]
+public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantAdminComponent", "NhAssistantClientContext", "normalizeNhAssistantClientContext", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend"]
 skills: ["newheap-frontend-development"]
 providers: ["frontend"]
 risk: high
@@ -22,6 +22,16 @@ the host's existing auth service through `inject(...)`. Base the access policy o
 the same permission the API enforces (for example `app.assistant.access`) and
 return an observable when the signed-in user can change, so the launcher follows
 sign-in and sign-out.
+
+Pass `getPageContext` when pages can say what the user has open. It runs in the
+assistant's injection context when the panel opens and before every message and
+returns `{ route, title?, entities? }`, for example the project a detail page shows.
+Keep a small root service that entity pages set while they are active and clear on
+destroy, and fall back to the route and title. The library validates and truncates
+the result to the contract limits, and a failing getter only leaves the context out.
+The panel shows what it sends in a chip above the message box; the user can leave it
+out of the next message, which sends `null`. Page context is untrusted data for the
+model: entity ids are search hints and never replace authorization.
 
 Place `<nh-assistant-launcher />` in the header and exactly one
 `<nh-assistant-panel />` in the application layout. Other components open the
@@ -78,6 +88,10 @@ the administration route under the same parent to share that scope.
   the pending approval.
 - Replacing library translations wholesale in the host files; override single
   keys only.
+- Putting permissions, tokens, personal data or free text from forms into the page
+  context, or treating it as authorization; send route, title and entity references
+  only.
+- Hiding the page-context chip or sending page context the user cannot see.
 - Importing `NhAssistantAdminComponent` in an eagerly loaded module or showing the
   administration link from a host permission check alone.
 - Displaying, logging or prefilling an MCP server secret. Omit `secret` to keep it,
@@ -100,8 +114,12 @@ event fields. The preference tests save, validate the 1,000-character limit and 
 failures; the administration tests save context versions and report conflicts,
 create, disable, reset and delete agents after confirmation, never render a stored
 secret and send it only on replace or clear, keep synced MCP tools disabled as
-changes, show remote hints as hints and warn after a remote schema change. In the
+changes, show remote hints as hints and warn after a remote schema change. The
+page-context tests send the getter result read in the injection context, truncate
+long fields, keep sending when the getter throws, and send `null` after the user
+removes the chip. In the
 host, open the assistant playground and walk through a new conversation, a
 streamed answer, a tool call, approve, reject, stop, an error, an agent switch,
-the preferences and the administration tabs at desktop and mobile width in light
+the page-context chip on a simulated project page, the preferences and the
+administration tabs at desktop and mobile width in light
 and dark mode. SPM-248 and SPM-253 are the executable references.

@@ -78,6 +78,7 @@ export const appConfig: ApplicationConfig = {
 | `accessPolicy` | always allowed | Injectable class whose `canUse()` returns a boolean or an observable. |
 | `defaultAgentId` | first agent | Agent selected for new conversations. |
 | `translations` | `'bundled'` | `'bundled'` merges the library's `en` and `nl` texts into `TranslateService`; `'host'` leaves all texts to the host. |
+| `getPageContext` | none | Returns what the user has open (`{ route, title?, entities? }`). Runs in the assistant's injection context when the panel opens and before every message; see [Page context](#page-context). |
 | `adminRoute` | none | Router link of the host's administration page. The panel links to it only when the server reports `canAdminister`. |
 | `markdown` | `{ enabled: true }` | Renders assistant text as sanitized Markdown; `false` shows plain text. |
 
@@ -123,6 +124,33 @@ Assistant text is rendered as Markdown with `marked` and sanitized with DOMPurif
 against a small allow-list. Inline HTML in model text is shown as text, images
 render as their alt text, `javascript:` and `data:` links lose their target, and
 links open in a new tab with `rel="noopener noreferrer"`.
+
+## Page context
+
+With `getPageContext` every message carries what the user has open, so the model can
+answer "this project" without asking:
+
+```typescript
+getPageContext: () => inject(CurrentPage).value() ?? { route: inject(Router).url, title: inject(Title).getTitle() }
+```
+
+```typescript
+// On a project page
+this.currentPage.set({
+  route: `/projects/${project.key}`,
+  title: project.name,
+  entities: [{ type: 'project', id: project.key, label: `Project ${project.key}` }]
+});
+```
+
+The library validates and truncates the result: route at most 200 characters, title
+and labels at most 120, at most five entities with a dash-case `type` and an `id` of
+at most 64 characters. Entities with an invalid type or id are dropped rather than
+truncated. An invalid shape, an exception or a rejected promise leaves the context out
+of that message; sending continues. A chip above the message box shows what is sent;
+its close button leaves the context out of the next message, which then sends
+`clientContext: null`. Page context is untrusted data: the server treats entity ids as
+search hints and still authorizes every tool call.
 
 ## Preferences
 

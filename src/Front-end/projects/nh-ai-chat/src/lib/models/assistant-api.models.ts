@@ -97,10 +97,38 @@ export interface CreateConversationRequest {
   title?: string;
 }
 
+/** An entity the user has open, for example `{ type: 'project', id: 'AA09027', label: 'Project AA09027' }`. */
+export interface ClientContextEntity {
+  /** Dash-case, for example `order-group`. */
+  type: string;
+  /** At most 64 characters. */
+  id: string;
+  /** At most 120 characters. */
+  label?: string | null;
+}
+
+/**
+ * What the user has open when sending a message. Untrusted page data for the model:
+ * entity ids are search hints only and never grant access.
+ */
+export interface ClientContext {
+  /** For example `/order-group/123`; at most 200 characters. */
+  route: string;
+  /** Page title; at most 120 characters. */
+  title?: string | null;
+  /** At most 5 entities. */
+  entities?: ClientContextEntity[];
+}
+
+/** Library name of the contract's `ClientContext`. */
+export type NhAssistantClientContext = ClientContext;
+
 /** Body of `POST conversations/{id}/messages`. */
 export interface SendMessageRequest {
   text: string;
   clientMessageId: string;
+  /** Page context of this message; `null` when the user left it out. */
+  clientContext?: ClientContext | null;
 }
 
 export type ApprovalDecision = 'approve' | 'reject';

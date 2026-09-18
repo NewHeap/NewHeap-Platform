@@ -1,5 +1,6 @@
 import { InjectionToken, Type } from '@angular/core';
 import { Observable } from 'rxjs';
+import { ClientContext } from './models/assistant-api.models';
 
 /** Decides whether the current user may see and use the assistant. */
 export interface NhAssistantAccessPolicy {
@@ -15,6 +16,13 @@ export interface NhAssistantConfig {
    * `inject(...)`, for example `() => inject(MyAuthService).getAuthorization()?.token ?? null`.
    */
   getAccessToken: () => string | null | Promise<string | null>;
+  /**
+   * Returns what the user has open, sent with each message as untrusted page context.
+   * Runs in the assistant's injection context when the panel opens and before every
+   * message, like `getAccessToken`. The library validates and truncates the result; a
+   * failing getter or an invalid shape only leaves the context out. Default: none.
+   */
+  getPageContext?: () => ClientContext | null | Promise<ClientContext | null>;
   /** Injectable access policy. Default: always allowed. */
   accessPolicy?: Type<NhAssistantAccessPolicy>;
   /** Agent selected when the user has not chosen one. Default: the first agent the server lists. */

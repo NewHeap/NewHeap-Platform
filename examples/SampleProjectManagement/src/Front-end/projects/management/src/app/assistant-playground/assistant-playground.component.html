@@ -69,6 +69,28 @@
       }
     </section>
 
+    <section class="panel" aria-labelledby="assistant-page-title">
+      <h3 id="assistant-page-title">{{ 'project.assistant-page-title' | translate }}</h3>
+      <p class="hint">{{ 'project.assistant-page-description' | translate }}</p>
+      <div class="actions">
+        @for (page of projectPages; track page.route) {
+          <button type="button" [attr.aria-pressed]="pageContext.value()?.route === page.route" (click)="openProjectPage(page)">
+            <i class="ph ph-folder-open" aria-hidden="true"></i>{{ page.title }}
+          </button>
+        }
+        <button type="button" [disabled]="!pageContext.value()" (click)="closeProjectPage()">
+          <i class="ph ph-x" aria-hidden="true"></i>{{ 'project.assistant-page-close' | translate }}
+        </button>
+      </div>
+      <p class="hint" role="status">
+        @if (pageContext.value(); as page) {
+          {{ 'project.assistant-page-current' | translate: { page: page.entities?.[0]?.label ?? page.route } }}
+        } @else {
+          {{ 'project.assistant-page-none' | translate }}
+        }
+      </p>
+    </section>
+
     <section class="panel" aria-labelledby="assistant-prompts-title">
       <h3 id="assistant-prompts-title">{{ 'project.assistant-prompts-title' | translate }}</h3>
       <p class="hint">{{ 'project.assistant-prompts-description' | translate }}</p>

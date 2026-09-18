@@ -65,3 +65,4 @@ administration page in `@newheap/platform-ai-chat/admin` and a scripted mock API
 |---|---|
 | Peer dependencies: Angular 20.3 (`common`, `core`, `router`), `@angular/cdk` 20.2, `@ngx-translate/core` 17, `marked` 18, `dompurify` 3.4. | Install the peers. |
 | The panel is a CDK overlay. | Load `@angular/cdk/overlay-prebuilt.css` in the host. |
+| Messages can carry page context: `NhAssistantConfig.getPageContext` returns `NhAssistantClientContext` (`route`, `title`, `entities`), sent as `clientContext` and truncated to the contract limits; a chip above the message box shows it and lets the user leave it out of the next message. | Optional: provide `getPageContext` from a service that entity pages set and clear. |

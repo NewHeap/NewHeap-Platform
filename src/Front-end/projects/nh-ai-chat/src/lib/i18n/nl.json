@@ -365,6 +365,12 @@
         "save": "Tool opslaan",
         "back": "Terug naar de servers"
       }
+    },
+    "page-context": {
+      "included": "Wordt meegestuurd: {{page}}",
+      "excluded": "Niet meegestuurd bij dit bericht: {{page}}",
+      "exclude": "{{page}} niet meesturen met dit bericht",
+      "include": "{{page}} toch meesturen met dit bericht"
     }
   }
 }

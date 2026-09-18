@@ -1,6 +1,7 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
+  ClientContext,
   NhAssistantLauncherComponent,
   NhAssistantPanelComponent,
   NhAssistantPanelService,
@@ -14,8 +15,10 @@ import {
   ASSISTANT_PLAYGROUND_ADMIN_ROUTE,
   ASSISTANT_PLAYGROUND_PROMPTS,
   PLAYGROUND_CHANGED_REMOTE_TOOLS,
+  PLAYGROUND_PROJECT_PAGES,
   PLAYGROUND_MCP_SERVER_ID
 } from './assistant-playground.scenario';
+import { SampleAssistantPageContext } from './sample-assistant.config';
 
 /**
  * Executable evidence for the assistant panel: a scripted mock API, the feature flag and
@@ -39,6 +42,24 @@ export class AssistantPlaygroundComponent {
   readonly adminGranted = this.backend.canAdminister;
   readonly adminRoute = ASSISTANT_PLAYGROUND_ADMIN_ROUTE;
   readonly schemaChangeSimulated = signal(false);
+  readonly projectPages = PLAYGROUND_PROJECT_PAGES;
+  readonly pageContext = inject(SampleAssistantPageContext);
+
+  constructor() {
+    // Leaving the page closes the simulated project page, as a real page would on destroy.
+    inject(DestroyRef).onDestroy(() => this.pageContext.clear());
+  }
+
+  /** Simulates opening a project page: the next message sends this project as page context. */
+  openProjectPage(page: ClientContext): void {
+    this.pageContext.set(page);
+    void this.store.refreshPageContext();
+  }
+
+  closeProjectPage(): void {
+    this.pageContext.clear();
+    void this.store.refreshPageContext();
+  }
   readonly accessGranted = toSignal(this.access.granted, { initialValue: true });
   readonly conversationStatus = computed(() => this.store.activeConversation()?.status ?? null);
 

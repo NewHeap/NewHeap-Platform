@@ -23419,6 +23419,8 @@
       "NhAssistantPanelComponent",
       "NhAssistantPreferencesComponent",
       "NhAssistantAdminComponent",
+      "NhAssistantClientContext",
+      "normalizeNhAssistantClientContext",
       "NH_ASSISTANT_ICONS",
       "NH_ASSISTANT_TRANSLATIONS",
       "provideNhAssistantMockApi",

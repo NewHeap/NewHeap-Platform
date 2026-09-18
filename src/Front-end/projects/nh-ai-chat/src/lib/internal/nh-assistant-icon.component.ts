@@ -18,7 +18,8 @@ export type NhAssistantIconName =
   | 'admin'
   | 'edit'
   | 'refresh'
-  | 'link';
+  | 'link'
+  | 'page';
 
 /**
  * Optional icon classes of the host's icon library, for example `{ close: 'ph ph-x' }`.
@@ -44,7 +45,8 @@ const builtInPaths: Record<NhAssistantIconName, string> = {
   admin: 'M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6zM9.5 12l2 2 3.5-3.5',
   edit: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
   refresh: 'M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4',
-  link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1'
+  link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1',
+  page: 'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6'
 };
 
 /** Decorative icon. The surrounding control provides the accessible name. */
