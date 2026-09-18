@@ -250,6 +250,7 @@ public sealed class AiBridgeSamplesTests
         {
             var catalog = services.GetRequiredService<NhAiMvcBridgeToolCatalog>();
             NhAiToolCatalogAttestation.Validate(catalog, services);
+            NhAiBridgeContractAssertions.AssertBoundedIdentifiers(catalog);
             Assert.Equal(catalog.AttestationHash, catalog.Manifest.SchemaHash);
 
             var exception = Assert.Throws<InvalidOperationException>(() =>
@@ -301,6 +302,7 @@ public sealed class AiBridgeSamplesTests
             var handler = new RecordingHandler();
             var services = new ServiceCollection();
             services.AddLogging();
+            services.AddLocalization();
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {

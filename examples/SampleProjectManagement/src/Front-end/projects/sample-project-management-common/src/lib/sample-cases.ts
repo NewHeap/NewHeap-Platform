@@ -3516,19 +3516,22 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-255",
     "title": "API bridge gateway over read-only resources",
     "category": "AI tools and generated catalogs",
-    "surface": "NhAiMvcBridgeBuilder.EnableGateway, NhAiMvcBridgeGatewayBuilder (UseGatewayToolSetId, IncludeReadOnlyOnly, UseResourceDescriber), INhAiBridgeConventions.DescribeQuery, INhAiBridgeConventions.IsCollectionAction, NhAiBridgeQueryDescription, INhAiBridgeResourceDescriber, the <set>.search-resources, .describe-resource, .query and .get tools and NhAiBridgeFailureCodes.ResourceNotFound",
-    "outcome": "Instead of one tool per action, the sample publishes four read-only gateway tools over the read-only project and project-task resources. A user searches only the resources whose actions the controllers' own policies allow, describes a resource with the filter, order and result fields derived from the `[Filterable]`, `[Orderable]` and `[Searchable]` view-model attributes, and queries or gets it. `query` and `get` run the underlying bridge descriptor through the shared invoker, so the gate, policies, budget, audit (with the underlying tool id) and the self-HTTP request are exactly those of the bridge tool; unknown filter or order keys fail as `api-bridge-validation` before the HTTP call, unknown and unauthorized resources fail identically as `ai-tool-not-found`, and mutations are never reachable through the gateway. The gateway tools live in the attested bridge catalog and are exported through MCP. A list endpoint that reads `page`, `itemsPerPage`, `search`, `orderBy` and `filter` from the query string itself (`GET projects/query-string`) becomes a `query` resource because the sample conventions recognize it through `IsCollectionAction`; the gateway then sends exactly the query string of the bridge tool in the NewHeap collection contract.",
+    "surface": "NhCollectionContractMetadata, INhAiBridgeCollectionContractProvider, NhAiNewHeapCollectionContractProvider, NhAiMvcBridgeBuilder.EnableGateway, NhAiMvcBridgeGatewayBuilder.UseLocalizedResourcePresentation, NhAiBridgeQueryDescription, the <set>.search-resources, .describe-resource, .query and .get tools and NhAiBridgeFailureCodes.ResourceNotFound",
+    "outcome": "Instead of one tool per action, the sample publishes four read-only gateway tools over the read-only project and project-task resources. Canonical `CollectionRequestModel`, `CollectionResultModel<T>` and `SimpleCollectionResultModel<T>` endpoints need no consumer conventions: NewHeap derives filter, order, search and result metadata from the same `[Filterable]`, `[Orderable]` and `[Searchable]` attributes and operator vocabulary used by collection processing. Resource identifiers remain invariant while localized titles and summaries come from consumer-owned resources with English fallbacks. Discovery reauthorizes controller policies and binds the supplied invocation context to the signed-in actor. `query` and `get` run the underlying bridge descriptor through the shared invoker, so gate, policies, budget, audit and self-HTTP remain unchanged; unsupported fields fail before HTTP, unknown and unauthorized resources remain indistinguishable, and mutations never enter the gateway. The query-string collection endpoint is recognized from its documented canonical result type and uses the same NewHeap wire contract without `SampleAiBridgeConventions`.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
-      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeConventions.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeResources.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeResources.en-US.resx",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeResources.nl-NL.resx",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiBridgeSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDiscoveryPolicy.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeGatewayTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeGatewayCollectionTests.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDefaultConventions.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeCollectionContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs"
     ]
   }
 ] as const;

@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json.Serialization;
 using NewHeap.Platform.AI.AspNet.Mvc.Tests.TestApi;
 using Xunit;
 
@@ -153,6 +155,51 @@ public sealed class NhAiMvcBridgeSchemaTests
         Assert.Equal("ACME", result.Data!.Body!.Value.GetProperty("body").GetString());
     }
 
+    [Fact]
+    public async Task Separate_body_serializer_receives_current_request_services()
+    {
+        using var factory = new BridgeApiFactory(
+            bridge =>
+            {
+                BridgeApiFactory.DefaultBridge(bridge);
+                bridge.UseBodySerializer<ScopedBodySerializer>();
+            },
+            services => services.AddScoped<BodySerializationMarker>());
+        var catalog = factory.Services.GetRequiredService<NhAiMvcBridgeToolCatalog>();
+        var descriptor = Descriptor(factory, "test-api.probe.echo-write");
+
+        var result = await factory.AsUserAsync(TestTokenHandler.Manager, services => services
+            .GetRequiredService<INhAiMvcBridgeExecutor>()
+            .ExecuteAsync(
+                Action(catalog, descriptor.Id),
+                descriptor,
+                JsonSerializer.SerializeToElement(new { body = new { customer = "acme" } }),
+                TestContexts.Create("key-1")));
+
+        Assert.True(result.Success);
+        Assert.Equal("ACME-scoped", result.Data!.Body!.Value.GetProperty("body").GetString());
+    }
+
+    [Fact]
+    public void Newtonsoft_body_serializer_uses_the_registered_mvc_contract_settings()
+    {
+        var services = new ServiceCollection();
+        services.AddOptions();
+        services.Configure<MvcNewtonsoftJsonOptions>(options =>
+            options.SerializerSettings.ContractResolver = new DefaultContractResolver
+            {
+                NamingStrategy = new SnakeCaseNamingStrategy()
+            });
+        using var provider = services.BuildServiceProvider();
+
+        var json = new NhAiMvcNewtonsoftJsonBodySerializer().Serialize(
+            new TestOrderInput { Customer = "acme", DeliverBy = DateTimeOffset.UnixEpoch },
+            provider);
+
+        Assert.Contains("\"deliver_by\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("deliverBy", json, StringComparison.Ordinal);
+    }
+
     private static string InputSchema(string id)
     {
         using var factory = new BridgeApiFactory();
@@ -179,6 +226,21 @@ public sealed class NhAiMvcBridgeSchemaTests
             var input = Assert.IsType<TestOrderInput>(body);
             input.Customer = input.Customer.ToUpperInvariant();
             return base.SerializeBody(input);
+        }
+    }
+
+    public sealed class BodySerializationMarker
+    {
+        public string Value => "scoped";
+    }
+
+    public sealed class ScopedBodySerializer : INhAiBridgeBodySerializer
+    {
+        public string Serialize(object body, IServiceProvider requestServices)
+        {
+            var input = Assert.IsType<TestOrderInput>(body);
+            var marker = requestServices.GetRequiredService<BodySerializationMarker>();
+            return JsonSerializer.Serialize(new { customer = input.Customer.ToUpperInvariant() + "-" + marker.Value });
         }
     }
 }

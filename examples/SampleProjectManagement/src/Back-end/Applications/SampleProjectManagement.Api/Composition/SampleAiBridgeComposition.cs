@@ -11,8 +11,8 @@ namespace SampleProjectManagement.Api.Composition;
 /// updates additionally need <c>app.project.manage</c> and always require approval and an
 /// idempotency key. DELETE actions are never published. The curated <c>projects.*</c> tools
 /// keep their own discovery policy as the inner policy. The gateway publishes four read-only
-/// tools (search, describe, query and get) over the read-only project resources, described
-/// from the view-model attributes by <see cref="SampleAiBridgeConventions"/>.
+/// tools (search, describe, query and get) over the read-only project resources. Canonical
+/// NewHeap collection metadata is derived by the bridge from the documented result model.
 /// </summary>
 public static class SampleAiBridgeComposition
 {
@@ -30,10 +30,25 @@ public static class SampleAiBridgeComposition
             .RequireExplicitPolicy(true)
             .EnableMcpExposure()
             .UseInnerDiscoveryPolicy<ProjectAiToolDiscoveryPolicy>()
-            .UseConventions<SampleAiBridgeConventions>()
             .EnableGateway(gateway => gateway
                 .UseGatewayToolSetId(GatewayToolSetId)
-                .IncludeReadOnlyOnly())
+                .IncludeReadOnlyOnly()
+                .UseLocalizedResourcePresentation<SampleAiBridgeResources>(presentation =>
+                {
+                    presentation.RequireLocalizedValues = false;
+                    presentation.Add(
+                        "project",
+                        "ProjectTitle",
+                        "ProjectSummary",
+                        "Projects",
+                        "Search and inspect projects available to the signed-in user.")
+                    .Add(
+                        "project-task",
+                        "ProjectTaskTitle",
+                        "ProjectTaskSummary",
+                        "Project tasks",
+                        "Search and inspect tasks within authorized projects.");
+                }))
             .WithToolDefaults(defaults =>
             {
                 defaults.MaxResultBytes = 65_536;

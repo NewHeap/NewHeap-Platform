@@ -110,7 +110,7 @@ public sealed class NhAiBridgeHttpRequest(string method, string path)
 
     public IList<KeyValuePair<string, string>> Query { get; } = new List<KeyValuePair<string, string>>();
 
-    /// <summary>The body object passed to <see cref="INhAiBridgeConventions.SerializeBody"/>; null sends no JSON body.</summary>
+    /// <summary>The body object passed to <see cref="INhAiBridgeBodySerializer"/>; null sends no JSON body.</summary>
     public object? Body { get; set; }
 
     public IList<KeyValuePair<string, string>> FormFields { get; } = new List<KeyValuePair<string, string>>();

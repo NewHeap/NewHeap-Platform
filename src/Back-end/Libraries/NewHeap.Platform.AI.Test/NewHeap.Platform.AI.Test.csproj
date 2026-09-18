@@ -15,5 +15,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.AI.Evaluation" />
     <ProjectReference Include="..\NewHeap.Platform.AI.Common\NewHeap.Platform.AI.Common.csproj" />
+    <ProjectReference Include="..\NewHeap.Platform.AI.AspNet.Mvc\NewHeap.Platform.AI.AspNet.Mvc.csproj" />
   </ItemGroup>
 </Project>

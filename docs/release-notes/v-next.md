@@ -13,6 +13,25 @@ as the calling user.
 | `EnableGateway` adds the read-only gateway tools `search-resources`, `describe-resource`, `query` and `get` over the read-only bridge actions per resource; `INhAiBridgeConventions` gains `DescribeQuery` with a default implementation that describes no fields. | No action; override `DescribeQuery` to have filter and order keys validated before the HTTP call. |
 | Bridge tools share the governed-function argument handling: flat arguments run once, a mixed `input` shape returns `ai-tool-input-invalid` before any HTTP call, and unknown flat properties still fail as `api-bridge-validation`. | No action. |
 | `INhAiBridgeConventions` gains `IsCollectionAction` (default: the action binds a NewHeap collection request model); the gateway uses it to choose between `query` and `get`, and for recognized actions without a model the default conventions add the collection fragment to the input schema and query string. | No action; override `IsCollectionAction` for list endpoints that read `page`, `itemsPerPage`, `search`, `orderBy` and `filter` from the query string themselves. |
+| Canonical NewHeap collection request/result endpoints now publish collection fields and query encoding without custom conventions; legacy contracts can register `INhAiBridgeCollectionContractProvider`. | Remove duplicated collection reflection/operator mappings and register only a narrow provider when the wire contract differs. |
+| Body serialization is selectable through `INhAiBridgeBodySerializer`; the optional `NhAiMvcNewtonsoftJsonBodySerializer` uses the current MVC Newtonsoft settings. | Use `UseBodySerializer<NhAiMvcNewtonsoftJsonBodySerializer>()` instead of replacing all bridge conventions. |
+| Generated export names longer than 64 characters are deterministically compacted and remain mapped in the manifest. | Remove consumer-specific export-name compaction; existing valid names remain unchanged. |
+| Discovery now rejects an invocation context whose actor/accountable owner does not match the signed-in principal. | Pass the context built for the current authenticated principal; do not reuse another actor's context. |
+| Trusted query bindings and localized gateway resource presentation are composable bridge options. | Resolve trusted values from invocation scope and keep resource ids invariant while moving presentation text to consumer resources. |
+
+## NewHeap.Platform.Common
+
+`NhCollectionContractMetadata` exposes canonical filter, order, search and result
+metadata and is the single operator vocabulary used by collection validation and
+AI bridge description.
+
+## NewHeap.Platform.AI.Common and NewHeap.Platform.AI.AspNet.Common
+
+`NhAiInMemoryBudgetManager` provides bounded process-local per-actor budgets for
+samples and local/internal deployments; its state is explicitly non-durable.
+Authenticated ASP.NET context projection now supports explicit tenantless and
+single-tenant modes, and configured capability mappings can combine repeated
+permission claims while authority claims continue to reject duplicates.
 
 ## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql, NewHeap.Platform.AI.Chat.AspNet (new packages)
 

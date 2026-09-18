@@ -44,7 +44,6 @@ internal sealed class NhAiMvcBridgeCatalogBuilder(
         + "\"hint\":{\"type\":\"string\"}},"
         + "\"required\":[\"status\",\"truncated\",\"bodyBytes\"]}";
 
-    private const int MaxExportNameLength = 64;
     private static readonly string[] SupportedMethods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
     public NhAiMvcBridgeCatalogModel Build(IApiDescriptionGroupCollectionProvider apiDescriptions)
@@ -75,19 +74,14 @@ internal sealed class NhAiMvcBridgeCatalogBuilder(
                     $"API bridge tool id '{id}' is produced by both '{Describe(existing)}' and '{Describe(action)}'. Exclude one action or rename it.");
             }
 
-            var exportName = toolSetId + "_" + toolId.Replace('.', '_') + "_v"
-                + options.ContractVersion.ToString(CultureInfo.InvariantCulture);
+            var exportName = NhAiMvcBridgeNames.ToBoundedExportName(
+                toolSetId + "_" + toolId.Replace('.', '_') + "_v"
+                + options.ContractVersion.ToString(CultureInfo.InvariantCulture));
             if (exportNames.TryGetValue(exportName, out var exportConflict))
             {
                 throw new InvalidOperationException(
                     $"API bridge export name '{exportName}' is produced by both '{Describe(exportConflict)}' and '{Describe(action)}'. Exclude one action or rename it.");
             }
-            if (exportName.Length > MaxExportNameLength)
-            {
-                throw new InvalidOperationException(
-                    $"API bridge export name '{exportName}' for '{Describe(action)}' exceeds {MaxExportNameLength} characters. Use a shorter tool set id or exclude the action.");
-            }
-
             actionsById.Add(id, action);
             exportNames.Add(exportName, action);
             descriptors.Add(CreateDescriptor(action, id, exportName));

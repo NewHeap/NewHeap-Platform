@@ -2,6 +2,8 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NewHeap.Platform.Common.Attributes;
+using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI.AspNet.Mvc.Tests.TestApi;
 
@@ -56,6 +58,11 @@ public sealed class TestOrderInput
 }
 
 public sealed record TestOrder(int Id, string Customer, TestOrderStatus Status);
+
+public sealed record TestCanonicalOrder(
+    [property: Filterable, Orderable] int Id,
+    [property: Filterable, Searchable, Orderable] string Customer,
+    [property: Filterable] TestOrderStatus Status);
 
 public sealed record TestEcho(
     string? Authorization,
@@ -316,7 +323,7 @@ public sealed class LegacyOrderController : ControllerBase
         var query = Request.Query;
         return Ok(new[]
         {
-            new TestOrder(1, $"{criteria.Region}|{query["page"]}|{query["itemsPerPage"]}|{query["search"]}", TestOrderStatus.Draft)
+            new TestOrder(1, $"{criteria.Region}|{query["legacyPage"]}|{query["legacyItemsPerPage"]}|{query["legacySearch"]}", TestOrderStatus.Draft)
         });
     }
 
@@ -324,6 +331,22 @@ public sealed class LegacyOrderController : ControllerBase
     public ActionResult<TestOrder> Get(int id)
     {
         return Ok(new TestOrder(id, "legacy-" + id, TestOrderStatus.Draft));
+    }
+}
+
+/// <summary>A canonical NewHeap collection endpoint that needs no AI bridge conventions.</summary>
+[ApiController]
+[Route("canonical-orders")]
+[Authorize(Policy = TestPolicies.OrderView)]
+public sealed class CanonicalOrderController : ControllerBase
+{
+    [HttpGet]
+    [ProducesResponseType<CollectionResultModel<TestCanonicalOrder>>(StatusCodes.Status200OK)]
+    public ActionResult<CollectionResultModel<TestCanonicalOrder>> Get([FromQuery] CollectionRequestModel request)
+    {
+        return Ok(CollectionResultModel<TestCanonicalOrder>.Create(
+            [new TestCanonicalOrder(1, "canonical", TestOrderStatus.Draft)],
+            request));
     }
 }
 

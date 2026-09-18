@@ -94,13 +94,28 @@ public sealed class NhAiMvcBridgeDiscoveryTests
         Assert.Contains("UseInnerDiscoveryPolicy", exception.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Discovery_rejects_a_context_bound_to_a_different_actor()
+    {
+        using var factory = new BridgeApiFactory();
+
+        var tools = await factory.AsUserAsync(TestTokenHandler.Viewer, async services =>
+            await services.GetRequiredService<INhAiToolDiscoveryService>().DiscoverAsync(
+                new NhAiToolDiscoveryRequest(
+                    new NhAiInvocationContext("someone-else", "assistant", new Dictionary<string, string>()),
+                    NhAiToolExposure.Agent)));
+
+        Assert.Empty(tools);
+    }
+
     private static Task<string[]> DiscoverAsync(BridgeApiFactory factory, string token)
     {
+        var actorId = token.Split(':')[1];
         return factory.AsUserAsync(token, async services =>
         {
             var descriptors = await services.GetRequiredService<INhAiToolDiscoveryService>().DiscoverAsync(
                 new NhAiToolDiscoveryRequest(
-                    new NhAiInvocationContext("actor", "assistant", new Dictionary<string, string>()),
+                    new NhAiInvocationContext(actorId, "assistant", new Dictionary<string, string>()),
                     NhAiToolExposure.Agent));
             return descriptors.Select(descriptor => descriptor.Id).ToArray();
         });

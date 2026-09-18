@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -167,6 +169,41 @@ public sealed class NhAiMvcBridgeBuilder
     }
 
     /// <summary>
+    /// Adds a composable collection contract provider. Providers registered here run before the
+    /// built-in canonical NewHeap provider and can recognize or encode legacy collection APIs.
+    /// </summary>
+    public NhAiMvcBridgeBuilder AddCollectionContractProvider<TProvider>()
+        where TProvider : class, INhAiBridgeCollectionContractProvider
+    {
+        _services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<INhAiBridgeCollectionContractProvider, TProvider>());
+        return this;
+    }
+
+    /// <summary>
+    /// Replaces request-body serialization without replacing action, collection or identifier
+    /// conventions. The serializer is resolved per invocation and receives request services.
+    /// </summary>
+    public NhAiMvcBridgeBuilder UseBodySerializer<TSerializer>()
+        where TSerializer : class, INhAiBridgeBodySerializer
+    {
+        _services.Replace(ServiceDescriptor.Scoped<INhAiBridgeBodySerializer, TSerializer>());
+        return this;
+    }
+
+    /// <summary>
+    /// Adds trusted query bindings derived from the authorized invocation context. Registered
+    /// bindings overwrite model-supplied values and fail closed when their scope value is absent.
+    /// </summary>
+    public NhAiMvcBridgeBuilder AddTrustedQueryBindingProvider<TProvider>()
+        where TProvider : class, INhAiBridgeTrustedQueryBindingProvider
+    {
+        _services.TryAddEnumerable(
+            ServiceDescriptor.Scoped<INhAiBridgeTrustedQueryBindingProvider, TProvider>());
+        return this;
+    }
+
+    /// <summary>
     /// The discovery policy for every descriptor that is not a bridge descriptor. Without it,
     /// non-bridge tools are not discoverable.
     /// </summary>
@@ -254,6 +291,8 @@ internal sealed record NhAiMvcBridgeRuntimeSettings(string? SelfBaseUrl, bool En
 
 internal static class NhAiMvcBridgeNames
 {
+    public const int MaxExportNameLength = 64;
+
     public static bool IsSegment(string? value)
     {
         return !string.IsNullOrWhiteSpace(value)
@@ -320,6 +359,24 @@ internal static class NhAiMvcBridgeNames
             builder.Length--;
         }
         return builder.ToString();
+    }
+
+    /// <summary>
+    /// Keeps valid existing export names unchanged and deterministically compacts longer names
+    /// to a readable prefix plus a collision-resistant hash suffix.
+    /// </summary>
+    public static string ToBoundedExportName(string value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+        if (value.Length <= MaxExportNameLength)
+        {
+            return value;
+        }
+
+        var suffix = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)))[..12];
+        var prefixLength = MaxExportNameLength - suffix.Length - 1;
+        var prefix = value[..prefixLength].TrimEnd('_', '-');
+        return prefix + "_" + suffix;
     }
 
     private static void AppendSeparator(System.Text.StringBuilder builder)

@@ -40,7 +40,8 @@ public interface INhAiBridgeConventions
     /// <summary>
     /// Describes the filter, search, order and result fields of a read-only action for the
     /// bridge gateway. Described filter and order keys are enforced before the HTTP call;
-    /// the default describes no fields, so nothing is enforced.
+    /// the interface default describes no fields, so nothing is enforced. The built-in MVC
+    /// conventions publish metadata for the canonical NewHeap collection contract.
     /// </summary>
     NhAiBridgeQueryDescription DescribeQuery(NhAiBridgeActionInfo action)
     {
@@ -50,8 +51,9 @@ public interface INhAiBridgeConventions
     /// <summary>
     /// Whether the action is a paged collection that accepts <c>page</c>, <c>itemsPerPage</c>,
     /// <c>search</c>, <c>orderBy</c> and <c>filter</c>. The gateway offers such actions as
-    /// <c>query</c>. The default recognizes actions that bind a NewHeap collection request model;
-    /// override it for actions that read the collection values from the query string themselves.
+    /// <c>query</c>. The interface default recognizes actions that bind a NewHeap collection
+    /// request model. The built-in MVC conventions additionally recognize registered collection
+    /// contracts, including the canonical NewHeap result contract.
     /// </summary>
     bool IsCollectionAction(NhAiBridgeActionInfo action)
     {
@@ -63,12 +65,14 @@ public interface INhAiBridgeConventions
 /// <summary>
 /// The default bridge conventions. Collection actions use the NewHeap query contract:
 /// <c>page</c>, <c>itemsPerPage</c> and <c>search</c> as query values and <c>orderBy</c> and
-/// <c>filter</c> as JSON arrays. Derive from this class to change individual decisions, for
-/// example the collection encoding or the body serializer.
+/// <c>filter</c> as JSON arrays. Register an <see cref="INhAiBridgeCollectionContractProvider"/>
+/// to add another collection contract and an <see cref="INhAiBridgeBodySerializer"/> to align
+/// request bodies with the host MVC serialization settings.
 /// </summary>
 public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
 {
     private static readonly string[] CollectionPropertyNames = ["Page", "ItemsPerPage", "OrderBy", "Filter", "Search"];
+    private readonly IReadOnlyList<INhAiBridgeCollectionContractProvider> _collectionContractProviders;
     private static readonly Regex RouteParameterPattern = new(
         @"\{\*{0,2}(?<name>[^}:=?]+)(?<rest>[^}]*)\}",
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
@@ -84,6 +88,18 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
     {
         TypeInfoResolver = new DefaultJsonTypeInfoResolver()
     };
+
+    public NhAiMvcBridgeDefaultConventions()
+        : this([new NhAiNewHeapCollectionContractProvider()])
+    {
+    }
+
+    public NhAiMvcBridgeDefaultConventions(
+        IEnumerable<INhAiBridgeCollectionContractProvider> collectionContractProviders)
+    {
+        ArgumentNullException.ThrowIfNull(collectionContractProviders);
+        _collectionContractProviders = collectionContractProviders.ToArray();
+    }
 
     /// <summary>
     /// Returns <see langword="true"/> for a type with the NewHeap collection request properties
@@ -141,10 +157,11 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
         var properties = new JsonObject();
         var required = new JsonArray();
         var queryStringCollection = UsesQueryStringCollection(action);
+        var queryDescription = DescribeQuery(action);
         if (queryStringCollection)
         {
             // The action reads the collection values from the query string itself.
-            foreach (var property in CreateCollectionSchemaProperties())
+            foreach (var property in CreateCollectionSchemaProperties(queryDescription))
             {
                 properties[property.Key] = property.Value;
             }
@@ -158,7 +175,7 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
             }
             if (parameter.IsCollectionRequest)
             {
-                foreach (var property in CreateCollectionSchemaProperties())
+                foreach (var property in CreateCollectionSchemaProperties(queryDescription))
                 {
                     properties[property.Key] = property.Value;
                 }
@@ -224,7 +241,7 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
             switch (parameter.Source)
             {
                 case NhAiBridgeParameterSource.Query when parameter.IsCollectionRequest:
-                    AppendCollectionQuery(request, input);
+                    AppendCollectionQuery(action, request, input);
                     break;
                 case NhAiBridgeParameterSource.Query:
                     AppendValues(request.Query, parameter, input);
@@ -242,30 +259,34 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
         }
         if (queryStringCollection)
         {
-            AppendCollectionQuery(request, input);
+            AppendCollectionQuery(action, request, input);
         }
         return request;
     }
 
     /// <summary>
-    /// The default: an action that binds a NewHeap collection request model. Override for
-    /// actions that read <c>page</c>, <c>itemsPerPage</c>, <c>search</c>, <c>orderBy</c> and
-    /// <c>filter</c> from the query string themselves; the default input schema and request then
-    /// add the collection fragment in the NewHeap query contract.
+    /// Returns whether a registered collection-contract provider recognizes the action, or the
+    /// action binds a NewHeap collection request model. Register another provider for an API
+    /// contract with different request or result shapes.
     /// </summary>
     public virtual bool IsCollectionAction(NhAiBridgeActionInfo action)
     {
         ArgumentNullException.ThrowIfNull(action);
-        return action.Parameters.Any(parameter => parameter.IsCollectionRequest);
+        return TryDescribeCollection(action, out _)
+            || action.Parameters.Any(parameter => parameter.IsCollectionRequest);
     }
 
     /// <summary>
-    /// Describes no filter, order or result fields; a collection action is searchable. Override
-    /// to publish the fields the API accepts, for example from view-model attributes.
+    /// Uses the recognized collection contract to publish filter, order and result fields.
+    /// Unrecognized collection actions expose no fields and remain searchable.
     /// </summary>
     public virtual NhAiBridgeQueryDescription DescribeQuery(NhAiBridgeActionInfo action)
     {
         ArgumentNullException.ThrowIfNull(action);
+        if (TryDescribeCollection(action, out var contract))
+        {
+            return contract.Query;
+        }
         return NhAiBridgeQueryDescription.Empty with
         {
             Searchable = IsCollectionAction(action)
@@ -320,6 +341,19 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
         }
     }
 
+    private void AppendCollectionQuery(
+        NhAiBridgeActionInfo action,
+        NhAiBridgeHttpRequest request,
+        JsonElement input)
+    {
+        if (TryGetCollectionProvider(action, out var provider, out _)
+            && provider.TryEncodeQuery(action, input, request))
+        {
+            return;
+        }
+        AppendCollectionQuery(request, input);
+    }
+
     /// <summary>Creates the JSON schema of one parameter or body type with <see cref="JsonSchemaExporter"/>.</summary>
     protected virtual JsonNode CreateTypeSchema(Type type, string pointer)
     {
@@ -333,7 +367,8 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
         return schema;
     }
 
-    private static IEnumerable<KeyValuePair<string, JsonNode?>> CreateCollectionSchemaProperties()
+    private static IEnumerable<KeyValuePair<string, JsonNode?>> CreateCollectionSchemaProperties(
+        NhAiBridgeQueryDescription query)
     {
         yield return new("page", new JsonObject
         {
@@ -362,7 +397,7 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
                 ["type"] = "object",
                 ["properties"] = new JsonObject
                 {
-                    ["key"] = new JsonObject { ["type"] = "string" },
+                    ["key"] = CreateBoundedStringSchema(query.OrderFields),
                     ["direction"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("asc", "desc") }
                 },
                 ["required"] = new JsonArray("key"),
@@ -377,14 +412,26 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
                 ["type"] = "object",
                 ["properties"] = new JsonObject
                 {
-                    ["key"] = new JsonObject { ["type"] = "string" },
-                    ["operator"] = new JsonObject { ["type"] = "string" },
+                    ["key"] = CreateBoundedStringSchema(query.FilterFields.Select(field => field.Key)),
+                    ["operator"] = CreateBoundedStringSchema(
+                        query.FilterFields.SelectMany(field => field.Operators).Distinct(StringComparer.OrdinalIgnoreCase)),
                     ["value"] = new JsonObject { ["type"] = "string" }
                 },
                 ["required"] = new JsonArray("key", "operator"),
                 ["additionalProperties"] = false
             }
         });
+    }
+
+    private static JsonObject CreateBoundedStringSchema(IEnumerable<string> values)
+    {
+        var schema = new JsonObject { ["type"] = "string" };
+        var items = values.Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray();
+        if (items.Length > 0)
+        {
+            schema["enum"] = new JsonArray(items.Select(item => JsonValue.Create(item)).ToArray());
+        }
+        return schema;
     }
 
     private static JsonObject CreateFileSchema(Type parameterType)
@@ -411,6 +458,31 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
     {
         return !action.Parameters.Any(parameter => parameter.IsCollectionRequest)
             && IsCollectionAction(action);
+    }
+
+    private bool TryDescribeCollection(
+        NhAiBridgeActionInfo action,
+        out NhAiBridgeCollectionContract contract)
+    {
+        return TryGetCollectionProvider(action, out _, out contract);
+    }
+
+    private bool TryGetCollectionProvider(
+        NhAiBridgeActionInfo action,
+        out INhAiBridgeCollectionContractProvider provider,
+        out NhAiBridgeCollectionContract contract)
+    {
+        foreach (var candidate in _collectionContractProviders)
+        {
+            if (candidate.TryDescribe(action, out contract))
+            {
+                provider = candidate;
+                return true;
+            }
+        }
+        provider = null!;
+        contract = null!;
+        return false;
     }
 
     private static HashSet<string> KnownInputNames(NhAiBridgeActionInfo action, bool queryStringCollection)

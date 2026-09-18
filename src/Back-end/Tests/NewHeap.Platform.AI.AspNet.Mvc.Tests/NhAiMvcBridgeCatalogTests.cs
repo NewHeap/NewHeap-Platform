@@ -234,4 +234,30 @@ public sealed class NhAiMvcBridgeCatalogTests
 
         Assert.Contains("UseSelfBaseUrl", exception.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Long_export_names_are_deterministically_compacted_and_attested()
+    {
+        const string toolSetId = "this-is-a-deliberately-long-tool-set-id-that-needs-compaction";
+        static BridgeApiFactory Create() => new(bridge => bridge
+            .UseToolSetId(toolSetId)
+            .UseSelfBaseUrl("http://localhost/")
+            .IncludeControllers("Order")
+            .EnableGateway());
+
+        using var first = Create();
+        using var second = Create();
+        var firstCatalog = first.Services.GetRequiredService<NhAiMvcBridgeToolCatalog>();
+        var secondCatalog = second.Services.GetRequiredService<NhAiMvcBridgeToolCatalog>();
+        var descriptor = firstCatalog.Descriptors.Single(item => item.Id.EndsWith(".order.create", StringComparison.Ordinal));
+        var matching = secondCatalog.Descriptors.Single(item => item.Id == descriptor.Id);
+
+        Assert.InRange(descriptor.ExportName.Length, 1, 64);
+        Assert.Equal(descriptor.ExportName, matching.ExportName);
+        Assert.StartsWith("this-is-a-deliberately-long-tool-set-id", descriptor.ExportName, StringComparison.Ordinal);
+        Assert.Equal(
+            descriptor.ExportName,
+            firstCatalog.Manifest.Tools.Single(item => item.Id == descriptor.Id).ExportName);
+        Assert.All(firstCatalog.Descriptors, item => Assert.InRange(item.ExportName.Length, 1, 64));
+    }
 }

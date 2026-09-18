@@ -141,7 +141,6 @@ public sealed class NhAiAspNetContextTests
     [InlineData("iss")]
     [InlineData("sub")]
     [InlineData("tenant_id")]
-    [InlineData("scope")]
     public async Task Authenticated_resolver_rejects_duplicate_authority_claims(string duplicateClaimType)
     {
         var httpContext = CreateOidcHttpContext(
@@ -164,6 +163,66 @@ public sealed class NhAiAspNetContextTests
         Assert.Contains(
             result.GetResultItems(),
             item => item.Name == "ai-tool-claim-duplicate");
+    }
+
+    [Fact]
+    public async Task Authenticated_resolver_combines_repeated_capability_claims()
+    {
+        var httpContext = CreateOidcHttpContext(
+            "https://identity.example",
+            "subject-a",
+            "tenant-a",
+            "profile.read");
+        httpContext.User.Identities.Single().AddClaim(new Claim("scope", "orders.read"));
+        var services = CreateOidcServices(httpContext);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var result = await scope.ServiceProvider
+            .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>()
+            .ResolveAsync(httpContext);
+
+        Assert.True(result.Success);
+        Assert.Contains("orders-read", result.Data.CapabilityGrants);
+    }
+
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(true, "sample-tenant")]
+    public async Task Authenticated_resolver_supports_explicit_tenantless_and_single_tenant_modes(
+        bool singleTenant,
+        string? expectedTenant)
+    {
+        var httpContext = CreateOidcHttpContext(
+            "https://identity.example",
+            "subject-a",
+            "ignored",
+            "orders.read");
+        httpContext.User.Identities.Single().RemoveClaim(httpContext.User.FindFirst("tenant_id")!);
+        var services = new ServiceCollection();
+        services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor { HttpContext = httpContext });
+        services.AddSingleton<IAuthorizationService>(new TestAuthorizationService([]));
+        services.AddNewHeapPlatformAIAspNet(ai =>
+        {
+            if (singleTenant)
+            {
+                ai.UseAuthenticatedClaimsForSingleTenant("https://identity.example", "sample-tenant");
+            }
+            else
+            {
+                ai.UseAuthenticatedClaimsWithoutTenant("https://identity.example");
+            }
+        });
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var result = await scope.ServiceProvider
+            .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>()
+            .ResolveAsync(httpContext);
+
+        Assert.True(result.Success);
+        Assert.Equal(expectedTenant, result.Data.TenantId);
+        Assert.Equal(singleTenant, result.Data.TryGetScopeValue("tenant-id", out _));
     }
 
     [Fact]

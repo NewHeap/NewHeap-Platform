@@ -63,6 +63,25 @@ public sealed class NhAiMvcBridgeGatewayBuilder
         _options.ResourceDescriberType = typeof(TDescriber);
         return this;
     }
+
+    /// <summary>
+    /// Resolves consumer-owned resource titles and summaries through <c>IStringLocalizer</c>,
+    /// with invariant-English fallbacks and startup validation for missing or orphaned entries.
+    /// </summary>
+    public NhAiMvcBridgeGatewayBuilder UseLocalizedResourcePresentation<TResource>(
+        Action<NhAiBridgeResourcePresentationOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var presentation = new NhAiBridgeResourcePresentationOptions
+        {
+            ResourceSourceType = typeof(TResource)
+        };
+        configure(presentation);
+        _services.AddSingleton(presentation);
+        _services.TryAddScoped<NhAiLocalizedBridgeResourceDescriber>();
+        _options.ResourceDescriberType = typeof(NhAiLocalizedBridgeResourceDescriber);
+        return this;
+    }
 }
 
 /// <summary>Adjusts the model-facing description of one gateway resource.</summary>
@@ -188,7 +207,6 @@ internal static class NhAiMvcBridgeGatewayKinds
 /// <summary>Builds the gateway resources and tool descriptors from the bridge descriptors.</summary>
 internal static class NhAiMvcBridgeGatewayBuilderLogic
 {
-    private const int MaxExportNameLength = 64;
     private static readonly string[] CollectionInputNames = ["page", "itemsPerPage", "search", "orderBy", "filter"];
 
     public static NhAiMvcBridgeGatewayModel Build(
@@ -220,12 +238,8 @@ internal static class NhAiMvcBridgeGatewayBuilderLogic
         foreach (var (kind, description, inputSchema, outputSchema) in ToolDefinitions())
         {
             var id = toolSetId + "." + kind;
-            var exportName = toolSetId + "_" + kind + "_v" + options.ContractVersion.ToString(CultureInfo.InvariantCulture);
-            if (exportName.Length > MaxExportNameLength)
-            {
-                throw new InvalidOperationException(
-                    $"API bridge gateway export name '{exportName}' exceeds {MaxExportNameLength} characters. Use a shorter gateway tool set id.");
-            }
+            var exportName = NhAiMvcBridgeNames.ToBoundedExportName(
+                toolSetId + "_" + kind + "_v" + options.ContractVersion.ToString(CultureInfo.InvariantCulture));
 
             var defaults = options.ToolDefaults;
             descriptors.Add(new NhAiToolDescriptor(

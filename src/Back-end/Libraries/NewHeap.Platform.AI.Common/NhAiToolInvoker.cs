@@ -515,7 +515,10 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 1,
                 0,
                 0,
-                null),
+                null)
+            {
+                ActorId = context.AccountableOwnerId ?? context.ActorId
+            },
             cancellationToken);
         if (!reservation.Success)
         {

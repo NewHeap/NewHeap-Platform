@@ -42,15 +42,18 @@ approval; PUT and PATCH are idempotent mutations and POST is a mutation, and eve
 non-read tool requires approval and an idempotency key whose lease key travels as
 `Idempotency-Key`. Tool ids are `<toolset>.<controller>.<action>` in dash-case,
 with `-by-<route-parameters>` added when two actions share a name, and export
-names are `<toolset>_<tool>_v<version>`. Id or export-name collisions fail at
-startup with both route templates. Descriptions come from
+names are `<toolset>_<tool>_v<version>`. Valid names remain unchanged; names over
+64 characters retain a readable prefix and gain a deterministic hash suffix.
+The manifest records the resulting mapping, and collisions still fail at startup
+with both route templates. Descriptions come from
 `[NhAiBridgeTool(Description)]`, then the XML `summary`, then `EndpointSummary`
 and `EndpointDescription`. `[NhAiBridgeTool]` may only narrow a tool: exclude it,
 declare a stricter effect, lower its result or timeout limits, or require approval
 for a read.
 
-The discovery policy the bridge registers shows a bridge tool only when the
-current user satisfies every policy of its action, per request. Configure the
+The discovery policy the bridge registers first binds the discovery context to
+the current authenticated actor (or an agent's accountable owner), then shows a
+bridge tool only when that user satisfies every policy of its action, per request. Configure the
 application's policy for curated and generated tools with
 `UseInnerDiscoveryPolicy`; without it those tools are denied. Replacing
 `INhAiToolDiscoveryPolicy` after the bridge registration fails at startup.
@@ -73,8 +76,11 @@ Tool output is `TaskResult<NhAiBridgeResponse>` with `status`, `contentType`,
 returned as a `bodyText` fragment with `truncated: true` and a paging hint. HTTP
 failures become `NhAiBridgeFailureCodes` such as `api-bridge-forbidden`; a `400`
 keeps the model state as data, and no failure message contains response text.
-Derive from `NhAiMvcBridgeDefaultConventions` when an API uses another collection
-query encoding or body serializer, and register it with `UseConventions`.
+Body serialization is independent of conventions. System.Text.Json web defaults
+remain compatible through `INhAiBridgeConventions.SerializeBody`; use
+`UseBodySerializer<NhAiMvcNewtonsoftJsonBodySerializer>()` to use the application's
+MVC Newtonsoft settings from the current request scope, or register another
+`INhAiBridgeBodySerializer`.
 
 For a large API, call `EnableGateway` instead of offering the model one tool per
 action. The gateway publishes four read-only tools, `<set>.search-resources`,
@@ -82,17 +88,27 @@ action. The gateway publishes four read-only tools, `<set>.search-resources`,
 per resource (`order`, `order-group`, ...). `search-resources` does a deterministic
 text match on names, titles, summaries and field names and returns only resources
 the current user may use. Describe the filter, order and result fields by
-overriding `INhAiBridgeConventions.DescribeQuery`, for example from `[Filterable]`,
-`[Orderable]` and `[Searchable]` view-model attributes; described filter and order
-keys are then enforced before the HTTP call with `api-bridge-validation`. Add titles
-or text per resource with `UseResourceDescriber`. The gateway offers an action as
-`query` when `INhAiBridgeConventions.IsCollectionAction` recognizes it; the default
-recognizes actions that bind a NewHeap collection request model. Override it for
-list endpoints that read `page`, `itemsPerPage`, `search`, `orderBy` and `filter`
-from the query string themselves: the default conventions then publish the
-collection fragment in the input schema and encode it in the NewHeap query
-contract, next to the action's own query model values (`parameters`). Override
-`BuildRequest` as well when the API reads another encoding. `query` and `get` run the
+Canonical NewHeap endpoints need no consumer conventions. The built-in
+`NhAiNewHeapCollectionContractProvider` recognizes canonical collection request
+models and documented `CollectionResultModel<T>` or `SimpleCollectionResultModel<T>`
+responses, then derives bounded filter, order, search and result metadata from the
+same collection attributes and operator vocabulary used by the runtime. Ambiguous
+canonical actions fail startup with an actionable response-metadata diagnostic.
+
+For a legacy/custom endpoint, implement `INhAiBridgeCollectionContractProvider`
+and register it with `AddCollectionContractProvider<T>()`. The provider supplies
+recognition and field metadata and overrides only query encoding when its wire
+contract differs; schema generation, validation, authorization and execution stay
+in the library. Use `AddTrustedQueryBindingProvider<T>()` for actor, tenant or
+active-scope values. These bindings resolve values only from audited invocation
+scope, overwrite same-named model query values, merge collection filters without
+letting model input weaken them and fail closed when scope is missing.
+
+Add titles or summaries with `UseResourceDescriber`, or use
+`UseLocalizedResourcePresentation<TResource>()` for consumer-owned `.resx` keys,
+invariant-English fallbacks and startup validation of missing keys and orphaned
+resource mappings. Resource ids remain invariant dash-case and separate from
+presentation. `query` and `get` run the
 underlying bridge descriptor through the shared invoker, so gate, policies, budget,
 audit (with the underlying tool id) and the self-HTTP request are exactly those of
 the bridge tool. Unknown and unauthorized resources fail identically with
@@ -115,8 +131,9 @@ product boundary.
 - Including DELETE actions or declaring a destructive effect through the bridge.
 - Replacing the discovery policy after `AddNewHeapPlatformAIMvcBridge`; use `UseInnerDiscoveryPolicy`.
 - Returning response body text in failure messages or logs.
-- Leaving a list endpoint that parses the collection query string itself unrecognized; override `IsCollectionAction` so the gateway offers `query` instead of only `get`.
-- Expecting the gateway to validate filter or order keys without describing them in `DescribeQuery`; the default describes no fields.
+- Recreating NewHeap collection operators or attribute reflection in a consumer conventions class.
+- Letting model input provide actor, tenant or active-scope bindings; contribute them from authorized invocation scope.
+- Replacing all bridge conventions only to select Newtonsoft body serialization or support one legacy collection wire contract.
 - Routing mutations through the gateway or revealing in a message whether an unavailable resource exists.
 - Hand-building a runtime catalog for MCP export without implementing `INhAiAttestedToolCatalog` and passing attestation.
 
@@ -135,8 +152,11 @@ tools through the in-memory MCP transport and assert an ungoverned attested
 catalog fails validation. With the gateway enabled, assert per-user resource lists,
 the described fields, that `query` and `get` send exactly the request of the bridge
 tool and audit its id, that unknown and unauthorized resources fail identically,
-that an unknown filter key fails before the HTTP call and that the gateway tools
-are exported through MCP. SPM-242, SPM-243, SPM-244 and SPM-255 are the executable
+that an unknown filter key fails before the HTTP call, trusted bindings cannot be
+overridden, canonical collections need no custom conventions, legacy providers can
+encode a different wire contract, localized resource metadata validates at startup,
+export names stay deterministic and bounded, and that the gateway tools are
+exported through MCP. SPM-242, SPM-243, SPM-244 and SPM-255 are the executable
 references.
 
 ## Executable evidence
@@ -158,6 +178,6 @@ references.
   - [../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAttestedCatalogTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAttestedCatalogTests.cs)
 - SPM-255 — API bridge gateway over read-only resources
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs)
-  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeConventions.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeConventions.cs)
-  - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs)
-  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiBridgeSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiBridgeSamplesTests.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeResources.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeResources.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeResources.en-US.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeResources.en-US.resx)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeResources.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeResources.nl-NL.resx)

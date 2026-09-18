@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.AspNet;
 
@@ -36,8 +37,12 @@ public static class NhAiMvcBridgeServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.AddSingleton(options);
         services.AddSingleton(provider => NhAiMvcBridgeRuntimeSettings.Resolve(options, provider));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            INhAiBridgeCollectionContractProvider,
+            NhAiNewHeapCollectionContractProvider>());
         services.AddSingleton<INhAiBridgeConventions>(provider =>
             (INhAiBridgeConventions)ActivatorUtilities.CreateInstance(provider, options.ConventionsType));
+        services.TryAddScoped<INhAiBridgeBodySerializer, NhAiBridgeConventionBodySerializer>();
         services.AddSingleton(provider => new NhAiMvcBridgeToolCatalog(
             provider.GetRequiredService<IApiDescriptionGroupCollectionProvider>(),
             options,
@@ -66,6 +71,7 @@ internal sealed partial class NhAiMvcBridgeStartupValidator(
     NhAiMvcBridgeToolCatalog catalog,
     NhAiMvcBridgeOptions options,
     IServiceScopeFactory serviceScopeFactory,
+    IEnumerable<NhAiBridgeResourcePresentationOptions> resourcePresentationOptions,
     ILogger<NhAiMvcBridgeStartupValidator> logger) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)
@@ -83,6 +89,17 @@ internal sealed partial class NhAiMvcBridgeStartupValidator(
         {
             throw new InvalidOperationException(
                 "The API bridge discovery policy was replaced after AddNewHeapPlatformAIMvcBridge. Configure your policy with UseInnerDiscoveryPolicy instead of UseDiscoveryPolicy.");
+        }
+
+        var localizerFactory = services.GetService<IStringLocalizerFactory>();
+        foreach (var presentation in resourcePresentationOptions)
+        {
+            if (localizerFactory is null)
+            {
+                throw new InvalidOperationException(
+                    "AI bridge localized resource presentation requires AddLocalization.");
+            }
+            NhAiBridgeResourcePresentationValidator.Validate(presentation, catalog, localizerFactory);
         }
 
         NhAiToolCatalogAttestation.Validate(catalog, services);

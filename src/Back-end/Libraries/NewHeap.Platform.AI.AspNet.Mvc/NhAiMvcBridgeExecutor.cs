@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
@@ -51,6 +52,9 @@ public static class NhAiMvcBridgeDefaults
 internal sealed partial class NhAiMvcBridgeExecutor(
     IHttpClientFactory httpClientFactory,
     INhAiBridgeConventions conventions,
+    INhAiBridgeBodySerializer bodySerializer,
+    IServiceProvider requestServices,
+    IEnumerable<INhAiBridgeTrustedQueryBindingProvider> trustedQueryBindingProviders,
     NhAiMvcBridgeRuntimeSettings settings,
     INhAiCallerCredentialAccessor credentialAccessor,
     IHttpContextAccessor httpContextAccessor,
@@ -73,6 +77,13 @@ internal sealed partial class NhAiMvcBridgeExecutor(
         try
         {
             request = conventions.BuildRequest(action, input);
+            await ApplyTrustedQueryBindingsAsync(
+                request,
+                action,
+                descriptor,
+                context,
+                trustedQueryBindingProviders,
+                cancellationToken);
         }
         catch (NhAiBridgeInputException exception)
         {
@@ -113,6 +124,110 @@ internal sealed partial class NhAiMvcBridgeExecutor(
             }
 
             return TaskResult<NhAiBridgeResponse>.Failed(failureCode, FailureMessage(failureCode));
+        }
+    }
+
+    private static async ValueTask ApplyTrustedQueryBindingsAsync(
+        NhAiBridgeHttpRequest request,
+        NhAiBridgeActionInfo action,
+        NhAiToolDescriptor descriptor,
+        NhAiInvocationContext context,
+        IEnumerable<INhAiBridgeTrustedQueryBindingProvider> providers,
+        CancellationToken cancellationToken)
+    {
+        var resolved = new Dictionary<(NhAiBridgeTrustedQueryBindingKind Kind, string Name), (string Value, string Operator)>();
+        foreach (var provider in providers)
+        {
+            var bindings = await provider.GetBindingsAsync(action, descriptor, context, cancellationToken);
+            foreach (var binding in bindings)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(binding.Name);
+                ArgumentException.ThrowIfNullOrWhiteSpace(binding.ScopeKey);
+                if (!context.TryGetScopeValue(binding.ScopeKey, out var value))
+                {
+                    throw new NhAiBridgeInputException(
+                        $"The trusted query binding '{binding.Name}' requires invocation scope '{binding.ScopeKey}'.");
+                }
+                var key = (binding.Kind, binding.Name);
+                if (resolved.TryGetValue(key, out var existing)
+                    && (!string.Equals(existing.Value, value, StringComparison.Ordinal)
+                        || !string.Equals(existing.Operator, binding.Operator, StringComparison.OrdinalIgnoreCase)))
+                {
+                    throw new NhAiBridgeInputException(
+                        $"The trusted query binding '{binding.Name}' was registered more than once with different values.");
+                }
+                resolved[key] = (value, binding.Operator);
+            }
+        }
+
+        foreach (var binding in resolved)
+        {
+            if (binding.Key.Kind == NhAiBridgeTrustedQueryBindingKind.QueryValue)
+            {
+                RemoveQuery(request.Query, binding.Key.Name);
+                request.Query.Add(new(binding.Key.Name, binding.Value.Value));
+                continue;
+            }
+            if (binding.Key.Kind == NhAiBridgeTrustedQueryBindingKind.CollectionFilter)
+            {
+                AddTrustedCollectionFilter(
+                    request,
+                    binding.Key.Name,
+                    binding.Value.Operator,
+                    binding.Value.Value);
+                continue;
+            }
+            throw new NhAiBridgeInputException(
+                $"The trusted query binding '{binding.Key.Name}' has an unsupported kind.");
+        }
+    }
+
+    private static void AddTrustedCollectionFilter(
+        NhAiBridgeHttpRequest request,
+        string key,
+        string filterOperator,
+        string value)
+    {
+        var existing = request.Query
+            .Where(item => string.Equals(item.Key, "filter", StringComparison.OrdinalIgnoreCase))
+            .Select(item => item.Value)
+            .SingleOrDefault();
+        RemoveQuery(request.Query, "filter");
+
+        JsonArray filters;
+        try
+        {
+            filters = existing is null ? [] : JsonNode.Parse(existing)?.AsArray() ?? [];
+        }
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException)
+        {
+            throw new NhAiBridgeInputException("The collection filter query could not be combined with trusted bindings.");
+        }
+        foreach (var item in filters.ToArray())
+        {
+            if (item is JsonObject filter
+                && string.Equals(filter["key"]?.GetValue<string>(), key, StringComparison.OrdinalIgnoreCase))
+            {
+                filters.Remove(item);
+            }
+        }
+        filters.Add(new JsonObject
+        {
+            ["key"] = key,
+            ["operator"] = filterOperator,
+            ["value"] = value
+        });
+        request.Query.Add(new("filter", filters.ToJsonString()));
+    }
+
+    private static void RemoveQuery(IList<KeyValuePair<string, string>> query, string name)
+    {
+        for (var index = query.Count - 1; index >= 0; index--)
+        {
+            if (string.Equals(query[index].Key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                query.RemoveAt(index);
+            }
         }
     }
 
@@ -169,7 +284,7 @@ internal sealed partial class NhAiMvcBridgeExecutor(
         else if (request.Body is not null)
         {
             message.Content = new StringContent(
-                conventions.SerializeBody(request.Body),
+                bodySerializer.Serialize(request.Body, requestServices),
                 Encoding.UTF8,
                 "application/json");
         }

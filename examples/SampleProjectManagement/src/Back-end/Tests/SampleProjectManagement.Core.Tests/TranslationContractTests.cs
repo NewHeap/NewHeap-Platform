@@ -47,7 +47,7 @@ public class TranslationContractTests
         var resourceFiles = Directory.EnumerateFiles(
             Path.Combine(sampleRoot, "src", "Back-end", "Applications"), "*.resx", SearchOption.AllDirectories);
         var resxFamilies = resourceFiles.GroupBy(file =>
-            Regex.Replace(file, @"\.[a-z]{2}-[A-Z]{2}\.resx$", string.Empty));
+            Regex.Replace(file, @"\.[a-z]{2}-[A-Z]{2}\.resx$", ".resx"));
 
         foreach (var family in resxFamilies)
         {

@@ -5,7 +5,7 @@ area: backend
 reference: ai-model-profiles
 summary: "Keep provider clients consumer-owned and resolve them through stable NewHeap profiles with explicit capabilities, data policy, budgets, and startup requirements."
 sample-cases: ["SPM-220"]
-public-symbols: ["INhAiModelProfileRegistry", "INhAiModelProfileResolver", "NhAiBuilder", "NhAiDataClassification", "NhAiDeterministicChatClient", "NhAiDeterministicEmbeddingGenerator", "NhAiModelBudget", "NhAiModelCapability", "NhAiModelProfile", "NhAiModelProfileBuilder", "NhAiModelResolutionRequest", "NhAiResolvedChatProfile", "NhAiServiceCollectionExtensions", "NhAiStreamingPolicy"]
+public-symbols: ["INhAiModelProfileRegistry", "INhAiModelProfileResolver", "INhAiBudgetManager", "NhAiBudgetRequest", "NhAiBudgetReservation", "NhAiInMemoryBudgetManager", "NhAiInMemoryBudgetOptions", "NhAiBuilder", "NhAiDataClassification", "NhAiDeterministicChatClient", "NhAiDeterministicEmbeddingGenerator", "NhAiModelBudget", "NhAiModelCapability", "NhAiModelProfile", "NhAiModelProfileBuilder", "NhAiModelResolutionRequest", "NhAiResolvedChatProfile", "NhAiServiceCollectionExtensions", "NhAiStreamingPolicy"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -26,6 +26,12 @@ bounded decision trace as operational metadata; it contains no provider secret
 or prompt content. Register optional audit, usage, budget, and context
 contributors at composition boundaries.
 
+`UseInMemoryBudget` is a bounded per-actor option for samples, local development
+and explicitly accepted process-local deployments. Configure call, token, cost,
+window and actor-ledger ceilings. It charges the authenticated actor or accountable
+owner, returns stable failure keys and resets on process restart. Use a durable
+`INhAiBudgetManager` when enforcement must survive restarts or span instances.
+
 Keep provider packages, endpoints, credentials, and concrete model names in the
 consumer. Use `NhAiDeterministicChatClient` and
 `NhAiDeterministicEmbeddingGenerator` in normal tests. Live-provider tests are
@@ -39,6 +45,7 @@ opt-in and require their own credentials, data policy, and budget controls.
 - Registering a fallback that weakens classification, residency, or capability requirements.
 - Logging request or response content in a profile decision, audit record, or usage record.
 - Making a live-provider call part of deterministic unit or sample tests.
+- Treating `NhAiInMemoryBudgetManager` as durable or cluster-wide enforcement.
 
 ## Verification
 
@@ -46,5 +53,7 @@ Start the service provider and verify missing keyed clients, required profiles,
 required capabilities, fallback targets, and fallback cycles fail clearly.
 Resolve the named profile for allowed and denied classifications, capabilities,
 and regions. Prove repeated identical registration is idempotent and conflicting
-registration is rejected. SPM-220 and `NewHeap.Platform.AI.Tests` provide the
+registration is rejected. For the in-memory budget, prove per-actor isolation,
+the exact exhaustion boundary and fail-closed behavior without an actor.
+SPM-220 and `NewHeap.Platform.AI.Tests` provide the
 executable deterministic references.

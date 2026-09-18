@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.35",
   "backEnd": {
-    "hash": "128f6e970019946d8d97c640d75ca73e29629620ad1dfd8aa537a1029df83b41",
-    "declarationCount": 5126,
+    "hash": "448a9316106d37b82c28eba44074b3c1ac83f2fd08cdf0dd764012c8ed4d6f1e",
+    "declarationCount": 5185,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -95,6 +95,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public NhAiAspNetBuilder UseAuthenticatedClaimsWithoutTenant( string expectedIssuer, string issuerClaimType = \"iss\", string subjectClaimType = \"sub\")"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public NhAiAspNetBuilder UseAuthenticatedClaimsForSingleTenant( string expectedIssuer, string tenantId, string issuerClaimType = \"iss\", string subjectClaimType = \"sub\", string tenantScopeKey = \"tenant-id\", string tenantScopeType = \"tenant\")"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
         "declaration": "public NhAiAspNetBuilder AddClaimScope( string claimType, string scopeKey, bool required = false)"
       },
       {
@@ -124,6 +132,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
         "declaration": "public async ValueTask ContributeAsync( NhAiInvocationContextBuilder builder, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public bool ProjectsTenant => TenantClaimType is not null || FixedTenantId is not null;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
@@ -450,6 +462,66 @@
         "declaration": "public sealed class NhAiBridgeInputException(string message) : Exception(message) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeBodySerialization.cs",
+        "declaration": "public interface INhAiBridgeBodySerializer {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeBodySerialization.cs",
+        "declaration": "public sealed class NhAiMvcNewtonsoftJsonBodySerializer : INhAiBridgeBodySerializer {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeBodySerialization.cs",
+        "declaration": "public string Serialize(object body, IServiceProvider requestServices) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeBodySerialization.cs",
+        "declaration": "public string Serialize(object body, IServiceProvider requestServices) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeCollectionContracts.cs",
+        "declaration": "public sealed record NhAiBridgeCollectionContract( Type ItemType, NhAiBridgeQueryDescription Query);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeCollectionContracts.cs",
+        "declaration": "public interface INhAiBridgeCollectionContractProvider {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeCollectionContracts.cs",
+        "declaration": "public sealed class NhAiNewHeapCollectionContractProvider : INhAiBridgeCollectionContractProvider {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeCollectionContracts.cs",
+        "declaration": "public bool TryDescribe( NhAiBridgeActionInfo action, out NhAiBridgeCollectionContract contract) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResourcePresentation.cs",
+        "declaration": "public sealed record NhAiBridgeResourcePresentation( string Resource, string TitleKey, string SummaryKey, string FallbackTitle, string FallbackSummary);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResourcePresentation.cs",
+        "declaration": "public sealed class NhAiBridgeResourcePresentationOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResourcePresentation.cs",
+        "declaration": "public IReadOnlyDictionary<string, NhAiBridgeResourcePresentation> Resources => _resources;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResourcePresentation.cs",
+        "declaration": "public bool RequireLocalizedValues { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResourcePresentation.cs",
+        "declaration": "public NhAiBridgeResourcePresentationOptions Add( string resource, string titleKey, string summaryKey, string fallbackTitle, string fallbackSummary) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResourcePresentation.cs",
+        "declaration": "public NhAiBridgeResourceDescription Describe(NhAiBridgeResourceDescription description) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResourcePresentation.cs",
+        "declaration": "public static void Validate( NhAiBridgeResourcePresentationOptions options, NhAiMvcBridgeToolCatalog catalog, IStringLocalizerFactory localizerFactory) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeToolAttribute.cs",
         "declaration": "[AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)] public sealed class NhAiBridgeToolAttribute : Attribute {"
       },
@@ -478,6 +550,18 @@
         "declaration": "public bool RequireApproval { get; set; }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeTrustedQueryBindings.cs",
+        "declaration": "public enum NhAiBridgeTrustedQueryBindingKind {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeTrustedQueryBindings.cs",
+        "declaration": "public sealed record NhAiBridgeTrustedQueryBinding( string Name, string ScopeKey, NhAiBridgeTrustedQueryBindingKind Kind = NhAiBridgeTrustedQueryBindingKind.QueryValue, string Operator = \"==\");"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeTrustedQueryBindings.cs",
+        "declaration": "public interface INhAiBridgeTrustedQueryBindingProvider {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeXmlDocumentation.cs",
         "declaration": "public string? GetSummary(MethodInfo method) {"
       },
@@ -504,6 +588,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDefaultConventions.cs",
         "declaration": "protected static JsonSerializerOptions BodySerializerOptions { get; } = new(JsonSerializerDefaults.Web)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDefaultConventions.cs",
+        "declaration": "public NhAiMvcBridgeDefaultConventions() : this([new NhAiNewHeapCollectionContractProvider()]) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDefaultConventions.cs",
+        "declaration": "public NhAiMvcBridgeDefaultConventions( IEnumerable<INhAiBridgeCollectionContractProvider> collectionContractProviders) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDefaultConventions.cs",
@@ -555,7 +647,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDiscoveryPolicy.cs",
-        "declaration": "public NhAiMvcBridgeDiscoveryPolicy( NhAiMvcBridgeToolCatalog catalog, NhAiMvcBridgeOptions options, IHttpContextAccessor httpContextAccessor, IAuthorizationService authorizationService, IServiceProvider services) {"
+        "declaration": "public NhAiMvcBridgeDiscoveryPolicy( NhAiMvcBridgeToolCatalog catalog, NhAiMvcBridgeOptions options, IHttpContextAccessor httpContextAccessor, IAuthorizationService authorizationService, INhAiAuthenticatedInvocationContextResolver contextResolver, IServiceProvider services) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDiscoveryPolicy.cs",
@@ -656,6 +748,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
         "declaration": "public NhAiMvcBridgeGatewayBuilder UseResourceDescriber<TDescriber>() where TDescriber : class, INhAiBridgeResourceDescriber {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public NhAiMvcBridgeGatewayBuilder UseLocalizedResourcePresentation<TResource>( Action<NhAiBridgeResourcePresentationOptions> configure) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
@@ -919,6 +1015,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
+        "declaration": "public NhAiMvcBridgeBuilder AddCollectionContractProvider<TProvider>() where TProvider : class, INhAiBridgeCollectionContractProvider {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
+        "declaration": "public NhAiMvcBridgeBuilder UseBodySerializer<TSerializer>() where TSerializer : class, INhAiBridgeBodySerializer {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
+        "declaration": "public NhAiMvcBridgeBuilder AddTrustedQueryBindingProvider<TProvider>() where TProvider : class, INhAiBridgeTrustedQueryBindingProvider {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
         "declaration": "public NhAiMvcBridgeBuilder UseInnerDiscoveryPolicy<TPolicy>() where TPolicy : class, INhAiToolDiscoveryPolicy {"
       },
       {
@@ -951,6 +1059,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
+        "declaration": "public const int MaxExportNameLength = 64;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
         "declaration": "public static bool IsSegment(string? value) {"
       },
       {
@@ -964,6 +1076,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
         "declaration": "public static string ToKebabCase(string value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
+        "declaration": "public static string ToBoundedExportName(string value) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeServiceCollectionExtensions.cs",
@@ -4466,6 +4582,74 @@
         "declaration": "public static string ComputeHash(object value) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public sealed class NhAiInMemoryBudgetOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public int MaxCalls { get; set; } = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public int MaxInputTokens { get; set; } = 1_000_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public int MaxOutputTokens { get; set; } = 250_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public decimal? MaxEstimatedCost { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public TimeSpan Window { get; set; } = TimeSpan.FromDays(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public int MaxActorWindows { get; set; } = 10_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public sealed class NhAiInMemoryBudgetManager : INhAiBudgetManager {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public const string ExhaustedCode = \"ai-budget-exhausted\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public const string ActorRequiredCode = \"ai-budget-actor-required\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public NhAiInMemoryBudgetManager(NhAiInMemoryBudgetOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public ValueTask<TaskResult<NhAiBudgetReservation>> ReserveAsync( NhAiBudgetRequest request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public object Sync { get; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public int Calls { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public int InputTokens { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public int OutputTokens { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiInMemoryBudgetManager.cs",
+        "declaration": "public decimal EstimatedCost { get; set; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiIngestion.cs",
         "declaration": "public sealed record NhAiIngestionDocument( string Id, int Version, string SourceId, string ContentType, string Content, string ContentHash, NhAiDataClassification Classification, NhAiContextTrust Trust, IReadOnlyList<NhAiExecutionScopeEntry> ExecutionScopes, IReadOnlyList<string> ProvenanceReferences, DateTimeOffset ObservedAt);"
       },
@@ -5131,7 +5315,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
-        "declaration": "public sealed record NhAiBudgetRequest( Guid InvocationId, string ProfileName, int RequestedCalls, int RequestedInputTokens, int RequestedOutputTokens, decimal? RequestedEstimatedCost);"
+        "declaration": "public sealed record NhAiBudgetRequest( Guid InvocationId, string ProfileName, int RequestedCalls, int RequestedInputTokens, int RequestedOutputTokens, decimal? RequestedEstimatedCost) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public string? ActorId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
@@ -5376,6 +5564,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
         "declaration": "public NhAiBuilder UseBudgetManager<TManager>( ServiceLifetime lifetime = ServiceLifetime.Scoped)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseInMemoryBudget(Action<NhAiInMemoryBudgetOptions>? configure = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
@@ -6596,6 +6788,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
         "declaration": "public override async ValueTask<CallToolResult> InvokeAsync( RequestContext<CallToolRequestParams> request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiBridgeContractAssertions.cs",
+        "declaration": "public static class NhAiBridgeContractAssertions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiBridgeContractAssertions.cs",
+        "declaration": "public static void AssertBoundedIdentifiers( NhAiMvcBridgeToolCatalog catalog, int maximumLength = 64)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiBridgeContractAssertions.cs",
+        "declaration": "public static void AssertGatewayResources( NhAiMvcBridgeToolCatalog catalog, params string[] expectedResources) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiCapturedSinks.cs",
@@ -17086,6 +17290,38 @@
         "declaration": "public string? Id { get; set; }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
+        "declaration": "public enum NhCollectionFieldType {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
+        "declaration": "public sealed record NhCollectionFieldDescriptor( string Name, NhCollectionFieldType FieldType, IReadOnlyList<string> Operators, IReadOnlyList<string>? EnumValues = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
+        "declaration": "public sealed record NhCollectionContract( Type ItemType, IReadOnlyList<NhCollectionFieldDescriptor> FilterFields, IReadOnlyList<NhCollectionFieldDescriptor> OrderFields, IReadOnlyList<NhCollectionFieldDescriptor> SearchFields, IReadOnlyList<NhCollectionFieldDescriptor> ResultFields);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
+        "declaration": "public static class NhCollectionContractMetadata {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
+        "declaration": "[\"==\", \"!=\", \">\", \">=\", \"<\", \"<=\", \"IS\", \"IS NOT\", \"IN\", \"NOT IN\", \"LIKE\"]; public static IReadOnlyList<string> SupportedFilterOperators => FilterOperators;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
+        "declaration": "public static NhCollectionContract Describe(Type itemType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
+        "declaration": "public static bool TryGetItemType(Type? resultType, out Type itemType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs",
+        "declaration": "public static bool IsSupportedFilterOperator(string? value) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhProjection.cs",
         "declaration": "public static class NhProjection {"
       },
@@ -23603,6 +23839,14 @@
       "AddNewHeapPlatformAIMvcBridge",
       "INhAiAttestedToolCatalog",
       "INhAiBridgeConventions",
+      "INhAiBridgeCollectionContractProvider",
+      "NhAiBridgeCollectionContract",
+      "NhAiNewHeapCollectionContractProvider",
+      "INhAiBridgeBodySerializer",
+      "NhAiMvcNewtonsoftJsonBodySerializer",
+      "INhAiBridgeTrustedQueryBindingProvider",
+      "NhAiBridgeTrustedQueryBinding",
+      "NhAiBridgeTrustedQueryBindingKind",
       "INhAiCallerCredentialAccessor",
       "INhAiMvcBridgeExecutor",
       "NhAiBridgeActionInfo",
@@ -23625,7 +23869,9 @@
       "NhAiBridgeResultField",
       "INhAiBridgeResourceDescriber",
       "NhAiBridgeResourceDescription",
-      "NhAiBridgeResourceSummary"
+      "NhAiBridgeResourceSummary",
+      "NhAiBridgeResourcePresentationOptions",
+      "NhAiBridgeResourcePresentation"
     ],
     "nh-ai-aspnet-context": [
       "INhAiAuthenticatedInvocationContextResolver",
@@ -23726,6 +23972,11 @@
     "nh-ai-model-profiles": [
       "INhAiModelProfileRegistry",
       "INhAiModelProfileResolver",
+      "INhAiBudgetManager",
+      "NhAiBudgetRequest",
+      "NhAiBudgetReservation",
+      "NhAiInMemoryBudgetManager",
+      "NhAiInMemoryBudgetOptions",
       "NhAiBuilder",
       "NhAiDataClassification",
       "NhAiDeterministicChatClient",

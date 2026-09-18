@@ -55,7 +55,7 @@ catalog like any generated catalog.
 | Descriptor field | Rule |
 | --- | --- |
 | Id | `<toolset>.<controller-kebab>.<action-kebab>`, plus `-by-<route-parameters>` when two actions of a controller share a name |
-| Export name | `<toolset>_<tool id with "." as "_">_v<version>`, at most 64 characters |
+| Export name | `<toolset>_<tool id with "." as "_">_v<version>`; valid names stay unchanged, longer names use a readable prefix and deterministic hash suffix within 64 characters |
 | Effect | GET read-only, PUT/PATCH idempotent mutation, POST mutation |
 | Approval | read: policy-controlled; every other effect: required |
 | Idempotency | required for every non-read; the lease key is sent as `Idempotency-Key` |
@@ -64,13 +64,19 @@ catalog like any generated catalog.
 | Contract hash | SHA-256 over method, route template, input schema and policies |
 
 The input is one flat object: route values and query primitives are top-level
-properties and a complex body is `body`. Collection actions (a query model with
-`Page`, `ItemsPerPage`, `OrderBy`, `Filter` and `Search`) publish `page`,
+properties and a complex body is `body`. Canonical NewHeap collection request and
+documented `CollectionResultModel<T>`/`SimpleCollectionResultModel<T>` actions publish `page`,
 `itemsPerPage`, `search`, `orderBy` and `filter` and are sent in the NewHeap query
-contract. Schemas come from `JsonSchemaExporter` with string enums and
-`[Required]`/`[Description]` annotations. Derive from
-`NhAiMvcBridgeDefaultConventions` and register it with `UseConventions` to change
-tool ids, descriptions, the query encoding or the body serializer.
+contract. Filter, order, search and result fields come from the canonical collection
+attributes and runtime operator vocabulary. Schemas come from `JsonSchemaExporter`
+with string enums and `[Required]`/`[Description]` annotations.
+
+Register `AddCollectionContractProvider<T>()` for a legacy collection API and
+override only its recognition, metadata and noncanonical query encoding. Select
+body serialization independently with `UseBodySerializer<T>()`; the supplied
+`NhAiMvcNewtonsoftJsonBodySerializer` uses the current MVC settings and request
+services. `UseConventions<T>()` remains available for changes to tool ids or
+descriptions and for compatibility with existing convention implementations.
 
 `[NhAiBridgeTool]` may only narrow a tool: `Exclude`, a stricter `Effect`, lower
 `MaxResultBytes` or `TimeoutSeconds`, or `RequireApproval = true` on a read.
@@ -83,7 +89,9 @@ A large API can publish a small, searchable toolset instead of one tool per acti
 bridge.EnableGateway(gateway => gateway
     .UseGatewayToolSetId("sample-api-gateway")
     .IncludeReadOnlyOnly()
-    .UseResourceDescriber<SampleResourceDescriber>());   // optional
+    .UseLocalizedResourcePresentation<SampleBridgeResources>(resources => resources
+        .Add("project", "ProjectTitle", "ProjectSummary",
+            "Projects", "Search and inspect authorized projects.")));
 ```
 
 | Tool | Input | Output |
@@ -97,15 +105,20 @@ Resources group the read-only bridge actions per controller (`order`, `order-gro
 extra collection or detail actions get a suffix such as `project-mine`). `query` and
 `get` run the underlying bridge descriptor through `INhAiToolInvoker`: the gate,
 policies, budget, audit (with the underlying tool id) and the self-HTTP request are
-exactly those of the bridge tool. An action is offered as `query` when `INhAiBridgeConventions.IsCollectionAction`
-recognizes it (default: it binds a NewHeap collection request model); override it for
-list endpoints that read the collection values from the query string themselves.
-Override `INhAiBridgeConventions.DescribeQuery` to
-describe filter, order and result fields; described filter and order keys are
+exactly those of the bridge tool. Canonical NewHeap collection endpoints are offered
+as `query` automatically. A registered `INhAiBridgeCollectionContractProvider`
+handles legacy endpoints without replacing bridge conventions. Described filter and order keys are
 enforced before the HTTP call (`api-bridge-validation`). Unknown and unauthorized
 resources fail identically with `ai-tool-not-found`. Reads that require approval and
 all mutations are never reachable through the gateway. The gateway tools are part of
 the attested bridge catalog and follow its exposure, including MCP.
+
+Use `AddTrustedQueryBindingProvider<T>()` for actor, tenant or active-scope query
+values. A binding names an invocation-scope key rather than accepting a value from
+model input; it overwrites a same-named query value or collection filter and fails
+closed when the audited scope value is missing. Localized presentation keeps resource
+ids invariant, resolves consumer-owned `.resx` keys and validates missing keys and
+orphaned mappings at startup.
 
 ## Result
 
@@ -138,6 +151,8 @@ Failure messages and logs never contain response body text.
 - Redirects are not followed and the invoker's timeout cancels the HTTP call.
 - Replacing `INhAiToolDiscoveryPolicy` after the bridge registration fails at
   startup; configure other tools with `UseInnerDiscoveryPolicy`.
+- Discovery binds the invocation actor, or an agent's accountable owner, to the
+  current authenticated principal before policy checks.
 
 ## Limitations
 

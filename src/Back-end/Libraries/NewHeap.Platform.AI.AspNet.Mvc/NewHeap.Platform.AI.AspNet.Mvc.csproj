@@ -16,6 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NewHeap.Platform.AI.Common\NewHeap.Platform.AI.Common.csproj" />

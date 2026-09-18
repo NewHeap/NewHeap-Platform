@@ -299,6 +299,19 @@ public sealed class NhAiBuilder
         return this;
     }
 
+    /// <summary>
+    /// Uses a bounded process-local per-actor budget. Its state resets on restart; select a
+    /// durable <see cref="INhAiBudgetManager"/> where budget persistence is required.
+    /// </summary>
+    public NhAiBuilder UseInMemoryBudget(Action<NhAiInMemoryBudgetOptions>? configure = null)
+    {
+        var options = new NhAiInMemoryBudgetOptions();
+        configure?.Invoke(options);
+        _services.Replace(ServiceDescriptor.Singleton(options));
+        _services.Replace(ServiceDescriptor.Singleton<INhAiBudgetManager, NhAiInMemoryBudgetManager>());
+        return this;
+    }
+
     public NhAiBuilder UseConcurrencyLimiter<TLimiter>(
         ServiceLifetime lifetime = ServiceLifetime.Singleton)
         where TLimiter : class, INhAiToolConcurrencyLimiter

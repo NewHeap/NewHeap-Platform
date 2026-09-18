@@ -176,7 +176,11 @@ public sealed record NhAiBudgetRequest(
     int RequestedCalls,
     int RequestedInputTokens,
     int RequestedOutputTokens,
-    decimal? RequestedEstimatedCost);
+    decimal? RequestedEstimatedCost)
+{
+    /// <summary>The authenticated actor or accountable owner charged for this reservation.</summary>
+    public string? ActorId { get; init; }
+}
 
 public sealed record NhAiBudgetReservation(
     string ReservationId,
