@@ -39,6 +39,7 @@ public static class NhAiAspNetServiceCollectionExtensions
             services.TryAddScoped<
                 INhAiAuthenticatedInvocationContextResolver,
                 NhAiAuthenticatedInvocationContextResolver>();
+            services.TryAddScoped<INhAiCallerCredentialAccessor, NhAiHttpContextCallerCredentialAccessor>();
             services.TryAddScoped<INhAiBackgroundOperationRunAdapter, NhAiBackgroundOperationRunAdapter>();
             services.TryAddScoped<
                 INhAiBackgroundOperationIngestionAdapter,

@@ -14,7 +14,9 @@ request-bound integration owns context resolution. Other libraries may also use
 instances when their wire names remain distinct. Startup rejects only name
 collisions and SDK registrations whose metadata identifies them as NewHeap
 tools. The host still owns transport, authentication, endpoint, and
-credentials. Only generated catalogs enter the NewHeap export path.
+credentials. Only generated catalogs and runtime catalogs that implement
+`INhAiAttestedToolCatalog` and pass `NhAiToolCatalogAttestation` at startup, such
+as the `NewHeap.Platform.AI.AspNet.Mvc` API bridge, enter the NewHeap export path.
 
 External MCP servers are a separate, untrusted boundary. Discover their tools
 with the official client and pass only reviewed entries to

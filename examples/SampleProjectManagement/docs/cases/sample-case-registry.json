@@ -3334,28 +3334,52 @@
       "id": "SPM-242",
       "categoryId": "18",
       "title": "API bridge catalog over MVC controllers",
-      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
-      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
-      "implementation": "planned",
-      "evidence": []
+      "surface": "`AddNewHeapPlatformAIMvcBridge`, `NhAiMvcBridgeBuilder` (`UseToolSetId`, `UseSelfBaseUrl`, `IncludeControllers`, `RequireExplicitPolicy`, `UseInnerDiscoveryPolicy`, `EnableMcpExposure`, `WithToolDefaults`), `NhAiMvcBridgeToolCatalog`, `NhAiMvcBridgeDiscoveryPolicy`, `INhAiBridgeConventions`/`NhAiMvcBridgeDefaultConventions`, `[NhAiBridgeTool]` and the self-HTTP `INhAiMvcBridgeExecutor`",
+      "outcome": "The API publishes its project and project-task controller actions as the `sample-api` tool set without writing tool classes. Descriptors come from ApiExplorer: GET actions are read-only, PUT/PATCH are idempotent mutations and POST actions are mutations; every non-read tool requires approval and an idempotency key, while DELETE, anonymous, upload and policy-less actions are never published. A user discovers a tool only when the controller's own `[Authorize(Policy = ...)]` policies succeed for that user, so a viewer sees only reads and a project manager also sees create and update; the curated `projects.*` tools keep their existing discovery policy as the inner policy. Calls run through `INhAiToolInvoker` and then through the API's own HTTP pipeline as the signed-in user with only the caller's bearer token, `Accept-Language`, `Idempotency-Key` and the invocation id forwarded; a denied mutation stops before any HTTP call and HTTP failures return stable `api-bridge-*` codes without response text.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiBridgeSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeServiceCollectionExtensions.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeCatalogBuilder.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeExecutor.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeCatalogTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeExecutionTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeDiscoveryTests.cs"
+      ]
     },
     {
       "id": "SPM-243",
       "categoryId": "18",
       "title": "API bridge tools over MCP with attested catalog",
-      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
-      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
-      "implementation": "planned",
-      "evidence": []
+      "surface": "`INhAiAttestedToolCatalog`, `NhAiToolCatalogAttestation.Validate`, `WithNewHeapPlatformAITools`, `INhAiMcpToolAdapter`, `EnableMcpExposure` and the `<toolset>_<tool>_v<version>` export names of the API bridge",
+      "outcome": "Because the bridge catalog attests that every function is an `INhAiGovernedAIFunction` bound to its descriptor and runs through `INhAiToolInvoker`, it enters the same MCP export path as generated catalogs. The API's `/mcp` endpoint lists `sample-api_project_get_v1` and the other read tools for a viewer, adds create and update tools only for a project manager, and calls them through the same discovery, invocation gate, approval, idempotency, budget and result-bound pipeline. The attestation is validated at startup; a host whose bridge catalog is not attested cannot start.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiBridgeSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeToolCatalog.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeExecutionTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAttestedCatalogTests.cs"
+      ]
     },
     {
       "id": "SPM-244",
       "categoryId": "18",
       "title": "Attested catalog validation rejects ungoverned functions",
-      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
-      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
-      "implementation": "planned",
-      "evidence": []
+      "surface": "`NhAiToolCatalogAttestation.Validate`, `INhAiAttestedToolCatalog.AttestationHash` and the MCP startup validator of `WithNewHeapPlatformAITools`",
+      "outcome": "A runtime catalog that claims attestation is rejected with `InvalidOperationException` before export when it is not `SharedInvoker`-governed, when a created function is not an `INhAiGovernedAIFunction` bound to one of its descriptors (for example a plain function that bypasses `INhAiToolInvoker`), when descriptors, functions and manifest entries disagree, or when the attestation hash differs from the manifest schema hash. The sample proves that its bridge catalog passes and that an ungoverned copy of it fails; generated catalogs keep passing unchanged.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiBridgeSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAttestedCatalogTests.cs"
+      ]
     },
     {
       "id": "SPM-245",
