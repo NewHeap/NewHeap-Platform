@@ -271,7 +271,40 @@
       "password-saved": "Your password has been changed.",
       "password-mismatch": "The new password and confirmation do not match.",
       "save-failed": "Could not save. Check the input and try again."
-    }
+    },
+    "assistant-playground-nav": "Assistant",
+    "assistant-playground-title": "Assistant panel",
+    "assistant-playground-description": "The reusable assistant panel streams answers, shows tool calls and asks for approval before a change. This page runs it on a scripted mock API, so every state is reproducible without a language model.",
+    "assistant-launcher-label": "Launcher",
+    "assistant-launcher-hidden": "Hidden: the assistant is off or not permitted.",
+    "assistant-controls-title": "Availability",
+    "assistant-controls-description": "The launcher appears only when the server enables the assistant and the access policy allows the user.",
+    "assistant-feature-flag": "Assistant enabled on the server",
+    "assistant-access-permission": "User has the assistant permission",
+    "assistant-open-panel": "Open the assistant",
+    "assistant-prompts-title": "Scripted prompts",
+    "assistant-prompts-description": "Each prompt plays one scripted turn in the panel.",
+    "assistant-prompt-list": "Tool call and table",
+    "assistant-prompt-approval": "Approval",
+    "assistant-prompt-forbidden": "Failed tool call",
+    "assistant-prompt-long": "Long answer to cancel",
+    "assistant-prompt-unsafe": "Unsafe HTML",
+    "assistant-prompt-error": "Error message",
+    "assistant-state-title": "Store state",
+    "assistant-admin-permission": "User has the assistant admin permission",
+    "assistant-admin-title": "Administration",
+    "assistant-admin-description": "Administrators manage the application context, the agents and the MCP servers. The panel header links here only for them.",
+    "assistant-admin-open": "Open the administration",
+    "assistant-admin-hidden": "Hidden: the user lacks the admin permission.",
+    "assistant-simulate-schema-change": "Simulate a changed MCP tool",
+    "assistant-schema-change-simulated": "The document search tool now reports a new input schema. Sync the server on the MCP servers tab to see it disabled.",
+    "assistant-admin-back": "Back to the assistant playground",
+    "assistant-prompt-page": "Page context",
+    "assistant-page-title": "Project page",
+    "assistant-page-description": "Open a project as if you were on its page. The panel shows the project above the message box and sends it with the next message; the cross leaves it out.",
+    "assistant-page-close": "Close the project page",
+    "assistant-page-current": "Open now: {{page}}",
+    "assistant-page-none": "No project page is open; the panel sends the current route and title."
   },
   "nh-background-operations": {
     "operation": "Background operation",
@@ -389,6 +422,18 @@
       "search-no-render-text": "Type to load results",
       "default-title": "Select",
       "all-selected": "All selected"
+    }
+  },
+  "nh-assistant": {
+    "agents": {
+      "sample-project-assistant": {
+        "name": "Project assistant",
+        "description": "Answers questions about projects and proposes status changes for your approval."
+      },
+      "sample-catalog-guide": {
+        "name": "Catalog guide",
+        "description": "Explains the sample catalog. Read only."
+      }
     }
   }
 }

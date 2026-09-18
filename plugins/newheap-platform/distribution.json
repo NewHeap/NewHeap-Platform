@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.34",
   "guidanceVersion": "1.13.34",
-  "skillContentHash": "822c94f8f17453e412730eb15b84f2bea040e2d38d6dfac388ff2ccb46036113",
+  "skillContentHash": "b3179bcd32d0f0f071308e95cad34b1dba729a1ac39c00407426f9ea6e87ed7e",
   "skills": [
     "newheap-platform-development"
   ],
@@ -30,9 +30,15 @@
   },
   "compatiblePackages": {
     "@newheap/nh-toastr": "0.0.7",
+    "@newheap/platform-ai-chat": "0.1.0",
     "@newheap/platform-common": "1.1.0",
     "NewHeap.Platform.AI.AgentFramework": "7.4.0",
     "NewHeap.Platform.AI.AspNet.Common": "7.4.0",
+    "NewHeap.Platform.AI.AspNet.Mvc": "7.4.0",
+    "NewHeap.Platform.AI.Chat": "7.4.0",
+    "NewHeap.Platform.AI.Chat.AspNet": "7.4.0",
+    "NewHeap.Platform.AI.Chat.PostgreSql": "7.4.0",
+    "NewHeap.Platform.AI.Chat.SqlServer": "7.4.0",
     "NewHeap.Platform.AI.Common": "7.4.0",
     "NewHeap.Platform.AI.Generators": "7.4.0",
     "NewHeap.Platform.AI.Mcp": "7.4.0",

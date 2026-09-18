@@ -68,6 +68,39 @@
           }
         }
       }
+    },
+    "nh-ai-chat": {
+      "projectType": "library",
+      "root": "projects/nh-ai-chat",
+      "sourceRoot": "projects/nh-ai-chat/src",
+      "prefix": "nh-assistant",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:ng-packagr",
+          "options": {
+            "project": "projects/nh-ai-chat/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/nh-ai-chat/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/nh-ai-chat/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "tsConfig": "projects/nh-ai-chat/tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        }
+      }
     }
   },
   "cli": {

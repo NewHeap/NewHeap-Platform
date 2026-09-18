@@ -1,0 +1,53 @@
+<div class="log" role="log" aria-live="polite" [attr.aria-label]="'nh-assistant.thread.label' | translate" [attr.aria-busy]="streaming()">
+  @if (virtual()) {
+    <cdk-virtual-scroll-viewport class="scroller" itemSize="120" minBufferPx="1200" maxBufferPx="2400">
+      <div class="row" *cdkVirtualFor="let message of messages(); trackBy: trackMessage">
+        <ng-container [ngTemplateOutlet]="messageTemplate" [ngTemplateOutletContext]="{ $implicit: message }" />
+      </div>
+      @if (working()) {
+        <ng-container [ngTemplateOutlet]="workingTemplate" />
+      }
+    </cdk-virtual-scroll-viewport>
+  } @else {
+    <div class="scroller" #scroller tabindex="0">
+      @for (message of messages(); track message.id) {
+        <div class="row">
+          <ng-container [ngTemplateOutlet]="messageTemplate" [ngTemplateOutletContext]="{ $implicit: message }" />
+        </div>
+      }
+      @if (working()) {
+        <ng-container [ngTemplateOutlet]="workingTemplate" />
+      }
+    </div>
+  }
+</div>
+
+<ng-template #messageTemplate let-message>
+  <article class="message" [attr.data-role]="message.role">
+    <p class="author">{{ 'nh-assistant.thread.' + (message.role === 'user' ? 'you' : message.role) | translate }}</p>
+    @for (part of message.parts; track $index) {
+      @switch (part.type) {
+        @case ('text') {
+          @if (message.role === 'assistant' && markdown()) {
+            <div class="bubble markdown" [innerHTML]="part.text | nhAssistantMarkdown"></div>
+          } @else {
+            <div class="bubble plain">{{ part.text }}</div>
+          }
+        }
+        @case ('tool-call') {
+          <nh-assistant-tool-call-card class="part" [part]="part" />
+        }
+        @case ('approval') {
+          <nh-assistant-approval-card class="part" [approval]="part" [deciding]="deciding()" (decide)="approvalDecision.emit($event)" />
+        }
+      }
+    }
+  </article>
+</ng-template>
+
+<ng-template #workingTemplate>
+  <p class="working" role="status">
+    <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
+    {{ 'nh-assistant.thread.working' | translate }}
+  </p>
+</ng-template>

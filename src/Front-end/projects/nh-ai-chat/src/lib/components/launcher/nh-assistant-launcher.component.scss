@@ -1,0 +1,45 @@
+@use '../../styles/tokens';
+
+@include tokens.tokens;
+
+:host {
+  display: inline-flex;
+}
+
+.launcher {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--nh-assistant-launcher-size, 40px);
+  height: var(--nh-assistant-launcher-size, 40px);
+  border: 1px solid var(--nh-assistant-launcher-border, var(--nha-border));
+  border-radius: var(--nha-radius-control);
+  padding: 0;
+  color: var(--nh-assistant-launcher-color, var(--nha-text));
+  background: var(--nh-assistant-launcher-background, transparent);
+  font-size: 18px;
+  cursor: pointer;
+  @include tokens.focus-ring;
+
+  &:hover,
+  &.open {
+    border-color: var(--nha-highlight);
+    color: var(--nha-highlight);
+  }
+}
+
+.badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--nh-assistant-launcher-badge-ring, var(--nha-background));
+  border-radius: 50%;
+  background: var(--nha-highlight);
+}
+
+.visually-hidden {
+  @include tokens.visually-hidden;
+}

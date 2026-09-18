@@ -1,0 +1,161 @@
+@use '../../../../../styles/playground' as pg;
+
+:host { display: block; }
+@include pg.shell('.assistant-lab');
+@include pg.panel('.panel');
+@include pg.buttons('.actions');
+
+.launcher-slot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-control);
+}
+
+.launcher-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.launcher-hidden {
+  color: var(--warning);
+  font-size: 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.hint {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  cursor: pointer;
+
+  input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: var(--brand);
+  }
+
+  span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  strong { font-size: 13px; }
+  small { color: var(--muted); }
+}
+
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.actions .hint { margin: 0; }
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-control);
+  padding: 8px 12px;
+  color: #fff;
+  background: var(--primary);
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+}
+.link-button:hover { border-color: var(--primary-strong); background: var(--primary-strong); }
+.link-button i { font-size: 16px; }
+.actions i { font-size: 16px; }
+
+.prompts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 9px 12px;
+  color: var(--ink);
+  background: var(--surface);
+  text-align: left;
+
+  &:hover:not(:disabled) {
+    border-color: var(--brand);
+    background: var(--surface-subtle);
+  }
+
+  &:disabled { opacity: .55; }
+}
+
+.prompt-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.prompt-text {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.state dl {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+}
+
+.state dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.state dt {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.state dd {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.state dd[data-on='true'] { color: var(--success); }

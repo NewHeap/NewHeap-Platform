@@ -1,0 +1,251 @@
+// Shared styles of the administration components. Every selector is scoped to the
+// component that includes this stylesheet.
+@use '../../src/lib/styles/tokens';
+@use '../../src/lib/styles/forms';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  min-width: 0;
+  color: var(--nha-text);
+  font-family: var(--nha-font);
+  font-size: 14px;
+  @include forms.controls;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+
+  > div {
+    min-width: 0;
+    max-width: 72ch;
+  }
+}
+
+h3 {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 750;
+}
+
+h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.muted {
+  margin: 0;
+  color: var(--nha-text-muted);
+  font-size: 13px;
+}
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  border: 1px dashed var(--nha-border);
+  border-radius: var(--nha-radius);
+  padding: 20px;
+  color: var(--nha-text-muted);
+  font-size: 13px;
+
+  p { margin: 0; }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 14px;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+textarea.large {
+  min-height: 260px;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--nha-border);
+  padding-top: 14px;
+}
+
+.history {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    font-size: 12px;
+  }
+}
+
+.cards {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius);
+  padding: 14px;
+  background: var(--nha-background);
+}
+
+.card.inactive {
+  opacity: .8;
+}
+
+.card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+
+  strong {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+
+  input {
+    width: 16px;
+    height: 16px;
+    margin: 2px 0 0;
+    accent-color: var(--nha-highlight);
+  }
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--nha-border);
+  border-radius: 999px;
+  padding: 2px 2px 2px 10px;
+  background: var(--nha-surface);
+  font-family: var(--nha-mono);
+  font-size: 12px;
+
+  button {
+    @include tokens.icon-button;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+  }
+}
+
+.inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  > input {
+    flex: 1 1 180px;
+  }
+}
+
+.catalog {
+  display: grid;
+  gap: 4px;
+  max-height: 260px;
+  margin: 8px 0 0;
+  overflow-y: auto;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 6px;
+  list-style: none;
+
+  li label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    border-radius: 8px;
+    padding: 6px;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--nha-surface);
+    }
+  }
+
+  .tool-id {
+    font-family: var(--nha-mono);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+}

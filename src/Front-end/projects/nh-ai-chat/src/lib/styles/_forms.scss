@@ -1,0 +1,203 @@
+// Shared form and button styles of the preference and administration components.
+// Include `forms.controls` inside a component stylesheet; nothing here is global.
+@use 'tokens';
+
+@mixin controls {
+  fieldset {
+    min-width: 0;
+    margin: 0;
+    border: 0;
+    padding: 0;
+  }
+
+  legend,
+  .label,
+  .field > label {
+    display: block;
+    margin-bottom: 6px;
+    padding: 0;
+    color: var(--nha-text);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  input[type='text'],
+  input[type='url'],
+  input[type='password'],
+  input[type='search'],
+  select,
+  textarea {
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    border: 1px solid var(--nha-border);
+    border-radius: var(--nha-radius-control);
+    padding: 8px 10px;
+    color: var(--nha-text);
+    background: var(--nha-background);
+    font: inherit;
+    font-size: 13px;
+    @include tokens.focus-ring;
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: .6;
+    }
+
+    &[aria-invalid='true'] {
+      border-color: var(--nha-danger);
+    }
+  }
+
+  textarea {
+    line-height: 1.45;
+    resize: vertical;
+  }
+
+  .mono {
+    font-family: var(--nha-mono);
+    font-size: 12px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .hint {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 4px 2px 0;
+    color: var(--nha-text-muted);
+    font-size: 11px;
+  }
+
+  .counter {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .error-text {
+    color: var(--nha-danger);
+  }
+
+  .message {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    border: 1px solid transparent;
+    border-radius: var(--nha-radius-control);
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .message.error {
+    border-color: var(--nha-danger);
+    color: var(--nha-text);
+    background: var(--nha-danger-soft);
+  }
+
+  .message.warning {
+    border-color: var(--nha-warning);
+    color: var(--nha-text);
+    background: var(--nha-warning-soft);
+  }
+
+  .message.success {
+    border-color: var(--nha-success);
+    color: var(--nha-text);
+    background: var(--nha-success-soft);
+  }
+
+  .message nh-assistant-icon {
+    flex: none;
+  }
+
+  .primary,
+  .secondary,
+  .danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 36px;
+    border: 1px solid var(--nha-border);
+    border-radius: var(--nha-radius-control);
+    padding: 6px 14px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    @include tokens.focus-ring;
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: .55;
+    }
+  }
+
+  .primary {
+    border-color: var(--nha-accent);
+    color: var(--nha-accent-contrast);
+    background: var(--nha-accent);
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.12);
+    }
+  }
+
+  .secondary {
+    color: var(--nha-text);
+    background: transparent;
+
+    &:hover:not(:disabled) {
+      background: var(--nha-surface-strong);
+    }
+  }
+
+  .danger {
+    border-color: var(--nha-danger);
+    color: var(--nha-danger);
+    background: transparent;
+
+    &:hover:not(:disabled) {
+      background: var(--nha-danger-soft);
+    }
+  }
+
+  .icon-button {
+    @include tokens.icon-button;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 999px;
+    padding: 2px 8px;
+    color: var(--nha-text-muted);
+    background: var(--nha-surface-strong);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .badge.success { color: var(--nha-success); background: var(--nha-success-soft); }
+  .badge.warning { color: var(--nha-warning); background: var(--nha-warning-soft); }
+  .badge.danger { color: var(--nha-danger); background: var(--nha-danger-soft); }
+
+  .visually-hidden {
+    @include tokens.visually-hidden;
+  }
+}

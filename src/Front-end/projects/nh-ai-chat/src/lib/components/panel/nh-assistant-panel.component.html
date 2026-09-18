@@ -1,0 +1,166 @@
+<ng-template #drawer>
+  <section class="drawer" role="dialog" aria-modal="false" [attr.aria-labelledby]="titleId">
+    <header class="header">
+      <div class="heading">
+        <h2 [id]="titleId">{{ 'nh-assistant.panel.title' | translate }}</h2>
+        @if (store.enabled()) {
+          <nh-assistant-agent-picker
+            [agents]="store.agents()"
+            [selectedAgentId]="store.selectedAgentId()"
+            [disabled]="store.streaming()"
+            (agentChange)="store.selectAgent($event)" />
+        }
+      </div>
+      <div class="header-actions">
+        @if (store.enabled()) {
+          <button
+            class="icon-button"
+            type="button"
+            [class.active]="showConversations()"
+            [attr.aria-expanded]="showConversations()"
+            [attr.aria-label]="(showConversations() ? 'nh-assistant.panel.hide-conversations' : 'nh-assistant.panel.show-conversations') | translate"
+            [attr.title]="(showConversations() ? 'nh-assistant.panel.hide-conversations' : 'nh-assistant.panel.show-conversations') | translate"
+            (click)="toggleConversations()">
+            <nh-assistant-icon name="list" />
+          </button>
+          <button
+            class="icon-button"
+            type="button"
+            [class.active]="showPreferences()"
+            [attr.aria-expanded]="showPreferences()"
+            [attr.aria-label]="'nh-assistant.panel.open-preferences' | translate"
+            [attr.title]="'nh-assistant.panel.open-preferences' | translate"
+            (click)="togglePreferences()">
+            <nh-assistant-icon name="settings" />
+          </button>
+          @if (adminRoute && store.canAdminister()) {
+            <a
+              class="icon-button"
+              [routerLink]="adminRoute"
+              [attr.aria-label]="'nh-assistant.panel.open-admin' | translate"
+              [attr.title]="'nh-assistant.panel.open-admin' | translate"
+              (click)="panel.close()">
+              <nh-assistant-icon name="admin" />
+            </a>
+          }
+          <button
+            class="icon-button"
+            type="button"
+            [disabled]="store.streaming()"
+            [attr.aria-label]="'nh-assistant.panel.new-conversation' | translate"
+            [attr.title]="'nh-assistant.panel.new-conversation' | translate"
+            (click)="newConversation()">
+            <nh-assistant-icon name="plus" />
+          </button>
+        }
+        <button
+          class="icon-button"
+          type="button"
+          [attr.aria-label]="'nh-assistant.panel.close' | translate"
+          [attr.title]="'nh-assistant.panel.close' | translate"
+          (click)="panel.close()">
+          <nh-assistant-icon name="close" />
+        </button>
+      </div>
+    </header>
+
+    <div class="body">
+      @if (store.statusLoading() && !store.enabled()) {
+        <div class="state" role="status">
+          <p class="state-title">{{ 'nh-assistant.panel.loading' | translate }}</p>
+        </div>
+      } @else if (!store.enabled()) {
+        <div class="state">
+          <nh-assistant-icon class="state-icon" name="warning" />
+          <p class="state-title">{{ 'nh-assistant.panel.unavailable-title' | translate }}</p>
+          <p>{{ 'nh-assistant.panel.unavailable-description' | translate }}</p>
+        </div>
+      } @else {
+        @if (showPreferences()) {
+          <nh-assistant-preferences class="overlay-view" (closed)="showPreferences.set(false)" />
+        }
+
+        @if (showConversations()) {
+          <nh-assistant-conversation-list
+            class="overlay-view"
+            [conversations]="store.conversations()"
+            [total]="store.conversationsTotal()"
+            [activeConversationId]="conversation()?.id ?? null"
+            [loading]="store.conversationsLoading()"
+            [disabled]="store.streaming()"
+            (conversationSelect)="openConversation($event)"
+            (conversationDelete)="deleteConversation($event)"
+            (conversationCreate)="newConversation()" />
+        }
+
+        @if (store.conversationLoading()) {
+          <div class="state" role="status">
+            <p class="state-title">{{ 'nh-assistant.thread.loading' | translate }}</p>
+          </div>
+        } @else if (messages().length === 0 && !store.streaming()) {
+          <div class="state">
+            <nh-assistant-icon class="state-icon" name="assistant" />
+            <p class="state-title">{{ 'nh-assistant.panel.empty-title' | translate }}</p>
+            <p>{{ 'nh-assistant.panel.empty-description' | translate }}</p>
+          </div>
+        } @else {
+          <nh-assistant-thread
+            class="thread"
+            [messages]="messages()"
+            [streaming]="store.streaming()"
+            [deciding]="store.deciding()"
+            [markdown]="markdown"
+            (approvalDecision)="decide($event)" />
+        }
+      }
+    </div>
+
+    @if (store.error(); as error) {
+      <div class="error" role="alert">
+        <nh-assistant-icon name="warning" />
+        <p>{{ errorKeys() | nhAssistantTranslate: error.code }}</p>
+        <button
+          class="icon-button"
+          type="button"
+          [attr.aria-label]="'nh-assistant.panel.dismiss-error' | translate"
+          [attr.title]="'nh-assistant.panel.dismiss-error' | translate"
+          (click)="store.clearError()">
+          <nh-assistant-icon name="close" />
+        </button>
+      </div>
+    }
+
+    @if (store.enabled() && !showPreferences()) {
+      <footer class="footer" (focusin)="refreshPageContext()">
+        @if (closed()) {
+          <p class="notice">{{ 'nh-assistant.panel.conversation-closed' | translate }}</p>
+        }
+        @if (store.pageContext(); as context) {
+          <div class="context-chip" [class.excluded]="store.pageContextExcluded()" [attr.title]="context.route">
+            <nh-assistant-icon name="page" />
+            <span class="context-text">
+              {{ (store.pageContextExcluded() ? 'nh-assistant.page-context.excluded' : 'nh-assistant.page-context.included') | translate: { page: describeContext(context) } }}
+            </span>
+            <button
+              class="icon-button small"
+              type="button"
+              [attr.aria-pressed]="store.pageContextExcluded()"
+              [attr.aria-label]="(store.pageContextExcluded() ? 'nh-assistant.page-context.include' : 'nh-assistant.page-context.exclude') | translate: { page: describeContext(context) }"
+              [attr.title]="(store.pageContextExcluded() ? 'nh-assistant.page-context.include' : 'nh-assistant.page-context.exclude') | translate: { page: describeContext(context) }"
+              (click)="store.setPageContextExcluded(!store.pageContextExcluded())">
+              <nh-assistant-icon [name]="store.pageContextExcluded() ? 'plus' : 'x'" />
+            </button>
+          </div>
+        }
+        <nh-assistant-composer
+          [disabled]="composerDisabled()"
+          [busy]="busy()"
+          [maxLength]="store.limits()?.maxMessageChars ?? null"
+          [restore]="store.restoredDraft()"
+          (restored)="store.consumeRestoredDraft()"
+          (send)="send($event)"
+          (cancel)="cancel()" />
+      </footer>
+    }
+  </section>
+</ng-template>

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>NewHeap.Platform.AI.AspNet.Mvc</PackageId>
+    <Copyright>NewHeap B.V.</Copyright>
+    <Title>NewHeap AI ASP.NET MVC API Bridge</Title>
+    <PackageDescription>Exposes authorized ASP.NET Core MVC controller actions as governed NewHeap AI tools executed as the calling user.</PackageDescription>
+    <PackageTags>newheap platform ai aspnetcore mvc api-bridge tools authorization</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.AspNet.Mvc.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NewHeap.Platform.AI.Common\NewHeap.Platform.AI.Common.csproj" />
+    <ProjectReference Include="..\NewHeap.Platform.AI.AspNet.Common\NewHeap.Platform.AI.AspNet.Common.csproj" />
+  </ItemGroup>
+</Project>

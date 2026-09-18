@@ -48,6 +48,26 @@
           "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NewHeap.Platform.AI.AgentFramework.csproj"
         },
         {
+          "packageId": "NewHeap.Platform.AI.AspNet.Mvc",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NewHeap.Platform.AI.AspNet.Mvc.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.Chat",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NewHeap.Platform.AI.Chat.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.Chat.SqlServer",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/NewHeap.Platform.AI.Chat.SqlServer.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.Chat.PostgreSql",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/NewHeap.Platform.AI.Chat.PostgreSql.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.Chat.AspNet",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NewHeap.Platform.AI.Chat.AspNet.csproj"
+        },
+        {
           "packageId": "NewHeap.Platform.AI.Test",
           "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Test/NewHeap.Platform.AI.Test.csproj"
         },
@@ -171,6 +191,17 @@
       "workspace": "src/Front-end",
       "buildScript": "nh-toastr:build:production",
       "distDirectory": "src/Front-end/dist/nh-toastr"
+    },
+    "npm-ai-chat": {
+      "displayName": "@newheap/platform-ai-chat",
+      "kind": "npm",
+      "version": "0.1.0",
+      "tagPrefix": "npm-ai-chat-v",
+      "packageName": "@newheap/platform-ai-chat",
+      "packageJson": "src/Front-end/projects/nh-ai-chat/package.json",
+      "workspace": "src/Front-end",
+      "buildScript": "nh-ai-chat:build:production",
+      "distDirectory": "src/Front-end/dist/nh-ai-chat"
     },
     "newheap-platform-plugin": {
       "displayName": "NewHeap Platform AI plugin",

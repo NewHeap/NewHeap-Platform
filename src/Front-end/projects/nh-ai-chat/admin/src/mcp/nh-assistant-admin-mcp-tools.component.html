@@ -1,0 +1,98 @@
+<section class="section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading() || syncing()">
+  <header class="section-header">
+    <div>
+      <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.tools.title' | translate: { name: server().displayName } }}</h3>
+      <p class="muted">{{ 'nh-assistant.admin.tools.description' | translate }}</p>
+    </div>
+    <div class="actions">
+      <button class="secondary" type="button" (click)="closed.emit()">{{ 'nh-assistant.admin.tools.back' | translate }}</button>
+      <button class="primary" type="button" [disabled]="syncing()" (click)="sync()">
+        <nh-assistant-icon name="refresh" />{{ (syncing() ? 'nh-assistant.admin.mcp.syncing' : 'nh-assistant.admin.mcp.sync') | translate }}
+      </button>
+    </div>
+  </header>
+
+  @if (error(); as failure) {
+    <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+  }
+
+  @if (loading()) {
+    <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+  } @else if (loadFailed()) {
+    <div class="state" role="alert">
+      <p>{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+      <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+    </div>
+  } @else if (tools().length === 0) {
+    <p class="state">{{ 'nh-assistant.admin.tools.empty' | translate }}</p>
+  } @else {
+    <ul class="cards">
+      @for (tool of tools(); track tool.remoteName) {
+        <li class="card" [class.inactive]="!tool.isEnabled" [attr.data-status]="tool.status" [attr.aria-busy]="savingTool() === tool.remoteName">
+          <div class="card-header">
+            <strong class="mono">{{ tool.remoteName }}</strong>
+            <span class="badge"
+              [class.warning]="tool.status === 'schema-changed'"
+              [class.danger]="tool.status === 'missing'">{{ 'nh-assistant.admin.tools.status.' + tool.status | translate }}</span>
+            <span class="badge" [class.success]="tool.isEnabled">{{ (tool.isEnabled ? 'nh-assistant.admin.enabled' : 'nh-assistant.admin.disabled') | translate }}</span>
+            @if (tool.readOnlyHint !== null) {
+              <span class="badge hint" [attr.title]="'nh-assistant.admin.tools.description' | translate">
+                {{ (tool.readOnlyHint ? 'nh-assistant.admin.tools.hint-read-only' : 'nh-assistant.admin.tools.hint-mutation') | translate }}
+              </span>
+            }
+          </div>
+          <span class="mono muted">{{ tool.localId }}</span>
+
+          @if (tool.status === 'schema-changed') {
+            <p class="message warning" role="alert"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.tools.schema-changed-warning' | translate }}</p>
+          }
+          @if (tool.status === 'missing') {
+            <p class="message error"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.tools.missing-warning' | translate }}</p>
+          }
+
+          <p class="muted"><span class="label">{{ 'nh-assistant.admin.tools.remote-description' | translate }}</span>{{ tool.description }}</p>
+
+          <div class="grid">
+            <label class="check">
+              <input
+                type="checkbox"
+                [checked]="draft(tool).isEnabled"
+                [disabled]="tool.status === 'missing'"
+                (change)="change(tool, { isEnabled: checked($event) })" />
+              <span>{{ 'nh-assistant.admin.tools.enabled' | translate }}</span>
+            </label>
+            <div class="field">
+              <label [for]="id + '-effect-' + $index">{{ 'nh-assistant.admin.tools.effect' | translate }}</label>
+              <select [id]="id + '-effect-' + $index" (change)="change(tool, { effect: $any(value($event)) })">
+                @for (effect of effects; track effect) {
+                  <option [value]="effect" [selected]="draft(tool).effect === effect">{{ 'nh-assistant.admin.effect.' + effect | translate }}</option>
+                }
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label [for]="id + '-override-' + $index">{{ 'nh-assistant.admin.tools.description-override' | translate }}</label>
+            <input
+              type="text"
+              maxlength="1000"
+              [id]="id + '-override-' + $index"
+              [value]="draft(tool).descriptionOverride"
+              [attr.aria-describedby]="id + '-override-hint-' + $index"
+              (input)="change(tool, { descriptionOverride: value($event) })" />
+            <p class="hint" [id]="id + '-override-hint-' + $index">{{ 'nh-assistant.admin.tools.description-override-hint' | translate }}</p>
+          </div>
+
+          <div class="card-actions">
+            <button class="primary" type="button" [disabled]="!isDirty(tool) || savingTool() !== null" (click)="save(tool)">
+              {{ (savingTool() === tool.remoteName ? 'nh-assistant.admin.saving' : 'nh-assistant.admin.tools.save') | translate }}
+            </button>
+            @if (savedTool() === tool.remoteName) {
+              <span class="badge success" role="status"><nh-assistant-icon name="check" />{{ 'nh-assistant.admin.saved' | translate }}</span>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>

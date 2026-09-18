@@ -10,6 +10,10 @@ Source release: `newheap-platform-plugin-v1.13.34`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.34/docs/consumer-guide/ai-agent-framework.md)
 
+## Ai Api Bridge
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.34/docs/consumer-guide/ai-api-bridge.md)
+
 ## Ai Aspnet Context
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.34/docs/consumer-guide/ai-aspnet-context.md)
@@ -17,6 +21,14 @@ Source release: `newheap-platform-plugin-v1.13.34`
 ## Ai Assets
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.34/docs/consumer-guide/ai-assets.md)
+
+## Ai Assistant
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.34/docs/consumer-guide/ai-assistant.md)
+
+## Ai Assistant Ui
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.34/docs/consumer-guide/ai-assistant-ui.md)
 
 ## Ai Context Retrieval
 

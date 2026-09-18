@@ -61,6 +61,7 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.16.0" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
     <PackageVersion Include="Azure.Identity" Version="1.14.2" />
     <PackageVersion Include="EPPlus" Version="4.5.3.3" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.DynamicLinq" Version="9.6.0.2" />
