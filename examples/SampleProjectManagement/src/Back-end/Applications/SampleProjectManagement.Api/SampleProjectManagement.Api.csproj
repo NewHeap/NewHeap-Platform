@@ -23,5 +23,8 @@
     <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeap.Platform.AspNet.Common.csproj" />
     <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NewHeap.Platform.AI.AspNet.Common.csproj" />
     <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NewHeap.Platform.AI.Mcp.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NewHeap.Platform.AI.AspNet.Mvc.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NewHeap.Platform.AI.Chat.AspNet.csproj" />
+    <ProjectReference Include="../../../../../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/NewHeap.Platform.AI.Chat.PostgreSql.csproj" />
   </ItemGroup>
 </Project>

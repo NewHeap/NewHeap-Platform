@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>NewHeap.Platform.AI.Chat</PackageId>
+    <Copyright>NewHeap B.V.</Copyright>
+    <Title>NewHeap AI Chat</Title>
+    <PackageDescription>Provider-neutral assistant conversations, turn orchestration, approvals and durable ledgers for NewHeap AI.</PackageDescription>
+    <PackageTags>newheap platform ai chat assistant agents approvals</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NewHeap.Platform.AI.Common\NewHeap.Platform.AI.Common.csproj" />
+    <ProjectReference Include="..\NewHeap.Platform.AI.AgentFramework\NewHeap.Platform.AI.AgentFramework.csproj" />
+    <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
+  </ItemGroup>
+</Project>

@@ -3329,6 +3329,78 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeapPlatformAspNetCommonConfigurator.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhHangfireMultiHostTests.cs"
       ]
+    },
+    {
+      "id": "SPM-242",
+      "categoryId": "18",
+      "title": "API bridge catalog over MVC controllers",
+      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
+      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
+      "implementation": "planned",
+      "evidence": []
+    },
+    {
+      "id": "SPM-243",
+      "categoryId": "18",
+      "title": "API bridge tools over MCP with attested catalog",
+      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
+      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
+      "implementation": "planned",
+      "evidence": []
+    },
+    {
+      "id": "SPM-244",
+      "categoryId": "18",
+      "title": "Attested catalog validation rejects ungoverned functions",
+      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
+      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
+      "implementation": "planned",
+      "evidence": []
+    },
+    {
+      "id": "SPM-245",
+      "categoryId": "18",
+      "title": "Assistant conversation with streamed turn",
+      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
+      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
+      "implementation": "planned",
+      "evidence": []
+    },
+    {
+      "id": "SPM-246",
+      "categoryId": "18",
+      "title": "Assistant mutation paused for approval and resumed",
+      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
+      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
+      "implementation": "planned",
+      "evidence": []
+    },
+    {
+      "id": "SPM-247",
+      "categoryId": "18",
+      "title": "Durable assistant budget and idempotency ledgers",
+      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
+      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
+      "implementation": "planned",
+      "evidence": []
+    },
+    {
+      "id": "SPM-248",
+      "categoryId": "18",
+      "title": "Assistant panel in the management portal",
+      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
+      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
+      "implementation": "planned",
+      "evidence": []
+    },
+    {
+      "id": "SPM-249",
+      "categoryId": "18",
+      "title": "End-to-end assistant over bridge and curated tools",
+      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
+      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
+      "implementation": "planned",
+      "evidence": []
     }
   ]
 }

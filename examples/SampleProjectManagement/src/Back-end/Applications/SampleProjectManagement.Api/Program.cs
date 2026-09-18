@@ -25,6 +25,7 @@ using NewHeap.Platform.Events.Cap;
 using NewHeap.Media;
 using Scalar.AspNetCore;
 using SampleProjectManagement.Api.Authorization;
+using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Api.Services;
 using SampleProjectManagement.Api.Jobs;
 using SampleProjectManagement.Api.Events;
@@ -264,6 +265,8 @@ builder.Services.AddNewHeapPlatformAIAspNet(ai => ai
     .AddCapabilityGrant(
         ProjectAiTools.ManageCapability,
         "app.active-division.project.manage"));
+builder.Services.AddSampleAiBridge();
+builder.Services.AddSampleAssistant();
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     .WithNewHeapPlatformAITools();
@@ -329,6 +332,7 @@ app.UseNewHeapPlatformAspNetCommon(
             {
                 endpoints.MapOpenApi();
                 endpoints.MapMcp("/mcp").RequireAuthorization();
+                endpoints.MapSampleAssistant();
                 endpoints.MapScalarApiReference("/scalar", options =>
                 {
                     options.WithOpenApiRoutePattern("/openapi/{documentName}.json");

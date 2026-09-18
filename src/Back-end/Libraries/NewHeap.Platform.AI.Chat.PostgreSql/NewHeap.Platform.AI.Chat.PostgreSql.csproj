@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>NewHeap.Platform.AI.Chat.PostgreSql</PackageId>
+    <Copyright>NewHeap B.V.</Copyright>
+    <Title>NewHeap AI Chat PostgreSQL</Title>
+    <PackageDescription>PostgreSQL persistence, registration and migrations for NewHeap AI assistant conversations.</PackageDescription>
+    <PackageTags>newheap platform ai chat assistant entity-framework postgresql</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NewHeap.Platform.AI.Chat\NewHeap.Platform.AI.Chat.csproj" />
+  </ItemGroup>
+</Project>

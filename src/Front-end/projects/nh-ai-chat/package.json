@@ -1,0 +1,31 @@
+{
+  "name": "@newheap/platform-ai-chat",
+  "version": "0.1.0",
+  "peerDependencies": {
+    "@angular/cdk": "^20.2.14",
+    "@angular/common": "^20.3.28",
+    "@angular/core": "^20.3.28",
+    "@ngx-translate/core": "^17.0.0",
+    "dompurify": "^3.4.0",
+    "marked": "^18.0.0",
+    "rxjs": "~7.8.0"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "sideEffects": false,
+  "license": "Apache-2.0",
+  "description": "Angular assistant panel for NewHeap AI chat endpoints with streaming, tool-call and approval cards.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NewHeap/NewHeap-Platform.git",
+    "directory": "src/Front-end/projects/nh-ai-chat"
+  },
+  "homepage": "https://github.com/NewHeap/NewHeap-Platform#readme",
+  "bugs": {
+    "url": "https://github.com/NewHeap/NewHeap-Platform/issues"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  }
+}

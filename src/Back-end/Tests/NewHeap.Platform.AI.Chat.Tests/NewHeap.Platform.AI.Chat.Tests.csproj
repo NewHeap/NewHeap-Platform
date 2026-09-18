@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Testcontainers.MsSql" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Chat\NewHeap.Platform.AI.Chat.csproj" />
+    <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Chat.SqlServer\NewHeap.Platform.AI.Chat.SqlServer.csproj" />
+    <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Chat.PostgreSql\NewHeap.Platform.AI.Chat.PostgreSql.csproj" />
+    <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Chat.AspNet\NewHeap.Platform.AI.Chat.AspNet.csproj" />
+    <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Test\NewHeap.Platform.AI.Test.csproj" />
+  </ItemGroup>
+</Project>
