@@ -35,4 +35,7 @@
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Chat.AspNet\NewHeap.Platform.AI.Chat.AspNet.csproj" />
     <ProjectReference Include="..\..\Libraries\NewHeap.Platform.AI.Test\NewHeap.Platform.AI.Test.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/project-assistant.md" LogicalName="NewHeap.Platform.AI.Chat.Tests.Assets.project-assistant.md" />
+  </ItemGroup>
 </Project>
