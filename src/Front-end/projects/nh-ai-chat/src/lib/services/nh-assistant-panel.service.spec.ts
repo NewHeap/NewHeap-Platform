@@ -25,7 +25,7 @@ describe('NhAssistantPanelService', () => {
 
   beforeEach(() => {
     const api = jasmine.createSpyObj<NhAssistantApiService>('NhAssistantApiService', ['status', 'getConversation']);
-    api.status.and.returnValue(of({ enabled: true, agents: [], limits: { maxMessageChars: 10, maxToolCallsPerTurn: 1 } }));
+    api.status.and.returnValue(of({ enabled: true, agents: [], limits: { maxMessageChars: 10, maxToolCallsPerTurn: 1 }, canAdminister: false }));
 
     TestBed.configureTestingModule({
       imports: [PanelHostComponent],

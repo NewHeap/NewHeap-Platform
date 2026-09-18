@@ -20,7 +20,8 @@ import { NhAssistantToolCallCardComponent } from './tool-call-card/nh-assistant-
 const status: AssistantStatus = {
   enabled: true,
   agents: [{ id: 'projects', version: 1, displayNameKey: 'agents.projects', descriptionKey: 'agents.projects-description', canMutate: true }],
-  limits: { maxMessageChars: 20, maxToolCallsPerTurn: 4 }
+  limits: { maxMessageChars: 20, maxToolCallsPerTurn: 4 },
+  canAdminister: false
 };
 
 const approval: ApprovalPart = {

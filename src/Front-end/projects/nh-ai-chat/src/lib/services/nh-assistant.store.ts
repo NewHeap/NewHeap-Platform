@@ -54,6 +54,8 @@ export class NhAssistantStore {
   /** True when the access policy allows the user and the server reports the assistant as enabled. */
   readonly enabled = computed(() => this.accessGrantedState() === true && this.statusState()?.enabled === true);
   readonly accessGranted = this.accessGrantedState.asReadonly();
+  /** True when the assistant is enabled and the server reports that the caller passes the admin policy. */
+  readonly canAdminister = computed(() => this.enabled() && this.statusState()?.canAdminister === true);
   readonly statusLoading = this.statusLoadingState.asReadonly();
   readonly limits = computed(() => this.statusState()?.limits ?? null);
   readonly agents = computed<AgentSummary[]>(() => this.statusState()?.agents ?? []);

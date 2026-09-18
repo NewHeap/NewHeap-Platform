@@ -71,7 +71,7 @@ describe('NhAssistantApiService', () => {
         { provide: NH_ASSISTANT_FETCH, useFactory: () => fetchSpy }
       ]
     });
-    fetchSpy.and.returnValue(Promise.resolve(jsonResponse({ enabled: false, agents: [], limits: { maxMessageChars: 1, maxToolCallsPerTurn: 1 } })));
+    fetchSpy.and.returnValue(Promise.resolve(jsonResponse({ enabled: false, agents: [], limits: { maxMessageChars: 1, maxToolCallsPerTurn: 1 }, canAdminister: false })));
 
     await firstValueFrom(TestBed.inject(NhAssistantApiService).status());
 
@@ -81,7 +81,7 @@ describe('NhAssistantApiService', () => {
 
   it('omits the Authorization header when the host has no token', async () => {
     token = null;
-    fetchSpy.and.returnValue(Promise.resolve(jsonResponse({ enabled: false, agents: [], limits: { maxMessageChars: 1, maxToolCallsPerTurn: 1 } })));
+    fetchSpy.and.returnValue(Promise.resolve(jsonResponse({ enabled: false, agents: [], limits: { maxMessageChars: 1, maxToolCallsPerTurn: 1 }, canAdminister: false })));
     const service = setup();
 
     const status = await firstValueFrom(service.status());

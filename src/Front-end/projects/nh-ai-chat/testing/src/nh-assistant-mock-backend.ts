@@ -12,8 +12,10 @@ import {
   applyNhAssistantApprovalDecision,
   applyNhAssistantEvent
 } from '@newheap/platform-ai-chat';
+import { NhAssistantMockAdmin } from './nh-assistant-mock-admin';
 import {
   NhAssistantMockApprovalStep,
+  NhAssistantMockRemoteTool,
   NhAssistantMockRequest,
   NhAssistantMockScenario,
   NhAssistantMockStep,
@@ -53,11 +55,14 @@ export class NhAssistantMockBackend {
   private readonly pendingApprovals = new Map<string, PendingApproval>();
   private readonly runs = new Map<string, ActiveRun>();
   private readonly enabledState = signal(this.scenario.enabled ?? true);
+  private readonly admin = new NhAssistantMockAdmin(this.scenario, () => new Date().toISOString());
+  private readonly canAdministerState = signal(this.admin.administers);
   private sequence = 0;
 
   /** Requests received so far, oldest first. */
   readonly requests: NhAssistantMockRequest[] = [];
   readonly enabled = this.enabledState.asReadonly();
+  readonly canAdminister = this.canAdministerState.asReadonly();
 
   constructor() {
     for (const conversation of this.scenario.conversations ?? []) {
@@ -68,6 +73,17 @@ export class NhAssistantMockBackend {
   /** Switches the simulated `NewHeap:AI:Assistant:Enabled` flag. */
   setEnabled(enabled: boolean): void {
     this.enabledState.set(enabled);
+  }
+
+  /** Switches whether the caller passes the admin policy (`canAdminister`, `admin/*`). */
+  setCanAdminister(canAdminister: boolean): void {
+    this.admin.setCanAdminister(canAdminister);
+    this.canAdministerState.set(canAdminister);
+  }
+
+  /** Replaces the tools a simulated MCP server lists; the next sync picks them up. */
+  setRemoteTools(serverId: string, tools: NhAssistantMockRemoteTool[]): void {
+    this.admin.setRemoteTools(serverId, tools);
   }
 
   /** A `fetch` implementation that answers the assistant endpoints below `apiBaseUrl`. */
@@ -94,16 +110,23 @@ export class NhAssistantMockBackend {
     const segments = path.split('/').map(segment => decodeURIComponent(segment));
 
     if (method === 'GET' && path === 'status') {
+      const limits = { ...defaultLimits, ...this.scenario.limits };
       return this.json(200, this.enabledState()
-        ? { enabled: true, agents: this.scenario.agents, limits: { ...defaultLimits, ...this.scenario.limits } }
-        : { enabled: false, agents: [], limits: { ...defaultLimits, ...this.scenario.limits } });
+        ? { enabled: true, agents: this.admin.chatAgents(), limits, canAdminister: this.admin.administers }
+        : { enabled: false, agents: [], limits, canAdminister: false });
     }
     if (!this.enabledState()) {
       return this.empty(404);
     }
 
     if (method === 'GET' && path === 'agents') {
-      return this.json(200, this.scenario.agents);
+      return this.json(200, this.admin.chatAgents());
+    }
+    if (path === 'preferences') {
+      return this.result(this.admin.handlePreferences(method, body));
+    }
+    if (segments[0] === 'admin') {
+      return this.result(this.admin.handleAdmin(method, segments, body));
     }
     if (segments[0] !== 'conversations') {
       return this.empty(404);
@@ -160,7 +183,7 @@ export class NhAssistantMockBackend {
   }
 
   private create(request: CreateConversationRequest): Response {
-    const agent = this.scenario.agents.find(item => item.id === request?.agentId);
+    const agent = this.admin.chatAgents().find(item => item.id === request?.agentId);
     if (!agent) {
       return this.empty(400);
     }
@@ -439,6 +462,10 @@ export class NhAssistantMockBackend {
     this.sequence++;
     const suffix = this.sequence.toString(16).padStart(12, '0');
     return `00000000-0000-4000-8000-${suffix}`;
+  }
+
+  private result(result: { status: number; body?: unknown }): Response {
+    return result.body === undefined ? this.empty(result.status) : this.json(result.status, result.body);
   }
 
   private json(status: number, value: unknown): Response {

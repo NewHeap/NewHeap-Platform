@@ -21,6 +21,11 @@ export interface NhAssistantConfig {
   defaultAgentId?: string;
   /** `'bundled'` merges the library's `en` and `nl` texts into `TranslateService`; `'host'` leaves translations to the host. Default `'bundled'`. */
   translations?: 'bundled' | 'host';
+  /**
+   * Router link of the host's assistant administration page. The panel shows a link to it
+   * only when the server reports `canAdminister`. Default: no link.
+   */
+  adminRoute?: string | any[];
   /** Renders assistant text as sanitized Markdown. Default `{ enabled: true }`. */
   markdown?: { enabled: boolean };
 }

@@ -6,9 +6,11 @@ import {
   NhAssistantAllowAllAccessPolicy,
   NhAssistantConfig
 } from './nh-assistant.config';
+import { NhAssistantAdminApiService } from './services/nh-assistant-admin-api.service';
 import { NhAssistantApiService } from './services/nh-assistant-api.service';
 import { NhAssistantPanelService } from './services/nh-assistant-panel.service';
 import { NhAssistantStore } from './services/nh-assistant.store';
+import { NhAssistantTransport } from './services/nh-assistant-transport';
 
 /**
  * Registers the assistant client, store and panel for one application or route scope.
@@ -19,7 +21,9 @@ export function provideNhAssistant(config: NhAssistantConfig): EnvironmentProvid
   return makeEnvironmentProviders([
     { provide: NH_ASSISTANT_CONFIG, useValue: config },
     { provide: NH_ASSISTANT_ACCESS_POLICY, useClass: config.accessPolicy ?? NhAssistantAllowAllAccessPolicy },
+    NhAssistantTransport,
     NhAssistantApiService,
+    NhAssistantAdminApiService,
     NhAssistantStore,
     NhAssistantPanelService,
     ...(config.translations === 'host'
