@@ -77,6 +77,21 @@ public sealed record NhAssistantAuditEvent(
     /// Hash of the user preferences applied to the turn, never their text.
     /// </summary>
     public string? PreferencesHash { get; init; }
+
+    /// <summary>
+    /// Number of situational facts from turn context providers, never their text.
+    /// </summary>
+    public int? ContextFactCount { get; init; }
+
+    /// <summary>
+    /// Number of entities in the client's page context, never their ids or labels.
+    /// </summary>
+    public int? PageEntityCount { get; init; }
+
+    /// <summary>
+    /// Whether the client sent a page context with the user message.
+    /// </summary>
+    public bool? HadPageContext { get; init; }
 }
 
 /// <summary>

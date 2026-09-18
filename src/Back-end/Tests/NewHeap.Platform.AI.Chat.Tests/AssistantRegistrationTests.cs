@@ -126,6 +126,7 @@ public sealed class AssistantRegistrationTests
                 || property.PropertyType == typeof(Guid?)
                 || property.PropertyType == typeof(int)
                 || property.PropertyType == typeof(int?)
+                || property.PropertyType == typeof(bool?)
                 || property.PropertyType == typeof(DateTimeOffset)
                 || property.PropertyType == typeof(DateTimeOffset?)
                 || property.PropertyType == typeof(NhAssistantAuditEventKind)

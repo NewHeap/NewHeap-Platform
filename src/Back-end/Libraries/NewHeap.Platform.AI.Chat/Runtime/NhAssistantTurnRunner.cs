@@ -31,6 +31,7 @@ internal sealed class NhAssistantTurnRunner(
     INhAssistantTitleGenerator titleGenerator,
     NhAssistantPersonalization personalization,
     INhAssistantMcpToolSource mcpToolSource,
+    NhAssistantTurnContextCollector turnContext,
     ILogger<NhAssistantTurnRunner> logger) : INhAssistantTurnRunner
 {
     private static readonly string[] MessageStartStatuses =
@@ -256,6 +257,7 @@ internal sealed class NhAssistantTurnRunner(
             Role = NhAssistantMessageRoles.User,
             PartsJson = NhAssistantContent.SerializeParts([new NhAssistantStoredPart(NhAssistantStoredPart.TextType, Text: text)]),
             ClientMessageId = string.IsNullOrWhiteSpace(request.ClientMessageId) ? null : request.ClientMessageId,
+            ClientContextJson = request.ClientContext?.ToStorage(),
             CreatedAt = DateTimeOffset.UtcNow
         };
         await store.AddMessageAsync(userMessage, CancellationToken.None);
@@ -264,7 +266,7 @@ internal sealed class NhAssistantTurnRunner(
             await GenerateTitleAsync(conversation, agent, text);
         }
 
-        var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, events);
+        var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, request.ClientContext, events);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(turnId, userMessage.Id, state.AssistantMessageId));
 
         var toolCallsToday = await store.GetToolCallsAsync(
@@ -295,10 +297,12 @@ internal sealed class NhAssistantTurnRunner(
             conversation.Id,
             registration.Limits.MaxHistoryMessages,
             CancellationToken.None);
-        var userMessageId = history
-            .LastOrDefault(message => message.TurnId == approval.TurnId && message.Role == NhAssistantMessageRoles.User)
-            ?.Id ?? Guid.Empty;
-        var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, request.CallerContext, request.Language, events);
+        var userMessage = history
+            .LastOrDefault(message => message.TurnId == approval.TurnId && message.Role == NhAssistantMessageRoles.User);
+        var userMessageId = userMessage?.Id ?? Guid.Empty;
+        // The resumed turn sees the page the user had open when the message was sent.
+        var clientContext = NhAssistantClientContext.FromStorage(userMessage?.ClientContextJson);
+        var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, request.CallerContext, request.Language, clientContext, events);
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(approval.TurnId, userMessageId, state.AssistantMessageId));
 
@@ -678,13 +682,18 @@ internal sealed class NhAssistantTurnRunner(
             state.InstructionsTooLong = true;
             return null;
         }
+        // The turn data blocks are bounded; when they would push the instructions over the adapter
+        // limit, the turn runs without them rather than failing.
+        var modelInstructions = prompt.ModelInstructions.Length <= NhAssistantPromptComposer.MaxInstructionsLength
+            ? prompt.ModelInstructions
+            : prompt.Instructions;
         var descriptor = NhAssistantAgentRegistry.CreateDescriptor(agent, profile, selectors) with
         {
             PromptVersion = prompt.PromptVersion,
             PromptHash = prompt.PromptHash
         };
         var created = await adapter.CreateAsync(
-            new NhAiAgentCreateRequest(descriptor, context, prompt.Instructions, registration.ExecutionRegion),
+            new NhAiAgentCreateRequest(descriptor, context, modelInstructions, registration.ExecutionRegion),
             agentServices,
             cancellationToken);
         if (!created.Success)
@@ -752,12 +761,24 @@ internal sealed class NhAssistantTurnRunner(
         Guid userMessageId,
         NhAiInvocationContext callerContext,
         string language,
+        NhAssistantClientContext? clientContext,
         ChannelWriter<NhAssistantTurnEvent> events)
     {
         var agent = effectiveAgent.Definition;
         var applicationContext = await personalization.GetApplicationContextAsync(CancellationToken.None);
         var preferences = await personalization.GetPreferencesAsync(callerContext.ActorId, CancellationToken.None);
-        var prompt = NhAssistantPromptComposer.Compose(agent, applicationContext, preferences, language);
+        var facts = await turnContext.CollectAsync(callerContext, language, CancellationToken.None);
+        var prompt = NhAssistantPromptComposer.WithTurnData(
+            NhAssistantPromptComposer.Compose(agent, applicationContext, preferences, language),
+            facts,
+            clientContext,
+            language);
+        logger.LogDebug(
+            "Assistant turn {TurnId} has {FactCount} context facts, page context {HadPageContext} with {EntityCount} entities.",
+            turnId,
+            prompt.FactCount,
+            prompt.HadPageContext,
+            prompt.PageEntityCount);
         var assistantMessage = new AssistantMessage
         {
             Id = Guid.NewGuid(),

@@ -299,7 +299,8 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 request.Text ?? string.Empty,
                 request.ClientMessageId,
                 httpContext.RequestAborted,
-                RequestLanguage(httpContext)),
+                RequestLanguage(httpContext),
+                NhAssistantClientContext.From(request.ClientContext)),
             httpContext.RequestAborted);
         return started.Success
             ? new NhAssistantServerSentEventsResult(started.Data)

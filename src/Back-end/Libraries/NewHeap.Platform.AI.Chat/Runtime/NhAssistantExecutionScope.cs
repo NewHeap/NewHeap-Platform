@@ -55,7 +55,10 @@ internal sealed class NhAssistantTurnScope
                 ApplicationContextHash = Prompt.ApplicationContextHash,
                 InstructionsVersion = Prompt.InstructionsVersion,
                 InstructionsHash = Prompt.InstructionsHash,
-                PreferencesHash = Prompt.PreferencesHash
+                PreferencesHash = Prompt.PreferencesHash,
+                ContextFactCount = Prompt.FactCount,
+                PageEntityCount = Prompt.PageEntityCount,
+                HadPageContext = Prompt.HadPageContext
             };
     }
 

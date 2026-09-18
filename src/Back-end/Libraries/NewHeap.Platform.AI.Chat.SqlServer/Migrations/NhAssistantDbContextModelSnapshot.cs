@@ -505,6 +505,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ClientContextJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<string>("ClientMessageId")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
