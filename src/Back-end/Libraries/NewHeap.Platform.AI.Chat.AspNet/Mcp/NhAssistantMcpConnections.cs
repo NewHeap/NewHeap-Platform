@@ -214,7 +214,7 @@ internal sealed class NhAssistantMcpConnectionPlanner(
                 headers["Authorization"] = "Bearer " + secret;
                 break;
             }
-            case NhAssistantMcpAuthModes.ApiKey:
+            case NhAssistantMcpAuthModes.ApiKeyHeader:
             {
                 var secret = secrets.Unprotect(server.ProtectedSecret);
                 if (secret is null)

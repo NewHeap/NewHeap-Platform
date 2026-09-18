@@ -169,7 +169,9 @@
       },
       "references": [
         "references/ai-agent-framework.md",
+        "references/ai-api-bridge.md",
         "references/ai-assets.md",
+        "references/ai-assistant.md",
         "references/ai-context-retrieval.md",
         "references/ai-durable-runs.md",
         "references/ai-ingestion.md",
@@ -275,6 +277,7 @@
         }
       },
       "references": [
+        "references/ai-assistant-ui.md",
         "references/frontend-collection-query.md",
         "references/frontend-lifecycle-modals.md",
         "references/frontend-root-configuration.md",

@@ -100,7 +100,9 @@ Other libraries may register independently governed MCP tools through
 their export names distinct from every NewHeap-managed export. Startup rejects
 name collisions and SDK registrations whose metadata identifies them as a
 NewHeap tool, because those form a second publication path. Only source-generated
-`INhAiGeneratedToolCatalog` implementations enter the NewHeap export path.
+`INhAiGeneratedToolCatalog` implementations and runtime catalogs that implement
+`INhAiAttestedToolCatalog` and pass `NhAiToolCatalogAttestation` at startup, such as
+the API bridge catalog, enter the NewHeap export path.
 
 ## Avoid
 

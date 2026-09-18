@@ -1,8 +1,11 @@
 # NewHeap consumer guidance
 
 - ai-agent-framework: ./ai-agent-framework.md
+- ai-api-bridge: ./ai-api-bridge.md
 - ai-aspnet-context: ./ai-aspnet-context.md
 - ai-assets: ./ai-assets.md
+- ai-assistant: ./ai-assistant.md
+- ai-assistant-ui: ./ai-assistant-ui.md
 - ai-context-retrieval: ./ai-context-retrieval.md
 - ai-durable-runs: ./ai-durable-runs.md
 - ai-ingestion: ./ai-ingestion.md

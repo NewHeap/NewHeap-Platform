@@ -122,12 +122,12 @@ public static class NhAssistantMcpAuthModes
 {
     public const string None = "none";
     public const string Bearer = "bearer";
-    public const string ApiKey = "api-key";
+    public const string ApiKeyHeader = "api-key";
     public const string ForwardUserToken = "forward-user-token";
 
     public static bool IsValid(string? value)
     {
-        return value is None or Bearer or ApiKey or ForwardUserToken;
+        return value is None or Bearer or ApiKeyHeader or ForwardUserToken;
     }
 }
 

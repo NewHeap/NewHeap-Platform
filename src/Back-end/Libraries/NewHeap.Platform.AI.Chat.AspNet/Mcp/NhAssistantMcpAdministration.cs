@@ -255,7 +255,7 @@ internal sealed partial class NhAssistantMcpAdministration(
             .Require(string.IsNullOrWhiteSpace(input.Url) || urlValid, "url", NhAssistantFieldErrors.Invalid)
             .Require(NhAssistantMcpAuthModes.IsValid(input.AuthMode), "authMode", NhAssistantFieldErrors.Invalid)
             .Require(
-                input.AuthMode == NhAssistantMcpAuthModes.ApiKey
+                input.AuthMode == NhAssistantMcpAuthModes.ApiKeyHeader
                     ? input.HeaderName is null || HeaderPattern().IsMatch(input.HeaderName)
                     : input.HeaderName is null,
                 "headerName",
@@ -270,7 +270,7 @@ internal sealed partial class NhAssistantMcpAdministration(
         {
             return TaskResult.Failed(blocked, "The MCP server address is not allowed.");
         }
-        var needsSecret = input.AuthMode is NhAssistantMcpAuthModes.Bearer or NhAssistantMcpAuthModes.ApiKey;
+        var needsSecret = input.AuthMode is NhAssistantMcpAuthModes.Bearer or NhAssistantMcpAuthModes.ApiKeyHeader;
         var willHaveSecret = input.Secret is null ? hasStoredSecret : input.Secret.Length > 0;
         if (needsSecret && !willHaveSecret)
         {
@@ -288,7 +288,7 @@ internal sealed partial class NhAssistantMcpAdministration(
         server.DisplayName = input.DisplayName.Trim();
         server.Url = input.Url.Trim();
         server.AuthMode = input.AuthMode;
-        server.HeaderName = input.AuthMode == NhAssistantMcpAuthModes.ApiKey
+        server.HeaderName = input.AuthMode == NhAssistantMcpAuthModes.ApiKeyHeader
             ? input.HeaderName ?? NhAssistantMcpConnectionPlanner.DefaultApiKeyHeader
             : null;
         server.RequiredPolicy = string.IsNullOrWhiteSpace(input.RequiredPolicy) ? null : input.RequiredPolicy;

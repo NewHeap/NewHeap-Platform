@@ -2991,7 +2991,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Generated tool over MCP",
     "category": "AI tools and generated catalogs",
     "surface": "WithNewHeapPlatformAITools, INhAiMcpToolAdapter, CallNewHeapToolAsync<TInput, TOutput>, official ASP.NET Streamable HTTP and in-memory MCP transports, generated AIFunction, and the shared discovery/invocation pipeline",
-    "outcome": "The API publishes the same generated project search implementation through the official stateless ASP.NET MCP transport. Every list and call resolves the current authenticated request independently; actor- and tenant-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` errors remain in the shared NewHeap pipeline. A typed .NET client passes generated input directly through the official helper, which creates the `input` envelope, honors explicit JSON options including omitted optional null properties, returns the typed `TaskResult<T>.data` value, and preserves failed MCP tool results in `NhAiMcpToolException`. Only generated catalogs enter the NewHeap export path. Independently governed external SDK tools can coexist under distinct wire names and continue using the official SDK directly, while duplicate NewHeap publication and export-name collisions fail at startup.",
+    "outcome": "The API publishes the same generated project search implementation through the official stateless ASP.NET MCP transport. Every list and call resolves the current authenticated request independently; actor- and tenant-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` errors remain in the shared NewHeap pipeline. A typed .NET client passes generated input directly through the official helper, which creates the `input` envelope, honors explicit JSON options including omitted optional null properties, returns the typed `TaskResult<T>.data` value, and preserves failed MCP tool results in `NhAiMcpToolException`. Only generated catalogs and attested runtime catalogs (see SPM-243) enter the NewHeap export path. Independently governed external SDK tools can coexist under distinct wire names and continue using the official SDK directly, while duplicate NewHeap publication and export-name collisions fail at startup.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
@@ -3267,6 +3267,224 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhHangfireProcessConfiguration.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NewHeapPlatformAspNetCommonConfigurator.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhHangfireMultiHostTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-242",
+    "title": "API bridge catalog over MVC controllers",
+    "category": "AI tools and generated catalogs",
+    "surface": "AddNewHeapPlatformAIMvcBridge, NhAiMvcBridgeBuilder (UseToolSetId, UseSelfBaseUrl, IncludeControllers, RequireExplicitPolicy, UseInnerDiscoveryPolicy, EnableMcpExposure, WithToolDefaults), NhAiMvcBridgeToolCatalog, NhAiMvcBridgeDiscoveryPolicy, INhAiBridgeConventions/NhAiMvcBridgeDefaultConventions, [NhAiBridgeTool] and the self-HTTP INhAiMvcBridgeExecutor",
+    "outcome": "The API publishes its project and project-task controller actions as the `sample-api` tool set without writing tool classes. Descriptors come from ApiExplorer: GET actions are read-only, PUT/PATCH are idempotent mutations and POST actions are mutations; every non-read tool requires approval and an idempotency key, while DELETE, anonymous, upload and policy-less actions are never published. A user discovers a tool only when the controller's own `[Authorize(Policy = ...)]` policies succeed for that user, so a viewer sees only reads and a project manager also sees create and update; the curated `projects.*` tools keep their existing discovery policy as the inner policy. Calls run through `INhAiToolInvoker` and then through the API's own HTTP pipeline as the signed-in user with only the caller's bearer token, `Accept-Language`, `Idempotency-Key` and the invocation id forwarded; a denied mutation stops before any HTTP call and HTTP failures return stable `api-bridge-*` codes without response text.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiBridgeSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeServiceCollectionExtensions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeCatalogBuilder.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeExecutor.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeCatalogTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeExecutionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeDiscoveryTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-243",
+    "title": "API bridge tools over MCP with attested catalog",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAiAttestedToolCatalog, NhAiToolCatalogAttestation.Validate, WithNewHeapPlatformAITools, INhAiMcpToolAdapter, EnableMcpExposure and the <toolset>_<tool>_v<version> export names of the API bridge",
+    "outcome": "Because the bridge catalog attests that every function is an `INhAiGovernedAIFunction` bound to its descriptor and runs through `INhAiToolInvoker`, it enters the same MCP export path as generated catalogs. The API's `/mcp` endpoint lists `sample-api_project_get_v1` and the other read tools for a viewer, adds create and update tools only for a project manager, and calls them through the same discovery, invocation gate, approval, idempotency, budget and result-bound pipeline. The attestation is validated at startup; a host whose bridge catalog is not attested cannot start.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiBridgeSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeToolCatalog.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeExecutionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAttestedCatalogTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-244",
+    "title": "Attested catalog validation rejects ungoverned functions",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAiToolCatalogAttestation.Validate, INhAiAttestedToolCatalog.AttestationHash and the MCP startup validator of WithNewHeapPlatformAITools",
+    "outcome": "A runtime catalog that claims attestation is rejected with `InvalidOperationException` before export when it is not `SharedInvoker`-governed, when a created function is not an `INhAiGovernedAIFunction` bound to one of its descriptors (for example a plain function that bypasses `INhAiToolInvoker`), when descriptors, functions and manifest entries disagree, or when the attestation hash differs from the manifest schema hash. The sample proves that its bridge catalog passes and that an ungoverned copy of it fails; generated catalogs keep passing unchanged.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiBridgeSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAttestedCatalogTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-245",
+    "title": "Assistant conversation with streamed turn",
+    "category": "AI tools and generated catalogs",
+    "surface": "AddNewHeapAssistant, NhAssistantBuilder (UsePostgreSql, UseSqlServer, UseAccessPolicy, UseChatProfile, AddAgent, AddBusinessAuditSink, WithLimits), NhAssistantAgentDefinition, MapNewHeapAssistant, NhAssistantOptions (NewHeap:AI:Assistant:Enabled, AccessPolicy), the assistant HTTP API and server-sent events, NhAiScriptedChatClient",
+    "outcome": "The sample registers one agent over the curated `projects.*` tools with a streaming chat profile, PostgreSQL storage in the library-owned `nhai` schema and the `app.active-division.project.view` access policy. A signed-in user creates a conversation and posts a message; the turn streams `turn.started`, a governed `projects.search` call as `tool.started` and `tool.completed` with a bounded result preview, `message.delta` text and `turn.completed` with usage. The tool runs through the shared invoker as the agent on behalf of the accountable user in the active division, the conversation returns to `idle` and its messages and tool-call parts are persisted. The flag, the access policy and the agent's required policy gate every endpoint.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiScriptedChatClient.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnRunnerTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantEndpointTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRegistrationTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-246",
+    "title": "Assistant mutation paused for approval and resumed",
+    "category": "AI tools and generated catalogs",
+    "surface": "Assistant approval flow over INhAiProposalFactory, NhAiApprovalValidator and the durable INhAiApprovalEvidenceProvider, POST conversations/{id}/approvals/{approvalId}/decide, the approval.required event, INhAssistantBusinessAuditSink and NhAssistantAuditEvent",
+    "outcome": "When the model calls `projects.change-status`, the shared invoker reports that approval is required before anything executes. The assistant creates the exact NewHeap proposal from the arguments the invoker evaluated, bound to the agent actor, the accountable user, the turn as run, the prompt identity, the tool contract hash and the active-division target; it stores the proposal with a pending approval, streams `approval.required` and pauses the conversation as `waiting-for-approval`. The user approves with the expected proposal hash; the same governed function runs again through the invoker with the proposal and approval ids, the validator accepts only that user's decision for that hash within its lifetime, the project status verifier runs and the resumed turn completes. The business audit sink receives content-free `ApprovalRequested`, `ApprovalApproved` and `ToolInvoked` events. Rejections close without executing and expired proposals end with `assistant-approval-expired`.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantApprovalEvidenceProvider.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantInvocationGate.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnRunnerTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDurableManagerTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-247",
+    "title": "Durable assistant budget and idempotency ledgers",
+    "category": "AI tools and generated catalogs",
+    "surface": "Durable INhAiBudgetManager on AssistantBudgetLedger and INhAiIdempotencyManager on AssistantIdempotencyLease in the library-owned nhai schema, NhAssistantLimits.DailyToolCallBudgetPerActor, NhAssistantDbContextOptions (Schema, RunMigrations), provider migrations in NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql",
+    "outcome": "Assistant tool calls are booked atomically per accountable user and UTC day in PostgreSQL; the approved status change takes a durable idempotency lease keyed by its proposal and completes it. When the daily tool budget is exhausted, the next turn ends with the stable `assistant-budget-exhausted` error. Library tests prove the same ledgers, lease expiry takeover with fencing, concurrent reservations that never exceed the budget, the migrations and a configured schema on both SQL Server and PostgreSQL. Outside assistant turns the budget and evidence requests keep using the managers the application registered first.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantBudgetManager.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantIdempotencyManager.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/NhAssistantSqlServer.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/NhAssistantPostgreSql.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDurableManagerTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPersistenceTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-248",
+    "title": "Assistant panel in the management portal",
+    "category": "AI tools and generated catalogs",
+    "surface": "@newheap/platform-ai-chat: provideNhAssistant, NhAssistantAccessPolicy, NhAssistantApiService (fetch-based SSE), NhAssistantStore, NhAssistantPanelService, the nh-assistant-* launcher, panel, conversation list, thread, composer, tool-call card, approval card and agent picker, NH_ASSISTANT_ICONS, and provideNhAssistantMockApi from @newheap/platform-ai-chat/testing",
+    "outcome": "The management portal registers the assistant once with the NewHeap session token and an `app.assistant.access` permission policy, shows the launcher in the header and one CDK overlay panel in the layout. The Assistant playground runs the same panel on a scripted mock API: a new conversation streams Markdown answers, tool calls show status and translated result codes, a mutation pauses on an approval card that sends the expected proposal hash once for approve or reject, a running turn can be stopped, server errors appear as translated messages, and switching agents starts a new conversation. The launcher disappears when the server reports the assistant disabled or the access policy denies the user, model text never renders HTML or script, and the English and Dutch texts have identical keys.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.routes.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "src/Front-end/projects/management/src/app/management-layout/management-layout.component.html",
+      "src/Front-end/projects/management/src/app/app.config.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/provide-nh-assistant.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-sse-parser.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/components.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-api.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/provide-nh-assistant-mock-api.ts"
+    ]
+  },
+  {
+    "id": "SPM-249",
+    "title": "End-to-end assistant over bridge and curated tools",
+    "category": "AI tools and generated catalogs",
+    "surface": "AddSampleAiBridge before AddSampleAssistant, agent sample-project-assistant with tool selectors projects.* and sample-api.*, POST conversations/{id}/messages (SSE), POST conversations/{id}/approvals/{approvalId}/decide, POST admin/mcp-servers, POST admin/mcp-servers/{id}/sync, PUT admin/mcp-servers/{id}/tools/{remoteName}, POST admin/agents",
+    "outcome": "One assistant conversation combines the API bridge and the curated tools: a division editor's turn calls the bridge tool `sample-api.project.get` (forwarded to the API as the signed-in user with the invocation header) and the curated `projects.search`, both reported as `tool.completed`; a status change pauses with `approval.required`, runs `projects.change-status` after approval and passes its verifier. An administrator connects an MCP server, activates its read-only tool and creates an agent that uses a bridge tool and the MCP tool in one turn. A viewer is offered only read tools (no bridge create/update, no `projects.change-status`), so a mutation attempt produces no approval card and changes nothing. Arguments, results, messages and secrets never reach the business audit sink, the platform audit sink or the logs.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-250",
+    "title": "Administrator-managed assistant agents",
+    "category": "AI tools and generated catalogs",
+    "surface": "AddAgent code agents persisted in AssistantAgent, UseAdminPolicy, GET/POST admin/agents, PUT admin/agents/{id} with expectedVersion, POST admin/agents/{id}/reset, DELETE admin/agents/{id}, GET admin/tools, AssistantStatus.canAdminister, NhAssistantAuditEventKind.AdminAgentCreated|Updated|Deleted|Reset",
+    "outcome": "Code agents are upserted into the library-owned `nhai` schema at startup and remain the default; an administrator can override, disable and reset them without changing their `code` source, and create own agents with a display name, instructions, tool selectors, an optional required policy and an autonomy level. In the sample an administrator creates a read-only portfolio agent; users see it with its literal display name, start a conversation and the agent searches projects with the curated tool while mutating tools stay out of reach. Users without the admin policy receive `403`, every change is versioned (`409` on a stale version) and reported as a content-free audit event.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentCatalog.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentAdministrationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-251",
+    "title": "Administrator-connected MCP servers assigned to agents",
+    "category": "AI tools and generated catalogs",
+    "surface": "ConfigureMcp (AllowedHosts, ForwardUserTokenHosts, RequireHttps, ToolListCacheDuration, ConnectTimeout), admin/mcp-servers with test, sync and tool activation, auth modes none, bearer, api-key and forward-user-token, INhAiMcpClientToolImporter, INhAiCallerCredentialAccessor, agent mcpServerIds",
+    "outcome": "An administrator connects a Streamable HTTP MCP server with an API key that is protected with ASP.NET Data Protection and never returned, synchronizes its tools, which start disabled as approval-required mutations, activates one tool as read-only and assigns the server to one agent. That agent calls the remote tool through the governed MCP importer and the shared invoker; other agents never see it. A changed remote input schema disables a tool until it is activated again, the user token is forwarded only to allow-listed hosts, link-local, metadata and non-development loopback hosts are blocked after DNS resolution and again at connect time, and an unreachable server is skipped without breaking the turn.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-252",
+    "title": "Editable application context and personal assistant preferences",
+    "category": "AI tools and generated catalogs",
+    "surface": "UseDefaultApplicationContext, GET/PUT admin/context, GET admin/context/versions, GET/PUT preferences (style, addressForm, responseLength, customInstructions), instruction composition in order of authority, prompt identity in the invocation context and NhAssistantAuditEvent",
+    "outcome": "The sample seeds its application context once as version 1; an administrator edits it with the expected version and a later seed never overwrites the edit. A user stores personal style preferences; the next turn uses library rules, the edited application context, the agent instructions and, last and explicitly bounded, the Dutch style lines and custom instructions chosen from `Accept-Language`. Custom instructions cannot change tools or approvals, and the context and preference texts never reach logs or audit, which carry their versions and hashes instead.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAdministrationSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPersonalizationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-253",
+    "title": "Assistant administration and preferences UI",
+    "category": "AI tools and generated catalogs",
+    "surface": "@newheap/platform-ai-chat: nh-assistant-preferences, NhAssistantApiService.getPreferences/updatePreferences, NhAssistantAdminApiService, NhAssistantConfig.adminRoute, NhAssistantStore.canAdminister; @newheap/platform-ai-chat/admin: nh-assistant-admin with nh-assistant-admin-context, nh-assistant-admin-agents, nh-assistant-admin-agent-editor, nh-assistant-admin-mcp-servers, nh-assistant-admin-mcp-server-editor and nh-assistant-admin-mcp-tools; provideNhAssistantMockApi preference and admin endpoints",
+    "outcome": "From the panel header a user chooses style, form of address and answer length and writes own instructions of at most 1,000 characters; saving, validation and failures are shown in place. When the server reports `canAdminister` and the host configured `adminRoute`, the panel links to the administration page. There an administrator edits the versioned application context and sees a conflict instead of overwriting a newer version, overrides, disables and resets code agents, creates and deletes own agents with tool selectors from the tool catalog and assigned MCP servers, and connects MCP servers with a write-only secret that is never shown, only kept, replaced or cleared. After a sync every remote tool is disabled and treated as a change until the administrator enables it and chooses its effect; remote annotations are shown as hints and a changed remote input schema disables the tool with a warning. The management playground runs all of this on the scripted mock API.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.routes.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-admin-page.component.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/preferences/nh-assistant-preferences.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/preferences/nh-assistant-preferences.component.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/nh-assistant-admin.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts"
     ]
   }
 ] as const;
