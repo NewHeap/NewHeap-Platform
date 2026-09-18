@@ -296,6 +296,37 @@ public sealed class OrderAuditController : ControllerBase
     }
 }
 
+public sealed class TestLegacyOrderFilter
+{
+    public string? Region { get; set; }
+}
+
+/// <summary>
+/// A list endpoint that reads page, itemsPerPage, search, orderBy and filter from the query
+/// string itself, next to its own query model, like consumer base controllers do.
+/// </summary>
+[ApiController]
+[Route("legacy-orders")]
+[Authorize(Policy = TestPolicies.OrderView)]
+public sealed class LegacyOrderController : ControllerBase
+{
+    [HttpGet]
+    public ActionResult<IReadOnlyList<TestOrder>> List([FromQuery] TestLegacyOrderFilter criteria)
+    {
+        var query = Request.Query;
+        return Ok(new[]
+        {
+            new TestOrder(1, $"{criteria.Region}|{query["page"]}|{query["itemsPerPage"]}|{query["search"]}", TestOrderStatus.Draft)
+        });
+    }
+
+    [HttpGet("{id:int}")]
+    public ActionResult<TestOrder> Get(int id)
+    {
+        return Ok(new TestOrder(id, "legacy-" + id, TestOrderStatus.Draft));
+    }
+}
+
 public static class TestPolicies
 {
     public const string OrderView = "order.view";

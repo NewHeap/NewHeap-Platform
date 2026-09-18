@@ -83,6 +83,31 @@ public class ProjectController : DbEntityProtectedNhBaseController<
     }
 
 
+    [HttpGet("query-string")]
+    [Authorize(Policy = "app.project.view")]
+    [EndpointSummary("Get projects from query-string paging")]
+    [EndpointDescription("Reads page, itemsPerPage, search, orderBy and filter from the query string with the NewHeap collection contract instead of binding a collection request model.")]
+    [ProducesResponseType<CollectionResultModel<ProjectViewModel>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public Task<IActionResult> GetFromQueryString(CancellationToken cancellationToken = default)
+    {
+        var collection = GetCollectionRequestModel();
+        var requestModel = new ProjectCollectionRequestModel
+        {
+            Page = collection.Page,
+            ItemsPerPage = collection.ItemsPerPage,
+            Search = collection.Search,
+            OrderBy = collection.OrderBy,
+            Filter = collection.Filter
+        };
+        return DoGet(
+            requestModel,
+            _projectService.GetCollectionQuery(requestModel),
+            cancellationToken);
+    }
+
     [HttpGet("mine")]
     [Authorize(Policy = "app.project.view")]
     [EndpointSummary("Get my projects")]

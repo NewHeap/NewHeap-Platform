@@ -85,7 +85,14 @@ the current user may use. Describe the filter, order and result fields by
 overriding `INhAiBridgeConventions.DescribeQuery`, for example from `[Filterable]`,
 `[Orderable]` and `[Searchable]` view-model attributes; described filter and order
 keys are then enforced before the HTTP call with `api-bridge-validation`. Add titles
-or text per resource with `UseResourceDescriber`. `query` and `get` run the
+or text per resource with `UseResourceDescriber`. The gateway offers an action as
+`query` when `INhAiBridgeConventions.IsCollectionAction` recognizes it; the default
+recognizes actions that bind a NewHeap collection request model. Override it for
+list endpoints that read `page`, `itemsPerPage`, `search`, `orderBy` and `filter`
+from the query string themselves: the default conventions then publish the
+collection fragment in the input schema and encode it in the NewHeap query
+contract, next to the action's own query model values (`parameters`). Override
+`BuildRequest` as well when the API reads another encoding. `query` and `get` run the
 underlying bridge descriptor through the shared invoker, so gate, policies, budget,
 audit (with the underlying tool id) and the self-HTTP request are exactly those of
 the bridge tool. Unknown and unauthorized resources fail identically with
@@ -108,6 +115,7 @@ product boundary.
 - Including DELETE actions or declaring a destructive effect through the bridge.
 - Replacing the discovery policy after `AddNewHeapPlatformAIMvcBridge`; use `UseInnerDiscoveryPolicy`.
 - Returning response body text in failure messages or logs.
+- Leaving a list endpoint that parses the collection query string itself unrecognized; override `IsCollectionAction` so the gateway offers `query` instead of only `get`.
 - Expecting the gateway to validate filter or order keys without describing them in `DescribeQuery`; the default describes no fields.
 - Routing mutations through the gateway or revealing in a message whether an unavailable resource exists.
 - Hand-building a runtime catalog for MCP export without implementing `INhAiAttestedToolCatalog` and passing attestation.

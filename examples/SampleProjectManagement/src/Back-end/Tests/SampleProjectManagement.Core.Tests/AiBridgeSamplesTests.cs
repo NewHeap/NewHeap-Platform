@@ -191,6 +191,45 @@ public sealed class AiBridgeSamplesTests
     }
 
     [Fact]
+    public async Task Gateway_queries_a_list_that_reads_its_collection_values_from_the_query_string()
+    {
+        await using var sample = await BridgeSample.StartAsync();
+        var filter = new[] { new { key = "status", @operator = "==", value = "Active" } };
+
+        var described = await sample.InvokeAsync(
+            ViewerToken,
+            ViewerPermissions,
+            "sample-api-gateway_describe-resource_v1",
+            new { resource = "project-from-query-string" });
+        var query = await sample.InvokeAsync(
+            ViewerToken,
+            ViewerPermissions,
+            "sample-api-gateway_query_v1",
+            new { resource = "project-from-query-string", page = 2, itemsPerPage = 5, search = "roadmap", filter });
+        var direct = await sample.InvokeAsync(
+            ViewerToken,
+            ViewerPermissions,
+            "sample-api_project_get-from-query-string_v1",
+            new { page = 2, itemsPerPage = 5, search = "roadmap", filter });
+        var rejected = await sample.InvokeAsync(
+            ViewerToken,
+            ViewerPermissions,
+            "sample-api-gateway_query_v1",
+            new { resource = "project-from-query-string", filter = new[] { new { key = "internalScore", @operator = "==", value = "1" } } });
+
+        Assert.True(described.GetProperty("data").GetProperty("query").GetProperty("searchable").GetBoolean());
+        Assert.True(query.GetProperty("success").GetBoolean());
+        Assert.True(direct.GetProperty("success").GetBoolean());
+        Assert.False(rejected.GetProperty("success").GetBoolean());
+        Assert.Equal(2, sample.Requests.Count);
+        Assert.Equal(sample.Requests[0].RequestUri, sample.Requests[1].RequestUri);
+        Assert.Equal(
+            "http://sample.test/projects/query-string?page=2&itemsPerPage=5&search=roadmap&filter="
+                + Uri.EscapeDataString("[{\"key\":\"status\",\"operator\":\"==\",\"value\":\"Active\"}]"),
+            sample.Requests[0].RequestUri!.AbsoluteUri);
+    }
+
+    [Fact]
     public async Task Mcp_listing_contains_the_bridge_tools()
     {
         await using var sample = await BridgeSample.StartAsync();
