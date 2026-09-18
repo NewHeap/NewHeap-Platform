@@ -5,7 +5,10 @@ import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.
 
 let nextId = 0;
 
-/** Chooses the agent for new conversations. Agent names come from the host's translation keys. */
+/**
+ * Chooses the agent for new conversations. Agent names come from the host's translation
+ * keys; agents created by an administrator carry literal text, which is shown as is.
+ */
 @Component({
   selector: 'nh-assistant-agent-picker',
   standalone: true,
@@ -16,11 +19,11 @@ let nextId = 0;
     <select
       [id]="selectId"
       [disabled]="disabled() || agents().length < 2"
-      [attr.title]="selected() ? ([selected()!.descriptionKey] | nhAssistantTranslate: '') : null"
+      [attr.title]="selected() ? ([selected()!.descriptionKey] | nhAssistantTranslate: selected()!.descriptionKey) : null"
       (change)="onChange($event)">
       @for (agent of agents(); track agent.id) {
         <option [value]="agent.id" [selected]="agent.id === selectedAgentId()">
-          {{ [agent.displayNameKey] | nhAssistantTranslate: agent.id }}
+          {{ [agent.displayNameKey] | nhAssistantTranslate: agent.displayNameKey }}
         </option>
       }
     </select>

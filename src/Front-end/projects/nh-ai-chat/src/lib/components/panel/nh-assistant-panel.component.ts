@@ -13,6 +13,7 @@ import {
   untracked,
   viewChild
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ApprovalDecision } from '../../models/assistant-api.models';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
@@ -23,6 +24,7 @@ import { NhAssistantStore } from '../../services/nh-assistant.store';
 import { NhAssistantAgentPickerComponent } from '../agent-picker/nh-assistant-agent-picker.component';
 import { NhAssistantComposerComponent } from '../composer/nh-assistant-composer.component';
 import { NhAssistantConversationListComponent } from '../conversation-list/nh-assistant-conversation-list.component';
+import { NhAssistantPreferencesComponent } from '../preferences/nh-assistant-preferences.component';
 import { NhAssistantThreadComponent } from '../thread/nh-assistant-thread.component';
 
 let nextId = 0;
@@ -35,12 +37,14 @@ let nextId = 0;
   selector: 'nh-assistant-panel',
   standalone: true,
   imports: [
+    RouterLink,
     TranslatePipe,
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
     NhAssistantAgentPickerComponent,
     NhAssistantComposerComponent,
     NhAssistantConversationListComponent,
+    NhAssistantPreferencesComponent,
     NhAssistantThreadComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -58,6 +62,8 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   readonly titleId = `nh-assistant-panel-title-${nextId++}`;
   readonly markdown = this.config.markdown?.enabled ?? true;
   readonly showConversations = signal(false);
+  readonly showPreferences = signal(false);
+  readonly adminRoute = this.config.adminRoute ?? null;
   readonly conversation = this.store.activeConversation;
   private readonly conversationId = computed(() => this.conversation()?.id ?? null);
   readonly messages = computed(() => this.conversation()?.messages ?? []);
@@ -76,7 +82,10 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
     // Opening, creating or leaving a conversation returns from the list to the thread.
     effect(() => {
       if (this.conversationId() !== undefined) {
-        untracked(() => this.showConversations.set(false));
+        untracked(() => {
+          this.showConversations.set(false);
+          this.showPreferences.set(false);
+        });
       }
     });
 
@@ -101,7 +110,13 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   }
 
   toggleConversations(): void {
+    this.showPreferences.set(false);
     this.showConversations.update(show => !show);
+  }
+
+  togglePreferences(): void {
+    this.showConversations.set(false);
+    this.showPreferences.update(show => !show);
   }
 
   newConversation(): void {
@@ -120,6 +135,7 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
 
   send(text: string): void {
     this.showConversations.set(false);
+    this.showPreferences.set(false);
     void this.store.send(text);
   }
 

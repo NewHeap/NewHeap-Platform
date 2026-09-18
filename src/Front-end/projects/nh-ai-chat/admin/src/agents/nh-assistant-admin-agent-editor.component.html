@@ -1,0 +1,192 @@
+<form class="section card" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="saving()" (submit)="$event.preventDefault(); save()">
+  <h3 [id]="id + '-title'">
+    @if (agent(); as current) {
+      {{ 'nh-assistant.admin.agent-editor.edit-title' | translate: { name: current.displayName } }}
+    } @else {
+      {{ 'nh-assistant.admin.agent-editor.new-title' | translate }}
+    }
+  </h3>
+
+  <div class="grid">
+    <div class="field">
+      <label [for]="id + '-id'">{{ 'nh-assistant.admin.agent-editor.id' | translate }}</label>
+      <input
+        type="text"
+        class="mono"
+        autocomplete="off"
+        [id]="id + '-id'"
+        [value]="agentId()"
+        [disabled]="!isNew()"
+        [attr.aria-describedby]="id + '-id-hint'"
+        [attr.aria-invalid]="submitted() && idInvalid() ? true : null"
+        (input)="agentId.set(value($event))" />
+      <p class="hint" [id]="id + '-id-hint'">
+        <span [class.error-text]="submitted() && idInvalid()">
+          {{ (submitted() && idInvalid() ? 'nh-assistant.admin.invalid-id' : 'nh-assistant.admin.agent-editor.id-hint') | translate }}
+        </span>
+      </p>
+    </div>
+
+    <div class="field">
+      <label [for]="id + '-name'">{{ 'nh-assistant.admin.agent-editor.display-name' | translate }}</label>
+      <input
+        type="text"
+        [id]="id + '-name'"
+        [value]="displayName()"
+        [attr.aria-invalid]="submitted() && nameMissing() ? true : null"
+        [attr.aria-describedby]="id + '-name-hint'"
+        (input)="displayName.set(value($event))" />
+      <p class="hint" [id]="id + '-name-hint'">
+        @if (submitted() && nameMissing()) {
+          <span class="error-text">{{ 'nh-assistant.admin.required' | translate }}</span>
+        }
+      </p>
+    </div>
+  </div>
+
+  <div class="field">
+    <label [for]="id + '-description'">{{ 'nh-assistant.admin.agent-editor.description' | translate }}</label>
+    <input type="text" [id]="id + '-description'" [value]="description()" (input)="description.set(value($event))" />
+  </div>
+
+  <div class="field">
+    <label [for]="id + '-instructions'">{{ 'nh-assistant.admin.agent-editor.instructions' | translate }}</label>
+    <textarea
+      rows="8"
+      [id]="id + '-instructions'"
+      [value]="instructions()"
+      [attr.aria-describedby]="id + '-instructions-hint'"
+      [attr.aria-invalid]="tooLong() ? true : null"
+      (input)="instructions.set(value($event))"></textarea>
+    <p class="hint" [id]="id + '-instructions-hint'">
+      <span [class.error-text]="tooLong()">
+        {{ (tooLong() ? 'nh-assistant.admin.too-long' : 'nh-assistant.admin.agent-editor.instructions-hint') | translate }}
+      </span>
+      <span class="counter" [class.error-text]="tooLong()">{{ 'nh-assistant.admin.characters' | translate: { count: instructions().length, max: max } }}</span>
+    </p>
+  </div>
+
+  <div class="grid">
+    <div class="field">
+      <label [for]="id + '-autonomy'">{{ 'nh-assistant.admin.agent-editor.autonomy' | translate }}</label>
+      <select [id]="id + '-autonomy'" [attr.aria-describedby]="id + '-autonomy-hint'" (change)="autonomy.set($any(value($event)))">
+        @for (level of autonomyLevels; track level) {
+          <option [value]="level" [selected]="autonomy() === level">{{ 'nh-assistant.admin.agents.autonomy.' + level | translate }}</option>
+        }
+      </select>
+      <p class="hint" [id]="id + '-autonomy-hint'">{{ 'nh-assistant.admin.agent-editor.autonomy-hint' | translate }}</p>
+    </div>
+
+    <div class="field">
+      <label [for]="id + '-policy'">{{ 'nh-assistant.admin.agent-editor.required-policy' | translate }}</label>
+      <input
+        type="text"
+        class="mono"
+        autocomplete="off"
+        [id]="id + '-policy'"
+        [value]="requiredPolicy()"
+        [attr.aria-describedby]="id + '-policy-hint'"
+        (input)="requiredPolicy.set(value($event))" />
+      <p class="hint" [id]="id + '-policy-hint'">{{ 'nh-assistant.admin.agent-editor.required-policy-hint' | translate }}</p>
+    </div>
+  </div>
+
+  <label class="check">
+    <input type="checkbox" [checked]="isEnabled()" (change)="isEnabled.set(checked($event))" />
+    <span>{{ 'nh-assistant.admin.agent-editor.enabled' | translate }}</span>
+  </label>
+
+  <fieldset class="subsection">
+    <legend>{{ 'nh-assistant.admin.agent-editor.tool-selectors' | translate }}</legend>
+    <p class="muted">{{ 'nh-assistant.admin.agent-editor.tool-selectors-hint' | translate }}</p>
+
+    @if (toolSelectors().length === 0) {
+      <p class="muted">{{ 'nh-assistant.admin.agent-editor.no-selectors' | translate }}</p>
+    } @else {
+      <ul class="chips">
+        @for (selector of toolSelectors(); track selector) {
+          <li class="chip">
+            <span>{{ selector }}</span>
+            <button
+              type="button"
+              [attr.aria-label]="'nh-assistant.admin.agent-editor.remove-selector' | translate: { selector: selector }"
+              [attr.title]="'nh-assistant.admin.agent-editor.remove-selector' | translate: { selector: selector }"
+              (click)="removeSelector(selector)">
+              <nh-assistant-icon name="x" />
+            </button>
+          </li>
+        }
+      </ul>
+      <p class="muted" role="status">{{ 'nh-assistant.admin.agent-editor.matches' | translate: { count: matchCount() } }}</p>
+    }
+
+    <div class="inline">
+      <input
+        type="text"
+        class="mono"
+        autocomplete="off"
+        [attr.aria-label]="'nh-assistant.admin.agent-editor.add-selector' | translate"
+        [attr.placeholder]="'nh-assistant.admin.agent-editor.selector-placeholder' | translate"
+        [attr.aria-invalid]="selectorInvalid() ? true : null"
+        [value]="newSelector()"
+        (input)="newSelector.set(value($event))"
+        (keydown)="onSelectorKeydown($event)" />
+      <button class="secondary" type="button" [disabled]="newSelector().trim().length === 0 || selectorInvalid()" (click)="addSelector()">
+        <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.agent-editor.add-selector' | translate }}
+      </button>
+    </div>
+
+    <div class="field">
+      <label class="label" [for]="id + '-catalog-filter'">{{ 'nh-assistant.admin.agent-editor.catalog' | translate }}</label>
+      <input
+        type="search"
+        [id]="id + '-catalog-filter'"
+        [attr.placeholder]="'nh-assistant.admin.agent-editor.catalog-filter' | translate"
+        [value]="catalogFilter()"
+        (input)="catalogFilter.set(value($event))" />
+      <ul class="catalog" [attr.aria-label]="'nh-assistant.admin.agent-editor.catalog' | translate">
+        @for (tool of filteredTools(); track tool.id) {
+          <li>
+            <label>
+              <input
+                type="checkbox"
+                [checked]="isSelected(tool.id) || isCovered(tool.id)"
+                [disabled]="isCovered(tool.id)"
+                (change)="toggleTool(tool.id, checked($event))" />
+              <span class="tool-id">{{ tool.id }}</span>
+              <span class="badge">{{ 'nh-assistant.admin.source.' + tool.source | translate }}</span>
+              <span class="badge" [class.warning]="tool.effect !== 'read-only'">{{ 'nh-assistant.admin.effect.' + tool.effect | translate }}</span>
+              <span class="muted">{{ tool.description }}</span>
+            </label>
+          </li>
+        } @empty {
+          <li class="muted">{{ 'nh-assistant.admin.agent-editor.catalog-empty' | translate }}</li>
+        }
+      </ul>
+    </div>
+  </fieldset>
+
+  <fieldset class="subsection">
+    <legend>{{ 'nh-assistant.admin.agent-editor.mcp-servers' | translate }}</legend>
+    <p class="muted">{{ 'nh-assistant.admin.agent-editor.mcp-servers-hint' | translate }}</p>
+    @for (server of servers(); track server.id) {
+      <label class="check">
+        <input type="checkbox" [checked]="mcpServerIds().includes(server.id)" (change)="toggleServer(server.id, checked($event))" />
+        <span>{{ server.displayName }} <span class="mono muted">{{ server.id }}</span></span>
+      </label>
+    } @empty {
+      <p class="muted">{{ 'nh-assistant.admin.agent-editor.mcp-servers-empty' | translate }}</p>
+    }
+  </fieldset>
+
+  @if (error(); as failure) {
+    <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+  }
+
+  <div class="actions">
+    <button class="secondary" type="button" (click)="cancelled.emit()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+    <button class="primary" type="submit" [disabled]="saving() || tooLong()">
+      {{ (saving() ? 'nh-assistant.admin.saving' : 'nh-assistant.admin.save') | translate }}
+    </button>
+  </div>
+</form>

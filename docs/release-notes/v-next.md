@@ -63,3 +63,5 @@ agent and assistant tests. No breaking change.
 ### @newheap/platform-ai-chat
 
 New package. Angular assistant panel (`provideNhAssistant`, `nh-assistant-launcher`, `nh-assistant-panel` and building blocks) for the assistant API, with a scripted mock API in `@newheap/platform-ai-chat/testing`. Peer dependencies: Angular 20.3, `@angular/cdk` 20.2, `@ngx-translate/core` 17, `marked` 18, `dompurify` 3.4. Hosts load `@angular/cdk/overlay-prebuilt.css`. No breaking changes; existing packages are unaffected.
+
+Administration and preferences: `nh-assistant-preferences` in the panel, the administration page `nh-assistant-admin` in the new entry point `@newheap/platform-ai-chat/admin`, `NhAssistantAdminApiService`, `NhAssistantConfig.adminRoute` and `AssistantStatus.canAdminister`, with matching mock endpoints in `/testing`. `@angular/router` is a new peer dependency. No breaking changes.

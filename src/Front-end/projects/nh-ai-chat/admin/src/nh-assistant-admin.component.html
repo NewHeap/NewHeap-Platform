@@ -1,0 +1,55 @@
+<section class="admin" [attr.aria-labelledby]="id + '-title'">
+  <header class="page-header">
+    <nh-assistant-icon class="page-icon" name="admin" />
+    <div>
+      <h2 [id]="id + '-title'">{{ 'nh-assistant.admin.title' | translate }}</h2>
+      <p>{{ 'nh-assistant.admin.description' | translate }}</p>
+    </div>
+  </header>
+
+  @if (!ready() || (store.statusLoading() && !store.enabled())) {
+    <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+  } @else if (!store.enabled()) {
+    <div class="state">
+      <nh-assistant-icon class="state-icon" name="warning" />
+      <p class="state-title">{{ 'nh-assistant.panel.unavailable-title' | translate }}</p>
+      <p>{{ 'nh-assistant.panel.unavailable-description' | translate }}</p>
+    </div>
+  } @else if (!store.canAdminister()) {
+    <div class="state">
+      <nh-assistant-icon class="state-icon" name="warning" />
+      <p class="state-title">{{ 'nh-assistant.admin.forbidden-title' | translate }}</p>
+      <p>{{ 'nh-assistant.admin.forbidden-description' | translate }}</p>
+    </div>
+  } @else {
+    <div class="tabs" role="tablist" [attr.aria-label]="'nh-assistant.admin.tabs-label' | translate" (keydown)="onTabKeydown($event)">
+      @for (tab of tabs; track tab) {
+        <button
+          type="button"
+          role="tab"
+          class="tab"
+          [id]="id + '-tab-' + tab"
+          [attr.aria-selected]="selected() === tab"
+          [attr.aria-controls]="id + '-panel'"
+          [attr.tabindex]="selected() === tab ? 0 : -1"
+          (click)="select(tab)">
+          {{ 'nh-assistant.admin.tabs.' + tab | translate }}
+        </button>
+      }
+    </div>
+
+    <div class="panel" role="tabpanel" tabindex="0" [id]="id + '-panel'" [attr.aria-labelledby]="id + '-tab-' + selected()">
+      @switch (selected()) {
+        @case ('context') {
+          <nh-assistant-admin-context />
+        }
+        @case ('agents') {
+          <nh-assistant-admin-agents />
+        }
+        @case ('mcp-servers') {
+          <nh-assistant-admin-mcp-servers />
+        }
+      }
+    </div>
+  }
+</section>

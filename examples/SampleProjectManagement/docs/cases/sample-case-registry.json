@@ -3518,6 +3518,29 @@
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPersonalizationTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs"
       ]
+    },
+    {
+      "id": "SPM-253",
+      "categoryId": "18",
+      "title": "Assistant administration and preferences UI",
+      "surface": "`@newheap/platform-ai-chat`: `nh-assistant-preferences`, `NhAssistantApiService.getPreferences`/`updatePreferences`, `NhAssistantAdminApiService`, `NhAssistantConfig.adminRoute`, `NhAssistantStore.canAdminister`; `@newheap/platform-ai-chat/admin`: `nh-assistant-admin` with `nh-assistant-admin-context`, `nh-assistant-admin-agents`, `nh-assistant-admin-agent-editor`, `nh-assistant-admin-mcp-servers`, `nh-assistant-admin-mcp-server-editor` and `nh-assistant-admin-mcp-tools`; `provideNhAssistantMockApi` preference and admin endpoints",
+      "outcome": "From the panel header a user chooses style, form of address and answer length and writes own instructions of at most 1,000 characters; saving, validation and failures are shown in place. When the server reports `canAdminister` and the host configured `adminRoute`, the panel links to the administration page. There an administrator edits the versioned application context and sees a conflict instead of overwriting a newer version, overrides, disables and resets code agents, creates and deletes own agents with tool selectors from the tool catalog and assigned MCP servers, and connects MCP servers with a write-only secret that is never shown, only kept, replaced or cleared. After a sync every remote tool is disabled and treated as a change until the administrator enables it and chooses its effect; remote annotations are shown as hints and a changed remote input schema disables the tool with a warning. The management playground runs all of this on the scripted mock API.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.routes.ts",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-admin-page.component.ts",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/components/preferences/nh-assistant-preferences.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/components/preferences/nh-assistant-preferences.component.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/nh-assistant-admin.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-admin.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts"
+      ]
     }
   ]
 }

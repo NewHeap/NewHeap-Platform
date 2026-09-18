@@ -1,0 +1,89 @@
+<section class="section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading() || saving()">
+  <header class="section-header">
+    <div>
+      <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.context.title' | translate }}</h3>
+      <p class="muted">{{ 'nh-assistant.admin.context.description' | translate }}</p>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+  } @else if (loadFailed()) {
+    <div class="state" role="alert">
+      <p>{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+      <button class="secondary" type="button" (click)="load(false)">{{ 'nh-assistant.admin.retry' | translate }}</button>
+    </div>
+  } @else if (context(); as current) {
+    <form class="stack" (submit)="$event.preventDefault(); save()">
+      <div class="meta">
+        <span class="badge">{{ 'nh-assistant.admin.context.version' | translate: { version: current.version } }}</span>
+        <span>
+          @if (current.updatedBy) {
+            {{ 'nh-assistant.admin.context.updated' | translate: { date: (current.updatedAt | date: 'medium'), user: current.updatedBy } }}
+          } @else {
+            {{ 'nh-assistant.admin.context.updated-unknown' | translate: { date: (current.updatedAt | date: 'medium') } }}
+          }
+        </span>
+        <span class="mono" [attr.title]="current.hash">{{ 'nh-assistant.admin.context.hash' | translate }} {{ current.hash.slice(0, 18) }}</span>
+      </div>
+
+      <div class="field">
+        <label [for]="id + '-text'">{{ 'nh-assistant.admin.context.label' | translate }}</label>
+        <textarea
+          class="large"
+          rows="14"
+          [id]="id + '-text'"
+          [value]="text()"
+          [attr.aria-describedby]="id + '-hint'"
+          [attr.aria-invalid]="tooLong() ? true : null"
+          (input)="onInput($event)"></textarea>
+        <p class="hint" [id]="id + '-hint'">
+          <span [class.error-text]="tooLong()">{{ tooLong() ? ('nh-assistant.admin.too-long' | translate) : '' }}</span>
+          <span class="counter" [class.error-text]="tooLong()">{{ 'nh-assistant.admin.characters' | translate: { count: text().length, max: max } }}</span>
+        </p>
+      </div>
+
+      @if (conflict()) {
+        <div class="message warning" role="alert">
+          <nh-assistant-icon name="warning" />
+          <span class="grow">{{ 'nh-assistant.admin.context.conflict' | translate }}</span>
+          <button class="secondary" type="button" (click)="load(true)">
+            <nh-assistant-icon name="refresh" />{{ 'nh-assistant.admin.context.reload' | translate }}
+          </button>
+        </div>
+      }
+      @if (error(); as failure) {
+        <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+      }
+      @if (saved()) {
+        <p class="message success" role="status"><nh-assistant-icon name="check" />{{ 'nh-assistant.admin.saved' | translate }}</p>
+      }
+
+      <div class="actions">
+        <button class="primary" type="submit" [disabled]="!canSave()">
+          {{ (saving() ? 'nh-assistant.admin.saving' : 'nh-assistant.admin.save') | translate }}
+        </button>
+      </div>
+    </form>
+
+    <section class="subsection" [attr.aria-labelledby]="id + '-history'">
+      <h4 [id]="id + '-history'">{{ 'nh-assistant.admin.context.history' | translate }}</h4>
+      @if (history().length === 0) {
+        <p class="muted">{{ 'nh-assistant.admin.context.history-empty' | translate }}</p>
+      } @else {
+        <ol class="history">
+          @for (version of history(); track version.version) {
+            <li>
+              <span class="badge">{{ 'nh-assistant.admin.context.version' | translate: { version: version.version } }}</span>
+              <span>{{ version.updatedAt | date: 'medium' }}</span>
+              @if (version.updatedBy) {
+                <span>{{ version.updatedBy }}</span>
+              }
+              <span class="mono muted" [attr.title]="version.hash">{{ version.hash.slice(0, 18) }}</span>
+            </li>
+          }
+        </ol>
+      }
+    </section>
+  }
+</section>

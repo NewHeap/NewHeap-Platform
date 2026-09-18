@@ -14,7 +14,8 @@ const status: AssistantStatus = {
     { id: 'general', version: 1, displayNameKey: 'agents.general', descriptionKey: 'agents.general-description', canMutate: false },
     { id: 'projects', version: 2, displayNameKey: 'agents.projects', descriptionKey: 'agents.projects-description', canMutate: true }
   ],
-  limits: { maxMessageChars: 100, maxToolCallsPerTurn: 8 }
+  limits: { maxMessageChars: 100, maxToolCallsPerTurn: 8 },
+  canAdminister: false
 };
 
 const approval: ApprovalPart = {

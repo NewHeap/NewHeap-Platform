@@ -1,0 +1,162 @@
+<form class="section card" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="saving()" autocomplete="off" (submit)="$event.preventDefault(); save()">
+  <h3 [id]="id + '-title'">
+    @if (server(); as current) {
+      {{ 'nh-assistant.admin.server-editor.edit-title' | translate: { name: current.displayName } }}
+    } @else {
+      {{ 'nh-assistant.admin.server-editor.new-title' | translate }}
+    }
+  </h3>
+
+  <div class="grid">
+    <div class="field">
+      <label [for]="id + '-id'">{{ 'nh-assistant.admin.server-editor.id' | translate }}</label>
+      <input
+        type="text"
+        class="mono"
+        [id]="id + '-id'"
+        [value]="serverId()"
+        [disabled]="!isNew()"
+        [attr.aria-describedby]="id + '-id-hint'"
+        [attr.aria-invalid]="submitted() && idInvalid() ? true : null"
+        (input)="serverId.set(value($event))" />
+      <p class="hint" [id]="id + '-id-hint'">
+        <span [class.error-text]="submitted() && idInvalid()">
+          {{ (submitted() && idInvalid() ? 'nh-assistant.admin.invalid-id' : 'nh-assistant.admin.server-editor.id-hint') | translate }}
+        </span>
+      </p>
+    </div>
+
+    <div class="field">
+      <label [for]="id + '-name'">{{ 'nh-assistant.admin.server-editor.display-name' | translate }}</label>
+      <input
+        type="text"
+        [id]="id + '-name'"
+        [value]="displayName()"
+        [attr.aria-invalid]="submitted() && nameMissing() ? true : null"
+        [attr.aria-describedby]="id + '-name-hint'"
+        (input)="displayName.set(value($event))" />
+      <p class="hint" [id]="id + '-name-hint'">
+        @if (submitted() && nameMissing()) {
+          <span class="error-text">{{ 'nh-assistant.admin.required' | translate }}</span>
+        }
+      </p>
+    </div>
+  </div>
+
+  <div class="field">
+    <label [for]="id + '-url'">{{ 'nh-assistant.admin.server-editor.url' | translate }}</label>
+    <input
+      type="url"
+      class="mono"
+      inputmode="url"
+      [id]="id + '-url'"
+      [value]="url()"
+      [attr.aria-describedby]="id + '-url-hint'"
+      [attr.aria-invalid]="submitted() && urlInvalid() ? true : null"
+      (input)="url.set(value($event))" />
+    <p class="hint" [id]="id + '-url-hint'">
+      <span [class.error-text]="submitted() && urlInvalid()">
+        {{ (submitted() && urlInvalid() ? 'nh-assistant.admin.server-editor.url-invalid' : 'nh-assistant.admin.server-editor.url-hint') | translate }}
+      </span>
+    </p>
+  </div>
+
+  <div class="grid">
+    <div class="field">
+      <label [for]="id + '-auth'">{{ 'nh-assistant.admin.server-editor.auth-mode' | translate }}</label>
+      <select [id]="id + '-auth'" (change)="authMode.set($any(value($event)))">
+        @for (mode of authModes; track mode) {
+          <option [value]="mode" [selected]="authMode() === mode">{{ 'nh-assistant.admin.mcp.auth.' + mode | translate }}</option>
+        }
+      </select>
+    </div>
+
+    @if (authMode() === 'api-key') {
+      <div class="field">
+        <label [for]="id + '-header'">{{ 'nh-assistant.admin.server-editor.header-name' | translate }}</label>
+        <input
+          type="text"
+          class="mono"
+          placeholder="X-Api-Key"
+          [id]="id + '-header'"
+          [value]="headerName()"
+          [attr.aria-describedby]="id + '-header-hint'"
+          (input)="headerName.set(value($event))" />
+        <p class="hint" [id]="id + '-header-hint'">{{ 'nh-assistant.admin.server-editor.header-name-hint' | translate }}</p>
+      </div>
+    }
+  </div>
+
+  @if (authMode() === 'forward-user-token') {
+    <p class="message warning" role="note"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.server-editor.forward-warning' | translate }}</p>
+  }
+
+  @if (usesSecret()) {
+    <fieldset class="field">
+      <legend>{{ 'nh-assistant.admin.server-editor.secret' | translate }}</legend>
+      @if (hasSecret()) {
+        <div class="meta secret-state">
+          @switch (secretAction()) {
+            @case ('clear') {
+              <span class="badge warning">{{ 'nh-assistant.admin.server-editor.secret-will-clear' | translate }}</span>
+              <button class="secondary" type="button" (click)="setSecretAction('keep')">{{ 'nh-assistant.admin.server-editor.secret-undo' | translate }}</button>
+            }
+            @case ('replace') {
+              <span class="badge">{{ 'nh-assistant.admin.server-editor.secret-set' | translate }}</span>
+              <button class="secondary" type="button" (click)="setSecretAction('keep')">{{ 'nh-assistant.admin.server-editor.secret-undo' | translate }}</button>
+            }
+            @default {
+              <span class="badge success">{{ 'nh-assistant.admin.server-editor.secret-set' | translate }}</span>
+              <button class="secondary" type="button" (click)="setSecretAction('replace')">{{ 'nh-assistant.admin.server-editor.secret-replace' | translate }}</button>
+              <button class="danger" type="button" (click)="setSecretAction('clear')">{{ 'nh-assistant.admin.server-editor.secret-clear' | translate }}</button>
+            }
+          }
+        </div>
+      } @else {
+        <p class="muted">{{ 'nh-assistant.admin.server-editor.secret-none' | translate }}</p>
+      }
+      @if (showSecretInput()) {
+        <label class="visually-hidden" [for]="id + '-secret'">{{ 'nh-assistant.admin.server-editor.secret-new' | translate }}</label>
+        <input
+          type="password"
+          class="mono"
+          autocomplete="new-password"
+          spellcheck="false"
+          [id]="id + '-secret'"
+          [attr.placeholder]="'nh-assistant.admin.server-editor.secret-new' | translate"
+          [attr.aria-describedby]="id + '-secret-hint'"
+          [value]="secret()"
+          (input)="onSecretInput($event)" />
+      }
+      <p class="hint" [id]="id + '-secret-hint'">{{ 'nh-assistant.admin.server-editor.secret-hint' | translate }}</p>
+    </fieldset>
+  }
+
+  <div class="field">
+    <label [for]="id + '-policy'">{{ 'nh-assistant.admin.server-editor.required-policy' | translate }}</label>
+    <input
+      type="text"
+      class="mono"
+      [id]="id + '-policy'"
+      [value]="requiredPolicy()"
+      [attr.aria-describedby]="id + '-policy-hint'"
+      (input)="requiredPolicy.set(value($event))" />
+    <p class="hint" [id]="id + '-policy-hint'">{{ 'nh-assistant.admin.server-editor.required-policy-hint' | translate }}</p>
+  </div>
+
+  <label class="check">
+    <input type="checkbox" [checked]="isEnabled()" (change)="isEnabled.set(checked($event))" />
+    <span>{{ 'nh-assistant.admin.server-editor.enabled' | translate }}</span>
+  </label>
+
+  @if (error(); as failure) {
+    <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+  }
+
+  <div class="actions">
+    <button class="secondary" type="button" (click)="cancelled.emit()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+    <button class="primary" type="submit" [disabled]="saving()">
+      {{ (saving() ? 'nh-assistant.admin.saving' : 'nh-assistant.admin.save') | translate }}
+    </button>
+  </div>
+</form>

@@ -290,7 +290,15 @@
     "assistant-prompt-long": "Long answer to cancel",
     "assistant-prompt-unsafe": "Unsafe HTML",
     "assistant-prompt-error": "Error message",
-    "assistant-state-title": "Store state"
+    "assistant-state-title": "Store state",
+    "assistant-admin-permission": "User has the assistant admin permission",
+    "assistant-admin-title": "Administration",
+    "assistant-admin-description": "Administrators manage the application context, the agents and the MCP servers. The panel header links here only for them.",
+    "assistant-admin-open": "Open the administration",
+    "assistant-admin-hidden": "Hidden: the user lacks the admin permission.",
+    "assistant-simulate-schema-change": "Simulate a changed MCP tool",
+    "assistant-schema-change-simulated": "The document search tool now reports a new input schema. Sync the server on the MCP servers tab to see it disabled.",
+    "assistant-admin-back": "Back to the assistant playground"
   },
   "nh-background-operations": {
     "operation": "Background operation",

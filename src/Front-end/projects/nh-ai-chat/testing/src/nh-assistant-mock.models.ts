@@ -1,4 +1,12 @@
-import { AgentSummary, AssistantStatus, Conversation } from '@newheap/platform-ai-chat';
+import {
+  AdminAgentInput,
+  AgentSummary,
+  AssistantPreferences,
+  AssistantStatus,
+  Conversation,
+  McpServerInput,
+  ToolCatalogEntry
+} from '@newheap/platform-ai-chat';
 
 /** Streams text as `message.delta` events, split into word-sized pieces. */
 export interface NhAssistantMockTextStep {
@@ -79,6 +87,44 @@ export interface NhAssistantMockTiming {
   chunkSize?: number;
 }
 
+/** A tool that a simulated remote MCP server lists. */
+export interface NhAssistantMockRemoteTool {
+  remoteName: string;
+  description: string;
+  /** Changing the hash between two syncs simulates a changed remote input schema. */
+  inputSchemaHash: string;
+  /** Remote annotation; the mock passes it on as an untrusted hint. */
+  readOnlyHint?: boolean | null;
+}
+
+/** A simulated MCP server. The mock stores `secret` but never returns it. */
+export interface NhAssistantMockMcpServer extends McpServerInput {
+  remoteTools?: NhAssistantMockRemoteTool[];
+}
+
+/** A preconfigured agent. Code agents default to the scenario's chat agents. */
+export interface NhAssistantMockAdminAgent extends AdminAgentInput {
+  source: 'code' | 'admin';
+}
+
+/**
+ * Administration data of the mock. Hosts without an admin scenario still get working
+ * `admin/*` endpoints with code agents derived from `agents` and an empty context.
+ */
+export interface NhAssistantMockAdminScenario {
+  /** Default `true`. Without it `admin/*` answers `403`. */
+  canAdminister?: boolean;
+  context?: string;
+  /** Tool catalog for the selector picker. Enabled MCP tools are added automatically. */
+  tools?: ToolCatalogEntry[];
+  agents?: NhAssistantMockAdminAgent[];
+  mcpServers?: NhAssistantMockMcpServer[];
+  /** Policies the host knows; `requiredPolicy` must be one of them. Default: any value. */
+  policies?: string[];
+  /** Hosts that may receive the user's token (`forward-user-token`). Default: none. */
+  forwardUserTokenHosts?: string[];
+}
+
 /** The scenario the mock API plays without a back-end. */
 export interface NhAssistantMockScenario {
   /** Default `true`. */
@@ -90,6 +136,9 @@ export interface NhAssistantMockScenario {
   /** Tried in order; the first matching turn answers. */
   turns: NhAssistantMockTurn[];
   timing?: NhAssistantMockTiming;
+  /** Stored preferences of the caller. Default: default style, informal, normal length. */
+  preferences?: AssistantPreferences;
+  admin?: NhAssistantMockAdminScenario;
 }
 
 /** One request the mock API received, for assertions in tests. */

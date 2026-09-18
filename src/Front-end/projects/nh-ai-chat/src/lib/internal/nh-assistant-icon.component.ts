@@ -13,7 +13,12 @@ export type NhAssistantIconName =
   | 'x'
   | 'warning'
   | 'chevron-down'
-  | 'clock';
+  | 'clock'
+  | 'settings'
+  | 'admin'
+  | 'edit'
+  | 'refresh'
+  | 'link';
 
 /**
  * Optional icon classes of the host's icon library, for example `{ close: 'ph ph-x' }`.
@@ -34,7 +39,12 @@ const builtInPaths: Record<NhAssistantIconName, string> = {
   x: 'M7 7l10 10M17 7L7 17',
   warning: 'M12 4L2.5 20h19zM12 10v4M12 17h.01',
   'chevron-down': 'M6 9l6 6 6-6',
-  clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18zM12 7v5l3 2'
+  clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18zM12 7v5l3 2',
+  settings: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4',
+  admin: 'M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6zM9.5 12l2 2 3.5-3.5',
+  edit: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
+  refresh: 'M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4',
+  link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1'
 };
 
 /** Decorative icon. The surrounding control provides the accessible name. */

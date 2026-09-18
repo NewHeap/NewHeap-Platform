@@ -1,0 +1,96 @@
+@if (editing() !== undefined) {
+  <nh-assistant-admin-mcp-server-editor [server]="editing() ?? null" (saved)="onSaved($event)" (cancelled)="editing.set(undefined)" />
+} @else if (toolsOf(); as server) {
+  <nh-assistant-admin-mcp-tools [server]="server" (closed)="toolsOf.set(null); refresh()" (synced)="refresh()" />
+} @else {
+  <section class="section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()">
+    <header class="section-header">
+      <div>
+        <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.mcp.title' | translate }}</h3>
+        <p class="muted">{{ 'nh-assistant.admin.mcp.description' | translate }}</p>
+      </div>
+      <button class="primary" type="button" [disabled]="loading() || loadFailed()" (click)="create()">
+        <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.mcp.new' | translate }}
+      </button>
+    </header>
+
+    @if (error(); as failure) {
+      <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+    }
+
+    @if (loading()) {
+      <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+    } @else if (loadFailed()) {
+      <div class="state" role="alert">
+        <p>{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+        <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+      </div>
+    } @else if (servers().length === 0) {
+      <p class="state">{{ 'nh-assistant.admin.mcp.empty' | translate }}</p>
+    } @else {
+      <ul class="cards">
+        @for (server of servers(); track server.id) {
+          <li class="card" [class.inactive]="!server.isEnabled">
+            <div class="card-header">
+              <strong>{{ server.displayName }}</strong>
+              <span class="mono muted">{{ server.id }}</span>
+              <span class="badge" [class.success]="server.isEnabled">{{ (server.isEnabled ? 'nh-assistant.admin.enabled' : 'nh-assistant.admin.disabled') | translate }}</span>
+              @if (server.lastSyncStatus) {
+                <span class="badge" [class.success]="server.lastSyncStatus === 'ok'" [class.danger]="server.lastSyncStatus === 'failed'">
+                  {{ (server.lastSyncStatus === 'ok' ? 'nh-assistant.admin.mcp.sync-ok' : 'nh-assistant.admin.mcp.sync-failed') | translate }}
+                </span>
+              }
+            </div>
+            <span class="mono muted url">{{ server.url }}</span>
+            <div class="meta">
+              <span>{{ 'nh-assistant.admin.mcp.auth.' + server.authMode | translate }}</span>
+              @if (server.authMode === 'bearer' || server.authMode === 'api-key') {
+                <span class="badge" [class.success]="server.hasSecret" [class.warning]="!server.hasSecret">
+                  {{ (server.hasSecret ? 'nh-assistant.admin.mcp.secret-set' : 'nh-assistant.admin.mcp.no-secret') | translate }}
+                </span>
+              }
+              <span>
+                @if (server.lastSyncAt) {
+                  {{ 'nh-assistant.admin.mcp.last-sync' | translate: { date: (server.lastSyncAt | date: 'medium') } }}
+                } @else {
+                  {{ 'nh-assistant.admin.mcp.never-synced' | translate }}
+                }
+              </span>
+              <span>
+                @if (server.assignedAgentIds.length > 0) {
+                  {{ 'nh-assistant.admin.mcp.assigned' | translate: { agents: server.assignedAgentIds.join(', ') } }}
+                } @else {
+                  {{ 'nh-assistant.admin.mcp.unassigned' | translate }}
+                }
+              </span>
+            </div>
+
+            @if (testState(server.id); as state) {
+              @if (state.running) {
+                <p class="muted" role="status">{{ 'nh-assistant.admin.mcp.testing' | translate }}</p>
+              } @else if (state.result?.ok) {
+                <p class="message success" role="status"><nh-assistant-icon name="check" />{{ 'nh-assistant.admin.mcp.test-ok' | translate: { count: state.result?.toolCount ?? 0 } }}</p>
+              } @else {
+                <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ testErrorKeys(state.result?.code ?? null) | nhAssistantTranslate: (state.result?.code ?? '') }}</p>
+              }
+            }
+
+            <div class="card-actions">
+              <button class="secondary" type="button" (click)="edit(server)"><nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}</button>
+              <button class="secondary" type="button" [disabled]="testState(server.id)?.running" (click)="test(server)">
+                <nh-assistant-icon name="link" />{{ 'nh-assistant.admin.mcp.test' | translate }}
+              </button>
+              <button class="secondary" type="button" (click)="toolsOf.set(server)"><nh-assistant-icon name="tool" />{{ 'nh-assistant.admin.mcp.tools' | translate }}</button>
+              @if (confirmingDelete() === server.id) {
+                <button class="danger" type="button" (click)="remove(server)">{{ 'nh-assistant.admin.confirm-delete' | translate }}</button>
+                <button class="secondary" type="button" (click)="confirmingDelete.set(null)">{{ 'nh-assistant.admin.keep' | translate }}</button>
+              } @else {
+                <button class="danger" type="button" (click)="confirmingDelete.set(server.id)"><nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.delete' | translate }}</button>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+}

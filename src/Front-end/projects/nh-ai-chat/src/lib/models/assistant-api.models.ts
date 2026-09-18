@@ -13,6 +13,8 @@ export interface AssistantStatus {
     maxMessageChars: number;
     maxToolCallsPerTurn: number;
   };
+  /** True when the caller also passes the admin policy and may use the `admin/*` endpoints. */
+  canAdminister: boolean;
 }
 
 export interface AgentSummary {

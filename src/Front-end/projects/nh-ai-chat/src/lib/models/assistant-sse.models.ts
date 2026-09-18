@@ -93,6 +93,8 @@ export const NhAssistantClientErrorCodes = {
   forbidden: 'assistant-forbidden',
   notFound: 'assistant-not-found',
   conversationBusy: 'assistant-conversation-busy',
+  validation: 'assistant-validation',
+  versionConflict: 'assistant-version-conflict',
   invalidResponse: 'assistant-invalid-response',
   streamInterrupted: 'assistant-stream-interrupted',
   server: 'assistant-server'

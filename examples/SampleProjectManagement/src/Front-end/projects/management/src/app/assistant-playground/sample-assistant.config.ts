@@ -42,7 +42,12 @@ export const SAMPLE_ASSISTANT_ICONS: Record<NhAssistantIconName, string> = {
   x: 'ph ph-x-circle',
   warning: 'ph ph-warning',
   'chevron-down': 'ph ph-caret-down',
-  clock: 'ph ph-clock'
+  clock: 'ph ph-clock',
+  settings: 'ph ph-sliders-horizontal',
+  admin: 'ph ph-shield-check',
+  edit: 'ph ph-pencil-simple',
+  refresh: 'ph ph-arrows-clockwise',
+  link: 'ph ph-plugs-connected'
 };
 
 /** The bearer token of the NewHeap session; runs in the assistant's injection context. */
