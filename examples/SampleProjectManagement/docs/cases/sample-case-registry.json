@@ -3385,28 +3385,59 @@
       "id": "SPM-245",
       "categoryId": "18",
       "title": "Assistant conversation with streamed turn",
-      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
-      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
-      "implementation": "planned",
-      "evidence": []
+      "surface": "`AddNewHeapAssistant`, `NhAssistantBuilder` (`UsePostgreSql`, `UseSqlServer`, `UseAccessPolicy`, `UseChatProfile`, `AddAgent`, `AddBusinessAuditSink`, `WithLimits`), `NhAssistantAgentDefinition`, `MapNewHeapAssistant`, `NhAssistantOptions` (`NewHeap:AI:Assistant:Enabled`, `AccessPolicy`), the assistant HTTP API and server-sent events, `NhAiScriptedChatClient`",
+      "outcome": "The sample registers one agent over the curated `projects.*` tools with a streaming chat profile, PostgreSQL storage in the library-owned `nhai` schema and the `app.active-division.project.view` access policy. A signed-in user creates a conversation and posts a message; the turn streams `turn.started`, a governed `projects.search` call as `tool.started` and `tool.completed` with a bounded result preview, `message.delta` text and `turn.completed` with usage. The tool runs through the shared invoker as the agent on behalf of the accountable user in the active division, the conversation returns to `idle` and its messages and tool-call parts are persisted. The flag, the access policy and the agent's required policy gate every endpoint.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiScriptedChatClient.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnRunnerTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantEndpointTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRegistrationTests.cs"
+      ]
     },
     {
       "id": "SPM-246",
       "categoryId": "18",
       "title": "Assistant mutation paused for approval and resumed",
-      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
-      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
-      "implementation": "planned",
-      "evidence": []
+      "surface": "Assistant approval flow over `INhAiProposalFactory`, `NhAiApprovalValidator` and the durable `INhAiApprovalEvidenceProvider`, `POST conversations/{id}/approvals/{approvalId}/decide`, the `approval.required` event, `INhAssistantBusinessAuditSink` and `NhAssistantAuditEvent`",
+      "outcome": "When the model calls `projects.change-status`, the shared invoker reports that approval is required before anything executes. The assistant creates the exact NewHeap proposal from the arguments the invoker evaluated, bound to the agent actor, the accountable user, the turn as run, the prompt identity, the tool contract hash and the active-division target; it stores the proposal with a pending approval, streams `approval.required` and pauses the conversation as `waiting-for-approval`. The user approves with the expected proposal hash; the same governed function runs again through the invoker with the proposal and approval ids, the validator accepts only that user's decision for that hash within its lifetime, the project status verifier runs and the resumed turn completes. The business audit sink receives content-free `ApprovalRequested`, `ApprovalApproved` and `ToolInvoked` events. Rejections close without executing and expired proposals end with `assistant-approval-expired`.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantApprovalEvidenceProvider.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantInvocationGate.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTurnRunnerTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDurableManagerTests.cs"
+      ]
     },
     {
       "id": "SPM-247",
       "categoryId": "18",
       "title": "Durable assistant budget and idempotency ledgers",
-      "surface": "TODO: reserved for the AI assistant and API bridge work; the owning lane fills this entry.",
-      "outcome": "TODO: planned; the owning lane replaces this outcome with the verified behavior and evidence.",
-      "implementation": "planned",
-      "evidence": []
+      "surface": "Durable `INhAiBudgetManager` on `AssistantBudgetLedger` and `INhAiIdempotencyManager` on `AssistantIdempotencyLease` in the library-owned `nhai` schema, `NhAssistantLimits.DailyToolCallBudgetPerActor`, `NhAssistantDbContextOptions` (`Schema`, `RunMigrations`), provider migrations in `NewHeap.Platform.AI.Chat.SqlServer` and `NewHeap.Platform.AI.Chat.PostgreSql`",
+      "outcome": "Assistant tool calls are booked atomically per accountable user and UTC day in PostgreSQL; the approved status change takes a durable idempotency lease keyed by its proposal and completes it. When the daily tool budget is exhausted, the next turn ends with the stable `assistant-budget-exhausted` error. Library tests prove the same ledgers, lease expiry takeover with fencing, concurrent reservations that never exceed the budget, the migrations and a configured schema on both SQL Server and PostgreSQL. Outside assistant turns the budget and evidence requests keep using the managers the application registered first.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantBudgetManager.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantIdempotencyManager.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/NhAssistantSqlServer.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/NhAssistantPostgreSql.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDurableManagerTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPersistenceTests.cs"
+      ]
     },
     {
       "id": "SPM-248",

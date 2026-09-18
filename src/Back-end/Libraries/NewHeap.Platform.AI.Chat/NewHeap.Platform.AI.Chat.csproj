@@ -20,4 +20,10 @@
     <ProjectReference Include="..\NewHeap.Platform.AI.AgentFramework\NewHeap.Platform.AI.AgentFramework.csproj" />
     <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.SqlServer" />
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.PostgreSql" />
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.AspNet" />
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.Tests" />
+  </ItemGroup>
 </Project>
