@@ -290,7 +290,15 @@
     "assistant-prompt-long": "Lang antwoord om te stoppen",
     "assistant-prompt-unsafe": "Onveilige HTML",
     "assistant-prompt-error": "Foutmelding",
-    "assistant-state-title": "Store-toestand"
+    "assistant-state-title": "Store-toestand",
+    "assistant-admin-permission": "Gebruiker heeft de beheerpermissie van de assistent",
+    "assistant-admin-title": "Beheer",
+    "assistant-admin-description": "Beheerders beheren de applicatiecontext, de agents en de MCP-servers. Alleen voor hen staat er een link in de panelheader.",
+    "assistant-admin-open": "Beheer openen",
+    "assistant-admin-hidden": "Verborgen: de gebruiker heeft geen beheerpermissie.",
+    "assistant-simulate-schema-change": "Gewijzigde MCP-tool simuleren",
+    "assistant-schema-change-simulated": "De zoektool voor documenten meldt nu een nieuw invoerschema. Synchroniseer de server op het tabblad MCP-servers om te zien dat hij uitgaat.",
+    "assistant-admin-back": "Terug naar de assistent-playground"
   },
   "nh-background-operations": {
     "operation": "Achtergrondtaak",

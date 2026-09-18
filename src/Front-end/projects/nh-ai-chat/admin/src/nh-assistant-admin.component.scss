@@ -1,0 +1,113 @@
+@use '../../src/lib/styles/tokens';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  min-width: 0;
+  color: var(--nha-text);
+  font-family: var(--nha-font);
+}
+
+.admin {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+
+  h2 {
+    margin: 0 0 4px;
+    font-size: clamp(20px, 3vw, 26px);
+    line-height: 1.2;
+    letter-spacing: -.02em;
+  }
+
+  p {
+    max-width: 72ch;
+    margin: 0;
+    color: var(--nha-text-muted);
+    font-size: 14px;
+  }
+}
+
+.page-icon {
+  flex: none;
+  margin-top: 4px;
+  color: var(--nha-highlight);
+  font-size: 24px;
+}
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin: 0;
+  border: 1px dashed var(--nha-border);
+  border-radius: var(--nha-radius);
+  padding: 24px;
+  color: var(--nha-text-muted);
+  font-size: 14px;
+
+  p { margin: 0; }
+}
+
+.state-icon {
+  color: var(--nha-warning);
+  font-size: 24px;
+}
+
+.state .state-title {
+  color: var(--nha-text);
+  font-weight: 700;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-bottom: 1px solid var(--nha-border);
+}
+
+.tab {
+  flex: none;
+  min-height: 40px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 8px 14px;
+  color: var(--nha-text-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  @include tokens.focus-ring;
+
+  &:hover {
+    color: var(--nha-text);
+  }
+
+  &[aria-selected='true'] {
+    border-bottom-color: var(--nha-highlight);
+    color: var(--nha-text);
+  }
+}
+
+.panel {
+  min-width: 0;
+  outline: none;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--nha-focus);
+    border-radius: var(--nha-radius-control);
+  }
+}

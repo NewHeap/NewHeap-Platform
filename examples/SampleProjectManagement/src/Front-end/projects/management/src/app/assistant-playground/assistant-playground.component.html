@@ -34,11 +34,39 @@
         </span>
       </label>
 
+      <label class="switch">
+        <input type="checkbox" [checked]="adminGranted()" (change)="onAdminToggle($event)" />
+        <span>
+          <strong>{{ 'project.assistant-admin-permission' | translate }}</strong>
+          <small><code>app.assistant.admin</code></small>
+        </span>
+      </label>
+
       <div class="actions">
         <button type="button" [disabled]="!store.enabled()" (click)="panel.open()">
           <i class="ph ph-sparkle" aria-hidden="true"></i>{{ 'project.assistant-open-panel' | translate }}
         </button>
       </div>
+    </section>
+
+    <section class="panel" aria-labelledby="assistant-admin-title">
+      <h3 id="assistant-admin-title">{{ 'project.assistant-admin-title' | translate }}</h3>
+      <p class="hint">{{ 'project.assistant-admin-description' | translate }}</p>
+      <div class="actions">
+        @if (store.canAdminister()) {
+          <a class="link-button" [routerLink]="adminRoute">
+            <i class="ph ph-shield-check" aria-hidden="true"></i>{{ 'project.assistant-admin-open' | translate }}
+          </a>
+        } @else {
+          <p class="hint">{{ 'project.assistant-admin-hidden' | translate }}</p>
+        }
+        <button type="button" [disabled]="schemaChangeSimulated()" (click)="simulateSchemaChange()">
+          <i class="ph ph-warning" aria-hidden="true"></i>{{ 'project.assistant-simulate-schema-change' | translate }}
+        </button>
+      </div>
+      @if (schemaChangeSimulated()) {
+        <p class="hint" role="status">{{ 'project.assistant-schema-change-simulated' | translate }}</p>
+      }
     </section>
 
     <section class="panel" aria-labelledby="assistant-prompts-title">
@@ -60,6 +88,7 @@
       <h3 id="assistant-state-title">{{ 'project.assistant-state-title' | translate }}</h3>
       <dl>
         <div><dt>enabled()</dt><dd [attr.data-on]="store.enabled()">{{ store.enabled() }}</dd></div>
+        <div><dt>canAdminister()</dt><dd [attr.data-on]="store.canAdminister()">{{ store.canAdminister() }}</dd></div>
         <div><dt>selectedAgentId()</dt><dd>{{ store.selectedAgentId() ?? '–' }}</dd></div>
         <div><dt>activeConversation().status</dt><dd>{{ conversationStatus() ?? '–' }}</dd></div>
         <div><dt>streaming()</dt><dd [attr.data-on]="store.streaming()">{{ store.streaming() }}</dd></div>
