@@ -1,0 +1,353 @@
+using System.IO.Pipelines;
+using System.Net;
+using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
+using NewHeap.Platform.AI;
+using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.AspNet.Mvc;
+using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.Common.Identity.Claims;
+using NewHeap.Platform.Common.Models;
+using SampleProjectManagement.Api.Composition;
+using SampleProjectManagement.Api.Controllers;
+using SampleProjectManagement.Core.Models.AI;
+using SampleProjectManagement.Core.Services;
+using SampleProjectManagement.DAL.Entities;
+using Xunit;
+
+namespace SampleProjectManagement.Core.Tests;
+
+/// <summary>
+/// Executable evidence for the API bridge sample (SPM-242, SPM-243, SPM-244): the project and
+/// project-task controllers become governed tools that are discovered per user from the
+/// controllers' own policies and execute through the API's HTTP pipeline as that user.
+/// </summary>
+public sealed class AiBridgeSamplesTests
+{
+    private const string ViewerToken = "sample-viewer-token";
+    private const string ManagerToken = "sample-manager-token";
+    private static readonly string[] ViewerPermissions = ["app.project.view"];
+    private static readonly string[] ManagerPermissions = ["app.project.view", "app.project.manage"];
+
+    [Fact]
+    public async Task Viewer_discovers_only_read_tools_of_the_project_api()
+    {
+        await using var sample = await BridgeSample.StartAsync();
+
+        var tools = await sample.DiscoverAsync(ViewerPermissions);
+
+        Assert.Contains(tools, tool => tool.Id == "sample-api.project.get");
+        Assert.Contains(tools, tool => tool.Id == "sample-api.project.get-by-id");
+        Assert.Contains(tools, tool => tool.Id == "sample-api.project-task.get");
+        Assert.All(tools, tool => Assert.Equal(NhAiToolEffect.ReadOnly, tool.Effect));
+    }
+
+    [Fact]
+    public async Task Project_manager_also_discovers_create_and_update_tools_that_require_approval()
+    {
+        await using var sample = await BridgeSample.StartAsync();
+
+        var tools = await sample.DiscoverAsync(ManagerPermissions);
+
+        var create = Assert.Single(tools, tool => tool.Id == "sample-api.project.create");
+        var update = Assert.Single(tools, tool => tool.Id == "sample-api.project.update");
+        Assert.Equal(NhAiToolEffect.Mutation, create.Effect);
+        Assert.Equal(NhAiToolEffect.IdempotentMutation, update.Effect);
+        Assert.All(
+            tools.Where(tool => tool.Effect != NhAiToolEffect.ReadOnly),
+            tool =>
+            {
+                Assert.Equal(NhAiApprovalRequirement.Required, tool.Approval);
+                Assert.Equal(NhAiIdempotencySupport.Required, tool.Idempotency);
+            });
+        Assert.DoesNotContain(tools, tool => tool.Id.EndsWith(".delete", StringComparison.Ordinal));
+        Assert.DoesNotContain(tools, tool => tool.Id == "sample-api.project.get-public-statuses");
+    }
+
+    [Fact]
+    public async Task Viewer_mutation_call_fails_before_the_http_call()
+    {
+        await using var sample = await BridgeSample.StartAsync();
+
+        var result = await sample.InvokeAsync(
+            ViewerToken,
+            ViewerPermissions,
+            "sample-api_project_create_v1",
+            new { body = new { name = "Bridge sample" } });
+
+        Assert.False(result.GetProperty("success").GetBoolean());
+        Assert.Empty(sample.Requests);
+    }
+
+    [Fact]
+    public async Task Read_tool_calls_the_api_as_the_signed_in_user()
+    {
+        await using var sample = await BridgeSample.StartAsync();
+        var projectId = Guid.NewGuid();
+
+        var result = await sample.InvokeAsync(
+            ManagerToken,
+            ManagerPermissions,
+            "sample-api_project_get-by-id_v1",
+            new { id = projectId });
+
+        Assert.True(result.GetProperty("success").GetBoolean());
+        Assert.Equal(200, result.GetProperty("data").GetProperty("status").GetInt32());
+        var request = Assert.Single(sample.Requests);
+        Assert.Equal(HttpMethod.Get, request.Method);
+        Assert.Equal($"http://sample.test/projects/{projectId}", request.RequestUri!.ToString());
+        Assert.Equal("Bearer " + ManagerToken, request.Headers.Authorization!.ToString());
+        Assert.True(request.Headers.Contains(NhAiMvcBridgeDefaults.InvocationHeaderName));
+    }
+
+    [Fact]
+    public async Task Mcp_listing_contains_the_bridge_tools()
+    {
+        await using var sample = await BridgeSample.StartAsync();
+
+        var names = await sample.ListMcpToolsAsync(ViewerToken, ViewerPermissions);
+
+        Assert.Contains("sample-api_project_get_v1", names);
+        Assert.DoesNotContain("sample-api_project_create_v1", names);
+    }
+
+    [Fact]
+    public async Task Attested_bridge_catalog_validates_and_an_ungoverned_runtime_catalog_is_rejected()
+    {
+        await using var sample = await BridgeSample.StartAsync();
+
+        await sample.AsViewerAsync(services =>
+        {
+            var catalog = services.GetRequiredService<NhAiMvcBridgeToolCatalog>();
+            NhAiToolCatalogAttestation.Validate(catalog, services);
+            Assert.Equal(catalog.AttestationHash, catalog.Manifest.SchemaHash);
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                NhAiToolCatalogAttestation.Validate(new UngovernedCatalog(catalog), services));
+            Assert.Contains("ungoverned function", exception.Message, StringComparison.Ordinal);
+            return Task.FromResult(true);
+        });
+    }
+
+    /// <summary>
+    /// A runtime catalog that claims attestation but hands out plain functions that bypass
+    /// <see cref="INhAiToolInvoker"/>; the attestation must reject it before export.
+    /// </summary>
+    private sealed class UngovernedCatalog(NhAiMvcBridgeToolCatalog source) : INhAiAttestedToolCatalog
+    {
+        public NhAiToolCatalogGovernance Governance => NhAiToolCatalogGovernance.SharedInvoker;
+
+        public IReadOnlyList<NhAiToolDescriptor> Descriptors => source.Descriptors;
+
+        public NhAiToolCatalogManifest Manifest => source.Manifest;
+
+        public string AttestationHash => source.AttestationHash;
+
+        public IReadOnlyList<AIFunction> CreateFunctions(IServiceProvider services)
+        {
+            return source.Descriptors
+                .Select(descriptor => AIFunctionFactory.Create(
+                    () => "bypasses the invoker",
+                    new AIFunctionFactoryOptions { Name = descriptor.ExportName }))
+                .ToArray();
+        }
+    }
+
+    private sealed class BridgeSample : IAsyncDisposable
+    {
+        private readonly ServiceProvider _provider;
+        private readonly RecordingHandler _handler;
+
+        private BridgeSample(ServiceProvider provider, RecordingHandler handler)
+        {
+            _provider = provider;
+            _handler = handler;
+        }
+
+        public IReadOnlyList<HttpRequestMessage> Requests => _handler.Requests;
+
+        public static async Task<BridgeSample> StartAsync()
+        {
+            var handler = new RecordingHandler();
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    [SampleAiBridgeComposition.SelfBaseUrlKey] = "http://sample.test/"
+                })
+                .Build());
+            services.AddControllers().AddApplicationPart(typeof(ProjectController).Assembly);
+            services.AddAuthorization(options =>
+            {
+                // The same application policies the API registers in Program.cs.
+                options.AddPolicy(
+                    "app.project.view",
+                    policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.project.view"));
+                options.AddPolicy(
+                    "app.project.manage",
+                    policy => policy.RequireClaim(NhPlatformClaimTypes.Permission, "app.project.manage"));
+            });
+            services.AddKeyedSingleton<IChatClient>(
+                "project-assistant-model",
+                new NhAiDeterministicChatClient("sample-bridge-response"));
+            services.AddSingleton<IProjectAiReadService, EmptyProjectAiService>();
+            services.AddSingleton<IProjectAiMutationService, EmptyProjectAiService>();
+            services.AddScoped<ProjectAiTools>();
+            services.AddSampleProjectManagementAi();
+            services.AddNewHeapPlatformAIAspNet(ai => ai.UseToolInvocationPurpose("project-assistance"));
+            services.AddSampleAiBridge();
+            services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => handler);
+            services.AddMcpServer(options => options.ScopeRequests = false)
+                .WithNewHeapPlatformAITools();
+
+            var provider = services.BuildServiceProvider();
+            foreach (var hostedService in provider.GetServices<IHostedService>())
+            {
+                await hostedService.StartAsync(CancellationToken.None);
+            }
+            return new BridgeSample(provider, handler);
+        }
+
+        public Task<IReadOnlyList<NhAiToolDescriptor>> DiscoverAsync(string[] permissions)
+        {
+            return AsUserAsync(null, permissions, services => services
+                .GetRequiredService<INhAiToolDiscoveryService>()
+                .DiscoverAsync(new NhAiToolDiscoveryRequest(
+                    new NhAiInvocationContext("sample-user", "project-assistance", new Dictionary<string, string>()),
+                    NhAiToolExposure.Agent))
+                .AsTask());
+        }
+
+        public Task<JsonElement> InvokeAsync(string token, string[] permissions, string exportName, object input)
+        {
+            return AsUserAsync(token, permissions, async services =>
+            {
+                var function = services.GetRequiredService<NhAiMvcBridgeToolCatalog>()
+                    .CreateFunctions(services)
+                    .Single(item => item.Name == exportName);
+                var output = await function.InvokeAsync(new AIFunctionArguments
+                {
+                    ["input"] = JsonSerializer.SerializeToElement(input)
+                });
+                return (JsonElement)output!;
+            });
+        }
+
+        public Task<string[]> ListMcpToolsAsync(string token, string[] permissions)
+        {
+            return AsUserAsync(token, permissions, async services =>
+            {
+                var clientToServer = new Pipe();
+                var serverToClient = new Pipe();
+                await using var server = McpServer.Create(
+                    new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()),
+                    services.GetRequiredService<IOptions<McpServerOptions>>().Value,
+                    serviceProvider: services);
+                _ = server.RunAsync();
+                await using var client = await McpClient.CreateAsync(
+                    new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()));
+                return (await client.ListToolsAsync()).Select(tool => tool.Name).ToArray();
+            });
+        }
+
+        public Task<T> AsViewerAsync<T>(Func<IServiceProvider, Task<T>> action)
+        {
+            return AsUserAsync(ViewerToken, ViewerPermissions, action);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await _provider.DisposeAsync();
+        }
+
+        private async Task<T> AsUserAsync<T>(
+            string? token,
+            string[] permissions,
+            Func<IServiceProvider, Task<T>> action)
+        {
+            await using var scope = _provider.CreateAsyncScope();
+            var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, "sample-user") };
+            claims.AddRange(permissions.Select(permission => new Claim(NhPlatformClaimTypes.Permission, permission)));
+            var httpContext = new DefaultHttpContext
+            {
+                RequestServices = scope.ServiceProvider,
+                User = new ClaimsPrincipal(new ClaimsIdentity(claims, "sample"))
+            };
+            if (token is not null)
+            {
+                httpContext.Request.Headers.Authorization = "Bearer " + token;
+            }
+
+            var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
+            accessor.HttpContext = httpContext;
+            try
+            {
+                return await action(scope.ServiceProvider);
+            }
+            finally
+            {
+                accessor.HttpContext = null;
+            }
+        }
+    }
+
+    /// <summary>Stands in for the API's HTTP pipeline and records what the bridge sends.</summary>
+    private sealed class RecordingHandler : HttpMessageHandler
+    {
+        private readonly List<HttpRequestMessage> _requests = [];
+
+        public IReadOnlyList<HttpRequestMessage> Requests => _requests;
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            _requests.Add(request);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"id\":\"sample\"}", Encoding.UTF8, "application/json")
+            });
+        }
+    }
+
+    private sealed class EmptyProjectAiService : IProjectAiReadService, IProjectAiMutationService
+    {
+        public Task<IReadOnlyList<ProjectAiSearchItem>> SearchForAiAsync(
+            Guid divisionId,
+            string? query,
+            int limit,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<ProjectAiSearchItem>>([]);
+        }
+
+        public Task<TaskResult<ProjectAiStatusChangeReport>> ChangeStatusForAiAsync(
+            Guid divisionId,
+            Guid projectId,
+            ProjectStatus status,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(TaskResult<ProjectAiStatusChangeReport>.Failed("not-used", "Not used by the bridge sample."));
+        }
+
+        public Task<ProjectStatus?> GetStatusForAiAsync(
+            Guid divisionId,
+            Guid projectId,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<ProjectStatus?>(null);
+        }
+    }
+}

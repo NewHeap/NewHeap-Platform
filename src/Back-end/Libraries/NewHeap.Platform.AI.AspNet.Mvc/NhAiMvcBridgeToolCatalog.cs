@@ -14,12 +14,14 @@ public sealed class NhAiMvcBridgeToolCatalog : INhAiAttestedToolCatalog
     internal NhAiMvcBridgeToolCatalog(
         IApiDescriptionGroupCollectionProvider apiDescriptions,
         NhAiMvcBridgeOptions options,
+        NhAiMvcBridgeRuntimeSettings settings,
         INhAiBridgeConventions conventions)
     {
         ArgumentNullException.ThrowIfNull(apiDescriptions);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(conventions);
-        var builder = new NhAiMvcBridgeCatalogBuilder(options, conventions, new NhAiBridgeXmlDocumentation());
+        var builder = new NhAiMvcBridgeCatalogBuilder(options, settings, conventions, new NhAiBridgeXmlDocumentation());
         _model = new Lazy<NhAiMvcBridgeCatalogModel>(
             () => builder.Build(apiDescriptions),
             LazyThreadSafetyMode.ExecutionAndPublication);

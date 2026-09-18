@@ -28,6 +28,7 @@ internal sealed record NhAiMvcBridgeCatalogModel(
 /// </summary>
 internal sealed class NhAiMvcBridgeCatalogBuilder(
     NhAiMvcBridgeOptions options,
+    NhAiMvcBridgeRuntimeSettings settings,
     INhAiBridgeConventions conventions,
     NhAiBridgeXmlDocumentation xmlDocumentation)
 {
@@ -50,7 +51,8 @@ internal sealed class NhAiMvcBridgeCatalogBuilder(
         ArgumentNullException.ThrowIfNull(apiDescriptions);
         ValidateOptions();
 
-        var actions = ReadActions(apiDescriptions);
+        // NewHeap:AI:Bridge:Enabled=false keeps the registration but publishes no tools.
+        var actions = settings.Enabled ? ReadActions(apiDescriptions) : [];
         var toolSetId = options.ToolSetId!;
         var descriptors = new List<NhAiToolDescriptor>(actions.Count);
         var actionsById = new Dictionary<string, NhAiBridgeActionInfo>(StringComparer.Ordinal);
@@ -126,11 +128,12 @@ internal sealed class NhAiMvcBridgeCatalogBuilder(
             throw new InvalidOperationException(
                 "The API bridge requires UseToolSetId with a lowercase dash-case tool set id.");
         }
-        if (!Uri.TryCreate(options.SelfBaseUrl, UriKind.Absolute, out var selfBaseUri)
-            || (selfBaseUri.Scheme != Uri.UriSchemeHttp && selfBaseUri.Scheme != Uri.UriSchemeHttps))
+        if (settings.Enabled
+            && (!Uri.TryCreate(settings.SelfBaseUrl, UriKind.Absolute, out var selfBaseUri)
+                || (selfBaseUri.Scheme != Uri.UriSchemeHttp && selfBaseUri.Scheme != Uri.UriSchemeHttps)))
         {
             throw new InvalidOperationException(
-                "The API bridge requires UseSelfBaseUrl with an absolute http or https URL.");
+                $"The API bridge requires UseSelfBaseUrl or '{NhAiMvcBridgeRuntimeSettings.SelfBaseUrlKey}' with an absolute http or https URL.");
         }
         if (options.IncludeControllerPatterns.Count == 0)
         {

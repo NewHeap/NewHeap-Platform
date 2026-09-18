@@ -51,7 +51,7 @@ public static class NhAiMvcBridgeDefaults
 internal sealed partial class NhAiMvcBridgeExecutor(
     IHttpClientFactory httpClientFactory,
     INhAiBridgeConventions conventions,
-    NhAiMvcBridgeOptions options,
+    NhAiMvcBridgeRuntimeSettings settings,
     INhAiCallerCredentialAccessor credentialAccessor,
     IHttpContextAccessor httpContextAccessor,
     ILogger<NhAiMvcBridgeExecutor> logger) : INhAiMvcBridgeExecutor
@@ -122,7 +122,7 @@ internal sealed partial class NhAiMvcBridgeExecutor(
         NhAiInvocationContext context,
         CancellationToken cancellationToken)
     {
-        var baseUrl = options.SelfBaseUrl!.EndsWith('/') ? options.SelfBaseUrl : options.SelfBaseUrl + "/";
+        var baseUrl = settings.SelfBaseUrl!.EndsWith('/') ? settings.SelfBaseUrl : settings.SelfBaseUrl + "/";
         var message = new HttpRequestMessage(
             new HttpMethod(request.Method),
             new Uri(new Uri(baseUrl, UriKind.Absolute), request.BuildRelativeUri()));

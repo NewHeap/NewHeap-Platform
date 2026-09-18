@@ -35,11 +35,13 @@ public static class NhAiMvcBridgeServiceCollectionExtensions
         services.AddNewHeapPlatformAI();
         services.AddHttpContextAccessor();
         services.AddSingleton(options);
+        services.AddSingleton(provider => NhAiMvcBridgeRuntimeSettings.Resolve(options, provider));
         services.AddSingleton<INhAiBridgeConventions>(provider =>
             (INhAiBridgeConventions)ActivatorUtilities.CreateInstance(provider, options.ConventionsType));
         services.AddSingleton(provider => new NhAiMvcBridgeToolCatalog(
             provider.GetRequiredService<IApiDescriptionGroupCollectionProvider>(),
             options,
+            provider.GetRequiredService<NhAiMvcBridgeRuntimeSettings>(),
             provider.GetRequiredService<INhAiBridgeConventions>()));
         services.AddSingleton<INhAiToolCatalog>(provider => provider.GetRequiredService<NhAiMvcBridgeToolCatalog>());
         services.Replace(ServiceDescriptor.Scoped<INhAiToolDiscoveryPolicy, NhAiMvcBridgeDiscoveryPolicy>());

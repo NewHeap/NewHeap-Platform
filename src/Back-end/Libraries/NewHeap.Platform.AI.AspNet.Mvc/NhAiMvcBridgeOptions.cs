@@ -34,6 +34,8 @@ public sealed class NhAiMvcBridgeOptions
 
     public string? SelfBaseUrl { get; internal set; }
 
+    internal Func<IServiceProvider, string?>? SelfBaseUrlResolver { get; set; }
+
     public IReadOnlyList<string> IncludeControllerPatterns => IncludedControllers;
 
     public IReadOnlyList<string> ExcludeControllerPatterns => ExcludedControllers;
@@ -81,12 +83,23 @@ public sealed class NhAiMvcBridgeBuilder
     }
 
     /// <summary>
-    /// The absolute base URL at which the application reaches its own API. A missing value
-    /// fails at startup.
+    /// The absolute base URL at which the application reaches its own API. Without a value the
+    /// bridge reads <c>NewHeap:AI:Bridge:SelfBaseUrl</c>; a missing URL fails at startup.
     /// </summary>
     public NhAiMvcBridgeBuilder UseSelfBaseUrl(string? selfBaseUrl)
     {
         _options.SelfBaseUrl = selfBaseUrl;
+        return this;
+    }
+
+    /// <summary>
+    /// Resolves the self base URL from the application services when the catalog is built,
+    /// for example from a configuration key that is not available during registration.
+    /// </summary>
+    public NhAiMvcBridgeBuilder UseSelfBaseUrl(Func<IServiceProvider, string?> resolveSelfBaseUrl)
+    {
+        ArgumentNullException.ThrowIfNull(resolveSelfBaseUrl);
+        _options.SelfBaseUrlResolver = resolveSelfBaseUrl;
         return this;
     }
 
@@ -191,6 +204,35 @@ public sealed class NhAiMvcBridgeBuilder
             ArgumentException.ThrowIfNullOrWhiteSpace(pattern, parameterName);
             target.Add(pattern.Trim());
         }
+    }
+}
+
+/// <summary>
+/// Values resolved from options and configuration when the application starts.
+/// </summary>
+internal sealed record NhAiMvcBridgeRuntimeSettings(string? SelfBaseUrl, bool Enabled)
+{
+    public const string SelfBaseUrlKey = "NewHeap:AI:Bridge:SelfBaseUrl";
+    public const string EnabledKey = "NewHeap:AI:Bridge:Enabled";
+
+    public static NhAiMvcBridgeRuntimeSettings Resolve(NhAiMvcBridgeOptions options, IServiceProvider services)
+    {
+        var configuration = services.GetService<Microsoft.Extensions.Configuration.IConfiguration>();
+        var selfBaseUrl = options.SelfBaseUrl;
+        if (string.IsNullOrWhiteSpace(selfBaseUrl) && options.SelfBaseUrlResolver is not null)
+        {
+            selfBaseUrl = options.SelfBaseUrlResolver(services);
+        }
+        if (string.IsNullOrWhiteSpace(selfBaseUrl))
+        {
+            selfBaseUrl = configuration?[SelfBaseUrlKey];
+        }
+
+        var enabledValue = configuration?[EnabledKey];
+        var enabled = string.IsNullOrWhiteSpace(enabledValue)
+            || !bool.TryParse(enabledValue, out var parsed)
+            || parsed;
+        return new NhAiMvcBridgeRuntimeSettings(selfBaseUrl, enabled);
     }
 }
 

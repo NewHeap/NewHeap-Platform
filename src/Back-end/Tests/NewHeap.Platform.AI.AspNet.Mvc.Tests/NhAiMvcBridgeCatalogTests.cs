@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.AspNet.Mvc.Tests.TestApi;
 using Xunit;
@@ -196,11 +197,37 @@ public sealed class NhAiMvcBridgeCatalogTests
     }
 
     [Fact]
+    public void Self_base_url_falls_back_to_configuration_and_the_enabled_flag_can_publish_nothing()
+    {
+        using var configured = new BridgeApiFactory(
+            bridge => bridge.UseToolSetId("test-api").IncludeControllers("Order"),
+            services => services.AddSingleton<Microsoft.Extensions.Configuration.IConfiguration>(
+                new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+                    .AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["NewHeap:AI:Bridge:SelfBaseUrl"] = "http://localhost/"
+                    })
+                    .Build()));
+        using var disabled = new BridgeApiFactory(
+            bridge => bridge.UseToolSetId("test-api").IncludeControllers("Order"),
+            services => services.AddSingleton<Microsoft.Extensions.Configuration.IConfiguration>(
+                new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+                    .AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["NewHeap:AI:Bridge:Enabled"] = "false"
+                    })
+                    .Build()));
+
+        Assert.NotEmpty(configured.Services.GetRequiredService<NhAiMvcBridgeToolCatalog>().Descriptors);
+        Assert.Empty(disabled.Services.GetRequiredService<NhAiMvcBridgeToolCatalog>().Descriptors);
+    }
+
+    [Fact]
     public void Missing_self_base_url_fails_at_startup()
     {
         using var factory = new BridgeApiFactory(bridge => bridge
             .UseToolSetId("test-api")
-            .UseSelfBaseUrl(null)
+            .UseSelfBaseUrl((string?)null)
             .IncludeControllers("Order"));
 
         var exception = Assert.Throws<InvalidOperationException>(() => factory.Services);
