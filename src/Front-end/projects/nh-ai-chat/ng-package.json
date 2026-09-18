@@ -6,6 +6,11 @@
   },
   "assets": [
     "LICENSE",
-    "NOTICE"
+    "NOTICE",
+    {
+      "input": "src/lib/i18n",
+      "glob": "*.json",
+      "output": "i18n"
+    }
   ]
 }

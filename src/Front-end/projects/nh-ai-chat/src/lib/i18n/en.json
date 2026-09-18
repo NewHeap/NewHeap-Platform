@@ -1,0 +1,115 @@
+{
+  "nh-assistant": {
+    "launcher": {
+      "open": "Open assistant",
+      "close": "Close assistant",
+      "pending-approval": "An action is waiting for your approval"
+    },
+    "panel": {
+      "title": "Assistant",
+      "region-label": "Assistant panel",
+      "close": "Close assistant",
+      "show-conversations": "Show conversations",
+      "hide-conversations": "Hide conversations",
+      "new-conversation": "New conversation",
+      "loading": "Loading the assistant",
+      "unavailable-title": "The assistant is not available",
+      "unavailable-description": "The assistant is switched off or you do not have access to it.",
+      "empty-title": "How can I help?",
+      "empty-description": "Ask a question or describe a task. Actions that change data always ask for your approval first.",
+      "conversation-closed": "This conversation cannot continue. Start a new conversation.",
+      "dismiss-error": "Dismiss message",
+      "usage": "{{inputTokens}} input tokens, {{outputTokens}} output tokens, {{toolCalls}} tool calls"
+    },
+    "agent-picker": {
+      "label": "Agent",
+      "can-mutate": "Can propose changes",
+      "read-only": "Read only"
+    },
+    "conversation-list": {
+      "title": "Conversations",
+      "loading": "Loading conversations",
+      "empty": "No conversations yet.",
+      "untitled": "Untitled conversation",
+      "delete": "Delete conversation",
+      "count": "{{count}} of {{total}}",
+      "status": {
+        "idle": "Ready",
+        "running": "Running",
+        "waiting-for-approval": "Waiting for approval",
+        "failed": "Failed",
+        "archived": "Archived"
+      }
+    },
+    "thread": {
+      "label": "Conversation",
+      "you": "You",
+      "assistant": "Assistant",
+      "tool": "Tool",
+      "working": "The assistant is working",
+      "loading": "Loading conversation"
+    },
+    "composer": {
+      "label": "Message",
+      "placeholder": "Ask the assistant",
+      "hint": "Enter sends, Shift+Enter adds a new line",
+      "send": "Send message",
+      "stop": "Stop the assistant",
+      "characters": "{{count}} of {{max}} characters",
+      "too-long": "The message is too long."
+    },
+    "tool-call": {
+      "label": "Tool call: {{name}}",
+      "show-details": "Show details",
+      "hide-details": "Hide details",
+      "arguments": "Input",
+      "result": "Result",
+      "result-code": "Result",
+      "status": {
+        "running": "Running",
+        "succeeded": "Completed",
+        "failed": "Failed",
+        "awaiting-approval": "Awaiting approval",
+        "rejected": "Rejected"
+      }
+    },
+    "approval": {
+      "title": "Approval required",
+      "targets": "Affects",
+      "arguments": "Proposed change",
+      "expires-in": "Expires in {{time}}",
+      "expired": "This approval has expired.",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approve-label": "Approve: {{summary}}",
+      "reject-label": "Reject: {{summary}}",
+      "deciding": "Submitting your decision",
+      "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "expired": "Expired"
+      }
+    },
+    "result-codes": {
+      "api-bridge-validation": "The request was not valid.",
+      "api-bridge-unauthenticated": "You are not signed in.",
+      "api-bridge-forbidden": "You do not have permission for this action.",
+      "api-bridge-not-found": "The item was not found.",
+      "api-bridge-conflict": "The item was changed in the meantime.",
+      "api-bridge-upstream": "The service is not available.",
+      "api-bridge-timeout": "The request took too long."
+    },
+    "errors": {
+      "generic": "Something went wrong. Please try again.",
+      "assistant-network": "The assistant cannot be reached. Check your connection and try again.",
+      "assistant-unauthenticated": "Your session has ended. Sign in again to use the assistant.",
+      "assistant-forbidden": "You do not have access to the assistant.",
+      "assistant-not-found": "The conversation no longer exists.",
+      "assistant-conversation-busy": "The assistant is still busy with this conversation. Try again in a moment.",
+      "assistant-invalid-response": "The assistant sent an unexpected response.",
+      "assistant-stream-interrupted": "The connection to the assistant was interrupted.",
+      "assistant-server": "The assistant could not complete the request."
+    }
+  }
+}

@@ -9,7 +9,7 @@ const libraryRoot = resolve(scriptDirectory, "../../../../../src/Front-end");
 const angularCli = resolve(libraryRoot, "node_modules/@angular/cli/bin/ng.js");
 const lockFile = resolve(sampleRoot, ".nh-common-sync.lock");
 const npmCli = process.env.npm_execpath;
-const libraries = ["nh-common", "nh-toastr"];
+const libraries = ["nh-common", "nh-toastr", "nh-ai-chat"];
 
 if (!npmCli) {
   throw new Error("npm_execpath is required to synchronize the local NH package.");

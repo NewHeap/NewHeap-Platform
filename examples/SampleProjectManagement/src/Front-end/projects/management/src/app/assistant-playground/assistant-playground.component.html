@@ -1,0 +1,83 @@
+<section class="assistant-lab" id="assistant-playground">
+  <header>
+    <div>
+      <h2>{{ 'project.assistant-playground-title' | translate }}</h2>
+      <p>{{ 'project.assistant-playground-description' | translate }}</p>
+    </div>
+    <div class="launcher-slot">
+      <span class="launcher-label">{{ 'project.assistant-launcher-label' | translate }}</span>
+      <nh-assistant-launcher />
+      @if (!store.enabled()) {
+        <span class="launcher-hidden">{{ 'project.assistant-launcher-hidden' | translate }}</span>
+      }
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="assistant-controls-title">
+      <h3 id="assistant-controls-title">{{ 'project.assistant-controls-title' | translate }}</h3>
+      <p class="hint">{{ 'project.assistant-controls-description' | translate }}</p>
+
+      <label class="switch">
+        <input type="checkbox" [checked]="featureEnabled()" (change)="onFeatureToggle($event)" />
+        <span>
+          <strong>{{ 'project.assistant-feature-flag' | translate }}</strong>
+          <small><code>NewHeap:AI:Assistant:Enabled</code></small>
+        </span>
+      </label>
+
+      <label class="switch">
+        <input type="checkbox" [checked]="accessGranted()" (change)="onAccessToggle($event)" />
+        <span>
+          <strong>{{ 'project.assistant-access-permission' | translate }}</strong>
+          <small><code>app.assistant.access</code></small>
+        </span>
+      </label>
+
+      <div class="actions">
+        <button type="button" [disabled]="!store.enabled()" (click)="panel.open()">
+          <i class="ph ph-sparkle" aria-hidden="true"></i>{{ 'project.assistant-open-panel' | translate }}
+        </button>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="assistant-prompts-title">
+      <h3 id="assistant-prompts-title">{{ 'project.assistant-prompts-title' | translate }}</h3>
+      <p class="hint">{{ 'project.assistant-prompts-description' | translate }}</p>
+      <ul class="prompts">
+        @for (prompt of prompts; track prompt.key) {
+          <li>
+            <button type="button" class="prompt" [disabled]="!store.enabled() || store.streaming()" (click)="tryPrompt(prompt.text)">
+              <span class="prompt-label">{{ 'project.assistant-prompt-' + prompt.key | translate }}</span>
+              <span class="prompt-text">{{ prompt.text }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <section class="panel state" aria-labelledby="assistant-state-title">
+      <h3 id="assistant-state-title">{{ 'project.assistant-state-title' | translate }}</h3>
+      <dl>
+        <div><dt>enabled()</dt><dd [attr.data-on]="store.enabled()">{{ store.enabled() }}</dd></div>
+        <div><dt>selectedAgentId()</dt><dd>{{ store.selectedAgentId() ?? '–' }}</dd></div>
+        <div><dt>activeConversation().status</dt><dd>{{ conversationStatus() ?? '–' }}</dd></div>
+        <div><dt>streaming()</dt><dd [attr.data-on]="store.streaming()">{{ store.streaming() }}</dd></div>
+        <div><dt>pendingApproval()</dt><dd>{{ store.pendingApproval()?.summary ?? '–' }}</dd></div>
+        <div><dt>error()</dt><dd>{{ store.error()?.code ?? '–' }}</dd></div>
+        <div>
+          <dt>lastUsage()</dt>
+          <dd>
+            @if (store.lastUsage(); as usage) {
+              {{ 'nh-assistant.panel.usage' | translate: usage }}
+            } @else {
+              –
+            }
+          </dd>
+        </div>
+      </dl>
+    </section>
+  </div>
+</section>
+
+<nh-assistant-panel />

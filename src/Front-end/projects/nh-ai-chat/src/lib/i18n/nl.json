@@ -1,0 +1,115 @@
+{
+  "nh-assistant": {
+    "launcher": {
+      "open": "Assistent openen",
+      "close": "Assistent sluiten",
+      "pending-approval": "Er wacht een actie op je goedkeuring"
+    },
+    "panel": {
+      "title": "Assistent",
+      "region-label": "Assistentpaneel",
+      "close": "Assistent sluiten",
+      "show-conversations": "Gesprekken tonen",
+      "hide-conversations": "Gesprekken verbergen",
+      "new-conversation": "Nieuw gesprek",
+      "loading": "Assistent laden",
+      "unavailable-title": "De assistent is niet beschikbaar",
+      "unavailable-description": "De assistent staat uit of je hebt er geen toegang toe.",
+      "empty-title": "Waarmee kan ik helpen?",
+      "empty-description": "Stel een vraag of beschrijf een taak. Acties die gegevens wijzigen vragen altijd eerst om je goedkeuring.",
+      "conversation-closed": "Dit gesprek kan niet verder. Begin een nieuw gesprek.",
+      "dismiss-error": "Melding sluiten",
+      "usage": "{{inputTokens}} invoertokens, {{outputTokens}} uitvoertokens, {{toolCalls}} toolaanroepen"
+    },
+    "agent-picker": {
+      "label": "Agent",
+      "can-mutate": "Kan wijzigingen voorstellen",
+      "read-only": "Alleen lezen"
+    },
+    "conversation-list": {
+      "title": "Gesprekken",
+      "loading": "Gesprekken laden",
+      "empty": "Nog geen gesprekken.",
+      "untitled": "Gesprek zonder titel",
+      "delete": "Gesprek verwijderen",
+      "count": "{{count}} van {{total}}",
+      "status": {
+        "idle": "Gereed",
+        "running": "Bezig",
+        "waiting-for-approval": "Wacht op goedkeuring",
+        "failed": "Mislukt",
+        "archived": "Gearchiveerd"
+      }
+    },
+    "thread": {
+      "label": "Gesprek",
+      "you": "Jij",
+      "assistant": "Assistent",
+      "tool": "Tool",
+      "working": "De assistent is bezig",
+      "loading": "Gesprek laden"
+    },
+    "composer": {
+      "label": "Bericht",
+      "placeholder": "Vraag het de assistent",
+      "hint": "Enter verstuurt, Shift+Enter voegt een regel toe",
+      "send": "Bericht versturen",
+      "stop": "Assistent stoppen",
+      "characters": "{{count}} van {{max}} tekens",
+      "too-long": "Het bericht is te lang."
+    },
+    "tool-call": {
+      "label": "Toolaanroep: {{name}}",
+      "show-details": "Details tonen",
+      "hide-details": "Details verbergen",
+      "arguments": "Invoer",
+      "result": "Resultaat",
+      "result-code": "Resultaat",
+      "status": {
+        "running": "Bezig",
+        "succeeded": "Voltooid",
+        "failed": "Mislukt",
+        "awaiting-approval": "Wacht op goedkeuring",
+        "rejected": "Afgewezen"
+      }
+    },
+    "approval": {
+      "title": "Goedkeuring nodig",
+      "targets": "Betreft",
+      "arguments": "Voorgestelde wijziging",
+      "expires-in": "Verloopt over {{time}}",
+      "expired": "Deze goedkeuring is verlopen.",
+      "approve": "Goedkeuren",
+      "reject": "Afwijzen",
+      "approve-label": "Goedkeuren: {{summary}}",
+      "reject-label": "Afwijzen: {{summary}}",
+      "deciding": "Je besluit wordt verstuurd",
+      "status": {
+        "pending": "Open",
+        "approved": "Goedgekeurd",
+        "rejected": "Afgewezen",
+        "expired": "Verlopen"
+      }
+    },
+    "result-codes": {
+      "api-bridge-validation": "Het verzoek was niet geldig.",
+      "api-bridge-unauthenticated": "Je bent niet ingelogd.",
+      "api-bridge-forbidden": "Je hebt geen rechten voor deze actie.",
+      "api-bridge-not-found": "Het item is niet gevonden.",
+      "api-bridge-conflict": "Het item is intussen gewijzigd.",
+      "api-bridge-upstream": "De dienst is niet beschikbaar.",
+      "api-bridge-timeout": "Het verzoek duurde te lang."
+    },
+    "errors": {
+      "generic": "Er ging iets mis. Probeer het opnieuw.",
+      "assistant-network": "De assistent is niet bereikbaar. Controleer je verbinding en probeer het opnieuw.",
+      "assistant-unauthenticated": "Je sessie is verlopen. Log opnieuw in om de assistent te gebruiken.",
+      "assistant-forbidden": "Je hebt geen toegang tot de assistent.",
+      "assistant-not-found": "Het gesprek bestaat niet meer.",
+      "assistant-conversation-busy": "De assistent is nog bezig met dit gesprek. Probeer het zo opnieuw.",
+      "assistant-invalid-response": "De assistent gaf een onverwacht antwoord.",
+      "assistant-stream-interrupted": "De verbinding met de assistent is onderbroken.",
+      "assistant-server": "De assistent kon het verzoek niet afronden."
+    }
+  }
+}
