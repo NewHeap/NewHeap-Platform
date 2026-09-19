@@ -195,7 +195,7 @@
     "npm-ai-chat": {
       "displayName": "@newheap/platform-ai-chat",
       "kind": "npm",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "tagPrefix": "npm-ai-chat-v",
       "packageName": "@newheap/platform-ai-chat",
       "packageJson": "src/Front-end/projects/nh-ai-chat/package.json",
