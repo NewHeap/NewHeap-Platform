@@ -112,6 +112,8 @@
         <div><dt>enabled()</dt><dd [attr.data-on]="store.enabled()">{{ store.enabled() }}</dd></div>
         <div><dt>canAdminister()</dt><dd [attr.data-on]="store.canAdminister()">{{ store.canAdminister() }}</dd></div>
         <div><dt>selectedAgentId()</dt><dd>{{ store.selectedAgentId() ?? '–' }}</dd></div>
+        <div><dt>panel.isOpen()</dt><dd [attr.data-on]="panel.isOpen()">{{ panel.isOpen() }}</dd></div>
+        <div><dt>activeConversation().id</dt><dd>{{ store.activeConversation()?.id ?? '–' }}</dd></div>
         <div><dt>activeConversation().status</dt><dd>{{ conversationStatus() ?? '–' }}</dd></div>
         <div><dt>streaming()</dt><dd [attr.data-on]="store.streaming()">{{ store.streaming() }}</dd></div>
         <div><dt>pendingApproval()</dt><dd>{{ store.pendingApproval()?.summary ?? '–' }}</dd></div>

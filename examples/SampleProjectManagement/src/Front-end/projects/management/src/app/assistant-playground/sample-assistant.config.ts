@@ -10,7 +10,7 @@ import {
   provideNhAssistant
 } from '@newheap/platform-ai-chat';
 import { SampleAuthService } from 'sample-project-management-common';
-import { Observable, distinctUntilChanged, map } from 'rxjs';
+import { Observable, map } from 'rxjs';
 
 /** Application permission that grants the assistant, matching the API access policy. */
 export const SAMPLE_ASSISTANT_PERMISSION = 'app.assistant.access';
@@ -25,8 +25,7 @@ export class SampleAssistantAccessPolicy implements NhAssistantAccessPolicy {
 
   canUse(): Observable<boolean> {
     return this.authService.authSubject.pipe(
-      map(() => this.authService.isOnePermissionGranted([SAMPLE_ASSISTANT_PERMISSION])),
-      distinctUntilChanged()
+      map(() => this.authService.isOnePermissionGranted([SAMPLE_ASSISTANT_PERMISSION]))
     );
   }
 }
@@ -57,6 +56,12 @@ export const SAMPLE_ASSISTANT_ICONS: Record<NhAssistantIconName, string> = {
 /** The bearer token of the NewHeap session; runs in the assistant's injection context. */
 export function sampleAssistantAccessToken(): string | null {
   return inject(SampleAuthService).getAuthorization()?.token || null;
+}
+
+/** Separates the portal's browser UI pointers by account; no token or page hints are stored. */
+export function sampleAssistantStateScope(): string | null {
+  const userId = inject(SampleAuthService).getAuthorization()?.user?.id;
+  return userId ? `sample-portal:${userId}` : null;
 }
 
 /**
@@ -104,6 +109,7 @@ export function provideSampleAssistant(overrides: Partial<NhAssistantConfig> = {
       apiBaseUrl: '/api/assistant',
       getAccessToken: sampleAssistantAccessToken,
       getPageContext: sampleAssistantPageContext,
+      getStateScope: sampleAssistantStateScope,
       accessPolicy: SampleAssistantAccessPolicy,
       ...overrides
     }),

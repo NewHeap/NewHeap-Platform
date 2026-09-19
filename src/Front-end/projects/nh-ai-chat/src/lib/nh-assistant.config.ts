@@ -23,6 +23,12 @@ export interface NhAssistantConfig {
    * failing getter or an invalid shape only leaves the context out. Default: none.
    */
   getPageContext?: () => ClientContext | null | Promise<ClientContext | null>;
+  /**
+   * Stable, non-secret identity for browser UI state (for example a user id plus tenant id).
+   * Runs in the assistant injection context. Return null on sign-out. Without this callback
+   * the assistant keeps UI state in memory only. Never return an access token.
+   */
+  getStateScope?: () => string | null | Promise<string | null>;
   /** Injectable access policy. Default: always allowed. */
   accessPolicy?: Type<NhAssistantAccessPolicy>;
   /** Agent selected when the user has not chosen one. Default: the first agent the server lists. */

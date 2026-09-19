@@ -13,6 +13,7 @@ import { NH_ASSISTANT_ACCESS_POLICY, NH_ASSISTANT_CONFIG } from '../nh-assistant
 import { NhAssistantApiError, NhAssistantApiService, nhAssistantErrorMessageKey } from './nh-assistant-api.service';
 import { applyNhAssistantApprovalDecision, applyNhAssistantEvent } from './nh-assistant-reducer';
 import { normalizeNhAssistantClientContext } from './nh-assistant-page-context';
+import { NhAssistantUiState } from './nh-assistant-ui-state';
 
 /** A user-facing assistant failure: a stable code and a translation key, never raw server text. */
 export interface NhAssistantError {
@@ -33,6 +34,7 @@ export class NhAssistantStore {
   private readonly config = inject(NH_ASSISTANT_CONFIG);
   private readonly injector = inject(EnvironmentInjector);
   private readonly accessPolicy = inject(NH_ASSISTANT_ACCESS_POLICY);
+  private readonly uiState = inject(NhAssistantUiState);
 
   private readonly accessGrantedState = signal<boolean | null>(null);
   private readonly statusState = signal<AssistantStatus | null>(null);
@@ -50,11 +52,15 @@ export class NhAssistantStore {
   private readonly restoredDraftState = signal<string | null>(null);
   private readonly pageContextState = signal<ClientContext | null>(null);
   private readonly pageContextExcludedState = signal(false);
+  private readonly restorePanelOpenState = signal(false);
 
   private accessSubscription?: Subscription;
   private streamSubscription?: Subscription;
   private cancelTimer?: ReturnType<typeof setTimeout>;
   private initialization?: Promise<void>;
+  private statusRevision = 0;
+  private accountRevision = 0;
+  private pendingSendResolve?: (accepted: boolean) => void;
 
   /** True when the access policy allows the user and the server reports the assistant as enabled. */
   readonly enabled = computed(() => this.accessGrantedState() === true && this.statusState()?.enabled === true);
@@ -84,11 +90,13 @@ export class NhAssistantStore {
   readonly pageContext = this.pageContextState.asReadonly();
   /** True when the user left the page context out of the next message. */
   readonly pageContextExcluded = this.pageContextExcludedState.asReadonly();
+  /** Whether the drawer was open when this account last left the application. */
+  readonly restorePanelOpen = this.restorePanelOpenState.asReadonly();
   /** True while the user can send: enabled, an agent is chosen and no turn runs or waits. */
   readonly canSend = computed(() => {
     const conversation = this.activeConversationState();
     const blocked = conversation !== null && conversation.status !== 'idle';
-    return this.enabled() && this.selectedAgentIdState() !== null && !this.streamingState() && !blocked;
+    return this.enabled() && this.selectedAgentIdState() !== null && !this.streamingState() && !this.conversationLoadingState() && !blocked;
   });
 
   constructor() {
@@ -107,21 +115,71 @@ export class NhAssistantStore {
 
   /** Reloads the server status, for example after the host changed the signed-in user. */
   async reloadStatus(): Promise<void> {
+    const revision = ++this.statusRevision;
     if (this.accessGrantedState() !== true) {
+      this.accountRevision++;
+      this.stopLocalTurn();
       this.statusState.set(null);
+      this.activeConversationState.set(null);
+      this.selectedAgentIdState.set(null);
+      this.conversationsState.set([]);
+      this.conversationsTotalState.set(0);
+      this.conversationLoadingState.set(false);
+      this.conversationsLoadingState.set(false);
+      this.pageContextState.set(null);
+      this.pageContextExcludedState.set(false);
+      this.restoredDraftState.set(null);
+      this.errorState.set(null);
+      this.lastUsageState.set(null);
+      this.restorePanelOpenState.set(false);
+      this.uiState.deactivate();
       return;
     }
 
     this.statusLoadingState.set(true);
     try {
+      const restored = await this.uiState.activate();
+      if (revision !== this.statusRevision) {
+        return;
+      }
+      if (restored.changed) {
+        this.accountRevision++;
+        this.stopLocalTurn();
+        this.statusState.set(null);
+        this.activeConversationState.set(null);
+        this.conversationsState.set([]);
+        this.conversationsTotalState.set(0);
+        this.conversationLoadingState.set(false);
+        this.conversationsLoadingState.set(false);
+        this.pageContextState.set(null);
+        this.pageContextExcludedState.set(false);
+        this.restoredDraftState.set(null);
+        this.errorState.set(null);
+        this.lastUsageState.set(null);
+        this.selectedAgentIdState.set(restored.state.agentId);
+        this.restorePanelOpenState.set(restored.state.panelOpen);
+      }
+
       const status = await firstValueFrom(this.api.status());
+      if (revision !== this.statusRevision) {
+        return;
+      }
       this.statusState.set(status);
-      this.selectInitialAgent(status.agents);
+      if (status.enabled) {
+        this.selectInitialAgent(status.agents);
+        if (!this.activeConversationState() && restored.state.conversationId) {
+          await this.loadConversation(restored.state.conversationId, true);
+        }
+      }
     } catch {
       // An unavailable assistant endpoint hides the assistant instead of showing an error.
-      this.statusState.set(null);
+      if (revision === this.statusRevision) {
+        this.statusState.set(null);
+      }
     } finally {
-      this.statusLoadingState.set(false);
+      if (revision === this.statusRevision) {
+        this.statusLoadingState.set(false);
+      }
     }
   }
 
@@ -130,15 +188,22 @@ export class NhAssistantStore {
       return;
     }
 
+    const revision = this.accountRevision;
     this.conversationsLoadingState.set(true);
     try {
       const page = await firstValueFrom(this.api.listConversations(1, conversationPageSize));
-      this.conversationsState.set(page.items);
-      this.conversationsTotalState.set(page.total);
+      if (revision === this.accountRevision) {
+        this.conversationsState.set(page.items);
+        this.conversationsTotalState.set(page.total);
+      }
     } catch (error) {
-      this.setError(error);
+      if (revision === this.accountRevision) {
+        this.setError(error);
+      }
     } finally {
-      this.conversationsLoadingState.set(false);
+      if (revision === this.accountRevision) {
+        this.conversationsLoadingState.set(false);
+      }
     }
   }
 
@@ -149,6 +214,7 @@ export class NhAssistantStore {
     }
 
     this.selectedAgentIdState.set(agentId);
+    this.uiState.update({ agentId });
     const active = this.activeConversationState();
     if (active && active.agentId !== agentId && !this.streamingState()) {
       this.startNewConversation();
@@ -162,27 +228,49 @@ export class NhAssistantStore {
     }
 
     this.activeConversationState.set(null);
+    this.uiState.update({ conversationId: null });
     this.errorState.set(null);
     this.lastUsageState.set(null);
   }
 
   async openConversation(conversationId: string): Promise<void> {
+    await this.loadConversation(conversationId, false);
+  }
+
+  private async loadConversation(conversationId: string, restoring: boolean): Promise<void> {
     if (this.streamingState() || this.activeConversationState()?.id === conversationId) {
       return;
     }
 
+    const revision = this.accountRevision;
     this.conversationLoadingState.set(true);
     this.errorState.set(null);
     try {
       const conversation = await firstValueFrom(this.api.getConversation(conversationId));
-      this.activeConversationState.set(conversation);
-      if (this.agents().some(agent => agent.id === conversation.agentId)) {
-        this.selectedAgentIdState.set(conversation.agentId);
+      if (revision !== this.accountRevision) {
+        return;
       }
+      if (!this.agents().some(agent => agent.id === conversation.agentId)) {
+        this.uiState.update({ conversationId: null });
+        return;
+      }
+      this.activeConversationState.set(conversation);
+      this.selectedAgentIdState.set(conversation.agentId);
+      this.uiState.update({ conversationId, agentId: conversation.agentId });
     } catch (error) {
-      this.setError(error);
+      if (revision !== this.accountRevision) {
+        return;
+      }
+      if (error instanceof NhAssistantApiError && (error.status === 403 || error.status === 404)) {
+        this.uiState.update({ conversationId: null });
+      }
+      if (!restoring) {
+        this.setError(error);
+      }
     } finally {
-      this.conversationLoadingState.set(false);
+      if (revision === this.accountRevision) {
+        this.conversationLoadingState.set(false);
+      }
     }
   }
 
@@ -191,15 +279,22 @@ export class NhAssistantStore {
       return;
     }
 
+    const revision = this.accountRevision;
     try {
       await firstValueFrom(this.api.deleteConversation(conversationId), { defaultValue: undefined });
+      if (revision !== this.accountRevision) {
+        return;
+      }
       this.conversationsState.update(items => items.filter(item => item.id !== conversationId));
       this.conversationsTotalState.update(total => Math.max(0, total - 1));
       if (this.activeConversationState()?.id === conversationId) {
         this.activeConversationState.set(null);
+        this.uiState.update({ conversationId: null });
       }
     } catch (error) {
-      this.setError(error);
+      if (revision === this.accountRevision) {
+        this.setError(error);
+      }
     }
   }
 
@@ -210,6 +305,8 @@ export class NhAssistantStore {
    */
   async send(text: string): Promise<boolean> {
     const trimmed = text.trim();
+    await this.initialize();
+    await this.reloadStatus();
     const maxChars = this.limits()?.maxMessageChars ?? Number.MAX_SAFE_INTEGER;
     if (trimmed.length === 0 || trimmed.length > maxChars || !this.canSend()) {
       return false;
@@ -218,18 +315,24 @@ export class NhAssistantStore {
     this.errorState.set(null);
     this.restoredDraftState.set(null);
     this.streamingState.set(true);
+    const accountRevision = this.accountRevision;
 
     let conversation = this.activeConversationState();
     if (!conversation) {
       conversation = await this.createConversation();
       if (!conversation) {
-        this.streamingState.set(false);
-        this.restoredDraftState.set(text);
+        if (accountRevision === this.accountRevision) {
+          this.streamingState.set(false);
+          this.restoredDraftState.set(text);
+        }
         return false;
       }
     }
 
     const clientContext = await this.contextForMessage();
+    if (accountRevision !== this.accountRevision) {
+      return false;
+    }
     const clientMessageId = createClientMessageId();
     const previousStatus = conversation.status;
     this.activeConversationState.set({
@@ -243,6 +346,7 @@ export class NhAssistantStore {
 
     const conversationId = conversation.id;
     return new Promise<boolean>(resolve => {
+      this.pendingSendResolve = resolve;
       let started = false;
       let failedAfterStart = false;
 
@@ -271,6 +375,7 @@ export class NhAssistantStore {
           this.applyEvent(event, clientMessageId);
         },
         complete: () => {
+          this.pendingSendResolve = undefined;
           resolve(started);
           this.afterTurn(conversationId, failedAfterStart);
         }
@@ -324,10 +429,17 @@ export class NhAssistantStore {
       return;
     }
 
+    const revision = this.accountRevision;
     try {
       await firstValueFrom(this.api.cancel(conversation.id), { defaultValue: undefined });
     } catch (error) {
-      this.setError(error);
+      if (revision === this.accountRevision) {
+        this.setError(error);
+      }
+      return;
+    }
+
+    if (revision !== this.accountRevision) {
       return;
     }
 
@@ -352,9 +464,19 @@ export class NhAssistantStore {
     this.errorState.set(null);
   }
 
+  /** Persists only drawer visibility, never the page context or a message draft. */
+  setPanelOpen(open: boolean): void {
+    this.restorePanelOpenState.set(open);
+    this.uiState.update({ panelOpen: open });
+  }
+
   /** Reads the host's page context again so the chip shows what the next message sends. */
   async refreshPageContext(): Promise<void> {
-    this.pageContextState.set((await this.readPageContext()) ?? null);
+    const revision = this.accountRevision;
+    const context = await this.readPageContext();
+    if (revision === this.accountRevision) {
+      this.pageContextState.set(context ?? null);
+    }
   }
 
   /** Leaves the page context out of the next message only, or includes it again. */
@@ -383,8 +505,11 @@ export class NhAssistantStore {
       return null;
     }
 
+    const revision = this.accountRevision;
     const context = await this.readPageContext();
-    this.pageContextState.set(context ?? null);
+    if (revision === this.accountRevision) {
+      this.pageContextState.set(context ?? null);
+    }
     return context;
   }
 
@@ -417,13 +542,8 @@ export class NhAssistantStore {
     await new Promise<void>(resolve => {
       this.accessSubscription = (decision as Observable<boolean>).subscribe({
         next: granted => {
-          const changed = this.accessGrantedState() !== granted;
           this.accessGrantedState.set(granted);
-          if (changed) {
-            void this.reloadStatus().finally(() => resolve());
-          } else {
-            resolve();
-          }
+          void this.reloadStatus().finally(() => resolve());
         },
         error: () => {
           this.accessGrantedState.set(false);
@@ -440,14 +560,21 @@ export class NhAssistantStore {
       return null;
     }
 
+    const revision = this.accountRevision;
     try {
       const conversation = await firstValueFrom(this.api.createConversation({ agentId }));
+      if (revision !== this.accountRevision) {
+        return null;
+      }
       this.activeConversationState.set(conversation);
+      this.uiState.update({ conversationId: conversation.id });
       this.conversationsState.update(items => [toSummary(conversation), ...items.filter(item => item.id !== conversation.id)]);
       this.conversationsTotalState.update(total => total + 1);
       return conversation;
     } catch (error) {
-      this.setError(error);
+      if (revision === this.accountRevision) {
+        this.setError(error);
+      }
       return null;
     }
   }
@@ -473,6 +600,15 @@ export class NhAssistantStore {
       },
       complete: finish
     });
+  }
+
+  private stopLocalTurn(): void {
+    this.streamSubscription?.unsubscribe();
+    this.pendingSendResolve?.(false);
+    this.pendingSendResolve = undefined;
+    clearTimeout(this.cancelTimer);
+    this.streamingState.set(false);
+    this.decidingState.set(false);
   }
 
   private applyEvent(event: NhAssistantSseEvent, clientMessageId?: string): void {
@@ -507,9 +643,10 @@ export class NhAssistantStore {
   }
 
   private async reloadActiveConversation(conversationId: string): Promise<void> {
+    const revision = this.accountRevision;
     try {
       const conversation = await firstValueFrom(this.api.getConversation(conversationId));
-      if (this.activeConversationState()?.id === conversationId && !this.streamingState()) {
+      if (revision === this.accountRevision && this.activeConversationState()?.id === conversationId && !this.streamingState()) {
         this.activeConversationState.set(conversation);
       }
     } catch {
@@ -540,6 +677,7 @@ export class NhAssistantStore {
 
     const preferred = agents.find(agent => agent.id === this.config.defaultAgentId) ?? agents[0] ?? null;
     this.selectedAgentIdState.set(preferred?.id ?? null);
+    this.uiState.update({ agentId: preferred?.id ?? null });
   }
 
   private setError(error: unknown): void {

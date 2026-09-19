@@ -2,7 +2,7 @@ import { BreakpointObserver } from '@angular/cdk/layout';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { DOCUMENT } from '@angular/common';
-import { DestroyRef, Injectable, Injector, Signal, afterNextRender, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, Injector, Signal, afterNextRender, effect, inject, signal, untracked } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { NhAssistantStore } from './nh-assistant.store';
 
@@ -34,14 +34,34 @@ export class NhAssistantPanelService {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.dispose());
+    effect(() => {
+      if (this.store.enabled() && this.store.restorePanelOpen() && this.portal && !this.openState()) {
+        untracked(() => queueMicrotask(() => {
+          if (this.portal && this.store.enabled() && this.store.restorePanelOpen() && !this.openState()) {
+            this.showPanel();
+          }
+        }));
+      }
+    });
   }
 
   open(conversationId?: string): void {
-    void this.store.initialize();
-    if (conversationId) {
-      void this.store.openConversation(conversationId);
+    if (this.openState() && !conversationId) {
+      return;
     }
 
+    this.showPanel();
+    void this.store.initialize().then(() => this.store.reloadStatus()).then(() => {
+      if (this.openState()) {
+        this.store.setPanelOpen(true);
+      }
+      if (conversationId) {
+        void this.store.openConversation(conversationId);
+      }
+    });
+  }
+
+  private showPanel(): void {
     if (this.openState()) {
       return;
     }
@@ -58,6 +78,7 @@ export class NhAssistantPanelService {
     }
 
     this.openState.set(false);
+    this.store.setPanelOpen(false);
     this.overlayRef?.detach();
 
     const target = this.returnFocusTo;
@@ -80,6 +101,12 @@ export class NhAssistantPanelService {
     this.portal = portal;
     if (this.openState()) {
       this.attach();
+    } else {
+      void this.store.initialize().then(() => {
+        if (this.portal === portal && this.store.enabled() && this.store.restorePanelOpen()) {
+          this.showPanel();
+        }
+      });
     }
   }
 

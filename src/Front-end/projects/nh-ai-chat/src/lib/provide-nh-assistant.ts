@@ -10,6 +10,7 @@ import { NhAssistantAdminApiService } from './services/nh-assistant-admin-api.se
 import { NhAssistantApiService } from './services/nh-assistant-api.service';
 import { NhAssistantPanelService } from './services/nh-assistant-panel.service';
 import { NhAssistantStore } from './services/nh-assistant.store';
+import { NhAssistantUiState } from './services/nh-assistant-ui-state';
 import { NhAssistantTransport } from './services/nh-assistant-transport';
 
 /**
@@ -25,6 +26,7 @@ export function provideNhAssistant(config: NhAssistantConfig): EnvironmentProvid
     NhAssistantApiService,
     NhAssistantAdminApiService,
     NhAssistantStore,
+    NhAssistantUiState,
     NhAssistantPanelService,
     ...(config.translations === 'host'
       ? []

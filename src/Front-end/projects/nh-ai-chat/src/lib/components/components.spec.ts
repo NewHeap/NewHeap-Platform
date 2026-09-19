@@ -58,7 +58,7 @@ function flush(): Promise<void> {
 
 let api: jasmine.SpyObj<NhAssistantApiService>;
 
-async function configure(): Promise<void> {
+async function configure(getStateScope?: () => string | null): Promise<void> {
   api = jasmine.createSpyObj<NhAssistantApiService>('NhAssistantApiService', [
     'status', 'listConversations', 'createConversation', 'getConversation', 'deleteConversation',
     'sendMessage', 'decideApproval', 'cancel'
@@ -69,7 +69,7 @@ async function configure(): Promise<void> {
   TestBed.configureTestingModule({
     providers: [
       provideTranslateService({ fallbackLang: 'en' }),
-      provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => 'token', accessPolicy: TestAccessPolicy }),
+      provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => 'token', accessPolicy: TestAccessPolicy, getStateScope }),
       { provide: NhAssistantApiService, useValue: api }
     ]
   });
@@ -236,6 +236,8 @@ describe('NhAssistantApprovalCardComponent', () => {
   }
 
   it('shows summary, targets and a countdown and labels its buttons', () => {
+    fixture.componentRef.setInput('approval', { ...approval, expiresAt: new Date(Date.now() + 125_000).toISOString() });
+    fixture.detectChanges();
     const text = fixture.nativeElement.textContent as string;
 
     expect(text).toContain('Set Alpha on hold');
@@ -308,7 +310,7 @@ describe('NhAssistantToolCallCardComponent', () => {
     resultCode: 'api-bridge-forbidden'
   };
 
-  beforeEach(configure);
+  beforeEach(() => configure());
 
   it('translates the result code and toggles the details', () => {
     const fixture = TestBed.createComponent(NhAssistantToolCallCardComponent);
@@ -347,7 +349,7 @@ describe('NhAssistantToolCallCardComponent', () => {
 });
 
 describe('NhAssistantThreadComponent', () => {
-  beforeEach(configure);
+  beforeEach(() => configure());
 
   it('is a polite live log and never renders a script tag from model text', () => {
     const fixture = TestBed.createComponent(NhAssistantThreadComponent);
@@ -455,5 +457,24 @@ describe('NhAssistantPanelComponent', () => {
 
     expect(overlay.querySelector('.drawer')?.textContent).toContain('The assistant is not available');
     expect(overlay.querySelector('textarea')).toBeNull();
+  });
+
+  it('reopens the drawer when a scoped session restarts while it was open', async () => {
+    const scope = `panel-restart-${crypto.randomUUID()}`;
+    TestBed.resetTestingModule();
+    await configure(() => scope);
+    const first = TestBed.inject(NhAssistantStore);
+    await first.initialize();
+    first.setPanelOpen(true);
+
+    TestBed.resetTestingModule();
+    await configure(() => scope);
+    fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+    await flush();
+    fixture.detectChanges();
+
+    expect(TestBed.inject(NhAssistantPanelService).isOpen()).toBeTrue();
+    expect(TestBed.inject(OverlayContainer).getContainerElement().querySelector('.drawer')).not.toBeNull();
   });
 });

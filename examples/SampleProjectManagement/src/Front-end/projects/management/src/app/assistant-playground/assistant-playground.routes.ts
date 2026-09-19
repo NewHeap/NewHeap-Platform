@@ -7,6 +7,8 @@ import {
   PROJECT_ASSISTANT_ID
 } from './assistant-playground.scenario';
 import { provideSampleAssistant } from './sample-assistant.config';
+import { inject } from '@angular/core';
+import { SampleAuthService } from 'sample-project-management-common';
 
 /**
  * The playground hosts its own assistant scope on the scripted mock API, so it works
@@ -20,6 +22,10 @@ export const ASSISTANT_PLAYGROUND_ROUTES: Routes = [
       provideSampleAssistant({
         accessPolicy: AssistantPlaygroundAccessPolicy,
         defaultAgentId: PROJECT_ASSISTANT_ID,
+        getStateScope: () => {
+          const userId = inject(SampleAuthService).getAuthorization()?.user?.id;
+          return userId ? `sample-playground:${userId}` : null;
+        },
         adminRoute: ASSISTANT_PLAYGROUND_ADMIN_ROUTE
       }),
       provideNhAssistantMockApi(ASSISTANT_PLAYGROUND_SCENARIO)

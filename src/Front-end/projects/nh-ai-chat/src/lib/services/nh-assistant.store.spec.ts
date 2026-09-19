@@ -64,14 +64,16 @@ describe('NhAssistantStore', () => {
   let api: jasmine.SpyObj<NhAssistantApiService>;
   let stream: Subject<NhAssistantSseEvent>;
 
-  function setup(): NhAssistantStore {
+  function setup(getStateScope?: () => string | null, getPageContext?: () => { route: string }): NhAssistantStore {
     TestBed.configureTestingModule({
       providers: [
         provideNhAssistant({
           apiBaseUrl: '/api/assistant',
           getAccessToken: () => 'token',
           accessPolicy: TestAccessPolicy,
-          defaultAgentId: 'projects'
+          defaultAgentId: 'projects',
+          getStateScope,
+          getPageContext
         }),
         { provide: NhAssistantApiService, useValue: api }
       ]
@@ -311,5 +313,134 @@ describe('NhAssistantStore', () => {
 
     expect(store.selectedAgentId()).toBe('general');
     expect(store.activeConversation()).toBeNull();
+  });
+
+  it('restores only scoped UI pointers and fetches the conversation again after restart', async () => {
+    const scope = `store-restart-${crypto.randomUUID()}`;
+    const first = setup(() => scope);
+    await first.initialize();
+    first.selectAgent('general');
+    await first.openConversation('c1');
+    first.setPanelOpen(true);
+
+    TestBed.resetTestingModule();
+    const restored = setup(() => scope);
+    await restored.initialize();
+
+    expect(api.getConversation).toHaveBeenCalledWith('c1');
+    expect(restored.activeConversation()?.id).toBe('c1');
+    expect(restored.selectedAgentId()).toBe('projects');
+    expect(restored.restorePanelOpen()).toBeTrue();
+
+    restored.startNewConversation();
+    restored.selectAgent('general');
+    TestBed.resetTestingModule();
+    const newThread = setup(() => scope);
+    await newThread.initialize();
+    expect(newThread.activeConversation()).toBeNull();
+    expect(newThread.selectedAgentId()).toBe('general');
+    expect(newThread.restorePanelOpen()).toBeTrue();
+  });
+
+  it('does not restore a conversation from another account or one no longer accessible', async () => {
+    const scope = `store-account-${crypto.randomUUID()}`;
+    const first = setup(() => scope);
+    await first.initialize();
+    await first.openConversation('c1');
+
+    TestBed.resetTestingModule();
+    const other = setup(() => `${scope}-other`);
+    await other.initialize();
+    expect(other.activeConversation()).toBeNull();
+
+    TestBed.resetTestingModule();
+    api.getConversation.and.returnValue(throwError(() => new NhAssistantApiError(404, 'assistant-conversation-not-found', 'k')));
+    const missing = setup(() => scope);
+    await missing.initialize();
+    expect(missing.activeConversation()).toBeNull();
+    expect(missing.error()).toBeNull();
+
+    TestBed.resetTestingModule();
+    api.getConversation.calls.reset();
+    const again = setup(() => scope);
+    await again.initialize();
+    expect(api.getConversation).not.toHaveBeenCalled();
+  });
+
+  it('uses the current page hint after restoring a thread, without persisting old hints', async () => {
+    const scope = `store-context-${crypto.randomUUID()}`;
+    let route = '/projects/old';
+    const first = setup(() => scope, () => ({ route }));
+    await first.initialize();
+    await first.openConversation('c1');
+    await first.refreshPageContext();
+
+    TestBed.resetTestingModule();
+    route = '/projects/current';
+    const restored = setup(() => scope, () => ({ route }));
+    await restored.initialize();
+    await restored.refreshPageContext();
+
+    expect(restored.pageContext()?.route).toBe('/projects/current');
+    const sent = restored.send('What is open?');
+    await flush();
+    expect(api.sendMessage.calls.mostRecent().args[1].clientContext).toEqual({ route: '/projects/current' });
+    stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+    stream.complete();
+    await sent;
+
+    const saved = localStorage.getItem(`nh-assistant-ui:v1:${encodeURIComponent('/api/assistant')}:${encodeURIComponent(scope)}`);
+    expect(saved).not.toContain('/projects/old');
+    expect(saved).not.toContain('/projects/current');
+    expect(saved).not.toContain('token');
+  });
+
+  it('drops the in-memory conversation when the active account changes', async () => {
+    let scope = `store-switch-${crypto.randomUUID()}`;
+    const store = setup(() => scope);
+    await store.initialize();
+    await store.openConversation('c1');
+
+    scope += '-other';
+    await store.reloadStatus();
+
+    expect(store.activeConversation()).toBeNull();
+    expect(store.selectedAgentId()).toBe('projects');
+  });
+
+  it('does not restore an old account draft after conversation creation finishes late', async () => {
+    let scope = `store-late-${crypto.randomUUID()}`;
+    const pending = new Subject<Conversation>();
+    api.createConversation.and.returnValue(pending);
+    const store = setup(() => scope);
+    await store.initialize();
+
+    const sent = store.send('Old account message');
+    await flush();
+    expect(api.createConversation).toHaveBeenCalled();
+
+    scope += '-other';
+    await store.reloadStatus();
+    pending.next(conversation());
+    pending.complete();
+
+    expect(await sent).toBeFalse();
+    expect(store.activeConversation()).toBeNull();
+    expect(store.restoredDraft()).toBeNull();
+  });
+
+  it('keeps the chosen agent while the assistant feature is temporarily disabled', async () => {
+    const scope = `store-disabled-${crypto.randomUUID()}`;
+    const store = setup(() => scope);
+    await store.initialize();
+    store.selectAgent('general');
+
+    api.status.and.returnValue(of({ ...status, enabled: false, agents: [] }));
+    await store.reloadStatus();
+    expect(store.enabled()).toBeFalse();
+
+    api.status.and.returnValue(of(status));
+    await store.reloadStatus();
+    expect(store.selectedAgentId()).toBe('general');
   });
 });

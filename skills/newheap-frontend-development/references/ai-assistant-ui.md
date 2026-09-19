@@ -23,7 +23,8 @@ assistant's injection context before every request, so it can read the token fro
 the host's existing auth service through `inject(...)`. Base the access policy on
 the same permission the API enforces (for example `app.assistant.access`) and
 return an observable when the signed-in user can change, so the launcher follows
-sign-in and sign-out.
+sign-in and sign-out. Emit on account changes even when both accounts have the
+same access boolean, so the store discards the previous user's in-memory state.
 
 Pass `getPageContext` when pages can say what the user has open. It runs in the
 assistant's injection context when the panel opens and before every message and
@@ -34,6 +35,17 @@ the result to the contract limits, and a failing getter only leaves the context 
 The panel shows what it sends in a chip above the message box; the user can leave it
 out of the next message, which sends `null`. Page context is untrusted data for the
 model: entity ids are search hints and never replace authorization.
+
+Pass `getStateScope` with a stable, non-secret user-and-tenant identifier when
+the assistant should restore its selected agent, active conversation and open
+drawer after a browser restart. Return `null` on sign-out; do not use a bearer
+token or an identifier shared by multiple accounts. Without a scope, UI state
+stays in memory. The library stores only these UI pointers in browser storage,
+re-fetches the conversation through the current user's API session and discards
+an inaccessible conversation. It never stores messages, drafts, credentials or
+page context. Each new message reads `getPageContext` afresh, so a restored
+conversation does not replay a stale screen hint. Pending approvals are read
+from the authoritative server conversation, not browser storage.
 
 Place `<nh-assistant-launcher />` in the header and exactly one
 `<nh-assistant-panel />` in the application layout. Other components open the
@@ -110,6 +122,8 @@ the administration route under the same parent to share that scope.
   context, or treating it as authorization; send route, title and entity references
   only.
 - Hiding the page-context chip or sending page context the user cannot see.
+- Putting an access token, page context or another user's identity in
+  `getStateScope`, or sharing a scope between the live API and a mock playground.
 - Importing `NhAssistantAdminComponent` in an eagerly loaded module or showing the
   administration link from a host permission check alone.
 - Displaying, logging or prefilling an MCP server secret. Omit `secret` to keep it,
@@ -135,7 +149,9 @@ secret and send it only on replace or clear, keep synced MCP tools disabled as
 changes, show remote hints as hints and warn after a remote schema change. The
 page-context tests send the getter result read in the injection context, truncate
 long fields, keep sending when the getter throws, and send `null` after the user
-removes the chip. In the
+removes the chip. The UI-state tests restart the store, verify scoped restoration
+and inaccessible-conversation fallback, and check that restored chats send only
+the current page hint. In the
 host, open the assistant playground and walk through a new conversation, a
 streamed answer, a tool call, approve, reject, stop, an error, an agent switch,
 the page-context chip on a simulated project page, the preferences and the
