@@ -39,10 +39,16 @@ internal sealed class NhAssistantTurnState
 
     public bool ToolCallLimitReached { get; set; }
 
+    /// <summary>
+    /// Set when the durable daily tool budget refused a tool call in this turn.
+    /// </summary>
+    public bool ToolBudgetExhausted { get; set; }
+
     public bool InstructionsTooLong { get; set; }
 
     /// <summary>
-    /// Set after a rejected approval: the model may give one closing message but call no more tools.
+    /// Set after a rejected approval and before the closing answer after a tool limit: the model may
+    /// give one closing message but call no more tools.
     /// </summary>
     public bool ToolsDisabled { get; set; }
 
@@ -205,6 +211,8 @@ internal sealed class NhAssistantToolCallInterceptor(
         await CompleteToolCallAsync(row, execution, cancellationToken);
         if (state.Scope.BudgetExhausted)
         {
+            // A reservation inside a tool call is a tool-budget reservation.
+            state.ToolBudgetExhausted = true;
             context.Terminate = true;
         }
         return execution.Result;

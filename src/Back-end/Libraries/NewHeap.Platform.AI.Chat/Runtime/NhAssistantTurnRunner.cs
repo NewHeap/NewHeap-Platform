@@ -280,7 +280,7 @@ internal sealed class NhAssistantTurnRunner(
             return;
         }
 
-        var messages = BuildHistory(history, agent, text);
+        var messages = await BuildHistoryAsync(conversation.Id, history, agent, text, null);
         messages.Add(new ChatMessage(ChatRole.User, text));
         await RunModelAsync(state, request.CallerContext, messages, cancellationToken);
     }
@@ -383,7 +383,8 @@ internal sealed class NhAssistantTurnRunner(
             };
         }
 
-        var messages = BuildHistory(history, agent, null);
+        // The resumed call is replayed below with its real result; the summary leaves it out.
+        var messages = await BuildHistoryAsync(conversation.Id, history, agent, null, invocation.Id);
         messages.Add(new ChatMessage(
             ChatRole.Assistant,
             [new FunctionCallContent(invocation.CallId, invocation.FunctionName, NhAssistantContent.DeserializeArguments(invocation.ArgumentsJson))]));
@@ -552,35 +553,35 @@ internal sealed class NhAssistantTurnRunner(
             }
             else
             {
-                await foreach (var update in agent.RunStreamingAsync(messages, null, McpRunOptions(state), timeout.Token))
+                var updates = new List<AgentResponseUpdate>();
+                var providerFailed = await StreamModelAsync(
+                    state,
+                    agent,
+                    messages,
+                    McpRunOptions(state),
+                    updates,
+                    timeout.Token);
+                if (!providerFailed && NeedsClosingAnswer(state))
                 {
-                    foreach (var usage in update.Contents.OfType<UsageContent>())
-                    {
-                        state.InputTokens += (int)Math.Clamp(usage.Details.InputTokenCount ?? 0, 0, int.MaxValue);
-                        state.OutputTokens += (int)Math.Clamp(usage.Details.OutputTokenCount ?? 0, 0, int.MaxValue);
-                    }
-
-                    // A provider failure inside the stream (quota, credits, content filter) ends the turn as failed.
-                    // Log the provider error code only; the message can carry content.
-                    var providerError = update.Contents.OfType<ErrorContent>().FirstOrDefault();
-                    if (providerError is not null)
-                    {
-                        logger.LogWarning(
-                            "Assistant turn {TurnId} of agent {AgentId} received a provider error ({ProviderErrorCode}).",
-                            state.Scope.TurnId,
-                            state.Scope.Agent.Id,
-                            providerError.ErrorCode ?? "unknown");
-                        outcomeStatus = NhAssistantTurnStatuses.Failed;
-                        errorCode = NhAssistantErrorCodes.ModelUnavailable;
-                        break;
-                    }
-
-                    var delta = update.Text;
-                    if (!string.IsNullOrEmpty(delta) && update.Role != ChatRole.Tool)
-                    {
-                        state.AppendText(delta);
-                        await state.EmitAsync(new NhAssistantMessageDeltaEvent(state.AssistantMessageId, delta));
-                    }
+                    // The tool loop ended at a limit before the model answered. One tool-free call turns
+                    // the gathered results into an answer instead of ending the turn silently.
+                    state.ToolsDisabled = true;
+                    await SeparateClosingTextAsync(state);
+                    var closing = new List<ChatMessage>(messages);
+                    closing.AddRange(updates.ToAgentResponse().Messages);
+                    closing.Add(new ChatMessage(ChatRole.System, NhAssistantToolHistory.ClosingInstruction));
+                    providerFailed = await StreamModelAsync(
+                        state,
+                        agent,
+                        closing,
+                        ClosingRunOptions(state),
+                        null,
+                        timeout.Token);
+                }
+                if (providerFailed)
+                {
+                    outcomeStatus = NhAssistantTurnStatuses.Failed;
+                    errorCode = NhAssistantErrorCodes.ModelUnavailable;
                 }
             }
         }
@@ -657,6 +658,92 @@ internal sealed class NhAssistantTurnRunner(
             outcomeStatus,
             new NhAssistantTurnUsage(state.InputTokens, state.OutputTokens, state.ToolCalls),
             errorCode));
+    }
+
+    /// <summary>
+    /// Streams one agent run: usage is counted, text is appended to the assistant message and emitted as
+    /// <c>message.delta</c>. Returns <see langword="true"/> when the provider reported an error in the stream.
+    /// </summary>
+    private async Task<bool> StreamModelAsync(
+        NhAssistantTurnState state,
+        AIAgent agent,
+        IReadOnlyList<ChatMessage> messages,
+        AgentRunOptions? options,
+        List<AgentResponseUpdate>? updates,
+        CancellationToken cancellationToken)
+    {
+        await foreach (var update in agent.RunStreamingAsync(messages, null, options, cancellationToken))
+        {
+            updates?.Add(update);
+            foreach (var usage in update.Contents.OfType<UsageContent>())
+            {
+                state.InputTokens += (int)Math.Clamp(usage.Details.InputTokenCount ?? 0, 0, int.MaxValue);
+                state.OutputTokens += (int)Math.Clamp(usage.Details.OutputTokenCount ?? 0, 0, int.MaxValue);
+            }
+
+            // A provider failure inside the stream (quota, credits, content filter) ends the turn as failed.
+            // Log the provider error code only; the message can carry content.
+            var providerError = update.Contents.OfType<ErrorContent>().FirstOrDefault();
+            if (providerError is not null)
+            {
+                logger.LogWarning(
+                    "Assistant turn {TurnId} of agent {AgentId} received a provider error ({ProviderErrorCode}).",
+                    state.Scope.TurnId,
+                    state.Scope.Agent.Id,
+                    providerError.ErrorCode ?? "unknown");
+                return true;
+            }
+
+            var delta = update.Text;
+            if (!string.IsNullOrEmpty(delta) && update.Role != ChatRole.Tool)
+            {
+                state.AppendText(delta);
+                await state.EmitAsync(new NhAssistantMessageDeltaEvent(state.AssistantMessageId, delta));
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Starts the closing answer on a new paragraph when the model already wrote text after its last tool call.
+    /// </summary>
+    private static async Task SeparateClosingTextAsync(NhAssistantTurnState state)
+    {
+        var parts = state.Parts;
+        if (parts.Count == 0
+            || parts[^1].Type != NhAssistantStoredPart.TextType
+            || string.IsNullOrWhiteSpace(parts[^1].Text))
+        {
+            return;
+        }
+        const string separator = "\n\n";
+        state.AppendText(separator);
+        await state.EmitAsync(new NhAssistantMessageDeltaEvent(state.AssistantMessageId, separator));
+    }
+
+    /// <summary>
+    /// A closing answer is needed when the tool-call limit or the daily tool budget ended the tool loop,
+    /// no approval is pending and the tools were not already disabled.
+    /// </summary>
+    private static bool NeedsClosingAnswer(NhAssistantTurnState state)
+    {
+        return (state.ToolCallLimitReached || state.ToolBudgetExhausted)
+            && state.PendingApproval is null
+            && !state.ToolsDisabled;
+    }
+
+    /// <summary>
+    /// Run options of the closing answer: the model may not choose a tool. MCP tools stay declared
+    /// because the replayed messages can contain their calls; the interceptor refuses any call.
+    /// </summary>
+    private static ChatClientAgentRunOptions ClosingRunOptions(NhAssistantTurnState state)
+    {
+        var options = new ChatOptions { ToolMode = ChatToolMode.None };
+        if (state.McpTools is { Functions.Count: > 0 } tools)
+        {
+            options.Tools = [.. tools.Functions];
+        }
+        return new ChatClientAgentRunOptions(options);
     }
 
     private async Task<AIAgent?> CreateAgentAsync(
@@ -881,21 +968,38 @@ internal sealed class NhAssistantTurnRunner(
 
     /// <summary>
     /// Replays persisted user and assistant text, newest first until the model profile's input
-    /// budget is used, leaving room for the instructions and the new message.
+    /// budget is used, leaving room for the instructions and the new message. An assistant message
+    /// that made tool calls carries a compact summary of them (tool id, short argument preview and
+    /// outcome, never results), so a follow-up turn knows what was already done.
     /// </summary>
-    private List<ChatMessage> BuildHistory(
+    private async Task<List<ChatMessage>> BuildHistoryAsync(
+        Guid conversationId,
         IReadOnlyList<AssistantMessage> history,
         NhAssistantAgentDefinition agent,
-        string? newMessage)
+        string? newMessage,
+        Guid? excludedInvocationId)
     {
         var budget = profiles.TryGet(agent.ProfileName, out var profile)
             ? (long)profile.Budget.MaxInputTokens * 3
             : 16_000;
         budget -= agent.Instructions.Content.Length + (newMessage?.Length ?? 0);
+
+        var invocationIds = NhAssistantToolHistory.InvocationIds(history)
+            .Where(id => id != excludedInvocationId)
+            .ToArray();
+        var invocations = (await store.GetToolInvocationsAsync(conversationId, invocationIds, CancellationToken.None))
+            .ToDictionary(invocation => invocation.Id);
+
         var selected = new List<ChatMessage>();
         foreach (var message in history.Reverse())
         {
-            var text = NhAssistantContent.TextOf(NhAssistantContent.DeserializeParts(message.PartsJson));
+            var parts = NhAssistantContent.DeserializeParts(message.PartsJson);
+            var text = NhAssistantContent.TextOf(parts);
+            if (message.Role == NhAssistantMessageRoles.Assistant
+                && NhAssistantToolHistory.Summarize(parts, invocations) is { } summary)
+            {
+                text = string.IsNullOrWhiteSpace(text) ? summary : summary + "\n\n" + text;
+            }
             if (string.IsNullOrWhiteSpace(text))
             {
                 continue;

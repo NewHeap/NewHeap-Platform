@@ -132,6 +132,18 @@ a message that names only the unexpected property names, so the model can retry 
 the same turn. Unexpected tool exceptions complete with `ai-tool-failed` and are
 logged as warnings with tool ID, version, turn ID and exception type only.
 
+When a turn reaches `MaxToolCallsPerTurn`, or the daily tool budget refuses a call, the
+assistant does not end silently: it makes one more model call with tool choice `none`,
+the tool results gathered so far and an instruction to answer with what is known and name
+what is missing, and streams that answer as normal `message.delta`. `turn.completed` still
+carries `assistant-tool-call-limit-reached` (an exhausted budget still ends with the
+`assistant-budget-exhausted` `error` event) so the UI can show a notice. Any tool call in
+the closing answer is refused without running. Follow-up turns replay each earlier
+assistant message with a `<tool-call-summary>` block marked as data: at most ten lines of
+tool id, version, an argument preview of 160 characters (redacted for confidential and
+restricted tools), status, result code and a truncation flag. Results are never replayed
+or logged, and the summary counts against the history budget.
+
 ## Situational and page context
 
 Give the model the moment and the user without a tool call. `UseTimeZone("Europe/Amsterdam")`
@@ -186,7 +198,9 @@ Drive turns with `NhAiScriptedChatClient` against real SQL Server and PostgreSQL
 a read-only turn with one tool call, a mutation that pauses for approval and
 resumes after approve, a reject that closes without executing, an expired
 proposal, an exhausted daily budget, the tool-call limit, cancel and a disabled
-flag. Send one call with flat arguments and one with `input` mixed with another
+flag. At the tool-call limit, assert a closing answer from a request with tool choice
+`none` that carries every call's result, no further tool execution, and a follow-up
+turn whose history holds the tool-call summary but no result content. Send one call with flat arguments and one with `input` mixed with another
 property, and assert the first succeeds and the second returns `ai-tool-input-invalid`
 before a corrected retry succeeds. Assert that no prompt, argument, result or answer text reaches the audit,
 usage and business sinks or logs, that approval is bound to the proposal hash and
