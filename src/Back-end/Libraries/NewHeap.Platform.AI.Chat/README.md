@@ -97,6 +97,11 @@ redacted for confidential and restricted tools.
 
 `NhAssistantLimits` configures tool calls per turn, message length, turn timeout,
 daily budgets, approval lifetime, offered tools, replayed history and lease duration.
+When the tool-call limit or the daily tool budget stops the tool loop, one tool-free
+model call answers from the results gathered so far; `turn.completed` keeps
+`assistant-tool-call-limit-reached`. Replayed assistant messages carry a bounded
+`<tool-call-summary>` of their tool calls (tool id, short argument preview, outcome;
+never results), so a follow-up question knows what was already checked.
 `POST cancel` reaches turns in the same process only; an abandoned running turn is
 taken over after its deadline. See the `nh-ai-assistant` guidance rule and sample
 cases SPM-245, SPM-246, SPM-247, SPM-250, SPM-251 and SPM-252.

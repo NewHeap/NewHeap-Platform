@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.37",
   "backEnd": {
-    "hash": "448a9316106d37b82c28eba44074b3c1ac83f2fd08cdf0dd764012c8ed4d6f1e",
-    "declarationCount": 5185,
+    "hash": "53ed468fb0a6798604187e2ec6499b89af6f3aad668a4c0d3c0daeac1ddd5270",
+    "declarationCount": 5193,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -4027,6 +4027,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public bool ToolBudgetExhausted { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public bool InstructionsTooLong { get; set; }"
       },
       {
@@ -4092,6 +4096,34 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public async Task RecordBusinessEventAsync(NhAssistantAuditEvent evt, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolHistory.cs",
+        "declaration": "public const int MaxSummarizedCalls = 10;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolHistory.cs",
+        "declaration": "public const int MaxArgumentPreviewCharacters = 160;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolHistory.cs",
+        "declaration": "public const string SummaryStartTag = \"<tool-call-summary>\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolHistory.cs",
+        "declaration": "public const string SummaryEndTag = \"</tool-call-summary>\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolHistory.cs",
+        "declaration": "public const string ClosingInstruction ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolHistory.cs",
+        "declaration": "public static IReadOnlyCollection<Guid> InvocationIds(IEnumerable<AssistantMessage> messages) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolHistory.cs",
+        "declaration": "public static string? Summarize( IReadOnlyList<NhAssistantStoredPart> parts, IReadOnlyDictionary<Guid, AssistantToolInvocation> invocations) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
