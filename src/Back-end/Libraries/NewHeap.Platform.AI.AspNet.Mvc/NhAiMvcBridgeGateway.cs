@@ -20,6 +20,24 @@ public sealed class NhAiMvcBridgeGatewayOptions
     public string? ToolSetId { get; internal set; }
 
     public Type? ResourceDescriberType { get; internal set; }
+
+    /// <summary>
+    /// Case-insensitive result field name patterns (<c>*</c> is a wildcard) that <c>query</c> and
+    /// <c>get</c> remove at every depth, and that <c>describe-resource</c>, <c>fields</c>,
+    /// filters and ordering never expose.
+    /// </summary>
+    public IReadOnlyList<string> RedactedResultFieldPatterns => RedactedResultFields;
+
+    /// <summary>
+    /// The number of response bytes <c>query</c> and <c>get</c> read to shape a result before it is
+    /// bounded to the tool result limit. Larger responses are reported with truncation guidance.
+    /// </summary>
+    public int MaxResponseBytes { get; internal set; } = DefaultMaxResponseBytes;
+
+    /// <summary>The default of <see cref="MaxResponseBytes"/>: 4 MiB.</summary>
+    public const int DefaultMaxResponseBytes = 4 * 1024 * 1024;
+
+    internal List<string> RedactedResultFields { get; } = [];
 }
 
 /// <summary>
@@ -52,6 +70,40 @@ public sealed class NhAiMvcBridgeGatewayBuilder
     /// </summary>
     public NhAiMvcBridgeGatewayBuilder IncludeReadOnlyOnly()
     {
+        return this;
+    }
+
+    /// <summary>
+    /// Removes result fields whose names match one of the case-insensitive patterns from every
+    /// <c>query</c> and <c>get</c> result, at every depth, before projection and size bounding.
+    /// <c>*</c> is a wildcard: <c>"*email*"</c> also matches <c>emailAddress</c>. Redacted fields are
+    /// omitted from <c>describe-resource</c> and rejected in <c>fields</c>, filters and ordering.
+    /// Direct bridge tools are not redacted; do not expose them next to the gateway when their
+    /// results must hide these fields.
+    /// </summary>
+    public NhAiMvcBridgeGatewayBuilder RedactResultFields(params string[] patterns)
+    {
+        ArgumentNullException.ThrowIfNull(patterns);
+        foreach (var pattern in patterns)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(pattern, nameof(patterns));
+            if (!_options.RedactedResultFields.Contains(pattern.Trim(), StringComparer.OrdinalIgnoreCase))
+            {
+                _options.RedactedResultFields.Add(pattern.Trim());
+            }
+        }
+        return this;
+    }
+
+    /// <summary>
+    /// The number of response bytes <c>query</c> and <c>get</c> read to shape a result; defaults to
+    /// <see cref="NhAiMvcBridgeGatewayOptions.DefaultMaxResponseBytes"/>.
+    /// </summary>
+    public NhAiMvcBridgeGatewayBuilder UseMaxResponseBytes(int maxResponseBytes)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxResponseBytes, 1024);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(maxResponseBytes, NhAiMvcBridgeDefaults.MaxCountedResponseBytes);
+        _options.MaxResponseBytes = maxResponseBytes;
         return this;
     }
 
@@ -165,6 +217,10 @@ public sealed record NhAiBridgeResourceDescription
     public NhAiBridgeResourceGet? Get { get; init; }
 
     public IReadOnlyList<NhAiBridgeResultField> ResultFields { get; init; } = [];
+
+    /// <summary>How <c>query</c> and <c>get</c> shape the results of this resource.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAiBridgeResultShaping? ResultShaping { get; init; }
 }
 
 /// <summary>One operation of a gateway resource and the bridge descriptor it executes.</summary>
@@ -194,7 +250,9 @@ internal sealed record NhAiMvcBridgeGatewayModel(
     IReadOnlyDictionary<string, NhAiBridgeGatewayResource> Resources,
     IReadOnlyDictionary<string, string> ToolKinds,
     IReadOnlyList<NhAiToolDescriptor> Descriptors,
-    Type? ResourceDescriberType);
+    Type? ResourceDescriberType,
+    NhAiBridgeResultRedaction Redaction,
+    int MaxResponseBytes);
 
 internal static class NhAiMvcBridgeGatewayKinds
 {
@@ -208,6 +266,24 @@ internal static class NhAiMvcBridgeGatewayKinds
 internal static class NhAiMvcBridgeGatewayBuilderLogic
 {
     private static readonly string[] CollectionInputNames = ["page", "itemsPerPage", "search", "orderBy", "filter"];
+
+    /// <summary>The bridge output envelope plus the structured <c>truncation</c> guidance.</summary>
+    private const string OutputSchemaJson =
+        "{\"type\":\"object\",\"properties\":{"
+        + "\"status\":{\"type\":\"integer\"},"
+        + "\"contentType\":{\"type\":[\"string\",\"null\"]},"
+        + "\"body\":{},"
+        + "\"truncated\":{\"type\":\"boolean\"},"
+        + "\"bodyBytes\":{\"type\":\"integer\"},"
+        + "\"bodyText\":{\"type\":\"string\"},"
+        + "\"hint\":{\"type\":\"string\"},"
+        + "\"truncation\":{\"type\":\"object\",\"properties\":{"
+        + "\"totalCount\":{\"type\":\"integer\"},"
+        + "\"resultCount\":{\"type\":\"integer\"},"
+        + "\"returnedCount\":{\"type\":\"integer\"},"
+        + "\"suggestedItemsPerPage\":{\"type\":\"integer\"},"
+        + "\"suggestedFields\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}},"
+        + "\"required\":[\"status\",\"truncated\",\"bodyBytes\"]}";
 
     public static NhAiMvcBridgeGatewayModel Build(
         NhAiMvcBridgeOptions options,
@@ -278,7 +354,9 @@ internal static class NhAiMvcBridgeGatewayBuilderLogic
             resources,
             kinds,
             descriptors,
-            gatewayOptions.ResourceDescriberType);
+            gatewayOptions.ResourceDescriberType,
+            new NhAiBridgeResultRedaction(gatewayOptions.RedactedResultFieldPatterns.ToArray()),
+            gatewayOptions.MaxResponseBytes);
     }
 
     private static Dictionary<string, NhAiBridgeGatewayResource> BuildResources(
@@ -456,6 +534,8 @@ internal static class NhAiMvcBridgeGatewayBuilderLogic
     {
         const string filterItems = "{\"type\":\"object\",\"properties\":{\"key\":{\"type\":\"string\"},\"operator\":{\"type\":\"string\"},\"value\":{\"type\":\"string\"}},\"required\":[\"key\",\"operator\"],\"additionalProperties\":false}";
         const string orderItems = "{\"type\":\"object\",\"properties\":{\"key\":{\"type\":\"string\"},\"direction\":{\"type\":\"string\",\"enum\":[\"asc\",\"desc\"]}},\"required\":[\"key\"],\"additionalProperties\":false}";
+        const string fields = "\"fields\":{\"type\":\"array\",\"maxItems\":30,\"items\":{\"type\":\"string\"},"
+            + "\"description\":\"Result field keys to return, including one-level dotted paths such as owner.name. Without fields, items are compacted.\"},";
         yield return (
             NhAiMvcBridgeGatewayKinds.SearchResources,
             "Searches the read-only API resources you may use by name, title, summary and field names, and returns their names and operations. Call describe-resource before building a query.",
@@ -463,14 +543,17 @@ internal static class NhAiMvcBridgeGatewayBuilderLogic
             "{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"resource\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"summary\":{\"type\":\"string\"},\"operations\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"enum\":[\"query\",\"get\"]}}}}}");
         yield return (
             NhAiMvcBridgeGatewayKinds.DescribeResource,
-            "Describes one read-only API resource: its filter, search and order fields, extra parameters, the id parameter for get, and result fields.",
+            "Describes one read-only API resource: its filter, search and order fields, extra parameters, the id parameter for get, result fields and how results are shaped.",
             "{\"type\":\"object\",\"properties\":{\"resource\":{\"type\":\"string\"}},\"required\":[\"resource\"],\"additionalProperties\":false}",
             "{\"type\":\"object\"}");
         yield return (
             NhAiMvcBridgeGatewayKinds.Query,
-            "Queries a read-only API resource collection as the signed-in user with paging, search, filters and ordering. Use describe-resource first; unknown filter or order keys are rejected.",
+            "Queries a read-only API resource collection as the signed-in user with paging, search, filters and ordering. Use describe-resource first; unknown filter, order or result field keys are rejected. "
+                + NhAiBridgeResultShaper.ShapingDescription,
             "{\"type\":\"object\",\"properties\":{"
                 + "\"resource\":{\"type\":\"string\"},"
+                + fields
+                + "\"countOnly\":{\"type\":\"boolean\",\"description\":\"Return only totalCount of the items that match search and filter.\"},"
                 + "\"page\":{\"type\":\"integer\",\"minimum\":1},"
                 + "\"itemsPerPage\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":100},"
                 + "\"search\":{\"type\":[\"string\",\"null\"]},"
@@ -478,16 +561,17 @@ internal static class NhAiMvcBridgeGatewayBuilderLogic
                 + "\"orderBy\":{\"type\":\"array\",\"items\":" + orderItems + "},"
                 + "\"parameters\":{\"type\":\"object\",\"description\":\"Extra parameters from describe-resource.\"}},"
                 + "\"required\":[\"resource\"],\"additionalProperties\":false}",
-            NhAiMvcBridgeCatalogBuilder.OutputSchemaJson);
+            OutputSchemaJson);
         yield return (
             NhAiMvcBridgeGatewayKinds.Get,
-            "Gets one item of a read-only API resource by id as the signed-in user.",
+            "Gets one item of a read-only API resource by id as the signed-in user. Without 'fields' the item is compacted; pass 'fields' to select result fields.",
             "{\"type\":\"object\",\"properties\":{"
                 + "\"resource\":{\"type\":\"string\"},"
+                + fields
                 + "\"id\":{\"type\":[\"string\",\"integer\"]},"
                 + "\"parameters\":{\"type\":\"object\",\"description\":\"Extra parameters from describe-resource.\"}},"
                 + "\"required\":[\"resource\",\"id\"],\"additionalProperties\":false}",
-            NhAiMvcBridgeCatalogBuilder.OutputSchemaJson);
+            OutputSchemaJson);
     }
 
     private static string Hash(string value)
@@ -575,7 +659,7 @@ internal static class NhAiMvcBridgeGatewayFunctions
         var matches = new List<(int Score, NhAiBridgeResourceSummary Summary)>();
         foreach (var resource in await AvailableResourcesAsync(gateway, services, cancellationToken))
         {
-            var description = Describe(resource, services);
+            var description = Describe(resource, services, gateway);
             var text = string.Join(
                 " ",
                 new[] { resource.Resource, description.Title, description.Description }
@@ -615,7 +699,7 @@ internal static class NhAiMvcBridgeGatewayFunctions
             return Unavailable<JsonElement?>();
         }
         return TaskResult<JsonElement?>.Succeeded(
-            JsonSerializer.SerializeToElement(Describe(resource, services), AIJsonUtilities.DefaultOptions));
+            JsonSerializer.SerializeToElement(Describe(resource, services, gateway), AIJsonUtilities.DefaultOptions));
     }
 
     private static async Task<TaskResult<NhAiBridgeResponse>> QueryAsync(
@@ -632,8 +716,16 @@ internal static class NhAiMvcBridgeGatewayFunctions
             return await UnavailableAsync(gatewayDescriptor, services, input, cancellationToken);
         }
 
+        var description = Describe(resource!, services, gateway);
+        var countOnly = ReadCountOnly(input, out var countOnlyRejected);
+        var fields = NhAiBridgeResultShaper.ValidateFields(input, description.ResultFields, gateway.Redaction);
+
+        // A count needs no paging or ordering; the conventions build the count request.
         var underlying = new JsonObject();
-        foreach (var name in new[] { "page", "itemsPerPage", "search", "filter", "orderBy" })
+        var names = countOnly
+            ? new[] { "search", "filter" }
+            : new[] { "page", "itemsPerPage", "search", "filter", "orderBy" };
+        foreach (var name in names)
         {
             if (TryGetProperty(input, name, out var value) && value.ValueKind != JsonValueKind.Null)
             {
@@ -642,13 +734,24 @@ internal static class NhAiMvcBridgeGatewayFunctions
         }
         var merge = MergeParameters(input, underlying);
         var underlyingInput = JsonSerializer.SerializeToElement(underlying);
+        var shaper = new NhAiBridgeResultShaper(
+            countOnly ? null : fields.Data,
+            countOnly,
+            gateway.Redaction,
+            description.ResultFields,
+            gateway.MaxResponseBytes,
+            ReadItemsPerPage(input));
         return await NhAiMvcBridgeFunctionFactory.InvokeAsync(
             operation.Descriptor,
             operation.Action,
             services,
             underlyingInput,
             cancellationToken,
-            () => merge ?? ValidateQuery(operation.Query, input));
+            () => merge
+                ?? countOnlyRejected
+                ?? (fields.Success ? null : TaskResult<NhAiBridgeResponse>.Failed(fields))
+                ?? ValidateQuery(operation.Query, input, gateway.Redaction),
+            shaper);
     }
 
     private static async Task<TaskResult<NhAiBridgeResponse>> GetAsync(
@@ -665,6 +768,8 @@ internal static class NhAiMvcBridgeGatewayFunctions
             return await UnavailableAsync(gatewayDescriptor, services, input, cancellationToken);
         }
 
+        var description = Describe(resource!, services, gateway);
+        var fields = NhAiBridgeResultShaper.ValidateFields(input, description.ResultFields, gateway.Redaction);
         var underlying = new JsonObject();
         if (TryGetProperty(input, "id", out var id) && id.ValueKind is JsonValueKind.String or JsonValueKind.Number)
         {
@@ -672,15 +777,51 @@ internal static class NhAiMvcBridgeGatewayFunctions
         }
         var merge = MergeParameters(input, underlying);
         var underlyingInput = JsonSerializer.SerializeToElement(underlying);
+        var shaper = new NhAiBridgeResultShaper(
+            fields.Data,
+            false,
+            gateway.Redaction,
+            description.ResultFields,
+            gateway.MaxResponseBytes,
+            null);
         return await NhAiMvcBridgeFunctionFactory.InvokeAsync(
             operation.Descriptor,
             operation.Action,
             services,
             underlyingInput,
             cancellationToken,
-            () => merge ?? (underlying.ContainsKey(operation.IdInputName!)
-                ? null
-                : Invalid<NhAiBridgeResponse>("The input value 'id' must be a string or number.")));
+            () => merge
+                ?? (fields.Success ? null : TaskResult<NhAiBridgeResponse>.Failed(fields))
+                ?? (underlying.ContainsKey(operation.IdInputName!)
+                    ? null
+                    : Invalid<NhAiBridgeResponse>("The input value 'id' must be a string or number.")),
+            shaper);
+    }
+
+    private static bool ReadCountOnly(JsonElement input, out TaskResult<NhAiBridgeResponse>? rejected)
+    {
+        rejected = null;
+        if (!TryGetProperty(input, "countOnly", out var value) || value.ValueKind == JsonValueKind.Null)
+        {
+            return false;
+        }
+        if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            rejected = Invalid<NhAiBridgeResponse>("The input value 'countOnly' must be a boolean.");
+            return false;
+        }
+        return value.GetBoolean();
+    }
+
+    private static int? ReadItemsPerPage(JsonElement input)
+    {
+        if (TryGetProperty(input, "itemsPerPage", out var value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt32(out var itemsPerPage))
+        {
+            return itemsPerPage;
+        }
+        return null;
     }
 
     /// <summary>
@@ -743,7 +884,10 @@ internal static class NhAiMvcBridgeGatewayFunctions
         return available;
     }
 
-    private static NhAiBridgeResourceDescription Describe(NhAiBridgeGatewayResource resource, IServiceProvider services)
+    private static NhAiBridgeResourceDescription Describe(
+        NhAiBridgeGatewayResource resource,
+        IServiceProvider services,
+        NhAiMvcBridgeGatewayModel gateway)
     {
         var query = resource.Find(NhAiMvcBridgeGatewayKinds.Query);
         var get = resource.Find(NhAiMvcBridgeGatewayKinds.Get);
@@ -776,7 +920,42 @@ internal static class NhAiMvcBridgeGatewayFunctions
         {
             description = describer.Describe(description) with { Resource = resource.Resource };
         }
-        return description;
+        return Redact(description, gateway.Redaction) with
+        {
+            ResultShaping = new NhAiBridgeResultShaping
+            {
+                CountOnly = query is not null
+            }
+        };
+    }
+
+    /// <summary>Removes redacted fields from the published description, after any describer.</summary>
+    private static NhAiBridgeResourceDescription Redact(
+        NhAiBridgeResourceDescription description,
+        NhAiBridgeResultRedaction redaction)
+    {
+        if (redaction.IsEmpty)
+        {
+            return description;
+        }
+
+        return description with
+        {
+            Query = description.Query is null
+                ? null
+                : description.Query with
+                {
+                    FilterFields = description.Query.FilterFields
+                        .Where(field => !redaction.IsRedactedPath(field.Key))
+                        .ToArray(),
+                    OrderFields = description.Query.OrderFields
+                        .Where(field => !redaction.IsRedactedPath(field))
+                        .ToArray()
+                },
+            ResultFields = description.ResultFields
+                .Where(field => !redaction.IsRedactedPath(field.Key))
+                .ToArray()
+        };
     }
 
     /// <summary>Copies <c>parameters</c> to the top level of the bridge input, never over gateway fields.</summary>
@@ -803,14 +982,28 @@ internal static class NhAiMvcBridgeGatewayFunctions
         return null;
     }
 
-    /// <summary>Rejects unknown filter and order keys when the conventions describe fields.</summary>
-    private static TaskResult<NhAiBridgeResponse>? ValidateQuery(NhAiBridgeQueryDescription description, JsonElement input)
+    /// <summary>
+    /// Rejects redacted filter and order keys, and unknown keys when the conventions describe fields.
+    /// </summary>
+    private static TaskResult<NhAiBridgeResponse>? ValidateQuery(
+        NhAiBridgeQueryDescription description,
+        JsonElement input,
+        NhAiBridgeResultRedaction redaction)
     {
         if (TryGetProperty(input, "itemsPerPage", out var itemsPerPage)
             && itemsPerPage.ValueKind != JsonValueKind.Null
             && (!itemsPerPage.TryGetInt32(out var size) || size < 1 || size > 100))
         {
             return Invalid<NhAiBridgeResponse>("The input value 'itemsPerPage' must be between 1 and 100.");
+        }
+
+        if (RejectRedactedKeys(input, "filter", redaction) is { } redactedFilter)
+        {
+            return redactedFilter;
+        }
+        if (RejectRedactedKeys(input, "orderBy", redaction) is { } redactedOrder)
+        {
+            return redactedOrder;
         }
 
         if (description.FilterFields.Count > 0 && TryGetProperty(input, "filter", out var filter) && filter.ValueKind == JsonValueKind.Array)
@@ -846,6 +1039,29 @@ internal static class NhAiMvcBridgeGatewayFunctions
                 {
                     return Invalid<NhAiBridgeResponse>($"The order key '{Bounded(key)}' is not an order field of this resource.");
                 }
+            }
+        }
+        return null;
+    }
+
+    private static TaskResult<NhAiBridgeResponse>? RejectRedactedKeys(
+        JsonElement input,
+        string name,
+        NhAiBridgeResultRedaction redaction)
+    {
+        if (redaction.IsEmpty || !TryGetProperty(input, name, out var items) || items.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        foreach (var item in items.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.Object
+                && item.TryGetProperty("key", out var key)
+                && key.ValueKind == JsonValueKind.String
+                && redaction.IsRedactedPath(key.GetString()!))
+            {
+                return Invalid<NhAiBridgeResponse>($"The key '{Bounded(key.GetString()!)}' is not available.");
             }
         }
         return null;

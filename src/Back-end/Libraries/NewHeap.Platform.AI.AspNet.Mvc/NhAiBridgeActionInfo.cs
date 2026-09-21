@@ -172,6 +172,14 @@ public sealed record NhAiBridgeResponse
     [JsonPropertyOrder(6)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Hint { get; init; }
+
+    /// <summary>
+    /// Structured guidance of a gateway <c>query</c> or <c>get</c> result that was shortened to
+    /// whole items; omitted for bridge tools and for results that fit.
+    /// </summary>
+    [JsonPropertyOrder(7)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAiBridgeTruncation? Truncation { get; init; }
 }
 
 /// <summary>

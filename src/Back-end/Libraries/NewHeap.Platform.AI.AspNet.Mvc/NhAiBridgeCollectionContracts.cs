@@ -31,6 +31,19 @@ public interface INhAiBridgeCollectionContractProvider
     {
         return false;
     }
+
+    /// <summary>
+    /// Marks an encoded single-page request as count-only for the gateway <c>countOnly</c> query,
+    /// for example by adding a <c>countOnly=true</c> query value that the API supports. Return
+    /// <see langword="false"/> to keep the default request for one item on the first page; the
+    /// gateway then reads <c>totalCount</c> from that response.
+    /// </summary>
+    bool TryEncodeCountQuery(
+        NhAiBridgeActionInfo action,
+        NhAiBridgeHttpRequest request)
+    {
+        return false;
+    }
 }
 
 /// <summary>

@@ -230,6 +230,40 @@ public sealed class AiBridgeSamplesTests
     }
 
     [Fact]
+    public async Task Gateway_shapes_counts_and_redacts_project_results()
+    {
+        await using var sample = await BridgeSample.StartAsync();
+
+        var compact = await sample.InvokeAsync(
+            ViewerToken,
+            ViewerPermissions,
+            "sample-api-gateway_query_v1",
+            new { resource = "project", itemsPerPage = 2 });
+        var projected = await sample.InvokeAsync(
+            ViewerToken,
+            ViewerPermissions,
+            "sample-api-gateway_query_v1",
+            new { resource = "project", itemsPerPage = 2, fields = new[] { "name", "status" } });
+        var counted = await sample.InvokeAsync(
+            ViewerToken,
+            ViewerPermissions,
+            "sample-api-gateway_query_v1",
+            new { resource = "project", countOnly = true, filter = new[] { new { key = "status", @operator = "==", value = "Active" } } });
+
+        Assert.True(compact.GetProperty("success").GetBoolean());
+        var compactBody = compact.GetProperty("data").GetProperty("body");
+        Assert.Equal(42, compactBody.GetProperty("totalCount").GetInt64());
+        Assert.DoesNotContain("@example.test", compactBody.GetRawText(), StringComparison.Ordinal);
+        Assert.False(compactBody.GetProperty("items")[0].TryGetProperty("description", out _));
+        Assert.True(projected.GetProperty("success").GetBoolean());
+        var projectedItem = projected.GetProperty("data").GetProperty("body").GetProperty("items")[0];
+        Assert.Equal(["name", "status"], projectedItem.EnumerateObject().Select(property => property.Name));
+        Assert.True(counted.GetProperty("success").GetBoolean());
+        Assert.Equal(42, counted.GetProperty("data").GetProperty("body").GetProperty("totalCount").GetInt64());
+        Assert.Contains("page=1&itemsPerPage=1", sample.Requests[2].RequestUri!.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Mcp_listing_contains_the_bridge_tools()
     {
         await using var sample = await BridgeSample.StartAsync();
@@ -443,6 +477,14 @@ public sealed class AiBridgeSamplesTests
     /// <summary>Stands in for the API's HTTP pipeline and records what the bridge sends.</summary>
     private sealed class RecordingHandler : HttpMessageHandler
     {
+        // A canonical project page whose items carry nested contact details.
+        private const string ProjectPage =
+            "{\"page\":1,\"itemsPerPage\":2,\"totalCount\":42,\"resultCount\":2,\"filter\":[],\"orderBy\":[],\"items\":["
+            + "{\"id\":\"6f0c3c1e-0000-4000-8000-000000000001\",\"key\":\"RM\",\"name\":\"Roadmap\",\"description\":null,"
+            + "\"status\":\"Active\",\"owner\":{\"id\":\"u1\",\"name\":\"Owner\",\"email\":\"owner@example.test\",\"phoneNumber\":\"000\"}},"
+            + "{\"id\":\"6f0c3c1e-0000-4000-8000-000000000002\",\"key\":\"OPS\",\"name\":\"Operations\",\"description\":null,"
+            + "\"status\":\"Active\",\"ownerEmail\":\"ops@example.test\"}]}";
+
         private readonly List<HttpRequestMessage> _requests = [];
 
         public IReadOnlyList<HttpRequestMessage> Requests => _requests;
@@ -452,9 +494,10 @@ public sealed class AiBridgeSamplesTests
             CancellationToken cancellationToken)
         {
             _requests.Add(request);
+            var body = request.RequestUri!.AbsolutePath == "/projects" ? ProjectPage : "{\"id\":\"sample\"}";
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{\"id\":\"sample\"}", Encoding.UTF8, "application/json")
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
             });
         }
     }

@@ -51,6 +51,7 @@ internal static class NhAiMvcBridgeFunctionFactory
     /// <summary>
     /// Runs one bridge descriptor through the shared invoker and the self-HTTP executor. The
     /// optional <paramref name="validate"/> runs inside the governed invocation, before the HTTP call.
+    /// The optional <paramref name="shaper"/> shapes a successful result for the gateway.
     /// </summary>
     internal static async Task<TaskResult<NhAiBridgeResponse>> InvokeAsync(
         NhAiToolDescriptor descriptor,
@@ -58,7 +59,8 @@ internal static class NhAiMvcBridgeFunctionFactory
         IServiceProvider services,
         JsonElement input,
         CancellationToken cancellationToken,
-        Func<TaskResult<NhAiBridgeResponse>?>? validate = null)
+        Func<TaskResult<NhAiBridgeResponse>?>? validate = null,
+        NhAiBridgeResultShaper? shaper = null)
     {
         var invoker = services.GetRequiredService<INhAiToolInvoker>();
         var executor = services.GetRequiredService<INhAiMvcBridgeExecutor>();
@@ -74,11 +76,22 @@ internal static class NhAiMvcBridgeFunctionFactory
 
                 try
                 {
-                    return await executor.ExecuteAsync(
+                    if (shaper is null)
+                    {
+                        return await executor.ExecuteAsync(
+                            action,
+                            descriptor,
+                            input,
+                            context,
+                            invocationCancellationToken);
+                    }
+                    return await ExecuteShapedAsync(
+                        executor,
                         action,
                         descriptor,
                         input,
                         context,
+                        shaper,
                         invocationCancellationToken);
                 }
                 catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -90,6 +103,40 @@ internal static class NhAiMvcBridgeFunctionFactory
                 }
             },
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Uses the shaping seam of the built-in executor. A replaced executor keeps its own request
+    /// and read behavior; its complete JSON result is shaped afterwards and a count query
+    /// requests one item on the first page.
+    /// </summary>
+    private static async Task<TaskResult<NhAiBridgeResponse>> ExecuteShapedAsync(
+        INhAiMvcBridgeExecutor executor,
+        NhAiBridgeActionInfo action,
+        NhAiToolDescriptor descriptor,
+        JsonElement input,
+        NhAiInvocationContext context,
+        NhAiBridgeResultShaper shaper,
+        CancellationToken cancellationToken)
+    {
+        if (executor is INhAiMvcBridgeShapingExecutor shapingExecutor)
+        {
+            return await shapingExecutor.ExecuteShapedAsync(
+                action,
+                descriptor,
+                input,
+                context,
+                shaper,
+                cancellationToken);
+        }
+
+        var executorInput = shaper.CountOnly ? NhAiBridgeCountInput.SinglePage(input) : input;
+        var result = await executor.ExecuteAsync(action, descriptor, executorInput, context, cancellationToken);
+        if (!result.Success || result.Data is null)
+        {
+            return result;
+        }
+        return shaper.Shape(result.Data, descriptor.MaxResultBytes);
     }
 
     private static JsonElement CreateEnvelopeSchema(string inputSchemaJson)

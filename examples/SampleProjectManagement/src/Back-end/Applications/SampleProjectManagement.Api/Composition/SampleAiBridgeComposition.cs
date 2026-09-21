@@ -13,6 +13,9 @@ namespace SampleProjectManagement.Api.Composition;
 /// keep their own discovery policy as the inner policy. The gateway publishes four read-only
 /// tools (search, describe, query and get) over the read-only project resources. Canonical
 /// NewHeap collection metadata is derived by the bridge from the documented result model.
+/// Gateway results are compacted by default, can be projected with <c>fields</c> or counted
+/// with <c>countOnly</c>, and never contain contact details: e-mail and phone fields are
+/// redacted at every depth before the result is bounded.
 /// </summary>
 public static class SampleAiBridgeComposition
 {
@@ -33,6 +36,7 @@ public static class SampleAiBridgeComposition
             .EnableGateway(gateway => gateway
                 .UseGatewayToolSetId(GatewayToolSetId)
                 .IncludeReadOnlyOnly()
+                .RedactResultFields("*email*", "*phoneNumber*")
                 .UseLocalizedResourcePresentation<SampleAiBridgeResources>(presentation =>
                 {
                     presentation.RequireLocalizedValues = false;

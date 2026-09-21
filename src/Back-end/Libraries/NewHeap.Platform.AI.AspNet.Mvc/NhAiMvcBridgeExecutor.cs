@@ -58,16 +58,43 @@ internal sealed partial class NhAiMvcBridgeExecutor(
     NhAiMvcBridgeRuntimeSettings settings,
     INhAiCallerCredentialAccessor credentialAccessor,
     IHttpContextAccessor httpContextAccessor,
-    ILogger<NhAiMvcBridgeExecutor> logger) : INhAiMvcBridgeExecutor
+    ILogger<NhAiMvcBridgeExecutor> logger) : INhAiMvcBridgeExecutor, INhAiMvcBridgeShapingExecutor
 {
     private static readonly JsonSerializerOptions MeasureOptions = new(JsonSerializerDefaults.Web);
 
-    public async Task<TaskResult<NhAiBridgeResponse>> ExecuteAsync(
+    public Task<TaskResult<NhAiBridgeResponse>> ExecuteAsync(
         NhAiBridgeActionInfo action,
         NhAiToolDescriptor descriptor,
         JsonElement input,
         NhAiInvocationContext context,
         CancellationToken cancellationToken = default)
+    {
+        return ExecuteCoreAsync(action, descriptor, input, context, null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Executes a gateway operation: count requests use <see cref="INhAiBridgeConventions.BuildCountRequest"/>
+    /// and a successful body is read up to the shaper's response limit and shaped before it is bounded.
+    /// </summary>
+    public Task<TaskResult<NhAiBridgeResponse>> ExecuteShapedAsync(
+        NhAiBridgeActionInfo action,
+        NhAiToolDescriptor descriptor,
+        JsonElement input,
+        NhAiInvocationContext context,
+        NhAiBridgeResultShaper shaper,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(shaper);
+        return ExecuteCoreAsync(action, descriptor, input, context, shaper, cancellationToken);
+    }
+
+    private async Task<TaskResult<NhAiBridgeResponse>> ExecuteCoreAsync(
+        NhAiBridgeActionInfo action,
+        NhAiToolDescriptor descriptor,
+        JsonElement input,
+        NhAiInvocationContext context,
+        NhAiBridgeResultShaper? shaper,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(action);
         ArgumentNullException.ThrowIfNull(descriptor);
@@ -76,7 +103,9 @@ internal sealed partial class NhAiMvcBridgeExecutor(
         NhAiBridgeHttpRequest request;
         try
         {
-            request = conventions.BuildRequest(action, input);
+            request = shaper?.CountOnly == true
+                ? conventions.BuildCountRequest(action, input)
+                : conventions.BuildRequest(action, input);
             await ApplyTrustedQueryBindingsAsync(
                 request,
                 action,
@@ -111,6 +140,11 @@ internal sealed partial class NhAiMvcBridgeExecutor(
             var status = (int)response.StatusCode;
             LogResponse(logger, descriptor.Id, context.InvocationId, status);
             var failureCode = MapFailure(response.StatusCode);
+            if (failureCode is null && shaper is not null)
+            {
+                var (contentType, kept, total) = await ReadBodyAsync(response, shaper.MaxResponseBytes, cancellationToken);
+                return shaper.Shape(status, contentType, kept, total, descriptor.MaxResultBytes);
+            }
             if (failureCode is null || failureCode == NhAiBridgeFailureCodes.Validation)
             {
                 var envelope = await ReadEnvelopeAsync(response, descriptor.MaxResultBytes, cancellationToken);
@@ -296,6 +330,16 @@ internal sealed partial class NhAiMvcBridgeExecutor(
         int maxResultBytes,
         CancellationToken cancellationToken)
     {
+        var (contentType, kept, total) = await ReadBodyAsync(response, maxResultBytes, cancellationToken);
+        return CreateEnvelope((int)response.StatusCode, contentType, kept, total, maxResultBytes);
+    }
+
+    /// <summary>Keeps at most <paramref name="keepBytes"/> bytes and counts the rest up to a bound.</summary>
+    private static async Task<(string? ContentType, byte[] Kept, long TotalBytes)> ReadBodyAsync(
+        HttpResponseMessage response,
+        int keepBytes,
+        CancellationToken cancellationToken)
+    {
         var contentType = response.Content.Headers.ContentType?.MediaType;
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         var kept = new MemoryStream();
@@ -304,7 +348,7 @@ internal sealed partial class NhAiMvcBridgeExecutor(
         int read;
         while ((read = await stream.ReadAsync(buffer, cancellationToken)) > 0)
         {
-            var keep = (int)Math.Max(0, Math.Min(read, maxResultBytes - kept.Length));
+            var keep = (int)Math.Max(0, Math.Min(read, keepBytes - kept.Length));
             if (keep > 0)
             {
                 kept.Write(buffer, 0, keep);
@@ -316,7 +360,7 @@ internal sealed partial class NhAiMvcBridgeExecutor(
             }
         }
 
-        return CreateEnvelope((int)response.StatusCode, contentType, kept.ToArray(), total, maxResultBytes);
+        return (contentType, kept.ToArray(), total);
     }
 
     internal static NhAiBridgeResponse CreateEnvelope(

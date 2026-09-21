@@ -60,6 +60,19 @@ public interface INhAiBridgeConventions
         ArgumentNullException.ThrowIfNull(action);
         return action.Parameters.Any(parameter => parameter.IsCollectionRequest);
     }
+
+    /// <summary>
+    /// Maps the flat input of a gateway <c>countOnly</c> query to a request whose response
+    /// reports <c>totalCount</c>. The interface default requests one item on the first page
+    /// without ordering. The built-in MVC conventions additionally let the recognized
+    /// <see cref="INhAiBridgeCollectionContractProvider"/> mark the request as count-only.
+    /// Throw <see cref="NhAiBridgeInputException"/> for input that cannot be mapped.
+    /// </summary>
+    NhAiBridgeHttpRequest BuildCountRequest(NhAiBridgeActionInfo action, JsonElement input)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        return BuildRequest(action, NhAiBridgeCountInput.SinglePage(input));
+    }
 }
 
 /// <summary>
@@ -274,6 +287,22 @@ public class NhAiMvcBridgeDefaultConventions : INhAiBridgeConventions
         ArgumentNullException.ThrowIfNull(action);
         return TryDescribeCollection(action, out _)
             || action.Parameters.Any(parameter => parameter.IsCollectionRequest);
+    }
+
+    /// <summary>
+    /// Builds the single-page request without ordering and lets the recognized collection
+    /// contract provider mark it as count-only through
+    /// <see cref="INhAiBridgeCollectionContractProvider.TryEncodeCountQuery"/>.
+    /// </summary>
+    public virtual NhAiBridgeHttpRequest BuildCountRequest(NhAiBridgeActionInfo action, JsonElement input)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        var request = BuildRequest(action, NhAiBridgeCountInput.SinglePage(input));
+        if (TryGetCollectionProvider(action, out var provider, out _))
+        {
+            provider.TryEncodeCountQuery(action, request);
+        }
+        return request;
     }
 
     /// <summary>
