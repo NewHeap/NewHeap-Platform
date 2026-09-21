@@ -159,6 +159,9 @@
       "assistant-turn-failed": "De assistent kon het antwoord niet afmaken. Probeer het opnieuw.",
       "assistant-turn-timeout": "Het antwoord duurde te lang en is gestopt. Probeer het opnieuw of stel een gerichtere vraag."
     },
+    "notices": {
+      "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders."
+    },
     "preferences": {
       "title": "Je voorkeuren",
       "description": "Kies hoe de assistent je antwoordt. Voorkeuren veranderen alleen de stijl; ze veranderen nooit wat de assistent mag of welke acties je goedkeuring nodig hebben.",

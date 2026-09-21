@@ -11,7 +11,7 @@ import {
 import { NhAssistantClientErrorCodes, NhAssistantSseEvent, TurnUsage } from '../models/assistant-sse.models';
 import { NH_ASSISTANT_ACCESS_POLICY, NH_ASSISTANT_CONFIG } from '../nh-assistant.config';
 import { NhAssistantApiError, NhAssistantApiService, nhAssistantErrorMessageKey } from './nh-assistant-api.service';
-import { applyNhAssistantApprovalDecision, applyNhAssistantEvent } from './nh-assistant-reducer';
+import { applyNhAssistantApprovalDecision, applyNhAssistantEvent, nhAssistantLatestTurnHasText } from './nh-assistant-reducer';
 import { normalizeNhAssistantClientContext } from './nh-assistant-page-context';
 import { NhAssistantUiState } from './nh-assistant-ui-state';
 
@@ -20,6 +20,15 @@ export interface NhAssistantError {
   code: string;
   messageKey: string;
 }
+
+/**
+ * A non-blocking remark about a turn that completed normally, for example a limit that cut the
+ * answer short. The conversation stays usable; the notice only explains the answer.
+ */
+export type NhAssistantNotice = NhAssistantError;
+
+/** Notice code for a completed turn that produced no answer text and no server code. */
+export const NH_ASSISTANT_NO_ANSWER_NOTICE_CODE = 'assistant-no-answer';
 
 const conversationPageSize = 50;
 const cancelGracePeriodMs = 5_000;
@@ -48,6 +57,7 @@ export class NhAssistantStore {
   private readonly streamingState = signal(false);
   private readonly decidingState = signal(false);
   private readonly errorState = signal<NhAssistantError | null>(null);
+  private readonly noticeState = signal<NhAssistantNotice | null>(null);
   private readonly lastUsageState = signal<TurnUsage | null>(null);
   private readonly restoredDraftState = signal<string | null>(null);
   private readonly pageContextState = signal<ClientContext | null>(null);
@@ -83,6 +93,8 @@ export class NhAssistantStore {
   readonly pendingApproval = computed(() => this.activeConversationState()?.pendingApproval ?? null);
   readonly deciding = this.decidingState.asReadonly();
   readonly error = this.errorState.asReadonly();
+  /** Non-blocking remark about the latest completed turn; shown only while no error is shown. */
+  readonly notice = this.noticeState.asReadonly();
   readonly lastUsage = this.lastUsageState.asReadonly();
   /** Text of a message the server did not accept, so the composer can offer it again. */
   readonly restoredDraft = this.restoredDraftState.asReadonly();
@@ -130,6 +142,7 @@ export class NhAssistantStore {
       this.pageContextExcludedState.set(false);
       this.restoredDraftState.set(null);
       this.errorState.set(null);
+      this.noticeState.set(null);
       this.lastUsageState.set(null);
       this.restorePanelOpenState.set(false);
       this.uiState.deactivate();
@@ -155,6 +168,7 @@ export class NhAssistantStore {
         this.pageContextExcludedState.set(false);
         this.restoredDraftState.set(null);
         this.errorState.set(null);
+        this.noticeState.set(null);
         this.lastUsageState.set(null);
         this.selectedAgentIdState.set(restored.state.agentId);
         this.restorePanelOpenState.set(restored.state.panelOpen);
@@ -230,6 +244,7 @@ export class NhAssistantStore {
     this.activeConversationState.set(null);
     this.uiState.update({ conversationId: null });
     this.errorState.set(null);
+    this.noticeState.set(null);
     this.lastUsageState.set(null);
   }
 
@@ -245,6 +260,7 @@ export class NhAssistantStore {
     const revision = this.accountRevision;
     this.conversationLoadingState.set(true);
     this.errorState.set(null);
+    this.noticeState.set(null);
     try {
       const conversation = await firstValueFrom(this.api.getConversation(conversationId));
       if (revision !== this.accountRevision) {
@@ -289,6 +305,7 @@ export class NhAssistantStore {
       this.conversationsTotalState.update(total => Math.max(0, total - 1));
       if (this.activeConversationState()?.id === conversationId) {
         this.activeConversationState.set(null);
+        this.noticeState.set(null);
         this.uiState.update({ conversationId: null });
       }
     } catch (error) {
@@ -313,6 +330,8 @@ export class NhAssistantStore {
     }
 
     this.errorState.set(null);
+
+    this.noticeState.set(null);
     this.restoredDraftState.set(null);
     this.streamingState.set(true);
     const accountRevision = this.accountRevision;
@@ -394,6 +413,7 @@ export class NhAssistantStore {
     this.decidingState.set(true);
     this.streamingState.set(true);
     this.errorState.set(null);
+    this.noticeState.set(null);
 
     let accepted = false;
     let failed = false;
@@ -462,6 +482,10 @@ export class NhAssistantStore {
 
   clearError(): void {
     this.errorState.set(null);
+  }
+
+  clearNotice(): void {
+    this.noticeState.set(null);
   }
 
   /** Persists only drawer visibility, never the page context or a message draft. */
@@ -622,8 +646,23 @@ export class NhAssistantStore {
       if (event.data.status === 'failed') {
         const code = event.data.errorCode ?? NhAssistantClientErrorCodes.server;
         this.errorState.set(clientError(code));
+      } else if (event.data.status === 'completed') {
+        this.noticeState.set(this.completionNotice(event.data.errorCode));
       }
     }
+  }
+
+  /** A completed turn with a server code, or without any answer text, explains itself with a notice. */
+  private completionNotice(errorCode: string | null): NhAssistantNotice | null {
+    if (errorCode) {
+      return clientError(errorCode);
+    }
+    const conversation = this.activeConversationState();
+    if (conversation && !nhAssistantLatestTurnHasText(conversation)) {
+      return { code: NH_ASSISTANT_NO_ANSWER_NOTICE_CODE, messageKey: 'nh-assistant.notices.no-answer' };
+    }
+
+    return null;
   }
 
   private afterTurn(conversationId: string, reload: boolean): void {

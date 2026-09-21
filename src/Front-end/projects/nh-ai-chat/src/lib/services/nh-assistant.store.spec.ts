@@ -289,6 +289,90 @@ describe('NhAssistantStore', () => {
     expect(store.activeConversation()!.status).toBe('failed');
   });
 
+  it('shows the code of a completed turn as a notice and keeps the conversation usable', async () => {
+    const store = setup();
+    await store.initialize();
+
+    const sent = store.send('Hello');
+    await flush();
+    stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+    stream.next({
+      type: 'turn.completed',
+      data: { turnId: 't1', status: 'completed', usage, errorCode: 'assistant-tool-call-limit-reached' }
+    });
+    stream.complete();
+    await sent;
+
+    expect(store.notice()).toEqual({
+      code: 'assistant-tool-call-limit-reached',
+      messageKey: 'nh-assistant.errors.assistant-tool-call-limit-reached'
+    });
+    expect(store.error()).toBeNull();
+    expect(store.activeConversation()!.status).toBe('idle');
+    expect(store.canSend()).toBeTrue();
+
+    store.clearNotice();
+    expect(store.notice()).toBeNull();
+  });
+
+  it('shows a no-answer notice when a completed turn produced no text and no code', async () => {
+    const store = setup();
+    await store.initialize();
+
+    const sent = store.send('Hello');
+    await flush();
+    stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+    stream.next({ type: 'message.delta', data: { messageId: 'a1', text: '  ' } });
+    stream.next({ type: 'turn.completed', data: { turnId: 't1', status: 'completed', usage, errorCode: null } });
+    stream.complete();
+    await sent;
+
+    expect(store.notice()).toEqual({ code: 'assistant-no-answer', messageKey: 'nh-assistant.notices.no-answer' });
+    expect(store.error()).toBeNull();
+    expect(store.activeConversation()!.status).toBe('idle');
+    expect(store.canSend()).toBeTrue();
+  });
+
+  it('shows no notice for a completed turn with an answer and clears the notice on the next message', async () => {
+    const store = setup();
+    await store.initialize();
+
+    let sent = store.send('Hello');
+    await flush();
+    stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+    stream.next({ type: 'turn.completed', data: { turnId: 't1', status: 'completed', usage, errorCode: null } });
+    stream.complete();
+    await sent;
+    expect(store.notice()?.code).toBe('assistant-no-answer');
+
+    stream = new Subject<NhAssistantSseEvent>();
+    sent = store.send('Again');
+    await flush();
+    expect(store.notice()).toBeNull();
+    stream.next({ type: 'turn.started', data: { turnId: 't2', userMessageId: 'u2', assistantMessageId: 'a2' } });
+    stream.next({ type: 'message.delta', data: { messageId: 'a2', text: 'Here you go' } });
+    stream.next({ type: 'turn.completed', data: { turnId: 't2', status: 'completed', usage, errorCode: null } });
+    stream.complete();
+    await sent;
+
+    expect(store.notice()).toBeNull();
+  });
+
+  it('shows no notice for a cancelled turn and keeps failed turns on the error bar', async () => {
+    const store = setup();
+    await store.initialize();
+
+    const sent = store.send('Hello');
+    await flush();
+    stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+    stream.next({ type: 'turn.completed', data: { turnId: 't1', status: 'failed', usage, errorCode: 'assistant-budget-exhausted' } });
+    stream.complete();
+    await sent;
+
+    expect(store.notice()).toBeNull();
+    expect(store.error()?.code).toBe('assistant-budget-exhausted');
+  });
+
   it('cancels a running turn through the API', async () => {
     const store = setup();
     await store.initialize();

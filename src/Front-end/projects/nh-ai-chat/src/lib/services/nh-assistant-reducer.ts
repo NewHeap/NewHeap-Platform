@@ -153,6 +153,24 @@ export function applyNhAssistantApprovalDecision(
   return updated;
 }
 
+/**
+ * True when an assistant message after the latest user message contains non-blank text,
+ * so the latest turn produced a visible answer. Tool calls and approvals alone do not count.
+ */
+export function nhAssistantLatestTurnHasText(conversation: Conversation): boolean {
+  for (let position = conversation.messages.length - 1; position >= 0; position--) {
+    const message = conversation.messages[position];
+    if (message.role === 'user') {
+      return false;
+    }
+    if (message.role === 'assistant' && message.parts.some(part => part.type === 'text' && part.text.trim().length > 0)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function conversationStatusFor(status: TurnCompletionStatus): ConversationStatus {
   switch (status) {
     case 'completed':

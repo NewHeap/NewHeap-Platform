@@ -159,6 +159,9 @@
       "assistant-turn-failed": "The assistant could not finish the answer. Try again.",
       "assistant-turn-timeout": "The answer took too long and was stopped. Try again or ask a narrower question."
     },
+    "notices": {
+      "no-answer": "The assistant finished without an answer. Try again or rephrase your question."
+    },
     "preferences": {
       "title": "Your preferences",
       "description": "Choose how the assistant answers you. Preferences change the style only; they never change what the assistant may do or which actions need your approval.",

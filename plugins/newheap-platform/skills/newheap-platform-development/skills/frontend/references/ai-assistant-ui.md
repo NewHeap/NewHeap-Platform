@@ -110,6 +110,11 @@ the administration route under the same parent to share that scope.
   DOMPurify allow-list and shows inline HTML as text.
 - Displaying raw server messages. Show the translated `messageKey` of an `error`
   event and fall back to the code.
+- Leaving a completed turn unexplained in a custom layout. Render
+  `NhAssistantStore.notice` as a dismissible, non-blocking notice: it carries the
+  `errorCode` of a `completed` turn (for example `assistant-tool-call-limit-reached`)
+  or `assistant-no-answer` when the turn produced no answer text. Only `failed`
+  turns use the blocking `error`.
 - Deciding approvals outside the approval card or without the proposal hash of
   the pending approval.
 - Disabling the message editor while a turn runs, clearing a draft when blocked Enter
@@ -139,7 +144,9 @@ the administration route under the same parent to share that scope.
 Run the library tests headless (`npm run nh-ai-chat:test -- --browsers=ChromeHeadless`):
 the SSE parser handles fragmented chunks, keep-alive comments and terminal events;
 the store turns a contract event sequence into the expected messages, tool calls
-and approvals and sends the proposal hash exactly once; the launcher disappears for
+and approvals and sends the proposal hash exactly once, and a completed turn with
+an error code or without answer text sets a notice while the conversation stays
+usable; the launcher disappears for
 `enabled: false` and a denying policy; model text with a script tag renders no
 script; `en` and `nl` have identical keys; and the mock emits exactly the contract
 event fields. The preference tests save, validate the 1,000-character limit and show
