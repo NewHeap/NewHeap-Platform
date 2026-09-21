@@ -18,6 +18,10 @@ as the calling user.
 | Generated export names longer than 64 characters are deterministically compacted and remain mapped in the manifest. | Remove consumer-specific export-name compaction; existing valid names remain unchanged. |
 | Discovery now rejects an invocation context whose actor/accountable owner does not match the signed-in principal. | Pass the context built for the current authenticated principal; do not reuse another actor's context. |
 | Trusted query bindings and localized gateway resource presentation are composable bridge options. | Resolve trusted values from invocation scope and keep resource ids invariant while moving presentation text to consumer resources. |
+| Gateway `query` and `get` now shape successful results before the size bound: without `fields` items are compacted (nulls dropped, nested objects reduced to identifying fields), `fields` projects result fields including one dotted level, and `describe-resource` publishes `resultShaping`. | No action; pass `fields` when the model needs nested values that compaction drops. |
+| An oversized gateway result keeps whole items and returns `truncation` (`totalCount`, `resultCount`, `returnedCount`, `suggestedItemsPerPage`, `suggestedFields`) instead of a raw `bodyText` fragment; `NhAiBridgeResponse` gains the optional `Truncation` property. | No action; read `truncation` instead of `bodyText` for gateway results. |
+| Gateway `query` accepts `countOnly`; `INhAiBridgeConventions.BuildCountRequest` and `INhAiBridgeCollectionContractProvider.TryEncodeCountQuery` have default implementations that request the first page with one item. | Optional: implement `TryEncodeCountQuery` when the API supports a count-only flag. |
+| `NhAiMvcBridgeGatewayBuilder.RedactResultFields` removes matching result fields from gateway results at every depth and from `describe-resource`, `fields`, filters and ordering; `UseMaxResponseBytes` bounds the bytes read for shaping (default 4 MiB). | Redact personal data such as `*email*`; do not also expose the direct bridge tools of redacted resources. |
 
 ## NewHeap.Platform.AI.Common and NewHeap.Platform.AI.AspNet.Common
 

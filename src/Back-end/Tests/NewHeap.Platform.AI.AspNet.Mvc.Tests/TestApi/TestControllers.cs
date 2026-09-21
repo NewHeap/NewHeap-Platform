@@ -350,6 +350,79 @@ public sealed class CanonicalOrderController : ControllerBase
     }
 }
 
+public sealed record TestAddress(string Street, string City);
+
+public sealed record TestPerson(int Id, string Name, string Email, string? PhoneNumber, TestAddress Address);
+
+/// <summary>A deliberately wide list item with nested people, like a real project overview.</summary>
+public sealed record TestStaffProject(
+    [property: Filterable, Orderable] int Id,
+    [property: Filterable, Searchable, Orderable] string Name,
+    string? Description,
+    [property: Filterable, Orderable] string ContactEmail,
+    TestPerson Manager,
+    IReadOnlyList<TestPerson> Members,
+    IReadOnlyList<string> Tags,
+    string Notes);
+
+/// <summary>
+/// A canonical NewHeap collection with large nested items. It honors a <c>countOnly</c> query
+/// value, as some consumer collection contracts do, by returning no items.
+/// </summary>
+[ApiController]
+[Route("staff-projects")]
+[Authorize(Policy = TestPolicies.OrderView)]
+public sealed class StaffProjectController : ControllerBase
+{
+    public const long TotalCount = 137;
+
+    [HttpGet]
+    [ProducesResponseType<CollectionResultModel<TestStaffProject>>(StatusCodes.Status200OK)]
+    public ActionResult<CollectionResultModel<TestStaffProject>> Get(
+        [FromQuery] CollectionRequestModel request,
+        [FromQuery] int noteLength = 100)
+    {
+        var countOnly = string.Equals(Request.Query["countOnly"], "true", StringComparison.OrdinalIgnoreCase);
+        var items = countOnly
+            ? []
+            : Enumerable.Range((request.Page - 1) * request.ItemsPerPage + 1, request.ItemsPerPage)
+                .Select(id => Create(id, noteLength))
+                .ToList();
+        var result = CollectionResultModel<TestStaffProject>.Create(items, request);
+        result.TotalCount = TotalCount;
+        return Ok(result);
+    }
+
+    [HttpGet("{id:int}")]
+    public ActionResult<TestStaffProject> Get(int id, [FromQuery] int noteLength = 100)
+    {
+        return Ok(Create(id, noteLength));
+    }
+
+    private static TestStaffProject Create(int id, int noteLength)
+    {
+        return new TestStaffProject(
+            id,
+            "Project " + id,
+            null,
+            $"project{id}@example.test",
+            Person(id * 10),
+            [Person(id * 10 + 1), Person(id * 10 + 2)],
+            ["alpha", "beta"],
+            new string('n', noteLength));
+    }
+
+    private static TestPerson Person(int id)
+    {
+        return new TestPerson(
+            id,
+            "Person " + id,
+            $"person{id}@example.test",
+            "+31 20 000 " + id.ToString("0000", System.Globalization.CultureInfo.InvariantCulture),
+            new TestAddress("Street " + id, "City"));
+    }
+}
+
 public static class TestPolicies
 {
     public const string OrderView = "order.view";

@@ -98,8 +98,8 @@ bridge.EnableGateway(gateway => gateway
 | --- | --- | --- |
 | `<set>.search-resources` | `{ query, limit? (1..20) }` | resources the user may use, with title, summary and `query`/`get` |
 | `<set>.describe-resource` | `{ resource }` | filter, order, search and result fields, extra parameters, the id parameter |
-| `<set>.query` | `{ resource, page?, itemsPerPage? (max 100), search?, filter?, orderBy?, parameters? }` | the bridge result envelope |
-| `<set>.get` | `{ resource, id, parameters? }` | the bridge result envelope |
+| `<set>.query` | `{ resource, fields?, countOnly?, page?, itemsPerPage? (max 100), search?, filter?, orderBy?, parameters? }` | the shaped result envelope |
+| `<set>.get` | `{ resource, id, fields?, parameters? }` | the shaped result envelope |
 
 Resources group the read-only bridge actions per controller (`order`, `order-group`;
 extra collection or detail actions get a suffix such as `project-mine`). `query` and
@@ -120,6 +120,31 @@ closed when the audited scope value is missing. Localized presentation keeps res
 ids invariant, resolves consumer-owned `.resx` keys and validates missing keys and
 orphaned mappings at startup.
 
+### Result shaping
+
+`query` and `get` shape a successful result after the HTTP call and before the result
+limit. They read up to `UseMaxResponseBytes` (default 4 MiB), remove redacted fields,
+then project or compact:
+
+- `fields: ["id", "name", "owner.name"]` returns exactly those result fields per item.
+  Keys are validated against the described result fields; one dotted level is allowed
+  and also applies to each element of an array.
+- Without `fields`, items are compacted: nulls are dropped, nested objects and arrays
+  of objects keep only `id`, `key`, `code`, `number`, `name`, `displayName`, `title` and
+  `label`, and deeper nesting is dropped. Collection envelopes keep `page`,
+  `itemsPerPage`, `totalCount`, `resultCount` and `items`.
+- `countOnly: true` returns `{ "totalCount": n }`. `INhAiBridgeConventions.BuildCountRequest`
+  requests the first page with one item and no ordering; a collection contract provider
+  can map it to the API with `TryEncodeCountQuery`, for example `countOnly=true`.
+- A result that still does not fit keeps whole items, sets `truncated: true` and returns
+  `truncation` with `totalCount`, `resultCount`, `returnedCount`, `suggestedItemsPerPage`
+  and `suggestedFields`. The gateway never returns a raw `bodyText` fragment.
+
+`describe-resource` publishes this behavior as `resultShaping`. Hide personal data with
+`gateway.RedactResultFields("*email*", "*phoneNumber*")`: matching fields (case-insensitive,
+`*` wildcard) are removed at every depth and rejected in `fields`, filters and ordering.
+Redaction applies to the gateway tools only.
+
 ## Result
 
 Tools return `TaskResult<NhAiBridgeResponse>`:
@@ -128,8 +153,9 @@ Tools return `TaskResult<NhAiBridgeResponse>`:
 { "status": 200, "contentType": "application/json", "body": { }, "truncated": false, "bodyBytes": 1234 }
 ```
 
-A body over `MaxResultBytes` becomes a `bodyText` fragment with
+For bridge tools, a body over `MaxResultBytes` becomes a `bodyText` fragment with
 `truncated: true` and the hint "Use paging or filters to reduce the result."
+Gateway results use structured `truncation` guidance instead (see above).
 HTTP failures map to `NhAiBridgeFailureCodes`: `api-bridge-validation` (400/422,
 with the model state as data), `api-bridge-unauthenticated`,
 `api-bridge-forbidden`, `api-bridge-not-found`, `api-bridge-conflict`,

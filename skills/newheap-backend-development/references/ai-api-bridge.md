@@ -87,8 +87,8 @@ action. The gateway publishes four read-only tools, `<set>.search-resources`,
 `.describe-resource`, `.query` and `.get`, over the read-only bridge actions grouped
 per resource (`order`, `order-group`, ...). `search-resources` does a deterministic
 text match on names, titles, summaries and field names and returns only resources
-the current user may use. Describe the filter, order and result fields by
-Canonical NewHeap endpoints need no consumer conventions. The built-in
+the current user may use. Filter, order and result fields come from collection
+contracts. Canonical NewHeap endpoints need no consumer conventions. The built-in
 `NhAiNewHeapCollectionContractProvider` recognizes canonical collection request
 models and documented `CollectionResultModel<T>` or `SimpleCollectionResultModel<T>`
 responses, then derives bounded filter, order, search and result metadata from the
@@ -116,6 +116,30 @@ the bridge tool. Unknown and unauthorized resources fail identically with
 as explicit bridge or curated tools with approval, and combine both in agent tool
 selectors such as `app-api-gateway.*` plus `orders.*`.
 
+Gateway `query` and `get` shape every successful result after the HTTP call and
+before the result limit, so the model receives usable items instead of a
+`bodyText` fragment. Up to `UseMaxResponseBytes` (default 4 MiB) of the response is
+read; redaction runs first, then either projection or compaction. `fields` selects
+result field keys, validated against the described `resultFields`, including one
+dotted level such as `owner.name` (also applied to each element of an array).
+Without `fields`, items are compacted: nulls are dropped, nested objects and
+arrays of objects keep only `id`, `key`, `code`, `number`, `name`, `displayName`,
+`title` and `label`, and deeper nesting is dropped. Collection envelopes keep only
+`page`, `itemsPerPage`, `totalCount`, `resultCount` and `items`. `describe-resource`
+publishes this behavior as `resultShaping`. A shaped result that is still too
+large keeps as many whole items as fit, sets `truncated: true` and returns
+`truncation` with `totalCount`, `resultCount`, `returnedCount`,
+`suggestedItemsPerPage` and `suggestedFields`; the gateway never returns raw
+`bodyText`. `countOnly: true` returns only `{ totalCount }`: the conventions build
+the request through `INhAiBridgeConventions.BuildCountRequest` (the first page
+with one item and no ordering), and a collection contract provider maps it to its
+API through `TryEncodeCountQuery`, for example by adding `countOnly=true`.
+Call `RedactResultFields("*email*", "*phoneNumber*")` on the gateway builder to
+remove matching fields (case-insensitive, `*` wildcard) at every depth of `query`
+and `get` results; redacted fields disappear from `describe-resource` and are
+rejected in `fields`, filters and ordering. Redaction applies to the gateway only,
+so do not also expose the direct bridge tools of those resources to the model.
+
 Prefer a curated generated tool when an operation spans several endpoints, needs
 a domain-specific approval summary or verifier, is destructive, returns data that
 must be reshaped or redacted for a model, or is a high-volume workflow that
@@ -135,6 +159,8 @@ product boundary.
 - Letting model input provide actor, tenant or active-scope bindings; contribute them from authorized invocation scope.
 - Replacing all bridge conventions only to select Newtonsoft body serialization or support one legacy collection wire contract.
 - Routing mutations through the gateway or revealing in a message whether an unavailable resource exists.
+- Letting the model page through full nested list items to count or scan them; use `countOnly`, `fields` or the default compaction.
+- Relying on prompt instructions to hide personal data such as colleagues' e-mail addresses; redact them with `RedactResultFields`.
 - Hand-building a runtime catalog for MCP export without implementing `INhAiAttestedToolCatalog` and passing attestation.
 
 ## Verification
@@ -154,7 +180,11 @@ the described fields, that `query` and `get` send exactly the request of the bri
 tool and audit its id, that unknown and unauthorized resources fail identically,
 that an unknown filter key fails before the HTTP call, trusted bindings cannot be
 overridden, canonical collections need no custom conventions, legacy providers can
-encode a different wire contract, localized resource metadata validates at startup,
+encode a different wire contract and map `countOnly`, `fields` projections and the
+default compaction return the expected shape, redacted fields are removed at every
+depth and rejected in `fields`, filters and ordering, an oversized page returns
+whole items with structured `truncation` guidance and no `bodyText`, localized
+resource metadata validates at startup,
 export names stay deterministic and bounded, and that the gateway tools are
 exported through MCP. SPM-242, SPM-243, SPM-244 and SPM-255 are the executable
 references.
