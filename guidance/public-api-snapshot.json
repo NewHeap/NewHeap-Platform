@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.37",
   "backEnd": {
-    "hash": "448a9316106d37b82c28eba44074b3c1ac83f2fd08cdf0dd764012c8ed4d6f1e",
-    "declarationCount": 5185,
+    "hash": "13ac33f5001f1750d3f450475ca3768942d4a1a02d7fa1c6e24d07f6f2194762",
+    "declarationCount": 5227,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -423,6 +423,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeActionInfo.cs",
+        "declaration": "[JsonPropertyOrder(7)] [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAiBridgeTruncation? Truncation { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeActionInfo.cs",
         "declaration": "public static class NhAiBridgeFailureCodes {"
       },
       {
@@ -520,6 +524,138 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResourcePresentation.cs",
         "declaration": "public static void Validate( NhAiBridgeResourcePresentationOptions options, NhAiMvcBridgeToolCatalog catalog, IStringLocalizerFactory localizerFactory) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public sealed record NhAiBridgeTruncation {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public long? TotalCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? ResultCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public int ReturnedCount { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? SuggestedItemsPerPage { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public IReadOnlyList<string> SuggestedFields { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public sealed record NhAiBridgeResultShaping {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public string Default { get; init; } = NhAiBridgeResultShaper.CompactMode;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public bool Fields { get; init; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public bool CountOnly { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public string Description { get; init; } = NhAiBridgeResultShaper.ShapingDescription;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public static NhAiBridgeResultRedaction None { get; } = new([]);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public NhAiBridgeResultRedaction(IReadOnlyList<string> patterns) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public IReadOnlyList<string> Patterns { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public bool IsEmpty => _patterns.Length == 0;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public bool IsRedacted(string name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public bool IsRedactedPath(string path) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public void Apply(JsonNode? node) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public const string CompactMode = \"compact\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public const int MaxFields = 30;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public const string ShapingDescription ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public const string CompactedHint ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public NhAiBridgeResultShaper( IReadOnlyList<string>? fields, bool countOnly, NhAiBridgeResultRedaction redaction, IReadOnlyList<NhAiBridgeResultField> resultFields, int maxResponseBytes, int? requestedItemsPerPage) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public IReadOnlyList<string>? Fields { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public bool CountOnly { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public NhAiBridgeResultRedaction Redaction { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public IReadOnlyList<NhAiBridgeResultField> ResultFields { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public int MaxResponseBytes { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public int? RequestedItemsPerPage { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public static TaskResult<IReadOnlyList<string>?> ValidateFields( JsonElement input, IReadOnlyList<NhAiBridgeResultField> resultFields, NhAiBridgeResultRedaction redaction) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public TaskResult<NhAiBridgeResponse> Shape( int status, string? contentType, byte[] kept, long totalBytes, int maxResultBytes) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public TaskResult<NhAiBridgeResponse> Shape(NhAiBridgeResponse response, int maxResultBytes) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
+        "declaration": "public static JsonElement SinglePage(JsonElement input) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeToolAttribute.cs",
@@ -627,6 +763,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDefaultConventions.cs",
+        "declaration": "public virtual NhAiBridgeHttpRequest BuildCountRequest(NhAiBridgeActionInfo action, JsonElement input) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDefaultConventions.cs",
         "declaration": "public virtual NhAiBridgeQueryDescription DescribeQuery(NhAiBridgeActionInfo action) {"
       },
       {
@@ -691,7 +831,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeExecutor.cs",
-        "declaration": "public async Task<TaskResult<NhAiBridgeResponse>> ExecuteAsync( NhAiBridgeActionInfo action, NhAiToolDescriptor descriptor, JsonElement input, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+        "declaration": "public Task<TaskResult<NhAiBridgeResponse>> ExecuteAsync( NhAiBridgeActionInfo action, NhAiToolDescriptor descriptor, JsonElement input, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeExecutor.cs",
+        "declaration": "public Task<TaskResult<NhAiBridgeResponse>> ExecuteShapedAsync( NhAiBridgeActionInfo action, NhAiToolDescriptor descriptor, JsonElement input, NhAiInvocationContext context, NhAiBridgeResultShaper shaper, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeFunctionFactory.cs",
@@ -735,6 +879,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public IReadOnlyList<string> RedactedResultFieldPatterns => RedactedResultFields;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public int MaxResponseBytes { get; internal set; } = DefaultMaxResponseBytes;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public const int DefaultMaxResponseBytes = 4 * 1024 * 1024;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
         "declaration": "public sealed class NhAiMvcBridgeGatewayBuilder {"
       },
       {
@@ -744,6 +900,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
         "declaration": "public NhAiMvcBridgeGatewayBuilder IncludeReadOnlyOnly() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public NhAiMvcBridgeGatewayBuilder RedactResultFields(params string[] patterns) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "public NhAiMvcBridgeGatewayBuilder UseMaxResponseBytes(int maxResponseBytes) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
@@ -848,6 +1012,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
         "declaration": "public IReadOnlyList<NhAiBridgeResultField> ResultFields { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAiBridgeResultShaping? ResultShaping { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGateway.cs",
@@ -23871,7 +24039,9 @@
       "NhAiBridgeResourceDescription",
       "NhAiBridgeResourceSummary",
       "NhAiBridgeResourcePresentationOptions",
-      "NhAiBridgeResourcePresentation"
+      "NhAiBridgeResourcePresentation",
+      "NhAiBridgeResultShaping",
+      "NhAiBridgeTruncation"
     ],
     "nh-ai-aspnet-context": [
       "INhAiAuthenticatedInvocationContextResolver",

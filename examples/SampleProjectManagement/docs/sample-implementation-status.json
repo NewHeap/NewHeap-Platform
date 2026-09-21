@@ -1730,6 +1730,8 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDiscoveryPolicy.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeGatewayTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeGatewayCollectionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeGatewayShapingTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeCollectionContracts.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs"
     ]
