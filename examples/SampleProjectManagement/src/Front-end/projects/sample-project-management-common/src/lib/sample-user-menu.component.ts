@@ -2,7 +2,11 @@ import { CommonModule } from '@angular/common';
 import { Component, ElementRef, HostListener, Input, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
-import { NhUserNotification, NhUserNotificationsAbstractComponent } from '@newheap/platform-common';
+import {
+  NhUserNotification,
+  NhUserNotificationsAbstractComponent,
+  nhUserNotificationSeverityName
+} from '@newheap/platform-common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { SampleAuthService } from './sample-auth.service';
@@ -146,6 +150,23 @@ export class SampleUserMenuComponent extends NhUserNotificationsAbstractComponen
   @HostListener('document:keydown.escape')
   onEscape(): void {
     this.closeMenus();
+  }
+
+  notificationSeverity(notification: NhUserNotification): string {
+    return nhUserNotificationSeverityName(notification.severity).toLowerCase();
+  }
+
+  notificationIcon(notification: NhUserNotification): string {
+    switch (this.notificationSeverity(notification)) {
+      case 'success':
+        return 'ph-check-circle';
+      case 'warning':
+        return 'ph-warning';
+      case 'error':
+        return 'ph-x-circle';
+      default:
+        return 'ph-bell-ringing';
+    }
   }
 
   private getNotificationUrl(notification: NhUserNotification): string | undefined {

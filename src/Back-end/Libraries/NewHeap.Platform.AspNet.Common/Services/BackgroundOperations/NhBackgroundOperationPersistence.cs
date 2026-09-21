@@ -963,22 +963,6 @@ internal sealed partial class NhBackgroundOperationPersistence
     {
         try
         {
-            await _liveUpdates.PublishChangedAsync(operation.OwnerUserId,
-                new NhBackgroundOperationChangedMessage(
-                    operation.Id,
-                    operation.Version,
-                    operation.LatestEventSequence,
-                    operation.Status,
-                    operation.DivisionId),
-                cancellationToken);
-        }
-        catch (Exception exception)
-        {
-            _logger.LogWarning(exception, "Failed to publish background operation change for {OperationId}", operation.Id);
-        }
-
-        try
-        {
             var projectionResult = await _notificationProjector.ProjectAsync(operation.Id, cancellationToken);
             if (!projectionResult.Success)
             {
@@ -991,6 +975,22 @@ internal sealed partial class NhBackgroundOperationPersistence
         catch (Exception exception)
         {
             _logger.LogWarning(exception, "Failed to project notification for background operation {OperationId}", operation.Id);
+        }
+
+        try
+        {
+            await _liveUpdates.PublishChangedAsync(operation.OwnerUserId,
+                new NhBackgroundOperationChangedMessage(
+                    operation.Id,
+                    operation.Version,
+                    operation.LatestEventSequence,
+                    operation.Status,
+                    operation.DivisionId),
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Failed to publish background operation change for {OperationId}", operation.Id);
         }
 
         try

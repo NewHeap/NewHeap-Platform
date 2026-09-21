@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.37",
   "backEnd": {
-    "hash": "a07284e386e7ab4378dedd996d87fed2920d2e46410b090a8a5c75305027a4dd",
-    "declarationCount": 5235,
+    "hash": "21905e77adcb87d07273cecf7e8f6544551ac74501b506ab20e33b42aa7d71fd",
+    "declarationCount": 5268,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -10071,7 +10071,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhUserNotification.cs",
+        "declaration": "[StringLength(100)] public string? Category { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhUserNotification.cs",
+        "declaration": "public NhUserNotificationSeverity Severity { get; set; } = NhUserNotificationSeverity.Information;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhUserNotification.cs",
+        "declaration": "[StringLength(200)] public string? GroupKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhUserNotification.cs",
         "declaration": "public NhUserNotficationData Data { get; set; } = new NhUserNotficationData();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhUserNotification.cs",
+        "declaration": "public enum NhUserNotificationSeverity {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhUserNotification.cs",
@@ -10108,6 +10124,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhUserNotificationMessage.cs",
         "declaration": "public string Message { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhUserNotificationMessage.cs",
+        "declaration": "public NhUserNotificationSeverity Severity { get; set; } = NhUserNotificationSeverity.Information;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhUserNotificationMessage.cs",
@@ -11155,6 +11175,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhUserNotificationMutateModels.cs",
+        "declaration": "[StringLength(100)] public string? Category { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhUserNotificationMutateModels.cs",
+        "declaration": "public NhUserNotificationSeverity Severity { get; set; } = NhUserNotificationSeverity.Information;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhUserNotificationMutateModels.cs",
+        "declaration": "[StringLength(200)] public string? GroupKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhUserNotificationMutateModels.cs",
         "declaration": "public class NhAddMessageUserNotificationMutateModel {"
       },
       {
@@ -11164,6 +11196,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhUserNotificationMutateModels.cs",
         "declaration": "public string? Message { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhUserNotificationMutateModels.cs",
+        "declaration": "public NhUserNotificationSeverity Severity { get; set; } = NhUserNotificationSeverity.Information;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/NhUserNotificationMutateModels.cs",
+        "declaration": "public string? Url { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Mutate/UserMutateModels.cs",
@@ -12023,6 +12063,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhUserNotificationViewModels.cs",
+        "declaration": "[Filterable, Orderable] public string? Category { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhUserNotificationViewModels.cs",
+        "declaration": "[Filterable, Orderable] public NhUserNotificationSeverity Severity { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhUserNotificationViewModels.cs",
+        "declaration": "[Filterable] public string? GroupKey { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhUserNotificationViewModels.cs",
         "declaration": "public NhUserNotficationData Data { get; set; } = new NhUserNotficationData();"
       },
       {
@@ -12048,6 +12100,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhUserNotificationViewModels.cs",
         "declaration": "public string Message { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhUserNotificationViewModels.cs",
+        "declaration": "[Filterable, Orderable] public NhUserNotificationSeverity Severity { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhUserNotificationViewModels.cs",
@@ -12595,6 +12651,54 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationNotificationPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationNotificationDecision {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public bool ShouldNotify { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public NhBackgroundOperationNotificationContent? Content { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public string? Url { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public string? GroupKey { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public string? Category { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public NhUserNotificationSeverity? Severity { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public static NhBackgroundOperationNotificationDecision Skip() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public static NhBackgroundOperationNotificationDecision Notify(NhBackgroundOperationNotificationContent content) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public static class NhBackgroundOperationNotificationCategories {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public const string BackgroundOperation = \"background-operation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
         "declaration": "public sealed record NhBackgroundOperationScheduleResult(string SchedulerJobId);"
       },
       {
@@ -13063,6 +13167,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationBuilder UseNotificationPolicy<TPolicy>() where TPolicy : class, INhBackgroundOperationNotificationPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
         "declaration": "public NhBackgroundOperationBuilder Add<TRequest, THandler>( string operationType, Action<NhBackgroundOperationDefinitionBuilder<TRequest>>? configure = null)"
       },
       {
@@ -13344,6 +13452,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
         "declaration": "public async Task<TaskResult> ProjectAsync( Guid operationId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
+        "declaration": "public class NhDefaultBackgroundOperationNotificationPolicy : INhBackgroundOperationNotificationPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
+        "declaration": "public NhDefaultBackgroundOperationNotificationPolicy(INhBackgroundOperationNotificationFormatter formatter) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
+        "declaration": "public virtual async Task<NhBackgroundOperationNotificationDecision> DecideAsync( NhBackgroundOperation operation, NhBackgroundOperationEvent milestone, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
+        "declaration": "protected virtual bool ShouldNotify(NhBackgroundOperation operation, NhBackgroundOperationEvent milestone) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
@@ -14616,6 +14740,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhUserNotificationService.cs",
         "declaration": "public async Task<TaskResult> AddMessageAsync(Guid id, NhAddMessageUserNotificationMutateModel mutateModel, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhUserNotificationService.cs",
+        "declaration": "public async Task<NhUserNotification?> GetActiveByGroupKeyAsync(Guid userId, string groupKey, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhUserNotificationService.cs",
+        "declaration": "public async Task<TaskResult<NhUserNotification?>> CreateOrAddMessageAsync( NhUserNotificationMutateModel mutateModel, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhUserNotificationService.cs",
@@ -20948,8 +21080,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "e026704f99a647475bc82d4f436ae07768619fffae5c1c297a90b18afe73f743",
-    "declarationCount": 768,
+    "hash": "c5b5292868054c2d76a265f12bdf4ed4d63df87b4aa9ba007acaac357e9bf6a9",
+    "declarationCount": 770,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
@@ -22374,6 +22506,14 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/user-notification.models.ts",
         "declaration": "public constructor(init?: Partial<NhUserNotificationCollectionHttpRequestOptions>) {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/user-notification.models.ts",
+        "declaration": "export type NhUserNotificationSeverity ="
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/user-notification.models.ts",
+        "declaration": "export function nhUserNotificationSeverityName(severity: NhUserNotificationSeverity | null | undefined): string {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/user-notification.models.ts",
@@ -24440,19 +24580,23 @@
       "INhBackgroundOperationHandler<TRequest>",
       "INhBackgroundOperationLeaseManager",
       "INhBackgroundOperationNotificationFormatter",
+      "INhBackgroundOperationNotificationPolicy",
       "INhNotificationDispatcher",
       "INhUserNotificationService",
       "NhBackgroundOperationBuilder",
       "NhBackgroundOperationChangedMessage",
+      "NhBackgroundOperationNotificationDecision",
       "NhBackgroundOperationFanOut",
       "NhBackgroundOperationResourceKey",
       "NhBackgroundOperationRetryResult",
       "NhBackgroundOperationStore",
       "NhBackgroundOperationsOptions",
+      "NhDefaultBackgroundOperationNotificationPolicy",
       "NhHangfireUtil",
       "NhMailService",
       "NhNotificationSettings",
       "NhUserNotificationService",
+      "NhUserNotificationSeverity",
       "TaskResult"
     ],
     "nh-proxy-contract-boundary": [

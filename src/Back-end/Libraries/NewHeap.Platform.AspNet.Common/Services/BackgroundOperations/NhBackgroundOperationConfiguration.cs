@@ -374,6 +374,20 @@ public sealed class NhBackgroundOperationBuilder
         return this;
     }
 
+    /// <summary>
+    /// Replaces the default notification policy that decides which milestones reach the
+    /// operation owner and how they are threaded. The policy is resolved per projection
+    /// scope; inject <see cref="NhDefaultBackgroundOperationNotificationPolicy"/> to
+    /// delegate to the default rules.
+    /// </summary>
+    public NhBackgroundOperationBuilder UseNotificationPolicy<TPolicy>()
+        where TPolicy : class, INhBackgroundOperationNotificationPolicy
+    {
+        _services.RemoveAll<INhBackgroundOperationNotificationPolicy>();
+        _services.AddScoped<INhBackgroundOperationNotificationPolicy, TPolicy>();
+        return this;
+    }
+
     public NhBackgroundOperationBuilder Add<TRequest, THandler>(
         string operationType,
         Action<NhBackgroundOperationDefinitionBuilder<TRequest>>? configure = null)

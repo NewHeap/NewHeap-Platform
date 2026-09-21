@@ -231,7 +231,10 @@ builder.Services
         operations.Options.ProgressFlushInterval = TimeSpan.FromMilliseconds(250);
         operations
             .WithGlobalConcurrency(8)
-            .WithDefaultQueueConcurrency(6);
+            .WithDefaultQueueConcurrency(6)
+            // Notifies only outcomes and requests for attention (NewHeap default) and
+            // threads repeated portfolio work per division.
+            .UseNotificationPolicy<ProjectOperationNotificationPolicy>();
         operations.Add<ProjectPortfolioAnalysisRequest, ProjectPortfolioAnalysisOperation>(
             "sample-project-portfolio-analysis",
             operation => operation

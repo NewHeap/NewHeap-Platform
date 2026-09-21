@@ -26,6 +26,10 @@ button, a { font: inherit; }
 .notification:hover { background: var(--surface-subtle); }
 .notification.unread { background: var(--brand-soft); box-shadow: inset 3px 0 0 var(--brand); }
 .notification-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; color: var(--brand); background: var(--surface-muted); }
+.notification-icon[data-severity="success"] { color: var(--success); background: var(--success-soft); }
+.notification-icon[data-severity="warning"] { color: var(--warning); background: var(--warning-soft); }
+.notification-icon[data-severity="error"] { color: var(--danger); background: var(--danger-soft); }
+.notification small.notification-updates { color: var(--ink); font-weight: 600; }
 .notification > span:last-child { min-width: 0; display: grid; gap: 4px; }
 .notification strong, .notification small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notification small { color: var(--muted); font-size: 10px; }

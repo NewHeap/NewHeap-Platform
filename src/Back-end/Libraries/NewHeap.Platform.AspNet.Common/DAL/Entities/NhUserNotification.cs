@@ -22,7 +22,34 @@ public partial class NhUserNotification : IdDbEntity
     public bool IsLastRead { get; set; }
     public bool IsArchived { get; set; }
 
+    /// <summary>
+    /// Optional application-defined kind, for example <c>background-operation</c>,
+    /// used to choose an icon or filter the inbox.
+    /// </summary>
+    [StringLength(100)]
+    public string? Category { get; set; }
+
+    /// <summary>
+    /// Severity of the latest message in the thread.
+    /// </summary>
+    public NhUserNotificationSeverity Severity { get; set; } = NhUserNotificationSeverity.Information;
+
+    /// <summary>
+    /// Optional thread key. New messages with the same key for the same user are
+    /// appended to the active (non-archived) notification instead of creating a new one.
+    /// </summary>
+    [StringLength(200)]
+    public string? GroupKey { get; set; }
+
     public NhUserNotficationData Data { get; set; } = new NhUserNotficationData();
+}
+
+public enum NhUserNotificationSeverity
+{
+    Information = 0,
+    Success = 10,
+    Warning = 20,
+    Error = 30
 }
 
 public partial class NhUserNotficationData

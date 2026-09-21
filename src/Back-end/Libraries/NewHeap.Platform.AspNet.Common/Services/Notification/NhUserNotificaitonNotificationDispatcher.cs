@@ -47,7 +47,7 @@ public partial class NhUserNotificaitonNotificationDispatcher : NhAbstractNotifi
 
         try
         {
-            var createUserNotificationResult = await _userNotificationService.CreateAsync(deliveryData.Notification, cancellationToken: cancellationToken);
+            var createUserNotificationResult = await _userNotificationService.CreateOrAddMessageAsync(deliveryData.Notification, cancellationToken);
             createUserNotificationResult.ApplyToTaskResult(taskResult);
 
             if (!taskResult.Success)

@@ -313,6 +313,8 @@ public abstract partial class NhIdentityDbContext<
                 .IsRequired(true)
             ;
 
+            entity.HasIndex(x => new { x.UserId, x.GroupKey });
+
             entity
             .Property(e => e.Data)
             .HasConversion(

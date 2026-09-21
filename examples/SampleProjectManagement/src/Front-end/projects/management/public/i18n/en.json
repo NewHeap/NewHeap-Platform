@@ -244,6 +244,7 @@
       "unread": "unread",
       "clear": "Clear",
       "empty-notifications": "You have no notifications.",
+      "notification-updates": "{{count}} updates",
       "unknown-user": "Unknown user",
       "no-roles": "Not assigned",
       "notifications-mark-all-failed": "Notifications could not be marked as read.",

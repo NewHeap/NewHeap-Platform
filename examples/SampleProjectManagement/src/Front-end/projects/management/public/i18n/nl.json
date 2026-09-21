@@ -244,6 +244,7 @@
       "unread": "ongelezen",
       "clear": "Legen",
       "empty-notifications": "Je hebt geen notificaties.",
+      "notification-updates": "{{count}} updates",
       "unknown-user": "Onbekende gebruiker",
       "no-roles": "Niet toegewezen",
       "notifications-mark-all-failed": "Notificaties konden niet als gelezen worden gemarkeerd.",

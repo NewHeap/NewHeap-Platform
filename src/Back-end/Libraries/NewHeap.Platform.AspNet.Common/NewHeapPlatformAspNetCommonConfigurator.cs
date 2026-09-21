@@ -790,6 +790,9 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         {
             _serviceCollection.TryAddScoped<INhBackgroundOperationNotificationFormatter,
                 NhDefaultBackgroundOperationNotificationFormatter>();
+            _serviceCollection.TryAddScoped<NhDefaultBackgroundOperationNotificationPolicy>();
+            _serviceCollection.TryAddScoped<INhBackgroundOperationNotificationPolicy>(
+                serviceProvider => serviceProvider.GetRequiredService<NhDefaultBackgroundOperationNotificationPolicy>());
             _serviceCollection.TryAddSingleton<INhBackgroundOperationNotificationProjector, NhBackgroundOperationNotificationProjector>();
         }
         else

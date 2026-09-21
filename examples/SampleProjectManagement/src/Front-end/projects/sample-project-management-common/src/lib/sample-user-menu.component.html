@@ -31,8 +31,14 @@
             @for (notification of collectionResponse.items; track notification.id) {
             <button type="button" class="notification" [class.unread]="!notification.isLastRead"
               (click)="openNotification(notification)">
-              <span class="notification-icon"><i class="ph ph-bell-ringing" aria-hidden="true"></i></span>
-              <span><strong>{{ notification.lastTitle }}</strong><small>{{ notification.lastMessage }}</small></span>
+              <span class="notification-icon" [attr.data-severity]="notificationSeverity(notification)"><i [class]="'ph ' + notificationIcon(notification)" aria-hidden="true"></i></span>
+              <span>
+                <strong>{{ notification.lastTitle }}</strong>
+                <small>{{ notification.lastMessage }}</small>
+                @if ((notification.messages?.length ?? 0) > 1) {
+                  <small class="notification-updates">{{ 'project.account-menu.notification-updates' | translate: { count: notification.messages.length } }}</small>
+                }
+              </span>
             </button>
             } @empty {
               <div class="notification-empty"><i class="ph ph-bell-slash" aria-hidden="true"></i><p>{{ 'project.account-menu.empty-notifications' | translate }}</p></div>
