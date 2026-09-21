@@ -68,6 +68,7 @@ public sealed class NhBackgroundOperationProviderTests
         services.AddSingleton(notificationService);
         services.AddSingleton<INhBackgroundOperationNotificationFormatter,
             NhDefaultBackgroundOperationNotificationFormatter>();
+        services.AddScoped<INhBackgroundOperationNotificationPolicy, NhDefaultBackgroundOperationNotificationPolicy>();
         await using var serviceProvider = services.BuildServiceProvider();
 
         var ownerId = Guid.NewGuid();
@@ -595,12 +596,9 @@ public sealed class NhBackgroundOperationProviderTests
             await context.SaveChangesAsync();
         }
 
-        notificationService.CreateAsync(
+        notificationService.CreateOrAddMessageAsync(
                 Arg.Any<NhUserNotificationMutateModel>(),
-                Arg.Any<Guid?>(),
-                Arg.Any<Action<NhUserNotification>?>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<BaseDbEntityServiceOperationOptions?>())
+                Arg.Any<CancellationToken>())
             .Returns(
                 Task.FromResult(TaskResult<NhUserNotification?>.Failed(
                     "notification-temporarily-unavailable",

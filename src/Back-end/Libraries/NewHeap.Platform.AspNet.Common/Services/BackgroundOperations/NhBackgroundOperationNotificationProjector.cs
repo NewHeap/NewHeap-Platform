@@ -28,7 +28,7 @@ internal sealed class NhBackgroundOperationNotificationProjector : INhBackground
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         var notificationService = scope.ServiceProvider.GetRequiredService<INhUserNotificationService>();
-        var notificationFormatter = scope.ServiceProvider.GetRequiredService<INhBackgroundOperationNotificationFormatter>();
+        var notificationPolicy = scope.ServiceProvider.GetRequiredService<INhBackgroundOperationNotificationPolicy>();
         await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
         if (!await repository.TryAcquireTransactionLockAsync(
                 transaction,
@@ -71,54 +71,170 @@ internal sealed class NhBackgroundOperationNotificationProjector : INhBackground
 
         foreach (var milestone in milestones)
         {
-            var content = await notificationFormatter.FormatAsync(operation, milestone, cancellationToken);
-            if (!operation.UserNotificationId.HasValue)
+            var decision = await notificationPolicy.DecideAsync(operation, milestone, cancellationToken);
+            if (decision.ShouldNotify)
             {
-                var createResult = await notificationService.CreateAsync(
-                    new NhUserNotificationMutateModel
-                    {
-                        UserId = operation.OwnerUserId,
-                        Title = content.Title,
-                        Message = content.Message,
-                        Url = $"{_options.OperationUrlPrefix.TrimEnd('/')}/{operation.Id}",
-                        UrlInNewTab = false
-                    },
-                    cancellationToken: cancellationToken);
-                if (!createResult.Success)
-                {
-                    return TaskResult.Failed(createResult);
-                }
-
-                if (createResult.Data is null)
-                {
-                    return TaskResult.Failed(
-                        "notification-create-failed",
-                        "background-operation.notification-create-failed");
-                }
-
-                operation.UserNotificationId = createResult.Data.Id;
-            }
-            else
-            {
-                var addResult = await notificationService.AddMessageAsync(
-                    operation.UserNotificationId.Value,
-                    new NhAddMessageUserNotificationMutateModel
-                    {
-                        Title = content.Title,
-                        Message = content.Message
-                    },
+                var projectionResult = await ProjectMilestoneAsync(
+                    notificationService,
+                    operation,
+                    milestone,
+                    decision,
                     cancellationToken);
-                if (!addResult.Success)
+                if (!projectionResult.Success)
                 {
-                    return TaskResult.Failed(addResult);
+                    return projectionResult;
                 }
             }
+
             operation.LastProjectedNotificationEventSequence = milestone.Sequence;
         }
 
         await repository.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return TaskResult.Succeeded();
+    }
+
+    private async Task<TaskResult> ProjectMilestoneAsync(
+        INhUserNotificationService notificationService,
+        NhBackgroundOperation operation,
+        NhBackgroundOperationEvent milestone,
+        NhBackgroundOperationNotificationDecision decision,
+        CancellationToken cancellationToken)
+    {
+        var content = decision.Content!;
+        var severity = decision.Severity ?? ToNotificationSeverity(milestone.Severity);
+        var url = string.IsNullOrWhiteSpace(decision.Url)
+            ? $"{_options.OperationUrlPrefix.TrimEnd('/')}/{operation.Id}"
+            : decision.Url;
+
+        if (operation.UserNotificationId.HasValue)
+        {
+            var current = await notificationService.GetAsync(operation.UserNotificationId.Value, cancellationToken);
+            if (current is { IsArchived: false })
+            {
+                return await notificationService.AddMessageAsync(
+                    current.Id,
+                    new NhAddMessageUserNotificationMutateModel
+                    {
+                        Title = content.Title,
+                        Message = content.Message,
+                        Severity = severity,
+                        Url = url
+                    },
+                    cancellationToken);
+            }
+        }
+
+        // A new or archived thread starts again; a group key joins an active thread
+        // of a related operation instead.
+        var createResult = await notificationService.CreateOrAddMessageAsync(
+            new NhUserNotificationMutateModel
+            {
+                UserId = operation.OwnerUserId,
+                Title = content.Title,
+                Message = content.Message,
+                Url = url,
+                UrlInNewTab = false,
+                Category = decision.Category ?? NhBackgroundOperationNotificationCategories.BackgroundOperation,
+                Severity = severity,
+                GroupKey = decision.GroupKey
+            },
+            cancellationToken);
+        if (!createResult.Success)
+        {
+            return TaskResult.Failed(createResult);
+        }
+
+        if (createResult.Data is null)
+        {
+            return TaskResult.Failed(
+                "notification-create-failed",
+                "background-operation.notification-create-failed");
+        }
+
+        operation.UserNotificationId = createResult.Data.Id;
+        return TaskResult.Succeeded();
+    }
+
+    private static NhUserNotificationSeverity ToNotificationSeverity(NhBackgroundOperationMessageSeverity severity)
+    {
+        return severity switch
+        {
+            NhBackgroundOperationMessageSeverity.Success => NhUserNotificationSeverity.Success,
+            NhBackgroundOperationMessageSeverity.Warning => NhUserNotificationSeverity.Warning,
+            NhBackgroundOperationMessageSeverity.Error => NhUserNotificationSeverity.Error,
+            _ => NhUserNotificationSeverity.Information
+        };
+    }
+}
+
+/// <summary>
+/// Default notification policy. It notifies the owner only about outcomes and
+/// requests for attention: success, failure, time-out, a cancellation the owner did
+/// not request, a wait for input, required operator recovery, and milestones that a
+/// handler published itself. Lifecycle progress such as start, retry scheduling and
+/// intermediate results stays in the progress view. Compose or replace it through
+/// <see cref="NhBackgroundOperationBuilder.UseNotificationPolicy{TPolicy}"/>.
+/// </summary>
+public class NhDefaultBackgroundOperationNotificationPolicy : INhBackgroundOperationNotificationPolicy
+{
+    private const string LifecycleMessageKeyPrefix = "background-operation.";
+
+    private static readonly HashSet<string> NotifiedLifecycleMessageKeys = new(StringComparer.Ordinal)
+    {
+        "background-operation.succeeded",
+        "background-operation.failed",
+        "background-operation.timedout",
+        "background-operation.timed-out",
+        "background-operation.cancelled",
+        "background-operation.operator-recovery-required",
+        "background-operation.signal-wait-started"
+    };
+
+    private readonly INhBackgroundOperationNotificationFormatter _formatter;
+
+    public NhDefaultBackgroundOperationNotificationPolicy(INhBackgroundOperationNotificationFormatter formatter)
+    {
+        _formatter = formatter;
+    }
+
+    public virtual async Task<NhBackgroundOperationNotificationDecision> DecideAsync(
+        NhBackgroundOperation operation,
+        NhBackgroundOperationEvent milestone,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(milestone);
+
+        if (!ShouldNotify(operation, milestone))
+        {
+            return NhBackgroundOperationNotificationDecision.Skip();
+        }
+
+        var content = await _formatter.FormatAsync(operation, milestone, cancellationToken);
+        return NhBackgroundOperationNotificationDecision.Notify(content);
+    }
+
+    /// <summary>
+    /// Returns whether the milestone is worth a notification under the default rules.
+    /// </summary>
+    protected virtual bool ShouldNotify(NhBackgroundOperation operation, NhBackgroundOperationEvent milestone)
+    {
+        var messageKey = milestone.MessageKey;
+        if (string.IsNullOrWhiteSpace(messageKey)
+            || !messageKey.StartsWith(LifecycleMessageKeyPrefix, StringComparison.Ordinal))
+        {
+            // Handler-published milestones are an explicit request to inform the owner.
+            return true;
+        }
+
+        if (!NotifiedLifecycleMessageKeys.Contains(messageKey))
+        {
+            return false;
+        }
+
+        // The owner requested the cancellation and already knows about it.
+        return messageKey != "background-operation.cancelled" || !operation.CancelRequestedAt.HasValue;
     }
 }
 
@@ -137,11 +253,14 @@ internal sealed class NhDefaultBackgroundOperationNotificationFormatter :
             "background-operation.succeeded" => "The operation completed successfully.",
             "background-operation.failed" => "The operation failed.",
             "background-operation.cancelled" => "The operation was cancelled.",
+            "background-operation.timedout" => "The operation timed out.",
             "background-operation.timed-out" => "The operation timed out.",
             "background-operation.cancellation-requested" => "Cancellation was requested.",
             "background-operation.retry-requested" => "A retry was requested.",
             "background-operation.retry-scheduled" => "A retry was scheduled.",
             "background-operation.result-available" => "The operation result is available.",
+            "background-operation.signal-wait-started" => "The operation is waiting for your input.",
+            "background-operation.operator-recovery-required" => "The operation stopped unexpectedly and needs attention.",
             "background-operation.unsupported-payload-schema" => "The operation payload version is no longer supported.",
             "background-operation.child-operation-failed" => "One or more child operations failed.",
             _ => milestone.Severity switch

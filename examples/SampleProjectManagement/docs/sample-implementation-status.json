@@ -755,7 +755,11 @@
       "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260824214941_AddNhBackgroundOperations.cs",
       "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260825072017_HardenBackgroundOperationDivisionScope.cs",
       "src/Front-end/projects/sample-project-management-common/src/lib/background-operations-page.component.ts",
-      "src/Front-end/projects/sample-project-management-common/src/lib/background-operations-page.component.html"
+      "src/Front-end/projects/sample-project-management-common/src/lib/background-operations-page.component.html",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationNotificationPolicyTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserNotificationGroupingProviderTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectOperationNotificationPolicy.cs"
     ],
     "SPM-084": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
@@ -772,7 +776,9 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhUserNotificationService.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEfWarningCompatibilityProviderTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEfWarningCompatibilityProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserNotificationGroupingProviderTests.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260921201514_AddUserNotificationGrouping.cs"
     ],
     "SPM-087": [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhNotificationProcessingService.cs",
@@ -796,7 +802,10 @@
     "SPM-090": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
-      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/models/user-notification.models.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-user-menu.component.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-user-menu.component.html"
     ],
     "SPM-091": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",

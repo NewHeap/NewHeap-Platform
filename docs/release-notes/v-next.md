@@ -73,3 +73,29 @@ administration page in `@newheap/platform-ai-chat/admin` and a scripted mock API
 | Messages can carry page context: `NhAssistantConfig.getPageContext` returns `NhAssistantClientContext` (`route`, `title`, `entities`), sent as `clientContext` and truncated to the contract limits; a chip above the message box shows it and lets the user leave it out of the next message. | Optional: provide `getPageContext` from a service that entity pages set and clear. |
 | The composer remains editable while running or awaiting approval, blocked Enter preserves the draft, and approval cards prefer optional trusted presentation while technical ids and previews stay collapsed. | No action; custom layouts should pass `sendDisabled` separately from `disabled` and treat `approval.presentation` as optional. |
 | A completed turn with an `errorCode` (for example `assistant-tool-call-limit-reached` or a budget code) or without any answer text now shows a dismissible warning notice (`NhAssistantStore.notice`, `clearNotice()`, `nh-assistant.notices.no-answer`) instead of an empty answer; the conversation stays usable. Only failed turns use the error bar. | No action; custom layouts should render `store.notice()`. |
+
+## NewHeap.Platform.AspNet.Common
+
+Background-operation notifications follow an explicit policy and user notifications
+can be threaded. `INhBackgroundOperationNotificationPolicy` (default
+`NhDefaultBackgroundOperationNotificationPolicy`, replaced with
+`NhBackgroundOperationBuilder.UseNotificationPolicy<T>()`) decides per milestone whether the
+owner is notified and with which link, category, severity and `GroupKey`.
+`INhUserNotificationService.CreateOrAddMessageAsync` appends to the user's active notification
+with the same `GroupKey`.
+
+| Breaking change | Required action |
+|---|---|
+| Notification projection now notifies only success, failure, time-out, a cancellation the owner did not request, waiting for input, operator recovery and handler-published milestones; start, retry and result-available milestones no longer create or reopen a notification. | No action for the default; register a policy with `UseNotificationPolicy<T>()` to notify other milestones. |
+| `NhUserNotification` gained `Category`, `Severity` and `GroupKey` with a `(UserId, GroupKey)` index, and `NhUserNotificationMessage` gained `Severity`. | Generate and apply a consumer DbContext migration before deploying. |
+| `INhUserNotificationService` gained `GetActiveByGroupKeyAsync` and `CreateOrAddMessageAsync`; the user-notification delivery dispatcher now calls `CreateOrAddMessageAsync`. | Implement both members in custom `INhUserNotificationService` implementations. |
+| A new milestone for an operation whose notification was archived now starts a new notification instead of appending to the archived one. | No action. |
+| `GetOverviewByUserIdAsync` excludes archived notifications from `TotalCount` and `UnreadCount`. | No action; badges now match the notification list. |
+| `AddMessageAsync` returns a failed result for an unknown notification instead of throwing `NullReferenceException`, and can replace the link through the new `Url`. | Handle the failed result. |
+| The default formatter now describes the `background-operation.timedout` event instead of a generic error milestone. | No action. |
+
+## @newheap/platform-common
+
+| Breaking change | Required action |
+|---|---|
+| `NhUserNotification` gained `category`, `severity` and `groupKey`, and `NhUserNotificationMessage` gained `severity`; `nhUserNotificationSeverityName` normalizes numeric and string severities. | No action; render severity and thread size where useful. |

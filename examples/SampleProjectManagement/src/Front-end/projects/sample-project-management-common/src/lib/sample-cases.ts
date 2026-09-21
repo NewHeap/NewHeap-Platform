@@ -1146,8 +1146,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-083",
     "title": "Durable background operation with fan-out and nested progress",
     "category": "Events, jobs, email, and notifications",
-    "surface": "WithBackgroundOperations, INhBackgroundOperationHandler<T>, TaskResult, NhBackgroundOperationRetryResult, fan-out/fan-in, durable leases, scoped polling, and scoped SignalR",
-    "outcome": "A division-exclusive parent durably fans out project work, releases its worker while children execute concurrently, propagates expected batch, checkpoint, step, and fan-in outcomes through TaskResult, reschedules internal lock contention without consuming handler retries, advances a contended final-child wake-up to the next dispatcher interval, aggregates nested progress, protects unprojected notification milestones during event retention, starts under strict EF Core warning policies, and remains isolated to the authenticated user and accessible active division through notifications, SignalR, and polling.",
+    "surface": "WithBackgroundOperations, INhBackgroundOperationHandler<T>, TaskResult, INhBackgroundOperationNotificationPolicy, NhBackgroundOperationRetryResult, fan-out/fan-in, durable leases, scoped polling, and scoped SignalR",
+    "outcome": "A division-exclusive parent durably fans out project work, releases its worker while children execute concurrently, propagates expected batch, checkpoint, step, and fan-in outcomes through TaskResult, reschedules internal lock contention without consuming handler retries, advances a contended final-child wake-up to the next dispatcher interval, aggregates nested progress, notifies the owner only about outcomes and requests for attention while threading repeated portfolio work per division through a notification policy, protects unprojected notification milestones during event retention, starts under strict EF Core warning policies, and remains isolated to the authenticated user and accessible active division through notifications, SignalR, and polling.",
     "implementation": "implemented",
     "evidence": [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1173,7 +1173,11 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260824214941_AddNhBackgroundOperations.cs",
       "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260825072017_HardenBackgroundOperationDivisionScope.cs",
       "src/Front-end/projects/sample-project-management-common/src/lib/background-operations-page.component.ts",
-      "src/Front-end/projects/sample-project-management-common/src/lib/background-operations-page.component.html"
+      "src/Front-end/projects/sample-project-management-common/src/lib/background-operations-page.component.html",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationNotificationPolicyTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserNotificationGroupingProviderTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectOperationNotificationPolicy.cs"
     ]
   },
   {
@@ -1206,15 +1210,17 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-086",
     "title": "Create and summarize user notifications",
     "category": "Events, jobs, email, and notifications",
-    "surface": "INhUserNotificationService and NhUserNotificationService",
-    "outcome": "Assignment creates the correct message, and the overview remains query-safe under strict EF Core warning policies on SQL Server and PostgreSQL.",
+    "surface": "INhUserNotificationService, NhUserNotificationService and CreateOrAddMessageAsync",
+    "outcome": "Assignment creates the correct message, repeated updates for one project join a single thread through `GroupKey` with category and severity, and the overview excludes archived notifications and remains query-safe under strict EF Core warning policies on SQL Server and PostgreSQL.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhUserNotificationService.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEfWarningCompatibilityProviderTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEfWarningCompatibilityProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserNotificationGroupingProviderTests.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260921201514_AddUserNotificationGrouping.cs"
     ]
   },
   {
@@ -1265,12 +1271,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Notification component",
     "category": "Events, jobs, email, and notifications",
     "surface": "abstract component + FE service",
-    "outcome": "The message, refresh, and target route work.",
+    "outcome": "The message, severity, thread update count, refresh, and target route work.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
-      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/models/user-notification.models.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-user-menu.component.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-user-menu.component.html"
     ]
   },
   {
@@ -3327,14 +3336,16 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Assistant conversation with streamed turn",
     "category": "AI tools and generated catalogs",
     "surface": "AddNewHeapAssistant, NhAssistantBuilder (UsePostgreSql, UseSqlServer, UseAccessPolicy, UseChatProfile, AddAgent, AddBusinessAuditSink, WithLimits), NhAssistantAgentDefinition, MapNewHeapAssistant, NhAssistantOptions (NewHeap:AI:Assistant:Enabled, AccessPolicy), the assistant HTTP API and server-sent events, NhAiScriptedChatClient",
-    "outcome": "The sample registers one agent over the curated `projects.*` tools with a streaming chat profile, PostgreSQL storage in the library-owned `nhai` schema and the `app.active-division.project.view` access policy. A signed-in user creates a conversation and posts a message; the turn streams `turn.started`, a governed `projects.search` call as `tool.started` and `tool.completed` with a bounded result preview, `message.delta` text and `turn.completed` with usage. The tool runs through the shared invoker as the agent on behalf of the accountable user in the active division, the conversation returns to `idle` and its messages and tool-call parts are persisted. The flag, the access policy and the agent's required policy gate every endpoint. A model that sends the search arguments without the `input` envelope still runs the tool once; an envelope mixed with other properties completes that call with `resultCode` `ai-tool-input-invalid`, and the model's corrected retry succeeds in the same turn.",
+    "outcome": "The sample registers one agent over the curated `projects.*` tools with a streaming chat profile, PostgreSQL storage in the library-owned `nhai` schema and the `app.active-division.project.view` access policy. A signed-in user creates a conversation and posts a message; the turn streams `turn.started`, a governed `projects.search` call as `tool.started` and `tool.completed` with a bounded result preview, `message.delta` text and `turn.completed` with usage. The tool runs through the shared invoker as the agent on behalf of the accountable user in the active division, the conversation returns to `idle` and its messages and tool-call parts are persisted. The flag, the access policy and the agent's required policy gate every endpoint. A model that sends the search arguments without the `input` envelope still runs the tool once; an envelope mixed with other properties completes that call with `resultCode` `ai-tool-input-invalid`, and the model's corrected retry succeeds in the same turn. When the turn reaches the sample's limit of four tool calls, the fifth call is refused without running, one tool-free model call answers from the four results as `message.delta` and `turn.completed` keeps `assistant-tool-call-limit-reached`; the follow-up turn replays that answer with a bounded `<tool-call-summary>` data block of the executed calls and no result content.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantToolArgumentSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantToolLimitSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolHistory.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiScriptedChatClient.cs",
@@ -3516,8 +3527,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-255",
     "title": "API bridge gateway over read-only resources",
     "category": "AI tools and generated catalogs",
-    "surface": "NhCollectionContractMetadata, INhAiBridgeCollectionContractProvider, NhAiNewHeapCollectionContractProvider, NhAiMvcBridgeBuilder.EnableGateway, NhAiMvcBridgeGatewayBuilder.UseLocalizedResourcePresentation, NhAiBridgeQueryDescription, the <set>.search-resources, .describe-resource, .query and .get tools and NhAiBridgeFailureCodes.ResourceNotFound",
-    "outcome": "Instead of one tool per action, the sample publishes four read-only gateway tools over the read-only project and project-task resources. Canonical `CollectionRequestModel`, `CollectionResultModel<T>` and `SimpleCollectionResultModel<T>` endpoints need no consumer conventions: NewHeap derives filter, order, search and result metadata from the same `[Filterable]`, `[Orderable]` and `[Searchable]` attributes and operator vocabulary used by collection processing. Resource identifiers remain invariant while localized titles and summaries come from consumer-owned resources with English fallbacks. Discovery reauthorizes controller policies and binds the supplied invocation context to the signed-in actor. `query` and `get` run the underlying bridge descriptor through the shared invoker, so gate, policies, budget, audit and self-HTTP remain unchanged; unsupported fields fail before HTTP, unknown and unauthorized resources remain indistinguishable, and mutations never enter the gateway. The query-string collection endpoint is recognized from its documented canonical result type and uses the same NewHeap wire contract without `SampleAiBridgeConventions`.",
+    "surface": "NhCollectionContractMetadata, INhAiBridgeCollectionContractProvider, NhAiNewHeapCollectionContractProvider, NhAiMvcBridgeBuilder.EnableGateway, NhAiMvcBridgeGatewayBuilder.UseLocalizedResourcePresentation, NhAiBridgeQueryDescription, NhAiMvcBridgeGatewayBuilder.RedactResultFields, NhAiBridgeResultShaping, NhAiBridgeTruncation, INhAiBridgeCollectionContractProvider.TryEncodeCountQuery, the <set>.search-resources, .describe-resource, .query and .get tools and NhAiBridgeFailureCodes.ResourceNotFound",
+    "outcome": "Instead of one tool per action, the sample publishes four read-only gateway tools over the read-only project and project-task resources. Canonical `CollectionRequestModel`, `CollectionResultModel<T>` and `SimpleCollectionResultModel<T>` endpoints need no consumer conventions: NewHeap derives filter, order, search and result metadata from the same `[Filterable]`, `[Orderable]` and `[Searchable]` attributes and operator vocabulary used by collection processing. Resource identifiers remain invariant while localized titles and summaries come from consumer-owned resources with English fallbacks. Discovery reauthorizes controller policies and binds the supplied invocation context to the signed-in actor. `query` and `get` run the underlying bridge descriptor through the shared invoker, so gate, policies, budget, audit and self-HTTP remain unchanged; unsupported fields fail before HTTP, unknown and unauthorized resources remain indistinguishable, and mutations never enter the gateway. The query-string collection endpoint is recognized from its documented canonical result type and uses the same NewHeap wire contract without `SampleAiBridgeConventions`. Gateway results are shaped before the size bound: items are compacted by default, `fields` projects result fields including one dotted level, `countOnly` returns only `totalCount`, e-mail and phone fields are redacted at every depth with `RedactResultFields`, and an oversized page keeps whole items with structured `truncation` guidance instead of a raw `bodyText` fragment.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAiBridgeComposition.cs",
@@ -3530,6 +3541,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDiscoveryPolicy.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeGatewayTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeGatewayCollectionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeGatewayShapingTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeCollectionContracts.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs"
     ]

@@ -1207,8 +1207,8 @@
       "id": "SPM-083",
       "categoryId": "6",
       "title": "Durable background operation with fan-out and nested progress",
-      "surface": "`WithBackgroundOperations`, `INhBackgroundOperationHandler<T>`, `TaskResult`, `NhBackgroundOperationRetryResult`, fan-out/fan-in, durable leases, scoped polling, and scoped SignalR",
-      "outcome": "A division-exclusive parent durably fans out project work, releases its worker while children execute concurrently, propagates expected batch, checkpoint, step, and fan-in outcomes through TaskResult, reschedules internal lock contention without consuming handler retries, advances a contended final-child wake-up to the next dispatcher interval, aggregates nested progress, protects unprojected notification milestones during event retention, starts under strict EF Core warning policies, and remains isolated to the authenticated user and accessible active division through notifications, SignalR, and polling.",
+      "surface": "`WithBackgroundOperations`, `INhBackgroundOperationHandler<T>`, `TaskResult`, `INhBackgroundOperationNotificationPolicy`, `NhBackgroundOperationRetryResult`, fan-out/fan-in, durable leases, scoped polling, and scoped SignalR",
+      "outcome": "A division-exclusive parent durably fans out project work, releases its worker while children execute concurrently, propagates expected batch, checkpoint, step, and fan-in outcomes through TaskResult, reschedules internal lock contention without consuming handler retries, advances a contended final-child wake-up to the next dispatcher interval, aggregates nested progress, notifies the owner only about outcomes and requests for attention while threading repeated portfolio work per division through a notification policy, protects unprojected notification milestones during event retention, starts under strict EF Core warning policies, and remains isolated to the authenticated user and accessible active division through notifications, SignalR, and polling.",
       "implementation": "implemented",
       "evidence": [
         "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1234,7 +1234,11 @@
         "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260824214941_AddNhBackgroundOperations.cs",
         "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260825072017_HardenBackgroundOperationDivisionScope.cs",
         "src/Front-end/projects/sample-project-management-common/src/lib/background-operations-page.component.ts",
-        "src/Front-end/projects/sample-project-management-common/src/lib/background-operations-page.component.html"
+        "src/Front-end/projects/sample-project-management-common/src/lib/background-operations-page.component.html",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationNotificationPolicyTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserNotificationGroupingProviderTests.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectOperationNotificationPolicy.cs"
       ]
     },
     {
@@ -1267,15 +1271,17 @@
       "id": "SPM-086",
       "categoryId": "6",
       "title": "Create and summarize user notifications",
-      "surface": "`INhUserNotificationService` and `NhUserNotificationService`",
-      "outcome": "Assignment creates the correct message, and the overview remains query-safe under strict EF Core warning policies on SQL Server and PostgreSQL.",
+      "surface": "`INhUserNotificationService`, `NhUserNotificationService` and `CreateOrAddMessageAsync`",
+      "outcome": "Assignment creates the correct message, repeated updates for one project join a single thread through `GroupKey` with category and severity, and the overview excludes archived notifications and remains query-safe under strict EF Core warning policies on SQL Server and PostgreSQL.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhUserNotificationService.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEfWarningCompatibilityProviderTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEfWarningCompatibilityProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserNotificationGroupingProviderTests.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260921201514_AddUserNotificationGrouping.cs"
       ]
     },
     {
@@ -1326,12 +1332,15 @@
       "categoryId": "6",
       "title": "Notification component",
       "surface": "abstract component + FE service",
-      "outcome": "The message, refresh, and target route work.",
+      "outcome": "The message, severity, thread update count, refresh, and target route work.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs",
-        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs"
+        "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectMaintenanceJob.cs",
+        "../../src/Front-end/projects/nh-common/src/lib/models/user-notification.models.ts",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-user-menu.component.ts",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-user-menu.component.html"
       ]
     },
     {

@@ -10,12 +10,29 @@ using NewHeap.Platform.Common;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 using System.Linq.Expressions;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace NewHeap.Platform.AspNet.Common.Services.Notification;
 
 public interface INhUserNotificationService : IBaseDbEntityService<NhUserNotification, NhUserNotificationMutateModel>
 {
     Task<TaskResult> AddMessageAsync(Guid id, NhAddMessageUserNotificationMutateModel mutateModel, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the user's most recently changed non-archived notification with the
+    /// given thread key, or <see langword="null"/> when there is none.
+    /// </summary>
+    Task<NhUserNotification?> GetActiveByGroupKeyAsync(Guid userId, string groupKey, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Appends a message to the user's active notification with the same
+    /// <see cref="NhUserNotificationMutateModel.GroupKey"/>, or creates a new
+    /// notification when there is no key or no active thread. Concurrent calls for
+    /// the same user and key are serialized.
+    /// </summary>
+    Task<TaskResult<NhUserNotification?>> CreateOrAddMessageAsync(NhUserNotificationMutateModel mutateModel, CancellationToken cancellationToken = default);
+
     Task<NhOverviewUserNotificationViewModel> GetOverviewByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<TaskResult> MarkAllIsLastReadByUserIdAsync(Guid userId, bool isLastRead, CancellationToken cancellationToken = default);
     Task<TaskResult> MarkIsLastReadAsync(Guid id, bool isLastRead, CancellationToken cancellationToken = default);
@@ -133,6 +150,9 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
             x.CreationDateTime = DateTimeOffset.UtcNow;
             x.LastModifiedDateTime = DateTimeOffset.UtcNow;
             x.IsLastRead = false;
+            x.Category = NormalizeOptional(mutateModel.Category);
+            x.Severity = mutateModel.Severity;
+            x.GroupKey = NormalizeOptional(mutateModel.GroupKey);
             x.Data.Url = mutateModel.Url;
             x.Data.UrlInNewTab = mutateModel.UrlInNewTab;
 
@@ -142,6 +162,7 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
                 {
                     Title = mutateModel.Title!,
                     Message = mutateModel.Message,
+                    Severity = mutateModel.Severity,
                     UserNotification = x
                 });
             }
@@ -202,6 +223,9 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
             x.LastMessage = mutateModel.Message ?? "";
             x.LastModifiedDateTime = DateTimeOffset.UtcNow;
             x.IsLastRead = false;
+            x.Category = NormalizeOptional(mutateModel.Category);
+            x.Severity = mutateModel.Severity;
+            x.GroupKey = NormalizeOptional(mutateModel.GroupKey);
 
             if (!string.IsNullOrWhiteSpace(mutateModel.Message))
             {
@@ -209,6 +233,7 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
                 {
                     Title = mutateModel.Title!,
                     Message = mutateModel.Message,
+                    Severity = mutateModel.Severity,
                     UserNotification = x
                 });
             }
@@ -264,25 +289,121 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
         if (userNotification == null)
         {
             taskResult.AddError(nameof(id), "Notification not found");
+            return taskResult;
         }
 
         var newMessage = new NhUserNotificationMessage()
         {
             Title = mutateModel.Title!,
             Message = mutateModel.Message ?? "",
+            Severity = mutateModel.Severity,
             UserNotification = userNotification
         };
 
-        userNotification!.Messages.Add(newMessage);
+        userNotification.Messages.Add(newMessage);
 
         userNotification.LastTitle = newMessage.Title;
         userNotification.LastMessage = newMessage.Message;
+        userNotification.Severity = newMessage.Severity;
         userNotification.LastModifiedDateTime = DateTimeOffset.UtcNow;
         userNotification.IsLastRead = false;
+
+        if (!string.IsNullOrWhiteSpace(mutateModel.Url)
+            && !string.Equals(userNotification.Data.Url, mutateModel.Url, StringComparison.Ordinal))
+        {
+            // Data is stored through a value conversion; assign a new instance so
+            // the change tracker detects the new link.
+            userNotification.Data = new NhUserNotficationData
+            {
+                Url = mutateModel.Url,
+                UrlInNewTab = userNotification.Data.UrlInNewTab
+            };
+        }
 
         await _repository.SaveChangesAsync(cancellationToken);
 
         return taskResult;
+    }
+
+    public async Task<NhUserNotification?> GetActiveByGroupKeyAsync(Guid userId, string groupKey, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(groupKey);
+
+        var normalizedGroupKey = groupKey.Trim();
+
+        return await _repository
+            .GetAll()
+            .Where(x => x.UserId == userId && x.GroupKey == normalizedGroupKey && !x.IsArchived)
+            .OrderByDescending(x => x.LastModifiedDateTime)
+            .ThenByDescending(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<TaskResult<NhUserNotification?>> CreateOrAddMessageAsync(
+        NhUserNotificationMutateModel mutateModel,
+        CancellationToken cancellationToken = default)
+    {
+        var groupKey = NormalizeOptional(mutateModel.GroupKey);
+        if (groupKey is null || !mutateModel.UserId.HasValue)
+        {
+            return await CreateAsync(mutateModel, cancellationToken: cancellationToken);
+        }
+
+        var taskResult = new TaskResult<NhUserNotification?>();
+
+        await using var transaction = await _repository.StartOrGetTransactionScopeAsync(cancellationToken);
+        if (!await _repository.TryAcquireTransactionLockAsync(
+                transaction,
+                GetGroupLockName(mutateModel.UserId.Value, groupKey),
+                GroupLockTimeoutMilliseconds,
+                cancellationToken))
+        {
+            return taskResult.WithError(string.Empty, "notification-group-busy");
+        }
+
+        var existing = await GetActiveByGroupKeyAsync(mutateModel.UserId.Value, groupKey, cancellationToken);
+        if (existing is null)
+        {
+            var createResult = await CreateAsync(mutateModel, cancellationToken: cancellationToken);
+            if (createResult.Success)
+            {
+                await transaction.CommitAsync(cancellationToken);
+            }
+
+            return createResult;
+        }
+
+        var addResult = await AddMessageAsync(
+            existing.Id,
+            new NhAddMessageUserNotificationMutateModel
+            {
+                Title = mutateModel.Title,
+                Message = mutateModel.Message,
+                Severity = mutateModel.Severity,
+                Url = mutateModel.Url
+            },
+            cancellationToken);
+        if (!addResult.Success)
+        {
+            return TaskResult<NhUserNotification?>.Failed(addResult);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        taskResult.Data = existing;
+        return taskResult;
+    }
+
+    private const int GroupLockTimeoutMilliseconds = 5_000;
+
+    private static string GetGroupLockName(Guid userId, string groupKey)
+    {
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(groupKey)));
+        return $"NhUserNotification:Group:{userId:N}:{hash}";
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
     public async Task<TaskResult> MarkIsLastReadAsync(Guid id, bool isLastRead, CancellationToken cancellationToken = default)
@@ -337,7 +458,7 @@ public class NhUserNotificationService : BaseDbEntityService<NhUserNotification,
     {
         var overviewRows = await _repository
             .GetAll()
-            .Where(x => x.UserId == userId)
+            .Where(x => x.UserId == userId && !x.IsArchived)
             .GroupBy(_ => 1)
             .Select(notifications => new NhOverviewUserNotificationViewModel
             {

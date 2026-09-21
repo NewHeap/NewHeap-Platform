@@ -17,6 +17,8 @@ public partial class NhUserNotificationMessage : IdDbEntity
 
     public string Message { get; set; } = string.Empty;
 
+    public NhUserNotificationSeverity Severity { get; set; } = NhUserNotificationSeverity.Information;
+
     public Guid UserNotificationId { get; set; }
     public NhUserNotification? UserNotification { get; set; }
 }

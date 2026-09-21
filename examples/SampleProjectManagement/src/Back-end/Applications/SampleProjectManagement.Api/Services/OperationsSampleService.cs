@@ -102,7 +102,11 @@ public sealed class OperationsSampleService
                     Title = $"Project {model.ProjectKey}",
                     Message = model.Message,
                     Url = $"/projects/{model.ProjectId}",
-                    UrlInNewTab = false
+                    UrlInNewTab = false,
+                    Category = "project-assignment",
+                    Severity = NhUserNotificationSeverity.Information,
+                    // Repeated updates about the same project join one inbox thread.
+                    GroupKey = $"project:{model.ProjectId}"
                 }
             })
             .WithEmailDelivery(new NhEmailDeliveryData
