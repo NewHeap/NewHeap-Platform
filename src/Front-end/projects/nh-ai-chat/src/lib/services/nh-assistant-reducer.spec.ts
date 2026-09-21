@@ -1,6 +1,6 @@
 import { ApprovalPart, Conversation, ToolCallPart } from '../models/assistant-api.models';
 import { NhAssistantSseEvent } from '../models/assistant-sse.models';
-import { applyNhAssistantApprovalDecision, applyNhAssistantEvent } from './nh-assistant-reducer';
+import { applyNhAssistantApprovalDecision, applyNhAssistantEvent, nhAssistantLatestTurnHasText } from './nh-assistant-reducer';
 
 const usage = { inputTokens: 120, outputTokens: 40, toolCalls: 2 };
 
@@ -148,5 +148,41 @@ describe('applyNhAssistantApprovalDecision', () => {
     expect((parts[3] as ApprovalPart).status).toBe('rejected');
     expect(decided.pendingApproval).toBeNull();
     expect(decided.status).toBe('running');
+  });
+});
+
+describe('nhAssistantLatestTurnHasText', () => {
+  const completed: NhAssistantSseEvent = { type: 'turn.completed', data: { turnId: 't1', status: 'completed', usage, errorCode: null } };
+  const started: NhAssistantSseEvent = { type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } };
+
+  it('is true when the latest turn streamed answer text', () => {
+    const done = replay(emptyConversation(), [started, { type: 'message.delta', data: { messageId: 'a1', text: 'Hi' } }, completed], 'client-1');
+
+    expect(nhAssistantLatestTurnHasText(done)).toBeTrue();
+  });
+
+  it('is false when the latest turn only ran tools or streamed blank text', () => {
+    const done = replay(emptyConversation(), [
+      started,
+      { type: 'message.delta', data: { messageId: 'a1', text: '   ' } },
+      {
+        type: 'tool.started',
+        data: { invocationId: 'i1', toolId: 'sample-api.project.get-by-id', toolVersion: 1, displayName: 'Get project', argumentsPreview: null }
+      },
+      { type: 'tool.completed', data: { invocationId: 'i1', status: 'succeeded', resultCode: null, resultPreview: null } },
+      completed
+    ], 'client-1');
+
+    expect(nhAssistantLatestTurnHasText(done)).toBeFalse();
+  });
+
+  it('ignores answer text of earlier turns', () => {
+    const earlier = replay(emptyConversation(), [started, { type: 'message.delta', data: { messageId: 'a1', text: 'Hi' } }, completed], 'client-1');
+    const next: Conversation = {
+      ...earlier,
+      messages: [...earlier.messages, { id: 'u2', role: 'user', createdAt: '2026-09-18T10:01:00Z', parts: [{ type: 'text', text: 'More' }] }]
+    };
+
+    expect(nhAssistantLatestTurnHasText(next)).toBeFalse();
   });
 });

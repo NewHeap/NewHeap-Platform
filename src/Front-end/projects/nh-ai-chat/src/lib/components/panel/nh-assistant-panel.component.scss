@@ -151,6 +151,25 @@ h2 {
   }
 }
 
+.turn-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  border: 1px solid var(--nha-warning);
+  border-radius: var(--nha-radius-control);
+  padding: 4px 4px 4px 12px;
+  color: var(--nha-warning);
+  background: var(--nha-warning-soft);
+
+  p {
+    flex: 1;
+    margin: 0;
+    color: var(--nha-text);
+    font-size: 13px;
+  }
+}
+
 .footer {
   border-top: 1px solid var(--nha-border);
   padding: 12px 16px 14px;

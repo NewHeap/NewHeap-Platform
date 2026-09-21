@@ -86,6 +86,10 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
     const error = this.store.error();
     return error ? [error.messageKey, `nh-assistant.errors.${error.code}`, 'nh-assistant.errors.generic'] : [];
   });
+  readonly noticeKeys = computed(() => {
+    const notice = this.store.notice();
+    return notice ? [notice.messageKey, `nh-assistant.errors.${notice.code}`, 'nh-assistant.errors.generic'] : [];
+  });
 
   constructor() {
     // Opening, creating or leaving a conversation returns from the list to the thread.
