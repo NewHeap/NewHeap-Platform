@@ -73,9 +73,3 @@ administration page in `@newheap/platform-ai-chat/admin` and a scripted mock API
 | Messages can carry page context: `NhAssistantConfig.getPageContext` returns `NhAssistantClientContext` (`route`, `title`, `entities`), sent as `clientContext` and truncated to the contract limits; a chip above the message box shows it and lets the user leave it out of the next message. | Optional: provide `getPageContext` from a service that entity pages set and clear. |
 | The composer remains editable while running or awaiting approval, blocked Enter preserves the draft, and approval cards prefer optional trusted presentation while technical ids and previews stay collapsed. | No action; custom layouts should pass `sendDisabled` separately from `disabled` and treat `approval.presentation` as optional. |
 | A completed turn with an `errorCode` (for example `assistant-tool-call-limit-reached` or a budget code) or without any answer text now shows a dismissible warning notice (`NhAssistantStore.notice`, `clearNotice()`, `nh-assistant.notices.no-answer`) instead of an empty answer; the conversation stays usable. Only failed turns use the error bar. | No action; custom layouts should render `store.notice()`. |
-
-## @newheap/platform-common
-
-| Breaking change | Required action |
-|---|---|
-| `NhUserNotification` gained `category`, `severity` and `groupKey`, and `NhUserNotificationMessage` gained `severity`; `nhUserNotificationSeverityName` normalizes numeric and string severities. | No action; render severity and thread size where useful. |
