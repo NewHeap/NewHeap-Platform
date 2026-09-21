@@ -93,6 +93,7 @@ with the same `GroupKey`.
 | `GetOverviewByUserIdAsync` excludes archived notifications from `TotalCount` and `UnreadCount`. | No action; badges now match the notification list. |
 | `AddMessageAsync` returns a failed result for an unknown notification instead of throwing `NullReferenceException`, and can replace the link through the new `Url`. | Handle the failed result. |
 | The default formatter now describes the `background-operation.timedout` event instead of a generic error milestone. | No action. |
+| Live updates are now published after notification projection for the same change. | No action; refresh the notification overview on a terminal live update. |
 
 ## @newheap/platform-common
 

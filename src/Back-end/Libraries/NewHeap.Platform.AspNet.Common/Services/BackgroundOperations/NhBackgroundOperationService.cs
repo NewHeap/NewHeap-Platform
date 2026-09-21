@@ -649,21 +649,6 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
     {
         try
         {
-            await _liveUpdates.PublishChangedAsync(operation.OwnerUserId,
-                new NhBackgroundOperationChangedMessage(
-                    operation.Id,
-                    operation.Version,
-                    operation.LatestEventSequence,
-                    operation.Status,
-                    operation.DivisionId),
-                cancellationToken);
-        }
-        catch (Exception exception)
-        {
-            _logger.LogWarning(exception, "Failed to publish live update for background operation {OperationId}", operation.Id);
-        }
-        try
-        {
             var projectionResult = await _notificationProjector.ProjectAsync(operation.Id, cancellationToken);
             if (!projectionResult.Success)
             {
@@ -676,6 +661,21 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
         catch (Exception exception)
         {
             _logger.LogWarning(exception, "Failed to project user notification for background operation {OperationId}", operation.Id);
+        }
+        try
+        {
+            await _liveUpdates.PublishChangedAsync(operation.OwnerUserId,
+                new NhBackgroundOperationChangedMessage(
+                    operation.Id,
+                    operation.Version,
+                    operation.LatestEventSequence,
+                    operation.Status,
+                    operation.DivisionId),
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Failed to publish live update for background operation {OperationId}", operation.Id);
         }
     }
 

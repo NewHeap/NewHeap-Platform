@@ -173,11 +173,12 @@ public sealed class NhBackgroundOperationProviderTests
             NullLogger<NhBackgroundOperationFanOutCoordinator>.Instance);
 
         var persistenceLogger = new ListLogger<NhBackgroundOperationPersistence>();
+        var publicationOrder = new List<string>();
         var persistence = new NhBackgroundOperationPersistence(
             serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             options,
-            new NoOpLiveUpdatePublisher(),
-            new NoOpNotificationProjector(),
+            new RecordingLiveUpdatePublisher(publicationOrder),
+            new RecordingNotificationProjector(publicationOrder),
             fanOutCoordinator,
             persistenceLogger);
         await VerifyOperationLockContentionAsync(
@@ -233,6 +234,7 @@ public sealed class NhBackgroundOperationProviderTests
                 cancellationToken);
             return TaskResult.Succeeded();
         });
+        VerifyProjectionPrecedesLiveUpdates(publicationOrder);
 
         var checkpointResult = await operationContext.Checkpoints.SetAsync(
             "provider-checkpoint",
@@ -1352,6 +1354,51 @@ public sealed class NhBackgroundOperationProviderTests
             target.CompletedAt = completedAt;
         }
         await cancellationContext.SaveChangesAsync();
+    }
+
+    private static void VerifyProjectionPrecedesLiveUpdates(IReadOnlyList<string> publicationOrder)
+    {
+        // Clients that refresh notifications on a live update must find the projected notification.
+        publicationOrder.Should().Contain(entry => entry.StartsWith("live:", StringComparison.Ordinal));
+        for (var index = 0; index < publicationOrder.Count; index++)
+        {
+            if (!publicationOrder[index].StartsWith("live:", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            index.Should().BeGreaterThan(0);
+            publicationOrder[index - 1].Should().Be("project:" + publicationOrder[index]["live:".Length..]);
+        }
+    }
+
+    private sealed class RecordingLiveUpdatePublisher(List<string> publicationOrder) : INhBackgroundOperationLiveUpdatePublisher
+    {
+        public Task PublishChangedAsync(
+            Guid ownerUserId,
+            NhBackgroundOperationChangedMessage message,
+            CancellationToken cancellationToken = default)
+        {
+            lock (publicationOrder)
+            {
+                publicationOrder.Add($"live:{message.OperationId:N}");
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class RecordingNotificationProjector(List<string> publicationOrder) : INhBackgroundOperationNotificationProjector
+    {
+        public Task<TaskResult> ProjectAsync(Guid operationId, CancellationToken cancellationToken = default)
+        {
+            lock (publicationOrder)
+            {
+                publicationOrder.Add($"project:{operationId:N}");
+            }
+
+            return Task.FromResult(TaskResult.Succeeded());
+        }
     }
 
     private sealed class NoOpLiveUpdatePublisher : INhBackgroundOperationLiveUpdatePublisher
