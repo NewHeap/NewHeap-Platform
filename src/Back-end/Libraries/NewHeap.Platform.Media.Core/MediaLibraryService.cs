@@ -220,7 +220,7 @@ public class MediaLibraryService : IMediaLibraryService
     {
         await EnsureAuthorized(path, null, null, ActionType.Create);
 
-        folderName = folderName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
+        folderName = folderName.Replace(NhMediaValues.DirectorySeparator, string.Empty).Trim();
 
         var newRef = new FolderReference()
         {
