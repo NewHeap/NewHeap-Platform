@@ -21,6 +21,38 @@ namespace NewHeap.Platform.AspNet.Proxy;
 public sealed partial class NhProxyDraftTester(INhProxyConfigurationService configuration, INhProxyConfigurationValidator validator,
     IOptions<NhProxyOptions> options) : INhProxyDraftTester
 {
+    internal static async Task<TaskResult<NhProxyRedirectPreview?>> TestIsolatedRedirectAsync(NhProxyRedirectRule rule,
+        NhProxyTestRequest input, INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options,
+        CancellationToken cancellationToken)
+    {
+        // The redirect editor deliberately tests only its draft, independently of stored rules and revisions.
+        var runtime = new NhProxyRuntime(validator, options);
+        var published = await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration { Rules = [rule] }, cancellationToken);
+        if (!published.Success)
+        {
+            return TaskResult<NhProxyRedirectPreview?>.Failed(published);
+        }
+
+        var context = CreateContext(input, cancellationToken);
+        var chainFailure = await runtime.CheckChainAsync(context);
+        if (chainFailure is not null)
+        {
+            return TaskResult<NhProxyRedirectPreview?>.Failed(
+                chainFailure == NhProxyRuntime.ChainDepthFailure ? NhProxyErrorCodes.MaximumChainDepth : NhProxyErrorCodes.Validation,
+                chainFailure);
+        }
+
+        if (runtime.TryRedirect(context, out var failure))
+        {
+            return TaskResult<NhProxyRedirectPreview?>.Succeeded(new(
+                (NhProxyRedirectStatus)context.Response.StatusCode, context.Response.Headers.Location.ToString(),
+                context.Response.StatusCode is 307 or 308));
+        }
+
+        return failure is null ? TaskResult<NhProxyRedirectPreview?>.Succeeded(null)
+            : TaskResult<NhProxyRedirectPreview?>.Failed(NhProxyErrorCodes.Validation, failure);
+    }
+
     public Task<TaskResult<NhProxyRuleTestResult>> TestSavedAsync(NhProxyRevisions expectedRevisions, NhProxyTestRequest request, CancellationToken cancellationToken = default)
     {
         return TestAsync(expectedRevisions, request, null, null, cancellationToken);

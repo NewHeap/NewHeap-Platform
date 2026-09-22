@@ -15,6 +15,76 @@ namespace NewHeap.Platform.AspNet.Proxy.Sqlite.Tests;
 public sealed class NhProxyAdministrationTests
 {
     [Theory]
+    [InlineData("save")]
+    [InlineData("test")]
+    public async Task Rewrite_editor_rejects_missing_transform_kind_and_preserves_the_draft(string operation)
+    {
+        var directory = Directory.CreateTempSubdirectory("newheap-editor-json-");
+        try
+        {
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+            builder.Services.AddNewHeapProxy(options =>
+            {
+                options.Administrator.UserName = "administrator";
+                options.Administrator.Password = "test-only-password";
+            }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
+            await using var app = builder.Build();
+            app.UseNewHeapProxy();
+            await app.StartAsync();
+            try
+            {
+                using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+                {
+                    BaseAddress = new Uri(app.Urls.Single())
+                };
+                const string panel = "/newheap-proxy";
+                var login = await client.GetStringAsync(panel + "/Login");
+                using var signedIn = await client.PostAsync(panel + "/Login", Form(login, new()
+                {
+                    ["UserName"] = "administrator", ["Password"] = "test-only-password"
+                }));
+                Assert.Equal(HttpStatusCode.Found, signedIn.StatusCode);
+                var editor = await client.GetStringAsync(panel + "/RewriteEdit");
+                var id = Guid.Parse(Field(editor, "Id"));
+                var clusterId = Guid.Parse(Field(editor, "ClusterId"));
+                var invalidJson = $$"""
+                    {"id":"{{id}}","name":"Preserve this draft","clusterId":"{{clusterId}}","match":{"path":"/draft"},"transforms":[{}]}
+                    """;
+                var cluster = new NhProxyCluster
+                {
+                    Id = clusterId, Name = "Backend", Destination = new("backend", new("https://backend.example/"))
+                };
+                using var response = await client.PostAsync(panel + "/RewriteEdit/" + id, Form(editor, new()
+                {
+                    ["Id"] = id.ToString(), ["Revision"] = "0", ["RedirectRevision"] = "0", ["IsNew"] = "true",
+                    ["Name"] = "Preserve this draft", ["Path"] = "/draft", ["Enabled"] = "true",
+                    ["ClusterId"] = clusterId.ToString(), ["ClusterName"] = cluster.Name,
+                    ["DestinationAddress"] = cluster.Destination.Address.AbsoluteUri,
+                    ["AdvancedRuleJson"] = invalidJson,
+                    ["AdvancedClusterJson"] = System.Text.Json.JsonSerializer.Serialize(cluster, System.Text.Json.JsonSerializerOptions.Web),
+                    ["TestUrl"] = "https://public.example/draft", ["TestMethod"] = "GET", ["operation"] = operation
+                }));
+                Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+                var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+                Assert.Contains(invalidJson, html);
+                Assert.Contains("valid advanced configuration", html);
+                var configuration = app.Services.GetRequiredService<INhProxyConfigurationService>();
+                Assert.Empty((await configuration.GetRewritesAsync()).Rules);
+                Assert.Equal(0, configuration.GetStatus().Rewrite.ActiveRevision);
+            }
+            finally
+            {
+                await app.StopAsync();
+            }
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
+    [Theory]
     [InlineData("", false)]
     [InlineData("/mounted", false)]
     [InlineData("", true)]

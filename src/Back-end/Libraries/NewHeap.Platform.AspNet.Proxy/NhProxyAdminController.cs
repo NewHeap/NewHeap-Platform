@@ -1,50 +1,12 @@
-using System.Collections.Immutable;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Options;
-using NewHeap.Platform.Common.Attributes;
 
 namespace NewHeap.Platform.AspNet.Proxy;
-
-public sealed class NhProxyRedirectEditorModel
-{
-    [Filterable] public Guid Id { get; set; }
-    [Range(0, long.MaxValue)] public long Revision { get; set; }
-    public bool IsNew { get; set; }
-    [Required, StringLength(200)] public string Name { get; set; } = "";
-    [Required, StringLength(2048)] public string Path { get; set; } = "";
-    public bool IsRegex { get; set; }
-    [Required, StringLength(4096)] public string Target { get; set; } = "";
-    public bool Enabled { get; set; } = true;
-    public int Priority { get; set; }
-    public NhProxyRedirectStatus Status { get; set; } = NhProxyRedirectStatus.Found;
-    public NhProxyRedirectQueryMode QueryMode { get; set; }
-    [StringLength(2048)] public string? Hosts { get; set; }
-    [StringLength(512)] public string? Methods { get; set; }
-    [StringLength(4096)] public string? TestUrl { get; set; }
-    [StringLength(32)] public string TestMethod { get; set; } = "GET";
-    [BindNever] public string? TestResult { get; set; }
-
-    internal NhProxyRedirectRule ToRule() => new()
-    {
-        Id = Id, Name = Name, Enabled = Enabled, Priority = Priority, Status = Status, QueryMode = QueryMode, Target = Target,
-        Match = new NhProxyRedirectMatch
-        {
-            Path = Path, PathMode = IsRegex ? NhProxyRedirectPathMatchMode.Regex : NhProxyRedirectPathMatchMode.Exact,
-            Hosts = Split(Hosts), Methods = Split(Methods)
-        }
-    };
-
-    private static ImmutableArray<string> Split(string? value) => (value ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToImmutableArray();
-}
-
-public sealed record NhProxyRedirectListModel(NhProxyRedirectConfiguration Configuration, NhProxyEngineStatus Status, string? Search);
-public sealed record NhProxyRedirectDeleteModel(NhProxyRedirectRule Rule, long Revision);
 
 /// <summary>Embedded MVC administration for managed proxy rules. The reserved pipeline branch owns access checks.</summary>
 [Area("NewHeapProxy")]
@@ -56,6 +18,8 @@ public sealed record NhProxyRedirectDeleteModel(NhProxyRedirectRule Rule, long R
 public sealed partial class NhProxyAdminController(INhProxyConfigurationService configuration, INhProxyAdministrationService administration,
     INhProxyConfigurationValidator validator, INhProxyLoginAuditStore audit, IOptions<NhProxyOptions> options) : Controller
 {
+    private readonly NhProxyEditorService _editor = new(configuration, validator);
+
     public override void OnActionExecuting(ActionExecutingContext context)
     {
         if (!HttpContext.Items.ContainsKey(typeof(NhProxyAdminController)))
@@ -199,25 +163,8 @@ public sealed partial class NhProxyAdminController(INhProxyConfigurationService 
             return NotFound();
         }
 
-        var snapshot = await configuration.GetRedirectsAsync(cancellationToken);
-        if (id is null)
-        {
-            return View(new NhProxyRedirectEditorModel { Id = Guid.NewGuid(), IsNew = true, Revision = snapshot.Revision });
-        }
-
-        var rule = snapshot.Rules.FirstOrDefault(rule => rule.Id == id);
-        if (rule is null)
-        {
-            return NotFound();
-        }
-
-        return View(new NhProxyRedirectEditorModel
-        {
-            Id = rule.Id, Revision = snapshot.Revision, Name = rule.Name, Path = rule.Match.Path, Target = rule.Target,
-            Enabled = rule.Enabled, Priority = rule.Priority, Status = rule.Status, QueryMode = rule.QueryMode,
-            IsRegex = rule.Match.PathMode == NhProxyRedirectPathMatchMode.Regex,
-            Hosts = string.Join(", ", rule.Match.Hosts), Methods = string.Join(", ", rule.Match.Methods)
-        });
+        var model = await _editor.GetRedirectAsync(id, cancellationToken);
+        return model is null ? NotFound() : View(model);
     }
 
     [HttpPost]
@@ -266,43 +213,24 @@ public sealed partial class NhProxyAdminController(INhProxyConfigurationService 
                 return View(model);
             }
 
-            var preview = new NhProxyRuntime(validator, options);
-            var published = await preview.PublishRedirectsAsync(new NhProxyRedirectConfiguration { Rules = [rule] }, cancellationToken);
-            if (!published.Success)
+            var tested = await NhProxyDraftTester.TestIsolatedRedirectAsync(rule,
+                new NhProxyTestRequest { Url = url, Method = model.TestMethod }, validator, options, cancellationToken);
+            if (!tested.Success)
             {
-                ModelState.AddModelError("", "This draft could not be tested.");
-                Response.StatusCode = 400;
-                return View(model);
+                model.TestResult = tested.GetResultItems().Any(item => item.Name == NhProxyErrorCodes.MaximumChainDepth)
+                    ? $"Request refused: the rule chain exceeds the maximum depth of {options.Value.Limits.MaximumChainDepth}."
+                    : string.Join("; ", tested.AllErrorMessages);
             }
-
-            var request = new DefaultHttpContext();
-            request.Request.Path = PathString.FromUriComponent(url);
-            request.Request.Host = HostString.FromUriComponent(url);
-            request.Request.QueryString = new QueryString(url.Query);
-            request.Request.Method = model.TestMethod;
-            request.Request.Scheme = url.Scheme;
-            var chainFailure = await preview.CheckChainAsync(request);
-            if (chainFailure == NhProxyRuntime.ChainDepthFailure)
+            else
             {
-                model.TestResult = $"Request refused: the rule chain exceeds the maximum depth of {options.Value.Limits.MaximumChainDepth}.";
-                return View(model);
+                model.TestResult = tested.Data is { } redirect
+                    ? $"Match: {(int)redirect.Status} → {redirect.Location}"
+                    : "No match. This draft would pass the request to the next middleware.";
             }
-
-            model.TestResult = preview.TryRedirect(request, out var failure)
-                ? $"Match: {request.Response.StatusCode} → {request.Response.Headers.Location}"
-                : failure ?? "No match. This draft would pass the request to the next middleware.";
             return View(model);
         }
 
-        var snapshot = await configuration.GetRedirectsAsync(cancellationToken);
-        var exists = snapshot.Rules.Any(existing => existing.Id == model.Id);
-        if (snapshot.Revision != model.Revision || exists == model.IsNew)
-        {
-            return ConflictView(model);
-        }
-
-        var rules = model.IsNew ? snapshot.Rules.Add(rule) : snapshot.Rules.Select(existing => existing.Id == rule.Id ? rule : existing).ToImmutableArray();
-        var saved = await configuration.SaveRedirectsAsync(new(model.Revision, rules), cancellationToken);
+        var saved = await _editor.SaveRedirectAsync(model, rule, cancellationToken);
         if (!saved.Success)
         {
             if (saved.Data is not null)
@@ -355,13 +283,7 @@ public sealed partial class NhProxyAdminController(INhProxyConfigurationService 
             return BadRequest("A valid rule and revision are required.");
         }
 
-        var snapshot = await configuration.GetRedirectsAsync(cancellationToken);
-        if (snapshot.Revision != revision)
-        {
-            return Conflict("The configuration changed. Reload before deleting.");
-        }
-
-        var saved = await configuration.SaveRedirectsAsync(new(revision, snapshot.Rules.Where(rule => rule.Id != id).ToImmutableArray()), cancellationToken);
+        var saved = await _editor.DeleteRedirectAsync(id, revision, cancellationToken);
         return saved.Success || saved.Data is not null ? RedirectToAction(nameof(Index)) : Conflict("The rule could not be deleted. Reload before trying again.");
     }
 

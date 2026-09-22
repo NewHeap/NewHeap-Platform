@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -28,28 +27,8 @@ public sealed partial class NhProxyAdminController
             return NotFound();
         }
 
-        var snapshot = await configuration.GetRewritesAsync(cancellationToken);
-        var redirects = await configuration.GetRedirectsAsync(cancellationToken);
-        var rule = snapshot.Rules.FirstOrDefault(rule => rule.Id == id);
-        if (id is not null && rule is null)
-        {
-            return NotFound();
-        }
-
-        var cluster = rule is null ? new NhProxyCluster
-        {
-            Id = Guid.NewGuid(), Name = "Backend", Destination = new("backend", new("https://backend.example/"))
-        } : snapshot.Clusters.Single(cluster => cluster.Id == rule.ClusterId);
-        rule ??= new NhProxyRewriteRule { Id = Guid.NewGuid(), Name = "", ClusterId = cluster.Id, Match = new() { Path = "/{**rest}" } };
-        var model = NhProxyRewriteEditorModel.FromRule(rule, cluster, snapshot.Revision, redirects.Revision);
-        model.IsNew = id is null;
-        model.AvailableClusters = snapshot.Clusters;
-        if (model.IsNew)
-        {
-            model.DestinationAddress = "";
-        }
-
-        return View(model);
+        var model = await _editor.GetRewriteAsync(id, cancellationToken);
+        return model is null ? NotFound() : View(model);
     }
 
     [HttpPost]
@@ -99,49 +78,26 @@ public sealed partial class NhProxyAdminController
             return RewriteError(model, 400, "Load the selected destination before saving or testing its settings.");
         }
 
-        NhProxyRewriteRule rule;
-        NhProxyCluster cluster;
-        try
+        var prepared = await _editor.PrepareRewriteAsync(model, snapshot, cancellationToken);
+        if (!prepared.Success)
         {
-            rule = model.ToRule();
-            cluster = model.ToCluster();
-        }
-        catch (Exception exception) when (exception is JsonException or UriFormatException or ArgumentException)
-        {
-            return RewriteError(model, 400, "Enter an absolute HTTP(S) destination and valid advanced configuration. Unknown fields are not supported.");
-        }
-
-        var rules = snapshot.Rules.Where(existing => existing.Id != rule.Id).Append(rule).ToImmutableArray();
-        var clusters = snapshot.Clusters.Where(existing => existing.Id != cluster.Id).Append(cluster).ToImmutableArray();
-        var validation = await validator.ValidateRewritesAsync(new(model.Revision, rules, clusters), cancellationToken);
-        if (!validation.Success)
-        {
-            return RewriteError(model, 400, "The rewrite is invalid. Check the route template, destination restrictions, transforms and registered policy names.");
+            var invalidJson = prepared.GetResultItems().Any(item =>
+                item.ErrorMessages.Any(message => message.Format == NhProxyEditorService.InvalidJson));
+            return RewriteError(model, 400, invalidJson
+                ? "Enter an absolute HTTP(S) destination and valid advanced configuration. Unknown fields are not supported."
+                : "The rewrite is invalid. Check the route template, destination restrictions, transforms and registered policy names.");
         }
 
         if (operation == "test")
         {
-            NhProxyTestRequest input;
-            try
-            {
-                input = new()
-                {
-                    Url = new(model.TestUrl ?? "", UriKind.Absolute), Method = model.TestMethod,
-                    Headers = JsonSerializer.Deserialize<ImmutableDictionary<string, ImmutableArray<string>>>(model.TestHeadersJson)
-                        ?? throw new JsonException()
-                };
-            }
-            catch (Exception exception) when (exception is UriFormatException or JsonException)
-            {
-                return RewriteError(model, 400, "Enter an absolute request URL and headers as a JSON object of string arrays.");
-            }
-
-            var tested = await tester.TestRewriteAsync(new(new(model.Revision, model.RedirectRevision), rule, input)
-            {
-                DraftClusters = clusters, SimulateEnabled = model.SimulateEnabled
-            }, cancellationToken);
+            var tested = await NhProxyEditorService.TestRewriteAsync(model, prepared.Data!, tester, cancellationToken);
             if (!tested.Success)
             {
+                if (tested.GetResultItems().Any(item => item.ErrorMessages.Any(message => message.Format == NhProxyEditorService.InvalidTestInput)))
+                {
+                    return RewriteError(model, 400, "Enter an absolute request URL and headers as a JSON object of string arrays.");
+                }
+
                 var stale = tested.GetResultItems().Any(item => item.Name == NhProxyErrorCodes.RevisionConflict);
                 return RewriteError(model, stale ? 409 : 400, stale
                     ? "The saved rules changed. Reload this editor before testing again."
@@ -154,7 +110,7 @@ public sealed partial class NhProxyAdminController
             return View(model);
         }
 
-        var saved = await configuration.SaveRewritesAsync(new(model.Revision, rules, clusters), cancellationToken);
+        var saved = await configuration.SaveRewritesAsync(prepared.Data!, cancellationToken);
         if (!saved.Success && saved.Data is null)
         {
             return RewriteError(model, 409, "The configuration could not be saved. Reload and review your changes.");
@@ -195,8 +151,7 @@ public sealed partial class NhProxyAdminController
             return BadRequest("A valid rule and revision are required.");
         }
 
-        var snapshot = await configuration.GetRewritesAsync(cancellationToken);
-        var saved = await configuration.SaveRewritesAsync(new(revision, snapshot.Rules.Where(rule => rule.Id != id).ToImmutableArray(), snapshot.Clusters), cancellationToken);
+        var saved = await _editor.DeleteRewriteAsync(id, revision, cancellationToken);
         return saved.Success || saved.Data is not null ? RedirectToAction(nameof(Rewrites)) : Conflict("The configuration changed. Reload before deleting.");
     }
 

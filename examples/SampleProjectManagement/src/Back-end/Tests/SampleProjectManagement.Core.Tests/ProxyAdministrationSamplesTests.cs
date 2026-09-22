@@ -102,6 +102,29 @@ public sealed class ProxyAdministrationSamplesTests
                 Assert.True(script.Success);
                 Assert.Equal(nonce.Groups[1].Value, WebUtility.HtmlDecode(script.Groups[1].Value));
 
+                // SPM-239: malformed advanced configuration stays editable and never saves or activates a revision.
+                var invalidRule = System.Text.Json.Nodes.JsonNode.Parse(
+                    System.Text.Json.JsonSerializer.Serialize(rewrite, System.Text.Json.JsonSerializerOptions.Web))!;
+                invalidRule["transforms"]![0]!.AsObject().Remove("kind");
+                var invalidJson = invalidRule.ToJsonString();
+                var editorToken = System.Text.RegularExpressions.Regex.Match(editorHtml, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
+                Assert.True(editorToken.Success);
+                using var invalidDraft = await client.PostAsync("/newheap-proxy/RewriteEdit/" + rewrite.Id,
+                    new FormUrlEncodedContent(new Dictionary<string, string>
+                    {
+                        ["Id"] = rewrite.Id.ToString(), ["Revision"] = "1", ["RedirectRevision"] = "1", ["IsNew"] = "false",
+                        ["Name"] = rewrite.Name, ["Path"] = rewrite.Match.Path!, ["Enabled"] = "true",
+                        ["ClusterId"] = cluster.Id.ToString(), ["ClusterName"] = cluster.Name,
+                        ["DestinationAddress"] = cluster.Destination.Address.AbsoluteUri,
+                        ["AdvancedRuleJson"] = invalidJson,
+                        ["AdvancedClusterJson"] = System.Text.Json.JsonSerializer.Serialize(cluster, System.Text.Json.JsonSerializerOptions.Web),
+                        ["operation"] = "save", ["__RequestVerificationToken"] = WebUtility.HtmlDecode(editorToken.Groups[1].Value)
+                    }), cancellationToken);
+                Assert.Equal(HttpStatusCode.BadRequest, invalidDraft.StatusCode);
+                Assert.Contains(invalidJson, WebUtility.HtmlDecode(await invalidDraft.Content.ReadAsStringAsync(cancellationToken)));
+                Assert.Equal(1, (await configuration.GetRewritesAsync(cancellationToken)).Revision);
+                Assert.Equal(1, configuration.GetStatus().Rewrite.ActiveRevision);
+
                 var panelHtml = await client.GetStringAsync("/newheap-proxy", cancellationToken);
                 var panelToken = System.Text.RegularExpressions.Regex.Match(panelHtml, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
                 Assert.True(panelToken.Success);

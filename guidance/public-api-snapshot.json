@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.32",
   "backEnd": {
-    "hash": "292d92bc2cbe27c14ca5edbc4d0ea468faffa62c625d58c6aaa083042b7484fd",
+    "hash": "42bc1e3f339c445e378ab8d73e5029ab930cf43d0deb2faf2333b0d91d9d3710",
     "declarationCount": 4056,
     "declarations": [
       {
@@ -10151,42 +10151,6 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "public sealed class NhProxyRedirectEditorModel {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "[Filterable] public Guid Id { get; set; } [Range(0, long.MaxValue)] public long Revision { get; set; } public bool IsNew { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "[Required, StringLength(200)] public string Name { get; set; } = \"\"; [Required, StringLength(2048)] public string Path { get; set; } = \"\"; public bool IsRegex { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "[Required, StringLength(4096)] public string Target { get; set; } = \"\"; public bool Enabled { get; set; } = true;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "public int Priority { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "public NhProxyRedirectStatus Status { get; set; } = NhProxyRedirectStatus.Found;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "public NhProxyRedirectQueryMode QueryMode { get; set; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "public sealed record NhProxyRedirectListModel(NhProxyRedirectConfiguration Configuration, NhProxyEngineStatus Status, string? Search);"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
-        "declaration": "public sealed record NhProxyRedirectDeleteModel(NhProxyRedirectRule Rule, long Revision);"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyAdminController.cs",
         "declaration": "[Area(\"NewHeapProxy\")] [Authorize(Policy = NhProxyOptions.AdministrationPolicy)] [AutoValidateAntiforgeryToken] [RequestSizeLimit(65536)] [ProducesResponseType(StatusCodes.Status403Forbidden)] [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)] public sealed partial class NhProxyAdminController(INhProxyConfigurationService configuration, INhProxyAdministrationService administration, INhProxyConfigurationValidator validator, INhProxyLoginAuditStore audit, IOptions<NhProxyOptions> options) : Controller {"
       },
       {
@@ -11004,6 +10968,42 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyOptions.cs",
         "declaration": "public TimeSpan TestTimeout { get; set; } = TimeSpan.FromSeconds(5);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectEditorModel.cs",
+        "declaration": "public sealed class NhProxyRedirectEditorModel {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectEditorModel.cs",
+        "declaration": "[Filterable] public Guid Id { get; set; } [Range(0, long.MaxValue)] public long Revision { get; set; } public bool IsNew { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectEditorModel.cs",
+        "declaration": "[Required, StringLength(200)] public string Name { get; set; } = \"\"; [Required, StringLength(2048)] public string Path { get; set; } = \"\"; public bool IsRegex { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectEditorModel.cs",
+        "declaration": "[Required, StringLength(4096)] public string Target { get; set; } = \"\"; public bool Enabled { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectEditorModel.cs",
+        "declaration": "public int Priority { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectEditorModel.cs",
+        "declaration": "public NhProxyRedirectStatus Status { get; set; } = NhProxyRedirectStatus.Found;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectEditorModel.cs",
+        "declaration": "public NhProxyRedirectQueryMode QueryMode { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectEditorModel.cs",
+        "declaration": "public sealed record NhProxyRedirectListModel(NhProxyRedirectConfiguration Configuration, NhProxyEngineStatus Status, string? Search);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectEditorModel.cs",
+        "declaration": "public sealed record NhProxyRedirectDeleteModel(NhProxyRedirectRule Rule, long Revision);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy/NhProxyRedirectMiddleware.cs",

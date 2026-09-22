@@ -1,8 +1,6 @@
 using System.Collections.Immutable;
 using System.Security.Claims;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -26,29 +24,7 @@ public sealed record NhProxySavedTestRequest(NhProxyRevisions ExpectedRevisions,
 /// <summary>Opt-in server-to-server management API using Basic credentials or host authentication.</summary>
 public static class NhProxyApiEndpoints
 {
-    private static readonly JsonSerializerOptions RequestJsonOptions = CreateRequestJsonOptions();
-
-    private static JsonSerializerOptions CreateRequestJsonOptions()
-    {
-        var resolver = new DefaultJsonTypeInfoResolver();
-        resolver.Modifiers.Add(typeInfo =>
-        {
-            if (typeInfo.Type == typeof(NhProxyTransform))
-            {
-                // Without a discriminator, STJ otherwise tries to construct the abstract base and throws NotSupportedException.
-                typeInfo.CreateObject = () => throw new JsonException(
-                    "A transform must specify 'kind': 'path', 'query', 'header', 'original-host' or 'forwarded-headers'.");
-            }
-        });
-
-        return new JsonSerializerOptions(JsonSerializerDefaults.Web)
-        {
-            TypeInfoResolver = resolver,
-            UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-            RespectRequiredConstructorParameters = true,
-            Converters = { new JsonStringEnumConverter(allowIntegerValues: true) }
-        };
-    }
+    private static readonly JsonSerializerOptions RequestJsonOptions = NhProxyJson.CreateOptions();
 
     /// <summary>
     /// Maps /newheap-proxy/api. Call before UseNewHeapProxy, after trusted forwarded headers and PathBase.

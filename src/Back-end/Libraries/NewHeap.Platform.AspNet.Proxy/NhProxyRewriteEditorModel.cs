@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using NewHeap.Platform.Common.Attributes;
 
@@ -9,11 +8,8 @@ namespace NewHeap.Platform.AspNet.Proxy;
 
 public sealed class NhProxyRewriteEditorModel
 {
-    internal static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = true, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-        Converters = { new JsonStringEnumConverter() }
-    };
+    internal static readonly JsonSerializerOptions JsonOptions =
+        NhProxyJson.CreateOptions(writeIndented: true, requireConstructorParameters: false);
 
     [Filterable] public Guid Id { get; set; }
     public bool IsNew { get; set; }

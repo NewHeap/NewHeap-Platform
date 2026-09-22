@@ -112,6 +112,21 @@ public sealed class NhProxyContractTests
     }
 
     [Fact]
+    public void Rewrite_editor_treats_a_missing_transform_kind_as_invalid_json()
+    {
+        var editor = new NhProxyRewriteEditorModel
+        {
+            AdvancedRuleJson = """
+                {"id":"11111111-1111-1111-1111-111111111111","name":"Draft","clusterId":"22222222-2222-2222-2222-222222222222","match":{"path":"/draft"},"transforms":[{}]}
+                """
+        };
+
+        var exception = Assert.Throws<JsonException>(() => editor.ToRule());
+        Assert.Contains("kind", exception.Message);
+        Assert.Contains("transforms", exception.Path);
+    }
+
+    [Fact]
     public void Rewrite_configuration_preserves_ordered_typed_transforms_in_json()
     {
         var clusterId = Guid.NewGuid();

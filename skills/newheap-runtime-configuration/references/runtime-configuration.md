@@ -103,8 +103,9 @@ numeric values, including in both snapshot PUT endpoints. Enum names are
 case-insensitive; unknown names and
 unsupported numeric values return 400. This includes nested transform enums.
 Invalid input returns 400 with readable issue messages; JSON errors include the
-field path. A missing transform kind is a client input error in both saves and
-draft tests. Preserve issue codes/localization keys and keep infrastructure
+field path. A missing transform kind is a client input error in both API saves and
+draft tests. The MVC rewrite editor shares the transform JSON boundary: a missing
+kind returns 400 with the entered draft intact, without saving or activating it. Preserve issue codes/localization keys and keep infrastructure
 exception details out of responses. Invalid input must not save, activate or audit.
 Before persistence, the shared validator builds the candidate's native YARP
 transforms and forces regex route constraints to compile, including disabled rules.
