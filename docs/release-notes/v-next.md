@@ -1,11 +1,5 @@
 # v-next
 
-## NewHeap.Platform.Media.Core
-
-| Breaking change | Required action |
-|---|---|
-| Folder creation and renaming now trim surrounding whitespace and reject names that are empty after removing directory separators and trimming. | Pass non-empty normalized new names, handle failed `TaskResult` values, and use the returned folder name/path for subsequent requests; retain the exact existing name when looking up a folder to rename. |
-
 ## NewHeap.Platform.AI.AspNet.Mvc (new package)
 
 `AddNewHeapPlatformAIMvcBridge` publishes policy-protected MVC actions as governed,
