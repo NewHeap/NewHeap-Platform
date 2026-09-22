@@ -1,11 +1,5 @@
 # v-next
 
-## NewHeap.Platform.Media.Core
-
-| Adoption note | Required action |
-|---|---|
-| The Common dependency minimum is lowered from 7.8.0 to 6.0.0 (`[6.0.0,)`) and no longer follows each Common release. | No action; consumers can retain Common 6.0.0 or a newer compatible version. |
-
 ## NewHeap.Platform.AI.AspNet.Mvc (new package)
 
 `AddNewHeapPlatformAIMvcBridge` publishes policy-protected MVC actions as governed,
