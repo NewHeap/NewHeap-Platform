@@ -46,6 +46,17 @@ internal sealed class NhAiDefaultEffectPolicy : INhAiEffectPolicy
                 NhAiEffectDecisionKind.ConsumerAuthoritativeApproval,
                 "consumer-authoritative-approval"));
         }
+        if (descriptor.Approval == NhAiApprovalRequirement.Issuer
+            && descriptor.Effect is NhAiToolEffect.IdempotentMutation
+                or NhAiToolEffect.Mutation
+                or NhAiToolEffect.ExternalSideEffect)
+        {
+            // Issuing an approval artifact runs under the consumer's own write authorization;
+            // the invocation gate and capability resolution still apply.
+            return ValueTask.FromResult(new NhAiEffectDecision(
+                NhAiEffectDecisionKind.Allow,
+                "approval-issuer"));
+        }
         if (descriptor.Effect == NhAiToolEffect.ReadOnly)
         {
             return ValueTask.FromResult(new NhAiEffectDecision(

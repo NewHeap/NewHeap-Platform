@@ -35,6 +35,14 @@ its `TaskResult<TOutput>`. Set that context through
 serialization reflection-free after trimming; omitting required metadata can
 make function creation or invocation fail only in the published executable.
 
+The generated schema describes the serializer contract the function actually
+uses. Without a context that is the Microsoft.Extensions.AI default: camelCase
+names, string enum member names and omitted nulls. A declared context contributes
+its naming policy, default ignore condition and string enum converter. Property
+names honor `JsonPropertyName`, and `JsonIgnore` conditions keep or remove
+properties per direction. Keep the schema and the wire in agreement through these
+serializer attributes rather than by editing the generated schema.
+
 Register an `INhAiToolInvocationGate` and `INhAiToolInvoker` before creating
 functions. The gate must validate the current actor and derive tenant, division,
 or resource scope server-side. The tool receives that authorized scope through
@@ -45,7 +53,16 @@ exists. Telemetry records tool ID, version, effect, exposure, and outcome only.
 Set a bounded `MaxInputBytes` for each contract and keep the generated typed
 argument binding as the runtime schema boundary. The shared invoker serializes
 the bound arguments with the platform JSON policy and rejects oversized input
-before capability, approval, budget, idempotency, or application work. Every
+before capability, approval, budget, idempotency, or application work.
+Governed functions take one `input` argument. Some models send the input
+properties at the top level instead; `NhAiGovernedAIFunction` then treats the
+whole argument object as `input` when `input` is the schema's only property, so
+the call still binds, validates and runs through the invoker exactly once. It never
+merges or drops properties: `input` next to other top-level properties, or
+arguments that cannot be bound, return the recoverable `ai-tool-input-invalid`
+result naming only the unexpected property names, are audited, and never
+execute. `ai-tool-failed` remains reserved for unexpected failures, which the
+invoker logs with tool ID, version, invocation ID and exception type only. Every
 invocation also reserves through `INhAiBudgetManager`; omitting an optional
 remaining-run budget never disables that reservation. Startup fails when a
 profile or catalog is registered without a real budget manager.
@@ -78,6 +95,7 @@ the existing generated `<toolset>_<tool>_v<version>` name remains unchanged.
 - Hand-writing an attested catalog around a function that does not actually call `INhAiToolInvoker`.
 - Exposing a tool through MCP or an agent merely because a local catalog exists.
 - Logging prompts, arguments, model output, secrets, or full exception content.
+- Catching argument-binding exceptions in consumer code or returning argument values in failure messages; the governed function owns `ai-tool-input-invalid`.
 - Returning ad-hoc exceptions for expected business outcomes instead of `TaskResult`.
 
 ## Verification
@@ -89,7 +107,9 @@ scope, and verify the latter never reaches the application service. Also verify
 an unauthorized tool is absent from discovery. For mutations, also exercise
 proposal binding, duplicate retries, and verifier disagreement. Exercise an
 oversized input, a denied budget reservation, and an ungoverned catalog; none may
-reach the application service. SPM-234
+reach the application service. Invoke a governed function with flat arguments and
+with `input` mixed with another property: the first runs once with the enveloped
+result, the second returns `ai-tool-input-invalid` without execution. SPM-234
 publishes the generated catalog through a trimmed Native AOT smoke executable
 and invokes a generated function so reflection-free descriptors, schemas,
 manifests, argument binding, and result serialization remain rooted.

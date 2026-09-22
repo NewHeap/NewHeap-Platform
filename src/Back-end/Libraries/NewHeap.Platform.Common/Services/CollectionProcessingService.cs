@@ -353,9 +353,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
             return false;
         }
 
-        var supportedOperators = new[] { "==", "!=", ">", ">=", "<", "<=", "IS", "IS NOT", "IN", "NOT IN", "LIKE" };
-
-        if (!supportedOperators.Contains(filter.Operator?.Trim(),StringComparer.InvariantCultureIgnoreCase))
+        if (!NhCollectionContractMetadata.IsSupportedFilterOperator(filter.Operator))
         {
             error = $"Invalid operator '{filter.Operator}'";
             return false;

@@ -57,6 +57,24 @@ weaken a tool that has no authoritative engine of its own; use
 `NotRequired`, an attesting `ApprovalValidated = true`, or an always-acquiring
 lease manager only when that is literally true.
 
+When a tool issues the approval artifact that another tool consumes, such as a
+single-use grant created under the application's own write authorization, declare
+`Approval = NhAiApprovalRequirement.Issuer` on the issuing tool. An issuer is a
+non-read, non-destructive side effect without a Platform idempotency lease; the
+generator rejects an issuer with `Idempotency = Required` or `Supported`, a
+read-only issuer, and a destructive issuer with `NHAI008`. The invoker still
+authorizes, resolves capabilities, reserves budget, bounds execution and audits
+it, and records the approval code `issuer`. `NhAiToolDescriptor.ApprovalRole`
+exposes `Issuer`, `Consumer` or `None`, so discovery policies and reviewers can
+tell an issuing tool apart from a consuming write bound to the same grant.
+
+When the consuming write validates its grant in the
+`INhAiAuthoritativeExecutionEvidenceValidator`, burn the grant there and return a
+denial with `NhAiAuthoritativeExecutionEvidence.Denied(receipt, evidenceReference)`.
+Let a replayed idempotency key pass the validator untouched so the engine can
+return the reconciled receipt. The failure code, message and evidence reference
+then reach the audit record and MCP callers.
+
 Resolve short-lived capabilities again at discovery and invocation. Bind grants
 to subject, purpose, tool selector, execution scope, issuer, expiry, optional
 budget, and revocation evidence. Always reserve a declared budget through
@@ -86,6 +104,9 @@ and evidence references—never arguments, results, prompts, or credentials.
   application does not actually own approval or replay reconciliation.
 - Declaring `ConsumerAuthoritative` approval or idempotency on a tool that does not validate
   its own grant and reconcile replays inside the invocation.
+- Declaring a grant-issuing tool as a consuming write, or a consuming write as an issuer.
+- Declaring the destructive effect only to publish a destructive MCP hint; use a narrowing
+  hint override so approval semantics stay honest.
 
 ## Verification
 
@@ -100,7 +121,10 @@ prove that an invalid or burned grant returns the typed denial receipt as failed
 and returns the reconciled receipt while the Platform idempotency manager is
 never asked for a lease, that the audit record carries the consumer-attested
 codes, and that a delegating effect decision is rejected for a tool that did not
-opt in. SPM-224, SPM-240 and `NewHeap.Platform.AI.Tests` are the executable
+opt in. Issue a grant through an issuer tool and consume it through the consuming
+write; assert the audit codes `issuer` and the validated or denied consumer code,
+and assert the generator rejects an issuer that declares a Platform idempotency
+lease. SPM-224, SPM-240 and `NewHeap.Platform.AI.Tests` are the executable
 references.
 
 ## Executable evidence
@@ -110,8 +134,8 @@ references.
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs)
-- SPM-240 — Consumer-authoritative AI write with a flat MCP schema
+- SPM-240 — Consumer-authoritative AI writes with issued grants and a flat MCP schema
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusReceiptService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiStatusReceiptService.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Models/AI/ProjectAiModels.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Models/AI/ProjectAiModels.cs)
-  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs)

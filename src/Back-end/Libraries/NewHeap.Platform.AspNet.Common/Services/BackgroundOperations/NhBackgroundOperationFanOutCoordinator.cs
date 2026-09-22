@@ -629,6 +629,22 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
     {
         try
         {
+            var projectionResult = await _notificationProjector.ProjectAsync(operation.Id, cancellationToken);
+            if (!projectionResult.Success)
+            {
+                _logger.LogWarning(
+                    "Fan-out notification projection was rejected for parent operation {OperationId}: {@ProjectionErrors}",
+                    operation.Id,
+                    projectionResult.AllErrorMessages);
+            }
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Failed to project fan-out notification for parent operation {OperationId}.", operation.Id);
+        }
+
+        try
+        {
             await _liveUpdates.PublishChangedAsync(
                 operation.OwnerUserId,
                 new NhBackgroundOperationChangedMessage(
@@ -642,22 +658,6 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
         catch (Exception exception)
         {
             _logger.LogWarning(exception, "Failed to publish fan-out update for parent operation {OperationId}.", operation.Id);
-        }
-
-        try
-        {
-            var projectionResult = await _notificationProjector.ProjectAsync(operation.Id, cancellationToken);
-            if (!projectionResult.Success)
-            {
-                _logger.LogWarning(
-                    "Fan-out notification projection was rejected for parent operation {OperationId}: {@ProjectionErrors}",
-                    operation.Id,
-                    projectionResult.AllErrorMessages);
-            }
-        }
-        catch (Exception exception)
-        {
-            _logger.LogWarning(exception, "Failed to project fan-out notification for parent operation {OperationId}.", operation.Id);
         }
     }
 

@@ -16,6 +16,9 @@ public sealed class ProjectAiTools(
     public const string DivisionScopeKey = "division-id";
     public const string ReadCapability = "projects-read";
     public const string ManageCapability = "projects-manage";
+    public const string ApplyStatusReceiptToolId = "projects.apply-status-receipt";
+    public const string IssueStatusApprovalToolId = "projects.issue-status-approval";
+    public static readonly TimeSpan StatusApprovalLifetime = TimeSpan.FromMinutes(5);
 
     [NhAiTool(
         "search",
@@ -75,11 +78,49 @@ public sealed class ProjectAiTools(
             cancellationToken);
     }
 
-    // The application owns approval and idempotency for this write: it validates its own
-    // single-use grant, burns it on any mismatch, and reconciles replays of the same key.
+    // Issues the single-use grant that apply-status-receipt consumes. Issuing an approval runs
+    // under the application's own manage authorization, so the tool declares the Issuer role
+    // instead of consuming approval; the shared invoker still authorizes, resolves
+    // capabilities, reserves budget, bounds execution and audits the approval code "issuer".
+    [NhAiTool(
+        "issue-status-approval",
+        1,
+        NhAiToolEffect.Mutation,
+        NhAiToolExposure.Local | NhAiToolExposure.Mcp,
+        Approval = NhAiApprovalRequirement.Issuer,
+        ExportSchema = NhAiToolExportSchema.Flat,
+        RequiredCapabilities = new[] { ManageCapability })]
+    [NhAiToolExportName(IssueStatusApprovalToolId)]
+    [Description("Issue a single-use, short-lived approval grant for one project status change in the authorized active division.")]
+    public Task<TaskResult<ProjectAiStatusApprovalGrant>> IssueStatusApprovalAsync(
+        ProjectAiStatusApprovalRequest input,
+        NhAiInvocationContext context,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!context.TryGetScopeValue(DivisionScopeKey, out var divisionValue)
+            || !Guid.TryParse(divisionValue, out var divisionId))
+        {
+            return Task.FromResult(TaskResult<ProjectAiStatusApprovalGrant>.Failed(
+                "project-division-scope-missing",
+                "The authorized AI invocation context has no active division."));
+        }
+
+        var grant = statusReceiptService.IssueApprovalGrant(
+            divisionId,
+            input.ProjectId,
+            input.Status,
+            DateTimeOffset.UtcNow.Add(StatusApprovalLifetime));
+        return Task.FromResult(TaskResult<ProjectAiStatusApprovalGrant>.Succeeded(grant));
+    }
+
+    // The application owns approval and idempotency for this write. Its evidence validator
+    // burns the presented grant and returns an invalid, expired or replayed grant as the typed
+    // deny receipt; a replayed key reaches the engine, which returns the reconciled receipt.
     // The shared invoker still authorizes, resolves capabilities, reserves budget, bounds
-    // execution and audits the consumer-attested steps. The flat export schema keeps the
-    // domain wire contract for remote MCP callers.
+    // execution and audits. The flat export keeps the domain wire contract, and the explicit
+    // destructive hint tells MCP clients to confirm this state change even though its governance
+    // effect is an idempotent mutation.
     [NhAiTool(
         "apply-status-receipt",
         1,
@@ -88,8 +129,9 @@ public sealed class ProjectAiTools(
         Approval = NhAiApprovalRequirement.ConsumerAuthoritative,
         Idempotency = NhAiIdempotencySupport.ConsumerAuthoritative,
         ExportSchema = NhAiToolExportSchema.Flat,
+        DestructiveHint = NhAiToolHint.True,
         RequiredCapabilities = new[] { ManageCapability })]
-    [NhAiToolExportName("projects.apply-status-receipt")]
+    [NhAiToolExportName(ApplyStatusReceiptToolId)]
     [Description("Apply one approved project status change in the authorized active division and return the domain receipt; an invalid, expired or replayed approval grant returns a deny receipt.")]
     public async Task<TaskResult<ProjectAiStatusReceipt>> ApplyStatusReceiptAsync(
         ProjectAiStatusReceiptRequest input,

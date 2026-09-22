@@ -1,0 +1,108 @@
+// Theme tokens of the assistant components.
+//
+// Hosts theme the components by setting the public `--nh-assistant-*` custom properties,
+// usually on `:root`. Every component resolves them into private `--nha-*` properties with
+// light and dark defaults, so the components look complete without host styles. Nothing
+// here targets elements outside a component host.
+
+@mixin light-defaults {
+  --nha-font: var(--nh-assistant-font, inherit);
+  --nha-background: var(--nh-assistant-background, #ffffff);
+  --nha-surface: var(--nh-assistant-surface, #f5f7fb);
+  --nha-surface-strong: var(--nh-assistant-surface-strong, #eceff6);
+  --nha-text: var(--nh-assistant-text, #080c1d);
+  --nha-text-muted: var(--nh-assistant-text-muted, #5b6482);
+  --nha-border: var(--nh-assistant-border, #dce0ec);
+  --nha-accent: var(--nh-assistant-accent, #022962);
+  --nha-accent-contrast: var(--nh-assistant-accent-contrast, #ffffff);
+  --nha-highlight: var(--nh-assistant-highlight, #c84f00);
+  --nha-user-bubble: var(--nh-assistant-user-bubble, #022962);
+  --nha-user-text: var(--nh-assistant-user-text, #ffffff);
+  --nha-success: var(--nh-assistant-success, #247d4e);
+  --nha-success-soft: var(--nh-assistant-success-soft, #e6f5ec);
+  --nha-warning: var(--nh-assistant-warning, #8a5a00);
+  --nha-warning-soft: var(--nh-assistant-warning-soft, #fff3d9);
+  --nha-danger: var(--nh-assistant-danger, #b92e52);
+  --nha-danger-soft: var(--nh-assistant-danger-soft, #ffe9ef);
+  --nha-focus: var(--nh-assistant-focus, #ff6700);
+  --nha-shadow: var(--nh-assistant-shadow, 0 16px 36px rgb(2 41 98 / .16));
+  --nha-radius: var(--nh-assistant-radius, 16px);
+  --nha-radius-control: var(--nh-assistant-radius-control, 12px);
+  --nha-mono: var(--nh-assistant-font-mono, ui-monospace, 'Cascadia Code', Consolas, monospace);
+}
+
+@mixin dark-defaults {
+  --nha-background: var(--nh-assistant-background, #0b0e22);
+  --nha-surface: var(--nh-assistant-surface, #11152d);
+  --nha-surface-strong: var(--nh-assistant-surface-strong, #181d3b);
+  --nha-text: var(--nh-assistant-text, #ffffff);
+  --nha-text-muted: var(--nh-assistant-text-muted, #b8bed8);
+  --nha-border: var(--nh-assistant-border, #2b3155);
+  --nha-accent: var(--nh-assistant-accent, #0f4087);
+  --nha-accent-contrast: var(--nh-assistant-accent-contrast, #ffffff);
+  --nha-highlight: var(--nh-assistant-highlight, #ff6700);
+  --nha-user-bubble: var(--nh-assistant-user-bubble, #022962);
+  --nha-user-text: var(--nh-assistant-user-text, #ffffff);
+  --nha-success: var(--nh-assistant-success, #67c58f);
+  --nha-success-soft: var(--nh-assistant-success-soft, #102d24);
+  --nha-warning: var(--nh-assistant-warning, #ffbf5b);
+  --nha-warning-soft: var(--nh-assistant-warning-soft, #342818);
+  --nha-danger: var(--nh-assistant-danger, #ff6d8a);
+  --nha-danger-soft: var(--nh-assistant-danger-soft, #351b2a);
+  --nha-shadow: var(--nh-assistant-shadow, 0 16px 36px rgb(0 0 0 / .32));
+}
+
+// Applies the tokens to the given selector, normally `:host`.
+@mixin tokens($selector: ':host') {
+  #{$selector} {
+    @include light-defaults;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    #{$selector} {
+      @include dark-defaults;
+    }
+  }
+}
+
+@mixin focus-ring {
+  &:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--nha-focus) 80%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+@mixin icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--nha-radius-control);
+  color: var(--nha-text-muted);
+  background: transparent;
+  cursor: pointer;
+  @include focus-ring;
+
+  &:hover:not(:disabled) {
+    color: var(--nha-text);
+    background: var(--nha-surface-strong);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: .5;
+  }
+}
+
+@mixin visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

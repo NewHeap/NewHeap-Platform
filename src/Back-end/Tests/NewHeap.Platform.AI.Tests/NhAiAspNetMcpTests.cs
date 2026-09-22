@@ -83,6 +83,8 @@ public sealed class NhAiAspNetMcpTests
                 "fail"));
         Assert.Equal(actorATool.Name, failedException.ToolName);
         Assert.True(failedException.Result.IsError);
+        Assert.Equal("tenant-inspection-failed", failedException.Code);
+        Assert.Equal("Tenant inspection failed safely.", failedException.FailureMessage);
 
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
@@ -216,7 +218,7 @@ public sealed class NhAiAspNetMcpTests
             rawResult.StructuredContent!.Value.GetProperty("execution").GetString());
         Assert.False(rawResult.StructuredContent.Value.TryGetProperty("success", out _));
 
-        var denied = await Assert.ThrowsAsync<NhAiMcpToolException>(async () =>
+        var denied = await Assert.ThrowsAsync<NhAiMcpToolException<FlatReceipt>>(async () =>
             await client.CallNewHeapFlatToolAsync<FlatReceiptInput, FlatReceipt>(
                 tool.Name,
                 new FlatReceiptInput("order-1", "burned-grant", "key-2")));
@@ -226,6 +228,9 @@ public sealed class NhAiAspNetMcpTests
         Assert.Equal(
             "approval-invalid-expired-or-replayed",
             denial.GetProperty("code").GetString());
+        Assert.Equal("approval-invalid-expired-or-replayed", denied.Code);
+        Assert.Equal("The approval grant is invalid.", denied.FailureMessage);
+        Assert.Equal("deny", denied.Payload!.Execution);
         Assert.Contains(
             "approval-invalid-expired-or-replayed",
             denied.Message,
@@ -238,7 +243,12 @@ public sealed class NhAiAspNetMcpTests
             ["idempotencyKey"] = "key-3"
         });
         Assert.True(failedWithoutPayload.IsError);
-        Assert.Null(failedWithoutPayload.StructuredContent);
+        Assert.Equal(
+            "{\"code\":\"engine-unavailable\",\"message\":\"The order engine returned no receipt.\"}",
+            failedWithoutPayload.StructuredContent!.Value.GetRawText());
+        Assert.Equal(
+            "engine-unavailable: The order engine returned no receipt.",
+            Assert.IsType<TextContentBlock>(Assert.Single(failedWithoutPayload.Content)).Text);
     }
 
     private static DefaultHttpContext CreateContext(

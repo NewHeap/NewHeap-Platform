@@ -14,7 +14,7 @@
     "nuget-common": {
       "displayName": "NewHeap common NuGet packages",
       "kind": "nuget",
-      "version": "7.2.0",
+      "version": "7.8.0",
       "tagPrefix": "nuget-common-v",
       "includeSymbols": true,
       "replaces": "src/Back-end/publish-common.ps1",
@@ -46,6 +46,26 @@
         {
           "packageId": "NewHeap.Platform.AI.AgentFramework",
           "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NewHeap.Platform.AI.AgentFramework.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.AspNet.Mvc",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NewHeap.Platform.AI.AspNet.Mvc.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.Chat",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NewHeap.Platform.AI.Chat.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.Chat.SqlServer",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/NewHeap.Platform.AI.Chat.SqlServer.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.Chat.PostgreSql",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/NewHeap.Platform.AI.Chat.PostgreSql.csproj"
+        },
+        {
+          "packageId": "NewHeap.Platform.AI.Chat.AspNet",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NewHeap.Platform.AI.Chat.AspNet.csproj"
         },
         {
           "packageId": "NewHeap.Platform.AI.Test",
@@ -153,7 +173,7 @@
     "npm-platform-common": {
       "displayName": "@newheap/platform-common",
       "kind": "npm",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "tagPrefix": "npm-platform-common-v",
       "packageName": "@newheap/platform-common",
       "packageJson": "src/Front-end/projects/nh-common/package.json",
@@ -172,10 +192,21 @@
       "buildScript": "nh-toastr:build:production",
       "distDirectory": "src/Front-end/dist/nh-toastr"
     },
+    "npm-ai-chat": {
+      "displayName": "@newheap/platform-ai-chat",
+      "kind": "npm",
+      "version": "0.4.0",
+      "tagPrefix": "npm-ai-chat-v",
+      "packageName": "@newheap/platform-ai-chat",
+      "packageJson": "src/Front-end/projects/nh-ai-chat/package.json",
+      "workspace": "src/Front-end",
+      "buildScript": "nh-ai-chat:build:production",
+      "distDirectory": "src/Front-end/dist/nh-ai-chat"
+    },
     "newheap-platform-plugin": {
       "displayName": "NewHeap Platform AI plugin",
       "kind": "plugin",
-      "version": "1.13.32",
+      "version": "1.13.38",
       "tagPrefix": "newheap-platform-plugin-v",
       "directory": "plugins/newheap-platform",
       "packageName": "newheap-platform"

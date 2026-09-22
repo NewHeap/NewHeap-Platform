@@ -355,7 +355,10 @@ internal sealed class NhAiChatExecutor(
                 1,
                 request.EstimatedInputTokens,
                 request.RequestedOutputTokens,
-                request.EstimatedCost),
+                request.EstimatedCost)
+            {
+                ActorId = request.InvocationContext.AccountableOwnerId ?? request.InvocationContext.ActorId
+            },
             cancellationToken);
         if (!reservation.Success)
         {

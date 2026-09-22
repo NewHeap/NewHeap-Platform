@@ -137,6 +137,21 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
             .ToListAsync(cancellationToken);
     }
 
+    public Task<ProjectAiApprovalItem?> GetForAiApprovalAsync(
+        Guid divisionId,
+        Guid projectId,
+        CancellationToken cancellationToken = default)
+    {
+        return _repository.GetAll()
+            .Where(project => project.DivisionId == divisionId && project.Id == projectId)
+            .Select(project => new ProjectAiApprovalItem(
+                project.Id,
+                project.Key,
+                project.Name,
+                project.Status))
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
     public override async Task<TaskResult<Project?>> CreateAsync(
         ProjectMutateModel mutateModel,
         Guid? committedByUserId = null,

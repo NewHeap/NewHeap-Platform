@@ -25,6 +25,7 @@ using NewHeap.Platform.Events.Cap;
 using NewHeap.Media;
 using Scalar.AspNetCore;
 using SampleProjectManagement.Api.Authorization;
+using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Api.Services;
 using SampleProjectManagement.Api.Jobs;
 using SampleProjectManagement.Api.Events;
@@ -34,6 +35,8 @@ using SampleProjectManagement.Core.Events;
 using SampleProjectManagement.Core.Utilities;
 using SampleProjectManagement.DAL;
 using System.Security.Claims;
+using System.Globalization;
+using Microsoft.AspNetCore.Localization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,6 +49,17 @@ builder.AddNewHeapPlatformCachingDefault(options =>
 });
 builder.Services.AddOpenApi("v1", options =>
     options.AddSchemaTransformer<OneOfSchemaTransformer>());
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    var supportedCultures = new[]
+    {
+        CultureInfo.GetCultureInfo("en-US"),
+        CultureInfo.GetCultureInfo("nl-NL")
+    };
+    options.DefaultRequestCulture = new RequestCulture(supportedCultures[0]);
+    options.SupportedCultures = supportedCultures;
+    options.SupportedUICultures = supportedCultures;
+});
 
 var databaseProvider = builder.Configuration.GetDatabaseProvider();
 var connectionString = builder.Configuration.GetDatabaseConnectionString();
@@ -217,7 +231,10 @@ builder.Services
         operations.Options.ProgressFlushInterval = TimeSpan.FromMilliseconds(250);
         operations
             .WithGlobalConcurrency(8)
-            .WithDefaultQueueConcurrency(6);
+            .WithDefaultQueueConcurrency(6)
+            // Notifies only outcomes and requests for attention (NewHeap default) and
+            // threads repeated portfolio work per division.
+            .UseNotificationPolicy<ProjectOperationNotificationPolicy>();
         operations.Add<ProjectPortfolioAnalysisRequest, ProjectPortfolioAnalysisOperation>(
             "sample-project-portfolio-analysis",
             operation => operation
@@ -264,6 +281,8 @@ builder.Services.AddNewHeapPlatformAIAspNet(ai => ai
     .AddCapabilityGrant(
         ProjectAiTools.ManageCapability,
         "app.active-division.project.manage"));
+builder.Services.AddSampleAiBridge();
+builder.Services.AddSampleAssistant();
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     .WithNewHeapPlatformAITools();
@@ -302,6 +321,8 @@ builder.Services.AddScoped<
 
 var app = builder.Build();
 
+app.UseRequestLocalization();
+
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
@@ -329,6 +350,7 @@ app.UseNewHeapPlatformAspNetCommon(
             {
                 endpoints.MapOpenApi();
                 endpoints.MapMcp("/mcp").RequireAuthorization();
+                endpoints.MapSampleAssistant();
                 endpoints.MapScalarApiReference("/scalar", options =>
                 {
                     options.WithOpenApiRoutePattern("/openapi/{documentName}.json");

@@ -64,6 +64,7 @@ public static class ServiceCollectionExtensions
             ai.UseBudgetManager<ProjectAiInMemoryBudgetManager>(
                 ServiceLifetime.Singleton);
             ai.AddVerifier<ProjectAiStatusVerifier>();
+            ai.UseAuthoritativeExecutionEvidenceValidator<ProjectAiStatusApprovalEvidenceValidator>();
             ai.AddContextSource<ProjectAiContextSource>();
             ai.UseContextAuthorizationPolicy<ProjectAiContextAuthorizationPolicy>();
             ai.AddGeneratedToolCatalog<ProjectAiToolsNhAiCatalog>();

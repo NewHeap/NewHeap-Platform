@@ -298,6 +298,34 @@ public sealed class NhAiToolTests
         "NhAiToolEffect.IdempotentMutation",
         "Idempotency = NhAiIdempotencySupport.ConsumerAuthoritative, ExportSchema = NhAiToolExportSchema.Flat",
         "NHAI012")]
+    [InlineData(
+        "NhAiToolEffect.Mutation",
+        "Approval = NhAiApprovalRequirement.Issuer, Idempotency = NhAiIdempotencySupport.Required",
+        "NHAI008")]
+    [InlineData(
+        "NhAiToolEffect.Destructive",
+        "Approval = NhAiApprovalRequirement.Issuer, VerifierId = \"verifier\"",
+        "NHAI008")]
+    [InlineData(
+        "NhAiToolEffect.ReadOnly",
+        "Approval = NhAiApprovalRequirement.Issuer",
+        "NHAI008")]
+    [InlineData(
+        "NhAiToolEffect.Mutation",
+        "Approval = NhAiApprovalRequirement.ConsumerAuthoritative, Idempotency = NhAiIdempotencySupport.ConsumerAuthoritative, IdempotentHint = NhAiToolHint.True",
+        "NHAI013")]
+    [InlineData(
+        "NhAiToolEffect.Mutation",
+        "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required, ReadOnlyHint = NhAiToolHint.True",
+        "NHAI013")]
+    [InlineData(
+        "NhAiToolEffect.ExternalSideEffect",
+        "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required, OpenWorldHint = NhAiToolHint.False",
+        "NHAI013")]
+    [InlineData(
+        "NhAiToolEffect.Destructive",
+        "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required, VerifierId = \"verifier\", DestructiveHint = NhAiToolHint.False",
+        "NHAI013")]
     public void Generator_rejects_unsafe_effects_bounds_and_verifier_ids(
         string effect,
         string namedArguments,
@@ -407,6 +435,10 @@ public sealed class NhAiToolTests
             StringComparison.Ordinal);
         Assert.Contains(
             "ExportSchema = (global::NewHeap.Platform.AI.NhAiToolExportSchema)1",
+            generated,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "SerializerOptions = global::NewHeap.Platform.AI.NhAiToolJsonSerializerOptions.FlatExport",
             generated,
             StringComparison.Ordinal);
     }

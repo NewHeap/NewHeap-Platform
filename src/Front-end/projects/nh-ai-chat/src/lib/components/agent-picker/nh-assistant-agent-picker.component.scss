@@ -1,0 +1,44 @@
+@use '../../styles/tokens';
+
+@include tokens.tokens;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+select {
+  align-self: flex-start;
+  max-width: 100%;
+  min-height: 32px;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 4px 28px 4px 10px;
+  color: var(--nha-text);
+  background: var(--nha-background);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  @include tokens.focus-ring;
+
+  &:disabled {
+    opacity: 1;
+    cursor: default;
+  }
+}
+
+.capability {
+  padding-left: 2px;
+  color: var(--nha-text-muted);
+  font-size: 11px;
+}
+
+.capability[data-can-mutate='true'] {
+  color: var(--nha-warning);
+}
+
+.visually-hidden {
+  @include tokens.visually-hidden;
+}

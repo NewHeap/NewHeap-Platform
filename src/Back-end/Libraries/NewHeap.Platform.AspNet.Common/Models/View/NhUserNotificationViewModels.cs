@@ -37,6 +37,15 @@ public class NhUserNotificationViewModel
     [Filterable, Orderable]
     public bool IsLastRead { get; set; }
 
+    [Filterable, Orderable]
+    public string? Category { get; set; }
+
+    [Filterable, Orderable]
+    public NhUserNotificationSeverity Severity { get; set; }
+
+    [Filterable]
+    public string? GroupKey { get; set; }
+
     public NhUserNotficationData Data { get; set; } = new NhUserNotficationData();
 }
 
@@ -54,6 +63,9 @@ public class NhUserNotificationMessageViewModel
     [Filterable, Orderable, Searchable]
     public string Title { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
+
+    [Filterable, Orderable]
+    public NhUserNotificationSeverity Severity { get; set; }
 
     [Filterable, Orderable]
     public Guid UserNotificationId { get; set; }

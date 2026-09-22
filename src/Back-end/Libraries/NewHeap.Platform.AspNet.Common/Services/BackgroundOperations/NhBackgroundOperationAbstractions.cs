@@ -340,6 +340,76 @@ public interface INhBackgroundOperationNotificationFormatter
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Decides whether an operation milestone becomes a user notification, and how it is
+/// threaded and linked. Every projected milestone passes through the policy exactly
+/// once; a skipped milestone is marked as handled and never retried.
+/// </summary>
+public interface INhBackgroundOperationNotificationPolicy
+{
+    Task<NhBackgroundOperationNotificationDecision> DecideAsync(
+        NhBackgroundOperation operation,
+        NhBackgroundOperationEvent milestone,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// The outcome of <see cref="INhBackgroundOperationNotificationPolicy"/>. Create it with
+/// <see cref="Skip"/> or <see cref="Notify"/> and refine a notification with
+/// <c>with { ... }</c>.
+/// </summary>
+public sealed record NhBackgroundOperationNotificationDecision
+{
+    private NhBackgroundOperationNotificationDecision(
+        bool shouldNotify,
+        NhBackgroundOperationNotificationContent? content)
+    {
+        ShouldNotify = shouldNotify;
+        Content = content;
+    }
+
+    public bool ShouldNotify { get; }
+
+    public NhBackgroundOperationNotificationContent? Content { get; }
+
+    /// <summary>
+    /// Notification link. Defaults to <c>{OperationUrlPrefix}/{operationId}</c>.
+    /// </summary>
+    public string? Url { get; init; }
+
+    /// <summary>
+    /// Thread key shared by related operations, for example one per target record.
+    /// Defaults to one thread per operation.
+    /// </summary>
+    public string? GroupKey { get; init; }
+
+    /// <summary>
+    /// Notification category. Defaults to <see cref="NhBackgroundOperationNotificationCategories.BackgroundOperation"/>.
+    /// </summary>
+    public string? Category { get; init; }
+
+    /// <summary>
+    /// Notification severity. Defaults to the milestone severity.
+    /// </summary>
+    public NhUserNotificationSeverity? Severity { get; init; }
+
+    public static NhBackgroundOperationNotificationDecision Skip()
+    {
+        return new NhBackgroundOperationNotificationDecision(false, null);
+    }
+
+    public static NhBackgroundOperationNotificationDecision Notify(NhBackgroundOperationNotificationContent content)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        return new NhBackgroundOperationNotificationDecision(true, content);
+    }
+}
+
+public static class NhBackgroundOperationNotificationCategories
+{
+    public const string BackgroundOperation = "background-operation";
+}
+
 public sealed record NhBackgroundOperationScheduleResult(string SchedulerJobId);
 
 public sealed record NhBackgroundOperationExecutionState(string Name, bool IsTerminal);

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>NewHeap.Platform.AI.Chat.AspNet</PackageId>
+    <Copyright>NewHeap B.V.</Copyright>
+    <Title>NewHeap AI Chat ASP.NET</Title>
+    <PackageDescription>ASP.NET Core assistant endpoints with server-sent event streaming and approval decisions for NewHeap AI.</PackageDescription>
+    <PackageTags>newheap platform ai chat assistant aspnetcore sse</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NewHeap.Platform.AI.Chat\NewHeap.Platform.AI.Chat.csproj" />
+    <ProjectReference Include="..\NewHeap.Platform.AI.AspNet.Common\NewHeap.Platform.AI.AspNet.Common.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.Tests" />
+  </ItemGroup>
+</Project>

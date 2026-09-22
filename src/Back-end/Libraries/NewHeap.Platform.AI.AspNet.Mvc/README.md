@@ -1,0 +1,194 @@
+# NewHeap.Platform.AI.AspNet.Mvc
+
+Publishes authorized ASP.NET Core MVC controller actions as governed NewHeap AI
+tools. Every tool call runs through `INhAiToolInvoker` and then through the
+application's own HTTP pipeline as the calling user, so the controller's
+authentication, `[Authorize(Policy = ...)]` attributes, model binding, validation
+and filters stay the authorization boundary.
+
+## Install
+
+Reference `NewHeap.Platform.AI.AspNet.Mvc` from the API project. The API must
+already register `AddNewHeapPlatformAIAspNet`, a budget manager and an
+idempotency manager (non-read tools require idempotency), and MVC ApiExplorer
+through `AddControllers` or `AddEndpointsApiExplorer`.
+
+## Register
+
+```csharp
+builder.Services.AddNewHeapPlatformAIMvcBridge(bridge => bridge
+    .UseToolSetId("sample-api")
+    .UseSelfBaseUrl(builder.Configuration["NewHeap:AI:Bridge:SelfBaseUrl"])
+    .IncludeControllers("Project", "ProjectTask")
+    .ExcludeActions("Project.CreateRolledBackSample")
+    .RequireExplicitPolicy(true)
+    .UseInnerDiscoveryPolicy<ProjectAiToolDiscoveryPolicy>()
+    .EnableMcpExposure()
+    .WithToolDefaults(defaults =>
+    {
+        defaults.MaxResultBytes = 65_536;
+        defaults.TimeoutSeconds = 30;
+        defaults.MaxInputBytes = 16_384;
+    }));
+```
+
+`UseSelfBaseUrl` also accepts a resolver (`provider => ...`); without a value the
+bridge reads `NewHeap:AI:Bridge:SelfBaseUrl`. `NewHeap:AI:Bridge:Enabled=false`
+keeps the registration but publishes no tools. The registration adds:
+
+- `NhAiMvcBridgeToolCatalog`, an attested runtime catalog built once from
+  ApiExplorer and validated at startup with `NhAiToolCatalogAttestation`;
+- `NhAiMvcBridgeDiscoveryPolicy`, which shows a bridge tool only when the current
+  user satisfies every policy of its action and delegates all other tools to the
+  inner policy (default: deny);
+- `INhAiMvcBridgeExecutor`, the self-HTTP executor using the named client
+  `NhAiMvcBridgeDefaults.HttpClientName` (`newheap-ai-bridge`);
+- a startup validator that fails fast on configuration errors and logs the
+  number of published tools.
+
+Call `WithNewHeapPlatformAITools()` on the MCP server builder to export tools
+created with `EnableMcpExposure()` through `/mcp`; the agent adapter accepts the
+catalog like any generated catalog.
+
+## Conventions
+
+| Descriptor field | Rule |
+| --- | --- |
+| Id | `<toolset>.<controller-kebab>.<action-kebab>`, plus `-by-<route-parameters>` when two actions of a controller share a name |
+| Export name | `<toolset>_<tool id with "." as "_">_v<version>`; valid names stay unchanged, longer names use a readable prefix and deterministic hash suffix within 64 characters |
+| Effect | GET read-only, PUT/PATCH idempotent mutation, POST mutation |
+| Approval | read: policy-controlled; every other effect: required |
+| Idempotency | required for every non-read; the lease key is sent as `Idempotency-Key` |
+| Policies | named policies of the action and its controller |
+| Description | `[NhAiBridgeTool(Description)]`, then the XML `summary`, then `EndpointSummary`/`EndpointDescription` |
+| Contract hash | SHA-256 over method, route template, input schema and policies |
+
+The input is one flat object: route values and query primitives are top-level
+properties and a complex body is `body`. Canonical NewHeap collection request and
+documented `CollectionResultModel<T>`/`SimpleCollectionResultModel<T>` actions publish `page`,
+`itemsPerPage`, `search`, `orderBy` and `filter` and are sent in the NewHeap query
+contract. Filter, order, search and result fields come from the canonical collection
+attributes and runtime operator vocabulary. Schemas come from `JsonSchemaExporter`
+with string enums and `[Required]`/`[Description]` annotations.
+
+Register `AddCollectionContractProvider<T>()` for a legacy collection API and
+override only its recognition, metadata and noncanonical query encoding. Select
+body serialization independently with `UseBodySerializer<T>()`; the supplied
+`NhAiMvcNewtonsoftJsonBodySerializer` uses the current MVC settings and request
+services. `UseConventions<T>()` remains available for changes to tool ids or
+descriptions and for compatibility with existing convention implementations.
+
+`[NhAiBridgeTool]` may only narrow a tool: `Exclude`, a stricter `Effect`, lower
+`MaxResultBytes` or `TimeoutSeconds`, or `RequireApproval = true` on a read.
+
+## Gateway
+
+A large API can publish a small, searchable toolset instead of one tool per action:
+
+```csharp
+bridge.EnableGateway(gateway => gateway
+    .UseGatewayToolSetId("sample-api-gateway")
+    .IncludeReadOnlyOnly()
+    .UseLocalizedResourcePresentation<SampleBridgeResources>(resources => resources
+        .Add("project", "ProjectTitle", "ProjectSummary",
+            "Projects", "Search and inspect authorized projects.")));
+```
+
+| Tool | Input | Output |
+| --- | --- | --- |
+| `<set>.search-resources` | `{ query, limit? (1..20) }` | resources the user may use, with title, summary and `query`/`get` |
+| `<set>.describe-resource` | `{ resource }` | filter, order, search and result fields, extra parameters, the id parameter |
+| `<set>.query` | `{ resource, fields?, countOnly?, page?, itemsPerPage? (max 100), search?, filter?, orderBy?, parameters? }` | the shaped result envelope |
+| `<set>.get` | `{ resource, id, fields?, parameters? }` | the shaped result envelope |
+
+Resources group the read-only bridge actions per controller (`order`, `order-group`;
+extra collection or detail actions get a suffix such as `project-mine`). `query` and
+`get` run the underlying bridge descriptor through `INhAiToolInvoker`: the gate,
+policies, budget, audit (with the underlying tool id) and the self-HTTP request are
+exactly those of the bridge tool. Canonical NewHeap collection endpoints are offered
+as `query` automatically. A registered `INhAiBridgeCollectionContractProvider`
+handles legacy endpoints without replacing bridge conventions. Described filter and order keys are
+enforced before the HTTP call (`api-bridge-validation`). Unknown and unauthorized
+resources fail identically with `ai-tool-not-found`. Reads that require approval and
+all mutations are never reachable through the gateway. The gateway tools are part of
+the attested bridge catalog and follow its exposure, including MCP.
+
+Use `AddTrustedQueryBindingProvider<T>()` for actor, tenant or active-scope query
+values. A binding names an invocation-scope key rather than accepting a value from
+model input; it overwrites a same-named query value or collection filter and fails
+closed when the audited scope value is missing. Localized presentation keeps resource
+ids invariant, resolves consumer-owned `.resx` keys and validates missing keys and
+orphaned mappings at startup.
+
+### Result shaping
+
+`query` and `get` shape a successful result after the HTTP call and before the result
+limit. They read up to `UseMaxResponseBytes` (default 4 MiB), remove redacted fields,
+then project or compact:
+
+- `fields: ["id", "name", "owner.name"]` returns exactly those result fields per item.
+  Keys are validated against the described result fields; one dotted level is allowed
+  and also applies to each element of an array.
+- Without `fields`, items are compacted: nulls are dropped, nested objects and arrays
+  of objects keep only `id`, `key`, `code`, `number`, `name`, `displayName`, `title` and
+  `label`, and deeper nesting is dropped. Collection envelopes keep `page`,
+  `itemsPerPage`, `totalCount`, `resultCount` and `items`.
+- `countOnly: true` returns `{ "totalCount": n }`. `INhAiBridgeConventions.BuildCountRequest`
+  requests the first page with one item and no ordering; a collection contract provider
+  can map it to the API with `TryEncodeCountQuery`, for example `countOnly=true`.
+- A result that still does not fit keeps whole items, sets `truncated: true` and returns
+  `truncation` with `totalCount`, `resultCount`, `returnedCount`, `suggestedItemsPerPage`
+  and `suggestedFields`. The gateway never returns a raw `bodyText` fragment.
+
+`describe-resource` publishes this behavior as `resultShaping`. Hide personal data with
+`gateway.RedactResultFields("*email*", "*phoneNumber*")`: matching fields (case-insensitive,
+`*` wildcard) are removed at every depth and rejected in `fields`, filters and ordering.
+Redaction applies to the gateway tools only.
+
+## Result
+
+Tools return `TaskResult<NhAiBridgeResponse>`:
+
+```json
+{ "status": 200, "contentType": "application/json", "body": { }, "truncated": false, "bodyBytes": 1234 }
+```
+
+For bridge tools, a body over `MaxResultBytes` becomes a `bodyText` fragment with
+`truncated: true` and the hint "Use paging or filters to reduce the result."
+Gateway results use structured `truncation` guidance instead (see above).
+HTTP failures map to `NhAiBridgeFailureCodes`: `api-bridge-validation` (400/422,
+with the model state as data), `api-bridge-unauthenticated`,
+`api-bridge-forbidden`, `api-bridge-not-found`, `api-bridge-conflict`,
+`api-bridge-upstream` (5xx, other statuses, transport) and `api-bridge-timeout`.
+Failure messages and logs never contain response body text.
+
+## Security defaults
+
+- Only actions with a named policy are published (`RequireExplicitPolicy(true)`).
+- Anonymous, `[NonAction]`, file-upload and `DELETE` actions are never published.
+  `IncludeDeleteActions(true)` fails at startup in v1 because destructive tools
+  require a verifier. `IncludeFileUploads(true)` accepts files as base64 input,
+  bounded by `MaxInputBytes`.
+- Every non-read tool requires approval and an idempotency key.
+- Only `Authorization` (the caller's own bearer token from
+  `INhAiCallerCredentialAccessor`), `Accept-Language`, `Idempotency-Key` and
+  `X-NewHeap-AI-Invocation` are forwarded. Cookies are not. The token never
+  enters `NhAiInvocationContext`, audit records or logs.
+- Redirects are not followed and the invoker's timeout cancels the HTTP call.
+- Replacing `INhAiToolDiscoveryPolicy` after the bridge registration fails at
+  startup; configure other tools with `UseInnerDiscoveryPolicy`.
+- Discovery binds the invocation actor, or an agent's accountable owner, to the
+  current authenticated principal before policy checks.
+
+## Limitations
+
+- DELETE and other destructive operations are not supported in v1; use a curated
+  tool with a verifier.
+- Only attribute-routed actions that ApiExplorer describes with a single HTTP
+  method are published.
+- Header, service and complex non-collection query models other than their
+  simple properties are not part of the tool input.
+- The self-HTTP call requires a base URL the application can reach itself; route
+  the named client to an in-process handler in tests.
+- Prefer curated generated tools for multi-endpoint workflows, domain-specific
+  approval summaries, verifiers or results that need reshaping for a model.

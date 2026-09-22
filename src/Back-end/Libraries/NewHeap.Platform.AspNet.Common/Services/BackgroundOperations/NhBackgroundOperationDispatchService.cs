@@ -131,6 +131,21 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
             await transaction.CommitAsync(cancellationToken);
             try
             {
+                var projectionResult = await _notificationProjector.ProjectAsync(operation.Id, cancellationToken);
+                if (!projectionResult.Success)
+                {
+                    _logger.LogWarning(
+                        "Cancelled-operation notification projection was rejected for operation {OperationId}: {@ProjectionErrors}",
+                        operation.Id,
+                        projectionResult.AllErrorMessages);
+                }
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Failed to project cancelled operation {OperationId}.", operation.Id);
+            }
+            try
+            {
                 await _liveUpdates.PublishChangedAsync(
                     operation.OwnerUserId,
                     new NhBackgroundOperationChangedMessage(
@@ -144,21 +159,6 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
             catch (Exception exception)
             {
                 _logger.LogWarning(exception, "Failed to publish cancelled operation {OperationId}.", operation.Id);
-            }
-            try
-            {
-                var projectionResult = await _notificationProjector.ProjectAsync(operation.Id, cancellationToken);
-                if (!projectionResult.Success)
-                {
-                    _logger.LogWarning(
-                        "Cancelled-operation notification projection was rejected for operation {OperationId}: {@ProjectionErrors}",
-                        operation.Id,
-                        projectionResult.AllErrorMessages);
-                }
-            }
-            catch (Exception exception)
-            {
-                _logger.LogWarning(exception, "Failed to project cancelled operation {OperationId}.", operation.Id);
             }
             await _fanOutCoordinator.OperationChangedAsync(operation.Id, cancellationToken);
             return null;

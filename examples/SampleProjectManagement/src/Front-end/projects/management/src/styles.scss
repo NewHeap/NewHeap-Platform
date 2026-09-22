@@ -1,1 +1,28 @@
 @use '../../../styles/theme';
+
+/* Assistant panel (@newheap/platform-ai-chat) mapped onto the shared sample tokens. */
+:root {
+  --nh-assistant-font: var(--font-sans);
+  --nh-assistant-font-mono: var(--font-mono);
+  --nh-assistant-background: var(--surface);
+  --nh-assistant-surface: var(--surface-subtle);
+  --nh-assistant-surface-strong: var(--surface-muted);
+  --nh-assistant-text: var(--ink);
+  --nh-assistant-text-muted: var(--muted);
+  --nh-assistant-border: var(--line);
+  --nh-assistant-accent: var(--primary);
+  --nh-assistant-accent-contrast: var(--nh-white);
+  --nh-assistant-highlight: var(--brand);
+  --nh-assistant-focus: var(--accent);
+  --nh-assistant-user-bubble: var(--primary);
+  --nh-assistant-user-text: var(--nh-white);
+  --nh-assistant-success: var(--success);
+  --nh-assistant-success-soft: var(--success-soft);
+  --nh-assistant-warning: var(--warning);
+  --nh-assistant-warning-soft: var(--warning-soft);
+  --nh-assistant-danger: var(--danger);
+  --nh-assistant-danger-soft: var(--danger-soft);
+  --nh-assistant-shadow: var(--shadow-md);
+  --nh-assistant-radius: var(--radius-card);
+  --nh-assistant-radius-control: var(--radius-control);
+}

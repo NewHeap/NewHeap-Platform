@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -118,6 +119,14 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         DiagnosticSeverity.Error,
         true);
 
+    private static readonly DiagnosticDescriptor WideningAnnotationHint = new(
+        "NHAI013",
+        "AI tool annotation hint is less cautious than its effect",
+        "AI tool '{0}' declares {1}, which is less cautious than its effect; a hint override may only make the published annotations more cautious",
+        "NewHeap.AI",
+        DiagnosticSeverity.Error,
+        true);
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var attributedMethods = context.SyntaxProvider.CreateSyntaxProvider(
@@ -162,6 +171,9 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
 
             var setId = (string?)toolSetAttribute.ConstructorArguments[0].Value ?? string.Empty;
             var jsonSerializerContextType = GetNamedType(
+                toolSetAttribute,
+                "JsonSerializerContextType");
+            var jsonSerializerContextSymbol = GetNamedTypeSymbol(
                 toolSetAttribute,
                 "JsonSerializerContextType");
             var toolId = (string?)toolAttribute.ConstructorArguments[0].Value ?? string.Empty;
@@ -221,6 +233,10 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             var approval = GetNamedInt(toolAttribute, "Approval", 0);
             var idempotency = GetNamedInt(toolAttribute, "Idempotency", 0);
             var exportSchema = GetNamedInt(toolAttribute, "ExportSchema", 0);
+            var readOnlyHint = GetNamedInt(toolAttribute, "ReadOnlyHint", 0);
+            var destructiveHint = GetNamedInt(toolAttribute, "DestructiveHint", 0);
+            var idempotentHint = GetNamedInt(toolAttribute, "IdempotentHint", 0);
+            var openWorldHint = GetNamedInt(toolAttribute, "OpenWorldHint", 0);
             var verifierId = GetNamedString(toolAttribute, "VerifierId");
             var timeoutSeconds = GetNamedInt(toolAttribute, "TimeoutSeconds", 60);
             var maxConcurrency = GetNamedInt(toolAttribute, "MaxConcurrency", 1);
@@ -287,14 +303,21 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 continue;
             }
             // Idempotency 2 = Required, 3 = ConsumerAuthoritative (the tool reconciles replays itself).
-            // Approval 1 = Required, 3 = ConsumerAuthoritative (the tool validates its own approval).
+            // Approval 1 = Required, 3 = ConsumerAuthoritative (the tool validates its own approval),
+            // 4 = Issuer (the tool issues an approval artifact under the consumer's own authorization).
             // Destructive effects always require Platform approval and a verifier.
-            var unsafeSideEffect = effect != 0 && idempotency != 2 && idempotency != 3;
-            var unsafeMutation = effect == 2 && approval != 1 && approval != 3;
-            var unsafeExternalEffect = effect == 3 && approval != 1 && approval != 3;
+            var isIssuer = approval == 4;
+            var unsafeIssuer = isIssuer
+                && (effect == 0 || effect == 4 || idempotency == 1 || idempotency == 2);
+            var unsafeSideEffect = effect != 0
+                && !isIssuer
+                && idempotency != 2
+                && idempotency != 3;
+            var unsafeMutation = effect == 2 && approval != 1 && approval != 3 && !isIssuer;
+            var unsafeExternalEffect = effect == 3 && approval != 1 && approval != 3 && !isIssuer;
             var unsafeDestructive = effect == 4
                 && (approval != 1 || string.IsNullOrWhiteSpace(verifierId));
-            if (unsafeSideEffect || unsafeMutation || unsafeExternalEffect || unsafeDestructive)
+            if (unsafeIssuer || unsafeSideEffect || unsafeMutation || unsafeExternalEffect || unsafeDestructive)
             {
                 context.ReportDiagnostic(Diagnostic.Create(
                     UnsafeMutationContract,
@@ -304,8 +327,34 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 continue;
             }
 
-            var inputSchema = SchemaWriter.Create(inputTypeSymbol!);
-            var outputSchema = SchemaWriter.Create(outputTypeSymbol!);
+            var wideningHint = FindWideningHint(
+                effect,
+                readOnlyHint,
+                destructiveHint,
+                idempotentHint,
+                openWorldHint);
+            if (wideningHint is not null)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    WideningAnnotationHint,
+                    location,
+                    setId + "." + toolId,
+                    wideningHint));
+                continue;
+            }
+
+            var usesFlatExportDefaults = exportSchema == 1 && jsonSerializerContextSymbol is null;
+            var serializerContract = usesFlatExportDefaults
+                ? SerializerContract.FlatExportDefaults
+                : SerializerContract.FromContext(jsonSerializerContextSymbol);
+            var inputSchema = SchemaWriter.Create(
+                inputTypeSymbol!,
+                serializerContract,
+                SchemaDirection.Input);
+            var outputSchema = SchemaWriter.Create(
+                outputTypeSymbol!,
+                serializerContract,
+                SchemaDirection.Output);
             if (exportSchema == 1 && !inputSchema.StartsWith("{\"type\":\"object\",\"properties\"", StringComparison.Ordinal))
             {
                 context.ReportDiagnostic(Diagnostic.Create(
@@ -345,6 +394,15 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 // enveloped contracts keep their published hashes.
                 contractMaterial += "\nexport-schema:" + exportSchema.ToString(global::System.Globalization.CultureInfo.InvariantCulture);
             }
+            if (readOnlyHint != 0 || destructiveHint != 0 || idempotentHint != 0 || openWorldHint != 0)
+            {
+                // Only declared hint overrides enter the contract hash.
+                contractMaterial += "\nhints:"
+                    + readOnlyHint.ToString(CultureInfo.InvariantCulture) + ","
+                    + destructiveHint.ToString(CultureInfo.InvariantCulture) + ","
+                    + idempotentHint.ToString(CultureInfo.InvariantCulture) + ","
+                    + openWorldHint.ToString(CultureInfo.InvariantCulture);
+            }
             var contractHash = ComputeHash(contractMaterial);
 
             tools.Add(new ToolModel(
@@ -366,6 +424,11 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 approval,
                 idempotency,
                 exportSchema,
+                usesFlatExportDefaults,
+                readOnlyHint,
+                destructiveHint,
+                idempotentHint,
+                openWorldHint,
                 verifierId,
                 timeoutSeconds,
                 maxConcurrency,
@@ -534,11 +597,16 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                     .Append(tool.JsonSerializerContextType)
                     .AppendLine(".Default.Options");
             }
+            else if (tool.UsesFlatExportDefaults)
+            {
+                builder.AppendLine(",");
+                builder.AppendLine("            SerializerOptions = global::NewHeap.Platform.AI.NhAiToolJsonSerializerOptions.FlatExport");
+            }
             else
             {
                 builder.AppendLine();
             }
-            builder.AppendLine("        })));");
+            builder.AppendLine("        }), services));");
             builder.AppendLine();
         }
 
@@ -586,6 +654,14 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             .Append(tool.Idempotency).AppendLine(",");
         builder.Append("        ExportSchema = (global::NewHeap.Platform.AI.NhAiToolExportSchema)")
             .Append(tool.ExportSchema).AppendLine(",");
+        builder.Append("        ReadOnlyHint = (global::NewHeap.Platform.AI.NhAiToolHint)")
+            .Append(tool.ReadOnlyHint).AppendLine(",");
+        builder.Append("        DestructiveHint = (global::NewHeap.Platform.AI.NhAiToolHint)")
+            .Append(tool.DestructiveHint).AppendLine(",");
+        builder.Append("        IdempotentHint = (global::NewHeap.Platform.AI.NhAiToolHint)")
+            .Append(tool.IdempotentHint).AppendLine(",");
+        builder.Append("        OpenWorldHint = (global::NewHeap.Platform.AI.NhAiToolHint)")
+            .Append(tool.OpenWorldHint).AppendLine(",");
         if (tool.VerifierId is not null)
         {
             builder.Append("        VerifierId = ").Append(Literal(tool.VerifierId)).AppendLine(",");
@@ -782,19 +858,221 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         }
     }
 
+    private enum SchemaDirection
+    {
+        Input = 0,
+        Output = 1
+    }
+
+    /// <summary>
+    /// Mirrors <c>System.Text.Json.Serialization.JsonIgnoreCondition</c>.
+    /// </summary>
+    private static class IgnoreCondition
+    {
+        public const int Never = 0;
+        public const int Always = 1;
+        public const int WhenWritingDefault = 2;
+        public const int WhenWritingNull = 3;
+        public const int WhenWriting = 4;
+        public const int WhenReading = 5;
+    }
+
+    /// <summary>
+    /// Mirrors <c>System.Text.Json.Serialization.JsonKnownNamingPolicy</c>.
+    /// </summary>
+    private static class NamingPolicy
+    {
+        public const int Unspecified = 0;
+        public const int CamelCase = 1;
+        public const int SnakeCaseLower = 2;
+        public const int SnakeCaseUpper = 3;
+        public const int KebabCaseLower = 4;
+        public const int KebabCaseUpper = 5;
+    }
+
+    /// <summary>
+    /// The serializer contract the generated <c>AIFunction</c> uses at runtime. The schema
+    /// must describe exactly what that contract reads and writes.
+    /// </summary>
+    private sealed class SerializerContract
+    {
+        private const string SourceGenerationOptionsName =
+            "System.Text.Json.Serialization.JsonSourceGenerationOptionsAttribute";
+        private const int WebDefaults = 1;
+
+        private SerializerContract(int namingPolicy, int defaultIgnoreCondition, bool stringEnums)
+        {
+            NamingPolicy = namingPolicy;
+            DefaultIgnoreCondition = defaultIgnoreCondition;
+            StringEnums = stringEnums;
+        }
+
+        public int NamingPolicy { get; }
+
+        public int DefaultIgnoreCondition { get; }
+
+        public bool StringEnums { get; }
+
+        /// <summary>
+        /// A generated function without a declared context serializes with
+        /// <c>AIJsonUtilities.DefaultOptions</c>: camelCase names, <c>WhenWritingNull</c>
+        /// and <c>JsonStringEnumConverter</c>.
+        /// </summary>
+        public static SerializerContract MicrosoftExtensionsAIDefaults { get; } = new(
+            NhAiToolGenerator.NamingPolicy.CamelCase,
+            IgnoreCondition.WhenWritingNull,
+            true);
+
+        /// <summary>
+        /// A flat export without a declared context uses
+        /// <c>NhAiToolJsonSerializerOptions.FlatExport</c>: camelCase names, every property
+        /// written including nulls, and string enums.
+        /// </summary>
+        public static SerializerContract FlatExportDefaults { get; } = new(
+            NhAiToolGenerator.NamingPolicy.CamelCase,
+            IgnoreCondition.Never,
+            true);
+
+        public static SerializerContract FromContext(INamedTypeSymbol? contextType)
+        {
+            if (contextType is null)
+            {
+                return MicrosoftExtensionsAIDefaults;
+            }
+
+            var options = FindAttribute(contextType, SourceGenerationOptionsName);
+            if (options is null)
+            {
+                return new SerializerContract(
+                    NhAiToolGenerator.NamingPolicy.Unspecified,
+                    IgnoreCondition.Never,
+                    false);
+            }
+
+            var useWebDefaults = options.ConstructorArguments.Length > 0
+                && options.ConstructorArguments[0].Value is int defaults
+                && defaults == WebDefaults;
+            var namingPolicy = GetNamedInt(
+                options,
+                "PropertyNamingPolicy",
+                NhAiToolGenerator.NamingPolicy.Unspecified);
+            if (namingPolicy == NhAiToolGenerator.NamingPolicy.Unspecified && useWebDefaults)
+            {
+                namingPolicy = NhAiToolGenerator.NamingPolicy.CamelCase;
+            }
+
+            var ignoreCondition = GetNamedInt(
+                options,
+                "DefaultIgnoreCondition",
+                IgnoreCondition.Never);
+            var stringEnums = GetNamedBool(options, "UseStringEnumConverter")
+                || GetNamedTypeArray(options, "Converters").Any(IsStringEnumConverter);
+            return new SerializerContract(namingPolicy, ignoreCondition, stringEnums);
+        }
+    }
+
+    /// <summary>
+    /// Mirrors <c>NhAiToolAnnotationHints.FindWideningOverride</c>: an explicit hint may only make
+    /// the published annotations more cautious than the effect implies.
+    /// Effect 0 = ReadOnly, 1 = IdempotentMutation, 3 = ExternalSideEffect, 4 = Destructive;
+    /// hint 1 = True, 2 = False.
+    /// </summary>
+    private static string? FindWideningHint(
+        int effect,
+        int readOnlyHint,
+        int destructiveHint,
+        int idempotentHint,
+        int openWorldHint)
+    {
+        if (readOnlyHint == 1 && effect != 0)
+        {
+            return "ReadOnlyHint = True";
+        }
+        if (destructiveHint == 2 && effect == 4)
+        {
+            return "DestructiveHint = False";
+        }
+        if (idempotentHint == 1 && effect != 0 && effect != 1)
+        {
+            return "IdempotentHint = True";
+        }
+        if (openWorldHint == 2 && effect == 3)
+        {
+            return "OpenWorldHint = False";
+        }
+        return null;
+    }
+
+    private static bool GetNamedBool(AttributeData attribute, string name)
+    {
+        var value = attribute.NamedArguments.FirstOrDefault(argument => argument.Key == name);
+        return value.Key is not null && value.Value.Value is bool flag && flag;
+    }
+
+    private static INamedTypeSymbol? GetNamedTypeSymbol(AttributeData attribute, string name)
+    {
+        var argument = attribute.NamedArguments
+            .FirstOrDefault(candidate => candidate.Key == name);
+        return argument.Key is not null
+            ? argument.Value.Value as INamedTypeSymbol
+            : null;
+    }
+
+    private static IEnumerable<ITypeSymbol> GetNamedTypeArray(AttributeData attribute, string name)
+    {
+        var value = attribute.NamedArguments.FirstOrDefault(argument => argument.Key == name);
+        if (value.Key is null || value.Value.Kind != TypedConstantKind.Array)
+        {
+            return Enumerable.Empty<ITypeSymbol>();
+        }
+        return value.Value.Values
+            .Select(item => item.Value as ITypeSymbol)
+            .Where(item => item is not null)
+            .Select(item => item!)
+            .ToArray();
+    }
+
+    private static bool IsStringEnumConverter(ITypeSymbol? converterType)
+    {
+        if (converterType is not INamedTypeSymbol named)
+        {
+            return false;
+        }
+        var definition = named.OriginalDefinition.ToDisplayString();
+        return definition == "System.Text.Json.Serialization.JsonStringEnumConverter"
+            || definition == "System.Text.Json.Serialization.JsonStringEnumConverter<TEnum>";
+    }
+
     private static class SchemaWriter
     {
         private const int MaxDepth = 16;
+        private const string JsonIgnoreName = "System.Text.Json.Serialization.JsonIgnoreAttribute";
+        private const string JsonConverterName = "System.Text.Json.Serialization.JsonConverterAttribute";
+        private const string JsonPropertyNameName = "System.Text.Json.Serialization.JsonPropertyNameAttribute";
+        private const string JsonStringEnumMemberNameName =
+            "System.Text.Json.Serialization.JsonStringEnumMemberNameAttribute";
 
-        public static string Create(ITypeSymbol type)
+        public static string Create(
+            ITypeSymbol type,
+            SerializerContract contract,
+            SchemaDirection direction)
         {
-            return Write(type, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default), 0);
+            return Write(
+                type,
+                contract,
+                direction,
+                new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default),
+                0,
+                false);
         }
 
         private static string Write(
             ITypeSymbol type,
+            SerializerContract contract,
+            SchemaDirection direction,
             HashSet<ITypeSymbol> visiting,
-            int depth)
+            int depth,
+            bool stringEnumConverter)
         {
             var isNullable = type.NullableAnnotation == NullableAnnotation.Annotated;
             if (type is INamedTypeSymbol nullable
@@ -804,7 +1082,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 isNullable = true;
             }
 
-            var schema = WriteNonNullable(type, visiting, depth);
+            var schema = WriteNonNullable(type, contract, direction, visiting, depth, stringEnumConverter);
             return isNullable
                 ? "{\"anyOf\":[" + schema + ",{\"type\":\"null\"}]}"
                 : schema;
@@ -812,8 +1090,11 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
 
         private static string WriteNonNullable(
             ITypeSymbol type,
+            SerializerContract contract,
+            SchemaDirection direction,
             HashSet<ITypeSymbol> visiting,
-            int depth)
+            int depth,
+            bool stringEnumConverter)
         {
             if (depth > MaxDepth)
             {
@@ -861,12 +1142,17 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             }
             if (type.TypeKind == TypeKind.Enum)
             {
-                return "{\"type\":\"integer\"}";
+                var serializesAsString = stringEnumConverter
+                    || contract.StringEnums
+                    || HasStringEnumConverter(type);
+                return serializesAsString
+                    ? WriteStringEnum((INamedTypeSymbol)type)
+                    : "{\"type\":\"integer\"}";
             }
             if (type is IArrayTypeSymbol array)
             {
                 return "{\"type\":\"array\",\"items\":"
-                    + Write(array.ElementType, visiting, depth + 1)
+                    + Write(array.ElementType, contract, direction, visiting, depth + 1, false)
                     + "}";
             }
 
@@ -874,7 +1160,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             if (dictionaryValue is not null)
             {
                 return "{\"type\":\"object\",\"additionalProperties\":"
-                    + Write(dictionaryValue, visiting, depth + 1)
+                    + Write(dictionaryValue, contract, direction, visiting, depth + 1, false)
                     + "}";
             }
 
@@ -882,7 +1168,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             if (enumerableItem is not null)
             {
                 return "{\"type\":\"array\",\"items\":"
-                    + Write(enumerableItem, visiting, depth + 1)
+                    + Write(enumerableItem, contract, direction, visiting, depth + 1, false)
                     + "}";
             }
 
@@ -891,13 +1177,22 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 return "{\"type\":\"object\"}";
             }
 
-            var properties = GetSerializableProperties(namedType)
+            var properties = GetSerializableProperties(namedType, direction)
                 .Select(property => new
                 {
-                    Name = GetJsonName(property),
-                    Symbol = property,
-                    Schema = Write(property.Type, visiting, depth + 1),
-                    Required = IsRequired(property)
+                    Name = GetJsonName(property.Symbol, contract),
+                    Schema = Write(
+                        property.Symbol.Type,
+                        contract,
+                        direction,
+                        visiting,
+                        depth + 1,
+                        HasStringEnumConverter(property.Symbol)),
+                    Required = IsRequired(
+                        property.Symbol,
+                        property.IgnoreCondition,
+                        contract,
+                        direction)
                 })
                 .OrderBy(property => property.Name, StringComparer.Ordinal)
                 .ToArray();
@@ -935,37 +1230,94 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             return builder.ToString();
         }
 
-        private static IEnumerable<IPropertySymbol> GetSerializableProperties(
-            INamedTypeSymbol type)
+        private static string WriteStringEnum(INamedTypeSymbol enumType)
+        {
+            var isFlags = enumType.GetAttributes().Any(attribute =>
+                attribute.AttributeClass?.ToDisplayString() == "System.FlagsAttribute");
+            if (isFlags)
+            {
+                // A flags value serializes as a comma-separated combination of member names.
+                return "{\"type\":\"string\"}";
+            }
+
+            var names = enumType.GetMembers()
+                .OfType<IFieldSymbol>()
+                .Where(field => field.HasConstantValue)
+                .Select(field =>
+                {
+                    var memberName = FindAttribute(field, JsonStringEnumMemberNameName);
+                    return memberName?.ConstructorArguments.FirstOrDefault().Value as string
+                        ?? field.Name;
+                })
+                .ToArray();
+
+            var builder = new StringBuilder("{\"type\":\"string\",\"enum\":[");
+            for (var index = 0; index < names.Length; index++)
+            {
+                if (index > 0)
+                {
+                    builder.Append(',');
+                }
+                builder.Append(JsonString(names[index]));
+            }
+            builder.Append("]}");
+            return builder.ToString();
+        }
+
+        private static IEnumerable<(IPropertySymbol Symbol, int? IgnoreCondition)> GetSerializableProperties(
+            INamedTypeSymbol type,
+            SchemaDirection direction)
         {
             for (var current = type; current is not null; current = current.BaseType)
             {
                 foreach (var property in current.GetMembers().OfType<IPropertySymbol>())
                 {
-                    if (!property.IsStatic
-                        && !property.IsIndexer
-                        && property.DeclaredAccessibility == Accessibility.Public
-                        && property.GetMethod is not null
-                        && !HasJsonIgnore(property))
+                    if (property.IsStatic
+                        || property.IsIndexer
+                        || property.DeclaredAccessibility != Accessibility.Public
+                        || property.GetMethod is null)
                     {
-                        yield return property;
+                        continue;
                     }
+
+                    var ignoreCondition = GetIgnoreCondition(property);
+                    if (ignoreCondition == IgnoreCondition.Always
+                        || (direction == SchemaDirection.Input
+                            && ignoreCondition == IgnoreCondition.WhenReading)
+                        || (direction == SchemaDirection.Output
+                            && ignoreCondition == IgnoreCondition.WhenWriting))
+                    {
+                        continue;
+                    }
+
+                    yield return (property, ignoreCondition);
                 }
             }
         }
 
-        private static bool HasJsonIgnore(IPropertySymbol property)
+        private static int? GetIgnoreCondition(IPropertySymbol property)
         {
-            return property.GetAttributes().Any(attribute =>
-                attribute.AttributeClass?.ToDisplayString()
-                    == "System.Text.Json.Serialization.JsonIgnoreAttribute");
+            var ignore = FindAttribute(property, JsonIgnoreName);
+            if (ignore is null)
+            {
+                return null;
+            }
+
+            // JsonIgnore without an explicit condition ignores the property entirely.
+            return GetNamedInt(ignore, "Condition", IgnoreCondition.Always);
         }
 
-        private static string GetJsonName(IPropertySymbol property)
+        private static bool HasStringEnumConverter(ISymbol symbol)
         {
-            var nameAttribute = property.GetAttributes().FirstOrDefault(attribute =>
-                attribute.AttributeClass?.ToDisplayString()
-                    == "System.Text.Json.Serialization.JsonPropertyNameAttribute");
+            var converter = FindAttribute(symbol, JsonConverterName);
+            return converter is not null
+                && IsStringEnumConverter(
+                    converter.ConstructorArguments.FirstOrDefault().Value as ITypeSymbol);
+        }
+
+        private static string GetJsonName(IPropertySymbol property, SerializerContract contract)
+        {
+            var nameAttribute = FindAttribute(property, JsonPropertyNameName);
             var explicitName = nameAttribute is null
                 ? null
                 : nameAttribute.ConstructorArguments.FirstOrDefault().Value as string;
@@ -973,20 +1325,52 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             {
                 return explicitName!;
             }
-            return property.Name.Length == 1
-                ? property.Name.ToLowerInvariant()
-                : char.ToLowerInvariant(property.Name[0]) + property.Name.Substring(1);
+
+            switch (contract.NamingPolicy)
+            {
+                case NhAiToolGenerator.NamingPolicy.CamelCase:
+                    return JsonNames.ToCamelCase(property.Name);
+                case NhAiToolGenerator.NamingPolicy.SnakeCaseLower:
+                    return JsonNames.ToSeparated(property.Name, '_', true);
+                case NhAiToolGenerator.NamingPolicy.SnakeCaseUpper:
+                    return JsonNames.ToSeparated(property.Name, '_', false);
+                case NhAiToolGenerator.NamingPolicy.KebabCaseLower:
+                    return JsonNames.ToSeparated(property.Name, '-', true);
+                case NhAiToolGenerator.NamingPolicy.KebabCaseUpper:
+                    return JsonNames.ToSeparated(property.Name, '-', false);
+                default:
+                    return property.Name;
+            }
         }
 
-        private static bool IsRequired(IPropertySymbol property)
+        private static bool IsRequired(
+            IPropertySymbol property,
+            int? ignoreCondition,
+            SerializerContract contract,
+            SchemaDirection direction)
         {
-            if (property.Type is INamedTypeSymbol nullable
-                && nullable.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+            var isNullableValue = property.Type is INamedTypeSymbol nullable
+                && nullable.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
+            var declaredNonNull = !isNullableValue
+                && (property.Type.IsValueType
+                    || property.NullableAnnotation == NullableAnnotation.NotAnnotated);
+            if (direction == SchemaDirection.Input)
             {
-                return false;
+                return declaredNonNull;
             }
-            return property.Type.IsValueType
-                || property.NullableAnnotation == NullableAnnotation.NotAnnotated;
+
+            // A property-level condition replaces the serializer's default ignore condition.
+            var writeCondition = ignoreCondition ?? contract.DefaultIgnoreCondition;
+            switch (writeCondition)
+            {
+                case IgnoreCondition.Never:
+                case IgnoreCondition.WhenReading:
+                    return true;
+                case IgnoreCondition.WhenWritingDefault:
+                    return declaredNonNull && !property.Type.IsValueType;
+                default:
+                    return declaredNonNull;
+            }
         }
 
         private static ITypeSymbol? FindDictionaryValue(ITypeSymbol type)
@@ -1063,6 +1447,105 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         }
     }
 
+    /// <summary>
+    /// Compile-time copies of the System.Text.Json known naming policies, so generated schema
+    /// property names match the names the runtime serializer writes.
+    /// </summary>
+    private static class JsonNames
+    {
+        private const int NotStarted = 0;
+        private const int UppercaseLetter = 1;
+        private const int LowercaseLetterOrDigit = 2;
+        private const int SpaceSeparator = 3;
+
+        public static string ToCamelCase(string name)
+        {
+            if (string.IsNullOrEmpty(name) || !char.IsUpper(name[0]))
+            {
+                return name;
+            }
+
+            var chars = name.ToCharArray();
+            for (var index = 0; index < chars.Length; index++)
+            {
+                if (index == 1 && !char.IsUpper(chars[index]))
+                {
+                    break;
+                }
+
+                var hasNext = index + 1 < chars.Length;
+                if (index > 0 && hasNext && !char.IsUpper(chars[index + 1]))
+                {
+                    if (chars[index + 1] == ' ')
+                    {
+                        chars[index] = char.ToLowerInvariant(chars[index]);
+                    }
+                    break;
+                }
+
+                chars[index] = char.ToLowerInvariant(chars[index]);
+            }
+            return new string(chars);
+        }
+
+        public static string ToSeparated(string name, char separator, bool lowercase)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                return name;
+            }
+
+            var state = NotStarted;
+            var builder = new StringBuilder(name.Length + 8);
+            for (var index = 0; index < name.Length; index++)
+            {
+                var current = name[index];
+                var category = char.GetUnicodeCategory(current);
+                switch (category)
+                {
+                    case UnicodeCategory.UppercaseLetter:
+                        if (state == LowercaseLetterOrDigit || state == SpaceSeparator)
+                        {
+                            builder.Append(separator);
+                        }
+                        else if (state == UppercaseLetter
+                            && index + 1 < name.Length
+                            && char.IsLower(name[index + 1]))
+                        {
+                            builder.Append(separator);
+                        }
+                        builder.Append(lowercase ? char.ToLowerInvariant(current) : current);
+                        state = UppercaseLetter;
+                        break;
+                    case UnicodeCategory.LowercaseLetter:
+                    case UnicodeCategory.DecimalDigitNumber:
+                        if (state == SpaceSeparator)
+                        {
+                            builder.Append(separator);
+                        }
+                        if (!lowercase && category == UnicodeCategory.LowercaseLetter)
+                        {
+                            current = char.ToUpperInvariant(current);
+                        }
+                        builder.Append(current);
+                        state = LowercaseLetterOrDigit;
+                        break;
+                    case UnicodeCategory.SpaceSeparator:
+                        if (state != NotStarted)
+                        {
+                            state = SpaceSeparator;
+                        }
+                        break;
+                    default:
+                        builder.Append(current);
+                        state = NotStarted;
+                        break;
+                }
+            }
+            return builder.ToString();
+        }
+    }
+
     private sealed class ToolModel
     {
         public ToolModel(
@@ -1084,6 +1567,11 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             int approval,
             int idempotency,
             int exportSchema,
+            bool usesFlatExportDefaults,
+            int readOnlyHint,
+            int destructiveHint,
+            int idempotentHint,
+            int openWorldHint,
             string? verifierId,
             int timeoutSeconds,
             int maxConcurrency,
@@ -1113,6 +1601,11 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             Approval = approval;
             Idempotency = idempotency;
             ExportSchema = exportSchema;
+            UsesFlatExportDefaults = usesFlatExportDefaults;
+            ReadOnlyHint = readOnlyHint;
+            DestructiveHint = destructiveHint;
+            IdempotentHint = idempotentHint;
+            OpenWorldHint = openWorldHint;
             VerifierId = verifierId;
             TimeoutSeconds = timeoutSeconds;
             MaxConcurrency = maxConcurrency;
@@ -1144,6 +1637,11 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         public int Approval { get; }
         public int Idempotency { get; }
         public int ExportSchema { get; }
+        public bool UsesFlatExportDefaults { get; }
+        public int ReadOnlyHint { get; }
+        public int DestructiveHint { get; }
+        public int IdempotentHint { get; }
+        public int OpenWorldHint { get; }
         public string? VerifierId { get; }
         public int TimeoutSeconds { get; }
         public int MaxConcurrency { get; }

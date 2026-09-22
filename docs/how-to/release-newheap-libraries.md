@@ -20,6 +20,7 @@ The release pipeline publishes NuGet packages to nuget.org, scoped npm packages 
 | `nuget-media` | Core, SQL Server, PostgreSQL, HTTP, file system, S3, and the bundle | `nuget-media-v<version>` |
 | `npm-platform-common` | `@newheap/platform-common` | `npm-platform-common-v<version>` |
 | `npm-nh-toastr` | `@newheap/nh-toastr` | `npm-nh-toastr-v<version>` |
+| `npm-ai-chat` | `@newheap/platform-ai-chat` | `npm-ai-chat-v<version>` |
 | `newheap-platform-plugin` | Installable NewHeap Platform plugin and consumer skill suite | `newheap-platform-plugin-v<version>` |
 
 Versions remain independent. The `all` option applies the selected SemVer bump to every unit but preserves separate versions, tags, artifacts, and GitHub Releases. In an all-unit release, Common is packed first and exposed as a temporary local NuGet source for dependent Media packages.

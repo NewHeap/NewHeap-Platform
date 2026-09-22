@@ -39,6 +39,7 @@ public static class NhAiAspNetServiceCollectionExtensions
             services.TryAddScoped<
                 INhAiAuthenticatedInvocationContextResolver,
                 NhAiAuthenticatedInvocationContextResolver>();
+            services.TryAddScoped<INhAiCallerCredentialAccessor, NhAiHttpContextCallerCredentialAccessor>();
             services.TryAddScoped<INhAiBackgroundOperationRunAdapter, NhAiBackgroundOperationRunAdapter>();
             services.TryAddScoped<
                 INhAiBackgroundOperationIngestionAdapter,
@@ -118,9 +119,76 @@ public sealed class NhAiAspNetBuilder
             issuerClaimType,
             subjectClaimType,
             tenantClaimType,
+            null,
             tenantScopeKey,
             tenantScopeType));
         return this;
+    }
+
+    /// <summary>
+    /// Projects an exact issuer and subject without requiring a tenant claim. Use this for an
+    /// explicitly tenantless application, not as a fallback when a tenant claim is missing.
+    /// </summary>
+    public NhAiAspNetBuilder UseAuthenticatedClaimsWithoutTenant(
+        string expectedIssuer,
+        string issuerClaimType = "iss",
+        string subjectClaimType = "sub")
+    {
+        ValidateIdentityProjection(expectedIssuer, issuerClaimType, subjectClaimType);
+        _state.SetIdentityProjection(new NhAiAspNetIdentityProjectionRegistration(
+            expectedIssuer,
+            issuerClaimType,
+            subjectClaimType,
+            null,
+            null,
+            "tenant-id",
+            "tenant"));
+        return this;
+    }
+
+    /// <summary>
+    /// Projects every authenticated subject into one explicit tenant without trusting a tenant
+    /// claim supplied by the caller.
+    /// </summary>
+    public NhAiAspNetBuilder UseAuthenticatedClaimsForSingleTenant(
+        string expectedIssuer,
+        string tenantId,
+        string issuerClaimType = "iss",
+        string subjectClaimType = "sub",
+        string tenantScopeKey = "tenant-id",
+        string tenantScopeType = "tenant")
+    {
+        ValidateIdentityProjection(expectedIssuer, issuerClaimType, subjectClaimType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        if (tenantId.Length > 256)
+        {
+            throw new ArgumentOutOfRangeException(nameof(tenantId));
+        }
+        NhAiAspNetNames.ValidateSegment(tenantScopeKey, nameof(tenantScopeKey));
+        NhAiAspNetNames.ValidateSegment(tenantScopeType, nameof(tenantScopeType));
+        _state.SetIdentityProjection(new NhAiAspNetIdentityProjectionRegistration(
+            expectedIssuer,
+            issuerClaimType,
+            subjectClaimType,
+            null,
+            tenantId,
+            tenantScopeKey,
+            tenantScopeType));
+        return this;
+    }
+
+    private static void ValidateIdentityProjection(
+        string expectedIssuer,
+        string issuerClaimType,
+        string subjectClaimType)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedIssuer);
+        if (expectedIssuer.Length > 256)
+        {
+            throw new ArgumentOutOfRangeException(nameof(expectedIssuer));
+        }
+        ArgumentException.ThrowIfNullOrWhiteSpace(issuerClaimType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(subjectClaimType);
     }
 
     public NhAiAspNetBuilder AddClaimScope(
@@ -263,9 +331,13 @@ internal sealed class NhAiAuthenticatedInvocationContextResolver(
             httpContext.User,
             projection?.SubjectClaimType ?? ClaimTypes.NameIdentifier,
             true);
-        var tenant = projection is null
+        var tenant = projection?.FixedTenantId is not null
+            ? TaskResult<string?>.Succeeded(projection.FixedTenantId)
+            : projection?.TenantClaimType is not null
+                ? ResolveSingleClaim(httpContext.User, projection.TenantClaimType, true)
+                : projection is null
             ? TaskResult<string?>.Succeeded(null)
-            : ResolveSingleClaim(httpContext.User, projection.TenantClaimType, true);
+            : TaskResult<string?>.Succeeded(null);
         var identityFailure = FirstFailure(issuer, subject, tenant);
         if (identityFailure is not null)
         {
@@ -281,7 +353,7 @@ internal sealed class NhAiAuthenticatedInvocationContextResolver(
 
         var scope = new Dictionary<string, string>(StringComparer.Ordinal);
         var tenantId = tenant.Data;
-        if (projection is not null)
+        if (projection is not null && tenantId is not null)
         {
             scope.Add(projection.TenantScopeKey, tenantId!);
         }
@@ -303,7 +375,7 @@ internal sealed class NhAiAuthenticatedInvocationContextResolver(
             new NhAiInvocationContextSeed(actorId, state.ToolInvocationPurpose, Scope: scope),
             token);
         var executionScopes = context.ExecutionScopes.ToList();
-        if (projection is not null)
+        if (projection is not null && tenantId is not null)
         {
             executionScopes.Add(new NhAiExecutionScopeEntry(
                 projection.TenantScopeType,
@@ -313,21 +385,14 @@ internal sealed class NhAiAuthenticatedInvocationContextResolver(
         foreach (var scopeCapability in state.ScopeCapabilities)
         {
             var values = httpContext.User.FindAll(scopeCapability.ClaimType).ToArray();
-            if (values.Length > 1)
-            {
-                return Failed(
-                    "ai-tool-claim-duplicate",
-                    $"The authenticated claim '{scopeCapability.ClaimType}' must occur exactly once.");
-            }
-            if (values.Length == 1
-                && values[0].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                    .Contains(scopeCapability.ClaimValue, StringComparer.Ordinal))
+            if (values.Any(value => value.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Contains(scopeCapability.ClaimValue, StringComparer.Ordinal)))
             {
                 capabilities.Add(scopeCapability.Capability);
             }
         }
 
-        object? resource = projection is null
+        object? resource = projection is null || tenantId is null
             ? null
             : new NhAiAspNetScopeAuthorizationResource(
                 projection.TenantScopeType,
@@ -494,9 +559,13 @@ internal sealed record NhAiAspNetIdentityProjectionRegistration(
     string ExpectedIssuer,
     string IssuerClaimType,
     string SubjectClaimType,
-    string TenantClaimType,
+    string? TenantClaimType,
+    string? FixedTenantId,
     string TenantScopeKey,
-    string TenantScopeType);
+    string TenantScopeType)
+{
+    public bool ProjectsTenant => TenantClaimType is not null || FixedTenantId is not null;
+}
 
 internal sealed record NhAiAspNetClaimScopeRegistration(
     string ClaimType,
@@ -547,7 +616,7 @@ internal sealed class NhAiAspNetRegistrationState
 
     public void SetIdentityProjection(NhAiAspNetIdentityProjectionRegistration registration)
     {
-        if (_claimScopes.ContainsKey(registration.TenantScopeKey))
+        if (registration.ProjectsTenant && _claimScopes.ContainsKey(registration.TenantScopeKey))
         {
             throw new InvalidOperationException(
                 $"AI tenant scope '{registration.TenantScopeKey}' conflicts with a projected claim scope.");
@@ -562,7 +631,7 @@ internal sealed class NhAiAspNetRegistrationState
 
     public void AddClaimScope(NhAiAspNetClaimScopeRegistration registration)
     {
-        if (string.Equals(
+        if (IdentityProjection?.ProjectsTenant == true && string.Equals(
             IdentityProjection?.TenantScopeKey,
             registration.ScopeKey,
             StringComparison.Ordinal))

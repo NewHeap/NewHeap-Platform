@@ -21,6 +21,7 @@
     <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.23" />
     <PackageVersion Include="Hangfire.SqlServer" Version="1.8.23" />
     <PackageVersion Include="Hangfire.Console" Version="1.4.3" />
+    <PackageVersion Include="Hangfire.InMemory" Version="1.0.0" />
     <PackageVersion Include="Hangfire.PostgreSql" Version="1.21.1" />
     <PackageVersion Include="KeyedSemaphores" Version="6.1.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.10" />
@@ -36,7 +37,7 @@
     <PackageVersion Include="Microsoft.Agents.AI" Version="1.19.0" />
     <PackageVersion Include="Microsoft.Agents.AI.Workflows" Version="1.19.0" />
     <PackageVersion Include="Microsoft.Playwright.Xunit" Version="1.61.0" />
-    <PackageVersion Include="NewHeap.Platform.Common" Version="7.2.0" />
+    <PackageVersion Include="NewHeap.Platform.Common" Version="7.8.0" />
     <PackageVersion Include="NewHeap.Platform.AspNet.Common" Version="3.0.0" />
     <PackageVersion Include="NewHeap.Platform.AI.Common" Version="3.0.0" />
     <PackageVersion Include="NewHeap.Platform.AI.AspNet.Common" Version="3.0.0" />
@@ -60,6 +61,7 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.16.0" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
     <PackageVersion Include="Azure.Identity" Version="1.14.2" />
     <PackageVersion Include="EPPlus" Version="4.5.3.3" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.DynamicLinq" Version="9.6.0.2" />

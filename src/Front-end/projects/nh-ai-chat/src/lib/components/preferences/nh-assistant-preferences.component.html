@@ -1,0 +1,106 @@
+<section class="preferences" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading() || saving()">
+  <header class="header">
+    <h3 [id]="id + '-title'">{{ 'nh-assistant.preferences.title' | translate }}</h3>
+    <button
+      class="icon-button"
+      type="button"
+      [attr.aria-label]="'nh-assistant.preferences.back' | translate"
+      [attr.title]="'nh-assistant.preferences.back' | translate"
+      (click)="closed.emit()">
+      <nh-assistant-icon name="close" />
+    </button>
+  </header>
+
+  @if (loading()) {
+    <p class="state" role="status">{{ 'nh-assistant.preferences.loading' | translate }}</p>
+  } @else if (loadFailed()) {
+    <div class="state" role="alert">
+      <p>{{ 'nh-assistant.preferences.load-failed' | translate }}</p>
+      <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.preferences.retry' | translate }}</button>
+    </div>
+  } @else {
+    <form class="form" (submit)="$event.preventDefault(); save()">
+      <p class="description">{{ 'nh-assistant.preferences.description' | translate }}</p>
+
+      <fieldset>
+        <legend>{{ 'nh-assistant.preferences.style-label' | translate }}</legend>
+        <div class="options styles">
+          @for (option of styles; track option) {
+            <label class="option" [class.selected]="style() === option">
+              <input type="radio" [name]="id + '-style'" [value]="option" [checked]="style() === option" (change)="choose(style, option)" />
+              <span>
+                <strong>{{ 'nh-assistant.preferences.style.' + option | translate }}</strong>
+                <small>{{ 'nh-assistant.preferences.style.' + option + '-description' | translate }}</small>
+              </span>
+            </label>
+          }
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>{{ 'nh-assistant.preferences.address-form-label' | translate }}</legend>
+        <div class="options segmented">
+          @for (option of addressForms; track option) {
+            <label class="option" [class.selected]="addressForm() === option">
+              <input type="radio" [name]="id + '-address'" [value]="option" [checked]="addressForm() === option" (change)="choose(addressForm, option)" />
+              <span><strong>{{ 'nh-assistant.preferences.address-form.' + option | translate }}</strong></span>
+            </label>
+          }
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>{{ 'nh-assistant.preferences.response-length-label' | translate }}</legend>
+        <div class="options segmented">
+          @for (option of responseLengths; track option) {
+            <label class="option" [class.selected]="responseLength() === option">
+              <input type="radio" [name]="id + '-length'" [value]="option" [checked]="responseLength() === option" (change)="choose(responseLength, option)" />
+              <span><strong>{{ 'nh-assistant.preferences.response-length.' + option | translate }}</strong></span>
+            </label>
+          }
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <label [for]="id + '-instructions'">{{ 'nh-assistant.preferences.custom-instructions-label' | translate }}</label>
+        <textarea
+          rows="4"
+          [id]="id + '-instructions'"
+          [value]="customInstructions()"
+          [attr.aria-describedby]="id + '-instructions-hint'"
+          [attr.aria-invalid]="tooLong() ? true : null"
+          (input)="onInstructionsInput($event)"></textarea>
+        <p class="hint" [id]="id + '-instructions-hint'">
+          @if (tooLong()) {
+            <span class="error-text">{{ 'nh-assistant.preferences.too-long' | translate }}</span>
+          } @else {
+            <span>{{ 'nh-assistant.preferences.custom-instructions-hint' | translate }}</span>
+          }
+          <span class="counter" [class.error-text]="tooLong()">
+            {{ 'nh-assistant.preferences.characters' | translate: { count: instructionsLength(), max: maxInstructions } }}
+          </span>
+        </p>
+      </div>
+
+      @if (error(); as error) {
+        <p class="message error" role="alert">
+          <nh-assistant-icon name="warning" />
+          {{ errorKeys() | nhAssistantTranslate: error.code }}
+        </p>
+      }
+      @if (savedMessage()) {
+        <p class="message success" role="status">
+          <nh-assistant-icon name="check" />
+          {{ 'nh-assistant.preferences.saved' | translate }}
+        </p>
+      }
+
+      <div class="actions">
+        <button class="secondary" type="button" (click)="closed.emit()">{{ 'nh-assistant.preferences.back' | translate }}</button>
+        <button class="primary" type="submit" [disabled]="!canSave()">
+          {{ (saving() ? 'nh-assistant.preferences.saving' : 'nh-assistant.preferences.save') | translate }}
+        </button>
+      </div>
+    </form>
+  }
+</section>

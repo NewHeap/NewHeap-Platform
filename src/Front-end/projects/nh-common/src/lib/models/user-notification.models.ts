@@ -7,6 +7,26 @@ export class NhUserNotificationCollectionHttpRequestOptions extends CollectionHt
     Object.assign(this, init);
   }
 }
+export type NhUserNotificationSeverity =
+  | 'Information'
+  | 'Success'
+  | 'Warning'
+  | 'Error'
+  | number;
+
+export function nhUserNotificationSeverityName(severity: NhUserNotificationSeverity | null | undefined): string {
+  if (typeof severity === 'string') {
+    return severity;
+  }
+
+  return ({
+    0: 'Information',
+    10: 'Success',
+    20: 'Warning',
+    30: 'Error'
+  } as Record<number, string>)[severity ?? 0] ?? 'Information';
+}
+
 export class NhUserNotificationState {
   overview: NhUserNotificationOverview = new NhUserNotificationOverview();
 
@@ -33,6 +53,9 @@ export class NhUserNotification {
   lastTitle: string = '';
   lastMessage: string = '';
   isLastRead: boolean = false;
+  category: string | null = null;
+  severity: NhUserNotificationSeverity = 'Information';
+  groupKey: string | null = null;
   data: NhUserNotificationData = new NhUserNotificationData();
 
   public constructor(init?: Partial<NhUserNotification>) {
@@ -46,6 +69,7 @@ export class NhUserNotificationMessage {
   lastModifiedDateTime: string = '';
   title: string = '';
   message: string = '';
+  severity: NhUserNotificationSeverity = 'Information';
   userNotificationId: string = '';
 
   public constructor(init?: Partial<NhUserNotificationMessage>) {

@@ -20,4 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Mcp" />
+  </ItemGroup>
 </Project>

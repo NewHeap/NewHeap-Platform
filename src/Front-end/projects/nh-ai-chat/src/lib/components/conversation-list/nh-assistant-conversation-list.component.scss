@@ -1,0 +1,121 @@
+@use '../../styles/tokens';
+
+@include tokens.tokens;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  color: var(--nha-text);
+}
+
+.list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 8px 16px;
+}
+
+h3 {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.count {
+  color: var(--nha-text-muted);
+  font-size: 11px;
+}
+
+.icon-button {
+  @include tokens.icon-button;
+}
+
+.state {
+  margin: 0;
+  padding: 12px 16px;
+  color: var(--nha-text-muted);
+  font-size: 13px;
+}
+
+ul {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  overflow-y: auto;
+  padding: 0 8px 12px;
+  list-style: none;
+}
+
+li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--nha-radius-control);
+
+  &.active {
+    background: var(--nha-surface-strong);
+  }
+}
+
+.item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  border: 0;
+  border-radius: var(--nha-radius-control);
+  padding: 8px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  @include tokens.focus-ring;
+
+  &:hover:not(:disabled) {
+    background: var(--nha-surface-strong);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: .6;
+  }
+}
+
+.title {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  gap: 8px;
+  color: var(--nha-text-muted);
+  font-size: 11px;
+}
+
+.status[data-status='waiting-for-approval'] {
+  color: var(--nha-warning);
+  font-weight: 700;
+}
+
+.status[data-status='failed'] {
+  color: var(--nha-danger);
+}
+
+.delete {
+  flex: none;
+}

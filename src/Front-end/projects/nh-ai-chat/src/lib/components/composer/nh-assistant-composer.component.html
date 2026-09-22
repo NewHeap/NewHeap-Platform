@@ -1,0 +1,56 @@
+<form class="composer" (submit)="onSubmit($event)">
+  <label class="visually-hidden" [for]="inputId">{{ 'nh-assistant.composer.label' | translate }}</label>
+  <textarea
+    #textarea
+    data-nh-assistant-autofocus
+    rows="2"
+    [id]="inputId"
+    [value]="text()"
+    [disabled]="disabled()"
+    [attr.placeholder]="'nh-assistant.composer.placeholder' | translate"
+    [attr.aria-describedby]="hintId"
+    [attr.aria-invalid]="tooLong() ? true : null"
+    (input)="onInput($event)"
+    (keydown)="onKeydown($event)"></textarea>
+
+  <div class="actions">
+    @if (busy()) {
+      <button
+        class="stop"
+        type="button"
+        [attr.aria-label]="'nh-assistant.composer.stop' | translate"
+        [attr.title]="'nh-assistant.composer.stop' | translate"
+        (click)="cancel.emit()">
+        <nh-assistant-icon name="stop" />
+      </button>
+    } @else {
+      <button
+        class="send"
+        type="submit"
+        [disabled]="!canSend()"
+        [attr.aria-label]="'nh-assistant.composer.send' | translate"
+        [attr.title]="'nh-assistant.composer.send' | translate">
+        <nh-assistant-icon name="send" />
+      </button>
+    }
+  </div>
+</form>
+
+@if (status(); as status) {
+  <p class="composer-status" role="status" aria-live="polite">
+    {{ 'nh-assistant.composer.status.' + status | translate }}
+  </p>
+}
+
+<p class="hint" [id]="hintId">
+  @if (tooLong()) {
+    <span class="error">{{ 'nh-assistant.composer.too-long' | translate }}</span>
+  } @else {
+    <span>{{ 'nh-assistant.composer.hint' | translate }}</span>
+  }
+  @if (showCounter()) {
+    <span class="counter" [class.error]="tooLong()">
+      {{ 'nh-assistant.composer.characters' | translate: { count: length(), max: maxLength() } }}
+    </span>
+  }
+</p>

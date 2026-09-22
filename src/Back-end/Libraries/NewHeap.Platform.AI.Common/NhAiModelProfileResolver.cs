@@ -340,7 +340,23 @@ internal sealed class NhAiStartupValidator(
                     throw new InvalidOperationException(
                         $"AI tool descriptor '{identity}' declares invalid execution bounds.");
                 }
+                var isIssuer = descriptor.Approval == NhAiApprovalRequirement.Issuer;
+                if (isIssuer
+                    && (descriptor.Effect is NhAiToolEffect.ReadOnly or NhAiToolEffect.Destructive
+                        || descriptor.Idempotency is NhAiIdempotencySupport.Required
+                            or NhAiIdempotencySupport.Supported))
+                {
+                    throw new InvalidOperationException(
+                        $"AI tool descriptor '{identity}' issues approval, so it must be a non-destructive side effect without a Platform idempotency lease.");
+                }
+                var wideningHint = NhAiToolAnnotationHints.FindWideningOverride(descriptor);
+                if (wideningHint is not null)
+                {
+                    throw new InvalidOperationException(
+                        $"AI tool descriptor '{identity}' declares {wideningHint}, which is less cautious than its effect.");
+                }
                 if (descriptor.Effect != NhAiToolEffect.ReadOnly
+                    && !isIssuer
                     && descriptor.Idempotency is not (NhAiIdempotencySupport.Required
                         or NhAiIdempotencySupport.ConsumerAuthoritative))
                 {
@@ -351,7 +367,8 @@ internal sealed class NhAiStartupValidator(
                     or NhAiToolEffect.ExternalSideEffect
                     or NhAiToolEffect.Destructive;
                 var consumerAuthoritativeApprovalAllowed =
-                    descriptor.Approval == NhAiApprovalRequirement.ConsumerAuthoritative
+                    descriptor.Approval is NhAiApprovalRequirement.ConsumerAuthoritative
+                        or NhAiApprovalRequirement.Issuer
                     && descriptor.Effect != NhAiToolEffect.Destructive;
                 if (requiresApproval
                     && descriptor.Approval != NhAiApprovalRequirement.Required

@@ -20,6 +20,11 @@ the issuer, subject, and tenant claim types. Add only reviewed scalar claim scop
 and explicit scope-value-to-capability mappings. Duplicate authority claims,
 missing required claims, and an issuer mismatch fail closed. The resulting context
 keeps issuer, subject, tenant, and a collision-resistant actor ID distinct.
+Use `UseAuthenticatedClaimsWithoutTenant` only for an explicitly tenantless host,
+or `UseAuthenticatedClaimsForSingleTenant` to project one configured tenant without
+trusting a caller-supplied tenant claim. Repeated permission/scope claims are combined
+for configured capability values; issuer, subject, tenant and scalar scope claims
+still reject duplicates.
 
 For the legacy active-division flow, configure one existing
 active-division authorization policy and explicit capability-to-policy mappings.
@@ -43,7 +48,7 @@ an ASP.NET dependency.
 
 - Treating the active-division request header or a browser selection as authorization.
 - Copying every user role or claim into ambient AI capabilities.
-- Accepting duplicate issuer, subject, tenant, scope, or projected scalar claims.
+- Accepting duplicate issuer, subject, tenant, or projected scalar claims; repeated permission claims are allowed only through explicit capability mappings.
 - Accepting an actor, division, tenant, or capability from model/tool input.
 - Storing an access token, cookie, user profile, prompt, or raw request in invocation context.
 - Granting a capability when its configured authorization policy fails or is missing.
@@ -57,6 +62,8 @@ contribute only the expected IDs and grant. Verify denied policy, missing header
 anonymous principal, and actor mismatch contribute neither scope nor capability.
 Resolve the production invocation gate from the real API composition and verify
 both authorized and denied tool paths.
+Verify tenantless and fixed single-tenant projection separately, including repeated
+permission claims and rejection of duplicate authority claims.
 SPM-223 is the executable reference.
 
 ## Executable evidence

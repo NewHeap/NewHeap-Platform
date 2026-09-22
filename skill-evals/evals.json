@@ -245,6 +245,27 @@
       "prompt": "Change a public NewHeap option and deliver the library change ready for release.",
       "expectedRules": ["nh-backend-module-composition", "nh-frontend-root-configuration", "nh-database-provider-portability"],
       "expectedOutcome": "Tests, executable sample, atomic rule, regenerated skill/docs, snapshot and compatibility verification."
+    },
+    {
+      "id": "consumer-ai-api-bridge",
+      "skill": "newheap-backend-development",
+      "prompt": "Let the assistant call our existing policy-protected API controllers as the signed-in user without duplicating authorization in new tool code.",
+      "expectedRules": ["nh-ai-api-bridge", "nh-ai-mcp-tools"],
+      "expectedOutcome": "The API registers the MVC bridge with explicit controller includes, keeps RequireExplicitPolicy and the default DELETE and upload exclusions, supplies its own discovery policy through UseInnerDiscoveryPolicy, relies on controller authorization at execution, and keeps composite workflows as curated generated tools."
+    },
+    {
+      "id": "consumer-ai-assistant-chat",
+      "skill": "newheap-backend-development",
+      "prompt": "Add an in-app assistant with durable conversations, streamed replies, in-chat approval of mutations, administrator-managed agents and MCP servers, an editable application context and per-user style preferences.",
+      "expectedRules": ["nh-ai-assistant", "nh-ai-protected-actions", "nh-ai-mcp-imports"],
+      "expectedOutcome": "The API registers AddNewHeapAssistant after the ASP.NET AI integration with an access and admin policy, applies the library-owned nhai migrations explicitly, keeps a feature flag off by default, binds approvals to exact proposals, imports MCP tools disabled by default with protected secrets and host allow-lists, and never writes conversation content to audit or logs."
+    },
+    {
+      "id": "consumer-ai-assistant-panel",
+      "skill": "newheap-frontend-development",
+      "prompt": "Show the assistant panel in our Angular shell only for permitted users and give administrators a page to manage agents, MCP servers and the application context.",
+      "expectedRules": ["nh-ai-assistant-ui"],
+      "expectedOutcome": "The application calls provideNhAssistant once with the host token and access policy, places one launcher and one panel in the layout, lazily routes to the administration entry point behind the admin permission, loads the CDK overlay styles and tests against the scripted mock API."
     }
   ]
 }

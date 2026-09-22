@@ -1,0 +1,112 @@
+@use '../../styles/tokens';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  font: inherit;
+  --nha-status-color: var(--nha-text-muted);
+  --nha-status-background: var(--nha-surface-strong);
+}
+
+:host([data-status='succeeded']) { --nha-status-color: var(--nha-success); --nha-status-background: var(--nha-success-soft); }
+:host([data-status='failed']) { --nha-status-color: var(--nha-danger); --nha-status-background: var(--nha-danger-soft); }
+:host([data-status='awaiting-approval']) { --nha-status-color: var(--nha-warning); --nha-status-background: var(--nha-warning-soft); }
+:host([data-status='rejected']) { --nha-status-color: var(--nha-text-muted); }
+
+.card {
+  border: 1px solid var(--nha-border);
+  border-left: 3px solid var(--nha-status-color);
+  border-radius: var(--nha-radius-control);
+  padding: 8px 10px;
+  color: var(--nha-text);
+  background: var(--nha-background);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.status-icon {
+  display: inline-flex;
+  color: var(--nha-status-color);
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status {
+  flex: none;
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--nha-status-color);
+  background: var(--nha-status-background);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.toggle {
+  @include tokens.icon-button;
+  width: 28px;
+  height: 28px;
+}
+
+.rotated {
+  transform: rotate(180deg);
+}
+
+.result-code {
+  margin: 6px 0 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+}
+
+.details {
+  margin-top: 8px;
+}
+
+.label {
+  margin: 8px 0 4px;
+  color: var(--nha-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+pre {
+  max-height: 180px;
+  margin: 0;
+  overflow: auto;
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--nha-surface);
+  font-family: var(--nha-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .spinning {
+    animation: nha-pulse 1.2s ease-in-out infinite;
+  }
+
+  nh-assistant-icon {
+    transition: transform 160ms ease;
+  }
+}
+
+@keyframes nha-pulse {
+  50% { opacity: .35; }
+}

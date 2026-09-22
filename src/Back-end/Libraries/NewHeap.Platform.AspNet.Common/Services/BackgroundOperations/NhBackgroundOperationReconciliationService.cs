@@ -213,22 +213,6 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
         {
             try
             {
-                await _liveUpdates.PublishChangedAsync(operation.OwnerUserId,
-                    new NhBackgroundOperationChangedMessage(
-                        operation.Id,
-                        operation.Version,
-                        operation.LatestEventSequence,
-                        operation.Status,
-                        operation.DivisionId),
-                    cancellationToken);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogWarning(exception, "Failed to publish reconciled operation {OperationId}.", operation.Id);
-            }
-            projectedOperationIds.Add(operation.Id);
-            try
-            {
                 var projectionResult = await _notificationProjector.ProjectAsync(operation.Id, cancellationToken);
                 if (!projectionResult.Success)
                 {
@@ -241,6 +225,22 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
             catch (Exception exception)
             {
                 _logger.LogWarning(exception, "Failed to project notification for reconciled operation {OperationId}.", operation.Id);
+            }
+            projectedOperationIds.Add(operation.Id);
+            try
+            {
+                await _liveUpdates.PublishChangedAsync(operation.OwnerUserId,
+                    new NhBackgroundOperationChangedMessage(
+                        operation.Id,
+                        operation.Version,
+                        operation.LatestEventSequence,
+                        operation.Status,
+                        operation.DivisionId),
+                    cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Failed to publish reconciled operation {OperationId}.", operation.Id);
             }
         }
         foreach (var operationId in pendingNotificationProjectionIds.Where(x => !projectedOperationIds.Contains(x)))

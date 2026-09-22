@@ -1,0 +1,215 @@
+@use '../../styles/tokens';
+
+// The drawer renders inside the CDK overlay container, outside this host element, so the
+// tokens are applied to the drawer root as well.
+@include tokens.tokens;
+@include tokens.tokens('.drawer');
+
+:host {
+  display: contents;
+}
+
+.drawer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border-left: 1px solid var(--nha-border);
+  color: var(--nha-text);
+  background: var(--nha-background);
+  box-shadow: var(--nha-shadow);
+  font-family: var(--nha-font);
+  font-size: 14px;
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+}
+
+.header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 12px;
+  border-bottom: 1px solid var(--nha-border);
+  padding: 12px 12px 12px 16px;
+}
+
+// Title and actions share the first row; the agent picker gets the full width below.
+.heading {
+  display: contents;
+}
+
+nh-assistant-agent-picker {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+h2 {
+  grid-row: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-actions {
+  display: flex;
+  flex: none;
+  grid-column: 2;
+  grid-row: 1;
+  gap: 4px;
+}
+
+.icon-button {
+  @include tokens.icon-button;
+
+  text-decoration: none;
+
+  &.active {
+    color: var(--nha-highlight);
+    background: var(--nha-surface-strong);
+  }
+}
+
+.body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--nha-background);
+}
+
+.thread {
+  flex: 1;
+  min-height: 0;
+}
+
+.overlay-view {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-bottom: 1px solid var(--nha-border);
+  background: var(--nha-background);
+}
+
+.state {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 24px;
+  color: var(--nha-text-muted);
+  text-align: center;
+
+  p {
+    max-width: 32ch;
+    margin: 0;
+    font-size: 13px;
+  }
+}
+
+.state-icon {
+  margin-bottom: 8px;
+  color: var(--nha-highlight);
+  font-size: 28px;
+}
+
+.state .state-title {
+  color: var(--nha-text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  border: 1px solid var(--nha-danger);
+  border-radius: var(--nha-radius-control);
+  padding: 4px 4px 4px 12px;
+  color: var(--nha-danger);
+  background: var(--nha-danger-soft);
+
+  p {
+    flex: 1;
+    margin: 0;
+    color: var(--nha-text);
+    font-size: 13px;
+  }
+}
+
+.turn-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  border: 1px solid var(--nha-warning);
+  border-radius: var(--nha-radius-control);
+  padding: 4px 4px 4px 12px;
+  color: var(--nha-warning);
+  background: var(--nha-warning-soft);
+
+  p {
+    flex: 1;
+    margin: 0;
+    color: var(--nha-text);
+    font-size: 13px;
+  }
+}
+
+.footer {
+  border-top: 1px solid var(--nha-border);
+  padding: 12px 16px 14px;
+}
+
+.context-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin: 0 0 8px;
+  border: 1px solid var(--nha-border);
+  border-radius: 999px;
+  padding: 2px 2px 2px 10px;
+  width: fit-content;
+  color: var(--nha-text-muted);
+  background: var(--nha-surface);
+  font-size: 12px;
+
+  &.excluded .context-text {
+    text-decoration: line-through;
+  }
+}
+
+.context-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icon-button.small {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+}
+
+.notice {
+  margin: 0 0 8px;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+}
