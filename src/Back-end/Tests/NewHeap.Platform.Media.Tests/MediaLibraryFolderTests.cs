@@ -85,8 +85,10 @@ public sealed class MediaLibraryFolderTests
 
         Assert.False(created.Success);
         Assert.Null(created.Data);
+        Assert.NotEmpty(created.GetResultItems());
         Assert.False(renamed.Success);
         Assert.Null(renamed.Data);
+        Assert.NotEmpty(renamed.GetResultItems());
         Assert.Empty(storage.ReceivedCalls());
         Assert.Empty(handler.ReceivedCalls());
     }

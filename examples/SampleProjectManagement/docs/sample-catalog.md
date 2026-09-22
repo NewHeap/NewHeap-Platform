@@ -25,6 +25,11 @@ when it:
 
 ## Library patterns
 
+Media composition case SPM-177 consumes Common result contracts directly. Media's
+Common dependency has an independent minimum of 6.0.0; the media regression suite
+runs against that public package and current Common source, including both real
+relational providers. Updating Common does not automatically raise Media's minimum.
+
 Proxy case SPM-238 is exercised by `ProxyContractBoundarySamplesTests`,
 `ProxyLiteralRedirectSamplesTests`, `ProxyAdministrationSamplesTests` and the
 standalone `SampleProjectManagement.Proxy` application. The preferred two-call

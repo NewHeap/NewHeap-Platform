@@ -2372,12 +2372,13 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Media composition root",
     "category": "Media",
     "surface": "AddNhMedia / context",
-    "outcome": "Storage, structure, and authorization modules are registered together; PostgreSQL model and upgrade migrations honor the configured media schema.",
+    "outcome": "Storage, structure, and authorization modules are registered together; PostgreSQL model and upgrade migrations honor the configured media schema. Media uses shared Common result contracts with an independently tested minimum of Common 6.0.0.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryFolderTests.cs"
     ]
   },
   {

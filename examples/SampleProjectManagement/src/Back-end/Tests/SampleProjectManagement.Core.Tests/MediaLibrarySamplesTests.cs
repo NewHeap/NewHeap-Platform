@@ -8,6 +8,7 @@ using NewHeap.Media;
 using NewHeap.Media.EventHandlers;
 using NewHeap.Media.FileStructureStorage.SqlServer;
 using NewHeap.Media.Modules;
+using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Media.MediaStorage.FileSystem;
 using NewHeap.Platform.Media.MediaStorage.S3Bucket;
 using SampleProjectManagement.Api.Events;
@@ -79,7 +80,9 @@ public class MediaLibrarySamplesTests
             var media = scope.ServiceProvider.GetRequiredService<IMediaLibraryService>();
             var path = $"/divisions/{divisionId:D}/projects";
 
-            Assert.False((await media.CreateFolderAsync(path, " / ")).Success);
+            TaskResult<FolderReference> invalidFolder = await media.CreateFolderAsync(path, " / ");
+            Assert.False(invalidFolder.Success);
+            Assert.NotEmpty(invalidFolder.GetResultItems());
             Assert.False((await media.UpdateFolderAsync(path, "documents", path, " / ")).Success);
             Assert.Empty(scope.ServiceProvider.GetRequiredService<SampleMediaEventLog>().Events);
         }

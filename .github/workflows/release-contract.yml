@@ -137,6 +137,16 @@ jobs:
         run: npm run skills:validate
       - name: Validate sample repository structure
         run: npm run sample:structure
+      - name: Test media against minimum and current Common
+        if: inputs.component == '' || inputs.component == 'all' || inputs.component == 'nuget-media'
+        shell: bash
+        run: |
+          dotnet test src/Back-end/Tests/NewHeap.Platform.Media.Tests/NewHeap.Platform.Media.Tests.csproj \
+            --configuration Release -p:UseLocalNewHeapProjects=false \
+            -p:RestoreConfigFile="$GITHUB_WORKSPACE/release/nuget.public.config"
+          dotnet test src/Back-end/Tests/NewHeap.Platform.Media.Tests/NewHeap.Platform.Media.Tests.csproj \
+            --configuration Release -p:UseLocalNewHeapProjects=true \
+            -p:RestoreConfigFile="$GITHUB_WORKSPACE/release/nuget.public.config"
       - name: Validate library change impact
         if: github.event_name == 'pull_request'
         run: node tools/guidance/verify-change-impact.mjs --base "origin/${{ github.base_ref }}"

@@ -204,6 +204,9 @@ if (!mediaCoreProjectSource.includes("Condition=\"'$(UseLocalNewHeapProjects)' =
   || !packageReleaseTool.includes("UseLocalNewHeapProjects: 'false'")) {
   failures.push('Media.Core must build against local Common source while release packaging restores the declared public package dependency.');
 }
+if (!mediaCoreProjectSource.includes('<PackageReference Include="NewHeap.Platform.Common" VersionOverride="[6.0.0,)" />')) {
+  failures.push('Media.Core must retain its independently tested Common minimum [6.0.0,) instead of inheriting the current Common release version.');
+}
 for (const provider of ['NewHeap.Platform.Media.FileStructureStorage.SqlServer', 'NewHeap.Platform.Media.FileStructureStorage.PostgreSql']) {
   if (!media.projects.some(project => project.packageId === provider)) failures.push(`nuget-media: missing provider package ${provider}.`);
 }

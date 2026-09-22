@@ -16,6 +16,8 @@ Choose an independent storage-provider package in the composition root, keep med
 
 Select a file-system, S3, or other storage adapter only in the composition root. Keep media folders, tags, properties, and domain authorization in typed consumer services. Enforce upload, download, and mutation rights in the backend, and document content types, limits, and responses in OpenAPI and Scalar. Publish typed media events within the agreed transactional boundary.
 
+Media.Core declares Common `[6.0.0,)` for shared result contracts. Keep this tested minimum independent of the current Common release; consumers may retain Common 6.0.0 or select a newer compatible version. Raise the minimum only when Media needs a newer API or fix. Test the public minimum and current Common source before publishing Media.
+
 Reference only the relational provider that the application uses. The PostgreSQL file-structure package depends on the neutral Media.Core contract and does not require the SQL Server provider package; the SQL Server provider follows the same boundary. Keep provider-specific lookup columns and index-seek predicates in the provider package that defines them rather than adding them to the neutral storage contract or another provider's model. PostgreSQL lookup indexes use a fixed MD5 `bytea` digest, while the real path and name predicates remain the collision check. Consumers must not query provider lookup shadow properties through the neutral context.
 
 Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup hashes, folder operations and file operations. Test the selected blob adapter separately with the same storage contract tests.
@@ -43,6 +45,7 @@ Exercise upgrades from the initial PostgreSQL media migration with populated fil
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs)
+  - [../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryFolderTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryFolderTests.cs)
 - SPM-178 — File-system media storage
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs)

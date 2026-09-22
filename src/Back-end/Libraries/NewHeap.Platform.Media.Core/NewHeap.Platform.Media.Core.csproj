@@ -22,6 +22,7 @@
       <ProjectReference Include="..\NewHeap.Platform.Common\NewHeap.Platform.Common.csproj" />
     </ItemGroup>
     <ItemGroup Condition="'$(UseLocalNewHeapProjects)' != 'true'">
-      <PackageReference Include="NewHeap.Platform.Common" />
+      <!-- Keep Media's tested minimum independent of the current Common release. -->
+      <PackageReference Include="NewHeap.Platform.Common" VersionOverride="[6.0.0,)" />
     </ItemGroup>
 </Project>

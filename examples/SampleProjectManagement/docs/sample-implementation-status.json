@@ -1193,7 +1193,8 @@
     "SPM-177": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/SampleProjectManagement.Api.csproj",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryFolderTests.cs"
     ],
     "SPM-178": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
