@@ -33,6 +33,8 @@ Configure the PostgreSQL media schema through `FileStructureDbContextOptions.Sch
 
 Test the folder lifecycle, upload and download, search and sorting, metadata, thumbnails, authorization, and events. Check missing blobs, oversized uploads, forbidden access, and consistent cleanup after failures. For provider lookup indexes, use `EXPLAIN (ANALYZE, FORMAT JSON)` against a real provider and assert the expected index scan without a sequential scan.
 
+For folder creation and renaming through `IMediaLibraryService`, verify that directory separators and surrounding whitespace are removed while internal spaces and the existing folder lookup remain intact. Names that normalize to empty must return a failed result without storage calls or folder events.
+
 Exercise upgrades from the initial PostgreSQL media migration with populated files and folders in both the default and a custom schema, including long paths. Verify folder listing, existing-file lookup, new uploads and renames after migration. Check forward and rollback scripts with quoted schema identifiers and verify that different configured schemas do not share an EF model.
 
 ## Executable evidence
@@ -61,9 +63,10 @@ Exercise upgrades from the initial PostgreSQL media migration with populated fil
   - [src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs)
 - SPM-182 — Folder lifecycle
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs)
+  - [../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryFolderTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryFolderTests.cs)
   - [src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts](../../examples/SampleProjectManagement/src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts)
   - [src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts)
-  - [src/Front-end/projects/management/src/app/media-playground/media-playground.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/media-playground/media-playground.component.html)
 - SPM-183 — File upload and download
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/MediaSamplesController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/MediaSamplesController.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs)

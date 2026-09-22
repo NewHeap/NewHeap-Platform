@@ -2440,9 +2440,11 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Folder lifecycle",
     "category": "Media",
     "surface": "folder create/update/delete",
-    "outcome": "Project folders can be created, renamed, and deleted safely.",
+    "outcome": "Project folders can be created, renamed, and deleted safely; create and rename normalize surrounding whitespace and separators, rejecting empty normalized names before storage or events.",
     "implementation": "implemented",
     "evidence": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryFolderTests.cs",
       "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"

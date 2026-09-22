@@ -20,7 +20,7 @@ namespace SampleProjectManagement.Core.Tests;
 public class MediaLibrarySamplesTests
 {
     [Fact]
-    public void CompositionRootRegistersConcreteMediaModules()
+    public async Task CompositionRootRegistersConcreteMediaModules()
     {
         var storagePath = CreateTempDirectory();
         try
@@ -69,6 +69,19 @@ public class MediaLibrarySamplesTests
             Assert.Contains(
                 scope.ServiceProvider.GetServices<IHandleMediaLibraryEvent>(),
                 handler => handler is ProjectMediaEventHandler);
+
+            var httpContext = new DefaultHttpContext();
+            var divisionId = Guid.NewGuid();
+            httpContext.Request.Headers[NewHeap.Platform.AspNet.Common.Constants.HttpHeaderKeys.ActiveDivisionId] =
+                divisionId.ToString();
+            httpContext.Request.Headers[ProjectMediaAuthorizationModule.SamplePermissionsHeader] = "app.project.manage";
+            scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext = httpContext;
+            var media = scope.ServiceProvider.GetRequiredService<IMediaLibraryService>();
+            var path = $"/divisions/{divisionId:D}/projects";
+
+            Assert.False((await media.CreateFolderAsync(path, " / ")).Success);
+            Assert.False((await media.UpdateFolderAsync(path, "documents", path, " / ")).Success);
+            Assert.Empty(scope.ServiceProvider.GetRequiredService<SampleMediaEventLog>().Events);
         }
         finally
         {

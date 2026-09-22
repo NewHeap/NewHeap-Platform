@@ -1219,6 +1219,8 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs"
     ],
     "SPM-182": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryFolderTests.cs",
       "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"

@@ -221,6 +221,10 @@ public class MediaLibraryService : IMediaLibraryService
         await EnsureAuthorized(path, null, null, ActionType.Create);
 
         folderName = folderName.Replace(NhMediaValues.DirectorySeparator, string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(folderName))
+        {
+            return TaskResult<FolderReference>.Failed("New folder name cannot be empty or whitespace.");
+        }
 
         var newRef = new FolderReference()
         {
@@ -239,7 +243,12 @@ public class MediaLibraryService : IMediaLibraryService
     {
         await EnsureAuthorized(MediaLibraryPath.Combine(path, folderName), null, null, ActionType.Update);
 
-        newName = newName.Replace(NhMediaValues.DirectorySeparator, string.Empty);
+        newName = newName.Replace(NhMediaValues.DirectorySeparator, string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            return TaskResult<FolderReference>.Failed("New folder name cannot be empty or whitespace.");
+        }
 
         var reference = await _fileStructureStorage.GetFolderReferenceAsync(MediaLibraryPath.Combine(path, folderName));
         var newRef = reference.Copy(x =>

@@ -270,7 +270,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-179 | PostgreSQL file structure | PostgreSQL structure provider | Folders, files, and relationships are stored through the independent PostgreSQL provider package without a SQL Server package dependency; each relational provider owns a safe lookup index strategy that is verified against its query plan. |
 | SPM-180 | S3 media storage | S3 settings/provider | Configuration validates bucket, region, and credentials without logging secrets. |
 | SPM-181 | Media authorization | authorization module/context | Read, mutate, and delete operations respect the active user and division. |
-| SPM-182 | Folder lifecycle | folder create/update/delete | Project folders can be created, renamed, and deleted safely. |
+| SPM-182 | Folder lifecycle | folder create/update/delete | Project folders can be created, renamed, and deleted safely; create and rename normalize surrounding whitespace and separators, rejecting empty normalized names before storage or events. |
 | SPM-183 | File upload and download | media service + HTTP | File content, content type, and download name remain intact. |
 | SPM-184 | Tags and properties | tags/properties/localization | Metadata and translations round-trip through the API and UI. |
 | SPM-185 | Media search and sorting | search/file-get options | Query, paging, and sorting return stable results. |

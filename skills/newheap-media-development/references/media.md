@@ -33,6 +33,8 @@ Configure the PostgreSQL media schema through `FileStructureDbContextOptions.Sch
 
 Test the folder lifecycle, upload and download, search and sorting, metadata, thumbnails, authorization, and events. Check missing blobs, oversized uploads, forbidden access, and consistent cleanup after failures. For provider lookup indexes, use `EXPLAIN (ANALYZE, FORMAT JSON)` against a real provider and assert the expected index scan without a sequential scan.
 
+For folder creation and renaming through `IMediaLibraryService`, verify that directory separators and surrounding whitespace are removed while internal spaces and the existing folder lookup remain intact. Names that normalize to empty must return a failed result without storage calls or folder events.
+
 Exercise upgrades from the initial PostgreSQL media migration with populated files and folders in both the default and a custom schema, including long paths. Verify folder listing, existing-file lookup, new uploads and renames after migration. Check forward and rollback scripts with quoted schema identifiers and verify that different configured schemas do not share an EF model.
 
 ## Optional source evidence
