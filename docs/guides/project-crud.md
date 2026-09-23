@@ -134,7 +134,8 @@ shows the host registration and modal event wiring.
 
 ## 5. Confirm deletion
 
-Use `NhModalConfirmComponent`, as in the sample parent's `openDeleteModal` method.
+Use `NhModalConfirmComponent`, as in the sample's
+[openDeleteModal method](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/app.component.ts#L239).
 Only call `deleteProject` after confirmation. Await the API response before
 removing the row or closing the dialog. On failure, keep the row and display the
 error; the sample rejects deletion of projects with open tasks.

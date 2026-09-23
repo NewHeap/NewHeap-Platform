@@ -204,7 +204,8 @@ files under `public/i18n`. The other keys are already present in the sample.
 | `lister-previous` | Previous page | Vorige pagina |
 | `lister-next` | Next page | Volgende pagina |
 
-Add this entry to the `management` route's `children` in `sample.routes.ts`.
+Add this entry to the `management` route's `children` in
+[sample.routes.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/sample.routes.ts).
 It inherits the parent's authentication guard:
 
 ```ts

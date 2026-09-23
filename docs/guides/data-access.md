@@ -75,7 +75,7 @@ after all steps succeed:
 await transaction.CommitAsync(cancellationToken);
 ```
 
-The sample's `ProjectService.CreateAsync` shows the complete sequence, including
+The sample's [ProjectService.CreateAsync](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs) shows the complete sequence, including
 rollback when event publication throws.
 
 ## Next steps

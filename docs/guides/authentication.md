@@ -67,7 +67,7 @@ Use the API policy to enforce access and the pipe to show available actions.
 ## Try it and extend it
 
 Run the sample and sign in as `sample@example.test`, then as
-`viewer@example.test`, using the development password in the sample README.
+`viewer@example.test`, using the [development sign-in details](../../examples/SampleProjectManagement/README.md#run-the-sample).
 The manager can change projects; the viewer can read them.
 The [authentication playground](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts)
 shows the frontend sign-in and permission checks together.

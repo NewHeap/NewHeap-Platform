@@ -74,7 +74,7 @@ Wire the host in this order:
    `builder.Configuration.GetConnectionString("DefaultConnection")`.
 4. After `builder.Build()`, configure `UseNewHeapPlatformAspNetCommon(...)` and
    `UseNhAuthentication<...>(authentication => authentication.AddUserNamePasswordEndpoint())`,
-   as shown near the end of the API startup file.
+   following the [middleware and authentication setup in Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs#L343).
 5. Generate and apply your application's EF migrations against the selected
    database. Store the migrations in your DAL project.
 6. Create your initial user through Identity and assign its role, claims and
