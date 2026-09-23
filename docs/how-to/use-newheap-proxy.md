@@ -621,3 +621,35 @@ time (ms) with BenchmarkDotNet and a standard YARP app as its baseline.
 Use `npm run benchmark:proxy:load` for the separate requests/sec load test.
 See the [proxy benchmark](../../src/Back-end/Benchmarks/NewHeap.Platform.AspNet.Proxy.Benchmarks/README.md)
 for the workload, baseline ratios, reports and reproducible checks.
+
+## Configuration options
+
+Set these options under `NewHeapProxy` in `appsettings.json`. Restart after
+changing settings. Durations use `hh:mm:ss` or `d.hh:mm:ss`; all durations,
+counts and size limits must be positive.
+
+| Option | Default | Explanation |
+| --- | --- | --- |
+| `Administrator:UserName` | Empty | Administrator login name; required to sign in. |
+| `Administrator:Password` | Empty | Password supplied through secrets. Use either this or `PasswordHash`. Requires a new login after every restart. |
+| `Administrator:PasswordHash` | Empty | Alternative ASP.NET Identity password hash. A stable hash and persistent Data Protection keys allow sessions to survive restarts. |
+| `Administrator:CredentialVersion` | Empty | Change to invalidate existing sessions after restarting. |
+| `Administrator:SessionDuration` | `08:00:00` | Maximum administration session duration. |
+| `Administrator:LoginAttemptLimit` | `5` | Login attempts allowed per window, shared across all clients. |
+| `Administrator:LoginAttemptWindow` | `00:01:00` | Time window for the login attempt limit. |
+| `Administrator:ApiAuthenticationFailureLimit` | `5` | Failed API credential checks allowed per window, independent of browser logins. Successful API calls consume no allowance. |
+| `Administrator:ApiAuthenticationFailureWindow` | `00:01:00` | Window for failed API authentication; after exhaustion API authentication returns 429 until reset. |
+| `IpAllowlist:Enabled` | `false` | Restrict administration to allowed IPs. An enabled, empty list blocks all access. |
+| `IpAllowlist:Entries` | `[]` | Allowed IPv4/IPv6 addresses or CIDR ranges. |
+| `LoginAudit:Retention` | `90.00:00:00` | Retain login activity for 90 days; expired records are cleaned up on login attempts. |
+| `LoginAudit:CleanupBatchSize` | `1000` | Maximum expired login records removed per cleanup. |
+| `LoginAudit:MaximumPageSize` | `100` | Maximum login activity records returned per page. |
+| `AllowedDestinationHosts` | `[]` | Allowed rewrite backend hostnames, matched case-insensitively. Empty allows any host. Does not restrict redirects. |
+| `Limits:MaximumChainDepth` | `2` | Maximum local redirect/rewrite steps before HTTP 508. |
+| `Limits:RedirectResolutionTimeoutMilliseconds` | `50` | Redirect evaluation timeout; live requests return HTTP 503 on expiry. Range: 1–2,147,483,646 ms. |
+| `Limits:MaximumRulesPerEngine` | `1000` | Maximum redirects, rewrites and rewrite destination groups, counted separately. |
+| `Limits:MaximumTestRequestBytes` | `65536` | Maximum test input and draft-test request size in bytes (64 KiB). |
+| `Limits:TestTimeout` | `00:00:05` | Preview time limit; maximum 2,147,483,647 ms. |
+| `Sqlite:DatabasePath` | `App_Data/newheap-proxy.db` | Database path, relative to the application content root unless absolute. Use persistent local storage outside the webroot. |
+| `Sqlite:BusyTimeout` | `00:00:05` | Database lock wait time, rounded up to seconds; maximum 2,147,483,647 seconds. |
+| `ConfigureYarp(...)` (code only) | None | [Customize YARP](#native-yarp-customization) during registration. Repeated calls replace the callback. |

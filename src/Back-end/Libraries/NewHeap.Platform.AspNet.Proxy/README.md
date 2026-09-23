@@ -7,10 +7,6 @@ administration panel, SQLite storage and YARP forwarding.
 
 ## Overview
 
-Version one is functionally complete for single-instance deployments with local
-SQLite storage. See the [completion record](../../../../docs/plans/newheap-proxy-design.md#version-one-completion)
-for accepted scope, implementation choices and future-work boundaries.
-
 - Redirect moved pages using exact paths or regular expressions.
 - Forward requests to backend services with path, header and query transforms.
 - Create, test and activate rules from the administration panel.
@@ -54,15 +50,6 @@ The SQLite database is created automatically. Use persistent local storage and
 run one proxy instance per database file. See [storage and backups](../NewHeap.Platform.AspNet.Proxy.Sqlite/README.md#storage-configuration).
 
 ## Usage
-
-### Customize authentication
-
-The existing configured account and Basic API remain the defaults. Use
-`ConfigureAdministrationAuthentication` and `ConfigureApiAuthentication` on
-`NhProxyOptions` to select host-owned ASP.NET schemes and policies independently.
-See [custom UI and API authentication](../../../../docs/how-to/use-newheap-proxy.md#custom-authentication)
-for registration, Microsoft/OpenID Connect integration, compatibility, logout and
-auditing responsibilities.
 
 ### Redirect a page
 
@@ -114,10 +101,8 @@ The server-to-server management API is off by default. Call
 `/newheap-proxy/api`. It uses the configured administrator credentials with Basic
 authentication and HTTPS, without cookies. See the
 [API contracts and limits](../../../../docs/how-to/use-newheap-proxy.md#optional-management-api).
-API requests do not count as logins. Configuration changes are audited durably in
-SQLite and are available through `GET /newheap-proxy/api/audit`.
 
-Options below belong under `NewHeapProxy` in `appsettings.json`.
+Configuration options belong under `NewHeapProxy` in `appsettings.json`.
 For environment variables, use `__` instead of `:` and prefix with `NewHeapProxy__`:
 
 ```text
@@ -129,34 +114,23 @@ NewHeapProxy__IpAllowlist__Entries__0=192.0.2.10
 Restart after changing settings. Durations use `hh:mm:ss` or `d.hh:mm:ss`.
 All durations, counts and size limits must be positive.
 
-| Option | Default | Explanation |
-| --- | --- | --- |
-| `Administrator:UserName` | Empty | Administrator login name; required to sign in. |
-| `Administrator:Password` | Empty | Password supplied through secrets. Use either this or `PasswordHash`. Requires a new login after every restart. |
-| `Administrator:PasswordHash` | Empty | Alternative ASP.NET Identity password hash. A stable hash and persistent Data Protection keys allow sessions to survive restarts. |
-| `Administrator:CredentialVersion` | Empty | Change to invalidate existing sessions after restarting. |
-| `Administrator:SessionDuration` | `08:00:00` | Maximum administration session duration. |
-| `Administrator:LoginAttemptLimit` | `5` | Login attempts allowed per window, shared across all clients. |
-| `Administrator:LoginAttemptWindow` | `00:01:00` | Time window for the login attempt limit. |
-| `Administrator:ApiAuthenticationFailureLimit` | `5` | Failed API credential checks allowed per window, independent of browser logins. Successful API calls consume no allowance. |
-| `Administrator:ApiAuthenticationFailureWindow` | `00:01:00` | Window for failed API authentication; after exhaustion API authentication returns 429 until reset. |
-| `IpAllowlist:Enabled` | `false` | Restrict administration to allowed IPs. An enabled, empty list blocks all access. |
-| `IpAllowlist:Entries` | `[]` | Allowed IPv4/IPv6 addresses or CIDR ranges. |
-| `LoginAudit:Retention` | `90.00:00:00` | Retain login activity for 90 days; expired records are cleaned up on login attempts. |
-| `LoginAudit:CleanupBatchSize` | `1000` | Maximum expired login records removed per cleanup. |
-| `LoginAudit:MaximumPageSize` | `100` | Maximum login activity records returned per page. |
-| `AllowedDestinationHosts` | `[]` | Allowed rewrite backend hostnames, matched case-insensitively. Empty allows any host. Does not restrict redirects. |
-| `Limits:MaximumChainDepth` | `2` | Maximum local redirect/rewrite steps before HTTP 508. |
-| `Limits:RedirectResolutionTimeoutMilliseconds` | `50` | Redirect evaluation timeout; live requests return HTTP 503 on expiry. Range: 1–2,147,483,646 ms. |
-| `Limits:MaximumRulesPerEngine` | `1000` | Maximum redirects, rewrites and rewrite destination groups, counted separately. |
-| `Limits:MaximumTestRequestBytes` | `65536` | Maximum test input and draft-test request size in bytes (64 KiB). |
-| `Limits:TestTimeout` | `00:00:05` | Preview time limit; maximum 2,147,483,647 ms. |
-| `Sqlite:DatabasePath` | `App_Data/newheap-proxy.db` | Database path, relative to the application content root unless absolute. Use persistent local storage outside the webroot. |
-| `Sqlite:BusyTimeout` | `00:00:05` | Database lock wait time, rounded up to seconds; maximum 2,147,483,647 seconds. |
-| `ConfigureYarp(...)` (code only) | None | [Customize YARP](../../../../docs/how-to/use-newheap-proxy.md#native-yarp-customization) during registration. Repeated calls replace the callback. |
+See the [configuration reference](../../../../docs/how-to/use-newheap-proxy.md#configuration-options)
+for all options, defaults and limits.
+
+### Customize authentication
+
+The configured administrator account is the default. To use your application's
+ASP.NET schemes and policies, follow
+[custom UI and API authentication](../../../../docs/how-to/use-newheap-proxy.md#custom-authentication).
 
 ## Documentation
 
 - [Usage reference](../../../../docs/how-to/use-newheap-proxy.md) — matching, authentication, testing and activation.
 - [SQLite storage](../NewHeap.Platform.AspNet.Proxy.Sqlite/README.md) — database setup, backups and offline seeding.
 - [Runnable demo](../../../../examples/SampleProjectManagement/docs/proxy-administration.md) — try redirects and rewrites locally.
+
+## For maintainers
+
+The [completion record](../../../../docs/plans/newheap-proxy-design.md#version-one-completion)
+tracks implementation scope and future work. Use the
+[release guide](../../../../docs/how-to/release-newheap-libraries.md) for publishing.

@@ -1,28 +1,42 @@
-# Consume public NewHeap packages
+# Install NewHeap packages
 
-NewHeap NuGet packages are distributed through nuget.org and scoped npm packages through npmjs.org. Consumer restores are anonymous: do not add a GitHub Packages source, a personal access token, or an npm auth block for `@newheap`.
-
-## npm
-
-The default npm registry is sufficient. A repository may make the scope mapping explicit without credentials:
-
-```text
-registry=https://registry.npmjs.org/
-@newheap:registry=https://registry.npmjs.org/
-```
-
-Install the required package normally:
-
-```text
-npm install @newheap/platform-common
-npm install @newheap/nh-toastr
-```
-
-Verify resolved package URLs in `package-lock.json` point to `registry.npmjs.org`. A `401` or `403` for a NewHeap package indicates stale private-registry configuration in the repository, user-level npm configuration, or CI environment; remove that override rather than adding a token.
+Install .NET packages from nuget.org and Angular packages from npmjs.org.
+Both registries support anonymous installation; no NewHeap login or token is
+needed. Choose a released version compatible with your application.
 
 ## NuGet
 
-Use nuget.org as the only committed package source unless the consumer has an unrelated, explicitly approved feed:
+From the target .NET 10 project directory, install the package you need. Replace
+`<version>` with the release version you have selected:
+
+```sh
+dotnet add package NewHeap.Platform.AspNet.Common --version <version>
+dotnet restore
+```
+
+For domain libraries that only need common utilities, use
+`NewHeap.Platform.Common`. Add the matching `.PostgreSql` or `.SqlServer`
+package in your API project when you need database integration. The
+[.NET setup guide](../guides/dotnet-foundation.md) explains project layout and
+central package versions.
+
+## npm
+
+From an Angular 20 workspace, install the common package:
+
+```sh
+npm install @newheap/platform-common
+```
+
+Commit the lockfile to keep the resolved versions reproducible. Continue with
+[root configuration and an API call](../guides/collections.md). Add
+`@newheap/nh-toastr` separately if your application uses the toast integration.
+
+## Resolve registry problems
+
+If a repository still points NewHeap packages at a private feed, remove that
+override from its configuration, user settings and CI. A clean public-only
+`nuget.config` can use:
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -39,21 +53,46 @@ Use nuget.org as the only committed package source unless the consumer has an un
 </configuration>
 ```
 
-Run restore from an empty local package cache when validating a source cutover. No NuGet API key is required for restore. API keys and OIDC credentials belong only to the protected Platform publication workflow.
+Keep additional sources if unrelated dependencies require them, with appropriate
+source mappings. For npm, the default registry is sufficient, or make the scope
+explicit in `.npmrc`:
 
-## AI plugin and consumer skill
+```text
+registry=https://registry.npmjs.org/
+@newheap:registry=https://registry.npmjs.org/
+```
 
-Download `newheap-platform-<version>.tar.gz` and `SHA256SUMS` from the immutable GitHub Release tagged `newheap-platform-plugin-v<version>`, verify the archive, and install the plugin, or run `scripts/install-consumer-skills.mjs --consumer <consumer-root>` from the extracted artifact. The default Codex target writes one `.agents/skills/newheap-platform-development` directory; use `--target claude` for the matching `.claude/skills/newheap-platform-development` directory or `--target both` for both discovery roots. If the matching release does not exist, that plugin version is not available for stable installation. Commit each pinned `newheap-platform-development` directory, including its `.newheap-platform-install.json`. The suite is self-contained; its optional sample links target immutable public source and do not require a SampleProjectManagement checkout.
+NewHeap entries in `package-lock.json` should resolve from `registry.npmjs.org`.
+Investigate stale registry configuration when public restores return `401` or
+`403`; adding a private token is not part of installation.
 
-For every upgrade, verify that package versions, plugin version, and `distribution.json` compatibility metadata agree. Change registry source, declared versions, central version files, and lockfiles in one reviewed change.
+## Optional coding-agent setup
 
-## Empty repository sequence
+Download `newheap-platform-<version>.tar.gz` and `SHA256SUMS` from the GitHub Release
+tagged `newheap-platform-plugin-v<version>`. Verify the checksum and extract the
+archive, then run from that directory:
 
-1. Download the immutable plugin release asset and verify its checksum.
-2. Install the bundled consumer skill suite into the empty repository.
-3. Confirm the smallest useful product scope and summarize what remains deferred.
-4. Run `bootstrap-newheap-consumer.mjs` with an application name, explicit profile, and persistence choice.
-5. Require anonymous `dotnet restore`, the profile-relevant `npm install`, and `inspect-newheap-consumer.mjs --mode foundation` to pass before feature work.
-6. Build only the confirmed capabilities and run the inspector with `--mode validate` before handoff.
+```sh
+node scripts/install-consumer-skills.mjs --consumer <consumer-root>
+```
 
-The bootstrap accepts `--aspire`, `--docker`, and `--elasticsearch` only as explicit options. None is part of the default baseline.
+This installs a self-contained Codex skill under
+`.agents/skills/newheap-platform-development`. Add `--target claude` for the
+equivalent `.claude/skills` directory, or `--target both` for both tools. Commit
+the installed directory, including `.newheap-platform-install.json`.
+
+Use an existing release and check its `distribution.json` compatibility metadata
+against your package versions. Upgrade the skill, declared versions and lockfiles
+together.
+
+### Start an empty repository with the installed skill
+
+After installation, choose the application name, profile and database. Follow
+the [bootstrap guide](../consumer-guide/consumer-bootstrap-sequence.md) to generate
+the foundation and verify package restore before adding features. Aspire, Docker
+and Elasticsearch are optional selections.
+
+## For maintainers
+
+Validate a feed migration with an empty package cache. Publishing credentials
+belong to the protected [release workflow](release-newheap-libraries.md).
