@@ -29,8 +29,7 @@ For SQL Server, import `NewHeap.Platform.AspNet.Common.SqlServer`:
 })
 ```
 
-These are alternative parts of the registration chain, not two databases to
-register together. See the [complete startup](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+See the [startup](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
 for the surrounding NewHeap registration and
 [sample DbContext](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.DAL/SampleProjectManagementDbContext.cs)
 for entities and relationships. Your application's DAL owns its schema migrations.
@@ -77,8 +76,7 @@ await transaction.CommitAsync(cancellationToken);
 ```
 
 The sample's `ProjectService.CreateAsync` shows the complete sequence, including
-rollback when event publication throws. Its rollback demonstration deliberately
-leaves both the project and its event uncommitted.
+rollback when event publication throws.
 
 ## Next steps
 

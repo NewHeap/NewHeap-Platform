@@ -4,13 +4,15 @@ A NewHeap module connects an entity, input/output models, a service and a
 controller. The project module below exposes project CRUD through the standard
 NewHeap base classes.
 
+Start with the [Angular/API lister walkthrough](first-project-lister.md), then
+[add CRUD](project-crud.md).
+
 ## Start from a working module
 
 Use an application with [NewHeap and a database configured](data-access.md).
 The sample's [ProjectController](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs)
 and [ProjectService](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs)
-provide the complete constructors and startup dependencies. The snippets below
-are excerpts to place in that module, not standalone controller definitions.
+provide the constructors and startup dependencies for the excerpts below.
 
 | Part | Responsibility |
 | --- | --- |

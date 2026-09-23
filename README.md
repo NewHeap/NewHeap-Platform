@@ -9,6 +9,20 @@ data access, authentication, UI components, background work, media and AI.
 Adopt the packages you need; your application owns its domain, permissions
 and migrations.
 
+## Start here
+
+0. [Install and configure the platform](docs/guides/platform-setup.md): install
+   packages, configure the database, API and Angular, and verify sign-in and the
+   connection before implementing a feature.
+1. [Build a working lister](docs/guides/first-project-lister.md): follow the project
+   data from the database through the API to an Angular list with search, sorting
+   and paging.
+2. [Add CRUD](docs/guides/project-crud.md): extend the same feature with create,
+   edit and delete, including validation and list refresh.
+
+The guides link to the relevant sample implementation and include checks
+for the complete request flow.
+
 ## Main components
 
 Choose a component for a short guide with setup steps and practical examples.

@@ -4,6 +4,10 @@ Install .NET packages from nuget.org and Angular packages from npmjs.org.
 Both registries support anonymous installation; no NewHeap login or token is
 needed. Choose a released version compatible with your application.
 
+For a first Angular + API implementation, follow
+[Step 0: install and configure the platform](../guides/platform-setup.md), then
+build the lister and add CRUD. This page covers package installation only.
+
 ## NuGet
 
 From the target .NET 10 project directory, install the package you need. Replace

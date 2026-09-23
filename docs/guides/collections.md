@@ -3,6 +3,8 @@
 Use `NhBaseApiService` to call a NewHeap collection endpoint, and fluent request
 options to describe filters, sorting and paging.
 
+For your first implementation, follow [Step 1: a working Angular/API lister](first-project-lister.md).
+
 ## Configure the application once
 
 Install `@newheap/platform-common` in an Angular 20 application. Register
@@ -69,8 +71,7 @@ const projects$ = this.projectApi.list(options);
 
 Import `ProjectStatus` from your model file. Subscribe through your component's
 normal loading/error flow or an `async` pipe. The API filters active projects,
-orders them by name and returns the first page; the browser does not fetch the
-entire collection. The backend must mark these fields `[Filterable]` and
+orders them by name and returns the first page. Mark these backend fields `[Filterable]` and
 `[Orderable]`, as shown in the [project view model](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Models/View/ProjectViewModels.cs).
 
 ## Combine conditions

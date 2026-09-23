@@ -50,7 +50,7 @@ Read the resolved value through standard configuration:
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 ```
 
-It now contains the value from `secrets.json`, rather than the substitution text.
+`connectionString` now contains the value from `secrets.json`.
 The [sample setup](../../examples/SampleProjectManagement/README.md#secrets) provides
 a complete secrets template for its API, authentication and broker.
 

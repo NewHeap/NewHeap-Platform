@@ -65,7 +65,7 @@ dotnet test examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectMan
 ```
 
 The tests exercise repository registration, result assertions, scoped services
-and substitute predicates without needing a running sample API.
+and substitute predicates.
 
 ## Further reading
 

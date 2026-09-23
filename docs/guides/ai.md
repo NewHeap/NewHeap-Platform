@@ -1,8 +1,7 @@
 # Use a named AI model profile
 
 A model profile gives application code a stable name for a chat client and its
-allowed capabilities, data classifications and execution regions. Your
-application still chooses the model provider and owns its credentials.
+allowed capabilities, data classifications and execution regions.
 
 ## Register the client and profile
 
@@ -30,8 +29,7 @@ services.AddNewHeapPlatformAI(ai =>
 ```
 
 Import `Microsoft.Extensions.AI`, `Microsoft.Extensions.DependencyInjection`
-and `NewHeap.Platform.AI`. Set capabilities and region to match your actual
-client; `local` is the sample's region, not a request to move a hosted model.
+and `NewHeap.Platform.AI`. Set capabilities and region to match your client.
 `RequireProfile` makes startup validate that the required profile is available.
 
 ## Resolve the profile before use
@@ -48,11 +46,8 @@ var result = await resolver.ResolveChatAsync(new NhAiModelResolutionRequest(
     "local"));
 ```
 
-Check `result.Success` before using `result.Data.Client`. Propagate a failed
-result to the caller rather than bypassing the profile with a direct client
-lookup. A successful result includes the selected profile and its limits.
-Profile resolution alone is not a durable spending ledger: configure an
-appropriate budget manager for workflows that enforce usage across calls.
+Check `result.Success` before using `result.Data.Client` and propagate failures
+to the caller. A successful result includes the selected profile and its limits.
 
 ## Try it without provider credentials
 

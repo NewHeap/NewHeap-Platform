@@ -40,8 +40,7 @@ var jobId = NhHangfireUtil.BackgroundJob.Enqueue<ProjectMaintenanceJob>(
 ```
 
 Import `NewHeap.Platform.Common.Utilities` for `NhHangfireUtil`. The returned ID
-identifies the queued job; it does not mean the job has finished. Make the work
-safe to retry.
+identifies the queued job. Make the work safe to retry.
 
 ## Run it on a schedule
 

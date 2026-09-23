@@ -62,8 +62,7 @@ visibility of an existing edit section:
 }
 ```
 
-The API policy still enforces access. Hiding a section only helps the user see
-which actions are available.
+Use the API policy to enforce access and the pipe to show available actions.
 
 ## Try it and extend it
 

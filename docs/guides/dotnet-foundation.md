@@ -1,7 +1,9 @@
 # Set up a .NET application
 
-Use NewHeap packages in your own .NET 10 solution. Start with the packages your
-application needs; a backend service does not require Angular, Docker or Aspire.
+Add NewHeap packages and shared build settings to your .NET 10 solution.
+
+For the complete Angular + API setup, start with
+[Step 0: install and configure the platform](platform-setup.md).
 
 ## Choose the packages
 
@@ -45,8 +47,7 @@ dependency. Project files then use versionless references:
 
 Use versions from the release you are adopting. The sample's
 [central package file](../../examples/SampleProjectManagement/src/Back-end/Directory.Packages.props)
-shows the complete structure; its repository development dependencies are not a
-package list to copy into every application.
+shows the file structure.
 
 Run `dotnet build` from the solution directory. All projects should build with
 the shared framework and package versions.
