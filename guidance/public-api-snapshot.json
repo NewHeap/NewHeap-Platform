@@ -24597,7 +24597,8 @@
       "NhNotificationSettings",
       "NhUserNotificationService",
       "NhUserNotificationSeverity",
-      "TaskResult"
+      "TaskResult",
+      "TryAcquireTransactionLockAsync"
     ],
     "nh-proxy-contract-boundary": [
       "NhProxyRewriteRule",
