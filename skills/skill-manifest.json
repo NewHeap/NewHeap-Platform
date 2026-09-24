@@ -37,13 +37,13 @@
     "NewHeap.Platform.DatabaseRead.Tool": "7.8.1",
     "NewHeap.Platform.Events.Cap": "7.8.1",
     "NewHeap.Platform.Mapping": "7.8.1",
-    "NewHeap.Platform.Media": "4.0.1",
-    "NewHeap.Platform.Media.Core": "4.0.1",
-    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "4.0.1",
-    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "4.0.1",
-    "NewHeap.Platform.Media.Http": "4.0.1",
-    "NewHeap.Platform.Media.MediaStorage.FileSystem": "4.0.1",
-    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "4.0.1"
+    "NewHeap.Platform.Media": "4.0.2",
+    "NewHeap.Platform.Media.Core": "4.0.2",
+    "NewHeap.Platform.Media.FileStructureStorage.PostgreSql": "4.0.2",
+    "NewHeap.Platform.Media.FileStructureStorage.SqlServer": "4.0.2",
+    "NewHeap.Platform.Media.Http": "4.0.2",
+    "NewHeap.Platform.Media.MediaStorage.FileSystem": "4.0.2",
+    "NewHeap.Platform.Media.MediaStorage.S3Bucket": "4.0.2"
   },
   "skills": [
     {
