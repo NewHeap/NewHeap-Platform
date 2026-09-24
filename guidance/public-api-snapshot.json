@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.43",
   "backEnd": {
-    "hash": "29f4114d2272ba6b5663d7949f9ffc0cbe3e09ffa1c032f3212eeb9d8733d835",
-    "declarationCount": 5268,
+    "hash": "552f671eac7e6be09456db56612966624bcc3acf2d047f747bcd2bf1a37e11b2",
+    "declarationCount": 5279,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -67,6 +67,34 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public sealed record NhAiAspNetIssuerClaimMapping( string ExpectedIssuer, string IssuerClaimType = \"iss\", string SubjectClaimType = \"sub\", string TenantClaimType = \"tenant_id\", string TenantScopeKey = \"tenant-id\", string TenantScopeType = \"tenant\");"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public static class NhAiAspNetFailureCodes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public const string AuthenticationRequired = \"ai-tool-authentication-required\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public const string ClaimDuplicate = \"ai-tool-claim-duplicate\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public const string ClaimMissing = \"ai-tool-claim-missing\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public const string ClaimInvalid = \"ai-tool-claim-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public const string IssuerNotAccepted = \"ai-tool-issuer-mismatch\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
         "declaration": "public static class NhAiAspNetServiceCollectionExtensions {"
       },
       {
@@ -95,6 +123,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public NhAiAspNetBuilder UseAuthenticatedClaims( IEnumerable<NhAiAspNetIssuerClaimMapping> issuers) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
         "declaration": "public NhAiAspNetBuilder UseAuthenticatedClaimsWithoutTenant( string expectedIssuer, string issuerClaimType = \"iss\", string subjectClaimType = \"sub\")"
       },
       {
@@ -104,6 +136,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
         "declaration": "public NhAiAspNetBuilder AddClaimScope( string claimType, string scopeKey, bool required = false)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public NhAiAspNetBuilder AddClaimScope( string expectedIssuer, string claimType, string scopeKey, bool required = false)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
@@ -139,11 +175,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public bool AppliesTo(string? issuer) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
         "declaration": "public NhAiAspNetActiveDivisionRegistration? ActiveDivision { get; private set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
-        "declaration": "public NhAiAspNetIdentityProjectionRegistration? IdentityProjection { get; private set; }"
+        "declaration": "public IReadOnlyCollection<NhAiAspNetIdentityProjectionRegistration> IdentityProjections =>"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
@@ -171,7 +211,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
-        "declaration": "public void SetIdentityProjection(NhAiAspNetIdentityProjectionRegistration registration) {"
+        "declaration": "public void AddIdentityProjections( IEnumerable<NhAiAspNetIdentityProjectionRegistration> registrations) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
+        "declaration": "public bool TryGetIdentityProjection( string? issuer, out NhAiAspNetIdentityProjectionRegistration registration) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
@@ -24218,6 +24262,8 @@
     "nh-ai-aspnet-context": [
       "INhAiAuthenticatedInvocationContextResolver",
       "NhAiAspNetBuilder",
+      "NhAiAspNetFailureCodes",
+      "NhAiAspNetIssuerClaimMapping",
       "NhAiAspNetScopeAuthorizationResource",
       "NhAiAspNetServiceCollectionExtensions"
     ],

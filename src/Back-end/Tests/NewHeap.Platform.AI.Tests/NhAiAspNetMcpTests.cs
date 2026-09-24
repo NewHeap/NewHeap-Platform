@@ -33,7 +33,15 @@ public sealed class NhAiAspNetMcpTests
         services.AddScoped<INhAiToolDiscoveryPolicy, TenantDiscoveryPolicy>();
         services.AddScoped<INhAiBudgetManager>(_ => new NhAiTestBudgetManager());
         services.AddNewHeapPlatformAIAspNet(ai => ai
-            .UseAuthenticatedClaims("https://identity.example")
+            .UseAuthenticatedClaims(
+            [
+                new NhAiAspNetIssuerClaimMapping("https://identity.example"),
+                new NhAiAspNetIssuerClaimMapping(
+                    "https://operator-identity.example",
+                    "operator_issuer",
+                    "operator_subject",
+                    "operator_tenant")
+            ])
             .AddScopeCapability("scope", "tenant-a.inspect", "tenant-a-inspect")
             .AddScopeCapability("scope", "tenant-b.inspect", "tenant-b-inspect"));
         services.AddNewHeapPlatformAI(ai =>
@@ -92,7 +100,10 @@ public sealed class NhAiAspNetMcpTests
                 new Dictionary<string, object?> { ["input"] = "wait" },
                 cancellationToken: cancellation.Token));
 
-        accessor.HttpContext = CreateContext("subject-b", "tenant-b", "tenant-b.inspect");
+        accessor.HttpContext = CreateOperatorContext(
+            "subject-b",
+            "tenant-b",
+            "tenant-b.inspect");
         var mismatchedCall = await actorATool.CallAsync(new Dictionary<string, object?>
         {
             ["input"] = "value"
@@ -263,6 +274,24 @@ public sealed class NhAiAspNetMcpTests
                     new Claim("iss", "https://identity.example"),
                     new Claim("sub", subject),
                     new Claim("tenant_id", tenant),
+                    new Claim("scope", scope)
+                ],
+                "test"))
+        };
+    }
+
+    private static DefaultHttpContext CreateOperatorContext(
+        string subject,
+        string tenant,
+        string scope)
+    {
+        return new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                [
+                    new Claim("operator_issuer", "https://operator-identity.example"),
+                    new Claim("operator_subject", subject),
+                    new Claim("operator_tenant", tenant),
                     new Claim("scope", scope)
                 ],
                 "test"))

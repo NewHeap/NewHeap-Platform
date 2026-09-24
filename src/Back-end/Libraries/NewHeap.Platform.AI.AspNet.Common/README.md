@@ -6,12 +6,16 @@ configured `IAuthorizationService` policies succeed. The browser-supplied active
 division header is never treated as authorization by itself.
 
 OIDC/JWT hosts that disable inbound claim mapping configure
-`UseAuthenticatedClaims` with the exact expected issuer and their `iss`, `sub`,
-and tenant claim types. `INhAiAuthenticatedInvocationContextResolver` rejects
-missing or duplicate authority claims, projects only configured scalar scopes
-and scope-to-capability mappings, and links every resolution to request
-cancellation. The invocation context keeps issuer, subject, tenant, and a
-collision-resistant actor ID separate.
+`UseAuthenticatedClaims` with one exact issuer or a collection of
+`NhAiAspNetIssuerClaimMapping` entries. Every accepted issuer owns its `iss`, `sub`,
+tenant and tenant-scope mapping. `AddClaimScope` remains global by default and has
+an issuer-specific overload when claim types differ between authorities.
+`INhAiAuthenticatedInvocationContextResolver` rejects missing or duplicate
+authority claims, principals carrying authority claims for more than one issuer,
+and issuers outside the configured set. The typed
+`NhAiAspNetFailureCodes.IssuerNotAccepted` result retains its existing wire value
+for compatible HTTP failure mapping. The invocation context keeps issuer, subject,
+tenant, and a collision-resistant issuer-qualified actor ID separate.
 
 ASP.NET MCP hosts call `WithNewHeapPlatformAITools()` on the official
 `IMcpServerBuilder`. List and call requests resolve this authenticated context

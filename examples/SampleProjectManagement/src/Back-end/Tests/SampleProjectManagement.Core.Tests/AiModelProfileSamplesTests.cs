@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using Microsoft.Extensions.AI;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NewHeap.Platform.AI;
@@ -64,6 +66,75 @@ public sealed class AiModelProfileSamplesTests
 
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<INhAiToolInvocationGate>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IAuthorizationService>());
+    }
+
+    [Fact]
+    public async Task Aspnet_context_accepts_explicit_agent_and_operator_issuer_mappings()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddAuthorization();
+        services.AddNewHeapPlatformAIAspNet(ai => ai
+            .UseAuthenticatedClaims(
+            [
+                new NhAiAspNetIssuerClaimMapping(
+                    "https://agents.sample",
+                    "agent_issuer",
+                    "agent_subject",
+                    "agent_tenant"),
+                new NhAiAspNetIssuerClaimMapping(
+                    "https://operators.sample",
+                    "operator_issuer",
+                    "operator_subject",
+                    "operator_tenant")
+            ])
+            .AddClaimScope(
+                "https://agents.sample",
+                "agent_scope",
+                "workload",
+                required: true)
+            .AddClaimScope(
+                "https://operators.sample",
+                "operator_scope",
+                "workload",
+                required: true));
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var resolver = scope.ServiceProvider
+            .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>();
+        var agent = CreatePrincipalContext(
+            "agent_issuer",
+            "https://agents.sample",
+            "agent_subject",
+            "same-subject",
+            "agent_tenant",
+            "agent-tenant",
+            "agent_scope",
+            "automation");
+        var consoleOperator = CreatePrincipalContext(
+            "operator_issuer",
+            "https://operators.sample",
+            "operator_subject",
+            "same-subject",
+            "operator_tenant",
+            "operator-tenant",
+            "operator_scope",
+            "console");
+
+        var agentResult = await resolver.ResolveAsync(
+            agent,
+            TestContext.Current.CancellationToken);
+        var operatorResult = await resolver.ResolveAsync(
+            consoleOperator,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(agentResult.Success);
+        Assert.True(operatorResult.Success);
+        Assert.NotEqual(agentResult.Data.ActorId, operatorResult.Data.ActorId);
+        Assert.True(agentResult.Data.TryGetScopeValue("workload", out var agentWorkload));
+        Assert.Equal("automation", agentWorkload);
+        Assert.True(operatorResult.Data.TryGetScopeValue("workload", out var operatorWorkload));
+        Assert.Equal("console", operatorWorkload);
     }
 
     [Fact]
@@ -176,5 +247,28 @@ public sealed class AiModelProfileSamplesTests
         {
             return Task.FromResult<ProjectStatus?>(ProjectStatus.Active);
         }
+    }
+
+    private static DefaultHttpContext CreatePrincipalContext(
+        string issuerClaimType,
+        string issuer,
+        string subjectClaimType,
+        string subject,
+        string tenantClaimType,
+        string tenant,
+        string scopeClaimType,
+        string scopeValue)
+    {
+        return new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                [
+                    new Claim(issuerClaimType, issuer),
+                    new Claim(subjectClaimType, subject),
+                    new Claim(tenantClaimType, tenant),
+                    new Claim(scopeClaimType, scopeValue)
+                ],
+                "sample"))
+        };
     }
 }

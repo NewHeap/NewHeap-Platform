@@ -137,6 +137,147 @@ public sealed class NhAiAspNetContextTests
         Assert.Contains("orders-read", result.Data.CapabilityGrants);
     }
 
+    [Fact]
+    public async Task Authenticated_resolver_accepts_multiple_issuers_with_their_own_claim_mappings_and_scopes()
+    {
+        var issuerA = CreateMultiIssuerHttpContext(
+            "iss",
+            "https://identity-a.example",
+            "sub",
+            "shared-subject",
+            "tenant_id",
+            "tenant-a",
+            "department_a",
+            "operations");
+        var issuerB = CreateMultiIssuerHttpContext(
+            "issuer_b",
+            "https://identity-b.example",
+            "subject_b",
+            "shared-subject",
+            "organization_b",
+            "tenant-b",
+            "department_b",
+            "engineering");
+        var services = CreateMultiIssuerServices(issuerA);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var resolver = scope.ServiceProvider
+            .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>();
+
+        var first = await resolver.ResolveAsync(issuerA);
+        var second = await resolver.ResolveAsync(issuerB);
+
+        Assert.True(first.Success);
+        Assert.Equal("https://identity-a.example", first.Data.Issuer);
+        Assert.Equal("shared-subject", first.Data.Subject);
+        Assert.Equal("tenant-a", first.Data.TenantId);
+        Assert.True(first.Data.TryGetScopeValue("tenant-id", out var firstTenant));
+        Assert.Equal("tenant-a", firstTenant);
+        Assert.True(first.Data.TryGetScopeValue("department", out var firstDepartment));
+        Assert.Equal("operations", firstDepartment);
+        Assert.True(first.Data.TryGetScopeValue("region", out var firstRegion));
+        Assert.Equal("eu", firstRegion);
+
+        Assert.True(second.Success);
+        Assert.Equal("https://identity-b.example", second.Data.Issuer);
+        Assert.Equal("shared-subject", second.Data.Subject);
+        Assert.Equal("tenant-b", second.Data.TenantId);
+        Assert.True(second.Data.TryGetScopeValue("organization-id", out var secondTenant));
+        Assert.Equal("tenant-b", secondTenant);
+        Assert.True(second.Data.TryGetScopeValue("department", out var secondDepartment));
+        Assert.Equal("engineering", secondDepartment);
+        Assert.True(second.Data.TryGetScopeValue("region", out var secondRegion));
+        Assert.Equal("eu", secondRegion);
+        Assert.NotEqual(first.Data.ActorId, second.Data.ActorId);
+    }
+
+    [Fact]
+    public async Task Authenticated_resolver_rejects_authority_claims_from_multiple_issuers()
+    {
+        var httpContext = CreateMultiIssuerHttpContext(
+            "iss",
+            "https://identity-a.example",
+            "sub",
+            "subject-a",
+            "tenant_id",
+            "tenant-a",
+            "department_a",
+            "operations");
+        httpContext.User.Identities.Single().AddClaims(
+        [
+            new Claim("issuer_b", "https://identity-b.example"),
+            new Claim("subject_b", "subject-b"),
+            new Claim("organization_b", "tenant-b")
+        ]);
+        var services = CreateMultiIssuerServices(httpContext);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var result = await scope.ServiceProvider
+            .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>()
+            .ResolveAsync(httpContext);
+
+        Assert.False(result.Success);
+        Assert.Contains(
+            result.GetResultItems(),
+            item => item.Name == NhAiAspNetFailureCodes.ClaimDuplicate);
+    }
+
+    [Fact]
+    public async Task Authenticated_resolver_returns_a_typed_failure_for_an_unaccepted_issuer()
+    {
+        var httpContext = CreateMultiIssuerHttpContext(
+            "issuer_b",
+            "https://unaccepted.example",
+            "subject_b",
+            "subject-b",
+            "organization_b",
+            "tenant-b",
+            "department_b",
+            "engineering");
+        var services = CreateMultiIssuerServices(httpContext);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var result = await scope.ServiceProvider
+            .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>()
+            .ResolveAsync(httpContext);
+
+        Assert.False(result.Success);
+        Assert.Contains(
+            result.GetResultItems(),
+            item => item.Name == NhAiAspNetFailureCodes.IssuerNotAccepted);
+    }
+
+    [Fact]
+    public async Task Tool_gate_uses_the_resolved_issuers_tenant_scope_contract()
+    {
+        var httpContext = CreateMultiIssuerHttpContext(
+            "issuer_b",
+            "https://identity-b.example",
+            "subject_b",
+            "subject-b",
+            "organization_b",
+            "tenant-b",
+            "department_b",
+            "engineering");
+        var authorization = new TestAuthorizationService(["project-read"]);
+        var services = CreateMultiIssuerServices(httpContext);
+        services.AddSingleton<IAuthorizationService>(authorization);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var result = await scope.ServiceProvider
+            .GetRequiredService<INhAiToolInvocationGate>()
+            .AuthorizeAsync(ToolDescriptor);
+
+        Assert.True(result.Success);
+        var resource = Assert.IsType<NhAiAspNetScopeAuthorizationResource>(
+            authorization.LastResource);
+        Assert.Equal("organization", resource.ScopeType);
+        Assert.Equal("tenant-b", resource.ScopeId);
+    }
+
     [Theory]
     [InlineData("iss")]
     [InlineData("sub")]
@@ -243,7 +384,7 @@ public sealed class NhAiAspNetContextTests
         Assert.False(mismatch.Success);
         Assert.Contains(
             mismatch.GetResultItems(),
-            item => item.Name == "ai-tool-issuer-mismatch");
+            item => item.Name == NhAiAspNetFailureCodes.IssuerNotAccepted);
 
         var cancelled = CreateOidcHttpContext(
             "https://identity.example",
@@ -340,6 +481,39 @@ public sealed class NhAiAspNetContextTests
         return services;
     }
 
+    private static ServiceCollection CreateMultiIssuerServices(HttpContext httpContext)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IHttpContextAccessor>(
+            new HttpContextAccessor { HttpContext = httpContext });
+        services.AddSingleton<IAuthorizationService>(
+            new TestAuthorizationService([]));
+        services.AddNewHeapPlatformAIAspNet(ai => ai
+            .UseAuthenticatedClaims(
+            [
+                new NhAiAspNetIssuerClaimMapping("https://identity-a.example"),
+                new NhAiAspNetIssuerClaimMapping(
+                    "https://identity-b.example",
+                    "issuer_b",
+                    "subject_b",
+                    "organization_b",
+                    "organization-id",
+                    "organization")
+            ])
+            .AddClaimScope("region", "region", required: true)
+            .AddClaimScope(
+                "https://identity-a.example",
+                "department_a",
+                "department",
+                required: true)
+            .AddClaimScope(
+                "https://identity-b.example",
+                "department_b",
+                "department",
+                required: true));
+        return services;
+    }
+
     private static DefaultHttpContext CreateOidcHttpContext(
         string issuer,
         string subject,
@@ -359,11 +533,37 @@ public sealed class NhAiAspNetContextTests
         };
     }
 
+    private static DefaultHttpContext CreateMultiIssuerHttpContext(
+        string issuerClaimType,
+        string issuer,
+        string subjectClaimType,
+        string subject,
+        string tenantClaimType,
+        string tenant,
+        string departmentClaimType,
+        string department)
+    {
+        return new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                [
+                    new Claim(issuerClaimType, issuer),
+                    new Claim(subjectClaimType, subject),
+                    new Claim(tenantClaimType, tenant),
+                    new Claim(departmentClaimType, department),
+                    new Claim("region", "eu")
+                ],
+                "test"))
+        };
+    }
+
     private sealed class TestAuthorizationService(
         IEnumerable<string> allowedPolicies) : IAuthorizationService
     {
         private readonly HashSet<string> _allowed =
             allowedPolicies.ToHashSet(StringComparer.Ordinal);
+
+        public object? LastResource { get; private set; }
 
         public Task<AuthorizationResult> AuthorizeAsync(
             ClaimsPrincipal user,
@@ -378,6 +578,7 @@ public sealed class NhAiAspNetContextTests
             object? resource,
             string policyName)
         {
+            LastResource = resource;
             return Task.FromResult(_allowed.Contains(policyName)
                 ? AuthorizationResult.Success()
                 : AuthorizationResult.Failed());

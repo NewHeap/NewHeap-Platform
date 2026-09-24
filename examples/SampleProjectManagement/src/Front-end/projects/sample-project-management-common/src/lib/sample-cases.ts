@@ -3021,13 +3021,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-223",
     "title": "Authorized ASP.NET AI context",
     "category": "AI tools and generated catalogs",
-    "surface": "INhAiAuthenticatedInvocationContextResolver, AddNewHeapPlatformAIAspNet, configurable OIDC claim projection, IAuthorizationService, execution scopes, and narrow capability grants",
-    "outcome": "The production ASP.NET gate resolves a fresh context per request. Hosts with unmapped JWT claims validate an exact issuer and single subject and tenant claims, project only configured scopes and capability values, and reject missing, duplicate, or mismatched authority. The existing active-division flow remains available and contributes scope only after server-side policy authorization; request cancellation propagates.",
+    "surface": "INhAiAuthenticatedInvocationContextResolver, AddNewHeapPlatformAIAspNet, NhAiAspNetIssuerClaimMapping, configurable single- and multi-issuer OIDC claim projection, IAuthorizationService, execution scopes, and narrow capability grants",
+    "outcome": "The production ASP.NET gate resolves a fresh context per request. Hosts with unmapped JWT claims accept one exact issuer through the source-compatible overload or multiple issuer mappings with issuer-specific claim types and scopes. Each principal resolves through exactly one authority mapping, the same subject under different issuers produces different actor IDs, and missing, duplicate, multi-authority or unaccepted issuer claims return typed failures. The existing active-division flow remains available and contributes scope only after server-side policy authorization; request cancellation propagates.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiModelProfileSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetContextIntegration.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetContextTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetContextTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs"
     ]
   },
   {

@@ -15,6 +15,34 @@ public sealed record NhAiAspNetScopeAuthorizationResource(
     string ScopeId,
     string Purpose);
 
+/// <summary>
+/// Maps the authority claims of one accepted issuer into a NewHeap AI invocation context.
+/// </summary>
+public sealed record NhAiAspNetIssuerClaimMapping(
+    string ExpectedIssuer,
+    string IssuerClaimType = "iss",
+    string SubjectClaimType = "sub",
+    string TenantClaimType = "tenant_id",
+    string TenantScopeKey = "tenant-id",
+    string TenantScopeType = "tenant");
+
+/// <summary>
+/// Stable failure codes returned while resolving an authenticated ASP.NET AI context.
+/// </summary>
+public static class NhAiAspNetFailureCodes
+{
+    public const string AuthenticationRequired = "ai-tool-authentication-required";
+    public const string ClaimDuplicate = "ai-tool-claim-duplicate";
+    public const string ClaimMissing = "ai-tool-claim-missing";
+    public const string ClaimInvalid = "ai-tool-claim-invalid";
+
+    /// <summary>
+    /// The principal's issuer is not in the configured issuer set. The existing wire value is
+    /// retained so single-issuer consumers can keep their current failure mapping.
+    /// </summary>
+    public const string IssuerNotAccepted = "ai-tool-issuer-mismatch";
+}
+
 public static class NhAiAspNetServiceCollectionExtensions
 {
     public static IServiceCollection AddNewHeapPlatformAIAspNet(
@@ -114,14 +142,56 @@ public sealed class NhAiAspNetBuilder
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantClaimType);
         NhAiAspNetNames.ValidateSegment(tenantScopeKey, nameof(tenantScopeKey));
         NhAiAspNetNames.ValidateSegment(tenantScopeType, nameof(tenantScopeType));
-        _state.SetIdentityProjection(new NhAiAspNetIdentityProjectionRegistration(
+        _state.AddIdentityProjections([new NhAiAspNetIdentityProjectionRegistration(
             expectedIssuer,
             issuerClaimType,
             subjectClaimType,
             tenantClaimType,
             null,
             tenantScopeKey,
-            tenantScopeType));
+            tenantScopeType)]);
+        return this;
+    }
+
+    /// <summary>
+    /// Accepts one or more exact issuers, each with its own authority claim mapping.
+    /// </summary>
+    public NhAiAspNetBuilder UseAuthenticatedClaims(
+        IEnumerable<NhAiAspNetIssuerClaimMapping> issuers)
+    {
+        ArgumentNullException.ThrowIfNull(issuers);
+        var mappings = issuers.ToArray();
+        if (mappings.Length == 0)
+        {
+            throw new ArgumentException(
+                "At least one ASP.NET AI issuer claim mapping is required.",
+                nameof(issuers));
+        }
+
+        var registrations = new NhAiAspNetIdentityProjectionRegistration[mappings.Length];
+        for (var index = 0; index < mappings.Length; index++)
+        {
+            var mapping = mappings[index] ?? throw new ArgumentException(
+                "ASP.NET AI issuer claim mappings cannot contain null entries.",
+                nameof(issuers));
+            ValidateIdentityProjection(
+                mapping.ExpectedIssuer,
+                mapping.IssuerClaimType,
+                mapping.SubjectClaimType);
+            ArgumentException.ThrowIfNullOrWhiteSpace(mapping.TenantClaimType);
+            NhAiAspNetNames.ValidateSegment(mapping.TenantScopeKey, nameof(mapping.TenantScopeKey));
+            NhAiAspNetNames.ValidateSegment(mapping.TenantScopeType, nameof(mapping.TenantScopeType));
+            registrations[index] = new NhAiAspNetIdentityProjectionRegistration(
+                mapping.ExpectedIssuer,
+                mapping.IssuerClaimType,
+                mapping.SubjectClaimType,
+                mapping.TenantClaimType,
+                null,
+                mapping.TenantScopeKey,
+                mapping.TenantScopeType);
+        }
+
+        _state.AddIdentityProjections(registrations);
         return this;
     }
 
@@ -135,14 +205,14 @@ public sealed class NhAiAspNetBuilder
         string subjectClaimType = "sub")
     {
         ValidateIdentityProjection(expectedIssuer, issuerClaimType, subjectClaimType);
-        _state.SetIdentityProjection(new NhAiAspNetIdentityProjectionRegistration(
+        _state.AddIdentityProjections([new NhAiAspNetIdentityProjectionRegistration(
             expectedIssuer,
             issuerClaimType,
             subjectClaimType,
             null,
             null,
             "tenant-id",
-            "tenant"));
+            "tenant")]);
         return this;
     }
 
@@ -166,14 +236,14 @@ public sealed class NhAiAspNetBuilder
         }
         NhAiAspNetNames.ValidateSegment(tenantScopeKey, nameof(tenantScopeKey));
         NhAiAspNetNames.ValidateSegment(tenantScopeType, nameof(tenantScopeType));
-        _state.SetIdentityProjection(new NhAiAspNetIdentityProjectionRegistration(
+        _state.AddIdentityProjections([new NhAiAspNetIdentityProjectionRegistration(
             expectedIssuer,
             issuerClaimType,
             subjectClaimType,
             null,
             tenantId,
             tenantScopeKey,
-            tenantScopeType));
+            tenantScopeType)]);
         return this;
     }
 
@@ -182,13 +252,18 @@ public sealed class NhAiAspNetBuilder
         string issuerClaimType,
         string subjectClaimType)
     {
+        ValidateExpectedIssuer(expectedIssuer);
+        ArgumentException.ThrowIfNullOrWhiteSpace(issuerClaimType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(subjectClaimType);
+    }
+
+    private static void ValidateExpectedIssuer(string expectedIssuer)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedIssuer);
         if (expectedIssuer.Length > 256)
         {
             throw new ArgumentOutOfRangeException(nameof(expectedIssuer));
         }
-        ArgumentException.ThrowIfNullOrWhiteSpace(issuerClaimType);
-        ArgumentException.ThrowIfNullOrWhiteSpace(subjectClaimType);
     }
 
     public NhAiAspNetBuilder AddClaimScope(
@@ -199,6 +274,27 @@ public sealed class NhAiAspNetBuilder
         ArgumentException.ThrowIfNullOrWhiteSpace(claimType);
         NhAiAspNetNames.ValidateSegment(scopeKey, nameof(scopeKey));
         _state.AddClaimScope(new NhAiAspNetClaimScopeRegistration(
+            null,
+            claimType,
+            scopeKey,
+            required));
+        return this;
+    }
+
+    /// <summary>
+    /// Projects a scalar claim only when the resolved principal belongs to the specified issuer.
+    /// </summary>
+    public NhAiAspNetBuilder AddClaimScope(
+        string expectedIssuer,
+        string claimType,
+        string scopeKey,
+        bool required = false)
+    {
+        ValidateExpectedIssuer(expectedIssuer);
+        ArgumentException.ThrowIfNullOrWhiteSpace(claimType);
+        NhAiAspNetNames.ValidateSegment(scopeKey, nameof(scopeKey));
+        _state.AddClaimScope(new NhAiAspNetClaimScopeRegistration(
+            expectedIssuer,
             claimType,
             scopeKey,
             required));
@@ -264,7 +360,7 @@ internal sealed class NhAiAspNetToolInvocationGate(
 
         object? resource = null;
         var context = resolved.Data;
-        if (state.IdentityProjection is { } identityProjection
+        if (state.TryGetIdentityProjection(context.Issuer, out var identityProjection)
             && !string.IsNullOrWhiteSpace(context.TenantId))
         {
             resource = new NhAiAspNetScopeAuthorizationResource(
@@ -320,13 +416,26 @@ internal sealed class NhAiAuthenticatedInvocationContextResolver(
         token.ThrowIfCancellationRequested();
         if (httpContext.User.Identity?.IsAuthenticated != true)
         {
-            return Failed("ai-tool-authentication-required", "AI tool authentication is required.");
+            return Failed(
+                NhAiAspNetFailureCodes.AuthenticationRequired,
+                "AI tool authentication is required.");
         }
 
-        var projection = state.IdentityProjection;
-        var issuer = projection is null
-            ? TaskResult<string?>.Succeeded(null)
-            : ResolveSingleClaim(httpContext.User, projection.IssuerClaimType, true);
+        NhAiAspNetIdentityProjectionRegistration? projection = null;
+        var issuer = TaskResult<string?>.Succeeded(null);
+        if (state.IdentityProjections.Count > 0)
+        {
+            var resolvedProjection = ResolveIdentityProjection(
+                httpContext.User,
+                state.IdentityProjections);
+            if (!resolvedProjection.Success)
+            {
+                return TaskResult<NhAiInvocationContext>.Failed(resolvedProjection);
+            }
+
+            projection = resolvedProjection.Data;
+            issuer = TaskResult<string?>.Succeeded(projection.ExpectedIssuer);
+        }
         var subject = ResolveSingleClaim(
             httpContext.User,
             projection?.SubjectClaimType ?? ClaimTypes.NameIdentifier,
@@ -343,13 +452,6 @@ internal sealed class NhAiAuthenticatedInvocationContextResolver(
         {
             return TaskResult<NhAiInvocationContext>.Failed(identityFailure);
         }
-        if (projection is not null
-            && !string.Equals(issuer.Data, projection.ExpectedIssuer, StringComparison.Ordinal))
-        {
-            return Failed(
-                "ai-tool-issuer-mismatch",
-                "The authenticated token issuer does not match the configured issuer.");
-        }
 
         var scope = new Dictionary<string, string>(StringComparer.Ordinal);
         var tenantId = tenant.Data;
@@ -357,7 +459,9 @@ internal sealed class NhAiAuthenticatedInvocationContextResolver(
         {
             scope.Add(projection.TenantScopeKey, tenantId!);
         }
-        foreach (var claimScope in state.ClaimScopes.OrderBy(item => item.ScopeKey, StringComparer.Ordinal))
+        foreach (var claimScope in state.ClaimScopes
+            .Where(item => item.AppliesTo(projection?.ExpectedIssuer))
+            .OrderBy(item => item.ScopeKey, StringComparer.Ordinal))
         {
             var value = ResolveSingleClaim(httpContext.User, claimScope.ClaimType, claimScope.Required);
             if (!value.Success)
@@ -431,6 +535,91 @@ internal sealed class NhAiAuthenticatedInvocationContextResolver(
         });
     }
 
+    private static TaskResult<NhAiAspNetIdentityProjectionRegistration> ResolveIdentityProjection(
+        ClaimsPrincipal principal,
+        IReadOnlyCollection<NhAiAspNetIdentityProjectionRegistration> projections)
+    {
+        var issuerClaims = new List<(string ClaimType, string Value)>();
+        foreach (var claimType in projections
+            .Select(item => item.IssuerClaimType)
+            .Distinct(StringComparer.Ordinal))
+        {
+            var issuer = ResolveSingleClaim(principal, claimType, false);
+            if (!issuer.Success)
+            {
+                return TaskResult<NhAiAspNetIdentityProjectionRegistration>.Failed(issuer);
+            }
+            if (issuer.Data is not null)
+            {
+                issuerClaims.Add((claimType, issuer.Data));
+            }
+        }
+
+        if (issuerClaims.Count == 0)
+        {
+            return TaskResult<NhAiAspNetIdentityProjectionRegistration>.Failed(
+                NhAiAspNetFailureCodes.ClaimMissing,
+                "One configured authenticated issuer claim is required.");
+        }
+        if (issuerClaims.Count > 1)
+        {
+            return MultipleAuthorityClaimsFailure();
+        }
+
+        var issuerClaim = issuerClaims[0];
+        var projection = projections.SingleOrDefault(item =>
+            string.Equals(item.IssuerClaimType, issuerClaim.ClaimType, StringComparison.Ordinal)
+            && string.Equals(item.ExpectedIssuer, issuerClaim.Value, StringComparison.Ordinal));
+        if (projection is null)
+        {
+            return TaskResult<NhAiAspNetIdentityProjectionRegistration>.Failed(
+                NhAiAspNetFailureCodes.IssuerNotAccepted,
+                "The authenticated token issuer is not accepted.");
+        }
+        if (HasAuthorityClaimsFromAnotherIssuer(principal, projection, projections))
+        {
+            return MultipleAuthorityClaimsFailure();
+        }
+
+        return TaskResult<NhAiAspNetIdentityProjectionRegistration>.Succeeded(projection);
+    }
+
+    private static bool HasAuthorityClaimsFromAnotherIssuer(
+        ClaimsPrincipal principal,
+        NhAiAspNetIdentityProjectionRegistration selected,
+        IReadOnlyCollection<NhAiAspNetIdentityProjectionRegistration> projections)
+    {
+        var selectedClaimTypes = AuthorityClaimTypes(selected).ToHashSet(StringComparer.Ordinal);
+        return projections
+            .Where(item => !string.Equals(
+                item.ExpectedIssuer,
+                selected.ExpectedIssuer,
+                StringComparison.Ordinal))
+            .SelectMany(AuthorityClaimTypes)
+            .Distinct(StringComparer.Ordinal)
+            .Where(claimType => !selectedClaimTypes.Contains(claimType))
+            .Any(claimType => principal.FindAll(claimType).Any());
+    }
+
+    private static IEnumerable<string> AuthorityClaimTypes(
+        NhAiAspNetIdentityProjectionRegistration projection)
+    {
+        yield return projection.IssuerClaimType;
+        yield return projection.SubjectClaimType;
+        if (projection.TenantClaimType is not null)
+        {
+            yield return projection.TenantClaimType;
+        }
+    }
+
+    private static TaskResult<NhAiAspNetIdentityProjectionRegistration>
+        MultipleAuthorityClaimsFailure()
+    {
+        return TaskResult<NhAiAspNetIdentityProjectionRegistration>.Failed(
+            NhAiAspNetFailureCodes.ClaimDuplicate,
+            "The authenticated principal must carry authority claims for exactly one issuer.");
+    }
+
     private static TaskResult<string?> ResolveSingleClaim(
         ClaimsPrincipal principal,
         string claimType,
@@ -440,21 +629,21 @@ internal sealed class NhAiAuthenticatedInvocationContextResolver(
         if (claims.Length > 1)
         {
             return TaskResult<string?>.Failed(
-                "ai-tool-claim-duplicate",
+                NhAiAspNetFailureCodes.ClaimDuplicate,
                 $"The authenticated claim '{claimType}' must occur exactly once.");
         }
         if (claims.Length == 0 || string.IsNullOrWhiteSpace(claims[0].Value))
         {
             return required
                 ? TaskResult<string?>.Failed(
-                    "ai-tool-claim-missing",
+                    NhAiAspNetFailureCodes.ClaimMissing,
                     $"The authenticated claim '{claimType}' is required.")
                 : TaskResult<string?>.Succeeded(null);
         }
         if (claims[0].Value.Length > 256)
         {
             return TaskResult<string?>.Failed(
-                "ai-tool-claim-invalid",
+                NhAiAspNetFailureCodes.ClaimInvalid,
                 $"The authenticated claim '{claimType}' is invalid.");
         }
         return TaskResult<string?>.Succeeded(claims[0].Value);
@@ -568,9 +757,17 @@ internal sealed record NhAiAspNetIdentityProjectionRegistration(
 }
 
 internal sealed record NhAiAspNetClaimScopeRegistration(
+    string? ExpectedIssuer,
     string ClaimType,
     string ScopeKey,
-    bool Required);
+    bool Required)
+{
+    public bool AppliesTo(string? issuer)
+    {
+        return ExpectedIssuer is null
+            || string.Equals(ExpectedIssuer, issuer, StringComparison.Ordinal);
+    }
+}
 
 internal sealed record NhAiAspNetScopeCapabilityRegistration(
     string ClaimType,
@@ -580,13 +777,16 @@ internal sealed record NhAiAspNetScopeCapabilityRegistration(
 internal sealed class NhAiAspNetRegistrationState
 {
     private readonly Dictionary<string, string> _capabilities = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, NhAiAspNetClaimScopeRegistration> _claimScopes =
+    private readonly Dictionary<string, NhAiAspNetIdentityProjectionRegistration> _identityProjections =
         new(StringComparer.Ordinal);
+    private readonly Dictionary<(string? ExpectedIssuer, string ScopeKey), NhAiAspNetClaimScopeRegistration>
+        _claimScopes = new();
     private readonly Dictionary<string, NhAiAspNetScopeCapabilityRegistration> _scopeCapabilities =
         new(StringComparer.Ordinal);
 
     public NhAiAspNetActiveDivisionRegistration? ActiveDivision { get; private set; }
-    public NhAiAspNetIdentityProjectionRegistration? IdentityProjection { get; private set; }
+    public IReadOnlyCollection<NhAiAspNetIdentityProjectionRegistration> IdentityProjections =>
+        _identityProjections.Values;
     public IReadOnlyDictionary<string, string> Capabilities => _capabilities;
     public IReadOnlyCollection<NhAiAspNetClaimScopeRegistration> ClaimScopes => _claimScopes.Values;
     public IReadOnlyCollection<NhAiAspNetScopeCapabilityRegistration> ScopeCapabilities =>
@@ -614,38 +814,87 @@ internal sealed class NhAiAspNetRegistrationState
         _capabilities[capability] = authorizationPolicy;
     }
 
-    public void SetIdentityProjection(NhAiAspNetIdentityProjectionRegistration registration)
+    public void AddIdentityProjections(
+        IEnumerable<NhAiAspNetIdentityProjectionRegistration> registrations)
     {
-        if (registration.ProjectsTenant && _claimScopes.ContainsKey(registration.TenantScopeKey))
+        var additions = registrations.ToArray();
+        var combined = new Dictionary<string, NhAiAspNetIdentityProjectionRegistration>(
+            _identityProjections,
+            StringComparer.Ordinal);
+        foreach (var registration in additions)
         {
-            throw new InvalidOperationException(
-                $"AI tenant scope '{registration.TenantScopeKey}' conflicts with a projected claim scope.");
+            if (registration.ProjectsTenant && _claimScopes.Values.Any(claimScope =>
+                claimScope.AppliesTo(registration.ExpectedIssuer)
+                && string.Equals(
+                    claimScope.ScopeKey,
+                    registration.TenantScopeKey,
+                    StringComparison.Ordinal)))
+            {
+                throw new InvalidOperationException(
+                    $"AI tenant scope '{registration.TenantScopeKey}' conflicts with a projected claim scope.");
+            }
+            if (combined.TryGetValue(registration.ExpectedIssuer, out var existing)
+                && existing != registration)
+            {
+                throw new InvalidOperationException(
+                    $"The ASP.NET AI issuer '{registration.ExpectedIssuer}' is already registered with a different claim mapping.");
+            }
+            combined[registration.ExpectedIssuer] = registration;
         }
-        if (IdentityProjection is not null && IdentityProjection != registration)
+
+        foreach (var registration in additions)
         {
-            throw new InvalidOperationException(
-                "The ASP.NET AI authenticated claim projection is already registered with a different contract.");
+            _identityProjections[registration.ExpectedIssuer] = registration;
         }
-        IdentityProjection = registration;
+    }
+
+    public bool TryGetIdentityProjection(
+        string? issuer,
+        out NhAiAspNetIdentityProjectionRegistration registration)
+    {
+        if (issuer is not null && _identityProjections.TryGetValue(issuer, out var found))
+        {
+            registration = found;
+            return true;
+        }
+
+        registration = null!;
+        return false;
     }
 
     public void AddClaimScope(NhAiAspNetClaimScopeRegistration registration)
     {
-        if (IdentityProjection?.ProjectsTenant == true && string.Equals(
-            IdentityProjection?.TenantScopeKey,
-            registration.ScopeKey,
-            StringComparison.Ordinal))
+        if (registration.ExpectedIssuer is not null
+            && !_identityProjections.ContainsKey(registration.ExpectedIssuer))
+        {
+            throw new InvalidOperationException(
+                $"ASP.NET AI issuer '{registration.ExpectedIssuer}' must be registered before adding an issuer-specific claim scope.");
+        }
+        if (_identityProjections.Values.Any(identityProjection =>
+            registration.AppliesTo(identityProjection.ExpectedIssuer)
+            && identityProjection.ProjectsTenant
+            && string.Equals(
+                identityProjection.TenantScopeKey,
+                registration.ScopeKey,
+                StringComparison.Ordinal)))
         {
             throw new InvalidOperationException(
                 $"AI claim scope '{registration.ScopeKey}' conflicts with the tenant scope.");
         }
-        if (_claimScopes.TryGetValue(registration.ScopeKey, out var existing)
-            && existing != registration)
+        var existing = _claimScopes.Values.FirstOrDefault(item =>
+            string.Equals(item.ScopeKey, registration.ScopeKey, StringComparison.Ordinal)
+            && (item.ExpectedIssuer is null
+                || registration.ExpectedIssuer is null
+                || string.Equals(
+                    item.ExpectedIssuer,
+                    registration.ExpectedIssuer,
+                    StringComparison.Ordinal)));
+        if (existing is not null && existing != registration)
         {
             throw new InvalidOperationException(
                 $"AI claim scope '{registration.ScopeKey}' is already registered with a different contract.");
         }
-        _claimScopes[registration.ScopeKey] = registration;
+        _claimScopes[(registration.ExpectedIssuer, registration.ScopeKey)] = registration;
     }
 
     public void AddScopeCapability(NhAiAspNetScopeCapabilityRegistration registration)
