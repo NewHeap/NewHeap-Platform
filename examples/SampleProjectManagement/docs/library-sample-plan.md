@@ -134,7 +134,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-084 | Simple email | mail service/settings | A test email uses the correct sender. |
 | SPM-085 | Razor email template | Razor view service | A localized assignment email is rendered. |
 | SPM-086 | Create and summarize user notifications | `INhUserNotificationService`, `NhUserNotificationService` and `CreateOrAddMessageAsync` | Assignment creates the correct message, repeated updates for one project join a single thread through `GroupKey` with category and severity, and the overview excludes archived notifications and remains query-safe under strict EF Core warning policies on SQL Server and PostgreSQL. |
-| SPM-087 | Delivery channels | notification dispatcher workers and per-channel concurrency | A channel opts into parallel workers while unconfigured channels remain serial, deliveries are claimed only when worker capacity is available, and unknown-dispatcher cleanup processes deterministic oldest-first batches under strict EF Core warning policies on SQL Server and PostgreSQL. |
+| SPM-087 | Delivery channels | notification dispatcher workers, deterministic claiming and cleanup, and per-channel concurrency | A channel opts into parallel workers while unconfigured channels remain serial, deliveries are claimed only when worker capacity is available with `Id` as the final tie-breaker, retention cleanup materializes deliveries by `Id`, and unknown-dispatcher cleanup processes deterministic oldest-first batches under strict EF Core warning policies on SQL Server and PostgreSQL. |
 | SPM-088 | Email dispatcher | email notification dispatcher | Sent and failed states include error details. |
 | SPM-089 | Read and unread | notification controller/models | The badge responds to mark-as-read. |
 | SPM-090 | Notification component | abstract component + FE service | The message, severity, thread update count, refresh, and target route work. |
@@ -273,7 +273,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-182 | Folder lifecycle | folder create/update/delete | Project folders can be created, renamed, and deleted safely; create and rename normalize surrounding whitespace and separators, rejecting empty normalized names before storage or events. |
 | SPM-183 | File upload and download | media service + HTTP | File content, content type, and download name remain intact. |
 | SPM-184 | Tags and properties | tags/properties/localization | Metadata and translations round-trip through the API and UI. |
-| SPM-185 | Media search and sorting | search/file-get options | Query, paging, and sorting return stable results. |
+| SPM-185 | Media search and sorting | search/file-get options | Query, paging, folder listing, and sorting return deterministic results with `Id` as the default and final tie-breaker on SQL Server and PostgreSQL. |
 | SPM-186 | Thumbnails | thumbnail service/events | Upload generates a thumbnail and cleanup removes derivatives. |
 | SPM-187 | Media HTTP surface | endpoint mapper/filter | The route group injects context and validates upload requests. |
 | SPM-188 | Media events | folder/file event handlers | Create, update, and delete operations publish the expected events. |

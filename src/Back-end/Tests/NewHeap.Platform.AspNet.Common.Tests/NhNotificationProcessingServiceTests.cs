@@ -157,6 +157,38 @@ public sealed class NhNotificationProcessingServiceTests
     }
 
     [Fact]
+    public async Task CleanupProcessesOldDeliveriesInIdOrder()
+    {
+        var settings = CreateSettings();
+        settings.ProcessingCleanupInterval = TimeSpan.FromMilliseconds(10);
+        settings.ProcessingRetentionPeriod = TimeSpan.FromHours(1);
+        var lowerId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var higherId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        var sentAt = DateTimeOffset.UtcNow.AddHours(-2);
+
+        await using var harness = CreateHarness(new DispatcherProbe(), settings);
+        await harness.AddDeliveryAsync(
+            status: NotificationDeliveryStatus.Succeeded,
+            id: higherId,
+            sentAt: sentAt);
+        await harness.AddDeliveryAsync(
+            status: NotificationDeliveryStatus.Succeeded,
+            id: lowerId,
+            sentAt: sentAt);
+
+        await harness.StartAsync();
+        await WaitUntilAsync(async () =>
+            (await harness.GetDeliveriesAsync()).All(x => x.IsCleaned));
+
+        var cleanedDeliveryIds = harness.Logger.Entries
+            .Where(entry => entry.Template.StartsWith("Cleaning up delivery", StringComparison.Ordinal))
+            .Select(entry => entry.Properties["Id"])
+            .OfType<Guid>()
+            .ToList();
+        cleanedDeliveryIds.Should().Equal(lowerId, higherId);
+    }
+
+    [Fact]
     public async Task MissingClaimedDeliveryDoesNotStopTheWorker()
     {
         var probe = new DispatcherProbe();
@@ -284,7 +316,9 @@ public sealed class NhNotificationProcessingServiceTests
             NotificationDeliveryStatus status = NotificationDeliveryStatus.Queued,
             int attemptCount = 0,
             DateTimeOffset? scheduledAt = null,
-            DateTimeOffset? lastSendAttemptAt = null)
+            DateTimeOffset? lastSendAttemptAt = null,
+            Guid? id = null,
+            DateTimeOffset? sentAt = null)
         {
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<NotificationTestDbContext>();
@@ -297,7 +331,7 @@ public sealed class NhNotificationProcessingServiceTests
             };
             var delivery = new NhNotificationDelivery
             {
-                Id = Guid.NewGuid(),
+                Id = id ?? Guid.NewGuid(),
                 Notification = notification,
                 NotificationId = notification.Id,
                 DispatcherId = DispatcherId,
@@ -305,7 +339,8 @@ public sealed class NhNotificationProcessingServiceTests
                 Status = status,
                 AttemptCount = attemptCount,
                 ScheduledAt = scheduledAt ?? DateTimeOffset.UtcNow.AddMinutes(-1),
-                LastSendAttemptAt = lastSendAttemptAt
+                LastSendAttemptAt = lastSendAttemptAt,
+                SentAt = sentAt
             };
             notification.Deliveries.Add(delivery);
             dbContext.Notifications.Add(notification);

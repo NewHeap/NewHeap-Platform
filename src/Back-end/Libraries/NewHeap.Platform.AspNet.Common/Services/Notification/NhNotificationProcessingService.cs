@@ -243,6 +243,7 @@ internal class NhNotificationProcessingService : BackgroundService
             })
             .OrderByDescending(x => x.Priority)
             .ThenBy(x => x.Delivery.ScheduledAt)
+            .ThenBy(x => x.Delivery.Id)
             .Select(x => x.Delivery)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -550,6 +551,7 @@ internal class NhNotificationProcessingService : BackgroundService
             .GetAll()
             .Where(x => x.Notification!.ProcessorKey == _settings.ProcessorKey)
             .Where(d => !d.IsCleaned && d.Status == NotificationDeliveryStatus.Succeeded && d.SentAt <= threshold)
+            .OrderBy(d => d.Id)
             .ToListAsync(cancellationToken);
 
         if (!oldDeliveries.Any())

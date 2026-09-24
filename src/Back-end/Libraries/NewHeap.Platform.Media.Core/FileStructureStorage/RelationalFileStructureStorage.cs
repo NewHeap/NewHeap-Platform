@@ -269,6 +269,7 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
 
         var folders = await WhereFoldersInPath(_dbContext.Folders.AsNoTracking(), path)
             .Where(x => !string.IsNullOrEmpty(x.Name))
+            .OrderBy(x => x.Id)
             .Select(x => new { x.Id, x.Path, x.Name })
             .ToArrayAsync();
 
@@ -402,7 +403,10 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
         }
 
         var skip = Math.Min((long)options.PageIndex * options.PageSize, int.MaxValue);
-        q = q.Skip((int)skip).Take(options.PageSize);
+        q = q
+            .OrderBy(x => x.Id)
+            .Skip((int)skip)
+            .Take(options.PageSize);
 
         var files = await q.AsFileReferenceRow().ToListAsync();
         var result = new List<FileReference>();
@@ -626,30 +630,25 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
         return query.Where(x => x.Path == path && x.Name == name);
     }
 
-    private IQueryable<T> ProcessOrderBy<T>(FileGetOptions? sortInfo, IQueryable<T> queryable)
+    private IQueryable<FileEntity> ProcessOrderBy(
+        FileGetOptions? sortInfo,
+        IQueryable<FileEntity> queryable)
     {
-        if (sortInfo?.OrderBy == null)
-        {
-            return queryable;
-        }
-
-        var type = typeof(T);
-        var orderableProperties = type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+        var orderableProperties = typeof(FileEntity).GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Where(x => x.CustomAttributes.Any(y => y.AttributeType == typeof(OrderableAttribute)))
-                .ToList()
-            ;
+                .ToList();
+        var hasConfiguredOrdering = false;
 
-
-        foreach (var orderBy in sortInfo.OrderBy)
+        foreach (var orderBy in sortInfo?.OrderBy ?? [])
         {
             var prop = orderableProperties.FirstOrDefault(x =>
                 x.Name.Equals(orderBy.Key, StringComparison.InvariantCultureIgnoreCase));
             if (prop != null)
             {
-                var parameter = Expression.Parameter(typeof(T));
+                var parameter = Expression.Parameter(typeof(FileEntity));
                 var propAccess = Expression.Property(parameter, prop);
                 var cast = Expression.Convert(propAccess, typeof(object));
-                var expression = Expression.Lambda<Func<T, object>>(cast, parameter);
+                var expression = Expression.Lambda<Func<FileEntity, object>>(cast, parameter);
 
                 if (orderBy.Direction == Direction.Ascending)
                 {
@@ -659,10 +658,14 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
                 {
                     queryable = queryable.OrderByDescending(expression);
                 }
+
+                hasConfiguredOrdering = true;
             }
         }
 
-        return queryable;
+        return hasConfiguredOrdering
+            ? ((IOrderedQueryable<FileEntity>)queryable).ThenBy(x => x.Id)
+            : queryable.OrderBy(x => x.Id);
     }
 
     private async Task ApplyLocalizations(IEnumerable<FileReference> files, string? language)

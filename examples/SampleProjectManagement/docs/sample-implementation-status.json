@@ -1239,6 +1239,8 @@
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"
     ],
     "SPM-185": [
+      "../../src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/FileStructureStorageProviderTests.cs",
       "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"

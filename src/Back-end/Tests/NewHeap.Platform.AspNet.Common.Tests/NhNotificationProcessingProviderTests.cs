@@ -169,20 +169,32 @@ public sealed class NhNotificationProcessingProviderTests
             ProcessorKey = "default",
             Priority = NhNotificationPriority.High
         };
-        var delivery = new NhNotificationDelivery
+        var scheduledAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var expectedDeliveryId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var laterDeliveryId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        notification.Deliveries.Add(new NhNotificationDelivery
         {
-            Id = Guid.NewGuid(),
+            Id = laterDeliveryId,
             Notification = notification,
             NotificationId = notification.Id,
             DispatcherId = "ProviderTestDispatcher",
             Data = new { Provider = providerName },
-            ScheduledAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+            ScheduledAt = scheduledAt,
             Status = NotificationDeliveryStatus.Queued
-        };
-        notification.Deliveries.Add(delivery);
+        });
+        notification.Deliveries.Add(new NhNotificationDelivery
+        {
+            Id = expectedDeliveryId,
+            Notification = notification,
+            NotificationId = notification.Id,
+            DispatcherId = "ProviderTestDispatcher",
+            Data = new { Provider = providerName },
+            ScheduledAt = scheduledAt,
+            Status = NotificationDeliveryStatus.Queued
+        });
         dbContext.Notifications.Add(notification);
         await dbContext.SaveChangesAsync();
-        return delivery.Id;
+        return expectedDeliveryId;
     }
 
     private static async Task<Guid> SeedUnknownDispatcherDeliveriesAsync(

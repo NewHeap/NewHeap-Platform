@@ -22,6 +22,8 @@ Reference only the relational provider that the application uses. The PostgreSQL
 
 Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup hashes, folder operations and file operations. Test the selected blob adapter separately with the same storage contract tests.
 
+Keep relational media pages deterministic. Unsorted folder and search results use `Id`; requested file sorting appends `Id` as its final tie-breaker. Preserve that ordering before every `Skip` or `Take`, including when a sort key is absent, invalid, or equal for multiple files.
+
 Configure the PostgreSQL media schema through `FileStructureDbContextOptions.Scheme`. The provider applies it to the model, migration history, historical migration operations and lookup-hash backfills. Upgrade existing media databases with the provider migrations before serving media requests; retain file and folder records and let the migration recompute lookup hashes from their original paths and names.
 
 ## Avoid
@@ -33,7 +35,7 @@ Configure the PostgreSQL media schema through `FileStructureDbContextOptions.Sch
 
 ## Verification
 
-Test the folder lifecycle, upload and download, search and sorting, metadata, thumbnails, authorization, and events. Check missing blobs, oversized uploads, forbidden access, and consistent cleanup after failures. For provider lookup indexes, use `EXPLAIN (ANALYZE, FORMAT JSON)` against a real provider and assert the expected index scan without a sequential scan.
+Test the folder lifecycle, upload and download, search and sorting, metadata, thumbnails, authorization, and events. Seed files in reverse `Id` order, page unsorted and tied sorted results, and verify SQL Server and PostgreSQL return the same deterministic `Id` sequence. Check missing blobs, oversized uploads, forbidden access, and consistent cleanup after failures. For provider lookup indexes, use `EXPLAIN (ANALYZE, FORMAT JSON)` against a real provider and assert the expected index scan without a sequential scan.
 
 For folder creation and renaming through `IMediaLibraryService`, verify that directory separators and surrounding whitespace are removed while internal spaces and the existing folder lookup remain intact. Names that normalize to empty must return a failed result without storage calls or folder events.
 

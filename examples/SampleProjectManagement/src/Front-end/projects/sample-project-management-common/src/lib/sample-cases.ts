@@ -1227,8 +1227,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-087",
     "title": "Delivery channels",
     "category": "Events, jobs, email, and notifications",
-    "surface": "notification dispatcher workers and per-channel concurrency",
-    "outcome": "A channel opts into parallel workers while unconfigured channels remain serial, deliveries are claimed only when worker capacity is available, and unknown-dispatcher cleanup processes deterministic oldest-first batches under strict EF Core warning policies on SQL Server and PostgreSQL.",
+    "surface": "notification dispatcher workers, deterministic claiming and cleanup, and per-channel concurrency",
+    "outcome": "A channel opts into parallel workers while unconfigured channels remain serial, deliveries are claimed only when worker capacity is available with `Id` as the final tie-breaker, retention cleanup materializes deliveries by `Id`, and unknown-dispatcher cleanup processes deterministic oldest-first batches under strict EF Core warning policies on SQL Server and PostgreSQL.",
     "implementation": "implemented",
     "evidence": [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhNotificationProcessingService.cs",
@@ -2484,9 +2484,11 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Media search and sorting",
     "category": "Media",
     "surface": "search/file-get options",
-    "outcome": "Query, paging, and sorting return stable results.",
+    "outcome": "Query, paging, folder listing, and sorting return deterministic results with `Id` as the default and final tie-breaker on SQL Server and PostgreSQL.",
     "implementation": "implemented",
     "evidence": [
+      "../../src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/FileStructureStorageProviderTests.cs",
       "src/Front-end/projects/sample-project-management-common/src/lib/project-media-api.service.ts",
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts",
       "src/Front-end/projects/management/src/app/media-playground/media-playground.component.html"

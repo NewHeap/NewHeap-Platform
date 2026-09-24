@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -162,6 +163,9 @@ public sealed class FileStructureStorageProviderTests
         var services = new ServiceCollection();
         services.AddLogging();
         configureProvider(services);
+        services.AddDbContextPool<FileStructureDbContext>(options =>
+            options.ConfigureWarnings(warnings =>
+                warnings.Throw(CoreEventId.RowLimitingOperationWithoutOrderByWarning)));
         await using var serviceProvider = services.BuildServiceProvider();
         await using var scope = serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FileStructureDbContext>();
@@ -173,6 +177,9 @@ public sealed class FileStructureStorageProviderTests
         {
             await migrateDatabase(dbContext);
         }
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            dbContext.Files.Take(1).ToListAsync());
 
         var storage = scope.ServiceProvider.GetRequiredService<IFileStructureStorage>();
         var folder = await storage.CreateFolderAsync("/", "documents");
@@ -196,6 +203,77 @@ public sealed class FileStructureStorageProviderTests
 
         var search = await storage.SearchAsync("release", folder.FullPath, new SearchOptions());
         Assert.Contains(search.Results, result => result.Id == fileId);
+
+        var stableFolder = await storage.CreateFolderAsync("/", "stable-order");
+        var lowerFileId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var higherFileId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        Assert.True((await storage.CreateFileAsync(new FileModel
+        {
+            Path = stableFolder.FullPath,
+            Name = "stable-higher.txt",
+            Title = "Stable order"
+        }, higherFileId)).Success);
+        Assert.True((await storage.CreateFileAsync(new FileModel
+        {
+            Path = stableFolder.FullPath,
+            Name = "stable-lower.txt",
+            Title = "Stable order"
+        }, lowerFileId)).Success);
+
+        var defaultPage = await storage.GetFolderAsync(
+            stableFolder.FullPath,
+            null,
+            new FileGetOptions { PageSize = 1 });
+        Assert.Equal(lowerFileId, Assert.Single(defaultPage.Files).Id);
+
+        var sortedPage = await storage.GetFolderAsync(
+            stableFolder.FullPath,
+            null,
+            new FileGetOptions
+            {
+                PageSize = 1,
+                OrderBy =
+                [
+                    new SortOption
+                    {
+                        Key = nameof(FileEntity.Title),
+                        Direction = Direction.Ascending
+                    }
+                ]
+            });
+        Assert.Equal(lowerFileId, Assert.Single(sortedPage.Files).Id);
+
+        var stableSearch = await storage.SearchAsync(
+            "stable",
+            stableFolder.FullPath,
+            new SearchOptions { PageSize = 10 });
+        Assert.Equal(
+            [lowerFileId, higherFileId],
+            stableSearch.Results.Select(result => result.Id));
+
+        var lowerFolderId = Guid.Parse("00000000-0000-0000-0000-000000000011");
+        var higherFolderId = Guid.Parse("00000000-0000-0000-0000-000000000012");
+        dbContext.Folders.AddRange(
+            new FolderEntity
+            {
+                Id = higherFolderId,
+                Path = "/",
+                Name = "ordered-folder-higher"
+            },
+            new FolderEntity
+            {
+                Id = lowerFolderId,
+                Path = "/",
+                Name = "ordered-folder-lower"
+            });
+        await dbContext.SaveChangesAsync();
+
+        var rootFolders = await storage.GetFolderAsync("/", null, null);
+        Assert.Equal(
+            [lowerFolderId, higherFolderId],
+            rootFolders.Folders
+                .Where(item => item.Name.StartsWith("ordered-folder-", StringComparison.Ordinal))
+                .Select(item => item.Id));
 
         if (verifyQueryPlan is not null)
         {
