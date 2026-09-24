@@ -371,6 +371,12 @@ public sealed class NhBackgroundOperationProviderTests
             fanOutCoordinator,
             registry,
             ownerId);
+        await VerifyReconciliationOperationLockAsync(
+            serviceProvider,
+            options,
+            registry,
+            fanOutCoordinator,
+            ownerId);
 
         persistenceLogger.Entries.Should().Contain(entry =>
             entry.Level == LogLevel.Information
@@ -418,6 +424,85 @@ public sealed class NhBackgroundOperationProviderTests
         };
 
         await completeAction.Should().ThrowAsync<NhBackgroundOperationContentionSignal>();
+    }
+
+    private static async Task VerifyReconciliationOperationLockAsync(
+        ServiceProvider serviceProvider,
+        NhBackgroundOperationsOptions options,
+        NhBackgroundOperationRegistry registry,
+        NhBackgroundOperationFanOutCoordinator fanOutCoordinator,
+        Guid ownerId)
+    {
+        var operationId = Guid.NewGuid();
+        await using (var seedScope = serviceProvider.CreateAsyncScope())
+        {
+            var context = seedScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            var operation = CreateQueuedOperation(operationId, ownerId, "provider-parent");
+            operation.Status = NhBackgroundOperationStatus.CancelRequested;
+            operation.CancelRequestedAt = DateTimeOffset.UtcNow;
+            operation.LatestEventSequence = 1;
+            operation.Events.Add(new NhBackgroundOperationEvent
+            {
+                Id = Guid.NewGuid(),
+                OperationId = operationId,
+                Sequence = 1,
+                EventType = NhBackgroundOperationEventType.CancellationRequested,
+                Severity = NhBackgroundOperationMessageSeverity.Information,
+                MessageKey = "background-operation.cancellation-requested",
+                SnapshotVersion = operation.Version
+            });
+            context.BackgroundOperations.Add(operation);
+            await context.SaveChangesAsync();
+        }
+
+        var reconciler = new NhBackgroundOperationReconciliationService(
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            options,
+            registry,
+            fanOutCoordinator,
+            new NoOpLiveUpdatePublisher(),
+            new NoOpNotificationProjector(),
+            NullLogger<NhBackgroundOperationReconciliationService>.Instance);
+
+        await using (var lockScope = serviceProvider.CreateAsyncScope())
+        {
+            var repository = lockScope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
+            await using var transaction = await repository.StartOrGetTransactionScopeAsync();
+            var acquired = await repository.TryAcquireTransactionLockAsync(
+                transaction,
+                $"NhBackgroundOperation:Operation:{operationId:N}",
+                250);
+            acquired.Should().BeTrue();
+
+            var reconciledWhileContended = await reconciler.ReconcileAsync(CancellationToken.None);
+            reconciledWhileContended.Should().Be(0);
+
+            await using var verificationScope = serviceProvider.CreateAsyncScope();
+            var verificationContext = verificationScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            var contendedOperation = await verificationContext.BackgroundOperations
+                .AsNoTracking()
+                .SingleAsync(operation => operation.Id == operationId);
+            contendedOperation.Status.Should().Be(NhBackgroundOperationStatus.CancelRequested);
+            contendedOperation.LatestEventSequence.Should().Be(1);
+        }
+
+        var reconciledAfterRelease = await reconciler.ReconcileAsync(CancellationToken.None);
+        reconciledAfterRelease.Should().Be(1);
+
+        await using var finalScope = serviceProvider.CreateAsyncScope();
+        var finalContext = finalScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+        var reconciledOperation = await finalContext.BackgroundOperations
+            .AsNoTracking()
+            .SingleAsync(operation => operation.Id == operationId);
+        reconciledOperation.Status.Should().Be(NhBackgroundOperationStatus.Cancelled);
+        reconciledOperation.LatestEventSequence.Should().Be(2);
+        (await finalContext.BackgroundOperationEvents
+                .AsNoTracking()
+                .Where(operationEvent => operationEvent.OperationId == operationId)
+                .OrderBy(operationEvent => operationEvent.Sequence)
+                .Select(operationEvent => operationEvent.Sequence)
+                .ToListAsync())
+            .Should().Equal(1, 2);
     }
 
     private static async Task VerifyDivisionQueryIsolationAsync(

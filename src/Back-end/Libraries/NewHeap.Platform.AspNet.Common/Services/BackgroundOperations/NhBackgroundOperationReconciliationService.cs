@@ -72,7 +72,8 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
 
         var now = DateTimeOffset.UtcNow;
         var staleBefore = now - _options.StaleAttemptTimeout;
-        var operations = await repository.GetAll()
+        var candidateOperationIds = await repository.GetAll()
+            .AsNoTracking()
             .Where(x => x.ProcessorKey == _options.ProcessorKey)
             .Where(x =>
                 (x.Status == NhBackgroundOperationStatus.RetryScheduled && x.NextDispatchAt <= now)
@@ -81,15 +82,36 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
                 || (x.Status == NhBackgroundOperationStatus.Running && (x.HeartbeatAt == null || x.HeartbeatAt <= staleBefore)))
             .OrderBy(x => x.LastModifiedDateTime)
             .Take(_options.ReconciliationBatchSize)
+            .Select(x => x.Id)
             .ToListAsync(cancellationToken);
 
-        foreach (var operation in operations)
+        var operations = new List<NhBackgroundOperation>();
+        foreach (var operationId in candidateOperationIds)
         {
+            if (!await repository.TryAcquireTransactionLockAsync(
+                    transaction,
+                    $"NhBackgroundOperation:Operation:{operationId:N}",
+                    _options.TransactionLockTimeoutMilliseconds,
+                    cancellationToken))
+            {
+                continue;
+            }
+
+            var operation = await repository.GetAll()
+                .SingleOrDefaultAsync(x => x.Id == operationId, cancellationToken);
+            if (operation is null
+                || operation.ProcessorKey != _options.ProcessorKey
+                || !RequiresReconciliation(operation, now, staleBefore))
+            {
+                continue;
+            }
+
             if (operation.Status == NhBackgroundOperationStatus.RetryScheduled)
             {
                 operation.Status = NhBackgroundOperationStatus.PendingDispatch;
                 operation.NextDispatchAt = now;
                 NhBackgroundOperationService.Touch(operation, now);
+                operations.Add(operation);
                 continue;
             }
             if (operation.Status == NhBackgroundOperationStatus.CancelRequested && operation.CurrentAttemptId is null)
@@ -116,6 +138,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
                     operation,
                     _options,
                     cancellationToken);
+                operations.Add(operation);
                 continue;
             }
             if (operation.Status == NhBackgroundOperationStatus.Queued)
@@ -135,6 +158,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
                     operation,
                     _options,
                     cancellationToken);
+                operations.Add(operation);
                 continue;
             }
             if (operation.Status != NhBackgroundOperationStatus.Running)
@@ -187,6 +211,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
                 operation,
                 _options,
                 cancellationToken);
+            operations.Add(operation);
         }
 
         var pendingNotificationProjectionIds = _options.UserNotificationProjectionEnabled
@@ -264,5 +289,20 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
         var reconciledFanOuts = await _fanOutCoordinator.ReconcileWaitingAsync(cancellationToken);
         NhBackgroundOperationMetrics.RecordReconciled(operations.Count + reconciledFanOuts);
         return operations.Count + reconciledFanOuts;
+    }
+
+    private static bool RequiresReconciliation(
+        NhBackgroundOperation operation,
+        DateTimeOffset now,
+        DateTimeOffset staleBefore)
+    {
+        return (operation.Status == NhBackgroundOperationStatus.RetryScheduled
+                && operation.NextDispatchAt <= now)
+            || (operation.Status == NhBackgroundOperationStatus.CancelRequested
+                && operation.CurrentAttemptId is null)
+            || (operation.Status == NhBackgroundOperationStatus.Queued
+                && operation.LastModifiedDateTime <= staleBefore)
+            || (operation.Status == NhBackgroundOperationStatus.Running
+                && (operation.HeartbeatAt is null || operation.HeartbeatAt <= staleBefore));
     }
 }
