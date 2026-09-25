@@ -384,6 +384,12 @@ public sealed class NhBackgroundOperationProviderTests
             registry,
             fanOutCoordinator,
             ownerId);
+        await VerifyStalledDispatchRecoveryAsync(
+            serviceProvider,
+            options,
+            registry,
+            fanOutCoordinator,
+            ownerId);
 
         persistenceLogger.Entries.Should().Contain(entry =>
             entry.Level == LogLevel.Information
@@ -431,6 +437,164 @@ public sealed class NhBackgroundOperationProviderTests
         };
 
         await completeAction.Should().ThrowAsync<NhBackgroundOperationContentionSignal>();
+    }
+
+    private static async Task VerifyStalledDispatchRecoveryAsync(
+        ServiceProvider serviceProvider,
+        NhBackgroundOperationsOptions options,
+        NhBackgroundOperationRegistry registry,
+        NhBackgroundOperationFanOutCoordinator fanOutCoordinator,
+        Guid ownerId)
+    {
+        var scheduler = (NoOpScheduler)serviceProvider.GetRequiredService<INhBackgroundOperationScheduler>();
+        scheduler.QueueServed = false;
+        var stalledAt = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var exhaustedId = Guid.NewGuid();
+        var unclaimedId = Guid.NewGuid();
+        var backlogId = Guid.NewGuid();
+        var foreignQueueId = Guid.NewGuid();
+        await using (var seedScope = serviceProvider.CreateAsyncScope())
+        {
+            var context = seedScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+
+            // Queued three times without a worker starting it; an operator-only diagnosis
+            // between the recoveries does not interrupt the streak.
+            var exhausted = CreateQueuedOperation(exhaustedId, ownerId, "provider-parent");
+            exhausted.SchedulerJobId = "stalled-job";
+            exhausted.LastModifiedDateTime = stalledAt;
+            NhBackgroundOperationService.AppendEvent(exhausted, NhBackgroundOperationEventType.StateChanged,
+                NhBackgroundOperationMessageSeverity.Information, "background-operation.queued", null, false);
+            for (var recovery = 0; recovery < options.MaxDispatchRecoveries; recovery++)
+            {
+                NhBackgroundOperationService.AppendEvent(exhausted, NhBackgroundOperationEventType.RetryScheduled,
+                    NhBackgroundOperationMessageSeverity.Warning, "background-operation.dispatch-recovered", null, false);
+                NhBackgroundOperationService.AppendEvent(exhausted, NhBackgroundOperationEventType.Message,
+                    NhBackgroundOperationMessageSeverity.Warning, "background-operation.dispatch-stalled", null, false);
+                exhausted.Events[^1].IsOperatorOnly = true;
+            }
+            exhausted.LastProjectedNotificationEventSequence = exhausted.LatestEventSequence;
+
+            // Never claimed by a dispatcher.
+            var unclaimed = CreateQueuedOperation(unclaimedId, ownerId, "provider-parent");
+            unclaimed.Status = NhBackgroundOperationStatus.PendingDispatch;
+            unclaimed.DispatchGeneration = 0;
+            unclaimed.NextDispatchAt = stalledAt;
+            unclaimed.LastModifiedDateTime = stalledAt;
+            NhBackgroundOperationService.AppendEvent(unclaimed, NhBackgroundOperationEventType.StateChanged,
+                NhBackgroundOperationMessageSeverity.Information, "background-operation.queued", null, false);
+
+            // Waits behind other work in a served queue.
+            var backlog = CreateQueuedOperation(backlogId, ownerId, "provider-parent");
+            backlog.Queue = "provider-backlog";
+            backlog.SchedulerJobId = "backlog-job";
+            backlog.LastModifiedDateTime = stalledAt;
+
+            // Placed on a queue that only another process serves.
+            var foreignQueue = CreateQueuedOperation(foreignQueueId, ownerId, "provider-parent");
+            foreignQueue.Queue = "que-dev-other-machine";
+            foreignQueue.Status = NhBackgroundOperationStatus.PendingDispatch;
+            foreignQueue.DispatchGeneration = 0;
+            foreignQueue.NextDispatchAt = DateTimeOffset.UtcNow;
+
+            context.BackgroundOperations.AddRange(exhausted, unclaimed, backlog, foreignQueue);
+            await context.SaveChangesAsync();
+        }
+        scheduler.States["backlog-job"] = "Enqueued";
+        scheduler.ServedQueues.Add("provider-backlog");
+
+        var dispatcher = new NhBackgroundOperationDispatchService(
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            options,
+            new NoOpLiveUpdatePublisher(),
+            new NoOpNotificationProjector(),
+            fanOutCoordinator,
+            new NhBackgroundOperationServedQueues(registry, new NhHangfireQueueNameResolver()),
+            NullLogger<NhBackgroundOperationDispatchService>.Instance);
+        var reconciler = new NhBackgroundOperationReconciliationService(
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            options,
+            registry,
+            fanOutCoordinator,
+            new NoOpLiveUpdatePublisher(),
+            new NoOpNotificationProjector(),
+            NullLogger<NhBackgroundOperationReconciliationService>.Instance);
+
+        (await reconciler.ReconcileAsync(CancellationToken.None)).Should().Be(2);
+        await using (var reconciledScope = serviceProvider.CreateAsyncScope())
+        {
+            var context = reconciledScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            var exhausted = await context.BackgroundOperations.AsNoTracking()
+                .SingleAsync(operation => operation.Id == exhaustedId);
+            exhausted.Status.Should().Be(NhBackgroundOperationStatus.Failed);
+            exhausted.FailureCode.Should().Be("dispatch-stalled");
+            exhausted.FailureMessageKey.Should().Be("background-operation.operator-recovery-required");
+            exhausted.SchedulerJobId.Should().BeNull();
+            var exhaustedEvents = await context.BackgroundOperationEvents.AsNoTracking()
+                .Where(operationEvent => operationEvent.OperationId == exhaustedId)
+                .OrderBy(operationEvent => operationEvent.Sequence)
+                .ToListAsync();
+            exhaustedEvents[^1].Should().Match<NhBackgroundOperationEvent>(operationEvent =>
+                operationEvent.MessageKey == "background-operation.operator-recovery-required"
+                && operationEvent.IsMilestone
+                && !operationEvent.IsOperatorOnly);
+            var diagnosis = exhaustedEvents[^2];
+            diagnosis.IsOperatorOnly.Should().BeTrue();
+            diagnosis.MessageKey.Should().Be("background-operation.dispatch-stalled");
+            using var diagnosisArguments = JsonDocument.Parse(diagnosis.MessageArgumentsJson!);
+            diagnosisArguments.RootElement.GetProperty("queue").GetString().Should().Be("default");
+            diagnosisArguments.RootElement.GetProperty("queueServed").GetBoolean().Should().BeFalse();
+            diagnosisArguments.RootElement.GetProperty("recovery").GetInt32().Should().Be(options.MaxDispatchRecoveries + 1);
+
+            var unclaimed = await context.BackgroundOperations.AsNoTracking()
+                .SingleAsync(operation => operation.Id == unclaimedId);
+            unclaimed.Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
+            unclaimed.NextDispatchAt.Should().BeAfter(stalledAt.AddMinutes(5));
+            (await context.BackgroundOperationEvents.AsNoTracking()
+                    .Where(operationEvent => operationEvent.OperationId == unclaimedId)
+                    .OrderBy(operationEvent => operationEvent.Sequence)
+                    .Select(operationEvent => operationEvent.MessageKey)
+                    .ToListAsync())
+                .Should().Equal(
+                    "background-operation.queued",
+                    "background-operation.dispatch-stalled",
+                    "background-operation.dispatch-recovered");
+
+            var backlog = await context.BackgroundOperations.AsNoTracking()
+                .SingleAsync(operation => operation.Id == backlogId);
+            backlog.Status.Should().Be(NhBackgroundOperationStatus.Queued);
+            backlog.SchedulerJobId.Should().Be("backlog-job");
+            backlog.LastModifiedDateTime.Should().BeAfter(stalledAt.AddMinutes(5));
+            (await context.BackgroundOperationEvents.AsNoTracking()
+                    .CountAsync(operationEvent => operationEvent.OperationId == backlogId))
+                .Should().Be(0);
+        }
+        scheduler.Deleted.Should().Equal("stalled-job");
+
+        // The dispatcher only claims work on the queues this process serves.
+        (await dispatcher.DispatchAvailableAsync(CancellationToken.None)).Should().Be(1);
+        await using (var dispatchedScope = serviceProvider.CreateAsyncScope())
+        {
+            var context = dispatchedScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            (await context.BackgroundOperations.AsNoTracking().SingleAsync(operation => operation.Id == unclaimedId))
+                .Status.Should().Be(NhBackgroundOperationStatus.Queued);
+            (await context.BackgroundOperations.AsNoTracking().SingleAsync(operation => operation.Id == foreignQueueId))
+                .Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
+        }
+
+        scheduler.QueueServed = null;
+        scheduler.States.Clear();
+        scheduler.ServedQueues.Clear();
+        scheduler.Deleted.Clear();
+        await using var cleanupScope = serviceProvider.CreateAsyncScope();
+        var cleanupContext = cleanupScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+        cleanupContext.BackgroundOperations.RemoveRange(
+            await cleanupContext.BackgroundOperations
+                .Where(operation => operation.Id == exhaustedId
+                                    || operation.Id == unclaimedId
+                                    || operation.Id == backlogId
+                                    || operation.Id == foreignQueueId)
+                .ToListAsync());
+        await cleanupContext.SaveChangesAsync();
     }
 
     private static async Task VerifyReconciliationOperationLockAsync(
@@ -1291,6 +1455,7 @@ public sealed class NhBackgroundOperationProviderTests
             new NoOpLiveUpdatePublisher(),
             new NoOpNotificationProjector(),
             fanOutCoordinator,
+            new NhBackgroundOperationServedQueues(registry, new NhHangfireQueueNameResolver()),
             NullLogger<NhBackgroundOperationDispatchService>.Instance);
         (await dispatcher.DispatchAvailableAsync(CancellationToken.None)).Should().BeGreaterThanOrEqualTo(1);
         await using (var dispatchedScope = serviceProvider.CreateAsyncScope())
@@ -1358,6 +1523,7 @@ public sealed class NhBackgroundOperationProviderTests
             new NoOpLiveUpdatePublisher(),
             new NoOpNotificationProjector(),
             fanOutCoordinator,
+            new NhBackgroundOperationServedQueues(registry, new NhHangfireQueueNameResolver()),
             NullLogger<NhBackgroundOperationDispatchService>.Instance);
 
         await runner.RunAsync(parentId, 1);
@@ -1894,6 +2060,15 @@ public sealed class NhBackgroundOperationProviderTests
 
     private sealed class NoOpScheduler : INhBackgroundOperationScheduler
     {
+        public Dictionary<string, string> States { get; } = new(StringComparer.Ordinal);
+
+        public HashSet<string> ServedQueues { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>Answer for queues outside <see cref="ServedQueues"/>; null means unknown.</summary>
+        public bool? QueueServed { get; set; }
+
+        public List<string> Deleted { get; } = [];
+
         public Task<NhBackgroundOperationScheduleResult> EnqueueAsync(
             Guid operationId,
             int dispatchGeneration,
@@ -1907,6 +2082,7 @@ public sealed class NhBackgroundOperationProviderTests
             string schedulerJobId,
             CancellationToken cancellationToken = default)
         {
+            Deleted.Add(schedulerJobId);
             return Task.FromResult(true);
         }
 
@@ -1914,7 +2090,14 @@ public sealed class NhBackgroundOperationProviderTests
             string schedulerJobId,
             CancellationToken cancellationToken = default)
         {
-            return Task.FromResult<NhBackgroundOperationExecutionState?>(null);
+            return Task.FromResult(States.TryGetValue(schedulerJobId, out var state)
+                ? new NhBackgroundOperationExecutionState(state, false)
+                : null);
+        }
+
+        public Task<bool?> IsQueueServedAsync(string queue, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(ServedQueues.Contains(queue) ? true : QueueServed);
         }
     }
 

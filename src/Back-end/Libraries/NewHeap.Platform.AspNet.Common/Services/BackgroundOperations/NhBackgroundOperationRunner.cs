@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Text.Json;
+using Hangfire;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
@@ -36,6 +37,12 @@ public sealed class NhBackgroundOperationRunner
         _logger = logger;
     }
 
+    /// <summary>
+    /// Hangfire entry point of one dispatch generation. Hangfire retries are disabled:
+    /// the runner records handler failures itself, and reconciliation redispatches or
+    /// escalates an operation whose job did not start it.
+    /// </summary>
+    [AutomaticRetry(Attempts = 0)]
     public async Task RunAsync(Guid operationId, int dispatchGeneration)
     {
         var claim = await _persistence.TryStartAttemptAsync(operationId, dispatchGeneration, CancellationToken.None);

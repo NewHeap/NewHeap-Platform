@@ -776,6 +776,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection.AddSingleton(registry);
         _serviceCollection.AddControllers().AddApplicationPart(typeof(Controllers.NhBackgroundOperationController).Assembly);
         _serviceCollection.TryAddSingleton<INhHangfireQueueNameResolver, NhHangfireQueueNameResolver>();
+        _serviceCollection.TryAddSingleton<NhBackgroundOperationServedQueues>();
         if (options.LiveUpdatesEnabled)
         {
             _serviceCollection.AddSignalR();
@@ -875,10 +876,9 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             backgroundJobServerOptions?.Invoke(options);
 
             var queueResolver = serviceProvider.GetRequiredService<INhHangfireQueueNameResolver>();
-            var backgroundOperationQueues = serviceProvider.GetService<NhBackgroundOperationRegistry>()?
-                .Descriptors
-                .Select(descriptor => NhBackgroundOperationKeys.NormalizeQueueName(
-                    queueResolver.GetQueueName(descriptor.Queue)))
+            // The dispatcher claims operations on exactly these queues, so the server and the
+            // dispatcher of one process always agree on the work this process serves.
+            var backgroundOperationQueues = serviceProvider.GetService<NhBackgroundOperationServedQueues>()?.Queues
                 ?? [];
             options.Queues = options.Queues
                 .Append(queueResolver.GetQueueName())

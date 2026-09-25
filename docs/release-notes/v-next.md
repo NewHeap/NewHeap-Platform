@@ -91,3 +91,14 @@ Angular consumers call it through `NhBackgroundOperationAdministrationService`.
 | The operation model adds the index `(DivisionId, ParentOperationId, Status, LastModifiedDateTime)` for the administration list. | Generate and deploy a consumer DbContext migration with the upgrade. |
 | Owner and administration list pages no longer read `PayloadJson`; administration pages return at most 100 operations. | No action. |
 | `NhBackgroundOperationViewModel` is no longer sealed, `NhBackgroundOperationEventViewModel` gains `IsOperatorOnly`, and an owner cancellation of an already terminal operation now returns the full snapshot. | No action. |
+
+## NewHeap.Platform.AspNet.Common: stalled background-operation dispatch
+
+An operation that no worker starts no longer cycles through `dispatch-recovered` forever.
+
+| Adoption note | Required action |
+|---|---|
+| The dispatcher only claims operations on the Hangfire queues its own process serves (the queues of its registered operation types). Processes that share a `ProcessorKey` and database but not Hangfire storage, such as developer machines with in-memory storage, no longer strand each other's jobs. | Give every group of processes that shares Hangfire storage and queue names its own `ProcessorKey`, for example by including the machine name in Development. |
+| An operation that stays `Queued` or unclaimed `PendingDispatch` for `MaxDispatchRecoveries` (default 3) reconciliation rounds fails with `dispatch-stalled` and `background-operation.operator-recovery-required`; the owner is notified and can retry. A job that still waits in a queue an active worker serves is left alone. | Optional: tune `NhBackgroundOperationsOptions.MaxDispatchRecoveries`. |
+| Each stalled round logs a warning and records an operator-only `background-operation.dispatch-stalled` event with the queue, the Hangfire job state and whether a worker serves the queue; the orphaned Hangfire job is deleted. `INhBackgroundOperationScheduler` gains `IsQueueServedAsync` with a default implementation. | Add the `background-operation.dispatch-stalled` translation; custom schedulers may implement `IsQueueServedAsync`. |
+| `NhBackgroundOperationRunner.RunAsync` disables Hangfire automatic retries; reconciliation redispatches or escalates instead. | No action. |

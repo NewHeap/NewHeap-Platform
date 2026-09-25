@@ -382,6 +382,15 @@ public interface INhBackgroundOperationScheduler
     Task<NhBackgroundOperationExecutionState?> GetStateAsync(
         string schedulerJobId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reports whether any active worker listens to <paramref name="queue"/>, for
+    /// diagnosing operations that no worker starts. <see langword="null"/> means unknown.
+    /// </summary>
+    Task<bool?> IsQueueServedAsync(string queue, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<bool?>(null);
+    }
 }
 
 public interface INhBackgroundOperationLiveUpdatePublisher

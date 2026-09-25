@@ -49,4 +49,12 @@ internal sealed class NhHangfireBackgroundOperationScheduler : INhBackgroundOper
                 || string.Equals(state.Name, FailedState.StateName, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(state.Name, DeletedState.StateName, StringComparison.OrdinalIgnoreCase)));
     }
+
+    public Task<bool?> IsQueueServedAsync(string queue, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var servers = _storage.GetMonitoringApi().Servers();
+        return Task.FromResult<bool?>(servers.Any(server =>
+            server.Queues.Contains(queue, StringComparer.OrdinalIgnoreCase)));
+    }
 }

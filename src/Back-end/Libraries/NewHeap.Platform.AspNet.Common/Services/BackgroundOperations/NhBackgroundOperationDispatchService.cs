@@ -20,6 +20,7 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
     private readonly INhBackgroundOperationLiveUpdatePublisher _liveUpdates;
     private readonly INhBackgroundOperationNotificationProjector _notificationProjector;
     private readonly NhBackgroundOperationFanOutCoordinator _fanOutCoordinator;
+    private readonly IReadOnlyList<string> _servedQueues;
     private readonly ILogger<NhBackgroundOperationDispatchService> _logger;
 
     public NhBackgroundOperationDispatchService(
@@ -28,6 +29,7 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
         INhBackgroundOperationLiveUpdatePublisher liveUpdates,
         INhBackgroundOperationNotificationProjector notificationProjector,
         NhBackgroundOperationFanOutCoordinator fanOutCoordinator,
+        NhBackgroundOperationServedQueues servedQueues,
         ILogger<NhBackgroundOperationDispatchService> logger)
     {
         _scopeFactory = scopeFactory;
@@ -35,6 +37,7 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
         _liveUpdates = liveUpdates;
         _notificationProjector = notificationProjector;
         _fanOutCoordinator = fanOutCoordinator;
+        _servedQueues = servedQueues.Queues;
         _logger = logger;
     }
 
@@ -93,8 +96,12 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
         }
 
         var now = DateTimeOffset.UtcNow;
+        var servedQueues = _servedQueues;
+        // Another process with the same processor key may place work on a queue that only
+        // its own Hangfire server serves; claiming it here would strand the job.
         var operation = await repository.GetAll()
             .Where(x => x.ProcessorKey == _options.ProcessorKey)
+            .Where(x => servedQueues.Contains(x.Queue))
             .Where(x => (x.Status == NhBackgroundOperationStatus.PendingDispatch
                          || x.Status == NhBackgroundOperationStatus.RetryScheduled
                          || x.Status == NhBackgroundOperationStatus.WaitingForChildren

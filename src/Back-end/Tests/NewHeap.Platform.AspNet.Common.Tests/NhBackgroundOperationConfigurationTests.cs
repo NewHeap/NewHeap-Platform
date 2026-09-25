@@ -180,6 +180,38 @@ public sealed class NhBackgroundOperationConfigurationTests
     }
 
     [Fact]
+    public void TheRunnerLeavesRetriesToReconciliation()
+    {
+        var retry = typeof(NhBackgroundOperationRunner)
+            .GetMethod(nameof(NhBackgroundOperationRunner.RunAsync))!
+            .GetCustomAttributes(typeof(Hangfire.AutomaticRetryAttribute), inherit: false)
+            .Cast<Hangfire.AutomaticRetryAttribute>()
+            .Single();
+
+        retry.Attempts.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task TheHangfireSchedulerReportsWhetherAWorkerServesAQueue()
+    {
+        var storage = new Hangfire.InMemory.InMemoryStorage();
+        using (var connection = storage.GetConnection())
+        {
+            connection.AnnounceServer("provider-worker", new Hangfire.Server.ServerContext
+            {
+                Queues = ["que-dev-machine-a"],
+                WorkerCount = 1
+            });
+        }
+        INhBackgroundOperationScheduler scheduler = new NhHangfireBackgroundOperationScheduler(
+            new Hangfire.BackgroundJobClient(storage),
+            storage);
+
+        (await scheduler.IsQueueServedAsync("que-dev-machine-a")).Should().BeTrue();
+        (await scheduler.IsQueueServedAsync("que-dev-machine-b")).Should().BeFalse();
+    }
+
+    [Fact]
     public void RetentionCannotRedactPayloadAfterItsOperationWouldBeRemoved()
     {
         var options = new NhBackgroundOperationsOptions
@@ -228,6 +260,10 @@ public sealed class NhBackgroundOperationConfigurationTests
             {
                 options => options.AdministrationPolicy = " ",
                 "*AdministrationPolicy must be null or a policy name*"
+            },
+            {
+                options => options.MaxDispatchRecoveries = 0,
+                "*retention and retry values are invalid*"
             },
             {
                 options =>

@@ -142,6 +142,7 @@
     "children-completed": "All child operations reached a final state.",
     "child-operation-failed": "One or more child operations failed.",
     "dispatch-recovered": "Dispatch was recovered by reconciliation.",
+    "dispatch-stalled": "No worker started the operation on queue {{queue}} (round {{recovery}}).",
     "stale-attempt-recovered": "A stale attempt was recovered.",
     "operator-recovery-required": "Operator recovery is required.",
     "unsupported-payload-schema": "This operation payload version is no longer supported.",

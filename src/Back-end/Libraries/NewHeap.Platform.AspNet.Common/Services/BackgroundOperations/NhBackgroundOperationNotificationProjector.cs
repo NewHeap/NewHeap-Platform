@@ -274,6 +274,7 @@ internal sealed class NhDefaultBackgroundOperationNotificationFormatter :
             "background-operation.result-available" => "The operation result is available.",
             "background-operation.signal-wait-started" => "The operation is waiting for your input.",
             "background-operation.operator-recovery-required" => "The operation stopped unexpectedly and needs attention.",
+            "background-operation.dispatch-stalled" => "No worker started the operation.",
             "background-operation.unsupported-payload-schema" => "The operation payload version is no longer supported.",
             "background-operation.child-operation-failed" => "One or more child operations failed.",
             _ => milestone.Severity switch

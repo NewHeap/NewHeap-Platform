@@ -370,6 +370,7 @@
     "children-completed": "Alle onderliggende taken hebben een eindstatus bereikt.",
     "child-operation-failed": "Een of meer onderliggende taken zijn mislukt.",
     "dispatch-recovered": "De verzending is door reconciliatie hersteld.",
+    "dispatch-stalled": "Geen worker heeft de taak gestart op wachtrij {{queue}} (ronde {{recovery}}).",
     "stale-attempt-recovered": "Een vastgelopen poging is hersteld.",
     "operator-recovery-required": "Herstel door een beheerder is vereist.",
     "unsupported-payload-schema": "Deze versie van de operatielading wordt niet meer ondersteund.",

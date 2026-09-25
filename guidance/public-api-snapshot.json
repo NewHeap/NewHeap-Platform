@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.46",
   "backEnd": {
-    "hash": "0e830095bb57d9d79de1b56378e395ae6e628b02869f175c888f2d18b0586d93",
-    "declarationCount": 5310,
+    "hash": "c4fb2be10a60f704eaac46f9842b8150bc74f4d80efbde2ddeb654bba9f94201",
+    "declarationCount": 5314,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -13107,6 +13107,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public int MaxDispatchRecoveries { get; set; } = 3;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
         "declaration": "public string? AdministrationPolicy { get; set; }"
       },
       {
@@ -13471,7 +13475,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationDispatchService.cs",
-        "declaration": "public NhBackgroundOperationDispatchService( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, NhBackgroundOperationFanOutCoordinator fanOutCoordinator, ILogger<NhBackgroundOperationDispatchService> logger) {"
+        "declaration": "public NhBackgroundOperationDispatchService( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, NhBackgroundOperationFanOutCoordinator fanOutCoordinator, NhBackgroundOperationServedQueues servedQueues, ILogger<NhBackgroundOperationDispatchService> logger) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationDispatchService.cs",
@@ -13647,7 +13651,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationRunner.cs",
-        "declaration": "public async Task RunAsync(Guid operationId, int dispatchGeneration) {"
+        "declaration": "[AutomaticRetry(Attempts = 0)] public async Task RunAsync(Guid operationId, int dispatchGeneration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationServedQueues.cs",
+        "declaration": "public NhBackgroundOperationServedQueues( NhBackgroundOperationRegistry registry, INhHangfireQueueNameResolver queueNameResolver) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationServedQueues.cs",
+        "declaration": "public IReadOnlyList<string> Queues { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
@@ -13732,6 +13744,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhHangfireBackgroundOperationScheduler.cs",
         "declaration": "public Task<NhBackgroundOperationExecutionState?> GetStateAsync( string schedulerJobId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhHangfireBackgroundOperationScheduler.cs",
+        "declaration": "public Task<bool?> IsQueueServedAsync(string queue, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BaseDbEntityService.cs",

@@ -61,6 +61,13 @@ public sealed class NhBackgroundOperationsOptions
     public int CleanupBatchSize { get; set; } = 100;
     public int DefaultRetryCount { get; set; } = 3;
     /// <summary>
+    /// Consecutive reconciliation rounds in which no worker started an operation, either
+    /// because no dispatcher claimed it or because its Hangfire job was not picked up,
+    /// before the operation fails with <c>dispatch-stalled</c> and requires operator
+    /// recovery. Each round lasts <see cref="StaleAttemptTimeout"/>.
+    /// </summary>
+    public int MaxDispatchRecoveries { get; set; } = 3;
+    /// <summary>
     /// Authorization policy that grants the cross-owner administration endpoints under
     /// <c>background-operations/administration</c>. The endpoints stay unavailable while
     /// this is <see langword="null"/>. Set it through
@@ -140,6 +147,7 @@ public sealed class NhBackgroundOperationsOptions
         if (MaxEventsPerOperation < 1
             || MaxFanOutChildren < 1
             || DefaultRetryCount < 0
+            || MaxDispatchRecoveries < 1
             || CleanupBatchSize < 1
             || DispatchBatchSize < 1
             || ReconciliationBatchSize < 1
