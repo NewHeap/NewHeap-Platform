@@ -46,6 +46,7 @@ function describePageContext(context: ClientContext | null): string {
 export const ASSISTANT_PLAYGROUND_PROMPTS = [
   { key: 'page', text: 'What am I looking at?' },
   { key: 'list', text: 'Which projects are active?' },
+  { key: 'tools', text: 'Compare the open work across all projects.' },
   { key: 'approval', text: 'Put project Alpha migration on hold.' },
   { key: 'legacy-approval', text: 'Show a legacy approval fallback.' },
   { key: 'forbidden', text: 'Delete the archived projects.' },
@@ -242,6 +243,50 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       steps: [
         { text: 'Let me check that.' },
         { error: { code: 'assistant-model-unavailable', messageKey: 'nh-assistant.errors.assistant-model-unavailable' } }
+      ]
+    },
+    {
+      // Consecutive tool calls collapse into one group that counts along, including a
+      // failed call that the assistant retries.
+      match: /\bcompare\b/i,
+      steps: [
+        {
+          tool: {
+            toolId: 'sample-api.gateway.search-resources',
+            displayName: 'Search resources',
+            argumentsPreview: '{"query":"open work"}',
+            resultPreview: '{"resources":["project","project-task"]}'
+          }
+        },
+        {
+          tool: {
+            toolId: 'sample-api.gateway.describe-resource',
+            displayName: 'Describe project tasks',
+            argumentsPreview: '{"resource":"project-task"}',
+            resultPreview: '{"fields":["projectKey","status","dueDate"]}'
+          }
+        },
+        {
+          tool: {
+            toolId: 'sample-api.gateway.query',
+            displayName: 'Query open tasks',
+            argumentsPreview: '{"resource":"project-task","filter":[{"key":"status","operator":"neq","value":"done"}]}',
+            status: 'failed',
+            resultCode: 'api-bridge-timeout'
+          }
+        },
+        {
+          tool: {
+            toolId: 'sample-api.gateway.query',
+            displayName: 'Query open tasks',
+            argumentsPreview: '{"resource":"project-task","filter":[{"key":"status","operator":"neq","value":"done"}],"itemsPerPage":50}',
+            resultPreview: '{"items":[{"projectKey":"PRJ-ALPHA","open":4},{"projectKey":"PRJ-GAMMA","open":2}],"total":2}'
+          }
+        },
+        {
+          text: 'Alpha migration has **4** open tasks and Gamma analytics has **2**. ' +
+            'The first query timed out, so I ran it again with a smaller page.'
+        }
       ]
     },
     {

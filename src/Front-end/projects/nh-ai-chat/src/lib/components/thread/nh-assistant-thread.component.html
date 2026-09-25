@@ -25,20 +25,20 @@
 <ng-template #messageTemplate let-message>
   <article class="message" [attr.data-role]="message.role">
     <p class="author">{{ 'nh-assistant.thread.' + (message.role === 'user' ? 'you' : message.role) | translate }}</p>
-    @for (part of message.parts; track $index) {
-      @switch (part.type) {
+    @for (group of message.parts | nhAssistantPartGroups; track group.key) {
+      @switch (group.kind) {
         @case ('text') {
           @if (message.role === 'assistant' && markdown()) {
-            <div class="bubble markdown" [innerHTML]="part.text | nhAssistantMarkdown"></div>
+            <div class="bubble markdown" [innerHTML]="group.part.text | nhAssistantMarkdown"></div>
           } @else {
-            <div class="bubble plain">{{ part.text }}</div>
+            <div class="bubble plain">{{ group.part.text }}</div>
           }
         }
-        @case ('tool-call') {
-          <nh-assistant-tool-call-card class="part" [part]="part" />
+        @case ('tools') {
+          <nh-assistant-tool-call-group class="part" [calls]="group.calls" />
         }
         @case ('approval') {
-          <nh-assistant-approval-card class="part" [approval]="part" [deciding]="deciding()" (decide)="approvalDecision.emit($event)" />
+          <nh-assistant-approval-card class="part" [approval]="group.part" [deciding]="deciding()" (decide)="approvalDecision.emit($event)" />
         }
       }
     }
@@ -49,5 +49,8 @@
   <p class="working" role="status">
     <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
     {{ 'nh-assistant.thread.working' | translate }}
+    @if (elapsedSeconds() > 0) {
+      <span class="elapsed">{{ 'nh-assistant.thread.elapsed' | translate: { seconds: elapsedSeconds() } }}</span>
+    }
   </p>
 </ng-template>

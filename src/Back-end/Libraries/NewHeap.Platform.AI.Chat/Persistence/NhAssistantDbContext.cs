@@ -166,7 +166,7 @@ public sealed class NhAssistantDbContext : DbContext
             agent.Property(item => item.Instructions).IsRequired();
             agent.Property(item => item.InstructionsAssetId).HasMaxLength(128).IsRequired();
             agent.Property(item => item.InstructionsHash).HasMaxLength(64).IsRequired();
-            agent.Property(item => item.ToolSelectorsJson).HasMaxLength(8_000).IsRequired();
+            agent.Property(item => item.ToolSelectorsJson).HasMaxLength(NhAssistantLimits.MaxStoredToolSelectorCharacters).IsRequired();
             agent.Property(item => item.RequiredPolicy).HasMaxLength(256);
             agent.Property(item => item.Autonomy).HasConversion<string>().HasMaxLength(16);
             agent.Property(item => item.CodeHash).HasMaxLength(64);

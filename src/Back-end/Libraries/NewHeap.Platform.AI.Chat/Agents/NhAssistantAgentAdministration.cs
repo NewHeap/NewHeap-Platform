@@ -189,7 +189,11 @@ internal sealed class NhAssistantAgentAdministration(
             .Require(input.Description is not { Length: > 512 }, "description", NhAssistantFieldErrors.TooLong)
             .Require(!string.IsNullOrWhiteSpace(input.Instructions), "instructions", NhAssistantFieldErrors.Required)
             .Require(input.Instructions is not { Length: > MaxInstructionsLength }, "instructions", NhAssistantFieldErrors.TooLong)
-            .Require(input.ToolSelectors.Count <= 128, "toolSelectors", NhAssistantFieldErrors.TooLong)
+            .Require(input.ToolSelectors.Count <= state.Limits.MaxToolSelectorsPerAgent, "toolSelectors", NhAssistantFieldErrors.TooLong)
+            .Require(
+                NhAssistantAgentDefinition.FitsSelectorStorage(input.ToolSelectors.Distinct(StringComparer.Ordinal)),
+                "toolSelectors",
+                NhAssistantFieldErrors.TooLong)
             .Require(input.ToolSelectors.All(NhAssistantAgentDefinition.IsValidSelector), "toolSelectors", NhAssistantFieldErrors.Invalid)
             .Require(input.McpServerIds.Count <= 32, "mcpServerIds", NhAssistantFieldErrors.TooLong)
             .Require(input.RequiredPolicy is not { Length: 0 or > 256 }, "requiredPolicy", NhAssistantFieldErrors.Invalid)

@@ -17,6 +17,12 @@ public sealed class NhAssistantLimits
     public const int MaxPreviewCharacters = 2_000;
 
     /// <summary>
+    /// Maximum characters of an agent's stored tool-selector list (its JSON array). This
+    /// storage bound applies in addition to <see cref="MaxToolSelectorsPerAgent"/>.
+    /// </summary>
+    public const int MaxStoredToolSelectorCharacters = 8_000;
+
+    /// <summary>
     /// Maximum governed tool calls in one turn. Further calls end the turn gracefully.
     /// </summary>
     public int MaxToolCallsPerTurn { get; set; } = 8;
@@ -53,6 +59,15 @@ public sealed class NhAssistantLimits
     public int MaxToolsPerAgent { get; set; } = 64;
 
     /// <summary>
+    /// Maximum tool selectors of one agent, for code-defined and administrator-managed
+    /// agents alike. Prefer prefix selectors such as <c>projects.*</c> over long lists of
+    /// exact tool ids; the selectors must also fit
+    /// <see cref="MaxStoredToolSelectorCharacters"/>. Raising it does not offer more tools
+    /// per turn; <see cref="MaxToolsPerAgent"/> bounds that.
+    /// </summary>
+    public int MaxToolSelectorsPerAgent { get; set; } = 128;
+
+    /// <summary>
     /// Maximum persisted messages replayed to the model as conversation history.
     /// </summary>
     public int MaxHistoryMessages { get; set; } = 40;
@@ -72,6 +87,7 @@ public sealed class NhAssistantLimits
             || DailyModelCallBudgetPerActor is < 1
             || ApprovalLifetime <= TimeSpan.Zero
             || MaxToolsPerAgent < 1
+            || MaxToolSelectorsPerAgent < 1
             || MaxHistoryMessages < 1
             || IdempotencyLeaseDuration <= TimeSpan.Zero)
         {

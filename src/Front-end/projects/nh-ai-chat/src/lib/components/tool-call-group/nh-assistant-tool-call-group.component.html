@@ -1,0 +1,40 @@
+<section class="group">
+  <button
+    class="summary"
+    type="button"
+    [attr.aria-expanded]="expanded()"
+    [attr.aria-controls]="callsId"
+    [attr.title]="(expanded() ? 'nh-assistant.tool-group.hide-calls' : 'nh-assistant.tool-group.show-calls') | translate"
+    (click)="toggle()">
+    <span class="status-icon" [class.spinning]="state() === 'running'">
+      <nh-assistant-icon [name]="stateIcon()" />
+    </span>
+    <span class="title">
+      @switch (state()) {
+        @case ('running') {
+          {{ 'nh-assistant.tool-group.running' | translate: { name: current()?.displayName } }}
+        }
+        @case ('awaiting-approval') {
+          {{ 'nh-assistant.tool-group.awaiting-approval' | translate: { name: current()?.displayName } }}
+        }
+        @default {
+          {{ (total() === 1 ? 'nh-assistant.tool-group.used-one' : 'nh-assistant.tool-group.used-many') | translate: { count: total() } }}
+        }
+      }
+    </span>
+    @if (state() === 'running' || state() === 'awaiting-approval') {
+      <span class="count">{{ 'nh-assistant.tool-group.progress' | translate: { finished: finished(), total: total() } }}</span>
+    } @else if (failed() > 0) {
+      <span class="count failed">{{ 'nh-assistant.tool-group.failed' | translate: { count: failed() } }}</span>
+    }
+    <nh-assistant-icon class="chevron" name="chevron-down" [class.rotated]="expanded()" />
+  </button>
+
+  <div class="calls" [id]="callsId" [hidden]="!expanded()">
+    @if (expanded()) {
+      @for (call of calls(); track call.invocationId) {
+        <nh-assistant-tool-call-card [part]="call" />
+      }
+    }
+  </div>
+</section>

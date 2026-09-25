@@ -149,6 +149,10 @@ cdk-virtual-scroll-viewport.scroller {
   font-size: 13px;
 }
 
+.elapsed {
+  font-variant-numeric: tabular-nums;
+}
+
 .dots {
   display: inline-flex;
   gap: 3px;

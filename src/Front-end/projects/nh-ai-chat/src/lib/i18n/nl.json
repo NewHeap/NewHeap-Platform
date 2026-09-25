@@ -49,7 +49,8 @@
       "assistant": "Assistent",
       "tool": "Tool",
       "working": "De assistent is bezig",
-      "loading": "Gesprek laden"
+      "loading": "Gesprek laden",
+      "elapsed": "{{seconds}} s"
     },
     "composer": {
       "label": "Bericht",
@@ -79,6 +80,16 @@
         "awaiting-approval": "Wacht op goedkeuring",
         "rejected": "Afgewezen"
       }
+    },
+    "tool-group": {
+      "running": "Roept {{name}} aan…",
+      "awaiting-approval": "Wacht op goedkeuring: {{name}}",
+      "used-one": "1 tool gebruikt",
+      "used-many": "{{count}} tools gebruikt",
+      "progress": "{{finished}} van {{total}} klaar",
+      "failed": "{{count}} mislukt",
+      "show-calls": "Tool-aanroepen tonen",
+      "hide-calls": "Tool-aanroepen verbergen"
     },
     "approval": {
       "title": "Goedkeuring nodig",

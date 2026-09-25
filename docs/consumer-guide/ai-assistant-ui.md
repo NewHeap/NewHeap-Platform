@@ -81,6 +81,16 @@ an explicit send and restore it after a disappearing composer-owned control only
 the user has not moved focus elsewhere; skip automatic restoration on coarse pointers.
 Announce the temporary state through a localized polite status.
 
+Let the thread render tool calls. Consecutive calls collapse into one
+`nh-assistant-tool-call-group` line that names the tool that runs now and counts
+finished calls, and afterwards summarizes how many tools were used and how many
+failed; expanding it shows every call card with its result code and technical
+details. Text and approvals break a group, so an approval card is never hidden in a
+collapsed group. Between tool calls, while the model decides what to do next, the
+working indicator shows the elapsed seconds, so a long turn never looks stalled.
+Custom layouts that render parts themselves should reuse the group component rather
+than listing every call card.
+
 Render `approval.presentation` as the primary explanation. When it is absent, use the
 bundled localized fallback instead of `summary` or a tool descriptor. Keep tool ids,
 targets and bounded/redacted argument previews in collapsed technical details. A
@@ -117,6 +127,8 @@ the administration route under the same parent to share that scope.
   turns use the blocking `error`.
 - Deciding approvals outside the approval card or without the proposal hash of
   the pending approval.
+- Listing every tool call as its own card in a custom thread, or folding an approval
+  card into a collapsed tool group.
 - Disabling the message editor while a turn runs, clearing a draft when blocked Enter
   is pressed, or stealing focus after the user moved to another control.
 - Showing `approval.summary`, raw scope ids or argument JSON as the primary approval

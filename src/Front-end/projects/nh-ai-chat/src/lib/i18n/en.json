@@ -49,7 +49,8 @@
       "assistant": "Assistant",
       "tool": "Tool",
       "working": "The assistant is working",
-      "loading": "Loading conversation"
+      "loading": "Loading conversation",
+      "elapsed": "{{seconds}}s"
     },
     "composer": {
       "label": "Message",
@@ -79,6 +80,16 @@
         "awaiting-approval": "Awaiting approval",
         "rejected": "Rejected"
       }
+    },
+    "tool-group": {
+      "running": "Calling {{name}}…",
+      "awaiting-approval": "Waiting for approval: {{name}}",
+      "used-one": "Used 1 tool",
+      "used-many": "Used {{count}} tools",
+      "progress": "{{finished}} of {{total}} done",
+      "failed": "{{count}} failed",
+      "show-calls": "Show tool calls",
+      "hide-calls": "Hide tool calls"
     },
     "approval": {
       "title": "Approval required",

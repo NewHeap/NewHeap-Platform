@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace NewHeap.Platform.AI.Chat;
@@ -48,6 +49,29 @@ public sealed record NhAssistantAgentDefinition(
             && SelectorPattern.IsMatch(selector);
     }
 
+    /// <summary>
+    /// True when the selectors' stored JSON fits <see cref="NhAssistantLimits.MaxStoredToolSelectorCharacters"/>.
+    /// </summary>
+    internal static bool FitsSelectorStorage(IEnumerable<string> selectors)
+    {
+        return JsonSerializer.Serialize(selectors.ToArray()).Length <= NhAssistantLimits.MaxStoredToolSelectorCharacters;
+    }
+
+    /// <summary>
+    /// Validates the configurable selector count. It runs at host start because
+    /// <c>WithLimits</c> may be called after <c>AddAgent</c>.
+    /// </summary>
+    internal static void ValidateToolSelectorCount(NhAssistantAgentDefinition agent, NhAssistantLimits limits)
+    {
+        if (agent.ToolSelectors.Count > limits.MaxToolSelectorsPerAgent)
+        {
+            throw new InvalidOperationException(
+                $"Assistant agent '{agent.Id}' has {agent.ToolSelectors.Count} tool selectors; the limit is " +
+                $"{limits.MaxToolSelectorsPerAgent}. Raise NhAssistantLimits.MaxToolSelectorsPerAgent through " +
+                "WithLimits or combine exact tool ids into prefix selectors.");
+        }
+    }
+
     internal static void ValidateShape(NhAssistantAgentDefinition agent)
     {
         ArgumentNullException.ThrowIfNull(agent);
@@ -69,11 +93,13 @@ public sealed record NhAssistantAgentDefinition(
                 $"Assistant agent '{agent.Id}' has an invalid or unbounded definition.",
                 nameof(agent));
         }
-        if (agent.ToolSelectors.Count is 0 or > 128
-            || agent.ToolSelectors.Any(selector => !IsValidSelector(selector)))
+        if (agent.ToolSelectors.Count == 0
+            || agent.ToolSelectors.Any(selector => !IsValidSelector(selector))
+            || !FitsSelectorStorage(agent.ToolSelectors))
         {
             throw new ArgumentException(
-                $"Assistant agent '{agent.Id}' requires a bounded list of valid tool selectors.",
+                $"Assistant agent '{agent.Id}' requires a non-empty list of valid tool selectors of at most " +
+                $"{NhAssistantLimits.MaxStoredToolSelectorCharacters} stored characters.",
                 nameof(agent));
         }
     }

@@ -11,13 +11,16 @@ import {
   inject,
   input,
   output,
+  signal,
+  untracked,
   viewChild
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ApprovalDecision, Message } from '../../models/assistant-api.models';
 import { NhAssistantMarkdownPipe } from '../../internal/nh-assistant-markdown.pipe';
+import { NhAssistantPartGroupsPipe } from '../../internal/nh-assistant-part-groups';
 import { NhAssistantApprovalCardComponent } from '../approval-card/nh-assistant-approval-card.component';
-import { NhAssistantToolCallCardComponent } from '../tool-call-card/nh-assistant-tool-call-card.component';
+import { NhAssistantToolCallGroupComponent } from '../tool-call-group/nh-assistant-tool-call-group.component';
 
 /** Above this number of messages the thread renders through CDK virtual scrolling. */
 export const NH_ASSISTANT_VIRTUAL_SCROLL_THRESHOLD = 200;
@@ -27,8 +30,9 @@ const stickToBottomDistance = 120;
 
 /**
  * The messages of a conversation as a live log. Assistant text renders as sanitized
- * Markdown, tool calls and approvals as cards. The thread follows new content while the
- * user is at the bottom.
+ * Markdown, consecutive tool calls as one collapsible group that counts along, and
+ * approvals as cards. While a turn runs without visible progress, a working indicator
+ * shows the elapsed time. The thread follows new content while the user is at the bottom.
  */
 @Component({
   selector: 'nh-assistant-thread',
@@ -38,7 +42,8 @@ const stickToBottomDistance = 120;
     ScrollingModule,
     TranslatePipe,
     NhAssistantMarkdownPipe,
-    NhAssistantToolCallCardComponent,
+    NhAssistantPartGroupsPipe,
+    NhAssistantToolCallGroupComponent,
     NhAssistantApprovalCardComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -56,19 +61,56 @@ export class NhAssistantThreadComponent {
 
   readonly virtualThreshold = NH_ASSISTANT_VIRTUAL_SCROLL_THRESHOLD;
   readonly virtual = computed(() => this.messages().length > NH_ASSISTANT_VIRTUAL_SCROLL_THRESHOLD);
+  /**
+   * True while the turn runs and nothing else shows progress: before the first part and
+   * between tool calls while the model decides what to do next. Streaming text and a
+   * running tool group show their own progress; an approval waits for the user.
+   */
   readonly working = computed(() => {
     if (!this.streaming()) {
       return false;
     }
 
     const last = this.messages()[this.messages().length - 1];
-    return !last || last.role === 'user' || last.parts.length === 0;
+    if (!last || last.role === 'user' || last.parts.length === 0) {
+      return true;
+    }
+
+    const lastPart = last.parts[last.parts.length - 1];
+    return lastPart.type === 'tool-call'
+      && lastPart.status !== 'running'
+      && lastPart.status !== 'awaiting-approval';
   });
+  /** Whole seconds since the running turn started. */
+  readonly elapsedSeconds = computed(() => {
+    const startedAt = this.turnStartedAt();
+    return startedAt === null ? 0 : Math.max(0, Math.floor((this.now() - startedAt) / 1000));
+  });
+
+  private readonly turnStartedAt = signal<number | null>(null);
+  private readonly now = signal(Date.now());
 
   private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
   private readonly viewport = viewChild(CdkVirtualScrollViewport);
 
   constructor() {
+    effect(onCleanup => {
+      if (!this.streaming()) {
+        this.turnStartedAt.set(null);
+        return;
+      }
+
+      untracked(() => {
+        const now = Date.now();
+        this.now.set(now);
+        if (this.turnStartedAt() === null) {
+          this.turnStartedAt.set(now);
+        }
+      });
+      const timer = setInterval(() => this.now.set(Date.now()), 1000);
+      onCleanup(() => clearInterval(timer));
+    });
+
     effect(() => {
       this.messages();
       this.working();

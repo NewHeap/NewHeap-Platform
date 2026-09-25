@@ -1,6 +1,6 @@
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { Component, Injectable } from '@angular/core';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, discardPeriodicTasks, fakeAsync, tick } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { BehaviorSubject, Observable, Subject, firstValueFrom, of } from 'rxjs';
 import { ApprovalDecision, ApprovalPart, AssistantStatus, Message, ToolCallPart } from '../models/assistant-api.models';
@@ -16,6 +16,7 @@ import { NhAssistantLauncherComponent } from './launcher/nh-assistant-launcher.c
 import { NhAssistantPanelComponent } from './panel/nh-assistant-panel.component';
 import { NhAssistantThreadComponent } from './thread/nh-assistant-thread.component';
 import { NhAssistantToolCallCardComponent } from './tool-call-card/nh-assistant-tool-call-card.component';
+import { NhAssistantToolCallGroupComponent } from './tool-call-group/nh-assistant-tool-call-group.component';
 
 const status: AssistantStatus = {
   enabled: true,
@@ -348,8 +349,141 @@ describe('NhAssistantToolCallCardComponent', () => {
   });
 });
 
+describe('NhAssistantToolCallGroupComponent', () => {
+  function call(invocationId: string, status: ToolCallPart['status'], displayName = invocationId): ToolCallPart {
+    return {
+      type: 'tool-call',
+      invocationId,
+      toolId: `sample-api.${invocationId}`,
+      toolVersion: 1,
+      displayName,
+      status,
+      argumentsPreview: null,
+      resultPreview: null,
+      resultCode: status === 'failed' ? 'assistant-model-unavailable' : null
+    };
+  }
+
+  beforeEach(() => configure());
+
+  it('shows the running tool and counts along while the calls complete', () => {
+    const fixture = TestBed.createComponent(NhAssistantToolCallGroupComponent);
+    fixture.componentRef.setInput('calls', [call('search', 'succeeded'), call('query', 'running', 'Query projects')]);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.getAttribute('data-status')).toBe('running');
+    expect(element.querySelector('.title')?.textContent?.trim()).toBe('Calling Query projects…');
+    expect(element.querySelector('.count')?.textContent?.trim()).toBe('1 of 2 done');
+    expect(element.querySelectorAll('nh-assistant-tool-call-card').length).toBe(0);
+
+    fixture.componentRef.setInput('calls', [
+      call('search', 'succeeded'),
+      call('query', 'failed'),
+      call('retry', 'succeeded')
+    ]);
+    fixture.detectChanges();
+
+    expect(element.getAttribute('data-status')).toBe('failed');
+    expect(element.querySelector('.title')?.textContent?.trim()).toBe('Used 3 tools');
+    expect(element.querySelector('.count.failed')?.textContent?.trim()).toBe('1 failed');
+  });
+
+  it('expands to every call and keeps that choice while calls are added', () => {
+    const fixture = TestBed.createComponent(NhAssistantToolCallGroupComponent);
+    fixture.componentRef.setInput('calls', [call('search', 'succeeded')]);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const summary = element.querySelector('button.summary') as HTMLButtonElement;
+    expect(element.querySelector('.title')?.textContent?.trim()).toBe('Used 1 tool');
+    expect(summary.getAttribute('aria-expanded')).toBe('false');
+    expect((element.querySelector('.calls') as HTMLElement).hidden).toBeTrue();
+
+    summary.click();
+    fixture.componentRef.setInput('calls', [call('search', 'succeeded'), call('query', 'running')]);
+    fixture.detectChanges();
+
+    expect(summary.getAttribute('aria-expanded')).toBe('true');
+    expect(summary.getAttribute('aria-controls')).toBe(element.querySelector('.calls')?.id ?? '');
+    expect(element.querySelectorAll('nh-assistant-tool-call-card').length).toBe(2);
+  });
+
+  it('names the call that waits for approval', () => {
+    const fixture = TestBed.createComponent(NhAssistantToolCallGroupComponent);
+    fixture.componentRef.setInput('calls', [call('search', 'succeeded'), call('update', 'awaiting-approval', 'Change status')]);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.getAttribute('data-status')).toBe('awaiting-approval');
+    expect(element.querySelector('.title')?.textContent?.trim()).toBe('Waiting for approval: Change status');
+  });
+});
+
 describe('NhAssistantThreadComponent', () => {
   beforeEach(() => configure());
+
+  function toolCall(invocationId: string, status: ToolCallPart['status']): ToolCallPart {
+    return {
+      type: 'tool-call',
+      invocationId,
+      toolId: `sample-api.${invocationId}`,
+      toolVersion: 1,
+      displayName: invocationId,
+      status,
+      argumentsPreview: null,
+      resultPreview: null,
+      resultCode: null
+    };
+  }
+
+  it('groups consecutive tool calls and keeps approvals and text separate', () => {
+    const fixture = TestBed.createComponent(NhAssistantThreadComponent);
+    fixture.componentRef.setInput('messages', [{
+      id: 'a1',
+      role: 'assistant',
+      createdAt: '',
+      parts: [
+        toolCall('search', 'succeeded'),
+        toolCall('describe', 'succeeded'),
+        toolCall('query', 'succeeded'),
+        { type: 'text', text: 'Found it.' },
+        toolCall('update', 'awaiting-approval'),
+        approval
+      ]
+    }] satisfies Message[]);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const groups = element.querySelectorAll('nh-assistant-tool-call-group');
+    expect(groups.length).toBe(2);
+    expect(groups[0].querySelector('.title')?.textContent?.trim()).toBe('Used 3 tools');
+    expect(element.querySelectorAll('nh-assistant-approval-card').length).toBe(1);
+    expect(element.querySelector('.markdown')?.textContent).toContain('Found it.');
+  });
+
+  it('shows the working indicator with the elapsed time between tool calls', fakeAsync(() => {
+    const fixture = TestBed.createComponent(NhAssistantThreadComponent);
+    const running: Message[] = [{ id: 'a1', role: 'assistant', createdAt: '', parts: [toolCall('search', 'running')] }];
+    fixture.componentRef.setInput('streaming', true);
+    fixture.componentRef.setInput('messages', running);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.working')).toBeNull();
+
+    fixture.componentRef.setInput('messages', [{ ...running[0], parts: [toolCall('search', 'succeeded')] }]);
+    tick(3_000);
+    fixture.detectChanges();
+
+    expect(element.querySelector('.working')?.textContent).toContain('The assistant is working');
+    expect(element.querySelector('.elapsed')?.textContent?.trim()).toBe('3s');
+
+    fixture.componentRef.setInput('streaming', false);
+    fixture.detectChanges();
+    expect(element.querySelector('.working')).toBeNull();
+    discardPeriodicTasks();
+  }));
 
   it('is a polite live log and never renders a script tag from model text', () => {
     const fixture = TestBed.createComponent(NhAssistantThreadComponent);

@@ -58,6 +58,44 @@ public sealed partial class AssistantSamplesTests
     }
 
     [Fact]
+    public async Task SPM_250_the_application_decides_how_many_tool_selectors_an_agent_may_list()
+    {
+        using var admin = Host.CreateClient("spm-250-selectors-admin", admin: true);
+        string[] settingsActions = [.. Enumerable.Range(0, 200).Select(index => $"settings.action-{index:000}")];
+
+        using var withinLimit = await admin.PostAsync(
+            "/api/assistant/admin/agents",
+            AgentWithSelectors("settings-assistant", settingsActions),
+            TestContext.Current.CancellationToken);
+        using var aboveLimit = await admin.PostAsync(
+            "/api/assistant/admin/agents",
+            AgentWithSelectors(
+                "settings-assistant-too-many",
+                [.. Enumerable.Range(0, 257).Select(index => $"settings.a-{index:000}")]),
+            TestContext.Current.CancellationToken);
+
+        // The sample raises MaxToolSelectorsPerAgent from 128 to 256 in SampleAssistantComposition.
+        Assert.Equal(HttpStatusCode.Created, withinLimit.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, aboveLimit.StatusCode);
+    }
+
+    private static HttpContent AgentWithSelectors(string id, string[] toolSelectors)
+    {
+        return AssistantSampleHost.Json(new
+        {
+            id,
+            displayName = "Settings assistant",
+            description = "Changes application settings on request.",
+            instructions = "Change application settings when asked.",
+            toolSelectors,
+            mcpServerIds = Array.Empty<string>(),
+            requiredPolicy = (string?)null,
+            autonomy = "observe",
+            isEnabled = true
+        });
+    }
+
+    [Fact]
     public async Task SPM_251_an_administrator_connects_an_mcp_server_and_assigns_it_to_one_agent()
     {
         await using var planning = await SampleMcpServer.StartAsync("sample-planning-key");

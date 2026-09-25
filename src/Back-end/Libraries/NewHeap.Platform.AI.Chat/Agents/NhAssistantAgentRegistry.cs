@@ -50,6 +50,7 @@ internal sealed class NhAssistantAgentRegistry(NhAssistantRegistrationState stat
         {
             cancellationToken.ThrowIfCancellationRequested();
             NhAssistantAgentDefinition.ValidateShape(agent);
+            NhAssistantAgentDefinition.ValidateToolSelectorCount(agent, state.Limits);
             ValidateProfile(profiles, agent.ProfileName, $"Assistant agent '{agent.Id}'");
             var computedHash = Convert.ToHexStringLower(
                 SHA256.HashData(Encoding.UTF8.GetBytes(agent.Instructions.Content)));

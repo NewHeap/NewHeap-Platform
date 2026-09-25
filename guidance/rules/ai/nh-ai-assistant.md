@@ -44,7 +44,13 @@ endpoints.MapNewHeapAssistant("/api/assistant");
 declare chat, function calling and streaming and permit the assistant execution
 region (`local` by default, see `UseExecutionRegion`). Tool selectors are exact tool
 ids or prefixes ending in `.*`; only agents with `Execute` autonomy are offered
-mutating tools.
+mutating tools. An agent may list at most `NhAssistantLimits.MaxToolSelectorsPerAgent`
+selectors (128 by default) for code-defined and administrator-managed agents alike;
+the application decides that number through `WithLimits`. Code agents are checked at
+host start, administrator input on save. The selector list must also fit
+`NhAssistantLimits.MaxStoredToolSelectorCharacters` (8,000 characters of JSON).
+Prefer prefix selectors over long lists of exact ids, and remember that
+`MaxToolsPerAgent` (64 by default) still bounds how many tools one turn offers.
 
 The kill switch is `NewHeap:AI:Assistant:Enabled` (default `false`). When it is
 off, `GET status` reports `enabled: false` without agents and every other endpoint

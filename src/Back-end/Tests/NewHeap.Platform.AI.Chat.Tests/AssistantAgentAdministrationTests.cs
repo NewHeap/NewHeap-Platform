@@ -125,6 +125,47 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
         Assert.Contains(events, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentDeleted);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Administrators_may_store_as_many_tool_selectors_as_the_configured_limit_allows(
+        AssistantTestProvider provider)
+    {
+        var state = CreateState(AssistantTestData.Agent());
+        state.ChatProfileName = "project-chat";
+        state.Limits = new NhAssistantLimits { MaxToolSelectorsPerAgent = 150 };
+        await using var services = await CreateServicesAsync(provider, state);
+        await using var scope = services.CreateAsyncScope();
+        var administration = scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>();
+        string[] selectors = [.. Enumerable.Range(0, 148).Select(index => $"projects.settings-action-{index:000}")];
+        var input = new NhAssistantAgentInput(
+            "settings-helper",
+            "Settings helper",
+            "Changes application settings.",
+            "Change settings on request.",
+            selectors,
+            [],
+            null,
+            NhAiAutonomyLevel.Observe,
+            true);
+
+        var created = await administration.CreateAsync(input, "admin-1", CancellationToken.None);
+        var aboveLimit = await administration.CreateAsync(
+            input with { Id = "above-limit", ToolSelectors = [.. selectors, "projects.extra-1", "projects.extra-2", "projects.extra-3"] },
+            "admin-1",
+            CancellationToken.None);
+        string[] unstorable = [.. Enumerable.Range(0, 150).Select(index => $"projects.a-very-long-settings-action-name-that-exceeds-storage-{index:000}")];
+        var aboveStorage = await administration.CreateAsync(
+            input with { Id = "above-storage", ToolSelectors = unstorable },
+            "admin-1",
+            CancellationToken.None);
+
+        Assert.True(created.Success);
+        Assert.Equal(148, created.Data!.Definition.ToolSelectors.Count);
+        Assert.Equal(NhAssistantAdminErrorCodes.ValidationFailed, Code(aboveLimit));
+        Assert.Equal(NhAssistantAdminErrorCodes.ValidationFailed, Code(aboveStorage));
+    }
+
     private static NhAssistantAgentInput Input(NhAssistantAgent agent, string instructions)
     {
         return new NhAssistantAgentInput(

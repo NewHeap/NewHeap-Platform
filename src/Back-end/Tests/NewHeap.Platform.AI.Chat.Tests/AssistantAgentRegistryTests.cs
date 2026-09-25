@@ -69,6 +69,35 @@ public sealed class AssistantAgentRegistryTests
     }
 
     [Fact]
+    public async Task The_tool_selector_count_is_a_configurable_limit_within_the_storage_bound()
+    {
+        var profiles = CreateProfiles();
+        string[] selectors = [.. Enumerable.Range(0, 148).Select(index => $"projects.settings-action-{index:000}")];
+        var agent = AssistantTestData.Agent() with { ToolSelectors = selectors };
+
+        var defaultLimits = CreateRegistry(agent);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            defaultLimits.ValidateAsync(profiles, _ => ValueTask.FromResult(true), CancellationToken.None));
+        Assert.Contains("148 tool selectors; the limit is 128", error.Message);
+
+        var raised = new NhAssistantRegistrationState
+        {
+            StorageProvider = "test",
+            Limits = new NhAssistantLimits { MaxToolSelectorsPerAgent = 200 }
+        };
+        raised.AddAgent(agent);
+        await new NhAssistantAgentRegistry(raised)
+            .ValidateAsync(profiles, _ => ValueTask.FromResult(true), CancellationToken.None);
+
+        string[] unstorable = [.. Enumerable.Range(0, 400).Select(index => $"projects.settings-action-{index:000}")];
+        Assert.Throws<ArgumentException>(() =>
+            new NhAssistantRegistrationState().AddAgent(agent with { ToolSelectors = unstorable }));
+        Assert.Throws<InvalidOperationException>(() =>
+            new NhAssistantBuilder(new ServiceCollection(), new NhAssistantRegistrationState())
+                .WithLimits(limits => limits.MaxToolSelectorsPerAgent = 0));
+    }
+
+    [Fact]
     public async Task Startup_validation_rejects_unknown_profiles_policies_and_tampered_instructions()
     {
         var profiles = CreateProfiles();

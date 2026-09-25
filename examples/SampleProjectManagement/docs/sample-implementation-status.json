@@ -1694,7 +1694,9 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/components.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-mock-api.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/provide-nh-assistant-mock-api.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-page-context.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-page-context.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/tool-call-group/nh-assistant-tool-call-group.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-part-groups.ts"
     ],
     "SPM-249": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs",
@@ -1710,7 +1712,9 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentAdministration.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentAdministrationTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRegistryTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs"
     ],
     "SPM-251": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",

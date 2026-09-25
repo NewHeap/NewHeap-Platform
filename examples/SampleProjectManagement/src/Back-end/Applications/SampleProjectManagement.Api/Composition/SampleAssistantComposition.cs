@@ -120,6 +120,9 @@ public static class SampleAssistantComposition
                 limits.MaxMessageChars = 4_000;
                 limits.TurnTimeout = TimeSpan.FromSeconds(60);
                 limits.DailyToolCallBudgetPerActor = 100;
+                // Agents that list many exact settings actions need more selectors than the
+                // default 128. Prefer prefix selectors; this does not raise MaxToolsPerAgent.
+                limits.MaxToolSelectorsPerAgent = 256;
             }));
         return services;
     }

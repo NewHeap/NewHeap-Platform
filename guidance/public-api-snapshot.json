@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.45",
   "backEnd": {
-    "hash": "3c4513ae8d501ded5bafafacad3792eefb8c47e1022d22b3ce1771d39fda667d",
-    "declarationCount": 5308,
+    "hash": "0e830095bb57d9d79de1b56378e395ae6e628b02869f175c888f2d18b0586d93",
+    "declarationCount": 5310,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3347,6 +3347,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public const int MaxStoredToolSelectorCharacters = 8_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
         "declaration": "public int MaxToolCallsPerTurn { get; set; } = 8;"
       },
       {
@@ -3372,6 +3376,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
         "declaration": "public int MaxToolsPerAgent { get; set; } = 64;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public int MaxToolSelectorsPerAgent { get; set; } = 128;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
@@ -24713,6 +24721,7 @@
     "nh-ai-assistant-ui": [
       "provideNhAssistant",
       "NhAssistantConfig",
+      "NhAssistantToolCallGroupComponent",
       "NhAssistantAccessPolicy",
       "NhAssistantApiService",
       "NhAssistantAdminApiService",
