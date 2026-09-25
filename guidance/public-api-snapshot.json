@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.44",
   "backEnd": {
-    "hash": "552f671eac7e6be09456db56612966624bcc3acf2d047f747bcd2bf1a37e11b2",
-    "declarationCount": 5279,
+    "hash": "3c4513ae8d501ded5bafafacad3792eefb8c47e1022d22b3ce1771d39fda667d",
+    "declarationCount": 5308,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -8206,6 +8206,34 @@
         "declaration": "[NonAction] protected virtual async Task<IActionResult> DoDelete([FromRoute] Guid id, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationAdministrationController.cs",
+        "declaration": "[ApiController] [Route(\"background-operations/administration\")] [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme + \",Identity.Application\")] public sealed class NhBackgroundOperationAdministrationController : ProtectedNhBaseController {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationAdministrationController.cs",
+        "declaration": "public const int MaxItemsPerPage = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationAdministrationController.cs",
+        "declaration": "public NhBackgroundOperationAdministrationController( IConfiguration configuration, IMapper mapper, ILogger<NhBackgroundOperationAdministrationController> logger, IStringLocalizer<NhBackgroundOperationAdministrationController> localizer, IHttpCollectionProcessingService collectionProcessing, INhBackgroundOperationAdministrationService operations, IAuthorizationService authorizationService, NhBackgroundOperationsOptions options) : base(mapper, logger, configuration, localizer, collectionProcessing) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationAdministrationController.cs",
+        "declaration": "[HttpGet] [EndpointSummary(\"List background operations of all users\")] [EndpointDescription(\"Returns filtered and paged root operations of every owner in the accessible active division plus global operations, including the owner's display name. Requires the configured background-operation administration policy; the endpoint returns 404 when administration is not enabled.\")] [ProducesResponseType<CollectionResultModel<NhBackgroundOperationAdministrationViewModel>>(StatusCodes.Status200OK)] [ProducesResponseType(StatusCodes.Status401Unauthorized)] [ProducesResponseType(StatusCodes.Status403Forbidden)] [ProducesResponseType(StatusCodes.Status404NotFound)] public async Task<IActionResult> Get( [FromQuery] NhBackgroundOperationAdministrationCollectionRequestModel request, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationAdministrationController.cs",
+        "declaration": "[HttpGet(\"{id:guid}\")] [EndpointSummary(\"Get a background operation as administrator\")] [EndpointDescription(\"Returns the operation snapshot with its progress tree, child hierarchy, attempts, operator-only events and scheduling diagnostics. Requires the configured background-operation administration policy.\")] [ProducesResponseType<NhBackgroundOperationAdministrationViewModel>(StatusCodes.Status200OK)] [ProducesResponseType(StatusCodes.Status401Unauthorized)] [ProducesResponseType(StatusCodes.Status403Forbidden)] [ProducesResponseType(StatusCodes.Status404NotFound)] public async Task<IActionResult> GetById( [FromRoute] Guid id, [FromQuery] long? eventsAfterSequence = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationAdministrationController.cs",
+        "declaration": "[HttpPost(\"{id:guid}/cancel\")] [EndpointSummary(\"Cancel a background operation as administrator\")] [EndpointDescription(\"Durably requests cooperative cancellation for another user's operation and its child hierarchy. The administrator is recorded as requester and the owner is notified when the operation is cancelled.\")] [ProducesResponseType<NhBackgroundOperationAdministrationViewModel>(StatusCodes.Status202Accepted)] [ProducesResponseType<TaskResult<NhBackgroundOperationAdministrationViewModel>>(StatusCodes.Status400BadRequest)] [ProducesResponseType(StatusCodes.Status401Unauthorized)] [ProducesResponseType(StatusCodes.Status403Forbidden)] [ProducesResponseType(StatusCodes.Status404NotFound)] public async Task<IActionResult> Cancel([FromRoute] Guid id, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationAdministrationController.cs",
+        "declaration": "[HttpPost(\"{id:guid}/retry\")] [EndpointSummary(\"Retry a background operation as administrator\")] [EndpointDescription(\"Queues a new fenced attempt for another user's unsuccessful terminal operation and its unsuccessful descendants when their registered idempotency policies permit retry.\")] [ProducesResponseType<NhBackgroundOperationAdministrationViewModel>(StatusCodes.Status202Accepted)] [ProducesResponseType<TaskResult<NhBackgroundOperationAdministrationViewModel>>(StatusCodes.Status400BadRequest)] [ProducesResponseType(StatusCodes.Status401Unauthorized)] [ProducesResponseType(StatusCodes.Status403Forbidden)] [ProducesResponseType(StatusCodes.Status404NotFound)] public async Task<IActionResult> Retry([FromRoute] Guid id, CancellationToken cancellationToken = default)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationController.cs",
         "declaration": "[ApiController] [Route(\"background-operations\")] [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme + \",Identity.Application\")] public sealed class NhBackgroundOperationController : ProtectedNhBaseController {"
       },
@@ -11623,7 +11651,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
-        "declaration": "public sealed class NhBackgroundOperationViewModel {"
+        "declaration": "public class NhBackgroundOperationViewModel {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
@@ -12055,7 +12083,47 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public bool IsOperatorOnly {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
         "declaration": "public sealed class NhBackgroundOperationCollectionRequestModel : CollectionRequestModel {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public sealed class NhBackgroundOperationAdministrationViewModel : NhBackgroundOperationViewModel {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? OwnerDisplayName {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public Guid? CancelRequestedByUserId {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string ProcessorKey { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public int DispatchGeneration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? SchedulerJobId {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public DateTimeOffset? NextDispatchAt {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public string? DiagnosticCorrelationId {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhBackgroundOperationViewModels.cs",
+        "declaration": "public sealed class NhBackgroundOperationAdministrationCollectionRequestModel : CollectionRequestModel {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/View/NhUserNotificationViewModels.cs",
@@ -12679,6 +12747,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationAdministrationService {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public interface INhBackgroundOperationOwnerDirectory {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
+        "declaration": "public sealed record NhBackgroundOperationOwner(Guid UserId, string DisplayName);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
         "declaration": "public interface INhBackgroundOperationScheduler {"
       },
       {
@@ -13019,6 +13099,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public string? AdministrationPolicy { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
         "declaration": "public sealed class NhBackgroundOperationEnqueueOptions {"
       },
       {
@@ -13212,6 +13296,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
         "declaration": "public NhBackgroundOperationBuilder UseNotificationPolicy<TPolicy>() where TPolicy : class, INhBackgroundOperationNotificationPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationBuilder UseAdministrationPolicy(string policyName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public NhBackgroundOperationBuilder UseOwnerDirectory<TDirectory>() where TDirectory : class, INhBackgroundOperationOwnerDirectory {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
@@ -13522,6 +13614,14 @@
         "declaration": "public Task<TaskResult> ProjectAsync( Guid operationId, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationOwnerDirectory.cs",
+        "declaration": "public NhIdentityBackgroundOperationOwnerDirectory(IRepository<NhBackgroundOperation> repository) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationOwnerDirectory.cs",
+        "declaration": "public async Task<IReadOnlyDictionary<Guid, NhBackgroundOperationOwner>> GetOwnersAsync( IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationPersistence.cs",
         "declaration": "public NhBackgroundOperationPersistence( IServiceScopeFactory scopeFactory, NhBackgroundOperationsOptions options, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, NhBackgroundOperationFanOutCoordinator fanOutCoordinator, ILogger<NhBackgroundOperationPersistence> logger) {"
       },
@@ -13543,11 +13643,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
-        "declaration": "public sealed class NhBackgroundOperationService : INhBackgroundOperationService {"
+        "declaration": "public sealed class NhBackgroundOperationService : INhBackgroundOperationService, INhBackgroundOperationAdministrationService {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
-        "declaration": "public NhBackgroundOperationService( IRepository<NhBackgroundOperation> repository, NhBackgroundOperationRegistry registry, NhBackgroundOperationsOptions options, INhHangfireQueueNameResolver queueNameResolver, INhBackgroundOperationScheduler scheduler, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, IMapper mapper, ILogger<NhBackgroundOperationService> logger) {"
+        "declaration": "public NhBackgroundOperationService( IRepository<NhBackgroundOperation> repository, NhBackgroundOperationRegistry registry, NhBackgroundOperationsOptions options, INhHangfireQueueNameResolver queueNameResolver, INhBackgroundOperationScheduler scheduler, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, IMapper mapper, ILogger<NhBackgroundOperationService> logger) : this( repository, registry, options, queueNameResolver, scheduler, liveUpdates, notificationProjector, mapper, logger, null) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+        "declaration": "public NhBackgroundOperationService( IRepository<NhBackgroundOperation> repository, NhBackgroundOperationRegistry registry, NhBackgroundOperationsOptions options, INhHangfireQueueNameResolver queueNameResolver, INhBackgroundOperationScheduler scheduler, INhBackgroundOperationLiveUpdatePublisher liveUpdates, INhBackgroundOperationNotificationProjector notificationProjector, IMapper mapper, ILogger<NhBackgroundOperationService> logger, INhBackgroundOperationOwnerDirectory? ownerDirectory) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
@@ -13563,11 +13667,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
-        "declaration": "public async Task<TaskResult<NhBackgroundOperationViewModel>> RequestCancellationAsync( Guid operationId, Guid ownerUserId, CancellationToken cancellationToken = default)"
+        "declaration": "public Task<TaskResult<NhBackgroundOperationViewModel>> RequestCancellationAsync( Guid operationId, Guid ownerUserId, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
-        "declaration": "public async Task<TaskResult<NhBackgroundOperationViewModel>> RetryAsync( Guid operationId, Guid ownerUserId, CancellationToken cancellationToken = default)"
+        "declaration": "public Task<TaskResult<NhBackgroundOperationViewModel>> RetryAsync( Guid operationId, Guid ownerUserId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+        "declaration": "public IQueryable<NhBackgroundOperation> QueryForAdministration(Guid? divisionId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+        "declaration": "public async Task PopulateOwnersAsync( IReadOnlyCollection<NhBackgroundOperationAdministrationViewModel> operations, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
@@ -13584,6 +13696,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationStartupValidator.cs",
         "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSummaryProjection.cs",
+        "declaration": "public static IQueryable<NhBackgroundOperation> SelectSummary(this IQueryable<NhBackgroundOperation> query) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSuspension.cs",
@@ -21124,8 +21240,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "c5b5292868054c2d76a265f12bdf4ed4d63df87b4aa9ba007acaac357e9bf6a9",
-    "declarationCount": 770,
+    "hash": "bc18c08d8698804bcf161e1ac6a943eb3bf27bc7cd73f908f6040985cf594cc6",
+    "declarationCount": 776,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
@@ -22145,6 +22261,10 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export interface NhBackgroundOperationAdministration extends NhBackgroundOperation {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
         "declaration": "export interface NhBackgroundOperationChild {"
       },
       {
@@ -22158,6 +22278,14 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
         "declaration": "public constructor(init?: Partial<NhBackgroundOperationCollectionHttpRequestOptions>) {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export class NhBackgroundOperationAdministrationCollectionHttpRequestOptions extends CollectionHttpRequestOptions {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "public constructor(init?: Partial<NhBackgroundOperationAdministrationCollectionHttpRequestOptions>) {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
@@ -22982,6 +23110,14 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
         "declaration": "protected initEmptyAuthorization(): NhAuthorization {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-administration.service.ts",
+        "declaration": "@Injectable({ providedIn: 'root' })"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-administration.service.ts",
+        "declaration": "export class NhBackgroundOperationAdministrationService {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-live-update.service.ts",
@@ -24073,6 +24209,10 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export * from './lib/services/nh-background-operation-administration.service';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
         "declaration": "export * from './lib/services/nh-background-operation-live-update.service';"
       },
       {
@@ -24621,14 +24761,18 @@
     ],
     "nh-operations-events-jobs-notifications": [
       "CapTransactionScope",
+      "INhBackgroundOperationAdministrationService",
       "INhBackgroundOperationContext",
       "INhBackgroundOperationFanOutContext",
       "INhBackgroundOperationHandler<TRequest>",
       "INhBackgroundOperationLeaseManager",
       "INhBackgroundOperationNotificationFormatter",
       "INhBackgroundOperationNotificationPolicy",
+      "INhBackgroundOperationOwnerDirectory",
       "INhNotificationDispatcher",
       "INhUserNotificationService",
+      "NhBackgroundOperationAdministrationService",
+      "NhBackgroundOperationAdministrationViewModel",
       "NhBackgroundOperationBuilder",
       "NhBackgroundOperationChangedMessage",
       "NhBackgroundOperationNotificationDecision",

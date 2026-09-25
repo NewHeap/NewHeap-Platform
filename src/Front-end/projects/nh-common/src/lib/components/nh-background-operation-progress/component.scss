@@ -192,6 +192,16 @@
   color: var(--nh-color-text, #fff);
 }
 
+.nh-operation__event-badge {
+  margin-left: .5rem;
+  padding: .125rem .375rem;
+  border: 1px solid var(--nh-color-border, rgba(255, 255, 255, .2));
+  border-radius: .4rem;
+  color: var(--nh-color-muted, #9aa8bc);
+  font-size: .7rem;
+  white-space: nowrap;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .nh-operation__progress span,
   .nh-step__progress span {

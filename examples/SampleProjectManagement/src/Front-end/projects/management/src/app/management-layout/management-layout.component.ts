@@ -1,6 +1,7 @@
 import { Component, HostListener, OnDestroy, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { NhAssistantLauncherComponent, NhAssistantPanelComponent } from '@newheap/platform-ai-chat';
+import { NhAuthService } from '@newheap/platform-common';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription, filter } from 'rxjs';
 import {
@@ -25,6 +26,7 @@ import {
 })
 export class ManagementLayoutComponent implements OnDestroy {
   private readonly router = inject(Router);
+  private readonly auth = inject(NhAuthService);
   private readonly navigationSubscription: Subscription;
 
   readonly connectionState = inject(SampleApiConnectionStateService);
@@ -43,6 +45,10 @@ export class ManagementLayoutComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.navigationSubscription.unsubscribe();
+  }
+
+  canAdministerBackgroundOperations(): boolean {
+    return this.auth.isOnePermissionGranted(['app.background-operation.administer']);
   }
 
   toggleNavigation(): void {

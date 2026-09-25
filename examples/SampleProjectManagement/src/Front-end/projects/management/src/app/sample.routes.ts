@@ -65,6 +65,22 @@ export const SAMPLE_ROUTES: Routes = [
           .then(module => module.BackgroundOperationsPageComponent)
       },
       {
+        path: 'background-operation-administration',
+        title: 'Background operation administration',
+        canActivate: [NhIsOnePermissionGrantedGuard],
+        data: { oneMatchPermissions: ['app.background-operation.administer'] },
+        loadComponent: () => import('./background-operation-administration/background-operation-administration-page.component')
+          .then(module => module.BackgroundOperationAdministrationPageComponent)
+      },
+      {
+        path: 'background-operation-administration/:id',
+        title: 'Background operation administration',
+        canActivate: [NhIsOnePermissionGrantedGuard],
+        data: { oneMatchPermissions: ['app.background-operation.administer'] },
+        loadComponent: () => import('./background-operation-administration/background-operation-administration-page.component')
+          .then(module => module.BackgroundOperationAdministrationPageComponent)
+      },
+      {
         path: 'notifications',
         title: 'Notificaties',
         loadComponent: () => import('./notification-playground/notification-playground.component')

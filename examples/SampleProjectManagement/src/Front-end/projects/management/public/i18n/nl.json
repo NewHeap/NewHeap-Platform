@@ -348,7 +348,8 @@
       "skipped": "Overgeslagen",
       "retried": "Opnieuw geprobeerd",
       "active": "Actief"
-    }
+    },
+    "operator-only": "Alleen beheerder"
   },
   "background-operation": {
     "queued": "De taak is in de wachtrij geplaatst.",
@@ -369,7 +370,9 @@
     "dispatch-recovered": "De verzending is door reconciliatie hersteld.",
     "stale-attempt-recovered": "Een vastgelopen poging is hersteld.",
     "operator-recovery-required": "Herstel door een beheerder is vereist.",
-    "unsupported-payload-schema": "Deze versie van de operatielading wordt niet meer ondersteund."
+    "unsupported-payload-schema": "Deze versie van de operatielading wordt niet meer ondersteund.",
+    "administrator-cancellation-requested": "Een beheerder heeft annulering aangevraagd.",
+    "administrator-retry-requested": "Een beheerder heeft een nieuwe poging aangevraagd."
   },
   "sample-project-management": {
     "background-operations": {
@@ -407,6 +410,54 @@
         "checkpoint-loaded": "Hervatten bij batchitem {{nextItem}}.",
         "analysis-completed": "Analyse afgerond met {{childCount}} onderliggende taken voor {{projectCount}} projecten in {{passes}} rondes."
       }
+    },
+    "background-operation-administration": {
+      "navigation": "Takenbeheer",
+      "label": "Beheer",
+      "title": "Achtergrondtaken van alle gebruikers",
+      "description": "Vind werk dat andere gebruikers in de actieve divisie hebben gestart, zie waarom het mislukte en annuleer of herstart het namens hen. De eigenaar krijgt een melding wanneer een beheerder een taak annuleert.",
+      "refresh": "Taken vernieuwen",
+      "action-failed": "De beheeractie kon niet worden uitgevoerd. De taak is niet gewijzigd.",
+      "back-to-list": "Terug naar alle taken",
+      "loading": "Taken worden geladen…",
+      "load-failed": "De taken konden niet worden geladen. Polling probeert het automatisch opnieuw.",
+      "forbidden": "Je hebt geen recht om achtergrondtaken in deze divisie te beheren.",
+      "unavailable": "Beheer van achtergrondtaken is niet ingeschakeld op de server.",
+      "not-found": "Deze taak bestaat niet in de actieve divisie.",
+      "filters": "Taakfilters",
+      "status-filter": "Filteren op status",
+      "filter": {
+        "attention": "Vraagt aandacht",
+        "active": "Actief",
+        "succeeded": "Geslaagd",
+        "all": "Alle"
+      },
+      "search": "Taaktype",
+      "search-placeholder": "Zoeken op taaktype",
+      "result-count": "{{count}} taken",
+      "empty": {
+        "attention": "Geen mislukte, verlopen of geannuleerde taken in deze divisie.",
+        "active": "Er lopen of wachten geen taken in deze divisie.",
+        "succeeded": "Er zijn geen geslaagde taken bewaard in deze divisie.",
+        "all": "Er zijn nog geen achtergrondtaken gestart in deze divisie."
+      },
+      "diagnostics": "Diagnose",
+      "owner": "Gestart door",
+      "started": "Gestart",
+      "heartbeat": "Laatste heartbeat",
+      "attempt": "Poging",
+      "queue": "Wachtrij en processor",
+      "next-dispatch": "Volgende verzending",
+      "failure-code": "Foutcode",
+      "diagnostic-correlation": "Diagnostische correlatie",
+      "scheduler-job": "Scheduler-job",
+      "cancel-requested-by": "Annulering aangevraagd door",
+      "requested-by-owner": "De eigenaar",
+      "requested-by-administrator": "Een beheerder",
+      "pagination": "Takenpagina's",
+      "previous-page": "Vorige pagina",
+      "next-page": "Volgende pagina",
+      "page-of": "Pagina {{page}} van {{count}}"
     }
   },
   "general": {

@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -10,8 +11,17 @@ using NewHeap.Platform.Mapping;
 
 namespace NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 
-public sealed class NhBackgroundOperationService : INhBackgroundOperationService
+public sealed class NhBackgroundOperationService :
+    INhBackgroundOperationService,
+    INhBackgroundOperationAdministrationService
 {
+    private const string CancellationRequestedMessageKey = "background-operation.cancellation-requested";
+    private const string AdministratorCancellationRequestedMessageKey =
+        "background-operation.administrator-cancellation-requested";
+    private const string RetryRequestedMessageKey = "background-operation.retry-requested";
+    private const string AdministratorRetryRequestedMessageKey =
+        "background-operation.administrator-retry-requested";
+
     private static readonly NhBackgroundOperationStatus[] ActiveStatuses =
     [
         NhBackgroundOperationStatus.PendingDispatch,
@@ -32,6 +42,7 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
     private readonly INhBackgroundOperationNotificationProjector _notificationProjector;
     private readonly IMapper _mapper;
     private readonly ILogger<NhBackgroundOperationService> _logger;
+    private readonly INhBackgroundOperationOwnerDirectory? _ownerDirectory;
 
     public NhBackgroundOperationService(
         IRepository<NhBackgroundOperation> repository,
@@ -43,6 +54,31 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
         INhBackgroundOperationNotificationProjector notificationProjector,
         IMapper mapper,
         ILogger<NhBackgroundOperationService> logger)
+        : this(
+            repository,
+            registry,
+            options,
+            queueNameResolver,
+            scheduler,
+            liveUpdates,
+            notificationProjector,
+            mapper,
+            logger,
+            null)
+    {
+    }
+
+    public NhBackgroundOperationService(
+        IRepository<NhBackgroundOperation> repository,
+        NhBackgroundOperationRegistry registry,
+        NhBackgroundOperationsOptions options,
+        INhHangfireQueueNameResolver queueNameResolver,
+        INhBackgroundOperationScheduler scheduler,
+        INhBackgroundOperationLiveUpdatePublisher liveUpdates,
+        INhBackgroundOperationNotificationProjector notificationProjector,
+        IMapper mapper,
+        ILogger<NhBackgroundOperationService> logger,
+        INhBackgroundOperationOwnerDirectory? ownerDirectory)
     {
         _repository = repository;
         _registry = registry;
@@ -53,6 +89,7 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
         _notificationProjector = notificationProjector;
         _mapper = mapper;
         _logger = logger;
+        _ownerDirectory = ownerDirectory;
     }
 
     public async Task<TaskResult<NhBackgroundOperationViewModel>> EnqueueAsync<TRequest>(
@@ -124,7 +161,7 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
             if (record is not null)
             {
                 await transaction.CommitAsync(cancellationToken);
-                var existing = await GetInternalAsync(record.OperationId, options.OwnerUserId, null, cancellationToken);
+                var existing = await GetAsync(record.OperationId, options.OwnerUserId, null, cancellationToken);
                 return existing is null
                     ? TaskResult<NhBackgroundOperationViewModel>.Failed("The idempotency record references an unavailable operation.")
                     : TaskResult<NhBackgroundOperationViewModel>.Succeeded(existing);
@@ -143,7 +180,7 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
                 if (conflictBehavior == NhBackgroundOperationConflictBehavior.ReturnExisting)
                 {
                     await transaction.CommitAsync(cancellationToken);
-                    var existing = await GetInternalAsync(conflicting.Id, options.OwnerUserId, null, cancellationToken);
+                    var existing = await GetAsync(conflicting.Id, options.OwnerUserId, null, cancellationToken);
                     return existing is null
                         ? TaskResult<NhBackgroundOperationViewModel>.Failed("A conflicting operation exists but is not visible to this owner.")
                         : TaskResult<NhBackgroundOperationViewModel>.Succeeded(existing);
@@ -238,42 +275,191 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
         long? eventsAfterSequence = null,
         CancellationToken cancellationToken = default)
     {
-        return GetInternalAsync(operationId, ownerUserId, eventsAfterSequence, cancellationToken);
+        return GetInternalAsync<NhBackgroundOperationViewModel>(
+            operationId,
+            OwnedBy(ownerUserId),
+            eventsAfterSequence,
+            false,
+            cancellationToken);
     }
 
-    public async Task<TaskResult<NhBackgroundOperationViewModel>> RequestCancellationAsync(
+    public Task<TaskResult<NhBackgroundOperationViewModel>> RequestCancellationAsync(
         Guid operationId,
         Guid ownerUserId,
         CancellationToken cancellationToken = default)
     {
+        return RequestCancellationInternalAsync<NhBackgroundOperationViewModel>(
+            operationId,
+            OwnedBy(ownerUserId),
+            ownerUserId,
+            CancellationRequestedMessageKey,
+            false,
+            cancellationToken);
+    }
+
+    public Task<TaskResult<NhBackgroundOperationViewModel>> RetryAsync(
+        Guid operationId,
+        Guid ownerUserId,
+        CancellationToken cancellationToken = default)
+    {
+        return RetryInternalAsync<NhBackgroundOperationViewModel>(
+            operationId,
+            OwnedBy(ownerUserId),
+            RetryRequestedMessageKey,
+            false,
+            cancellationToken);
+    }
+
+    public IQueryable<NhBackgroundOperation> QueryForAdministration(Guid? divisionId)
+    {
+        return _repository.GetAll()
+            .Where(VisibleInDivision(divisionId))
+            .Where(x => x.ParentOperationId == null);
+    }
+
+    public async Task PopulateOwnersAsync(
+        IReadOnlyCollection<NhBackgroundOperationAdministrationViewModel> operations,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(operations);
+        if (operations.Count == 0 || _ownerDirectory is null)
+        {
+            return;
+        }
+
+        var ownerIds = operations
+            .Select(x => x.OwnerUserId)
+            .Distinct()
+            .ToList();
+        var owners = await _ownerDirectory.GetOwnersAsync(ownerIds, cancellationToken);
+        foreach (var operation in operations)
+        {
+            operation.OwnerDisplayName = owners.TryGetValue(operation.OwnerUserId, out var owner)
+                ? owner.DisplayName
+                : null;
+        }
+    }
+
+    async Task<NhBackgroundOperationAdministrationViewModel?> INhBackgroundOperationAdministrationService.GetAsync(
+        Guid operationId,
+        Guid? divisionId,
+        long? eventsAfterSequence,
+        CancellationToken cancellationToken)
+    {
+        var view = await GetInternalAsync<NhBackgroundOperationAdministrationViewModel>(
+            operationId,
+            VisibleInDivision(divisionId),
+            eventsAfterSequence,
+            true,
+            cancellationToken);
+        if (view is not null)
+        {
+            await PopulateOwnersAsync([view], cancellationToken);
+        }
+
+        return view;
+    }
+
+    async Task<TaskResult<NhBackgroundOperationAdministrationViewModel>> INhBackgroundOperationAdministrationService.RequestCancellationAsync(
+        Guid operationId,
+        Guid administratorUserId,
+        Guid? divisionId,
+        CancellationToken cancellationToken)
+    {
+        if (administratorUserId == Guid.Empty)
+        {
+            return TaskResult<NhBackgroundOperationAdministrationViewModel>.Failed(
+                nameof(administratorUserId),
+                "An administrator is required.");
+        }
+
+        var result = await RequestCancellationInternalAsync<NhBackgroundOperationAdministrationViewModel>(
+            operationId,
+            VisibleInDivision(divisionId),
+            administratorUserId,
+            AdministratorCancellationRequestedMessageKey,
+            true,
+            cancellationToken);
+        if (result.Success && result.Data is not null)
+        {
+            await PopulateOwnersAsync([result.Data], cancellationToken);
+        }
+
+        return result;
+    }
+
+    async Task<TaskResult<NhBackgroundOperationAdministrationViewModel>> INhBackgroundOperationAdministrationService.RetryAsync(
+        Guid operationId,
+        Guid administratorUserId,
+        Guid? divisionId,
+        CancellationToken cancellationToken)
+    {
+        if (administratorUserId == Guid.Empty)
+        {
+            return TaskResult<NhBackgroundOperationAdministrationViewModel>.Failed(
+                nameof(administratorUserId),
+                "An administrator is required.");
+        }
+
+        var result = await RetryInternalAsync<NhBackgroundOperationAdministrationViewModel>(
+            operationId,
+            VisibleInDivision(divisionId),
+            AdministratorRetryRequestedMessageKey,
+            true,
+            cancellationToken);
+        if (result.Success && result.Data is not null)
+        {
+            await PopulateOwnersAsync([result.Data], cancellationToken);
+        }
+
+        return result;
+    }
+
+    private async Task<TaskResult<TView>> RequestCancellationInternalAsync<TView>(
+        Guid operationId,
+        Expression<Func<NhBackgroundOperation, bool>> visibility,
+        Guid requestedByUserId,
+        string messageKey,
+        bool includeOperatorEvents,
+        CancellationToken cancellationToken)
+        where TView : NhBackgroundOperationViewModel
+    {
         await using var transaction = await _repository.StartOrGetTransactionScopeAsync(cancellationToken);
         if (!await AcquireOperationLockAsync(transaction, operationId, cancellationToken))
         {
-            return TaskResult<NhBackgroundOperationViewModel>.Failed("The operation is busy. Please retry.");
+            return TaskResult<TView>.Failed("The operation is busy. Please retry.");
         }
 
         var operation = await _repository.GetAll()
-            .SingleOrDefaultAsync(x => x.Id == operationId && x.OwnerUserId == ownerUserId, cancellationToken);
+            .Where(visibility)
+            .SingleOrDefaultAsync(x => x.Id == operationId, cancellationToken);
         if (operation is null)
         {
-            return TaskResult<NhBackgroundOperationViewModel>.Failed("The operation was not found.");
+            return TaskResult<TView>.Failed("The operation was not found.");
         }
 
         if (IsTerminal(operation.Status))
         {
             await transaction.CommitAsync(cancellationToken);
-            return TaskResult<NhBackgroundOperationViewModel>.Succeeded(_mapper.Map<NhBackgroundOperationViewModel>(operation));
+            var terminalView = await GetInternalAsync<TView>(
+                operation.Id,
+                visibility,
+                null,
+                includeOperatorEvents,
+                cancellationToken);
+            return terminalView is null
+                ? TaskResult<TView>.Failed("The operation was not found.")
+                : TaskResult<TView>.Succeeded(terminalView);
         }
 
         var hierarchy = await LoadHierarchyFromAsync(
             operation,
-            ownerUserId,
             cancellationToken: cancellationToken);
         foreach (var descendantId in hierarchy.Where(x => x.Id != operation.Id).Select(x => x.Id).Order())
         {
             if (!await AcquireOperationLockAsync(transaction, descendantId, cancellationToken))
             {
-                return TaskResult<NhBackgroundOperationViewModel>.Failed("A child operation is busy. Please retry cancellation.");
+                return TaskResult<TView>.Failed("A child operation is busy. Please retry cancellation.");
             }
         }
 
@@ -282,7 +468,7 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
         foreach (var target in hierarchy.Where(x => !IsTerminal(x.Status)))
         {
             target.CancelRequestedAt ??= now;
-            target.CancelRequestedByUserId = ownerUserId;
+            target.CancelRequestedByUserId = requestedByUserId;
             target.Status = NhBackgroundOperationStatus.CancelRequested;
             if (!target.CurrentAttemptId.HasValue)
             {
@@ -294,7 +480,7 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
                 target,
                 NhBackgroundOperationEventType.CancellationRequested,
                 NhBackgroundOperationMessageSeverity.Information,
-                "background-operation.cancellation-requested",
+                messageKey,
                 null,
                 target.Id == operation.Id);
             await NhBackgroundOperationEventRetention.TrimAsync(
@@ -330,36 +516,45 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
         {
             await PublishChangedSafelyAsync(target, cancellationToken);
         }
-        var view = await GetInternalAsync(operation.Id, ownerUserId, null, cancellationToken);
+        var view = await GetInternalAsync<TView>(
+            operation.Id,
+            visibility,
+            null,
+            includeOperatorEvents,
+            cancellationToken);
         return view is null
-            ? TaskResult<NhBackgroundOperationViewModel>.Failed("The operation was not found after cancellation.")
-            : TaskResult<NhBackgroundOperationViewModel>.Succeeded(view);
+            ? TaskResult<TView>.Failed("The operation was not found after cancellation.")
+            : TaskResult<TView>.Succeeded(view);
     }
 
-    public async Task<TaskResult<NhBackgroundOperationViewModel>> RetryAsync(
+    private async Task<TaskResult<TView>> RetryInternalAsync<TView>(
         Guid operationId,
-        Guid ownerUserId,
-        CancellationToken cancellationToken = default)
+        Expression<Func<NhBackgroundOperation, bool>> visibility,
+        string messageKey,
+        bool includeOperatorEvents,
+        CancellationToken cancellationToken)
+        where TView : NhBackgroundOperationViewModel
     {
         await using var transaction = await _repository.StartOrGetTransactionScopeAsync(cancellationToken);
         if (!await AcquireOperationLockAsync(transaction, operationId, cancellationToken))
         {
-            return TaskResult<NhBackgroundOperationViewModel>.Failed("The operation is busy. Please retry.");
+            return TaskResult<TView>.Failed("The operation is busy. Please retry.");
         }
 
         var operation = await _repository.GetAll()
+            .Where(visibility)
             .Include(x => x.Steps)
-            .SingleOrDefaultAsync(x => x.Id == operationId && x.OwnerUserId == ownerUserId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.Id == operationId, cancellationToken);
         if (operation is null)
         {
-            return TaskResult<NhBackgroundOperationViewModel>.Failed("The operation was not found.");
+            return TaskResult<TView>.Failed("The operation was not found.");
         }
 
         if (!IsTerminal(operation.Status) || operation.Status == NhBackgroundOperationStatus.Succeeded)
         {
-            return TaskResult<NhBackgroundOperationViewModel>.Failed("Only an unsuccessful terminal operation can be retried.");
+            return TaskResult<TView>.Failed("Only an unsuccessful terminal operation can be retried.");
         }
-        var hierarchy = await LoadHierarchyFromAsync(operation, ownerUserId, true, cancellationToken);
+        var hierarchy = await LoadHierarchyFromAsync(operation, true, cancellationToken);
         var retryTargets = hierarchy
             .Where(x => x.Status != NhBackgroundOperationStatus.Succeeded && IsTerminal(x.Status))
             .ToList();
@@ -367,30 +562,30 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
         {
             if (target.SensitiveDataRedactedAt.HasValue)
             {
-                return TaskResult<NhBackgroundOperationViewModel>.Failed("This operation hierarchy can no longer be retried because a payload retention period expired.");
+                return TaskResult<TView>.Failed("This operation hierarchy can no longer be retried because a payload retention period expired.");
             }
 
             if (!_registry.TryGetForOperationType(target.OperationType, out var targetDescriptor))
             {
-                return TaskResult<NhBackgroundOperationViewModel>.Failed(
+                return TaskResult<TView>.Failed(
                     "This operation hierarchy contains an operation type that is no longer registered.");
             }
 
             if (target.PayloadSchemaVersion != targetDescriptor.PayloadSchemaVersion)
             {
-                return TaskResult<NhBackgroundOperationViewModel>.Failed("This operation hierarchy contains an unsupported payload schema and cannot be retried.");
+                return TaskResult<TView>.Failed("This operation hierarchy contains an unsupported payload schema and cannot be retried.");
             }
 
             if (targetDescriptor.Idempotency == NhBackgroundOperationIdempotency.NonIdempotent)
             {
-                return TaskResult<NhBackgroundOperationViewModel>.Failed("This operation hierarchy contains a non-idempotent operation and cannot be retried safely.");
+                return TaskResult<TView>.Failed("This operation hierarchy contains a non-idempotent operation and cannot be retried safely.");
             }
         }
         foreach (var descendantId in retryTargets.Where(x => x.Id != operation.Id).Select(x => x.Id).Order())
         {
             if (!await AcquireOperationLockAsync(transaction, descendantId, cancellationToken))
             {
-                return TaskResult<NhBackgroundOperationViewModel>.Failed("A child operation is busy. Please retry.");
+                return TaskResult<TView>.Failed("A child operation is busy. Please retry.");
             }
         }
 
@@ -402,7 +597,7 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
                 target,
                 NhBackgroundOperationEventType.RetryScheduled,
                 NhBackgroundOperationMessageSeverity.Information,
-                "background-operation.retry-requested",
+                messageKey,
                 null,
                 target.Id == operation.Id);
             await NhBackgroundOperationEventRetention.TrimAsync(
@@ -417,18 +612,25 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
         {
             await PublishChangedSafelyAsync(target, cancellationToken);
         }
-        var view = await GetInternalAsync(operation.Id, ownerUserId, null, cancellationToken);
+        var view = await GetInternalAsync<TView>(
+            operation.Id,
+            visibility,
+            null,
+            includeOperatorEvents,
+            cancellationToken);
         return view is null
-            ? TaskResult<NhBackgroundOperationViewModel>.Failed("The operation was not found after retry scheduling.")
-            : TaskResult<NhBackgroundOperationViewModel>.Succeeded(view);
+            ? TaskResult<TView>.Failed("The operation was not found after retry scheduling.")
+            : TaskResult<TView>.Succeeded(view);
     }
 
     private async Task<List<NhBackgroundOperation>> LoadHierarchyFromAsync(
         NhBackgroundOperation operation,
-        Guid ownerUserId,
         bool includeSteps = false,
         CancellationToken cancellationToken = default)
     {
+        // Fan-out children inherit the owner, so the owner bounds the hierarchy for
+        // owner and administrator requests alike.
+        var ownerUserId = operation.OwnerUserId;
         var rootOperationId = operation.RootOperationId ?? operation.Id;
         IQueryable<NhBackgroundOperation> query = _repository.GetAll()
             .Where(x => x.OwnerUserId == ownerUserId)
@@ -502,15 +704,18 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
         Touch(operation, now);
     }
 
-    private async Task<NhBackgroundOperationViewModel?> GetInternalAsync(
+    private async Task<TView?> GetInternalAsync<TView>(
         Guid operationId,
-        Guid ownerUserId,
+        Expression<Func<NhBackgroundOperation, bool>> visibility,
         long? eventsAfterSequence,
+        bool includeOperatorEvents,
         CancellationToken cancellationToken)
+        where TView : NhBackgroundOperationViewModel
     {
         var operation = await _repository.GetAll()
             .AsNoTracking()
-            .SingleOrDefaultAsync(x => x.Id == operationId && x.OwnerUserId == ownerUserId, cancellationToken);
+            .Where(visibility)
+            .SingleOrDefaultAsync(x => x.Id == operationId, cancellationToken);
         if (operation is null)
         {
             return null;
@@ -528,12 +733,17 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
             .ToListAsync(cancellationToken);
         var eventQuery = _repository.GetDbSet<NhBackgroundOperationEvent>()
             .AsNoTracking()
-            .Where(x => x.OperationId == operationId && !x.IsOperatorOnly);
+            .Where(x => x.OperationId == operationId);
+        if (!includeOperatorEvents)
+        {
+            eventQuery = eventQuery.Where(x => !x.IsOperatorOnly);
+        }
         if (eventsAfterSequence.HasValue)
         {
             eventQuery = eventQuery.Where(x => x.Sequence > eventsAfterSequence.Value);
         }
         var events = await eventQuery.OrderBy(x => x.Sequence).ToListAsync(cancellationToken);
+        var ownerUserId = operation.OwnerUserId;
         var rootOperationId = operation.RootOperationId ?? operation.Id;
         var hierarchyCandidates = await _repository.GetAll()
             .AsNoTracking()
@@ -541,7 +751,7 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
             .OrderBy(x => x.CreationDateTime)
             .ToListAsync(cancellationToken);
 
-        var view = _mapper.Map<NhBackgroundOperationViewModel>(operation);
+        var view = _mapper.Map<TView>(operation);
         view.Attempts = _mapper.Map<List<NhBackgroundOperationAttemptViewModel>>(attempts);
         view.Events = _mapper.Map<List<NhBackgroundOperationEventViewModel>>(events);
         var stepViews = steps.ToDictionary(x => x.Id, x => _mapper.Map<NhBackgroundOperationStepViewModel>(x));
@@ -581,6 +791,22 @@ public sealed class NhBackgroundOperationService : INhBackgroundOperationService
             }
         }
         return view;
+    }
+
+    private static Expression<Func<NhBackgroundOperation, bool>> OwnedBy(Guid ownerUserId)
+    {
+        return x => x.OwnerUserId == ownerUserId;
+    }
+
+    private static Expression<Func<NhBackgroundOperation, bool>> VisibleInDivision(Guid? divisionId)
+    {
+        if (divisionId.HasValue)
+        {
+            var scopedDivisionId = divisionId.Value;
+            return x => x.DivisionId == null || x.DivisionId == scopedDivisionId;
+        }
+
+        return x => x.DivisionId == null;
     }
 
     private Task<bool> AcquireOperationLockAsync(

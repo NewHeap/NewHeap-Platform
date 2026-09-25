@@ -805,7 +805,10 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _serviceCollection.AddHealthChecks()
             .AddCheck<NhBackgroundOperationHealthCheck>("nh-background-operations", tags: ["ready"]);
         _serviceCollection.TryAddScoped<INhBackgroundOperationScheduler, NhHangfireBackgroundOperationScheduler>();
+        _serviceCollection.TryAddScoped<INhBackgroundOperationOwnerDirectory,
+            NhIdentityBackgroundOperationOwnerDirectory<TUser>>();
         _serviceCollection.TryAddScoped<INhBackgroundOperationService, NhBackgroundOperationService>();
+        _serviceCollection.TryAddScoped<INhBackgroundOperationAdministrationService, NhBackgroundOperationService>();
         _serviceCollection.TryAddScoped<INhBackgroundOperationSignalService, NhBackgroundOperationSignalService>();
         _serviceCollection.AddScoped(serviceProvider => new NhBackgroundOperationRunner(
             serviceProvider,

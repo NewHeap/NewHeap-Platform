@@ -63,7 +63,7 @@ public sealed class NhBackgroundOperationController : ProtectedNhBaseController
         var result = await GetCollectionResultModel<NhBackgroundOperation, NhBackgroundOperationViewModel>(
             request,
             query,
-            null,
+            (page, _) => Task.FromResult(page.SelectSummary()),
             true,
             cancellationToken,
             (x => x.LastModifiedDateTime, ListSortDirection.Descending));

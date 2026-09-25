@@ -4,7 +4,7 @@ using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AspNet.Common.Models.View;
 
-public sealed class NhBackgroundOperationViewModel
+public class NhBackgroundOperationViewModel
 {
     [Filterable, Orderable]
     public Guid Id
@@ -415,8 +415,53 @@ public sealed class NhBackgroundOperationEventViewModel
     {
         get; set;
     }
+    /// <summary>
+    /// Marks diagnostic events that only the administration view returns.
+    /// </summary>
+    public bool IsOperatorOnly
+    {
+        get; set;
+    }
 }
 
 public sealed class NhBackgroundOperationCollectionRequestModel : CollectionRequestModel
+{
+}
+
+/// <summary>
+/// Operation snapshot for administrators. Adds the owner, the user who requested
+/// cancellation and scheduling diagnostics to the owner-facing view; its events also
+/// include operator-only diagnostics.
+/// </summary>
+public sealed class NhBackgroundOperationAdministrationViewModel : NhBackgroundOperationViewModel
+{
+    public string? OwnerDisplayName
+    {
+        get; set;
+    }
+    public Guid? CancelRequestedByUserId
+    {
+        get; set;
+    }
+    public string ProcessorKey { get; set; } = string.Empty;
+    public int DispatchGeneration
+    {
+        get; set;
+    }
+    public string? SchedulerJobId
+    {
+        get; set;
+    }
+    public DateTimeOffset? NextDispatchAt
+    {
+        get; set;
+    }
+    public string? DiagnosticCorrelationId
+    {
+        get; set;
+    }
+}
+
+public sealed class NhBackgroundOperationAdministrationCollectionRequestModel : CollectionRequestModel
 {
 }

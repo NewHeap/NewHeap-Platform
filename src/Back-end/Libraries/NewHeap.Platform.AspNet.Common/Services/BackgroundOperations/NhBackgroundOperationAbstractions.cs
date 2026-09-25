@@ -298,6 +298,77 @@ public interface INhBackgroundOperationService
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Cross-owner access to background operations for administrators. Every method is
+/// scoped to one division: a division identifier exposes that division plus global
+/// operations, and <see langword="null"/> exposes global operations only. Authorize the
+/// caller before using this service; the administration controller enforces
+/// <see cref="NhBackgroundOperationsOptions.AdministrationPolicy"/>.
+/// </summary>
+public interface INhBackgroundOperationAdministrationService
+{
+    /// <summary>
+    /// Returns the root operations of every owner that are visible in the division scope.
+    /// Fan-out children stay inside their parent's detail view.
+    /// </summary>
+    IQueryable<NhBackgroundOperation> QueryForAdministration(Guid? divisionId);
+
+    /// <summary>
+    /// Adds owner display names to operation summaries, for example after paging.
+    /// </summary>
+    Task PopulateOwnersAsync(
+        IReadOnlyCollection<NhBackgroundOperationAdministrationViewModel> operations,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the operation snapshot including operator-only events and scheduling
+    /// diagnostics, or <see langword="null"/> when it is outside the division scope.
+    /// </summary>
+    Task<NhBackgroundOperationAdministrationViewModel?> GetAsync(
+        Guid operationId,
+        Guid? divisionId,
+        long? eventsAfterSequence = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Requests cancellation on behalf of the owner. The operation records the
+    /// administrator as requester, so the owner is notified about the cancellation.
+    /// </summary>
+    Task<TaskResult<NhBackgroundOperationAdministrationViewModel>> RequestCancellationAsync(
+        Guid operationId,
+        Guid administratorUserId,
+        Guid? divisionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retries an unsuccessful terminal operation on behalf of the owner under the same
+    /// idempotency and payload-retention rules as an owner retry.
+    /// </summary>
+    Task<TaskResult<NhBackgroundOperationAdministrationViewModel>> RetryAsync(
+        Guid operationId,
+        Guid administratorUserId,
+        Guid? divisionId,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Resolves operation owners for the administration view. Replace it through
+/// <see cref="NhBackgroundOperationBuilder.UseOwnerDirectory{TDirectory}"/> to show an
+/// application-specific name.
+/// </summary>
+public interface INhBackgroundOperationOwnerDirectory
+{
+    /// <summary>
+    /// Returns the known owners among <paramref name="userIds"/>. Unknown or removed
+    /// users are omitted.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, NhBackgroundOperationOwner>> GetOwnersAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed record NhBackgroundOperationOwner(Guid UserId, string DisplayName);
+
 public interface INhBackgroundOperationScheduler
 {
     Task<NhBackgroundOperationScheduleResult> EnqueueAsync(

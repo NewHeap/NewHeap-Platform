@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
+using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
@@ -329,6 +330,12 @@ public sealed class NhBackgroundOperationProviderTests
             options,
             registry,
             ownerId);
+        await VerifyAdministrationAsync(
+            serviceProvider,
+            options,
+            registry,
+            ownerId,
+            providerName);
         await VerifyEventRetentionAsync(serviceProvider, ownerId);
         await VerifyNotificationProjectionRetryAsync(
             serviceProvider,
@@ -575,6 +582,209 @@ public sealed class NhBackgroundOperationProviderTests
                 .Where(division => division.Id == firstDivisionId || division.Id == secondDivisionId)
                 .ToListAsync());
         await context.SaveChangesAsync();
+    }
+
+    private static async Task VerifyAdministrationAsync(
+        ServiceProvider serviceProvider,
+        NhBackgroundOperationsOptions options,
+        NhBackgroundOperationRegistry registry,
+        Guid ownerId,
+        string providerName)
+    {
+        var otherOwnerId = Guid.NewGuid();
+        var administratorId = Guid.NewGuid();
+        var firstDivisionId = Guid.NewGuid();
+        var secondDivisionId = Guid.NewGuid();
+        var runningGlobalOperationId = Guid.NewGuid();
+        var failedDivisionOperationId = Guid.NewGuid();
+        var otherDivisionOperationId = Guid.NewGuid();
+        var childOperationId = Guid.NewGuid();
+        var ownerName = $"{providerName}@example.test";
+        var otherOwnerName = $"other-{providerName}@example.test";
+        await using (var seedScope = serviceProvider.CreateAsyncScope())
+        {
+            var context = seedScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            context.Users.Add(new NhUser
+            {
+                Id = otherOwnerId,
+                UserName = otherOwnerName,
+                NormalizedUserName = otherOwnerName.ToUpperInvariant()
+            });
+            context.Divisions.AddRange(
+                new NhDivision { Id = firstDivisionId, Name = "Administration division one" },
+                new NhDivision { Id = secondDivisionId, Name = "Administration division two" });
+
+            var runningGlobalOperation = CreateQueuedOperation(runningGlobalOperationId, ownerId, "provider-parent");
+            runningGlobalOperation.Status = NhBackgroundOperationStatus.Running;
+
+            var failedDivisionOperation = CreateQueuedOperation(failedDivisionOperationId, otherOwnerId, "provider-parent");
+            failedDivisionOperation.DivisionId = firstDivisionId;
+            failedDivisionOperation.Status = NhBackgroundOperationStatus.Failed;
+            failedDivisionOperation.CompletedAt = DateTimeOffset.UtcNow;
+            failedDivisionOperation.FailureCode = "provider-failure";
+            failedDivisionOperation.DiagnosticCorrelationId = "provider-diagnostic";
+            NhBackgroundOperationService.AppendEvent(
+                failedDivisionOperation,
+                NhBackgroundOperationEventType.StateChanged,
+                NhBackgroundOperationMessageSeverity.Error,
+                "background-operation.failed",
+                null,
+                true);
+            NhBackgroundOperationService.AppendEvent(
+                failedDivisionOperation,
+                NhBackgroundOperationEventType.Message,
+                NhBackgroundOperationMessageSeverity.Error,
+                "provider.operator-diagnostic",
+                null,
+                false);
+            failedDivisionOperation.Events[^1].IsOperatorOnly = true;
+            failedDivisionOperation.LastProjectedNotificationEventSequence = failedDivisionOperation.LatestEventSequence;
+
+            var childOperation = CreateQueuedOperation(childOperationId, otherOwnerId, "provider-child");
+            childOperation.DivisionId = firstDivisionId;
+            childOperation.ParentOperationId = failedDivisionOperationId;
+            childOperation.RootOperationId = failedDivisionOperationId;
+            childOperation.Status = NhBackgroundOperationStatus.Succeeded;
+            childOperation.CompletedAt = DateTimeOffset.UtcNow;
+
+            context.BackgroundOperations.AddRange(
+                runningGlobalOperation,
+                failedDivisionOperation,
+                childOperation,
+                CreateQueryableOperation(otherDivisionOperationId, otherOwnerId, secondDivisionId));
+            await context.SaveChangesAsync();
+        }
+
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
+            var service = new NhBackgroundOperationService(
+                repository,
+                registry,
+                options,
+                new NhHangfireQueueNameResolver(),
+                new NoOpScheduler(),
+                new NoOpLiveUpdatePublisher(),
+                new NoOpNotificationProjector(),
+                new Mapper(new MapperConfiguration(configuration =>
+                    configuration.AddProfile<AutomapperProfileConfiguration>())),
+                NullLogger<NhBackgroundOperationService>.Instance,
+                new NhIdentityBackgroundOperationOwnerDirectory<NhUser>(repository));
+            INhBackgroundOperationAdministrationService administration = service;
+
+            // Administrators see the root operations of every owner, but only within the
+            // active division plus global operations.
+            var firstDivisionIds = await administration.QueryForAdministration(firstDivisionId)
+                .Select(operation => operation.Id)
+                .ToListAsync();
+            firstDivisionIds.Should().Contain([runningGlobalOperationId, failedDivisionOperationId]);
+            firstDivisionIds.Should().NotContain(otherDivisionOperationId);
+            firstDivisionIds.Should().NotContain(childOperationId);
+            var globalIds = await administration.QueryForAdministration(null)
+                .Select(operation => operation.Id)
+                .ToListAsync();
+            globalIds.Should().Contain(runningGlobalOperationId);
+            globalIds.Should().NotContain(failedDivisionOperationId);
+
+            var summaries = new List<NhBackgroundOperationAdministrationViewModel>
+            {
+                new() { Id = runningGlobalOperationId, OwnerUserId = ownerId },
+                new() { Id = failedDivisionOperationId, OwnerUserId = otherOwnerId },
+                new() { Id = Guid.NewGuid(), OwnerUserId = Guid.NewGuid() }
+            };
+            await administration.PopulateOwnersAsync(summaries);
+            summaries.Select(summary => summary.OwnerDisplayName)
+                .Should().Equal(ownerName, otherOwnerName, null);
+
+            // A list page filters, orders and pages before it selects the summary
+            // columns; the potentially large payload column is never read.
+            NhBackgroundOperationStatus[] attentionStatuses =
+            [
+                NhBackgroundOperationStatus.Failed,
+                NhBackgroundOperationStatus.TimedOut,
+                NhBackgroundOperationStatus.Cancelled
+            ];
+            var attentionPage = administration.QueryForAdministration(firstDivisionId)
+                .Where(operation => attentionStatuses.Contains(operation.Status))
+                .OrderByDescending(operation => operation.LastModifiedDateTime)
+                .Take(10)
+                .SelectSummary();
+            attentionPage.ToQueryString().Should().NotContain(nameof(NhBackgroundOperation.PayloadJson));
+            var attentionOperations = await attentionPage.ToListAsync();
+            attentionOperations.Should().ContainSingle(operation => operation.Id == failedDivisionOperationId)
+                .Which.Should().Match<NhBackgroundOperation>(operation =>
+                    operation.PayloadJson == "{}"
+                    && operation.FailureCode == "provider-failure"
+                    && operation.OwnerUserId == otherOwnerId);
+            attentionOperations.Should().NotContain(operation => operation.Id == runningGlobalOperationId);
+
+            var administratorView = await administration.GetAsync(failedDivisionOperationId, firstDivisionId);
+            administratorView.Should().NotBeNull();
+            administratorView!.OwnerDisplayName.Should().Be(otherOwnerName);
+            administratorView.DiagnosticCorrelationId.Should().Be("provider-diagnostic");
+            administratorView.Events.Should().Contain(operationEvent =>
+                operationEvent.IsOperatorOnly && operationEvent.MessageKey == "provider.operator-diagnostic");
+            administratorView.Children.Should().ContainSingle(child => child.Id == childOperationId);
+            (await administration.GetAsync(failedDivisionOperationId, secondDivisionId)).Should().BeNull();
+            (await administration.GetAsync(failedDivisionOperationId, null)).Should().BeNull();
+
+            // The owner-facing snapshot never exposes operator-only diagnostics.
+            var ownerView = await service.GetAsync(failedDivisionOperationId, otherOwnerId);
+            ownerView.Should().NotBeNull();
+            ownerView!.Events.Should().NotContain(operationEvent => operationEvent.IsOperatorOnly);
+            ownerView.Events.Should().Contain(operationEvent => operationEvent.MessageKey == "background-operation.failed");
+
+            (await administration.RequestCancellationAsync(
+                    otherDivisionOperationId,
+                    administratorId,
+                    firstDivisionId))
+                .Success.Should().BeFalse();
+            (await administration.RetryAsync(
+                    failedDivisionOperationId,
+                    Guid.Empty,
+                    firstDivisionId))
+                .Success.Should().BeFalse();
+
+            var cancellation = await administration.RequestCancellationAsync(
+                runningGlobalOperationId,
+                administratorId,
+                firstDivisionId);
+            cancellation.Success.Should().BeTrue();
+            cancellation.Data!.Status.Should().Be(NhBackgroundOperationStatus.CancelRequested);
+            cancellation.Data.CancelRequestedByUserId.Should().Be(administratorId);
+            cancellation.Data.OwnerDisplayName.Should().Be(ownerName);
+            cancellation.Data.Events.Should().Contain(operationEvent =>
+                operationEvent.MessageKey == "background-operation.administrator-cancellation-requested");
+
+            var retry = await administration.RetryAsync(
+                failedDivisionOperationId,
+                administratorId,
+                firstDivisionId);
+            retry.Success.Should().BeTrue();
+            retry.Data!.Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
+            retry.Data.Events.Should().Contain(operationEvent =>
+                operationEvent.MessageKey == "background-operation.administrator-retry-requested");
+            retry.Data.Children.Should().ContainSingle(child =>
+                child.Id == childOperationId && child.Status == NhBackgroundOperationStatus.Succeeded);
+        }
+
+        await using var cleanupScope = serviceProvider.CreateAsyncScope();
+        var cleanupContext = cleanupScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+        cleanupContext.BackgroundOperations.Remove(
+            await cleanupContext.BackgroundOperations.SingleAsync(operation => operation.Id == childOperationId));
+        await cleanupContext.SaveChangesAsync();
+        cleanupContext.BackgroundOperations.RemoveRange(
+            await cleanupContext.BackgroundOperations
+                .Where(operation => operation.Id == runningGlobalOperationId
+                                    || operation.Id == failedDivisionOperationId
+                                    || operation.Id == otherDivisionOperationId)
+                .ToListAsync());
+        await cleanupContext.SaveChangesAsync();
+        cleanupContext.Divisions.RemoveRange(
+            await cleanupContext.Divisions
+                .Where(division => division.Id == firstDivisionId || division.Id == secondDivisionId)
+                .ToListAsync());
+        await cleanupContext.SaveChangesAsync();
     }
 
     private static async Task VerifyEventRetentionAsync(

@@ -348,7 +348,8 @@
       "skipped": "Skipped",
       "retried": "Retried",
       "active": "Active"
-    }
+    },
+    "operator-only": "Operator only"
   },
   "background-operation": {
     "queued": "The operation was queued.",
@@ -369,7 +370,9 @@
     "dispatch-recovered": "Dispatch was recovered by reconciliation.",
     "stale-attempt-recovered": "A stale attempt was recovered.",
     "operator-recovery-required": "Operator recovery is required.",
-    "unsupported-payload-schema": "This operation payload version is no longer supported."
+    "unsupported-payload-schema": "This operation payload version is no longer supported.",
+    "administrator-cancellation-requested": "An administrator requested cancellation.",
+    "administrator-retry-requested": "An administrator requested a retry."
   },
   "sample-project-management": {
     "background-operations": {
@@ -407,6 +410,54 @@
         "checkpoint-loaded": "Resuming at batch item {{nextItem}}.",
         "analysis-completed": "Analysis completed with {{childCount}} child operations for {{projectCount}} projects across {{passes}} passes."
       }
+    },
+    "background-operation-administration": {
+      "navigation": "Operation administration",
+      "label": "Administration",
+      "title": "Background operations of all users",
+      "description": "Find work that other users started in the active division, see why it failed and cancel or retry it on their behalf. The owner is notified when an administrator cancels an operation.",
+      "refresh": "Refresh operations",
+      "action-failed": "The administrator action could not be completed. The operation was not changed.",
+      "back-to-list": "Back to all operations",
+      "loading": "Loading operations…",
+      "load-failed": "The operations could not be loaded. Polling retries automatically.",
+      "forbidden": "You do not have permission to administer background operations in this division.",
+      "unavailable": "Background-operation administration is not enabled on the server.",
+      "not-found": "This operation does not exist in the active division.",
+      "filters": "Operation filters",
+      "status-filter": "Filter by status",
+      "filter": {
+        "attention": "Needs attention",
+        "active": "Active",
+        "succeeded": "Succeeded",
+        "all": "All"
+      },
+      "search": "Operation type",
+      "search-placeholder": "Search by operation type",
+      "result-count": "{{count}} operations",
+      "empty": {
+        "attention": "No failed, timed-out or cancelled operations in this division.",
+        "active": "No operations are running or waiting in this division.",
+        "succeeded": "No succeeded operations are retained in this division.",
+        "all": "No background operations have been started in this division."
+      },
+      "diagnostics": "Diagnostics",
+      "owner": "Started by",
+      "started": "Started",
+      "heartbeat": "Last heartbeat",
+      "attempt": "Attempt",
+      "queue": "Queue and processor",
+      "next-dispatch": "Next dispatch",
+      "failure-code": "Failure code",
+      "diagnostic-correlation": "Diagnostic correlation",
+      "scheduler-job": "Scheduler job",
+      "cancel-requested-by": "Cancellation requested by",
+      "requested-by-owner": "The owner",
+      "requested-by-administrator": "An administrator",
+      "pagination": "Operation pages",
+      "previous-page": "Previous page",
+      "next-page": "Next page",
+      "page-of": "Page {{page}} of {{count}}"
     }
   },
   "general": {

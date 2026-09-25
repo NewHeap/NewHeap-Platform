@@ -122,7 +122,8 @@
       "skipped": "Skipped",
       "retried": "Retried",
       "active": "Active"
-    }
+    },
+    "operator-only": "Operator only"
   },
   "background-operation": {
     "queued": "The operation was queued.",
@@ -143,7 +144,9 @@
     "dispatch-recovered": "Dispatch was recovered by reconciliation.",
     "stale-attempt-recovered": "A stale attempt was recovered.",
     "operator-recovery-required": "Operator recovery is required.",
-    "unsupported-payload-schema": "This operation payload version is no longer supported."
+    "unsupported-payload-schema": "This operation payload version is no longer supported.",
+    "administrator-cancellation-requested": "An administrator requested cancellation.",
+    "administrator-retry-requested": "An administrator requested a retry."
   },
   "sample-project-management": {
     "background-operations": {

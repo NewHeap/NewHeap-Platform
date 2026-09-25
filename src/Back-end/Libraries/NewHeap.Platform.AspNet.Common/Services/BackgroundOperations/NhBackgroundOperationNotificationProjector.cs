@@ -171,8 +171,8 @@ internal sealed class NhBackgroundOperationNotificationProjector : INhBackground
 /// <summary>
 /// Default notification policy. It notifies the owner only about outcomes and
 /// requests for attention: success, failure, time-out, a cancellation the owner did
-/// not request, a wait for input, required operator recovery, and milestones that a
-/// handler published itself. Lifecycle progress such as start, retry scheduling and
+/// not request (for example one requested by an administrator), a wait for input,
+/// required operator recovery, and milestones that a handler published itself. Lifecycle progress such as start, retry scheduling and
 /// intermediate results stays in the progress view. Compose or replace it through
 /// <see cref="NhBackgroundOperationBuilder.UseNotificationPolicy{TPolicy}"/>.
 /// </summary>
@@ -234,7 +234,18 @@ public class NhDefaultBackgroundOperationNotificationPolicy : INhBackgroundOpera
         }
 
         // The owner requested the cancellation and already knows about it.
-        return messageKey != "background-operation.cancelled" || !operation.CancelRequestedAt.HasValue;
+        return messageKey != "background-operation.cancelled" || !IsCancellationRequestedByOwner(operation);
+    }
+
+    private static bool IsCancellationRequestedByOwner(NhBackgroundOperation operation)
+    {
+        if (!operation.CancelRequestedAt.HasValue)
+        {
+            return false;
+        }
+
+        return !operation.CancelRequestedByUserId.HasValue
+               || operation.CancelRequestedByUserId == operation.OwnerUserId;
     }
 }
 
@@ -256,7 +267,9 @@ internal sealed class NhDefaultBackgroundOperationNotificationFormatter :
             "background-operation.timedout" => "The operation timed out.",
             "background-operation.timed-out" => "The operation timed out.",
             "background-operation.cancellation-requested" => "Cancellation was requested.",
+            "background-operation.administrator-cancellation-requested" => "An administrator requested cancellation.",
             "background-operation.retry-requested" => "A retry was requested.",
+            "background-operation.administrator-retry-requested" => "An administrator requested a retry.",
             "background-operation.retry-scheduled" => "A retry was scheduled.",
             "background-operation.result-available" => "The operation result is available.",
             "background-operation.signal-wait-started" => "The operation is waiting for your input.",

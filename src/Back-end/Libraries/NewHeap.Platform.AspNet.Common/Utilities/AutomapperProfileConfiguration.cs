@@ -35,6 +35,8 @@ public class AutomapperProfileConfiguration : NewHeap.Platform.Mapping.Profile
         CreateMap<NhUserNotification, NhUserNotificationMutateModel>().MapOnlyIfChanged();
 
         CreateMap<NhBackgroundOperation, NhBackgroundOperationViewModel>();
+        CreateMap<NhBackgroundOperation, NhBackgroundOperationAdministrationViewModel>()
+            .ForMember(x => x.OwnerDisplayName, options => options.Ignore());
         CreateMap<NhBackgroundOperation, NhBackgroundOperationChildViewModel>();
         CreateMap<NhBackgroundOperationMutateModel, NhBackgroundOperation>().MapOnlyIfChanged();
         CreateMap<NhBackgroundOperation, NhBackgroundOperationMutateModel>().MapOnlyIfChanged();

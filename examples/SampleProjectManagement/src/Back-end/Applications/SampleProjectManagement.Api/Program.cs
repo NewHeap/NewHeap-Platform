@@ -108,6 +108,12 @@ var platformOptions = NewHeapAspNetCommonOptions
         options.AddPolicy(
             SampleAuthorizationPolicies.ProjectConfidentialView,
             policy => policy.RequireAnyProjectActiveDivisionAccess("confidential.view"));
+
+        options.AddPolicy(
+            SampleAuthorizationPolicies.BackgroundOperationAdministration,
+            policy => policy.RequireClaim(
+                NhPlatformClaimTypes.Permission,
+                SampleAuthorizationPolicies.BackgroundOperationAdministration));
     })
     .Build();
 
@@ -234,7 +240,10 @@ builder.Services
             .WithDefaultQueueConcurrency(6)
             // Notifies only outcomes and requests for attention (NewHeap default) and
             // threads repeated portfolio work per division.
-            .UseNotificationPolicy<ProjectOperationNotificationPolicy>();
+            .UseNotificationPolicy<ProjectOperationNotificationPolicy>()
+            // Lets administrators list, inspect, cancel and retry every user's
+            // operations in the active division under /background-operations/administration.
+            .UseAdministrationPolicy(SampleAuthorizationPolicies.BackgroundOperationAdministration);
         operations.Add<ProjectPortfolioAnalysisRequest, ProjectPortfolioAnalysisOperation>(
             "sample-project-portfolio-analysis",
             operation => operation

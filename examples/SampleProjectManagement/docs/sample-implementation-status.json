@@ -760,7 +760,20 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationNotificationPolicyTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserNotificationGroupingProviderTests.cs",
-      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectOperationNotificationPolicy.cs"
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectOperationNotificationPolicy.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationAdministrationController.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationOwnerDirectory.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationAdministrationControllerTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationConfigurationTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-administration.service.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-administration.service.spec.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+      "src/Front-end/projects/management/src/app/background-operation-administration/background-operation-administration-page.component.ts",
+      "src/Front-end/projects/management/src/app/background-operation-administration/background-operation-administration-page.component.html",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSummaryProjection.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationSummaryProjectionTests.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260925094056_AddBackgroundOperationAdministrationIndex.cs"
     ],
     "SPM-084": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",

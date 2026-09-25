@@ -121,6 +121,8 @@ export interface NhBackgroundOperationEvent {
   resultReferenceId?: string;
   resultUrl?: string;
   isMilestone: boolean;
+  /** Diagnostic event that only the administration endpoints return. */
+  isOperatorOnly?: boolean;
 }
 
 export interface NhBackgroundOperation {
@@ -166,6 +168,20 @@ export interface NhBackgroundOperation {
   children: NhBackgroundOperationChild[];
 }
 
+/**
+ * Operation snapshot returned by the administration endpoints. It adds the owner,
+ * the user who requested cancellation and scheduling diagnostics.
+ */
+export interface NhBackgroundOperationAdministration extends NhBackgroundOperation {
+  ownerDisplayName?: string;
+  cancelRequestedByUserId?: string;
+  processorKey: string;
+  dispatchGeneration: number;
+  schedulerJobId?: string;
+  nextDispatchAt?: string;
+  diagnosticCorrelationId?: string;
+}
+
 export interface NhBackgroundOperationChild {
   id: string;
   parentOperationId?: string;
@@ -194,6 +210,13 @@ export interface NhBackgroundOperationChanged {
 
 export class NhBackgroundOperationCollectionHttpRequestOptions extends CollectionHttpRequestOptions {
   public constructor(init?: Partial<NhBackgroundOperationCollectionHttpRequestOptions>) {
+    super(init);
+    Object.assign(this, init);
+  }
+}
+
+export class NhBackgroundOperationAdministrationCollectionHttpRequestOptions extends CollectionHttpRequestOptions {
+  public constructor(init?: Partial<NhBackgroundOperationAdministrationCollectionHttpRequestOptions>) {
     super(init);
     Object.assign(this, init);
   }

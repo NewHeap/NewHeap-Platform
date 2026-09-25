@@ -19,6 +19,8 @@ public sealed class NhBackgroundOperationNotificationPolicyTests
     [InlineData("background-operation.retry-scheduled", false)]
     [InlineData("background-operation.retry-requested", false)]
     [InlineData("background-operation.cancellation-requested", false)]
+    [InlineData("background-operation.administrator-cancellation-requested", false)]
+    [InlineData("background-operation.administrator-retry-requested", false)]
     [InlineData("background-operation.result-available", false)]
     [InlineData("background-operation.stale-attempt-recovered", false)]
     [InlineData("background-operation.children-created", false)]
@@ -54,6 +56,29 @@ public sealed class NhBackgroundOperationNotificationPolicyTests
 
         requestedDecision.ShouldNotify.Should().BeFalse();
         unrequestedDecision.ShouldNotify.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DefaultPolicyNotifiesTheOwnerAboutAnAdministratorCancellation()
+    {
+        var policy = CreatePolicy();
+        var ownerRequested = CreateOperation();
+        ownerRequested.CancelRequestedAt = DateTimeOffset.UtcNow;
+        ownerRequested.CancelRequestedByUserId = ownerRequested.OwnerUserId;
+        var administratorRequested = CreateOperation();
+        administratorRequested.CancelRequestedAt = DateTimeOffset.UtcNow;
+        administratorRequested.CancelRequestedByUserId = Guid.NewGuid();
+
+        var ownerDecision = await policy.DecideAsync(
+            ownerRequested,
+            CreateMilestone("background-operation.cancelled"));
+        var administratorDecision = await policy.DecideAsync(
+            administratorRequested,
+            CreateMilestone("background-operation.cancelled"));
+
+        ownerDecision.ShouldNotify.Should().BeFalse();
+        administratorDecision.ShouldNotify.Should().BeTrue();
+        administratorDecision.Content!.Message.Should().Be("The operation was cancelled.");
     }
 
     [Fact]

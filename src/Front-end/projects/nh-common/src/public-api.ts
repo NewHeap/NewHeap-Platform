@@ -45,6 +45,7 @@ export * from './lib/services/nh-server-side-form-validator.service';
 export * from './lib/services/nh-base-api.service';
 export * from './lib/services/nh-user-notification.service';
 export * from './lib/services/nh-background-operation.service';
+export * from './lib/services/nh-background-operation-administration.service';
 export * from './lib/services/nh-background-operation-live-update.service';
 export * from './lib/services/nh-background-operation.store';
 export * from './lib/services/nh-context-menu.service';

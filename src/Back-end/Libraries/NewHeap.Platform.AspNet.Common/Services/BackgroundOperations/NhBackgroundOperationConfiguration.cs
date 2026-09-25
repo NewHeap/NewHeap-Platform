@@ -60,12 +60,24 @@ public sealed class NhBackgroundOperationsOptions
     public int MaxFanOutChildren { get; set; } = 1_000;
     public int CleanupBatchSize { get; set; } = 100;
     public int DefaultRetryCount { get; set; } = 3;
+    /// <summary>
+    /// Authorization policy that grants the cross-owner administration endpoints under
+    /// <c>background-operations/administration</c>. The endpoints stay unavailable while
+    /// this is <see langword="null"/>. Set it through
+    /// <see cref="NhBackgroundOperationBuilder.UseAdministrationPolicy"/>.
+    /// </summary>
+    public string? AdministrationPolicy { get; set; }
 
     internal void Validate()
     {
         if (string.IsNullOrWhiteSpace(ProcessorKey))
         {
             throw new InvalidOperationException("Background operation ProcessorKey is required.");
+        }
+
+        if (AdministrationPolicy is not null && string.IsNullOrWhiteSpace(AdministrationPolicy))
+        {
+            throw new InvalidOperationException("Background operation AdministrationPolicy must be null or a policy name.");
         }
 
         if (LiveUpdatesEnabled
@@ -385,6 +397,32 @@ public sealed class NhBackgroundOperationBuilder
     {
         _services.RemoveAll<INhBackgroundOperationNotificationPolicy>();
         _services.AddScoped<INhBackgroundOperationNotificationPolicy, TPolicy>();
+        return this;
+    }
+
+    /// <summary>
+    /// Enables the administration endpoints that list, inspect, cancel and retry the
+    /// operations of every owner in the accessible active division. Only users that
+    /// satisfy <paramref name="policyName"/> can use them; host start fails when the
+    /// policy is not registered.
+    /// </summary>
+    public NhBackgroundOperationBuilder UseAdministrationPolicy(string policyName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
+        _options.AdministrationPolicy = policyName.Trim();
+        return this;
+    }
+
+    /// <summary>
+    /// Replaces the directory that resolves operation owners to display names for the
+    /// administration view. The default reads the user name of the application's
+    /// identity user.
+    /// </summary>
+    public NhBackgroundOperationBuilder UseOwnerDirectory<TDirectory>()
+        where TDirectory : class, INhBackgroundOperationOwnerDirectory
+    {
+        _services.RemoveAll<INhBackgroundOperationOwnerDirectory>();
+        _services.AddScoped<INhBackgroundOperationOwnerDirectory, TDirectory>();
         return this;
     }
 

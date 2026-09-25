@@ -73,3 +73,19 @@ administration page in `@newheap/platform-ai-chat/admin` and a scripted mock API
 | Messages can carry page context: `NhAssistantConfig.getPageContext` returns `NhAssistantClientContext` (`route`, `title`, `entities`), sent as `clientContext` and truncated to the contract limits; a chip above the message box shows it and lets the user leave it out of the next message. | Optional: provide `getPageContext` from a service that entity pages set and clear. |
 | The composer remains editable while running or awaiting approval, blocked Enter preserves the draft, and approval cards prefer optional trusted presentation while technical ids and previews stay collapsed. | No action; custom layouts should pass `sendDisabled` separately from `disabled` and treat `approval.presentation` as optional. |
 | A completed turn with an `errorCode` (for example `assistant-tool-call-limit-reached` or a budget code) or without any answer text now shows a dismissible warning notice (`NhAssistantStore.notice`, `clearNotice()`, `nh-assistant.notices.no-answer`) instead of an empty answer; the conversation stays usable. Only failed turns use the error bar. | No action; custom layouts should render `store.notice()`. |
+
+## NewHeap.Platform.AspNet.Common and @newheap/platform-common
+
+Background operations gain an opt-in administration view: `UseAdministrationPolicy`
+enables `background-operations/administration`, where administrators list, inspect,
+cancel and retry the operations of every user in the accessible active division.
+Angular consumers call it through `NhBackgroundOperationAdministrationService`.
+
+| Adoption note | Required action |
+|---|---|
+| The administration endpoints return 404 until `operations.UseAdministrationPolicy(policyName)` is configured; host start fails when that policy is not registered. | Register a dedicated permission policy and call `UseAdministrationPolicy`; no action to keep administration disabled. |
+| Owner display names come from `INhBackgroundOperationOwnerDirectory`; the default reads the identity user name or email. | Optional: call `operations.UseOwnerDirectory<TDirectory>()` to show an application-specific name. |
+| An administrator cancellation records the administrator in `CancelRequestedByUserId`, so `NhDefaultBackgroundOperationNotificationPolicy` notifies the owner; administrator actions add `background-operation.administrator-cancellation-requested` and `background-operation.administrator-retry-requested` events. | Add both keys, and `nh-background-operations.operator-only`, to the application translations. |
+| The operation model adds the index `(DivisionId, ParentOperationId, Status, LastModifiedDateTime)` for the administration list. | Generate and deploy a consumer DbContext migration with the upgrade. |
+| Owner and administration list pages no longer read `PayloadJson`; administration pages return at most 100 operations. | No action. |
+| `NhBackgroundOperationViewModel` is no longer sealed, `NhBackgroundOperationEventViewModel` gains `IsOperatorOnly`, and an owner cancellation of an already terminal operation now returns the full snapshot. | No action. |

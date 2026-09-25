@@ -37,6 +37,7 @@ export class UserNotificationNhCommonModuleConfig {
 
 export class BackgroundOperationsNhCommonModuleConfig {
   urlSuffix: string = '/background-operations';
+  administrationUrlSuffix: string = '/background-operations/administration';
   hubBaseUrl?: string;
   hubUrlSuffix: string = '/hub/background-operations';
   pollingInterval: number = 5000;

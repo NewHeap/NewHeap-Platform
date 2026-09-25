@@ -122,7 +122,8 @@
       "skipped": "Overgeslagen",
       "retried": "Opnieuw geprobeerd",
       "active": "Actief"
-    }
+    },
+    "operator-only": "Alleen beheerder"
   },
   "background-operation": {
     "queued": "De taak is in de wachtrij geplaatst.",
@@ -143,7 +144,9 @@
     "dispatch-recovered": "De verzending is door reconciliatie hersteld.",
     "stale-attempt-recovered": "Een vastgelopen poging is hersteld.",
     "operator-recovery-required": "Herstel door een beheerder is vereist.",
-    "unsupported-payload-schema": "Deze versie van de operatielading wordt niet meer ondersteund."
+    "unsupported-payload-schema": "Deze versie van de operatielading wordt niet meer ondersteund.",
+    "administrator-cancellation-requested": "Een beheerder heeft annulering aangevraagd.",
+    "administrator-retry-requested": "Een beheerder heeft een nieuwe poging aangevraagd."
   },
   "sample-project-management": {
     "background-operations": {

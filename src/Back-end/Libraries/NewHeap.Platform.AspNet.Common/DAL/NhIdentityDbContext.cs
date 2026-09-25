@@ -348,6 +348,10 @@ public abstract partial class NhIdentityDbContext<
             entity.HasIndex(x => new { x.ProcessorKey, x.Status, x.NextDispatchAt, x.Priority, x.CreationDateTime });
             entity.HasIndex(x => new { x.OwnerUserId, x.Status, x.LastModifiedDateTime });
             entity.HasIndex(x => new { x.DivisionId, x.Status, x.LastModifiedDateTime });
+            // Serves the administration list: root operations of every owner per division
+            // scope, filtered by status and ordered by recency, without visiting the
+            // far more numerous fan-out children.
+            entity.HasIndex(x => new { x.DivisionId, x.ParentOperationId, x.Status, x.LastModifiedDateTime });
             entity.HasIndex(x => new { x.Status, x.HeartbeatAt });
             entity.HasIndex(x => new { x.Status, x.CompletedAt });
             entity.HasIndex(x => x.SchedulerJobId);

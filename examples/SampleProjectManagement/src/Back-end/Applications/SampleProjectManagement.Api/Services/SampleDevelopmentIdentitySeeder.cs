@@ -26,7 +26,8 @@ public static class SampleDevelopmentIdentitySeeder
             [
                 "app.project.view",
                 "app.project.manage",
-                "app.project.confidential.view"
+                "app.project.confidential.view",
+                SampleAuthorizationPolicies.BackgroundOperationAdministration
             ]);
         await EnsureApplicationRoleAsync(
             roleManager,

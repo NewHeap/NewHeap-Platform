@@ -16,6 +16,9 @@
       <a class="nav-item" routerLink="/management/authorization" routerLinkActive="active"><i class="ph ph-shield-check" aria-hidden="true"></i>{{ 'project.auth-playground-nav' | translate }}</a>
       <a class="nav-item" routerLink="/management/notifications" routerLinkActive="active"><i class="ph ph-bell" aria-hidden="true"></i>{{ 'project.notification-playground-nav' | translate }}</a>
       <a class="nav-item" routerLink="/management/background-operations" routerLinkActive="active"><i class="ph ph-activity" aria-hidden="true"></i>{{ 'sample-project-management.background-operations.navigation' | translate }}</a>
+      @if (canAdministerBackgroundOperations()) {
+        <a class="nav-item" routerLink="/management/background-operation-administration" routerLinkActive="active"><i class="ph ph-list-checks" aria-hidden="true"></i>{{ 'sample-project-management.background-operation-administration.navigation' | translate }}</a>
+      }
       <a class="nav-item" routerLink="/management/assistant" routerLinkActive="active"><i class="ph ph-sparkle" aria-hidden="true"></i>{{ 'project.assistant-playground-nav' | translate }}</a>
       <a class="nav-item" routerLink="/management/platform" routerLinkActive="active"><i class="ph ph-stack" aria-hidden="true"></i>{{ 'project.platform-playground-nav' | translate }}</a>
       <a class="nav-item" routerLink="/management/media" routerLinkActive="active"><i class="ph ph-image" aria-hidden="true"></i>{{ 'project.media-playground-nav' | translate }}</a>

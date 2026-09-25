@@ -121,9 +121,14 @@
       <ol>
         @for (event of operation.events; track event.id) {
           @if (event.messageKey) {
-            <li>
+            <li [class.nh-operation__event--operator]="event.isOperatorOnly">
               <time [attr.datetime]="event.creationDateTime">{{ event.creationDateTime | date:'short' }}</time>
-              <span>{{ event.messageKey | translate: arguments(event.messageArgumentsJson) }}</span>
+              <span>
+                {{ event.messageKey | translate: arguments(event.messageArgumentsJson) }}
+                @if (event.isOperatorOnly) {
+                  <small class="nh-operation__event-badge">{{ 'nh-background-operations.operator-only' | translate }}</small>
+                }
+              </span>
               @if (event.resultUrl) {
                 <a [href]="event.resultUrl">{{ 'nh-background-operations.open-result' | translate }}</a>
               }

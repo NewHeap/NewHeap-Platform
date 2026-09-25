@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.Common.Models;
 using Xunit;
@@ -109,6 +110,76 @@ public sealed class NhBackgroundOperationConfigurationTests
     }
 
     [Fact]
+    public void AdministrationStaysDisabledUntilAPolicyIsConfigured()
+    {
+        var builder = CreateBuilder();
+
+        builder.Options.AdministrationPolicy.Should().BeNull();
+
+        builder.UseAdministrationPolicy(" app.background-operation.administer ");
+
+        builder.Options.AdministrationPolicy.Should().Be("app.background-operation.administer");
+        var action = () => builder.UseAdministrationPolicy(" ");
+        action.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void UseOwnerDirectoryReplacesTheDefaultDirectory()
+    {
+        var services = new ServiceCollection();
+        var builder = new NhBackgroundOperationBuilder(services, CreateOptions());
+
+        builder.UseOwnerDirectory<TestOwnerDirectory>();
+
+        services.Where(x => x.ServiceType == typeof(INhBackgroundOperationOwnerDirectory))
+            .Should().ContainSingle()
+            .Which.ImplementationType.Should().Be<TestOwnerDirectory>();
+    }
+
+    [Fact]
+    public async Task StartupFailsWhenTheAdministrationPolicyIsNotRegistered()
+    {
+        var options = CreateOptions();
+        options.AdministrationPolicy = "app.background-operation.administer";
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddAuthorization();
+        await using var serviceProvider = services.BuildServiceProvider();
+        var validator = new NhBackgroundOperationStartupValidator(
+            serviceProvider,
+            options,
+            NullLogger<NhBackgroundOperationStartupValidator>.Instance);
+
+        var action = () => validator.StartAsync(CancellationToken.None);
+
+        await action.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*administration policy 'app.background-operation.administer' is not registered*");
+    }
+
+    [Fact]
+    public async Task StartupAcceptsARegisteredAdministrationPolicy()
+    {
+        var options = CreateOptions();
+        options.AdministrationPolicy = "app.background-operation.administer";
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddAuthorization(authorization => authorization.AddPolicy(
+            "app.background-operation.administer",
+            policy => policy.RequireAuthenticatedUser()));
+        await using var serviceProvider = services.BuildServiceProvider();
+        var validator = new NhBackgroundOperationStartupValidator(
+            serviceProvider,
+            options,
+            NullLogger<NhBackgroundOperationStartupValidator>.Instance);
+
+        var action = () => validator.StartAsync(CancellationToken.None);
+
+        // The policy passes; validation continues to the missing persistence model.
+        (await action.Should().ThrowAsync<InvalidOperationException>())
+            .Which.Message.Should().NotContain("administration policy");
+    }
+
+    [Fact]
     public void RetentionCannotRedactPayloadAfterItsOperationWouldBeRemoved()
     {
         var options = new NhBackgroundOperationsOptions
@@ -155,6 +226,10 @@ public sealed class NhBackgroundOperationConfigurationTests
                 "*TransactionLockTimeoutMilliseconds must be positive*"
             },
             {
+                options => options.AdministrationPolicy = " ",
+                "*AdministrationPolicy must be null or a policy name*"
+            },
+            {
                 options =>
                 {
                     options.UserNotificationProjectionEnabled = true;
@@ -190,6 +265,17 @@ public sealed class NhBackgroundOperationConfigurationTests
     }
 
     private sealed record TestRequest(Guid UserId);
+
+    private sealed class TestOwnerDirectory : INhBackgroundOperationOwnerDirectory
+    {
+        public Task<IReadOnlyDictionary<Guid, NhBackgroundOperationOwner>> GetOwnersAsync(
+            IReadOnlyCollection<Guid> userIds,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyDictionary<Guid, NhBackgroundOperationOwner>>(
+                new Dictionary<Guid, NhBackgroundOperationOwner>());
+        }
+    }
 
     private sealed class TestHandler : INhBackgroundOperationHandler<TestRequest>
     {

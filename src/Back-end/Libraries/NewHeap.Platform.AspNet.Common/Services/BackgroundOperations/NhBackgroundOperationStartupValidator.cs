@@ -1,4 +1,5 @@
 using Hangfire;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,6 +30,7 @@ internal sealed class NhBackgroundOperationStartupValidator : IHostedService
     {
         _options.Validate();
         using var scope = _serviceProvider.CreateScope();
+        await ValidateAdministrationPolicyAsync(scope.ServiceProvider);
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
         if (repository.Context.Model.FindEntityType(typeof(NhBackgroundOperation)) is null
             || repository.Context.Model.FindEntityType(typeof(NhBackgroundOperationLease)) is null)
@@ -109,6 +111,22 @@ internal sealed class NhBackgroundOperationStartupValidator : IHostedService
             _options.DispatchWorkersEnabled,
             _options.LiveUpdatesEnabled,
             _options.UserNotificationProjectionEnabled);
+    }
+
+    private async Task ValidateAdministrationPolicyAsync(IServiceProvider serviceProvider)
+    {
+        if (_options.AdministrationPolicy is null)
+        {
+            return;
+        }
+
+        var policyProvider = serviceProvider.GetService<IAuthorizationPolicyProvider>();
+        if (policyProvider is null
+            || await policyProvider.GetPolicyAsync(_options.AdministrationPolicy) is null)
+        {
+            throw new InvalidOperationException(
+                $"The background-operation administration policy '{_options.AdministrationPolicy}' is not registered. Register it with ConfigureAuthorization or remove UseAdministrationPolicy.");
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken)

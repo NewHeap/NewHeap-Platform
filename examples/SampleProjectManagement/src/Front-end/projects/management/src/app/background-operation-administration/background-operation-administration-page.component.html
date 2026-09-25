@@ -1,0 +1,173 @@
+<section class="administration-page">
+  <header class="page-heading">
+    <div>
+      <p>{{ 'sample-project-management.background-operation-administration.label' | translate }}</p>
+      <h2>{{ 'sample-project-management.background-operation-administration.title' | translate }}</h2>
+      <span>{{ 'sample-project-management.background-operation-administration.description' | translate }}</span>
+    </div>
+    <button class="icon-button" type="button" (click)="refresh()"
+            [attr.aria-label]="'sample-project-management.background-operation-administration.refresh' | translate"
+            [title]="'sample-project-management.background-operation-administration.refresh' | translate">
+      <i class="ph ph-arrows-clockwise" aria-hidden="true"></i>
+    </button>
+  </header>
+
+  @if (actionFailed()) {
+    <p class="action-error" role="alert">{{ 'sample-project-management.background-operation-administration.action-failed' | translate }}</p>
+  }
+
+  @if (selectedOperationId()) {
+    <a class="back-link" routerLink="..">{{ 'sample-project-management.background-operation-administration.back-to-list' | translate }}</a>
+    @switch (detail()?.status) {
+      @case ('loaded') {
+        @if (detail()?.operation; as operation) {
+          <section class="diagnostics" [attr.aria-label]="'sample-project-management.background-operation-administration.diagnostics' | translate">
+            <h3>{{ 'sample-project-management.background-operation-administration.diagnostics' | translate }}</h3>
+            <dl>
+              <div>
+                <dt>{{ 'sample-project-management.background-operation-administration.owner' | translate }}</dt>
+                <dd>{{ ownerLabel(operation) }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'sample-project-management.background-operation-administration.started' | translate }}</dt>
+                <dd>{{ operation.startedAt ? (operation.startedAt | date:'medium') : '—' }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'sample-project-management.background-operation-administration.heartbeat' | translate }}</dt>
+                <dd>{{ operation.heartbeatAt ? (operation.heartbeatAt | date:'medium') : '—' }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'sample-project-management.background-operation-administration.attempt' | translate }}</dt>
+                <dd>{{ operation.currentAttemptNumber }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'sample-project-management.background-operation-administration.queue' | translate }}</dt>
+                <dd>{{ operation.queue }} · {{ operation.processorKey }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'sample-project-management.background-operation-administration.next-dispatch' | translate }}</dt>
+                <dd>{{ operation.nextDispatchAt ? (operation.nextDispatchAt | date:'medium') : '—' }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'sample-project-management.background-operation-administration.failure-code' | translate }}</dt>
+                <dd>{{ operation.failureCode || '—' }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'sample-project-management.background-operation-administration.diagnostic-correlation' | translate }}</dt>
+                <dd><code>{{ operation.diagnosticCorrelationId || '—' }}</code></dd>
+              </div>
+              <div>
+                <dt>{{ 'sample-project-management.background-operation-administration.scheduler-job' | translate }}</dt>
+                <dd><code>{{ operation.schedulerJobId || '—' }}</code></dd>
+              </div>
+              @if (operation.cancelRequestedByUserId) {
+                <div>
+                  <dt>{{ 'sample-project-management.background-operation-administration.cancel-requested-by' | translate }}</dt>
+                  <dd>
+                    {{ (operation.cancelRequestedByUserId === operation.ownerUserId
+                      ? 'sample-project-management.background-operation-administration.requested-by-owner'
+                      : 'sample-project-management.background-operation-administration.requested-by-administrator') | translate }}
+                  </dd>
+                </div>
+              }
+            </dl>
+          </section>
+          <nh-background-operation-progress
+            [operation]="operation"
+            [showActions]="!actionPending()"
+            (cancelRequested)="cancel($event)"
+            (retryRequested)="retry($event)" />
+        }
+      }
+      @case ('not-found') {
+        <div class="empty-state">{{ 'sample-project-management.background-operation-administration.not-found' | translate }}</div>
+      }
+      @case ('forbidden') {
+        <div class="empty-state" role="alert">{{ 'sample-project-management.background-operation-administration.forbidden' | translate }}</div>
+      }
+      @case ('unavailable') {
+        <div class="empty-state" role="alert">{{ 'sample-project-management.background-operation-administration.unavailable' | translate }}</div>
+      }
+      @case ('failed') {
+        <div class="empty-state" role="alert">{{ 'sample-project-management.background-operation-administration.load-failed' | translate }}</div>
+      }
+      @default {
+        <div class="loading-state" aria-live="polite">{{ 'sample-project-management.background-operation-administration.loading' | translate }}</div>
+      }
+    }
+  } @else {
+    <section class="toolbar" [attr.aria-label]="'sample-project-management.background-operation-administration.filters' | translate">
+      <div class="segmented" role="group" [attr.aria-label]="'sample-project-management.background-operation-administration.status-filter' | translate">
+        @for (option of filters; track option) {
+          <button type="button" [class.selected]="filter() === option" [attr.aria-pressed]="filter() === option"
+                  (click)="setFilter(option)">
+            {{ 'sample-project-management.background-operation-administration.filter.' + option | translate }}
+          </button>
+        }
+      </div>
+      <label class="search">
+        <span>{{ 'sample-project-management.background-operation-administration.search' | translate }}</span>
+        <input type="search" [ngModel]="search()" (ngModelChange)="setSearch($event)"
+               [placeholder]="'sample-project-management.background-operation-administration.search-placeholder' | translate" />
+      </label>
+    </section>
+
+    <section class="operation-list" aria-live="polite">
+      @switch (list().status) {
+        @case ('loading') {
+          <div class="loading-state">{{ 'sample-project-management.background-operation-administration.loading' | translate }}</div>
+        }
+        @case ('forbidden') {
+          <div class="empty-state" role="alert">{{ 'sample-project-management.background-operation-administration.forbidden' | translate }}</div>
+        }
+        @case ('unavailable') {
+          <div class="empty-state" role="alert">{{ 'sample-project-management.background-operation-administration.unavailable' | translate }}</div>
+        }
+        @case ('failed') {
+          <div class="empty-state" role="alert">{{ 'sample-project-management.background-operation-administration.load-failed' | translate }}</div>
+        }
+        @default {
+          <p class="result-count">
+            {{ 'sample-project-management.background-operation-administration.result-count' | translate: { count: list().totalCount } }}
+          </p>
+          @for (operation of list().operations; track operation.id) {
+            <a class="operation-row" [routerLink]="[operation.id]">
+              <div>
+                <strong>{{ operation.operationType }}</strong>
+                <span>
+                  <i class="ph ph-user" aria-hidden="true"></i>
+                  {{ ownerLabel(operation) }} · {{ operation.lastModifiedDateTime | date:'medium' }}
+                </span>
+                @if (operation.failureCode) {
+                  <code>{{ operation.failureCode }}</code>
+                }
+              </div>
+              <div class="row-progress">
+                <span><i [style.width.%]="percentage(operation.progressPercentage)"></i></span>
+                <small>{{ percentage(operation.progressPercentage) | number:'1.0-1' }}%</small>
+              </div>
+              <em class="status" [attr.data-tone]="statusTone(operation.status)">{{ statusKey(operation.status) | translate }}</em>
+            </a>
+          } @empty {
+            <div class="empty-state">{{ 'sample-project-management.background-operation-administration.empty.' + filter() | translate }}</div>
+          }
+          @if (pageCount() > 1) {
+            <nav class="pagination" [attr.aria-label]="'sample-project-management.background-operation-administration.pagination' | translate">
+              <button class="icon-button" type="button" (click)="goToPage(page() - 1)" [disabled]="page() <= 1"
+                      [attr.aria-label]="'sample-project-management.background-operation-administration.previous-page' | translate"
+                      [title]="'sample-project-management.background-operation-administration.previous-page' | translate">
+                <i class="ph ph-caret-left" aria-hidden="true"></i>
+              </button>
+              <span>{{ 'sample-project-management.background-operation-administration.page-of' | translate: { page: page(), count: pageCount() } }}</span>
+              <button class="icon-button" type="button" (click)="goToPage(page() + 1)" [disabled]="page() >= pageCount()"
+                      [attr.aria-label]="'sample-project-management.background-operation-administration.next-page' | translate"
+                      [title]="'sample-project-management.background-operation-administration.next-page' | translate">
+                <i class="ph ph-caret-right" aria-hidden="true"></i>
+              </button>
+            </nav>
+          }
+        }
+      }
+    </section>
+  }
+</section>

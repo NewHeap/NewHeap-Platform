@@ -1146,8 +1146,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-083",
     "title": "Durable background operation with fan-out and nested progress",
     "category": "Events, jobs, email, and notifications",
-    "surface": "WithBackgroundOperations, INhBackgroundOperationHandler<T>, TaskResult, INhBackgroundOperationNotificationPolicy, NhBackgroundOperationRetryResult, fan-out/fan-in, durable leases, scoped polling, and scoped SignalR",
-    "outcome": "A division-exclusive parent durably fans out project work, releases its worker while children execute concurrently, propagates expected batch, checkpoint, step, and fan-in outcomes through TaskResult, reschedules internal lock contention without consuming handler retries, advances a contended final-child wake-up to the next dispatcher interval, serializes reconciliation with operation writers so event sequences remain unique, aggregates nested progress, notifies the owner only about outcomes and requests for attention while threading repeated portfolio work per division through a notification policy, protects unprojected notification milestones during event retention, starts under strict EF Core warning policies, and remains isolated to the authenticated user and accessible active division through notifications, SignalR, and polling.",
+    "surface": "WithBackgroundOperations, INhBackgroundOperationHandler<T>, TaskResult, INhBackgroundOperationNotificationPolicy, NhBackgroundOperationRetryResult, fan-out/fan-in, durable leases, scoped polling, scoped SignalR, and cross-owner administration through UseAdministrationPolicy, INhBackgroundOperationAdministrationService, INhBackgroundOperationOwnerDirectory, and NhBackgroundOperationAdministrationService",
+    "outcome": "A division-exclusive parent durably fans out project work, releases its worker while children execute concurrently, propagates expected batch, checkpoint, step, and fan-in outcomes through TaskResult, reschedules internal lock contention without consuming handler retries, advances a contended final-child wake-up to the next dispatcher interval, serializes reconciliation with operation writers so event sequences remain unique, aggregates nested progress, notifies the owner only about outcomes and requests for attention while threading repeated portfolio work per division through a notification policy, protects unprojected notification milestones during event retention, starts under strict EF Core warning policies, and remains isolated to the authenticated user and accessible active division through notifications, SignalR, and polling. An opt-in administration policy lets administrators list every owner's root operations in the accessible active division plus global operations with the owner's display name, inspect operator-only events and scheduling diagnostics, and cancel or retry on the owner's behalf; the administrator is recorded as the cancellation requester so the owner is notified, the endpoints return 404 until a policy is configured, host start fails when the configured policy is not registered,, the owner-facing API never exposes operator-only events, and the list stays usable for very large tables through status filters, capped pages, summary projections without payloads, polling that pauses while hidden, and an index that skips fan-out children.",
     "implementation": "implemented",
     "evidence": [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1178,7 +1178,20 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationNotificationProjector.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationNotificationPolicyTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserNotificationGroupingProviderTests.cs",
-      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectOperationNotificationPolicy.cs"
+      "src/Back-end/Applications/SampleProjectManagement.Api/Jobs/ProjectOperationNotificationPolicy.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationAdministrationController.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationOwnerDirectory.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationAdministrationControllerTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationConfigurationTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-administration.service.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-administration.service.spec.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+      "src/Front-end/projects/management/src/app/background-operation-administration/background-operation-administration-page.component.ts",
+      "src/Front-end/projects/management/src/app/background-operation-administration/background-operation-administration-page.component.html",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSummaryProjection.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationSummaryProjectionTests.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260925094056_AddBackgroundOperationAdministrationIndex.cs"
     ]
   },
   {

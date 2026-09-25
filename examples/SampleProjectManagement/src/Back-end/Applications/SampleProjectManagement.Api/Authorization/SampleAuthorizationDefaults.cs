@@ -43,4 +43,10 @@ public static class SampleAuthorizationPolicies
 {
     public const string ProjectConfidentialView =
         "app.active-division.any-project.project.confidential.view";
+
+    /// <summary>
+    /// Grants the cross-owner background-operation administration endpoints. The policy
+    /// and the application permission share one name.
+    /// </summary>
+    public const string BackgroundOperationAdministration = "app.background-operation.administer";
 }
