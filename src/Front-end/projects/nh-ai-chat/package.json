@@ -1,6 +1,6 @@
 {
   "name": "@newheap/platform-ai-chat",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "peerDependencies": {
     "@angular/cdk": "^20.2.14",
     "@angular/common": "^20.3.28",
