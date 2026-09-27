@@ -1,13 +1,5 @@
 # v-next
 
-## @newheap/platform-common
-
-Logout now submits the current refresh token so the backend can revoke the exact browser or device session.
-
-| Behavior change | Required action |
-|---|---|
-| `BaseNhAuthService.logout` includes the current refresh token in its request body. | Deploy independently when convenient; compatible backends accept the optional body and retain cookie fallback. |
-
 ## NewHeap.Platform.AI.AspNet.Mvc (new package)
 
 `AddNewHeapPlatformAIMvcBridge` publishes policy-protected MVC actions as governed,
