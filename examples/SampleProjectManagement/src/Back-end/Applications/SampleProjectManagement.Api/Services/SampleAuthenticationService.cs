@@ -4,7 +4,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.Common.Models;
 using SampleProjectManagement.Api.Authorization;
 using System.Security.Claims;
 using AuthenticationService = Microsoft.AspNetCore.Authentication.AuthenticationService;
@@ -51,5 +53,37 @@ public sealed class SampleAuthenticationService : NhAuthenticationService<
         return claims
             .Where(claim => !SampleRuntimeAuthorizationClaims.IsRequestScoped(claim))
             .ToList();
+    }
+
+    /// <summary>
+    /// Shows how a consumer-specific credential creates a standard NewHeap session
+    /// without changing the user's password or revoking another device's session.
+    /// </summary>
+    public async Task<TaskResult<UserToken>> AuthenticateCustomCredentialAsync(
+        string username,
+        Func<NhUser, CancellationToken, Task<bool>> verifyCredentialAsync,
+        IEnumerable<Claim>? requiredClaims = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(verifyCredentialAsync);
+
+        var user = await FindUserByUsernameAsync(username);
+        if (user == null)
+        {
+            return TaskResult<UserToken>.Failed("Invalid credential");
+        }
+
+        if (!await verifyCredentialAsync(user, cancellationToken))
+        {
+            var accessFailedResult = await _userManager.AccessFailedAsync(user);
+            if (!accessFailedResult.Succeeded)
+            {
+                return TaskResult<UserToken>.Failed("Could not update authentication state");
+            }
+
+            return TaskResult<UserToken>.Failed("Invalid credential");
+        }
+
+        return await CreateAuthenticationSessionAsync(user, requiredClaims);
     }
 }

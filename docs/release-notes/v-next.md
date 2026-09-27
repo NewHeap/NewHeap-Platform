@@ -1,5 +1,26 @@
 # v-next
 
+## NewHeap.Platform.AspNet.Common
+
+Authentication sessions now use single-use refresh-token rotation per login, token-specific server-side logout, and security-stamp validation after password changes without a migration or deployment-time session invalidation.
+
+| Behavior change | Required action |
+|---|---|
+| The logout endpoint accepts an optional refresh token, falls back to the configured HttpOnly refresh-token cookie, and revokes only that token. | No migration or coordinated frontend release is required; older frontends continue to work through the cookie fallback. |
+| New access tokens carry the Identity security stamp. Legacy access tokens remain valid until that user changes or resets a password; that mutation then revokes all refresh tokens and invalidates every access token for the account. | No backfill or migration is required. Deploy all backend nodes before relying on immediate cluster-wide invalidation after a password mutation. |
+| Refresh rotation atomically consumes only the presented token, so parallel logins on other devices remain independent. | No action; do not replace this with one refresh token per user. |
+| `ConfigureJwtBearer` is now applied and its configured message-received and token-validated handlers are composed with NewHeap session validation. | Keep consumer JWT customization in `ConfigureJwtBearer`. If later post-configuration replaces `JwtBearerOptions.Events`, preserve and invoke the existing delegates so NewHeap session validation is not removed. |
+| `INhAuthenticationSessionValidator` is public for manual token-validation paths, and derived services can use `CreateAuthenticationSessionAsync` after validating a custom credential. The session helper enforces lockout and resets a prior failed-attempt count. | Validate manually decoded tokens with `INhAuthenticationSessionValidator.ValidateAsync`; record failed PIN/passkey attempts, then use the protected session-creation method after successful verification instead of changing the user's password. |
+| `ExecutePasswordMutationWithSessionInvalidationAsync` is available to derived user managers. | Wrap consumer-specific password changes and resets with this protected method instead of calling Identity password APIs directly. |
+
+## @newheap/platform-common
+
+Logout now submits the current refresh token so the backend can revoke the exact browser or device session.
+
+| Behavior change | Required action |
+|---|---|
+| `BaseNhAuthService.logout` includes the current refresh token in its request body. | Deploy independently when convenient; compatible backends accept the optional body and retain cookie fallback. |
+
 ## NewHeap.Platform.AI.AspNet.Mvc (new package)
 
 `AddNewHeapPlatformAIMvcBridge` publishes policy-protected MVC actions as governed,

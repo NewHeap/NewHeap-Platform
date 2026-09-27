@@ -890,7 +890,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Refresh token",
     "category": "Authentication, identity, and authorization",
     "surface": "refresh handler",
-    "outcome": "The access token is refreshed exactly once.",
+    "outcome": "A refresh token rotates at most once while independent device sessions remain usable.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -920,7 +920,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Logout",
     "category": "Authentication, identity, and authorization",
     "surface": "logout handler",
-    "outcome": "Local tokens and state are removed even when server logout fails, and the protected route closes.",
+    "outcome": "Logout revokes only the current login's refresh token, clears local state even when server logout fails, and closes the protected route.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -1043,12 +1043,14 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Password management",
     "category": "Authentication, identity, and authorization",
     "surface": "recover/reset/change models",
-    "outcome": "All three account flows are complete.",
+    "outcome": "All three account flows propagate failures, a successful password mutation ends every session and requires a new login, and a consumer-specific credential records failed attempts but creates an independent session and resets the failure count after successful verification without changing the password or revoking another device.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAuthenticationService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.ts"
     ]
   },
   {

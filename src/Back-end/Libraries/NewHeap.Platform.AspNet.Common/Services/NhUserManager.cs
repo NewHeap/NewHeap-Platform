@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
@@ -563,33 +564,12 @@ public abstract partial class NhUserManager<
             }
         }
 
-        var passwordResult = await ChangePasswordAsync(user!, mutateModel.CurrentPassword!, mutateModel.Password!);
-        if (!passwordResult.Succeeded)
-        {
-            foreach (var error in passwordResult.Errors)
-            {
-                result.AddError(string.Empty, error.Description);
-            }
-
-            return result;
-        }
-
-        await _dbLogService.LogAsync(
-            message: "Password change successful.",
-            messageArguments: new string[] {
-                        user!.Id.ToString()
-            },
-            objectId: user.Id.ToString(),
-            objectType: (typeof(TUser)).Name,
-            objectTypeFull: (typeof(TUser)).FullName,
-            userId: committedByUserId,
-            action: LogAction.Update,
-            type: LogType.Information,
-            source: LogSource.Internal,
-            tag: GetType().Name
-        );
-
-        return result;
+        return await ExecutePasswordMutationWithSessionInvalidationAsync(
+            user!,
+            () => ChangePasswordAsync(user!, mutateModel.CurrentPassword!, mutateModel.Password!),
+            "Password change successful.",
+            committedByUserId,
+            cancellationToken);
     }
 
     public virtual async Task<TaskResult> ChangePasswordWithoutCurrentPasswordAsync(
@@ -638,34 +618,14 @@ public abstract partial class NhUserManager<
             }
         }
 
-        var pwResetToken = await GeneratePasswordResetTokenAsync(user!);
-        var pwResetResult = await ResetPasswordAsync(user!, pwResetToken, mutateModel.Password!);
-        if (!pwResetResult.Succeeded)
-        {
-            foreach (var error in pwResetResult.Errors)
-            {
-                result.AddError(string.Empty, error.Description);
-            }
+        var passwordResetToken = await GeneratePasswordResetTokenAsync(user!);
 
-            return result;
-        }
-
-        await _dbLogService.LogAsync(
-            message: "Password change successful.",
-            messageArguments: new string[] {
-                user!.Id.ToString()
-            },
-            objectId: user.Id.ToString(),
-            objectType: (typeof(TUser)).Name,
-            objectTypeFull: (typeof(TUser)).FullName,
-            userId: committedByUserId,
-            action: LogAction.Update,
-            type: LogType.Information,
-            source: LogSource.Internal,
-            tag: GetType().Name
-        );
-
-        return result;
+        return await ExecutePasswordMutationWithSessionInvalidationAsync(
+            user!,
+            () => ResetPasswordAsync(user!, passwordResetToken, mutateModel.Password!),
+            "Password change successful.",
+            committedByUserId,
+            cancellationToken);
     }
 
     public virtual async Task<TaskResult> ResetPasswordAsync(
@@ -714,33 +674,98 @@ public abstract partial class NhUserManager<
             }
         }
 
-        var pwResetResult = await ResetPasswordAsync(user!, (mutateModel.Token ?? ""), mutateModel.Password!);
-        if (!pwResetResult.Succeeded)
+        return await ExecutePasswordMutationWithSessionInvalidationAsync(
+            user!,
+            () => ResetPasswordAsync(user!, mutateModel.Token ?? string.Empty, mutateModel.Password!),
+            "Password reset successful.",
+            committedByUserId,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Executes a password mutation and atomically invalidates every authentication
+    /// session after the mutation succeeds.
+    /// </summary>
+    /// <remarks>
+    /// Derived user managers with consumer-specific password models should use this
+    /// method instead of calling the Identity password APIs directly. The callback may
+    /// include additional user updates that must commit with the password change.
+    /// Expected Identity failures are returned as a failed <see cref="TaskResult"/>;
+    /// session-state or persistence failures roll back the transaction and propagate.
+    /// </remarks>
+    /// <param name="user">User whose password is being changed.</param>
+    /// <param name="passwordMutation">Password mutation and any atomic consumer updates.</param>
+    /// <param name="logMessage">Operational log message for the completed mutation.</param>
+    /// <param name="committedByUserId">Optional actor responsible for the mutation.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
+    /// <returns>The expected mutation outcome.</returns>
+    protected async Task<TaskResult> ExecutePasswordMutationWithSessionInvalidationAsync(
+        TUser user,
+        Func<Task<IdentityResult>> passwordMutation,
+        string logMessage,
+        Guid? committedByUserId,
+        CancellationToken cancellationToken)
+    {
+        var result = new TaskResult();
+        await using var transaction = await _userRepository.StartOrGetTransactionScopeAsync(cancellationToken);
+
+        try
         {
-            foreach (var error in pwResetResult.Errors)
+            var passwordResult = await passwordMutation();
+            if (!passwordResult.Succeeded)
             {
-                result.AddError(string.Empty, error.Description);
+                IdentityErrorToTaskResult(passwordResult, result);
+                await transaction.RollbackAsync(cancellationToken);
+                return result;
             }
 
+            var securityStamp = await GetSecurityStampAsync(user);
+            if (string.IsNullOrEmpty(securityStamp))
+            {
+                throw new InvalidOperationException("The user does not have a security stamp.");
+            }
+
+            var markerResult = await SetAuthenticationTokenAsync(
+                user,
+                NhAuthenticationSessionDefaults.LoginProvider,
+                NhAuthenticationSessionDefaults.SecurityStampTokenName,
+                securityStamp);
+
+            if (!markerResult.Succeeded)
+            {
+                throw new InvalidOperationException("Could not record the authentication session state.");
+            }
+
+            await NhRefreshTokenOperations.RevokeAllAsync(
+                _userRepository.GetDbSet<NhUserAuthRefreshToken>(),
+                user.Id,
+                cancellationToken);
+
+            await _dbLogService.LogAsync(
+                message: logMessage,
+                messageArguments: new[] { user.Id.ToString() },
+                objectId: user.Id.ToString(),
+                objectType: typeof(TUser).Name,
+                objectTypeFull: typeof(TUser).FullName,
+                userId: committedByUserId,
+                action: LogAction.Update,
+                type: LogType.Information,
+                source: LogSource.Internal,
+                tag: GetType().Name);
+
+            await transaction.CommitAsync(cancellationToken);
             return result;
         }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            if (transaction.IsMyTransaction)
+            {
+                _userRepository.ClearTracking();
+            }
 
-        await _dbLogService.LogAsync(
-            message: "Password reset successful.",
-            messageArguments: new string[] {
-                user!.Id.ToString()
-            },
-            objectId: user.Id.ToString(),
-            objectType: (typeof(TUser)).Name,
-            objectTypeFull: (typeof(TUser)).FullName,
-            userId: committedByUserId,
-            action: LogAction.Update,
-            type: LogType.Information,
-            source: LogSource.Internal,
-            tag: GetType().Name
-        );
-
-        return result;
+            throw;
+        }
     }
 
 

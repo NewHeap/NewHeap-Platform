@@ -64,7 +64,9 @@ for (const path of (await walk(backEndRoot)).filter(path => extname(path) === '.
 
 const frontEndRoot = resolve(repositoryRoot, 'src', 'Front-end', 'projects', 'nh-common', 'src');
 const frontEndEntries = [];
-for (const path of (await walk(frontEndRoot)).filter(path => extname(path) === '.ts').sort()) {
+for (const path of (await walk(frontEndRoot))
+  .filter(path => extname(path) === '.ts' && !path.endsWith('.spec.ts'))
+  .sort()) {
   const lines = (await readFile(path, 'utf8')).split(/\r?\n/);
   for (const line of lines) {
     const declaration = line.trim().replace(/\s+/g, ' ');

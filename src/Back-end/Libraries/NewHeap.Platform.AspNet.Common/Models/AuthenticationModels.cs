@@ -18,6 +18,11 @@ public class UserToken(string Token, DateTime ValidTo, string? RefreshToken, Dat
 
 public record RefreshTokenRequest(string UserName, string RefreshToken);
 
+public sealed class LogoutRequest
+{
+    public string? RefreshToken { get; init; }
+}
+
 public record AuthenticateRequest([Required] string UserName, [Required] string Password);
 
 public record ImpersonateRequest(Guid? UserId);

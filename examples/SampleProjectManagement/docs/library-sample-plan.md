@@ -106,9 +106,9 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-061 | Password login | username/password handler | Login restores the original route. |
 | SPM-062 | Microsoft OAuth | handlers/service/models | The URL, callback, and failure path work. |
 | SPM-063 | Choose a login method | method picker service | Email or domain selection chooses the correct flow. |
-| SPM-064 | Refresh token | refresh handler | The access token is refreshed exactly once. |
+| SPM-064 | Refresh token | refresh handler | A refresh token rotates at most once while independent device sessions remain usable. |
 | SPM-065 | Session expiration | expiration information | The live countdown expires, token state is cleared, and both apps open login with a reason and return URL. |
-| SPM-066 | Logout | logout handler | Local tokens and state are removed even when server logout fails, and the protected route closes. |
+| SPM-066 | Logout | logout handler | Logout revokes only the current login's refresh token, clears local state even when server logout fails, and closes the protected route. |
 | SPM-067 | Impersonation | handler/models | A visible impersonation banner is displayed. |
 | SPM-068 | Revert impersonation | revert handler/models | The original user is restored. |
 | SPM-069 | Account information | account endpoint/models | User, claims, division, and roles load. |
@@ -117,7 +117,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-072 | Active division | requirement/handler | A different division is inaccessible. |
 | SPM-073 | Switch division | change-active-division model | Claims, data, and context refresh. |
 | SPM-074 | Frontend guards | auth/permission guards | Routes and actions follow claims. |
-| SPM-075 | Password management | recover/reset/change models | All three account flows are complete. |
+| SPM-075 | Password management | recover/reset/change models | All three account flows propagate failures, a successful password mutation ends every session and requires a new login, and a consumer-specific credential records failed attempts but creates an independent session and resets the failure count after successful verification without changing the password or revoking another device. |
 
 ## 6. Events, jobs, email, and notifications
 

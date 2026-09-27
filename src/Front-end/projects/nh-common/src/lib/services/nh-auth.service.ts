@@ -434,11 +434,12 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
 
   async logout(): Promise<TaskResult<void>> {
     const result = new TaskResult<void>();
+    const refreshToken = this.getAuthorization()?.refreshToken ?? null;
     let httpParams = new HttpParams();
     if (httpParams.get('language') === null) {
       httpParams = httpParams.set('language', this.moduleConfig.language);
     }
-    const request$ = this.httpClient.post<void>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.logout, {}, {
+    const request$ = this.httpClient.post<void>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.logout, { refreshToken }, {
       params: httpParams,
       withCredentials: true
     });

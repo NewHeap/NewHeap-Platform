@@ -75,7 +75,7 @@ export class SampleProfileComponent implements OnDestroy {
       this.currentPassword = '';
       this.password = '';
       this.confirmPassword = '';
-      this.result.set('password-saved');
+      await this.authService.logout();
     } catch {
       this.result.set('save-failed');
     } finally {

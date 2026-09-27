@@ -36,12 +36,11 @@ public sealed class AccountSampleService
         NhChangePasswordUserMutateModel model,
         CancellationToken cancellationToken = default)
     {
-        var result = await _userManager.ChangePasswordAsync(
+        return await _userManager.ChangePasswordAsync(
             userId,
             model,
             userId,
             cancellationToken);
-        return TaskResult.Succeeded(result);
     }
 
     public async Task RecoverPasswordAsync(
@@ -69,10 +68,9 @@ public sealed class AccountSampleService
         NhResetPasswordUserMutateModel model,
         CancellationToken cancellationToken = default)
     {
-        var result = await _userManager.ResetPasswordAsync(
+        return await _userManager.ResetPasswordAsync(
             model.UserId!.Value,
             model,
             cancellationToken: cancellationToken);
-        return TaskResult.Succeeded(result);
     }
 }

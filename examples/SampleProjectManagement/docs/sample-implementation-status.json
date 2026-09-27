@@ -693,8 +693,10 @@
     ],
     "SPM-075": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAuthenticationService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.ts"
     ],
     "SPM-076": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",

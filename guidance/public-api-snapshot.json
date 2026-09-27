@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.47",
   "backEnd": {
-    "hash": "c4fb2be10a60f704eaac46f9842b8150bc74f4d80efbde2ddeb654bba9f94201",
-    "declarationCount": 5314,
+    "hash": "c5d56cd83614fc64c31e5eab35df8191043d7c032063fb793bddb4582f7a9c64",
+    "declarationCount": 5320,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7726,6 +7726,14 @@
         "declaration": "public DateTime ValidTo { get; set; }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhAuthenticationSessionState.cs",
+        "declaration": "public interface INhAuthenticationSessionValidator {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhAuthenticationSessionState.cs",
+        "declaration": "public async Task<bool> ValidateAsync( ClaimsPrincipal principal, CancellationToken cancellationToken = default)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhImpersonateAuthenticationHandler.cs",
         "declaration": "public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint {"
       },
@@ -11051,6 +11059,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/AuthenticationModels.cs",
+        "declaration": "public sealed class LogoutRequest {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/AuthenticationModels.cs",
+        "declaration": "public string? RefreshToken { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/AuthenticationModels.cs",
         "declaration": "public record AuthenticateRequest([Required] string UserName, [Required] string Password);"
       },
       {
@@ -14187,6 +14203,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "protected virtual async Task<TaskResult<UserToken>> CreateAuthenticationSessionAsync( TUser user, IEnumerable<Claim>? requiredClaims = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
         "declaration": "protected virtual TaskResult<UserToken> CreateUserToken(JwtSecurityToken token, string? refreshToken, DateTime? refreshTokenValidTo) {"
       },
       {
@@ -14540,6 +14560,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhUserManager.cs",
         "declaration": "public virtual async Task<TaskResult> ResetPasswordAsync( Guid userId, NhResetPasswordUserMutateModel mutateModel, Guid? committedByUserId = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhUserManager.cs",
+        "declaration": "protected async Task<TaskResult> ExecutePasswordMutationWithSessionInvalidationAsync( TUser user, Func<Task<IdentityResult>> passwordMutation, string logMessage, Guid? committedByUserId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhUserManager.cs",
@@ -24593,6 +24617,13 @@
       "ProtectedNhBaseController",
       "NhDivisionRoleClaim",
       "NhUserManager"
+    ],
+    "nh-auth-session-lifecycle": [
+      "LogoutRequest",
+      "INhAuthenticationSessionValidator",
+      "NhAuthenticationService",
+      "NhUserManager",
+      "BaseNhAuthService"
     ],
     "nh-ai-local-tool-contract": [
       "INhAiGeneratedToolCatalog",

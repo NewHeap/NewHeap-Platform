@@ -18,6 +18,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
@@ -296,6 +297,9 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _options.JwtBearerOptionsTokenValidationParametersAction.Invoke(tokenValidationParams);
 
         _serviceCollection.AddSingleton(tokenValidationParams);
+        _serviceCollection.AddScoped<NhAuthenticationSessionValidator<TUser>>();
+        _serviceCollection.AddScoped<INhAuthenticationSessionValidator>(serviceProvider =>
+            serviceProvider.GetRequiredService<NhAuthenticationSessionValidator<TUser>>());
 
 
         _serviceCollection.AddAuthentication(options =>
@@ -312,9 +316,11 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
 
             cfg.TokenValidationParameters = tokenValidationParams;
 
-            cfg.Events = new JwtBearerEvents
-            {
-                OnMessageReceived = context =>
+            _options.JwtBearerOptionsAction?.Invoke(cfg);
+
+            NhAuthenticationEvents.Compose(
+                cfg,
+                context =>
                 {
                     var path = context.HttpContext.Request.Path;
                     if (path.StartsWithSegments("/hub"))
@@ -333,8 +339,19 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
                     }
 
                     return Task.CompletedTask;
-                }
-            };
+                },
+                async context =>
+                {
+                    var sessionValidator = context.HttpContext.RequestServices
+                        .GetRequiredService<INhAuthenticationSessionValidator>();
+
+                    if (!await sessionValidator.ValidateAsync(
+                            context.Principal!,
+                            context.HttpContext.RequestAborted))
+                    {
+                        context.Fail("The authentication session is no longer valid.");
+                    }
+                });
         });
 
         #endregion

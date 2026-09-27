@@ -79,6 +79,13 @@
       "expectedOutcome": "Seed-to-policy-to-frontend chain with backend enforcement and removed-user 401 behavior."
     },
     {
+      "id": "consumer-auth-session-lifecycle",
+      "skill": "newheap-authentication",
+      "prompt": "Roll out server-side logout and password-driven session invalidation without signing out existing users or breaking independent device refresh tokens.",
+      "expectedRules": ["nh-auth-session-lifecycle"],
+      "expectedOutcome": "Token-specific logout and atomic per-login refresh rotation, with legacy access tokens accepted until the user's first password mutation and all sessions invalidated afterward."
+    },
+    {
       "id": "consumer-provider-query",
       "skill": "newheap-database-development",
       "prompt": "Add a query and raw SQL path that work on SQL Server and PostgreSQL.",
