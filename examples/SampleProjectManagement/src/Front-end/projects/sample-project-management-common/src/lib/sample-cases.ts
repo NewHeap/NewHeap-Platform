@@ -889,12 +889,14 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-064",
     "title": "Refresh token",
     "category": "Authentication, identity, and authorization",
-    "surface": "refresh handler",
-    "outcome": "A refresh token rotates at most once while independent device sessions remain usable.",
+    "surface": "refresh handler and session-validator registration",
+    "outcome": "A refresh token rotates at most once while independent device sessions remain usable, and the platform authentication services pass startup validation.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionRegistrationSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
     ]
   },

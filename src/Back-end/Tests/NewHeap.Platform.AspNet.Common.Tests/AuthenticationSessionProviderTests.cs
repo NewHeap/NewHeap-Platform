@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -7,14 +8,17 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
+using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.SqlServer;
@@ -32,6 +36,52 @@ namespace NewHeap.Platform.AspNet.Common.Tests;
 
 public sealed class AuthenticationSessionProviderTests
 {
+    [Fact]
+    public void PlatformServicesBuildWithStartupValidation()
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = Environments.Development,
+        });
+        builder.Host.UseDefaultServiceProvider(options =>
+        {
+            options.ValidateOnBuild = true;
+        });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = "authentication-session-tests",
+            ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] =
+                "authentication-session-tests-signing-key-2026",
+        });
+        builder.Services.AddNewHeapPlatformAspNetCommon<
+            NhUser,
+            NhUserRole,
+            NhDivision,
+            NhDivisionUser,
+            NhDivisionRole,
+            NhDivisionUserRole,
+            NhDivisionRoleClaim,
+            NhLog,
+            NhLogMessageArgument,
+            NhLogFile,
+            NhLogMessageTranslated,
+            NhDbLogService,
+            AuthenticationSessionDbContext,
+            NhUserManager,
+            NhDivisionService,
+            NhDivisionMutateModel,
+            NhDivisionUserService,
+            NhDivisionUserMutateModel>(NewHeapAspNetCommonOptions.Builder(builder.Configuration).Build());
+        builder.Services.AddSingleton(Substitute.For<IUserStore<NhUser>>());
+        builder.Services.AddIdentityCore<NhUser>();
+
+        using var application = builder.Build();
+        using var scope = application.Services.CreateScope();
+
+        Assert.IsType<NhAuthenticationSessionValidator<NhUser>>(
+            scope.ServiceProvider.GetRequiredService<INhAuthenticationSessionValidator>());
+    }
+
     [Fact]
     public async Task JwtBearerEventsComposeWithoutDroppingConsumerHandlers()
     {

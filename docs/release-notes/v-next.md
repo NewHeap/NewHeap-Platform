@@ -1,5 +1,16 @@
 # v-next
 
+## NewHeap.Platform.AspNet.Common: authentication session validation
+
+The built-in authentication session validator is now constructed through an
+explicit dependency-injection factory, so Development hosts and hosts with
+`ValidateOnBuild` enabled can start normally and bearer-token validation can
+resolve the validator.
+
+| Adoption note | Required action |
+|---|---|
+| A consumer-side reflection or replacement registration for `NhAuthenticationSessionValidator<TUser>` is no longer needed. | Remove the workaround after upgrading to the release that contains this fix. |
+
 ## NewHeap.Platform.AI.AspNet.Mvc (new package)
 
 `AddNewHeapPlatformAIMvcBridge` publishes policy-protected MVC actions as governed,

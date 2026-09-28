@@ -297,7 +297,9 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         _options.JwtBearerOptionsTokenValidationParametersAction.Invoke(tokenValidationParams);
 
         _serviceCollection.AddSingleton(tokenValidationParams);
-        _serviceCollection.AddScoped<NhAuthenticationSessionValidator<TUser>>();
+        _serviceCollection.AddScoped<NhAuthenticationSessionValidator<TUser>>(serviceProvider =>
+            new NhAuthenticationSessionValidator<TUser>(
+                serviceProvider.GetRequiredService<UserManager<TUser>>()));
         _serviceCollection.AddScoped<INhAuthenticationSessionValidator>(serviceProvider =>
             serviceProvider.GetRequiredService<NhAuthenticationSessionValidator<TUser>>());
 

@@ -106,7 +106,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-061 | Password login | username/password handler | Login restores the original route. |
 | SPM-062 | Microsoft OAuth | handlers/service/models | The URL, callback, and failure path work. |
 | SPM-063 | Choose a login method | method picker service | Email or domain selection chooses the correct flow. |
-| SPM-064 | Refresh token | refresh handler | A refresh token rotates at most once while independent device sessions remain usable. |
+| SPM-064 | Refresh token | refresh handler and session-validator registration | A refresh token rotates at most once while independent device sessions remain usable, and the platform authentication services pass startup validation. |
 | SPM-065 | Session expiration | expiration information | The live countdown expires, token state is cleared, and both apps open login with a reason and return URL. |
 | SPM-066 | Logout | logout handler | Logout revokes only the current login's refresh token, clears local state even when server logout fails, and closes the protected route. |
 | SPM-067 | Impersonation | handler/models | A visible impersonation banner is displayed. |

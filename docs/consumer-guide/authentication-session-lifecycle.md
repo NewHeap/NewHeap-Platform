@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Authentication session lifecycle
 
-Keep refresh tokens independent per login, revoke the current token on logout, and invalidate every session after a password mutation without expiring existing sessions during adoption.
+Keep refresh tokens independent per login, keep the session validator startup-safe, revoke the current token on logout, and invalidate every session after a password mutation without expiring existing sessions during adoption.
 
 ## Preferred approach
 
@@ -22,6 +22,8 @@ When a derived user manager has consumer-specific password models or additional 
 
 Configure consumer JWT events through `NewHeapAspNetCommonOptionsBuilder.ConfigureJwtBearer` or compose with the existing `JwtBearerOptions.Events` delegates. NewHeap invokes consumer `OnTokenValidated` behavior and then enforces its session check. Code that validates tokens outside ASP.NET's bearer pipeline must also call the registered `INhAuthenticationSessionValidator` after cryptographic validation.
 
+Keep the platform-owned session-validator registration intact. It is constructed through the NewHeap registration factory so Development hosts and hosts that explicitly enable `ValidateOnBuild` can validate the container without consumers depending on internal implementation details.
+
 Deploy backend versions across the cluster before relying on immediate access-token invalidation: an older node does not validate the security-stamp claim. Old and new frontends remain compatible because the logout body is optional and cookie fallback is retained.
 
 ## Avoid
@@ -32,19 +34,21 @@ Deploy backend versions across the cluster before relying on immediate access-to
 - Treating a failed password mutation as successful or revoking sessions before the password change commits.
 - Changing the user's password as an implementation detail of PIN or alternative-credential authentication.
 - Replacing the complete `JwtBearerEvents` object in post-configuration without forwarding the existing delegates.
+- Replacing the platform session-validator registration with reflection or another consumer-owned construction workaround.
 - Treating `DecodeToken` or `ValidateToken` alone as session-aware authorization.
 - Claiming cluster-wide access-token invalidation while old backend nodes still serve traffic.
 
 ## Verification
 
-Run the lifecycle test against SQL Server and PostgreSQL. Prove that two device tokens refresh independently, one token can be consumed only once, logout is idempotent and token-specific, failed password changes preserve sessions, and every successful standard or derived change/reset path removes all refresh tokens. Also verify that legacy access tokens are accepted before the compatibility marker exists and rejected afterward, while a token carrying the current security stamp succeeds. Exercise a verified custom credential without a password mutation and prove that it resets a prior failed-attempt count while an existing device refresh token remains usable. Verify that configured JWT event delegates remain registered and that manual token consumers call `INhAuthenticationSessionValidator`.
+Build a Development `WebApplication` host with `ValidateOnBuild` enabled and the standard platform registration. Run the lifecycle test against SQL Server and PostgreSQL. Prove that two device tokens refresh independently, one token can be consumed only once, logout is idempotent and token-specific, failed password changes preserve sessions, and every successful standard or derived change/reset path removes all refresh tokens. Also verify that legacy access tokens are accepted before the compatibility marker exists and rejected afterward, while a token carrying the current security stamp succeeds. Exercise a verified custom credential without a password mutation and prove that it resets a prior failed-attempt count while an existing device refresh token remains usable. Verify that configured JWT event delegates remain registered and that manual token consumers call `INhAuthenticationSessionValidator`.
 
 ## Executable evidence
 
 - SPM-064 — Refresh token
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
-  - [src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionRegistrationSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionRegistrationSamplesTests.cs)
+  - [../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs)
 - SPM-066 — Logout
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
