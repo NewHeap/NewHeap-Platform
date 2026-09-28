@@ -1,6 +1,6 @@
 {
   "name": "newheap-platform",
-  "version": "1.13.49",
+  "version": "1.13.50",
   "description": "Build consuming applications with one discoverable NewHeap Platform skill and focused internal modules.",
   "author": {
     "name": "NewHeap B.V."
