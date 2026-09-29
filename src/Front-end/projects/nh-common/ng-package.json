@@ -13,6 +13,11 @@
       "input": "src/lib/styles",
       "glob": "**/*.scss",
       "output": "styles"
+    },
+    {
+      "input": "two-factor/src/lib/i18n",
+      "glob": "*.json",
+      "output": "two-factor/i18n"
     }
   ]
 }

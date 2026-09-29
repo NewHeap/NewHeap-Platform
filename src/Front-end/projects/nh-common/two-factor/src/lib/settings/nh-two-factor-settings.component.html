@@ -1,0 +1,258 @@
+<section class="nh-two-factor" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading() || busy()">
+  <div class="nh-two-factor__status">
+    <h2 class="nh-two-factor__title" [class.visually-hidden]="!showTitle()" [id]="id + '-title'">{{ 'nh-two-factor.ui.settings-title' | translate }}</h2>
+    @if (status(); as current) {
+      <span class="nh-two-factor__badge" [class.nh-two-factor__badge--on]="current.enabled">
+        {{ (current.enabled ? 'nh-two-factor.ui.status-enabled' : 'nh-two-factor.ui.status-disabled') | translate }}
+      </span>
+      @if (current.required) {
+        <span class="nh-two-factor__badge">{{ 'nh-two-factor.ui.status-required' | translate }}</span>
+      }
+    }
+  </div>
+
+  @if (loading() && !status()) {
+    <p class="nh-two-factor__hint" role="status">{{ 'nh-two-factor.ui.loading' | translate }}</p>
+  }
+
+  <div role="status">
+    @if (noticeKey(); as notice) {
+      <p class="nh-two-factor__notice">{{ notice | translate }}</p>
+    }
+  </div>
+
+  <div [id]="id + '-errors'" aria-live="assertive">
+    @if (errorKeys().length > 0) {
+      <ul class="nh-two-factor__errors" role="alert">
+        @for (key of errorKeys(); track key) {
+          <li>{{ key | translate }}</li>
+        }
+      </ul>
+    }
+  </div>
+
+  @if (pendingAction()) {
+    <form class="nh-two-factor nh-two-factor__section" [attr.aria-labelledby]="id + '-reauthentication-title'" (submit)="$event.preventDefault(); confirmReauthentication()">
+      <h3 class="nh-two-factor__subtitle" [id]="id + '-reauthentication-title'">{{ 'nh-two-factor.ui.reauthentication-title' | translate }}</h3>
+
+      @if (reauthenticationMethods().length > 1) {
+        <fieldset class="nh-two-factor__methods">
+          <legend class="nh-two-factor__legend">{{ 'nh-two-factor.ui.reauthentication-method' | translate }}</legend>
+          @for (option of reauthenticationMethods(); track option) {
+            <label class="nh-two-factor__method">
+              <input
+                type="radio"
+                [name]="id + '-reauthentication-method'"
+                [value]="option"
+                [checked]="reauthenticationMethod() === option"
+                (change)="reauthenticationMethod.set(option); reauthenticationSecret.set('')" />
+              <span>{{ (option === 'password' ? 'nh-two-factor.ui.password' : 'nh-two-factor.ui.method.' + option) | translate }}</span>
+            </label>
+          }
+        </fieldset>
+      }
+
+      <div class="nh-two-factor__field">
+        <label [for]="id + '-reauthentication'">
+          {{ (reauthenticationMethod() === 'password' ? 'nh-two-factor.ui.password' : 'nh-two-factor.ui.code-label.' + reauthenticationMethod()) | translate }}
+        </label>
+        <input
+          #reauthenticationInput
+          class="nh-two-factor__input"
+          [id]="id + '-reauthentication'"
+          [type]="reauthenticationMethod() === 'password' ? 'password' : 'text'"
+          [attr.autocomplete]="reauthenticationMethod() === 'password' ? 'current-password' : 'one-time-code'"
+          [value]="reauthenticationSecret()"
+          [disabled]="busy()"
+          (input)="reauthenticationSecret.set(value($event))" />
+      </div>
+
+      <div class="nh-two-factor__actions">
+        <button type="submit" class="nh-two-factor__button nh-two-factor__button--primary" [disabled]="busy()">
+          {{ 'nh-two-factor.ui.confirm' | translate }}
+        </button>
+        <button type="button" class="nh-two-factor__button" [disabled]="busy()" (click)="cancelReauthentication()">
+          {{ 'nh-two-factor.ui.cancel' | translate }}
+        </button>
+      </div>
+    </form>
+  }
+
+  @if (recoveryCodes(); as codes) {
+    <div class="nh-two-factor__section">
+      <nh-two-factor-recovery-codes [codes]="codes" (acknowledged)="recoveryCodes.set(null)" />
+    </div>
+  }
+
+  @if (setupPanel(); as panel) {
+    <form class="nh-two-factor nh-two-factor__section" [attr.aria-labelledby]="id + '-setup-title'" (submit)="$event.preventDefault(); confirmSetup()">
+      <h3 class="nh-two-factor__subtitle" [id]="id + '-setup-title'">{{ 'nh-two-factor.ui.method.' + panel | translate }}</h3>
+
+      @if (panel === 'authenticator') {
+        <p class="nh-two-factor__hint">{{ 'nh-two-factor.ui.authenticator-instructions' | translate }}</p>
+        @if (setup(); as authenticator) {
+          <div class="nh-two-factor__setup">
+            @if (authenticator.qrCodeDataUri) {
+              <img class="nh-two-factor__qr" [src]="authenticator.qrCodeDataUri" [alt]="'nh-two-factor.ui.qr-code-alt' | translate" />
+            }
+            <p class="nh-two-factor__text">
+              {{ 'nh-two-factor.ui.shared-key' | translate }}:
+              <span class="nh-two-factor__key">{{ authenticator.sharedKey }}</span>
+            </p>
+          </div>
+        }
+      } @else {
+        <p class="nh-two-factor__hint">{{ 'nh-two-factor.ui.email-instructions' | translate }}</p>
+        @if (emailSent(); as sent) {
+          <p class="nh-two-factor__hint">
+            {{ 'nh-two-factor.ui.email-code-sent' | translate: { time: (sent.expiresAt | date: 'shortTime') } }}
+          </p>
+        }
+      }
+
+      <div class="nh-two-factor__field">
+        <label [for]="id + '-code'">{{ 'nh-two-factor.ui.code-label.' + panel | translate }}</label>
+        <input
+          #codeInput
+          type="text"
+          class="nh-two-factor__input nh-two-factor__input--code"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          spellcheck="false"
+          [id]="id + '-code'"
+          [value]="code()"
+          [disabled]="busy()"
+          (input)="code.set(value($event))" />
+      </div>
+
+      <div class="nh-two-factor__actions">
+        <button type="submit" class="nh-two-factor__button nh-two-factor__button--primary" [disabled]="busy()">
+          {{ 'nh-two-factor.ui.confirm' | translate }}
+        </button>
+        @if (panel === 'email') {
+          <button type="button" class="nh-two-factor__button" [disabled]="busy()" (click)="resendEmailCode()">
+            {{ 'nh-two-factor.ui.resend-email-code' | translate }}
+          </button>
+        }
+        <button type="button" class="nh-two-factor__button" [disabled]="busy()" (click)="closeSetup()">
+          {{ 'nh-two-factor.ui.cancel' | translate }}
+        </button>
+      </div>
+    </form>
+  }
+
+  @if (status(); as current) {
+    @if (!setupPanel() && !pendingAction()) {
+      <div class="nh-two-factor__actions">
+        @if (authenticatorAvailable()) {
+          <button type="button" class="nh-two-factor__button" [disabled]="busy()" (click)="request({ kind: 'authenticator' })">
+            {{ (hasAuthenticator() ? 'nh-two-factor.ui.change-authenticator' : 'nh-two-factor.ui.set-up-authenticator') | translate }}
+          </button>
+        }
+        @if (emailAvailable() && !hasEmail()) {
+          <button type="button" class="nh-two-factor__button" [disabled]="busy()" (click)="request({ kind: 'email' })">
+            {{ 'nh-two-factor.ui.set-up-email' | translate }}
+          </button>
+        }
+      </div>
+    }
+
+    @if (passkeysAvailable()) {
+      <div class="nh-two-factor__section">
+        <h3 class="nh-two-factor__subtitle">{{ 'nh-two-factor.ui.passkeys-title' | translate }}</h3>
+
+        @if (passkeys().length === 0) {
+          <p class="nh-two-factor__hint">{{ 'nh-two-factor.ui.no-passkeys' | translate }}</p>
+        } @else {
+          <ul class="nh-two-factor__list">
+            @for (passkey of passkeys(); track passkey.id) {
+              <li class="nh-two-factor__item">
+                @if (renamingId() === passkey.id) {
+                  <form class="nh-two-factor__actions" (submit)="$event.preventDefault(); saveRename(passkey)">
+                    <label class="visually-hidden" [for]="id + '-rename-' + $index">{{ 'nh-two-factor.ui.passkey-name' | translate }}</label>
+                    <input
+                      type="text"
+                      class="nh-two-factor__input"
+                      maxlength="100"
+                      [id]="id + '-rename-' + $index"
+                      [value]="renameValue()"
+                      [disabled]="busy()"
+                      (input)="renameValue.set(value($event))" />
+                    <button type="submit" class="nh-two-factor__button nh-two-factor__button--primary" [disabled]="busy()">
+                      {{ 'nh-two-factor.ui.save' | translate }}
+                    </button>
+                    <button type="button" class="nh-two-factor__button" [disabled]="busy()" (click)="cancelRename()">
+                      {{ 'nh-two-factor.ui.cancel' | translate }}
+                    </button>
+                  </form>
+                } @else {
+                  <div>
+                    <p class="nh-two-factor__text"><strong>{{ passkey.name }}</strong></p>
+                    <p class="nh-two-factor__hint">
+                      {{ 'nh-two-factor.ui.passkey-created' | translate: { date: (passkey.createdAt | date: 'mediumDate') } }}
+                      @if (passkey.isBackedUp) {
+                        · {{ 'nh-two-factor.ui.passkey-synced' | translate }}
+                      }
+                    </p>
+                  </div>
+                  <div class="nh-two-factor__actions">
+                    <button type="button" class="nh-two-factor__button" [disabled]="busy()" (click)="startRename(passkey)">
+                      {{ 'nh-two-factor.ui.rename' | translate }}
+                    </button>
+                    <button type="button" class="nh-two-factor__button nh-two-factor__button--danger" [disabled]="busy()" (click)="request({ kind: 'remove-passkey', passkeyId: passkey.id })">
+                      {{ 'nh-two-factor.ui.remove' | translate }}
+                    </button>
+                  </div>
+                }
+              </li>
+            }
+          </ul>
+        }
+
+        @if (passkeySupported && !pendingAction()) {
+          <form class="nh-two-factor__actions" (submit)="$event.preventDefault(); request({ kind: 'add-passkey' })">
+            <label class="visually-hidden" [for]="id + '-new-passkey'">{{ 'nh-two-factor.ui.passkey-name' | translate }}</label>
+            <input
+              type="text"
+              class="nh-two-factor__input"
+              maxlength="100"
+              autocomplete="off"
+              [id]="id + '-new-passkey'"
+              [attr.placeholder]="'nh-two-factor.ui.passkey-name' | translate"
+              [value]="newPasskeyName()"
+              [disabled]="busy()"
+              (input)="newPasskeyName.set(value($event))" />
+            <button type="submit" class="nh-two-factor__button" [disabled]="busy()">
+              {{ 'nh-two-factor.ui.add-passkey' | translate }}
+            </button>
+          </form>
+        }
+      </div>
+    }
+
+    @if (current.enabled && !pendingAction()) {
+      <div class="nh-two-factor__section">
+        @if (recoveryCodesAvailable()) {
+          <p class="nh-two-factor__hint">{{ 'nh-two-factor.ui.recovery-codes-left' | translate: { count: current.recoveryCodesLeft } }}</p>
+        }
+        <div class="nh-two-factor__actions">
+          @if (recoveryCodesAvailable()) {
+            <button type="button" class="nh-two-factor__button" [disabled]="busy()" (click)="request({ kind: 'recovery-codes' })">
+              {{ 'nh-two-factor.ui.regenerate-recovery-codes' | translate }}
+            </button>
+          }
+          @if (current.rememberDeviceAvailable) {
+            <button type="button" class="nh-two-factor__button" [disabled]="busy()" (click)="request({ kind: 'forget-devices' })">
+              {{ 'nh-two-factor.ui.forget-devices' | translate }}
+            </button>
+          }
+          @if (!required()) {
+            <button type="button" class="nh-two-factor__button nh-two-factor__button--danger" [disabled]="busy()" (click)="request({ kind: 'disable' })">
+              {{ 'nh-two-factor.ui.disable' | translate }}
+            </button>
+          }
+        </div>
+      </div>
+    }
+  }
+</section>

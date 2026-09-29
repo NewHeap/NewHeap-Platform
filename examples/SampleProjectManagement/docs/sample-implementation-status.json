@@ -251,7 +251,14 @@
     "SPM-252",
     "SPM-253",
     "SPM-254",
-    "SPM-255"
+    "SPM-255",
+    "SPM-256",
+    "SPM-257",
+    "SPM-258",
+    "SPM-259",
+    "SPM-260",
+    "SPM-261",
+    "SPM-262"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -648,17 +655,22 @@
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth.service.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
-      "src/Front-end/scripts/verify-frontend-integrity.mjs"
+      "src/Front-end/scripts/verify-frontend-integrity.mjs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
     ],
     "SPM-067": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
     ],
     "SPM-068": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
     ],
     "SPM-069": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -698,7 +710,8 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAuthenticationService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
-      "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.ts"
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs"
     ],
     "SPM-076": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
@@ -1777,6 +1790,85 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeCollectionContracts.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs"
+    ],
+    "SPM-256": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAuthenticationService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorRegistrationTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-login.component.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-login.component.html",
+      "../../src/Front-end/projects/nh-common/two-factor/src/lib/challenge/nh-two-factor-challenge.component.ts",
+      "../../src/Front-end/projects/nh-common/two-factor/src/lib/nh-two-factor-components.spec.ts"
+    ],
+    "SPM-257": [
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhTotpTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorRegistrationTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.html",
+      "../../src/Front-end/projects/nh-common/two-factor/src/lib/settings/nh-two-factor-settings.component.ts",
+      "../../src/Front-end/projects/nh-common/two-factor/src/lib/recovery-codes/nh-two-factor-recovery-codes.component.ts"
+    ],
+    "SPM-258": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleTwoFactorComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleTwoFactorMessageComposer.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Views/Mail/TwoFactorCode.cshtml",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "../../src/Front-end/projects/nh-common/two-factor/src/lib/challenge/nh-two-factor-challenge.component.ts",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts"
+    ],
+    "SPM-259": [
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/SampleProjectManagementDbContext.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260929204629_AddIdentityPasskeys.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleTwoFactorComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-login.component.html",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.html",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/SoftwarePasskeyAuthenticator.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorRegistrationTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-passkey-client.service.spec.ts",
+      "../../src/Front-end/projects/nh-common/two-factor/src/lib/passkey-login/nh-passkey-login-button.component.ts"
+    ],
+    "SPM-260": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleTwoFactorComposition.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+      "../../src/Front-end/projects/nh-common/two-factor/src/lib/challenge/nh-two-factor-challenge.component.html",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts"
+    ],
+    "SPM-261": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleTwoFactorComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Authorization/SampleAuthorizationDefaults.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-login.component.ts",
+      "../../src/Front-end/projects/nh-common/two-factor/src/lib/enrollment/nh-two-factor-enrollment.component.ts",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs"
+    ],
+    "SPM-262": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleTwoFactorComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Authorization/SampleAuthorizationDefaults.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorRegistrationTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Resources/Authentication/TwoFactor/NhTwoFactorMessages.nl-NL.resx"
     ]
   }
 }

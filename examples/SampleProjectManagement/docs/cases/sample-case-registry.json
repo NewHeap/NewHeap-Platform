@@ -983,7 +983,7 @@
       "categoryId": "5",
       "title": "Logout",
       "surface": "logout handler",
-      "outcome": "Logout revokes only the current login's refresh token, clears local state even when server logout fails, and closes the protected route.",
+      "outcome": "Logout revokes only the current login's refresh token, clears local state even when server logout fails, and closes the protected route. A custom logout route configured through `LogoutEndpoint` is mapped to the logout endpoint.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -991,7 +991,8 @@
         "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
         "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth.service.ts",
         "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
-        "src/Front-end/scripts/verify-frontend-integrity.mjs"
+        "src/Front-end/scripts/verify-frontend-integrity.mjs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
       ]
     },
     {
@@ -999,12 +1000,14 @@
       "categoryId": "5",
       "title": "Impersonation",
       "surface": "handler/models",
-      "outcome": "A visible impersonation banner is displayed.",
+      "outcome": "A visible impersonation banner is displayed. The impersonation session has no refresh token, so it ends with its access token and can never turn into an ordinary session of the impersonated user, and a custom `ImpersonateEndpoint` route is independent of the refresh route.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
       ]
     },
     {
@@ -1012,12 +1015,14 @@
       "categoryId": "5",
       "title": "Revert impersonation",
       "surface": "revert handler/models",
-      "outcome": "The original user is restored.",
+      "outcome": "The original user is restored with a new session of its own, including a refresh token, and a custom `RevertImpersonateEndpoint` route is independent of the refresh route.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
       ]
     },
     {
@@ -1106,14 +1111,15 @@
       "categoryId": "5",
       "title": "Password management",
       "surface": "recover/reset/change models",
-      "outcome": "All three account flows propagate failures, a successful password mutation ends every session and requires a new login, and a consumer-specific credential records failed attempts but creates an independent session and resets the failure count after successful verification without changing the password or revoking another device.",
+      "outcome": "All three account flows propagate failures, a successful password mutation ends every session and requires a new login, and a consumer-specific credential records failed attempts but creates an independent session and resets the failure count after successful verification without changing the password or revoking another device. With two-factor authentication enabled the credential completes only the first factor, so an enrolled account receives a second-factor challenge instead of a session.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAuthenticationService.cs",
         "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
         "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
-        "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.ts"
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.ts",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs"
       ]
     },
     {
@@ -3638,6 +3644,141 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeResultShaping.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiBridgeCollectionContracts.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.Common/Models/NhCollectionContract.cs"
+      ]
+    },
+    {
+      "id": "SPM-256",
+      "categoryId": "5",
+      "title": "Two-factor login challenge",
+      "surface": "`AddTwoFactor`, `AddTwoFactorEndpoints`, `INhMultiFactorAuthenticationService.AuthenticateAsync` and `VerifyTwoFactorAsync`, `NhLoginResponse`, `CompleteFirstFactorAsync`, `BaseNhAuthService.authenticateInteractive` and `verifyTwoFactor`, `NhTwoFactorChallengeComponent` from `@newheap/platform-common/two-factor`",
+      "outcome": "An account with an enrolled authenticator receives a short-lived, single-use challenge instead of a session after its password or a consumer-specific credential, and an authenticator or recovery code completes it. The challenge is never stored as an authorization in the frontend, wrong codes count towards the lockout, and a used code or challenge cannot be replayed. Password-only accounts, refresh rotation for enrolled users and Microsoft OAuth keep their behavior, while paths that can only return a complete session refuse the account instead of skipping the second factor. The shared sample login shows the challenge component, which lets the user pick a method, and resumes a challenge that is still pending in the tab.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAuthenticationService.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorRegistrationTests.cs",
+        "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-login.component.ts",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-login.component.html",
+        "../../src/Front-end/projects/nh-common/two-factor/src/lib/challenge/nh-two-factor-challenge.component.ts",
+        "../../src/Front-end/projects/nh-common/two-factor/src/lib/nh-two-factor-components.spec.ts"
+      ]
+    },
+    {
+      "id": "SPM-257",
+      "categoryId": "5",
+      "title": "Authenticator enrollment and recovery codes",
+      "surface": "`INhTwoFactorService<TUser>`, the account two-factor endpoints, `BaseNhAuthService.beginAuthenticatorSetup`, `confirmAuthenticator`, `regenerateRecoveryCodes` and `disableTwoFactor`, `NhTwoFactorTestCodes`, `NhTwoFactorSettingsComponent` and `NhTwoFactorRecoveryCodesComponent`",
+      "outcome": "A signed-in user enrolls an authenticator app from a pending key with a server-rendered QR code and receives single-use recovery codes that are stored as hashes. Confirmation ends every other session and returns a renewed session for this device. Regenerating recovery codes and disabling two-factor authentication require the password or a code, disabling is refused while the policy requires a second factor, and changes are refused while an administrator impersonates the user. The shared profile page manages every factor with the settings component, which asks for the password or a code before sensitive changes and shows new recovery codes once with copy and download actions.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhTotpTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorRegistrationTests.cs",
+        "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.ts",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.html",
+        "../../src/Front-end/projects/nh-common/two-factor/src/lib/settings/nh-two-factor-settings.component.ts",
+        "../../src/Front-end/projects/nh-common/two-factor/src/lib/recovery-codes/nh-two-factor-recovery-codes.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-258",
+      "categoryId": "5",
+      "title": "Email verification codes",
+      "surface": "`NhTwoFactorBuilder.EnableEmailCodes`, `INhTwoFactorService<TUser>.BeginEmailSetupAsync` and `ConfirmEmailSetupAsync`, `INhMultiFactorAuthenticationService.SendTwoFactorEmailCodeAsync`, `INhTwoFactorMessageComposer`, `NhTwoFactorMessageComposer`, `BaseNhAuthService.sendTwoFactorEmailCode`, `beginEmailSetup` and `confirmEmailSetup`",
+      "outcome": "A signed-in user confirms the e-mail address as a second factor with an e-mailed code, and a pending challenge can then be completed with a sign-in code sent to that address. Codes are stored as hashes, expire, work once, replace the previous code and respect a resend cooldown; a changed e-mail address must be confirmed again. The code notification is created through the NewHeap notification outbox in the same transaction as the stored code. The sample renders the e-mail with its Razor mail layout through a custom message composer, and e-mail codes do not satisfy the security-officer requirement because the mailbox also resets the password.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleTwoFactorComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleTwoFactorMessageComposer.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Views/Mail/TwoFactorCode.cshtml",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "../../src/Front-end/projects/nh-common/two-factor/src/lib/challenge/nh-two-factor-challenge.component.ts",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
+        "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts"
+      ]
+    },
+    {
+      "id": "SPM-259",
+      "categoryId": "5",
+      "title": "Passkeys",
+      "surface": "`NhTwoFactorBuilder.EnablePasskeys`, `NhIdentityDbContext.IncludeIdentityPasskeys`, `AddPasskeyEndpoints`, `INhTwoFactorService<TUser>.BeginPasskeyRegistrationAsync`, `CompletePasskeyRegistrationAsync`, `RenamePasskeyAsync` and `RemovePasskeyAsync`, `INhMultiFactorAuthenticationService.AuthenticatePasskeyAsync` and `VerifyTwoFactorPasskeyAsync`, `NhPasskeyClient`, `BaseNhAuthService.signInWithPasskey`, `verifyTwoFactorWithPasskey` and `registerPasskey`, `NhPasskeyLoginButtonComponent`",
+      "outcome": "The sample opts into the ASP.NET Core Identity passkey table with one migration that adds only AspNetUserPasskeys. A signed-in user registers a passkey whose attestation, relying-party domain and origin are verified, then signs in without a username or password with the discoverable passkey or uses it as the second factor after the password. Ceremony state travels in short-lived protected tokens, every ceremony works once, the signature counter is stored, and removing the last second factor disables two-factor authentication unless the policy requires it.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.DAL/SampleProjectManagementDbContext.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260929204629_AddIdentityPasskeys.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleTwoFactorComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-login.component.html",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-profile.component.html",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/SoftwarePasskeyAuthenticator.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorRegistrationTests.cs",
+        "../../src/Front-end/projects/nh-common/src/lib/services/nh-passkey-client.service.spec.ts",
+        "../../src/Front-end/projects/nh-common/two-factor/src/lib/passkey-login/nh-passkey-login-button.component.ts"
+      ]
+    },
+    {
+      "id": "SPM-260",
+      "categoryId": "5",
+      "title": "Remembered devices",
+      "surface": "`NhTwoFactorBuilder.EnableRememberDevice`, `NhTwoFactorVerifyRequest.RememberDevice`, `AuthenticateRequest.RememberDeviceToken`, `INhTwoFactorService<TUser>.ForgetDevicesAsync`, `BaseNhAuthService.forgetTwoFactorDevices`",
+      "outcome": "After a second factor with \"remember this device\", later password sign-ins on that device skip the second factor for 30 days while the policy allows it. Cookie clients receive the token as an HttpOnly cookie and header clients store it for the realm; the token belongs to one user and to the current security stamp, so forgetting devices, a password change or any two-factor change invalidates every remembered device.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleTwoFactorComposition.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+        "../../src/Front-end/projects/nh-common/two-factor/src/lib/challenge/nh-two-factor-challenge.component.html",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
+        "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts"
+      ]
+    },
+    {
+      "id": "SPM-261",
+      "categoryId": "5",
+      "title": "Mandatory two-factor policy",
+      "surface": "`NhTwoFactorBuilder.RequireFor`, `NhDefaultTwoFactorPolicy`, `INhTwoFactorPolicy`, the enrollment endpoints, `INhMultiFactorAuthenticationService.BeginEnrollmentAuthenticatorSetupAsync`, `ConfirmEnrollmentAuthenticatorAsync` and `ConfirmEnrollmentPasskeyAsync`, `NhTwoFactorEnrollmentComponent`, `BaseNhAuthService.confirmEnrollmentAuthenticator` and `enrollPasskey`",
+      "outcome": "Members of the security-officer role must use a second factor. Without one, the password step returns an enrollment step instead of a session; its token only enrolls an authenticator or a passkey, after which the session and the recovery codes are issued. Until they enroll, their refresh tokens stop working, they cannot disable the factor or remove its last passkey afterwards, and a passkey sign-in satisfies the requirement on its own. Other accounts keep their password-only sign-in.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleTwoFactorComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Authorization/SampleAuthorizationDefaults.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs",
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-login.component.ts",
+        "../../src/Front-end/projects/nh-common/two-factor/src/lib/enrollment/nh-two-factor-enrollment.component.ts",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-262",
+      "categoryId": "5",
+      "title": "Two-factor administration and security notifications",
+      "surface": "`NhTwoFactorBuilder.UseAdministrationPolicy`, `UseSecurityNotifications` and `UseMessageComposer`, `INhTwoFactorService<TUser>.ResetAsync`, `NhBackgroundOperationBuilder.AddTwoFactorOperations`, the two-factor administration endpoints, `BaseNhAuthService.resetUserTwoFactor`, `startTwoFactorEnrollmentReminders` and `startTwoFactorSessionRevocation`",
+      "outcome": "Managers with the two-factor administration permission reset the second factors of a user who lost access to them, which ends every session of that user, and start background operations that remind unenrolled security officers or end their sessions so the next sign-in enrolls them, with progress and idempotency keys. Users receive in-app and e-mail security notifications for enabled and disabled factors, new recovery codes, used recovery codes, lockouts, passkey changes and resets; each notification is created in the same transaction as the change and uses the English or Dutch texts.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleTwoFactorComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Authorization/SampleAuthorizationDefaults.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+        "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorRegistrationTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Resources/Authentication/TwoFactor/NhTwoFactorMessages.nl-NL.resx"
       ]
     }
   ]

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using NewHeap.Platform.AspNet.Common.Authentication;
+using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
@@ -27,14 +28,16 @@ public sealed class SampleAuthenticationService : NhAuthenticationService<
         ILogger<AuthenticationService> logger,
         IConfiguration configuration,
         TokenValidationParameters tokenValidationParameters,
-        AuthenticationConfiguration authConfiguration)
+        AuthenticationConfiguration authConfiguration,
+        NhTwoFactorAuthenticationContext<NhUser> twoFactorContext)
         : base(
             signInManager,
             userManager,
             logger,
             configuration,
             tokenValidationParameters,
-            authConfiguration)
+            authConfiguration,
+            twoFactorContext)
     {
     }
 
@@ -58,8 +61,10 @@ public sealed class SampleAuthenticationService : NhAuthenticationService<
     /// <summary>
     /// Shows how a consumer-specific credential creates a standard NewHeap session
     /// without changing the user's password or revoking another device's session.
+    /// Users who enrolled a second factor receive a two-factor challenge instead of a
+    /// session, exactly like a password sign-in.
     /// </summary>
-    public async Task<TaskResult<UserToken>> AuthenticateCustomCredentialAsync(
+    public async Task<TaskResult<NhAuthenticationResult>> AuthenticateCustomCredentialAsync(
         string username,
         Func<NhUser, CancellationToken, Task<bool>> verifyCredentialAsync,
         IEnumerable<Claim>? requiredClaims = null,
@@ -70,7 +75,7 @@ public sealed class SampleAuthenticationService : NhAuthenticationService<
         var user = await FindUserByUsernameAsync(username);
         if (user == null)
         {
-            return TaskResult<UserToken>.Failed("Invalid credential");
+            return TaskResult<NhAuthenticationResult>.Failed("Invalid credential");
         }
 
         if (!await verifyCredentialAsync(user, cancellationToken))
@@ -78,12 +83,12 @@ public sealed class SampleAuthenticationService : NhAuthenticationService<
             var accessFailedResult = await _userManager.AccessFailedAsync(user);
             if (!accessFailedResult.Succeeded)
             {
-                return TaskResult<UserToken>.Failed("Could not update authentication state");
+                return TaskResult<NhAuthenticationResult>.Failed("Could not update authentication state");
             }
 
-            return TaskResult<UserToken>.Failed("Invalid credential");
+            return TaskResult<NhAuthenticationResult>.Failed("Invalid credential");
         }
 
-        return await CreateAuthenticationSessionAsync(user, requiredClaims);
+        return await CompleteFirstFactorAsync(user, NhAuthenticationFactors.Custom("pin"), requiredClaims);
     }
 }

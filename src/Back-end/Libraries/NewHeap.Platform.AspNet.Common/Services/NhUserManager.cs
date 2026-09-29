@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.Authentication;
+using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
@@ -699,73 +700,108 @@ public abstract partial class NhUserManager<
     /// <param name="committedByUserId">Optional actor responsible for the mutation.</param>
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>The expected mutation outcome.</returns>
-    protected async Task<TaskResult> ExecutePasswordMutationWithSessionInvalidationAsync(
+    protected Task<TaskResult> ExecutePasswordMutationWithSessionInvalidationAsync(
         TUser user,
         Func<Task<IdentityResult>> passwordMutation,
         string logMessage,
         Guid? committedByUserId,
         CancellationToken cancellationToken)
     {
-        var result = new TaskResult();
-        await using var transaction = await _userRepository.StartOrGetTransactionScopeAsync(cancellationToken);
+        return NhSecurityMutationOperations.ExecuteWithSessionInvalidationAsync(
+            this,
+            _userRepository,
+            _dbLogService,
+            user,
+            async () =>
+            {
+                var passwordResult = await passwordMutation();
+                return IdentityErrorToTaskResult(passwordResult, new TaskResult());
+            },
+            logMessage,
+            committedByUserId,
+            GetType().Name,
+            cancellationToken);
+    }
 
-        try
+    /// <summary>
+    /// Generates new two-factor recovery codes and stores only their hashes.
+    /// </summary>
+    /// <remarks>
+    /// The plain codes are returned once so the caller can show them to the user. A leaked
+    /// Identity token row cannot be redeemed because it only contains hashes.
+    /// </remarks>
+    public override async Task<IEnumerable<string>?> GenerateNewTwoFactorRecoveryCodesAsync(TUser user, int number)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(user);
+
+        var recoveryCodeStore = GetTwoFactorRecoveryCodeStore();
+        var codes = new List<string>(number);
+        for (var index = 0; index < number; index++)
         {
-            var passwordResult = await passwordMutation();
-            if (!passwordResult.Succeeded)
-            {
-                IdentityErrorToTaskResult(passwordResult, result);
-                await transaction.RollbackAsync(cancellationToken);
-                return result;
-            }
-
-            var securityStamp = await GetSecurityStampAsync(user);
-            if (string.IsNullOrEmpty(securityStamp))
-            {
-                throw new InvalidOperationException("The user does not have a security stamp.");
-            }
-
-            var markerResult = await SetAuthenticationTokenAsync(
-                user,
-                NhAuthenticationSessionDefaults.LoginProvider,
-                NhAuthenticationSessionDefaults.SecurityStampTokenName,
-                securityStamp);
-
-            if (!markerResult.Succeeded)
-            {
-                throw new InvalidOperationException("Could not record the authentication session state.");
-            }
-
-            await NhRefreshTokenOperations.RevokeAllAsync(
-                _userRepository.GetDbSet<NhUserAuthRefreshToken>(),
-                user.Id,
-                cancellationToken);
-
-            await _dbLogService.LogAsync(
-                message: logMessage,
-                messageArguments: new[] { user.Id.ToString() },
-                objectId: user.Id.ToString(),
-                objectType: typeof(TUser).Name,
-                objectTypeFull: typeof(TUser).FullName,
-                userId: committedByUserId,
-                action: LogAction.Update,
-                type: LogType.Information,
-                source: LogSource.Internal,
-                tag: GetType().Name);
-
-            await transaction.CommitAsync(cancellationToken);
-            return result;
+            codes.Add(CreateTwoFactorRecoveryCode());
         }
-        catch
+
+        var hashedCodes = codes
+            .Select(code => NhRecoveryCodeHasher.Hash(NhRecoveryCodeHasher.Normalize(code)))
+            .ToList();
+
+        await recoveryCodeStore.ReplaceCodesAsync(user, hashedCodes, CancellationToken);
+
+        var updateResult = await UpdateAsync(user);
+        if (!updateResult.Succeeded)
         {
-            await transaction.RollbackAsync(CancellationToken.None);
-            if (transaction.IsMyTransaction)
-            {
-                _userRepository.ClearTracking();
-            }
-
-            throw;
+            return null;
         }
+
+        return codes;
+    }
+
+    /// <summary>
+    /// Redeems a two-factor recovery code that was stored as a hash.
+    /// </summary>
+    /// <remarks>
+    /// Codes generated before NewHeap stored hashes remain redeemable once, so existing
+    /// users are not locked out after an upgrade.
+    /// </remarks>
+    public override async Task<IdentityResult> RedeemTwoFactorRecoveryCodeAsync(TUser user, string code)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(user);
+
+        var normalizedCode = NhRecoveryCodeHasher.Normalize(code);
+        if (string.IsNullOrEmpty(normalizedCode))
+        {
+            return IdentityResult.Failed(ErrorDescriber.RecoveryCodeRedemptionFailed());
+        }
+
+        var recoveryCodeStore = GetTwoFactorRecoveryCodeStore();
+        var redeemed = await recoveryCodeStore.RedeemCodeAsync(
+            user,
+            NhRecoveryCodeHasher.Hash(normalizedCode),
+            CancellationToken);
+
+        if (!redeemed)
+        {
+            redeemed = await recoveryCodeStore.RedeemCodeAsync(user, code.Trim(), CancellationToken);
+        }
+
+        if (!redeemed)
+        {
+            return IdentityResult.Failed(ErrorDescriber.RecoveryCodeRedemptionFailed());
+        }
+
+        return await UpdateAsync(user);
+    }
+
+    private IUserTwoFactorRecoveryCodeStore<TUser> GetTwoFactorRecoveryCodeStore()
+    {
+        if (Store is not IUserTwoFactorRecoveryCodeStore<TUser> recoveryCodeStore)
+        {
+            throw new NotSupportedException("The configured user store does not support two-factor recovery codes.");
+        }
+
+        return recoveryCodeStore;
     }
 
 

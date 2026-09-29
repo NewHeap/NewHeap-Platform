@@ -3,6 +3,7 @@ import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NhApiService } from '@newheap/platform-common';
+import { NhTwoFactorSettingsComponent } from '@newheap/platform-common/two-factor';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { SampleAuthService } from './sample-auth.service';
@@ -10,7 +11,7 @@ import { SampleAuthService } from './sample-auth.service';
 @Component({
   selector: 'app-sample-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, TranslateModule],
+  imports: [CommonModule, FormsModule, RouterLink, TranslateModule, NhTwoFactorSettingsComponent],
   templateUrl: './sample-profile.component.html',
   styleUrl: './sample-profile.component.scss'
 })

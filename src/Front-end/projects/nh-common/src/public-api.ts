@@ -30,6 +30,7 @@ export * from './lib/services/nh-page.service';
 export * from './lib/services/nh-config.service';
 export * from './lib/services/nh-api.service';
 export * from './lib/services/nh-auth.service';
+export * from './lib/services/nh-passkey-client.service';
 export * from './lib/services/nh-modal.service';
 export * from './lib/services/nh-task-result-form.validator';
 export * from './lib/services/nh-title.service';

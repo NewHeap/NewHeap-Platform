@@ -16,6 +16,12 @@
       "nh-common/*": [
         "./projects/nh-common/src/public-api/*"
       ],
+      "@newheap/platform-common": [
+        "./projects/nh-common/src/public-api"
+      ],
+      "@newheap/platform-common/two-factor": [
+        "./projects/nh-common/two-factor/src/public-api"
+      ],
       "@newheap/nh-toastr": [
         "./projects/nh-toastr/src/public-api"
       ],

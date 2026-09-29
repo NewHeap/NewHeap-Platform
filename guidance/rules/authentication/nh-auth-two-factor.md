@@ -1,0 +1,48 @@
+---
+id: nh-auth-two-factor
+title: "Two-factor authentication"
+area: authentication
+reference: authentication-two-factor
+summary: "Enable two-factor authentication through the authentication builder, complete every first factor through the two-factor policy, enforce it per role or permission with sign-in enrollment, let the frontend handle pending steps without storing them, and change second factors only through the reauthenticated account endpoints."
+sample-cases: ["SPM-256", "SPM-257", "SPM-258", "SPM-260", "SPM-261", "SPM-262"]
+public-symbols: ["NhTwoFactorBuilder", "INhMultiFactorAuthenticationService", "NhTwoFactorAuthenticationContext", "INhTwoFactorService", "INhTwoFactorPolicy", "NhDefaultTwoFactorPolicy", "INhTwoFactorMessageComposer", "NhLoginResponse", "BaseNhAuthService", "NhTwoFactorChallengeComponent", "NhTwoFactorEnrollmentComponent", "NhTwoFactorSettingsComponent", "NhTwoFactorTestCodes"]
+skills: ["newheap-authentication"]
+providers: ["sqlserver", "postgresql"]
+risk: critical
+---
+## Preferred approach
+
+Enable two-factor authentication with `AddTwoFactor(...)` on the authentication builder and map the endpoints with `AddTwoFactorEndpoints()` in `UseNhAuthentication(...)`. Start with `EnableAuthenticator(...)` and `EnableRecoveryCodes()`. Authenticator keys, hashed recovery codes, e-mailed codes and replay state live in the existing Identity user-token table, so these factors need no consumer migration; passkeys follow `nh-auth-passkeys`.
+
+A derived `NhAuthenticationService` must accept `NhTwoFactorAuthenticationContext<TUser>` and pass it to the base constructor; startup fails otherwise, because the service could not enforce the second factor. After verifying a consumer-specific credential such as a PIN, call `CompleteFirstFactorAsync` with `NhAuthenticationFactors.Custom(...)` and return the `NhAuthenticationResult`: an enrolled user receives a challenge instead of a session. With two-factor authentication enabled, `CreateAuthenticationSessionAsync`, `Authenticate` and `LoginWithoutValidations` refuse users who still need a second factor instead of skipping it.
+
+Require a second factor with `RequireFor(requirement => requirement.Roles(...))`, `Permissions(...)` or `AllUsers()`. A required user without a second factor receives an enrollment step (`enrollment-required`) instead of a session; its token only enrolls a factor through the enrollment endpoints, after which the session and recovery codes are issued. Their refresh tokens stop working until they enroll, and they cannot disable the factor afterwards. E-mail codes do not satisfy a requirement unless `EnableEmailCodes(options => options.SatisfiesRequirement = true)`, because the mailbox also resets the password. Microsoft OAuth sign-ins are accepted without a NewHeap factor unless the requirement uses `IncludingExternalProviders()`. Replace `NhDefaultTwoFactorPolicy` through `UsePolicy<TPolicy>()` for other rules; the policy runs for password, consumer credentials, trusted sign-in, Microsoft OAuth, passkeys and refresh-token rotation.
+
+`EnableEmailCodes()` and `UseSecurityNotifications()` need `WithNotifications(...)`. Codes are stored as hashes, expire, work once, replace the previous code and respect a resend cooldown; the notification is created in the same transaction as the stored code. Security notifications report enabled and disabled factors, new and used recovery codes, lockouts, passkey changes and resets in the notification inbox and by e-mail. The default `NhTwoFactorMessageComposer` uses the e-mail dispatcher's default sender and English and Dutch texts; register your own with `UseMessageComposer<T>()` for branding or templates.
+
+`EnableRememberDevice(...)` lets a verified device skip the second factor. Cookie clients receive an HttpOnly cookie; header clients receive the token and send it with the next login. The token belongs to one user and the current security stamp, so forgetting devices or any credential change invalidates it; `RequireFor(...).WithoutRememberedDevices()` disables it for required users.
+
+`UseAdministrationPolicy(policyName)` exposes resetting a user's second factors and, with `AddTwoFactorOperations<TUser>()` in `WithBackgroundOperations(...)`, background operations that remind unenrolled required users or end their sessions. Without the policy the administration endpoints return 404.
+
+The login endpoint returns `NhLoginResponse`. A complete session has the same properties as before; a pending sign-in only has `twoFactor` with a short-lived, single-use token, its status and the allowed methods. In the frontend, call `authenticateInteractive` and complete the step with `verifyTwoFactor`, `verifyTwoFactorWithPasskey`, `sendTwoFactorEmailCode` or the enrollment methods. `authenticate` never stores a pending step and fails with `two-factor-required` or `two-factor-enrollment-required` for callers that cannot continue the flow. Upgrade the frontend package before enabling two-factor authentication on the server. Translate failures with the `nh-two-factor.<suffix>` message keys that each result item carries.
+
+The optional standalone components in `@newheap/platform-common/two-factor` cover the challenge, required enrollment, recovery codes, account settings and passkey sign-in. Import them only where they are used, preferably inside `@defer`, so applications without them ship none of their code. They inject `NhAuthService`, add their English and Dutch texts under `nh-two-factor.` and let application keys win.
+
+Let signed-in users manage their second factors through `INhTwoFactorService<TUser>`, the account endpoints or `NhTwoFactorSettingsComponent`. Authenticator enrollment keeps a pending key until a code confirms it; enabling a factor ends every other session and returns a renewed session for the current device, which the frontend stores automatically. Adding a factor while enabled, regenerating recovery codes, forgetting devices and disabling require the password or a current code.
+
+Persist the ASP.NET Core Data Protection key ring to storage shared by every instance. Pending steps and remember-device tokens are protected with it and fail after a restart or on another instance without a shared key ring. Pages that show the enrollment QR code need `img-src data:` in their content security policy.
+
+## Avoid
+
+- Calling `CreateAuthenticationSessionAsync` directly after a consumer credential when two-factor authentication is enabled; use `CompleteFirstFactorAsync` so enrolled and required users receive their step.
+- Keeping the six-parameter `NhAuthenticationService` constructor in a derived service after enabling two-factor authentication.
+- Storing the login response as an authorization before checking `twoFactor`, or keeping a pending step in `localStorage`.
+- Treating e-mail codes as a second factor for required users while the same mailbox resets the password.
+- Changing authenticator keys or recovery codes with the raw Identity APIs, which leaves other sessions active and stores plaintext recovery codes.
+- Letting an administrator change a user's second factor while impersonating that user, or exposing the reset endpoint without a dedicated administration policy.
+- Importing the two-factor components into an eagerly loaded bundle of an application that rarely shows them.
+- Deploying multiple instances with an ephemeral Data Protection key ring.
+
+## Verification
+
+Run the two-factor lifecycle tests against SQL Server and PostgreSQL. Prove that a password sign-in for an enrolled user returns a challenge without a refresh token or a lockout reset, that a wrong code counts towards the lockout, that a challenge and an authenticator step complete only once, including two concurrent attempts, and that tampered, expired and security-stamp-invalidated tokens fail. Verify that a required user receives an enrollment step, that refresh fails until enrollment and that the enrollment token cannot complete a challenge; that e-mail codes work once, expire, respect the cooldown and do not satisfy the role requirement; that a remembered device skips the second factor for its own user only and stops after forgetting devices; and that a reset removes every factor and the policy operations only affect required users. Verify that recovery codes are stored as hashes and redeem once, that enabling and disabling end every other session and return a renewed session, and that paths returning only a complete session refuse an enrolled user. Build a `ValidateOnBuild` host with the consumer's authentication service and confirm the two-factor startup validation passes. In the frontend, verify that `authenticate` never stores a pending step, that the verify and enrollment methods store the session and that remember-device tokens are only stored for header clients.

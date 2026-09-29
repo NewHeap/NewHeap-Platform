@@ -46,6 +46,16 @@
         </div>
         <button type="button" (click)="changePassword()" [disabled]="saving()"><i class="ph ph-floppy-disk" aria-hidden="true"></i>{{ 'project.account-menu.save-password' | translate }}</button>
       </section>
+
+      <section>
+        <div class="section-heading"><span class="section-icon"><i class="ph ph-shield-check" aria-hidden="true"></i></span><div><h2>{{ 'project.account-menu.two-factor' | translate }}</h2><p>{{ 'project.account-menu.two-factor-description' | translate }}</p></div></div>
+        @defer (on viewport) {
+          <nh-two-factor-settings [showTitle]="false" />
+        } @placeholder {
+          <!-- The library texts load with the deferred component, so the placeholder uses a sample key. -->
+          <p class="two-factor-placeholder">{{ 'project.account-menu.two-factor-loading' | translate }}</p>
+        }
+      </section>
     </section>
   </div>
 </div>

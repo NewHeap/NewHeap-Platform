@@ -1,9 +1,16 @@
 ﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.Authentication;
+using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.AspNet.Common.Services.Notification;
 using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
 using System.Diagnostics.CodeAnalysis;
@@ -36,7 +43,8 @@ public class NhAuthenticationBuilder<
     
     private UserNamePasswordOptions UserNamePasswordOptionsValue { get; set; } = new();
     private MicrosoftOAuthOptions  MicrosoftOAuthOptionsValue { get; set; } = new();
-    
+    private NhTwoFactorBuilder? TwoFactorBuilderValue { get; set; }
+
     
     internal NhAuthenticationBuilder()
     {
@@ -93,6 +101,30 @@ public class NhAuthenticationBuilder<
         return this;
     }
 
+    /// <summary>
+    /// Adds two-factor authentication. Users who enroll a second factor receive a challenge
+    /// after their password, and every session source respects the two-factor policy.
+    /// Map the endpoints with <c>AddTwoFactorEndpoints()</c> in <c>UseNhAuthentication(...)</c>.
+    /// </summary>
+    public NhAuthenticationBuilder<
+        TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TUserViewModel,
+        TDivisionViewModel,
+        TClaimViewModel
+    > AddTwoFactor(Action<NhTwoFactorBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+
+        TwoFactorBuilderValue ??= new NhTwoFactorBuilder();
+        configure(TwoFactorBuilderValue);
+        return this;
+    }
+
     public class UserNamePasswordOptions
     {
         internal UserNamePasswordOptions()
@@ -108,6 +140,12 @@ public class NhAuthenticationBuilder<
         public string? RefreshTokenCookieName { get; set; }
 
         public string? LogoutEndpoint { get; set; }
+
+        /// <summary>Route of the impersonate endpoint. Defaults to <c>authentication/impersonate</c>.</summary>
+        public string? ImpersonateEndpoint { get; set; }
+
+        /// <summary>Route of the revert-impersonation endpoint. Defaults to <c>authentication/ImpersonateRevert</c>.</summary>
+        public string? RevertImpersonateEndpoint { get; set; }
 
         public string? AccountInformationEndpoint { get; set; }
         public bool EnableDivisions { get; set; } = false;
@@ -144,11 +182,16 @@ public class NhAuthenticationBuilder<
             RefreshTokenEndpoint = UserNamePasswordOptionsValue.RefreshTokenEndpoint,
             AuthenticationEndpoint = UserNamePasswordOptionsValue.Endpoint,
             AccountInformationEndpoint = UserNamePasswordOptionsValue.AccountInformationEndpoint,
+            LogoutEndpoint = UserNamePasswordOptionsValue.LogoutEndpoint,
+            ImpersonateEndpoint = UserNamePasswordOptionsValue.ImpersonateEndpoint,
+            RevertImpersonateEndpoint = UserNamePasswordOptionsValue.RevertImpersonateEndpoint,
             AuthenticationServiceKey = UserNamePasswordOptionsValue.AuthenticationServiceKey,
             AuthenticateRequiredClaims = UserNamePasswordOptionsValue.AuthenticateRequiredClaims,
         };
         services.AddSingleton(authConfig);
-        
+
+        AddTwoFactor(services);
+
         services.AddScoped(typeof(INhAuthenticationService), AuthenticationServiceType);
         services.AddScoped<AuthenticationMethodPickerService>();
         
@@ -207,6 +250,97 @@ public class NhAuthenticationBuilder<
                 AddImpersonateHandler(services);
             }
         }
+    }
+
+    private void AddTwoFactor(IServiceCollection services)
+    {
+        var configuration = TwoFactorBuilderValue?.Configuration ?? NhTwoFactorConfiguration.Disabled();
+        configuration.Validate();
+        services.AddSingleton(configuration);
+
+        if (!configuration.Enabled)
+        {
+            // NhAuthenticationService always receives the context, so the same constructor
+            // works whether or not two-factor authentication is enabled.
+            services.AddScoped(_ => new NhTwoFactorAuthenticationContext<TUser>(configuration, null));
+            return;
+        }
+
+        services.AddDataProtection();
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<INhQrCodeRenderer, NhQrCodeRenderer>();
+        services.AddSingleton(serviceProvider => new NhTwoFactorTicketProtector(
+            serviceProvider.GetRequiredService<IDataProtectionProvider>(),
+            serviceProvider.GetRequiredService<TimeProvider>()));
+
+        services.AddScoped(typeof(INhTwoFactorPolicy), TwoFactorBuilderValue!.PolicyType);
+        services.AddScoped(
+            typeof(INhTwoFactorMessageComposer),
+            TwoFactorBuilderValue.MessageComposerType ?? typeof(NhTwoFactorMessageComposer));
+        services.AddScoped(serviceProvider => new NhTwoFactorService<TUser>(
+            serviceProvider.GetRequiredService<UserManager<TUser>>(),
+            serviceProvider.GetRequiredService<INhUserManager<TUser>>(),
+            serviceProvider.GetRequiredService<IUserStore<TUser>>(),
+            serviceProvider.GetRequiredService<INhDbLogService>(),
+            configuration,
+            serviceProvider.GetRequiredService<INhTwoFactorPolicy>(),
+            serviceProvider.GetRequiredService<NhTwoFactorTicketProtector>(),
+            serviceProvider.GetRequiredService<INhQrCodeRenderer>(),
+            serviceProvider.GetRequiredService<IHostEnvironment>(),
+            serviceProvider.GetRequiredService<TimeProvider>(),
+            serviceProvider.GetRequiredService<INhTwoFactorMessageComposer>(),
+            serviceProvider.GetService<INhNotificationService>(),
+            serviceProvider.GetRequiredService<ILogger<NhTwoFactorService<TUser>>>(),
+            configuration.PasskeysEnabled ? serviceProvider.GetService<IPasskeyHandler<TUser>>() : null));
+        services.AddScoped<INhTwoFactorService<TUser>>(serviceProvider =>
+            serviceProvider.GetRequiredService<NhTwoFactorService<TUser>>());
+        services.AddScoped(serviceProvider => new NhTwoFactorAuthenticationContext<TUser>(
+            configuration,
+            serviceProvider.GetRequiredService<NhTwoFactorService<TUser>>()));
+
+        services.AddSingleton<NhTwoFactorVerifyAuthenticationHandler>();
+        services.AddSingleton<NhTwoFactorEmailCodeAuthenticationHandler>();
+        services.AddSingleton<NhTwoFactorEnrollmentAuthenticatorSetupHandler>();
+        services.AddSingleton<NhTwoFactorEnrollmentAuthenticatorConfirmHandler>();
+        services.AddSingleton<NhTwoFactorEnrollmentEmailHandler>();
+        services.AddSingleton<NhTwoFactorEnrollmentEmailConfirmHandler>();
+        services.AddSingleton<NhTwoFactorStatusEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorAuthenticatorSetupEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorAuthenticatorConfirmEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorEmailSetupEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorEmailConfirmEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorRecoveryCodesEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorDisableEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorForgetDevicesEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorResetEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorEnrollmentRemindersEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorSessionRevocationEndpointHandler<TUser>>();
+
+        if (configuration.PasskeysEnabled)
+        {
+            AddPasskeys(services, configuration);
+        }
+
+        services.AddHostedService<NhTwoFactorStartupValidator>();
+    }
+
+    private static void AddPasskeys(IServiceCollection services, NhTwoFactorConfiguration configuration)
+    {
+        // AddIdentity registers the handler; AddIdentityCore does not.
+        services.TryAddScoped<IPasskeyHandler<TUser>, PasskeyHandler<TUser>>();
+        services.Configure<IdentityPasskeyOptions>(configuration.ConfigurePasskeyOptions);
+
+        services.AddSingleton<NhPasskeySignInOptionsHandler>();
+        services.AddSingleton<NhPasskeySignInHandler>();
+        services.AddSingleton<NhTwoFactorPasskeyOptionsHandler>();
+        services.AddSingleton<NhTwoFactorPasskeyVerifyHandler>();
+        services.AddSingleton<NhTwoFactorEnrollmentPasskeyOptionsHandler>();
+        services.AddSingleton<NhTwoFactorEnrollmentPasskeyHandler>();
+        services.AddSingleton<NhPasskeysEndpointHandler<TUser>>();
+        services.AddSingleton<NhPasskeyRegistrationOptionsEndpointHandler<TUser>>();
+        services.AddSingleton<NhPasskeyRegistrationEndpointHandler<TUser>>();
+        services.AddSingleton<NhPasskeyRenameEndpointHandler<TUser>>();
+        services.AddSingleton<NhPasskeyRemoveEndpointHandler<TUser>>();
     }
 
     private void AddRefreshTokenHandler(IServiceCollection services)

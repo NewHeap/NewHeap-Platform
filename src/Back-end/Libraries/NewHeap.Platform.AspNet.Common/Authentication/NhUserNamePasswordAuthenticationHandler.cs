@@ -1,8 +1,11 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
+using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Models;
@@ -12,12 +15,26 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 /// <summary>
 /// Endpoint for username and password authentication.
 /// </summary>
-public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpoint
+public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpoint, IConfigurableAuthenticationEndpoint
 {
     private readonly AuthenticationConfiguration _configuration;
+    private readonly NhTwoFactorConfiguration? _twoFactorConfiguration;
 
     /// <summary>
-    /// 
+    /// Creates the login endpoint. When two-factor authentication is enabled, the endpoint
+    /// returns <see cref="NhLoginResponse"/>, which may hold a second-factor challenge.
+    /// </summary>
+    public NhUserNamePasswordAuthenticationHandler(
+        AuthenticationConfiguration configuration,
+        IHttpContextAccessor httpContextAccessor,
+        NhTwoFactorConfiguration twoFactorConfiguration)
+        : this(configuration, httpContextAccessor)
+    {
+        _twoFactorConfiguration = twoFactorConfiguration;
+    }
+
+    /// <summary>
+    ///
     /// </summary>
     /// <param name="configuration"></param>
     /// <param name="httpContextAccessor"></param>
@@ -35,6 +52,14 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
         }
     }
 
+    public virtual void Configure(RouteHandlerBuilder builder)
+    {
+        if (_twoFactorConfiguration?.Enabled == true)
+        {
+            builder.Produces<NhLoginResponse>(StatusCodes.Status200OK);
+        }
+    }
+
     [ApiExplorerSettings(GroupName = "Authentication")]
     [Tags("Authentication")]
     [EndpointName("Login")]
@@ -49,6 +74,13 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
             return BadRequest(modelValid);
         }
 
+        var twoFactorConfiguration = _twoFactorConfiguration
+            ?? HttpContext!.RequestServices.GetService<NhTwoFactorConfiguration>();
+        if (twoFactorConfiguration?.Enabled == true)
+        {
+            return await AuthenticateWithTwoFactorAsync(authenticationService, request!, twoFactorConfiguration);
+        }
+
         var result = await authenticationService.Authenticate(request!, _configuration.AuthenticateRequiredClaims);
         if (!result.Success)
         {
@@ -56,9 +88,44 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
         }
 
         var token = result.Data!;
-        
+
         WriteTokenToCookie(token);
         return TypedResults.Ok(token);
+    }
+
+    private async Task<IResult> AuthenticateWithTwoFactorAsync(
+        INhAuthenticationService authenticationService,
+        AuthenticateRequest request,
+        NhTwoFactorConfiguration twoFactorConfiguration)
+    {
+        if (authenticationService is not INhMultiFactorAuthenticationService { IsTwoFactorAvailable: true } multiFactorService)
+        {
+            return BadRequest(NhTwoFactorFailureCodes.Fail(NhTwoFactorFailureCodes.ConfigurationInvalid));
+        }
+
+        if (string.IsNullOrEmpty(request.RememberDeviceToken) && twoFactorConfiguration.RememberDeviceEnabled)
+        {
+            // Cookie clients send the remember-device token as an HttpOnly cookie.
+            request = request with
+            {
+                RememberDeviceToken = HttpContext!.Request.Cookies[twoFactorConfiguration.RememberDeviceCookieName],
+            };
+        }
+
+        var result = await multiFactorService.AuthenticateAsync(request, _configuration.AuthenticateRequiredClaims);
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        if (result.Data!.Session == null)
+        {
+            return TypedResults.Ok(NhLoginResponse.FromChallenge(result.Data.Challenge!));
+        }
+
+        var session = result.Data.Session;
+        WriteTokenToCookie(session);
+        return TypedResults.Ok(NhLoginResponse.FromSession(session));
     }
 
     private TaskResult ValidateModel(AuthenticateRequest? request)

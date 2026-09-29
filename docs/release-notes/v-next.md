@@ -11,6 +11,57 @@ resolve the validator.
 |---|---|
 | A consumer-side reflection or replacement registration for `NhAuthenticationSessionValidator<TUser>` is no longer needed. | Remove the workaround after upgrading to the release that contains this fix. |
 
+## NewHeap.Platform.AspNet.Common and @newheap/platform-common: two-factor authentication
+
+`AddTwoFactor(...)` adds opt-in two-factor authentication. Users who enroll a
+second factor receive a single-use challenge after their password;
+`AddTwoFactorEndpoints()` maps the challenge, enrollment, account and
+administration endpoints. The builder offers:
+
+- authenticator apps and hashed, single-use recovery codes;
+- e-mailed codes (`EnableEmailCodes()`), sent through the notification outbox;
+- passkeys (`EnablePasskeys()` with `AddPasskeyEndpoints()`) for passwordless
+  sign-in and as a second factor;
+- remembered devices (`EnableRememberDevice()`);
+- a mandatory policy per role, permission or for every user (`RequireFor(...)`),
+  where required users enroll during their next sign-in;
+- security notifications (`UseSecurityNotifications()`) and a replaceable
+  message composer with English and Dutch texts;
+- an administration reset and background operations for enrollment reminders and
+  session revocation (`UseAdministrationPolicy(...)` and
+  `AddTwoFactorOperations<TUser>()`).
+
+`@newheap/platform-common` covers the flows in `BaseNhAuthService` and adds the
+optional `@newheap/platform-common/two-factor` entry point with standalone
+challenge, enrollment, recovery-code, settings and passkey sign-in components.
+Applications that do not import the entry point ship none of its code. Without
+`AddTwoFactor(...)` behavior, endpoints, responses and schema are unchanged.
+
+| Adoption note | Required action |
+|---|---|
+| With two-factor authentication enabled the login endpoint returns `NhLoginResponse`, which has only `twoFactor` for a pending sign-in or a required enrollment. Older frontends would store a pending step as a session. | Upgrade `@newheap/platform-common` and use `authenticateInteractive` with the verify or enrollment methods before enabling two-factor authentication on the server. |
+| `NhAuthenticationService` gains a constructor with `NhTwoFactorAuthenticationContext<TUser>`; with two-factor authentication enabled, startup fails for a derived service that does not pass it. | Add the context parameter to the derived constructor and pass it to the base constructor. |
+| With two-factor authentication enabled, `CreateAuthenticationSessionAsync`, `Authenticate` and `LoginWithoutValidations` refuse users who need a second factor, refresh rotation refuses users the policy requires to enroll, and the Microsoft OAuth callback checks sign-in eligibility and lockout. | Complete consumer credentials through `CompleteFirstFactorAsync` and return its challenge or enrollment step to the client. |
+| `NhUserManager.GenerateNewTwoFactorRecoveryCodesAsync` now stores hashes; codes stored in plaintext before the upgrade still redeem once. | No action. |
+| Passkeys need the Identity passkey table. `NhIdentityDbContext.IncludeIdentityPasskeys` maps only `AspNetUserPasskeys`; startup fails when passkeys are enabled without it. | Override `IncludeIdentityPasskeys` to return `true` and add a migration before calling `EnablePasskeys()`. Set the relying-party domain to the frontend domain and list the frontend origins. |
+| E-mail codes and security notifications use `WithNotifications(...)`; the default composer sends with the e-mail dispatcher's default sender. | Configure `NhEmailNotificationSettings.AllowDefaultFromAddress` and `DefaultFromAddress`, or register a composer with `UseMessageComposer<T>()`. Startup fails otherwise. |
+| Pending steps, passkey ceremonies and remember-device tokens are protected with ASP.NET Core Data Protection. | Persist the key ring to storage shared by every instance. |
+| The enrollment QR code is a PNG data URI rendered with QRCoder. | Allow `img-src data:` in the content security policy of the enrollment page. |
+| `@newheap/platform-common` `authenticate` fails with `two-factor-required` or `two-factor-enrollment-required` instead of storing a pending step. | No action for applications without two-factor authentication. |
+
+## NewHeap.Platform.AspNet.Common: impersonation sessions and endpoint routes
+
+Impersonation no longer issues a refresh token. A refresh rebuilt the token from the
+impersonated user's claims and dropped the impersonation origin, which turned the
+session into an ordinary login as that user. The endpoint route options now each
+move only their own endpoint.
+
+| Adoption note | Required action |
+|---|---|
+| The impersonate endpoint returns `refreshToken: null`; the session ends when its access token expires or on revert. Revert still issues a normal session with a refresh token. | Revert or sign in again instead of refreshing an impersonation session. Refresh tokens issued by impersonation before the upgrade stay valid until they expire; revoke the impersonated users' refresh tokens if that is a concern. |
+| `UserNamePasswordOptions.LogoutEndpoint` is now applied; it was ignored before and logout stayed on `authentication/logout`. | If you set it, set the frontend `authentication.endpoints.logout` to the same route. |
+| Impersonate and revert no longer move to `RefreshTokenEndpoint`; the new `ImpersonateEndpoint` and `RevertImpersonateEndpoint` options set their routes. | If you set `RefreshTokenEndpoint`, impersonate and revert return to `authentication/impersonate` and `authentication/ImpersonateRevert`, the frontend defaults. Set the new options only to customize them. |
+
 ## NewHeap.Platform.AI.AspNet.Mvc (new package)
 
 `AddNewHeapPlatformAIMvcBridge` publishes policy-protected MVC actions as governed,

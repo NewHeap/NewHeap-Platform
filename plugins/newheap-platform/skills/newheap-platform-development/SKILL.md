@@ -10,7 +10,7 @@ Route the current consumer task to the smallest applicable internal module. Read
 - [foundation](skills/foundation/SKILL.md) for bootstrapping, inspecting, repairing or upgrading a consumer repository;
 - [backend](skills/backend/SKILL.md) for .NET foundations, modules, models, services, controllers, Scalar contracts, partial updates and units of work;
 - [frontend](skills/frontend/SKILL.md) for Angular configuration, collections, lifecycle behavior and modals;
-- [authentication](skills/authentication/SKILL.md) for roles, claims, policies, resource permissions and authentication overrides;
+- [authentication](skills/authentication/SKILL.md) for roles, claims, policies, resource permissions, two-factor authentication, passkeys and authentication overrides;
 - [database](skills/database/SKILL.md) for provider-neutral queries, SQL Server and PostgreSQL behavior, and supported read-only investigation of unexpected staging or production data;
 - [media](skills/media/SKILL.md) for media contracts, storage, authorization, uploads and events;
 - [background processing](skills/background-processing/SKILL.md) for transactional events, jobs, consumers and notifications;

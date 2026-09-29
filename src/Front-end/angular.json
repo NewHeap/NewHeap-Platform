@@ -31,6 +31,10 @@
             "polyfills": [
               "zone.js",
               "zone.js/testing"
+            ],
+            "include": [
+              "**/*.spec.ts",
+              "../two-factor/**/*.spec.ts"
             ]
           }
         }

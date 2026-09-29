@@ -8,11 +8,26 @@ public static class SampleAuthorizationDefaults
     public const string ViewerEmail = "viewer@example.test";
     public const string DivisionEditorEmail = "division-editor@example.test";
     public const string ProjectEditorEmail = "project-editor@example.test";
+    public const string TwoFactorEmail = "two-factor@example.test";
+
+    /// <summary>
+    /// Member of <see cref="SecurityOfficerRole"/>, which the two-factor policy requires to
+    /// use a second factor. The account has none, so it enrolls at its first sign-in.
+    /// </summary>
+    public const string SecurityOfficerEmail = "security-officer@example.test";
+
+    /// <summary>
+    /// Development-only authenticator key of <see cref="TwoFactorEmail"/>. Add it to an
+    /// authenticator app to sign in with the demo account; never seed fixed keys outside
+    /// Development.
+    /// </summary>
+    public const string TwoFactorAuthenticatorKey = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
 
     public const string ManagerRole = "sample-project-manager";
     public const string ViewerRole = "sample-project-viewer";
     public const string DivisionEditorRole = "sample-division-editor";
     public const string ProjectMemberRole = "sample-project-member";
+    public const string SecurityOfficerRole = "sample-security-officer";
 
     public static readonly Guid NorthDivisionId =
         Guid.Parse("b14a1178-8bd7-4e87-845f-e0d89b63f099");
@@ -49,4 +64,10 @@ public static class SampleAuthorizationPolicies
     /// and the application permission share one name.
     /// </summary>
     public const string BackgroundOperationAdministration = "app.background-operation.administer";
+
+    /// <summary>
+    /// Grants the two-factor administration endpoints: resetting a user's second factors and
+    /// starting the policy operations. The policy and the application permission share one name.
+    /// </summary>
+    public const string TwoFactorAdministration = "app.two-factor.administer";
 }

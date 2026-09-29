@@ -13,48 +13,79 @@
   </section>
 
   <section class="form-panel">
-    <form (ngSubmit)="login()" [attr.aria-busy]="isSubmitting()">
-      <header>
-        <span class="mobile-brand">Sample Project Management</span>
-        <h2>{{ 'project.login-title' | translate }}</h2>
-        <p>{{ 'project.login-description' | translate }}</p>
-      </header>
-
-      @if (sessionExpired) {
-        <p class="form-message warning" role="alert"><i class="ph ph-clock-countdown" aria-hidden="true"></i>{{ 'project.session-expired' | translate }}</p>
-      }
-
-      <fieldset>
-        <legend>{{ 'project.authorization-demo-accounts' | translate }}</legend>
-        <div class="account-options">
-          @for (account of demoAccounts; track account.email) {
-            <button type="button" (click)="selectAccount(account)" [class.selected]="username === account.email" [attr.aria-pressed]="username === account.email">
-              <span class="account-icon"><i class="ph ph-user" aria-hidden="true"></i></span>
-              <span class="account-copy"><strong>{{ account.labelKey | translate }}</strong><small>{{ account.email }}</small></span>
-              <i class="ph ph-check selected-icon" aria-hidden="true"></i>
-            </button>
+    @if (pendingStep(); as step) {
+      <!-- The two-factor components load only when a sign-in needs them. -->
+      @defer (on immediate) {
+        <div class="two-factor-step">
+          <span class="mobile-brand">Sample Project Management</span>
+          @if (enrollmentRequired()) {
+            <nh-two-factor-enrollment
+              [enrollment]="step"
+              (completed)="completeSignIn()"
+              (expired)="leavePendingStep('nh-two-factor.challenge-expired')"
+              (cancelled)="leavePendingStep()" />
+          } @else {
+            <nh-two-factor-challenge
+              [challenge]="step"
+              (authenticated)="completeSignIn()"
+              (expired)="leavePendingStep('nh-two-factor.challenge-expired')"
+              (cancelled)="leavePendingStep()" />
+          }
+          @if (demoAuthenticatorKey(); as key) {
+            <p class="development-note"><i class="ph ph-info" aria-hidden="true"></i>{{ 'project.login-two-factor-demo-key' | translate: { key: key } }}</p>
           }
         </div>
-        <p class="account-help">{{ 'project.login-account-help' | translate }}</p>
-      </fieldset>
-
-      <div class="form-fields">
-        <label for="sample-login-username">{{ 'project.login-email' | translate }}</label>
-        <input id="sample-login-username" type="email" name="username" [(ngModel)]="username" autocomplete="username" required [disabled]="isSubmitting()">
-
-        <label for="sample-login-password">{{ 'project.login-password' | translate }}</label>
-        <input id="sample-login-password" type="password" name="password" [(ngModel)]="password" autocomplete="current-password" required [disabled]="isSubmitting()">
-      </div>
-
-      @if (errorMessage()) {
-        <p class="form-message error" role="alert"><i class="ph ph-warning-circle" aria-hidden="true"></i>{{ errorMessage() }}</p>
       }
+    } @else {
+      <form (ngSubmit)="login()" [attr.aria-busy]="isSubmitting()">
+        <header>
+          <span class="mobile-brand">Sample Project Management</span>
+          <h2>{{ 'project.login-title' | translate }}</h2>
+          <p>{{ 'project.login-description' | translate }}</p>
+        </header>
 
-      <button class="submit-button" type="submit" [disabled]="isSubmitting()">
-        <i class="ph ph-sign-in" aria-hidden="true"></i>
-        {{ (isSubmitting() ? 'project.login-submitting' : 'project.login-submit') | translate }}
-      </button>
-      <p class="development-note"><i class="ph ph-info" aria-hidden="true"></i>{{ 'project.login-development-note' | translate }}</p>
-    </form>
+        @if (sessionExpired) {
+          <p class="form-message warning" role="alert"><i class="ph ph-clock-countdown" aria-hidden="true"></i>{{ 'project.session-expired' | translate }}</p>
+        }
+
+        <fieldset>
+          <legend>{{ 'project.authorization-demo-accounts' | translate }}</legend>
+          <div class="account-options">
+            @for (account of demoAccounts; track account.email) {
+              <button type="button" (click)="selectAccount(account)" [class.selected]="username === account.email" [attr.aria-pressed]="username === account.email">
+                <span class="account-icon"><i class="ph ph-user" aria-hidden="true"></i></span>
+                <span class="account-copy"><strong>{{ account.labelKey | translate }}</strong><small>{{ account.email }}</small></span>
+                <i class="ph ph-check selected-icon" aria-hidden="true"></i>
+              </button>
+            }
+          </div>
+          <p class="account-help">{{ 'project.login-account-help' | translate }}</p>
+        </fieldset>
+
+        <div class="form-fields">
+          <label for="sample-login-username">{{ 'project.login-email' | translate }}</label>
+          <input id="sample-login-username" type="email" name="username" [(ngModel)]="username" autocomplete="username" required [disabled]="isSubmitting()">
+
+          <label for="sample-login-password">{{ 'project.login-password' | translate }}</label>
+          <input id="sample-login-password" type="password" name="password" [(ngModel)]="password" autocomplete="current-password" required [disabled]="isSubmitting()">
+        </div>
+
+        @if (errorMessage()) {
+          <p class="form-message error" role="alert"><i class="ph ph-warning-circle" aria-hidden="true"></i>{{ errorMessage() }}</p>
+        }
+
+        <button class="submit-button" type="submit" [disabled]="isSubmitting()">
+          <i class="ph ph-sign-in" aria-hidden="true"></i>
+          {{ (isSubmitting() ? 'project.login-submitting' : 'project.login-submit') | translate }}
+        </button>
+        @defer (on idle) {
+          <div class="passkey-sign-in">
+            <span>{{ 'project.login-passkey-alternative' | translate }}</span>
+            <nh-passkey-login-button (authenticated)="completeSignIn()" (pending)="showPendingStep($event)" />
+          </div>
+        }
+        <p class="development-note"><i class="ph ph-info" aria-hidden="true"></i>{{ 'project.login-development-note' | translate }}</p>
+      </form>
+    }
   </section>
 </main>

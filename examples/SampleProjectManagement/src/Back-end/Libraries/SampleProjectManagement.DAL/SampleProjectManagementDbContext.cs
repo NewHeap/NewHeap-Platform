@@ -31,6 +31,10 @@ public class SampleProjectManagementDbContext : NhIdentityDbContext<
 
     public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();
 
+    // Two-factor passkeys need the Identity passkey table. The migration adds only
+    // AspNetUserPasskeys and leaves the existing Identity columns unchanged.
+    protected override bool IncludeIdentityPasskeys => true;
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

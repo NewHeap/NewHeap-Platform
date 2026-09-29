@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.Authentication;
+using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.View;
 
@@ -113,6 +114,74 @@ public class NhAuthenticationConfigurationBuilder<
         UseAuthenticationEndpoint<NhMicrosoftOauthAuthenticationAuthorizeHandler<TUser>>();
         return this;
     }
+
+    /// <summary>
+    /// Adds the endpoints that complete a second-factor challenge and let signed-in users
+    /// manage their two-factor settings. Requires <c>AddTwoFactor(...)</c> on the
+    /// authentication builder.
+    /// </summary>
+    public NhAuthenticationConfigurationBuilder<
+        TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TUserViewModel,
+        TDivisionViewModel,
+        TClaimViewModel
+    > AddTwoFactorEndpoints()
+    {
+        UseAuthenticationEndpoint<NhTwoFactorVerifyAuthenticationHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEmailCodeAuthenticationHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentAuthenticatorSetupHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentAuthenticatorConfirmHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentEmailHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentEmailConfirmHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorStatusEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorAuthenticatorSetupEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorAuthenticatorConfirmEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorEmailSetupEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorEmailConfirmEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorRecoveryCodesEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorDisableEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorForgetDevicesEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorResetEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentRemindersEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorSessionRevocationEndpointHandler<TUser>>();
+        return this;
+    }
+
+    /// <summary>
+    /// Maps the passkey endpoints: passwordless sign-in, passkeys as a second factor, required
+    /// enrollment with a passkey and passkey management for the signed-in user. Requires
+    /// <c>EnablePasskeys()</c> in <c>AddTwoFactor(...)</c>.
+    /// </summary>
+    public NhAuthenticationConfigurationBuilder<
+        TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TUserViewModel,
+        TDivisionViewModel,
+        TClaimViewModel
+    > AddPasskeyEndpoints()
+    {
+        UseAuthenticationEndpoint<NhPasskeySignInOptionsHandler>();
+        UseAuthenticationEndpoint<NhPasskeySignInHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorPasskeyOptionsHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorPasskeyVerifyHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentPasskeyOptionsHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentPasskeyHandler>();
+        UseAuthenticationEndpoint<NhPasskeysEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhPasskeyRegistrationOptionsEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhPasskeyRegistrationEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhPasskeyRenameEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhPasskeyRemoveEndpointHandler<TUser>>();
+        return this;
+    }
     
     /// <summary>
     /// Remove an endpoint
@@ -212,7 +281,14 @@ public class NhAuthenticationConfigurationBuilder<
         {
             foreach (var type in _diEndpoints)
             {
-                var endpoint = (IAuthenticationEndpoint)services.GetRequiredService(type);
+                var endpoint = (IAuthenticationEndpoint?)services.GetService(type);
+                if (endpoint == null)
+                {
+                    throw new InvalidOperationException(
+                        $"The authentication endpoint {type.Name} is not registered. Enable the matching feature in " +
+                        "AddAuthentication(...) before mapping its endpoints in UseNhAuthentication(...).");
+                }
+
                 ConfigureEndpoint(endpoint, endpoints);
             }
 
@@ -225,26 +301,32 @@ public class NhAuthenticationConfigurationBuilder<
 
         void ConfigureEndpoint(IAuthenticationEndpoint endpoint, IEndpointRouteBuilder endpoints)
         {
+            RouteHandlerBuilder routeHandlerBuilder;
             switch (endpoint.Method)
             {
                 case HttpMethod.Get:
-                    endpoints.MapGet(endpoint.Pattern, endpoint.Handler);
+                    routeHandlerBuilder = endpoints.MapGet(endpoint.Pattern, endpoint.Handler);
                     break;
                 case HttpMethod.Post:
-                    endpoints.MapPost(endpoint.Pattern, endpoint.Handler);
+                    routeHandlerBuilder = endpoints.MapPost(endpoint.Pattern, endpoint.Handler);
                     break;
                 case HttpMethod.Put:
-                    endpoints.MapPut(endpoint.Pattern, endpoint.Handler);
+                    routeHandlerBuilder = endpoints.MapPut(endpoint.Pattern, endpoint.Handler);
                     break;
                 case HttpMethod.Delete:
-                    endpoints.MapDelete(endpoint.Pattern, endpoint.Handler);
+                    routeHandlerBuilder = endpoints.MapDelete(endpoint.Pattern, endpoint.Handler);
                     break;
                 case HttpMethod.Patch:
-                    endpoints.MapPatch(endpoint.Pattern, endpoint.Handler);
+                    routeHandlerBuilder = endpoints.MapPatch(endpoint.Pattern, endpoint.Handler);
                     break;
                 default:
                     throw new InvalidOperationException(
                         $"Invalid HTTP method {endpoint.Method} for authentication");
+            }
+
+            if (endpoint is IConfigurableAuthenticationEndpoint configurableEndpoint)
+            {
+                configurableEndpoint.Configure(routeHandlerBuilder);
             }
         }
     }
@@ -264,6 +346,15 @@ public interface IAuthenticationEndpoint
     public HttpMethod Method { get; }
 
     public Delegate Handler { get; }
+}
+
+/// <summary>
+/// Optional extension for an authentication endpoint that adds route metadata, such as
+/// authorization, rate limiting or OpenAPI responses, after the endpoint is mapped.
+/// </summary>
+public interface IConfigurableAuthenticationEndpoint : IAuthenticationEndpoint
+{
+    void Configure(RouteHandlerBuilder builder);
 }
 
 public enum HttpMethod

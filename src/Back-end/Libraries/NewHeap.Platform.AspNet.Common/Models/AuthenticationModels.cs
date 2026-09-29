@@ -23,7 +23,14 @@ public sealed class LogoutRequest
     public string? RefreshToken { get; init; }
 }
 
-public record AuthenticateRequest([Required] string UserName, [Required] string Password);
+public record AuthenticateRequest([Required] string UserName, [Required] string Password)
+{
+    /// <summary>
+    /// Remember-device token from an earlier two-factor sign-in, for clients that do not use
+    /// cookies. Cookie clients send it automatically.
+    /// </summary>
+    public string? RememberDeviceToken { get; init; }
+}
 
 public record ImpersonateRequest(Guid? UserId);
 

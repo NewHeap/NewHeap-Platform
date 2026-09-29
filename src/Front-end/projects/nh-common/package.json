@@ -21,6 +21,11 @@
   "dependencies": {},
   "devDependencies": {},
   "sideEffects": true,
+  "exports": {
+    "./two-factor/i18n/*.json": {
+      "default": "./two-factor/i18n/*.json"
+    }
+  },
   "license": "Apache-2.0",
   "description": "Shared Angular components, services and application infrastructure for NewHeap applications.",
   "repository": {

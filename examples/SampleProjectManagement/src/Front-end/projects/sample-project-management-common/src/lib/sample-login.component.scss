@@ -56,3 +56,16 @@ legend { margin-bottom: 10px; color: var(--ink-subtle); font-size: 11px; font-we
   .form-panel { align-items: start; padding: 34px 18px; }
   .account-options, .form-fields { grid-template-columns: 1fr; }
 }
+.two-factor-step { width: min(100%, 560px); display: grid; gap: 18px; }
+.passkey-sign-in { display: grid; gap: 8px; justify-items: start; color: var(--muted); font-size: 11px; font-weight: 650; }
+nh-two-factor-challenge, nh-two-factor-enrollment, nh-passkey-login-button {
+  --nh-color-text: var(--ink);
+  --nh-color-muted: var(--muted);
+  --nh-color-border: var(--line-strong);
+  --nh-color-surface: var(--surface);
+  --nh-color-input-background: var(--surface);
+  --nh-color-primary: var(--brand);
+  --nh-color-focus: var(--brand);
+  --nh-color-danger: var(--danger);
+  --nh-color-danger-background: var(--danger-soft);
+}

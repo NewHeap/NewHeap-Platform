@@ -492,6 +492,78 @@ anonymous. The request then ends with `401` through the normal pipeline.
 service that was actually selected and the claims rehydrated for that request.
 The authentication playground executes this endpoint interactively.
 
+## Two-factor authentication
+
+`SampleTwoFactorComposition` enables every second factor on the standard
+authentication builder, and `Program.cs` maps the two-factor and passkey
+endpoints next to the password endpoints:
+
+```csharp
+options.AddTwoFactor(twoFactor => twoFactor
+    .EnableAuthenticator(authenticator => authenticator.Issuer = "Sample Project Management")
+    .EnableRecoveryCodes()
+    .EnableEmailCodes()
+    .UseSecurityNotifications()
+    .UseMessageComposer<SampleTwoFactorMessageComposer>()
+    .EnableRememberDevice(TimeSpan.FromDays(30))
+    .EnablePasskeys(passkeys => { /* relying-party domain and allowed origins from configuration */ })
+    .RequireFor(requirement => requirement.Roles(SampleAuthorizationDefaults.SecurityOfficerRole))
+    .UseAdministrationPolicy(SampleAuthorizationPolicies.TwoFactorAdministration));
+
+authentication.AddTwoFactorEndpoints();
+authentication.AddPasskeyEndpoints();
+```
+
+`Program.cs` and `TwoFactorSamplesTests` share that composition, so the tests
+prove the configuration the API runs with. `WithBackgroundOperations` registers
+the policy operations with `AddTwoFactorOperations<NhUser>()`, and e-mail codes
+and security notifications use the configured notification pipeline.
+
+`SampleAuthenticationService` passes `NhTwoFactorAuthenticationContext<NhUser>`
+to its base constructor, and its PIN sample completes the first factor through
+`CompleteFirstFactorAsync`. An enrolled account therefore receives the same
+second-factor challenge after a PIN as after its password.
+
+`SampleProjectManagementDbContext` overrides `IncludeIdentityPasskeys`, and the
+`AddIdentityPasskeys` migration adds only the `AspNetUserPasskeys` table. WebAuthn
+needs a domain: open the applications on `http://localhost:4210` and
+`http://localhost:4220`, not on `127.0.0.1`, to register and use passkeys. The
+`TwoFactor` section of `appsettings.json` holds the relying-party domain and the
+allowed origins.
+
+The shared login page uses the components from
+`@newheap/platform-common/two-factor`, loaded with `@defer` only when a sign-in
+needs them:
+
+- `nh-two-factor-challenge` completes a challenge with an authenticator code,
+  an e-mailed code, a recovery code or a passkey, and can remember the device.
+- `nh-two-factor-enrollment` enrolls an authenticator or a passkey when the
+  policy requires a second factor, then shows the recovery codes once.
+- `nh-passkey-login-button` signs in without a username or password.
+
+The shared profile page embeds `nh-two-factor-settings`, which manages the
+authenticator, e-mail codes, passkeys, recovery codes and remembered devices and
+asks for the password or a code before sensitive changes.
+
+The Development seeder adds two accounts, both with the password `Sample123!`:
+
+- `two-factor@example.test` is enrolled with the fixed key
+  `JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP`. Add the key to an authenticator app to
+  complete its challenge.
+- `security-officer@example.test` is in the `sample-security-officer` role, which
+  requires a second factor. It has none, so its first sign-in enrolls one.
+
+Managers have the `app.two-factor.administer` permission. The authentication
+playground calls every two-factor endpoint directly: the challenge, e-mail codes,
+passkeys, required enrollment, remembered devices, and the administration reset
+and background operations. `SampleTwoFactorMessageComposer` renders the e-mailed
+code with the sample's Razor mail layout.
+
+`TwoFactorSamplesTests` applies the PostgreSQL migrations, confirms that the model
+matches them and includes the passkey table, completes the seeded account's
+challenge with `NhTwoFactorTestCodes` from the reusable test package, and enrolls
+the security officer during sign-in.
+
 ## API-to-API client
 
 `SampleProjectManagementApiService` shows how a backend service calls another

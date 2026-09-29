@@ -86,6 +86,27 @@
       "expectedOutcome": "Token-specific logout and atomic per-login refresh rotation, with legacy access tokens accepted until the user's first password mutation and all sessions invalidated afterward."
     },
     {
+      "id": "consumer-auth-two-factor",
+      "skill": "newheap-authentication",
+      "prompt": "Let users protect their account with an authenticator app and recovery codes, including the PIN sign-in that the application already offers.",
+      "expectedRules": ["nh-auth-two-factor", "nh-auth-session-lifecycle"],
+      "expectedOutcome": "AddTwoFactor with authenticator and recovery codes, a derived service that passes the two-factor context and completes the PIN through CompleteFirstFactorAsync, a frontend that uses authenticateInteractive and verifyTwoFactor, and relational tests for challenge, replay and session invalidation."
+    },
+    {
+      "id": "consumer-auth-required-two-factor",
+      "skill": "newheap-authentication",
+      "prompt": "Require two-step verification for every finance administrator, let them enroll during their next sign-in, offer e-mail codes to other users, remember trusted devices and let support reset a user who lost their phone.",
+      "expectedRules": ["nh-auth-two-factor", "nh-auth-session-lifecycle"],
+      "expectedOutcome": "RequireFor with the finance role, an enrollment step handled with the enrollment endpoints or NhTwoFactorEnrollmentComponent, EnableEmailCodes that does not satisfy the role requirement, EnableRememberDevice, UseSecurityNotifications with WithNotifications, UseAdministrationPolicy with AddTwoFactorOperations for reset, reminders and session revocation, and relational tests for enrollment, refresh refusal, e-mail code reuse and remembered devices."
+    },
+    {
+      "id": "consumer-auth-passkeys",
+      "skill": "newheap-authentication",
+      "prompt": "Let users sign in with a passkey instead of a password and use their passkey as the second step after a password.",
+      "expectedRules": ["nh-auth-passkeys", "nh-auth-two-factor"],
+      "expectedOutcome": "IncludeIdentityPasskeys with one migration that only adds AspNetUserPasskeys, EnablePasskeys with the frontend domain and allowed origins, AddPasskeyEndpoints, a frontend that uses signInWithPasskey, verifyTwoFactorWithPasskey and registerPasskey or the passkey components, localhost instead of an IP address for development, and relational tests with a software authenticator for single-use ceremonies and origin validation."
+    },
+    {
       "id": "consumer-provider-query",
       "skill": "newheap-database-development",
       "prompt": "Add a query and raw SQL path that work on SQL Server and PostgreSQL.",

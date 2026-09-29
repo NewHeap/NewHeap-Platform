@@ -3,12 +3,15 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Services;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using HttpMethod = NewHeap.Platform.AspNet.Common.Builders.HttpMethod;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication;
@@ -116,17 +119,53 @@ where TUser : IdentityUser<Guid>
         }
 
         var authService = GetAuthService();
+        var redirect = state.Split(';')[0];
+
+        var twoFactorConfiguration = HttpContext!.RequestServices.GetService<NhTwoFactorConfiguration>();
+        if (twoFactorConfiguration?.Enabled == true)
+        {
+            return await AuthorizeWithTwoFactorAsync(authService, user.Id, redirect);
+        }
+
         var tokenResult = await authService.LoginWithoutValidations(user.Id, true);
         if (!tokenResult.Success)
         {
             return BadRequest(tokenResult);
         }
-        
+
         WriteTokenToCookie(tokenResult.Data!);
 
-        var redirect = state.Split(';')[0];
-
         return TypedResults.Redirect(redirect, preserveMethod:true);
+    }
+
+    /// <summary>
+    /// Completes the sign-in through the two-factor policy. When a NewHeap second factor is
+    /// still required, the challenge travels in the URL fragment, which browsers never send
+    /// to a server.
+    /// </summary>
+    private async Task<IResult> AuthorizeWithTwoFactorAsync(INhAuthenticationService authService, Guid userId, string redirect)
+    {
+        if (authService is not INhMultiFactorAuthenticationService { IsTwoFactorAvailable: true } multiFactorService)
+        {
+            return BadRequest(NhTwoFactorFailureCodes.Fail(NhTwoFactorFailureCodes.ConfigurationInvalid));
+        }
+
+        var result = await multiFactorService.AuthenticateExternalAsync(userId, NhAuthenticationFactors.MicrosoftOAuth);
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        var redirectWithoutFragment = redirect.Split('#')[0];
+        if (result.Data!.Session == null)
+        {
+            var challenge = JsonSerializer.SerializeToUtf8Bytes(result.Data.Challenge, JsonSerializerOptions.Web);
+            var fragment = "nh-two-factor=" + WebEncoders.Base64UrlEncode(challenge);
+            return TypedResults.Redirect(redirectWithoutFragment + "#" + fragment, preserveMethod: true);
+        }
+
+        WriteTokenToCookie(result.Data.Session);
+        return TypedResults.Redirect(redirectWithoutFragment, preserveMethod: true);
     }
 }
 

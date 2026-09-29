@@ -8,6 +8,32 @@ export class EndpointsAuthenticationNhCommonModuleConfig {
   impersonate: string = '/authentication/impersonate';
   revertImpersonate: string = '/authentication/ImpersonateRevert';
   accountInformation: string ='/account';
+  twoFactorVerify: string = '/authentication/two-factor/verify';
+  twoFactorStatus: string = '/account/two-factor';
+  twoFactorAuthenticator: string = '/account/two-factor/authenticator';
+  twoFactorAuthenticatorConfirm: string = '/account/two-factor/authenticator/confirm';
+  twoFactorRecoveryCodes: string = '/account/two-factor/recovery-codes';
+  twoFactorDisable: string = '/account/two-factor/disable';
+  twoFactorForgetDevices: string = '/account/two-factor/forget-devices';
+  twoFactorEmailSetup: string = '/account/two-factor/email';
+  twoFactorEmailConfirm: string = '/account/two-factor/email/confirm';
+  twoFactorEmail: string = '/authentication/two-factor/email';
+  twoFactorPasskeyOptions: string = '/authentication/two-factor/passkey/options';
+  twoFactorPasskey: string = '/authentication/two-factor/passkey';
+  twoFactorEnrollmentAuthenticator: string = '/authentication/two-factor/enrollment/authenticator';
+  twoFactorEnrollmentAuthenticatorConfirm: string = '/authentication/two-factor/enrollment/authenticator/confirm';
+  twoFactorEnrollmentEmail: string = '/authentication/two-factor/enrollment/email';
+  twoFactorEnrollmentEmailConfirm: string = '/authentication/two-factor/enrollment/email/confirm';
+  twoFactorEnrollmentPasskeyOptions: string = '/authentication/two-factor/enrollment/passkey/options';
+  twoFactorEnrollmentPasskey: string = '/authentication/two-factor/enrollment/passkey';
+  /** Administration route; `{userId}` is replaced with the user ID. */
+  twoFactorUserReset: string = '/authentication/two-factor/users/{userId}/reset';
+  twoFactorEnrollmentReminders: string = '/authentication/two-factor/operations/enrollment-reminders';
+  twoFactorSessionRevocation: string = '/authentication/two-factor/operations/session-revocation';
+  passkeySignInOptions: string = '/authentication/passkey/options';
+  passkeySignIn: string = '/authentication/passkey/login';
+  passkeys: string = '/account/passkeys';
+  passkeyRegistrationOptions: string = '/account/passkeys/options';
 
   public constructor(init?: Partial<EndpointsAuthenticationNhCommonModuleConfig>) {
     Object.assign(this, init);

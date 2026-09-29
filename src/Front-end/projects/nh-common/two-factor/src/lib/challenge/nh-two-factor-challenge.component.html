@@ -1,0 +1,86 @@
+<form class="nh-two-factor" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="busy()" (submit)="$event.preventDefault(); verify()">
+  <h2 class="nh-two-factor__title" [id]="id + '-title'">{{ 'nh-two-factor.ui.challenge-title' | translate }}</h2>
+
+  @if (methods().length > 1) {
+    <fieldset class="nh-two-factor__methods">
+      <legend class="nh-two-factor__legend">{{ 'nh-two-factor.ui.method-label' | translate }}</legend>
+      @for (option of methods(); track option) {
+        <label class="nh-two-factor__method">
+          <input
+            type="radio"
+            [name]="id + '-method'"
+            [value]="option"
+            [checked]="method() === option"
+            [disabled]="busy()"
+            (change)="selectMethod(option)" />
+          <span>{{ 'nh-two-factor.ui.method.' + option | translate }}</span>
+        </label>
+      }
+    </fieldset>
+  }
+
+  @if (method() === 'email') {
+    <p class="nh-two-factor__hint">{{ 'nh-two-factor.ui.email-instructions' | translate }}</p>
+    <div class="nh-two-factor__actions">
+      <button type="button" class="nh-two-factor__button" [disabled]="busy()" (click)="sendEmailCode()">
+        {{ (emailSent() ? 'nh-two-factor.ui.resend-email-code' : 'nh-two-factor.ui.send-email-code') | translate }}
+      </button>
+    </div>
+    @if (emailSent(); as sent) {
+      <p class="nh-two-factor__hint" role="status">
+        {{ 'nh-two-factor.ui.email-code-sent' | translate: { time: (sent.expiresAt | date: 'shortTime') } }}
+      </p>
+    }
+  }
+
+  @if (usesCode()) {
+    <div class="nh-two-factor__field">
+      <label [for]="id + '-code'">{{ 'nh-two-factor.ui.code-label.' + method() | translate }}</label>
+      <input
+        #codeInput
+        type="text"
+        class="nh-two-factor__input nh-two-factor__input--code"
+        autocomplete="one-time-code"
+        spellcheck="false"
+        [id]="id + '-code'"
+        [attr.inputmode]="numericCode() ? 'numeric' : 'text'"
+        [value]="code()"
+        [disabled]="busy()"
+        [attr.aria-invalid]="errorKeys().length > 0 ? true : null"
+        [attr.aria-describedby]="errorKeys().length > 0 ? id + '-errors' : null"
+        (input)="code.set(value($event))" />
+    </div>
+  } @else {
+    <p class="nh-two-factor__hint">{{ 'nh-two-factor.ui.passkey-verify-instructions' | translate }}</p>
+  }
+
+  @if (offerRememberDevice()) {
+    <label class="nh-two-factor__check">
+      <input type="checkbox" [checked]="rememberDevice()" [disabled]="busy()" (change)="rememberDevice.set(checked($event))" />
+      <span>{{ 'nh-two-factor.ui.remember-device' | translate }}</span>
+    </label>
+  }
+
+  <div [id]="id + '-errors'" aria-live="assertive">
+    @if (errorKeys().length > 0) {
+      <ul class="nh-two-factor__errors" role="alert">
+        @for (key of errorKeys(); track key) {
+          <li>{{ key | translate }}</li>
+        }
+      </ul>
+    }
+  </div>
+
+  <div class="nh-two-factor__actions">
+    <button type="submit" class="nh-two-factor__button nh-two-factor__button--primary" [disabled]="busy()">
+      @if (busy()) {
+        {{ 'nh-two-factor.ui.verifying' | translate }}
+      } @else {
+        {{ (usesCode() ? 'nh-two-factor.ui.verify' : 'nh-two-factor.ui.use-passkey') | translate }}
+      }
+    </button>
+    <button type="button" class="nh-two-factor__button" [disabled]="busy()" (click)="cancelled.emit()">
+      {{ 'nh-two-factor.ui.cancel' | translate }}
+    </button>
+  </div>
+</form>

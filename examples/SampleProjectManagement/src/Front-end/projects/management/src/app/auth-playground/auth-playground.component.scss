@@ -46,3 +46,14 @@
 
 @media (max-width: 1000px) { .authorization-matrix { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 760px) { .auth-grid, .authorization-matrix, .auth-overrides { grid-template-columns: 1fr; } .auth-result, .authorization-matrix > header { grid-column: auto; } .claim-panel dl { grid-template-columns: 1fr; } }
+
+.two-factor { display: grid; gap: 10px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface-muted); }
+.two-factor legend { padding: 0 4px; font-size: 12px; font-weight: 750; }
+.two-factor > p, .pending-challenge { margin: 0; color: var(--muted); font-size: 12px; }
+.two-factor > button { display: grid; justify-items: start; height: auto; text-align: left; }
+.two-factor > button small { opacity: .84; font-size: 10px; }
+.authenticator-setup { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0; }
+.authenticator-setup img { border-radius: var(--radius-control); background: #fff; }
+.authenticator-setup figcaption { display: grid; gap: 4px; min-width: 0; font-size: 12px; }
+.authenticator-setup code { overflow-wrap: anywhere; }
+.two-factor .check { display: flex; align-items: center; gap: 8px; font-size: 12px; }

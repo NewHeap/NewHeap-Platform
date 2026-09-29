@@ -1,0 +1,30 @@
+<section class="nh-two-factor" [attr.aria-labelledby]="id + '-title'">
+  <h3 class="nh-two-factor__subtitle" [id]="id + '-title'">{{ 'nh-two-factor.ui.recovery-codes-title' | translate }}</h3>
+  <p class="nh-two-factor__text">{{ 'nh-two-factor.ui.recovery-codes-instructions' | translate }}</p>
+
+  <ul class="nh-two-factor__codes" [attr.aria-labelledby]="id + '-title'">
+    @for (code of codes(); track code) {
+      <li>{{ code }}</li>
+    }
+  </ul>
+
+  <div class="nh-two-factor__actions">
+    <button type="button" class="nh-two-factor__button" (click)="copy()">
+      {{ (copied() ? 'nh-two-factor.ui.copied' : 'nh-two-factor.ui.copy') | translate }}
+    </button>
+    <button type="button" class="nh-two-factor__button" (click)="download()">
+      {{ 'nh-two-factor.ui.download' | translate }}
+    </button>
+  </div>
+
+  <label class="nh-two-factor__check">
+    <input type="checkbox" [checked]="saved()" (change)="saved.set(checked($event))" />
+    <span>{{ 'nh-two-factor.ui.recovery-codes-saved' | translate }}</span>
+  </label>
+
+  <div class="nh-two-factor__actions">
+    <button type="button" class="nh-two-factor__button nh-two-factor__button--primary" [disabled]="!saved()" (click)="acknowledged.emit()">
+      {{ 'nh-two-factor.ui.continue' | translate }}
+    </button>
+  </div>
+</section>

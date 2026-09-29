@@ -27,11 +27,16 @@ public static class SampleDevelopmentIdentitySeeder
                 "app.project.view",
                 "app.project.manage",
                 "app.project.confidential.view",
-                SampleAuthorizationPolicies.BackgroundOperationAdministration
+                SampleAuthorizationPolicies.BackgroundOperationAdministration,
+                SampleAuthorizationPolicies.TwoFactorAdministration
             ]);
         await EnsureApplicationRoleAsync(
             roleManager,
             SampleAuthorizationDefaults.ViewerRole,
+            ["app.project.view"]);
+        await EnsureApplicationRoleAsync(
+            roleManager,
+            SampleAuthorizationDefaults.SecurityOfficerRole,
             ["app.project.view"]);
 
         var manager = await EnsureUserAsync(
@@ -46,6 +51,16 @@ public static class SampleDevelopmentIdentitySeeder
         var projectEditor = await EnsureUserAsync(
             userManager,
             SampleAuthorizationDefaults.ProjectEditorEmail);
+        var twoFactorUser = await EnsureUserAsync(
+            userManager,
+            SampleAuthorizationDefaults.TwoFactorEmail);
+        await EnsureAuthenticatorEnrollmentAsync(
+            serviceProvider,
+            userManager,
+            twoFactorUser);
+        var securityOfficer = await EnsureUserAsync(
+            userManager,
+            SampleAuthorizationDefaults.SecurityOfficerEmail);
 
         await EnsureUserRoleAsync(
             userManager,
@@ -55,6 +70,14 @@ public static class SampleDevelopmentIdentitySeeder
             userManager,
             viewer,
             SampleAuthorizationDefaults.ViewerRole);
+        await EnsureUserRoleAsync(
+            userManager,
+            twoFactorUser,
+            SampleAuthorizationDefaults.ViewerRole);
+        await EnsureUserRoleAsync(
+            userManager,
+            securityOfficer,
+            SampleAuthorizationDefaults.SecurityOfficerRole);
 
         await EnsureDivisionAsync(
             dbContext,
@@ -106,6 +129,11 @@ public static class SampleDevelopmentIdentitySeeder
             projectEditor.Id,
             SampleAuthorizationDefaults.NorthDivisionId,
             projectMemberRole.Id);
+        await EnsureDivisionAssignmentAsync(
+            dbContext,
+            twoFactorUser.Id,
+            SampleAuthorizationDefaults.NorthDivisionId,
+            projectMemberRole.Id);
 
         await SetActiveDivisionAsync(
             userManager,
@@ -122,6 +150,10 @@ public static class SampleDevelopmentIdentitySeeder
         await SetActiveDivisionAsync(
             userManager,
             projectEditor,
+            SampleAuthorizationDefaults.NorthDivisionId);
+        await SetActiveDivisionAsync(
+            userManager,
+            twoFactorUser,
             SampleAuthorizationDefaults.NorthDivisionId);
 
         await EnsureProjectAsync(
@@ -211,6 +243,35 @@ public static class SampleDevelopmentIdentitySeeder
             await userManager.CreateAsync(user, SampleAuthorizationDefaults.Password),
             $"{email} demo user");
         return user;
+    }
+
+    /// <summary>
+    /// Enrolls the two-factor demo account with a fixed Development key, so testers can add
+    /// it to an authenticator app. Real users enroll through the account endpoints.
+    /// </summary>
+    private static async Task EnsureAuthenticatorEnrollmentAsync(
+        IServiceProvider serviceProvider,
+        UserManager<NhUser> userManager,
+        NhUser user)
+    {
+        if (await userManager.GetTwoFactorEnabledAsync(user))
+        {
+            return;
+        }
+
+        if (serviceProvider.GetRequiredService<IUserStore<NhUser>>() is not IUserAuthenticatorKeyStore<NhUser> keyStore)
+        {
+            throw new InvalidOperationException("The user store does not support authenticator keys.");
+        }
+
+        await keyStore.SetAuthenticatorKeyAsync(
+            user,
+            SampleAuthorizationDefaults.TwoFactorAuthenticatorKey,
+            CancellationToken.None);
+
+        EnsureSucceeded(
+            await userManager.SetTwoFactorEnabledAsync(user, true),
+            $"{user.Email} authenticator enrollment");
     }
 
     private static async Task EnsureUserRoleAsync(
