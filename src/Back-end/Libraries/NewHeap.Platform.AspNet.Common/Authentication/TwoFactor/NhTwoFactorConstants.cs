@@ -16,6 +16,9 @@ public static class NhTwoFactorMethods
     /// <summary>A single-use code sent to the user's confirmed e-mail address.</summary>
     public const string Email = "email";
 
+    /// <summary>A WebAuthn passkey with user verification.</summary>
+    public const string Passkey = "passkey";
+
     /// <summary>Whether the method proves possession on its own, unlike a recovery code.</summary>
     public static bool IsPrimary(string method)
     {
@@ -33,6 +36,9 @@ public static class NhAuthenticationFactors
 
     /// <summary>A Microsoft OAuth sign-in. The identity provider owns its own MFA policy.</summary>
     public const string MicrosoftOAuth = "microsoft-oauth";
+
+    /// <summary>A passwordless sign-in with a passkey that verified the user.</summary>
+    public const string Passkey = "passkey";
 
     /// <summary>A refresh token that rotates an existing session.</summary>
     public const string RefreshToken = "refresh-token";
@@ -97,6 +103,8 @@ public static class NhTwoFactorFailureCodes
     public const string EmailCooldown = "two-factor-email-cooldown";
     public const string EmailUnavailable = "two-factor-email-unavailable";
     public const string UserNotFound = "two-factor-user-not-found";
+    public const string PasskeyInvalid = "two-factor-passkey-invalid";
+    public const string PasskeyNotFound = "two-factor-passkey-not-found";
 
     private const string MessageKeyPrefix = "nh-two-factor.";
     private const string CodePrefix = "two-factor-";

@@ -13,6 +13,7 @@ using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text.Json;
 using System.Text;
 
 namespace NewHeap.Platform.AspNet.Common.Services;
@@ -758,6 +759,12 @@ public class NhAuthenticationService<
             return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.ConfigurationInvalid);
         }
 
+        // A passkey needs a WebAuthn ceremony, see VerifyTwoFactorPasskeyAsync.
+        if (request.Method == NhTwoFactorMethods.Passkey)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.MethodNotAllowed);
+        }
+
         var pending = await ReadPendingStepAsync(twoFactor, request.ChallengeToken, enrollment: false);
         if (!pending.Success)
         {
@@ -766,18 +773,199 @@ public class NhAuthenticationService<
 
         var (user, challenge) = pending.Data!;
         var evaluation = await twoFactor.EvaluateAsync(user, challenge.Factor, CancellationToken.None);
-        var usableMethods = NhTwoFactorService<TUser>.UsableMethods(evaluation);
-        if (evaluation.Requirement.Required && !usableMethods.Contains(request.Method))
-        {
-            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.MethodNotAllowed);
-        }
-
-        if (!evaluation.Enrollment.Methods.Contains(request.Method))
+        if (!ChallengeMethods(evaluation).Contains(request.Method))
         {
             return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.MethodNotAllowed);
         }
 
         var check = await twoFactor.CheckCodeAsync(user, request.Method, request.Code);
+        return await CompleteSecondFactorAsync(
+            twoFactor,
+            user,
+            challenge,
+            evaluation,
+            check,
+            request.RememberDevice,
+            requiredClaims);
+    }
+
+    public virtual async Task<TaskResult<NhPasskeyOptionsResponse>> BeginTwoFactorPasskeyAsync(
+        string challengeToken,
+        HttpContext httpContext)
+    {
+        var twoFactor = TwoFactor;
+        if (twoFactor == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhPasskeyOptionsResponse>(NhTwoFactorFailureCodes.ConfigurationInvalid);
+        }
+
+        var pending = await ReadPendingStepAsync(twoFactor, challengeToken, enrollment: false);
+        if (!pending.Success)
+        {
+            return TaskResult<NhPasskeyOptionsResponse>.Failed(pending);
+        }
+
+        var (user, challenge) = pending.Data!;
+        var evaluation = await twoFactor.EvaluateAsync(user, challenge.Factor, CancellationToken.None);
+
+        return await twoFactor.BeginPasskeyAssertionAsync(user, challenge, ChallengeMethods(evaluation), httpContext);
+    }
+
+    public virtual async Task<TaskResult<NhAuthenticationResult>> VerifyTwoFactorPasskeyAsync(
+        NhTwoFactorPasskeyVerifyRequest request,
+        HttpContext httpContext,
+        IEnumerable<Claim>? requiredClaims = null)
+    {
+        var twoFactor = TwoFactor;
+        if (twoFactor == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.ConfigurationInvalid);
+        }
+
+        var pending = await ReadPendingStepAsync(twoFactor, request.ChallengeToken, enrollment: false);
+        if (!pending.Success)
+        {
+            return TaskResult<NhAuthenticationResult>.Failed(pending);
+        }
+
+        var (user, challenge) = pending.Data!;
+        var evaluation = await twoFactor.EvaluateAsync(user, challenge.Factor, CancellationToken.None);
+        if (!ChallengeMethods(evaluation).Contains(NhTwoFactorMethods.Passkey))
+        {
+            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.MethodNotAllowed);
+        }
+
+        var check = await twoFactor.CheckPasskeyAssertionAsync(
+            user,
+            challenge,
+            request.CeremonyToken,
+            CredentialJson(request.Credential),
+            httpContext);
+
+        return await CompleteSecondFactorAsync(
+            twoFactor,
+            user,
+            challenge,
+            evaluation,
+            check,
+            request.RememberDevice,
+            requiredClaims);
+    }
+
+    public virtual async Task<TaskResult<NhPasskeyOptionsResponse>> BeginPasskeySignInAsync(HttpContext httpContext)
+    {
+        var twoFactor = TwoFactor;
+        if (twoFactor == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhPasskeyOptionsResponse>(NhTwoFactorFailureCodes.ConfigurationInvalid);
+        }
+
+        return await twoFactor.BeginPasskeySignInAsync(httpContext);
+    }
+
+    public virtual async Task<TaskResult<NhAuthenticationResult>> AuthenticatePasskeyAsync(
+        NhPasskeySignInRequest request,
+        HttpContext httpContext,
+        IEnumerable<Claim>? requiredClaims = null)
+    {
+        var twoFactor = TwoFactor;
+        if (twoFactor == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.ConfigurationInvalid);
+        }
+
+        var verified = await twoFactor.VerifyPasskeySignInAsync(
+            request.CeremonyToken,
+            CredentialJson(request.Credential),
+            httpContext,
+            CancellationToken.None);
+        if (!verified.Success)
+        {
+            return TaskResult<NhAuthenticationResult>.Failed(verified);
+        }
+
+        return await CompleteFirstFactorAsync(
+            verified.Data!,
+            NhAuthenticationFactors.Passkey,
+            requiredClaims,
+            request.RememberDeviceToken);
+    }
+
+    public virtual async Task<TaskResult<NhPasskeyOptionsResponse>> BeginEnrollmentPasskeyAsync(
+        string enrollmentToken,
+        HttpContext httpContext)
+    {
+        var twoFactor = TwoFactor;
+        if (twoFactor == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhPasskeyOptionsResponse>(NhTwoFactorFailureCodes.ConfigurationInvalid);
+        }
+
+        var pending = await ReadPendingStepAsync(twoFactor, enrollmentToken, enrollment: true);
+        if (!pending.Success)
+        {
+            return TaskResult<NhPasskeyOptionsResponse>.Failed(pending);
+        }
+
+        return await twoFactor.BeginEnrollmentPasskeyAsync(pending.Data!.User, pending.Data.Ticket, httpContext);
+    }
+
+    public virtual async Task<TaskResult<NhTwoFactorEnrollmentCompletion>> ConfirmEnrollmentPasskeyAsync(
+        NhPasskeyEnrollmentRequest request,
+        HttpContext httpContext)
+    {
+        var twoFactor = TwoFactor;
+        if (twoFactor == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhTwoFactorEnrollmentCompletion>(NhTwoFactorFailureCodes.ConfigurationInvalid);
+        }
+
+        var pending = await ReadPendingStepAsync(twoFactor, request.EnrollmentToken, enrollment: true);
+        if (!pending.Success)
+        {
+            return TaskResult<NhTwoFactorEnrollmentCompletion>.Failed(pending);
+        }
+
+        var (user, enrollment) = pending.Data!;
+        var change = await twoFactor.CompleteEnrollmentPasskeyAsync(
+            user,
+            enrollment,
+            request.CeremonyToken,
+            CredentialJson(request.Credential),
+            request.Name,
+            httpContext);
+
+        return await CompleteEnrollmentAsync(user, change);
+    }
+
+    /// <summary>
+    /// Methods that can complete a challenge: the usable methods while the policy requires a
+    /// second factor, otherwise every enrolled method.
+    /// </summary>
+    private static IReadOnlyList<string> ChallengeMethods(NhTwoFactorEvaluation evaluation)
+    {
+        return evaluation.Requirement.Required
+            ? NhTwoFactorService<TUser>.UsableMethods(evaluation)
+            : evaluation.Enrollment.Methods;
+    }
+
+    private static string? CredentialJson(JsonElement credential)
+    {
+        return credential.ValueKind is JsonValueKind.Object ? credential.GetRawText() : null;
+    }
+
+    /// <summary>
+    /// Commits a checked second factor, consumes the challenge and issues the session.
+    /// </summary>
+    private async Task<TaskResult<NhAuthenticationResult>> CompleteSecondFactorAsync(
+        NhTwoFactorService<TUser> twoFactor,
+        TUser user,
+        NhTwoFactorTicket challenge,
+        NhTwoFactorEvaluation evaluation,
+        NhSecondFactorCheck check,
+        bool rememberDevice,
+        IEnumerable<Claim>? requiredClaims)
+    {
         if (!check.IsCandidate)
         {
             _logger.LogInformation("Failed second-factor attempt for user {user}", user.UserName);
@@ -808,7 +996,7 @@ public class NhAuthenticationService<
                 return TaskResult<NhAuthenticationResult>.Failed(failure);
             }
 
-            var proof = new NhAuthenticationProof(user.Id, [challenge.Factor, request.Method]);
+            var proof = new NhAuthenticationProof(user.Id, [challenge.Factor, check.Method]);
             var session = await CreateAuthenticationSessionAsync(user, proof, requiredClaims);
             if (!session.Success)
             {
@@ -819,7 +1007,7 @@ public class NhAuthenticationService<
             await transaction.CommitAsync();
 
             string? rememberDeviceToken = null;
-            if (request.RememberDevice
+            if (rememberDevice
                 && twoFactor.Configuration.RememberDeviceEnabled
                 && evaluation.Requirement.AllowRememberDevice)
             {

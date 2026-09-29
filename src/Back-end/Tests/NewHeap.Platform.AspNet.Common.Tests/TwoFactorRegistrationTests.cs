@@ -10,7 +10,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
@@ -23,6 +25,7 @@ using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Identity.Claims;
+using System.Globalization;
 using System.Security.Claims;
 using Xunit;
 
@@ -160,6 +163,141 @@ public sealed class TwoFactorRegistrationTests
         Assert.Contains("AddAuthentication", exception.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task PasskeysConfigureIdentityAndMapTheirEndpoints()
+    {
+        using var application = BuildApplication<PasskeyRegistrationDbContext>(EnablePasskeys);
+        using var scope = application.Services.CreateScope();
+
+        Assert.IsType<PasskeyHandler<NhUser>>(scope.ServiceProvider.GetRequiredService<IPasskeyHandler<NhUser>>());
+
+        var options = scope.ServiceProvider.GetRequiredService<IOptions<IdentityPasskeyOptions>>().Value;
+        Assert.Equal("app.example.test", options.ServerDomain);
+        Assert.Equal("required", options.UserVerificationRequirement);
+        Assert.Equal("required", options.ResidentKeyRequirement);
+        Assert.True(await options.ValidateOrigin!(new PasskeyOriginValidationContext
+        {
+            HttpContext = new DefaultHttpContext(),
+            Origin = "https://app.example.test",
+            CrossOrigin = false,
+        }));
+        Assert.False(await options.ValidateOrigin!(new PasskeyOriginValidationContext
+        {
+            HttpContext = new DefaultHttpContext(),
+            Origin = "https://other.example.test",
+            CrossOrigin = false,
+        }));
+        Assert.False(await options.ValidateOrigin!(new PasskeyOriginValidationContext
+        {
+            HttpContext = new DefaultHttpContext(),
+            Origin = "https://app.example.test",
+            CrossOrigin = true,
+        }));
+
+        await GetStartupValidator(application).StartAsync(CancellationToken.None);
+
+        application.UseRouting();
+        CreateEndpointBuilder()
+            .AddTwoFactorEndpoints()
+            .AddPasskeyEndpoints()
+            .Build(application, application.Services);
+
+        var endpoints = ((IEndpointRouteBuilder)application).DataSources
+            .SelectMany(source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .ToDictionary(endpoint => endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()!.HttpMethods.Single() + " " +
+                endpoint.RoutePattern.RawText!.TrimStart('/'));
+
+        foreach (var pattern in new[]
+                 {
+                     "POST authentication/passkey/options",
+                     "POST authentication/passkey/login",
+                     "POST authentication/two-factor/passkey/options",
+                     "POST authentication/two-factor/passkey",
+                     "POST authentication/two-factor/enrollment/passkey/options",
+                     "POST authentication/two-factor/enrollment/passkey",
+                 })
+        {
+            Assert.NotNull(endpoints[pattern].Metadata.GetMetadata<IAllowAnonymous>());
+        }
+
+        foreach (var pattern in new[]
+                 {
+                     "GET account/passkeys",
+                     "POST account/passkeys/options",
+                     "POST account/passkeys",
+                     "PUT account/passkeys/{passkeyId}",
+                     "POST account/passkeys/{passkeyId}/remove",
+                 })
+        {
+            var authorizeData = endpoints[pattern].Metadata.GetOrderedMetadata<IAuthorizeData>();
+            Assert.Contains(authorizeData, data => data.AuthenticationSchemes == JwtBearerDefaults.AuthenticationScheme);
+        }
+    }
+
+    [Fact]
+    public async Task StartupFailsWhenPasskeysMissTheIdentityTable()
+    {
+        using var application = BuildApplication(EnablePasskeys);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => GetStartupValidator(application).StartAsync(CancellationToken.None));
+
+        Assert.Contains("IncludeIdentityPasskeys", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(RegistrationDbContext), exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MappingPasskeyEndpointsWithoutEnablingPasskeysExplainsTheMissingFeature()
+    {
+        using var application = BuildApplication(EnableTwoFactor);
+        application.UseRouting();
+
+        var exception = Assert.Throws<InvalidOperationException>(() => CreateEndpointBuilder()
+            .AddPasskeyEndpoints()
+            .Build(application, application.Services));
+
+        Assert.Contains(nameof(NhPasskeySignInOptionsHandler), exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TwoFactorMessagesAreTranslatedToDutch()
+    {
+        using var application = BuildApplication(EnableTwoFactor);
+        using var scope = application.Services.CreateScope();
+        var localizer = scope.ServiceProvider.GetRequiredService<IStringLocalizer<NhTwoFactorMessages>>();
+
+        var previousCulture = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = new CultureInfo("nl-NL");
+        try
+        {
+            var title = localizer["Passkey added"];
+            Assert.False(title.ResourceNotFound);
+            Assert.Equal("Passkey toegevoegd", title.Value);
+
+            var message = localizer["A recovery code was used to sign in to your account. {0} codes are left.", 3];
+            Assert.Contains("nog 3 codes", message.Value, StringComparison.Ordinal);
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
+    }
+
+    private static void EnablePasskeys(
+        NhAuthenticationBuilder<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole,
+            NhDivisionRoleClaim, NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel> authentication)
+    {
+        authentication.AddTwoFactor(twoFactor => twoFactor
+            .EnableAuthenticator()
+            .EnableRecoveryCodes()
+            .EnablePasskeys(passkeys =>
+            {
+                passkeys.ServerDomain = "app.example.test";
+                passkeys.AllowedOrigins.Add("https://app.example.test/");
+            }));
+    }
+
     private static void EnableTwoFactor(
         NhAuthenticationBuilder<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole,
             NhDivisionRoleClaim, NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel> authentication)
@@ -186,6 +324,14 @@ public sealed class TwoFactorRegistrationTests
     private static WebApplication BuildApplication(
         Action<NhAuthenticationBuilder<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole,
             NhDivisionRoleClaim, NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>> configure)
+    {
+        return BuildApplication<RegistrationDbContext>(configure);
+    }
+
+    private static WebApplication BuildApplication<TDbContext>(
+        Action<NhAuthenticationBuilder<NhUser, NhDivision, NhDivisionUser, NhDivisionRole, NhDivisionUserRole,
+            NhDivisionRoleClaim, NhUserViewModel<NhDivisionViewModel>, NhDivisionViewModel, NhClaimViewModel>> configure)
+        where TDbContext : NhIdentityDbContext
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -216,7 +362,7 @@ public sealed class TwoFactorRegistrationTests
                 NhLogFile,
                 NhLogMessageTranslated,
                 NhDbLogService,
-                RegistrationDbContext,
+                TDbContext,
                 NhUserManager,
                 NhDivisionService,
                 NhDivisionMutateModel,
@@ -232,6 +378,12 @@ public sealed class TwoFactorRegistrationTests
 
     private sealed class RegistrationDbContext(DbContextOptions<RegistrationDbContext> options)
         : NhIdentityDbContext(options);
+
+    private sealed class PasskeyRegistrationDbContext(DbContextOptions<PasskeyRegistrationDbContext> options)
+        : NhIdentityDbContext(options)
+    {
+        protected override bool IncludeIdentityPasskeys => true;
+    }
 
     /// <summary>
     /// A consumer service that still calls the constructor without the two-factor context.

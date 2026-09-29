@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.Common.Models;
@@ -57,6 +58,45 @@ public interface INhMultiFactorAuthenticationService
     /// Confirms the e-mail factor during a required enrollment and issues the session.
     /// </summary>
     Task<TaskResult<NhTwoFactorEnrollmentCompletion>> ConfirmEnrollmentEmailAsync(string enrollmentToken, string code);
+
+    /// <summary>
+    /// Creates passkey creation options during a required enrollment.
+    /// </summary>
+    Task<TaskResult<NhPasskeyOptionsResponse>> BeginEnrollmentPasskeyAsync(string enrollmentToken, HttpContext httpContext);
+
+    /// <summary>
+    /// Registers a passkey during a required enrollment and issues the session.
+    /// </summary>
+    Task<TaskResult<NhTwoFactorEnrollmentCompletion>> ConfirmEnrollmentPasskeyAsync(
+        NhPasskeyEnrollmentRequest request,
+        HttpContext httpContext);
+
+    /// <summary>
+    /// Creates passkey request options for a pending second-factor challenge.
+    /// </summary>
+    Task<TaskResult<NhPasskeyOptionsResponse>> BeginTwoFactorPasskeyAsync(string challengeToken, HttpContext httpContext);
+
+    /// <summary>
+    /// Completes a second-factor challenge with a passkey and returns the session.
+    /// </summary>
+    Task<TaskResult<NhAuthenticationResult>> VerifyTwoFactorPasskeyAsync(
+        NhTwoFactorPasskeyVerifyRequest request,
+        HttpContext httpContext,
+        IEnumerable<Claim>? requiredClaims = null);
+
+    /// <summary>
+    /// Creates request options for a passwordless sign-in with a discoverable passkey.
+    /// </summary>
+    Task<TaskResult<NhPasskeyOptionsResponse>> BeginPasskeySignInAsync(HttpContext httpContext);
+
+    /// <summary>
+    /// Signs in with a passkey and returns a session, or a pending step when the two-factor
+    /// policy asks for more.
+    /// </summary>
+    Task<TaskResult<NhAuthenticationResult>> AuthenticatePasskeyAsync(
+        NhPasskeySignInRequest request,
+        HttpContext httpContext,
+        IEnumerable<Claim>? requiredClaims = null);
 
     /// <summary>
     /// Completes a sign-in that an external identity provider verified and returns a session

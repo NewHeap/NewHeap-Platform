@@ -9,11 +9,17 @@ internal static class NhTwoFactorTicketPurposes
     internal const string Challenge = "challenge";
     internal const string Enrollment = "enrollment";
     internal const string RememberDevice = "remember-device";
+    internal const string PasskeyRegistration = "passkey-registration";
+    internal const string PasskeyEnrollment = "passkey-enrollment";
+    internal const string PasskeyAssertion = "passkey-assertion";
+    internal const string PasskeySignIn = "passkey-sign-in";
 }
 
 /// <summary>
 /// Content of a protected two-factor ticket. The security stamp binds the ticket to the
-/// account state; any credential change invalidates outstanding tickets.
+/// account state; any credential change invalidates outstanding tickets. Passkey ceremony
+/// tickets carry the WebAuthn ceremony state in <see cref="State"/>, so no server-side
+/// session or Identity cookie is needed between the options and the response.
 /// </summary>
 internal sealed record NhTwoFactorTicket(
     Guid UserId,
@@ -21,7 +27,8 @@ internal sealed record NhTwoFactorTicket(
     string Purpose,
     string Factor,
     string Nonce,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    string? State = null);
 
 /// <summary>
 /// Protects two-factor tickets with ASP.NET Core Data Protection. Every purpose uses its

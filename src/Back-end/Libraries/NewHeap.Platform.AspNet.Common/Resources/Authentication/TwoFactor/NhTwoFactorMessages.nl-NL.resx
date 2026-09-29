@@ -1,0 +1,204 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Your sign-in code" xml:space="preserve">
+    <value>Je aanmeldcode</value>
+  </data>
+  <data name="Your sign-in code is {0}. It expires in {1} minutes. If you did not try to sign in, change your password." xml:space="preserve">
+    <value>Je aanmeldcode is {0}. De code verloopt over {1} minuten. Probeerde je niet aan te melden? Wijzig dan je wachtwoord.</value>
+  </data>
+  <data name="Confirm your e-mail address" xml:space="preserve">
+    <value>Bevestig je e-mailadres</value>
+  </data>
+  <data name="Your confirmation code is {0}. It expires in {1} minutes." xml:space="preserve">
+    <value>Je bevestigingscode is {0}. De code verloopt over {1} minuten.</value>
+  </data>
+  <data name="Two-factor authentication enabled" xml:space="preserve">
+    <value>Tweestapsverificatie aangezet</value>
+  </data>
+  <data name="Two-factor authentication was enabled on your account. Your other sessions were signed out." xml:space="preserve">
+    <value>Tweestapsverificatie is aangezet voor je account. Je andere sessies zijn afgemeld.</value>
+  </data>
+  <data name="Two-factor authentication disabled" xml:space="preserve">
+    <value>Tweestapsverificatie uitgezet</value>
+  </data>
+  <data name="Two-factor authentication was disabled on your account. If this was not you, change your password now." xml:space="preserve">
+    <value>Tweestapsverificatie is uitgezet voor je account. Was jij dit niet? Wijzig dan nu je wachtwoord.</value>
+  </data>
+  <data name="Authenticator app changed" xml:space="preserve">
+    <value>Authenticator-app gewijzigd</value>
+  </data>
+  <data name="A new authenticator app was linked to your account. If this was not you, change your password now." xml:space="preserve">
+    <value>Er is een nieuwe authenticator-app aan je account gekoppeld. Was jij dit niet? Wijzig dan nu je wachtwoord.</value>
+  </data>
+  <data name="New recovery codes" xml:space="preserve">
+    <value>Nieuwe herstelcodes</value>
+  </data>
+  <data name="New recovery codes were created for your account. The previous codes no longer work." xml:space="preserve">
+    <value>Er zijn nieuwe herstelcodes voor je account gemaakt. De vorige codes werken niet meer.</value>
+  </data>
+  <data name="Recovery code used" xml:space="preserve">
+    <value>Herstelcode gebruikt</value>
+  </data>
+  <data name="A recovery code was used to sign in to your account. {0} codes are left." xml:space="preserve">
+    <value>Er is een herstelcode gebruikt om aan te melden op je account. Er zijn nog {0} codes over.</value>
+  </data>
+  <data name="E-mail codes enabled" xml:space="preserve">
+    <value>E-mailcodes aangezet</value>
+  </data>
+  <data name="Sign-in codes can now be sent to this e-mail address." xml:space="preserve">
+    <value>Aanmeldcodes kunnen nu naar dit e-mailadres worden gestuurd.</value>
+  </data>
+  <data name="Sign-in blocked" xml:space="preserve">
+    <value>Aanmelden geblokkeerd</value>
+  </data>
+  <data name="Your account was temporarily locked after too many invalid codes. If this was not you, change your password." xml:space="preserve">
+    <value>Je account is tijdelijk geblokkeerd na te veel ongeldige codes. Was jij dit niet? Wijzig dan je wachtwoord.</value>
+  </data>
+  <data name="Two-factor authentication reset" xml:space="preserve">
+    <value>Tweestapsverificatie gereset</value>
+  </data>
+  <data name="An administrator reset two-factor authentication on your account. Set it up again when you next sign in." xml:space="preserve">
+    <value>Een beheerder heeft tweestapsverificatie voor je account gereset. Stel het opnieuw in wanneer je je weer aanmeldt.</value>
+  </data>
+  <data name="Remembered devices forgotten" xml:space="preserve">
+    <value>Onthouden apparaten vergeten</value>
+  </data>
+  <data name="Every device will ask for your second factor again." xml:space="preserve">
+    <value>Elk apparaat vraagt weer om je tweede stap.</value>
+  </data>
+  <data name="Set up two-factor authentication" xml:space="preserve">
+    <value>Stel tweestapsverificatie in</value>
+  </data>
+  <data name="Your organization requires two-factor authentication for your account. You will set it up when you next sign in." xml:space="preserve">
+    <value>Je organisatie vereist tweestapsverificatie voor je account. Je stelt het in wanneer je je weer aanmeldt.</value>
+  </data>
+  <data name="Passkey added" xml:space="preserve">
+    <value>Passkey toegevoegd</value>
+  </data>
+  <data name="A passkey was added to your account. If this was not you, change your password now." xml:space="preserve">
+    <value>Er is een passkey aan je account toegevoegd. Was jij dit niet? Wijzig dan nu je wachtwoord.</value>
+  </data>
+  <data name="Passkey removed" xml:space="preserve">
+    <value>Passkey verwijderd</value>
+  </data>
+  <data name="A passkey was removed from your account." xml:space="preserve">
+    <value>Er is een passkey van je account verwijderd.</value>
+  </data>
+</root>

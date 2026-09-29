@@ -1,5 +1,6 @@
 using NewHeap.Platform.AspNet.Common.Models;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
@@ -240,6 +241,9 @@ public sealed class NhTwoFactorStatusViewModel
     public int RecoveryCodesLeft { get; init; }
 
     public bool AuthenticatorSetupPending { get; init; }
+
+    /// <summary>Number of registered passkeys.</summary>
+    public int PasskeyCount { get; init; }
 }
 
 /// <summary>
@@ -268,4 +272,122 @@ public sealed class NhTwoFactorChangeResponse
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UserToken? Session { get; init; }
+}
+
+/// <summary>
+/// WebAuthn options for a passkey ceremony. Pass <see cref="Options"/> to
+/// <c>PublicKeyCredential.parseCreationOptionsFromJSON</c> or
+/// <c>parseRequestOptionsFromJSON</c> and send the result back with <see cref="CeremonyToken"/>.
+/// </summary>
+public sealed class NhPasskeyOptionsResponse
+{
+    /// <summary>The WebAuthn creation or request options in their JSON form.</summary>
+    public required JsonElement Options { get; init; }
+
+    /// <summary>Opaque, short-lived token that carries the ceremony state.</summary>
+    public required string CeremonyToken { get; init; }
+
+    public required DateTimeOffset ExpiresAt { get; init; }
+}
+
+/// <summary>
+/// Registers a passkey for the signed-in user.
+/// </summary>
+public sealed class NhPasskeyRegistrationRequest
+{
+    [Required]
+    public string CeremonyToken { get; init; } = string.Empty;
+
+    /// <summary>The <c>PublicKeyCredential</c> in its JSON form (<c>credential.toJSON()</c>).</summary>
+    [Required]
+    public JsonElement Credential { get; init; }
+
+    /// <summary>A name that helps the user recognize the passkey later.</summary>
+    [MaxLength(NhPasskeyViewModel.MaxNameLength)]
+    public string? Name { get; init; }
+}
+
+/// <summary>
+/// Registers a passkey during a pending enrollment.
+/// </summary>
+public sealed class NhPasskeyEnrollmentRequest
+{
+    [Required]
+    public string EnrollmentToken { get; init; } = string.Empty;
+
+    [Required]
+    public string CeremonyToken { get; init; } = string.Empty;
+
+    /// <summary>The <c>PublicKeyCredential</c> in its JSON form (<c>credential.toJSON()</c>).</summary>
+    [Required]
+    public JsonElement Credential { get; init; }
+
+    [MaxLength(NhPasskeyViewModel.MaxNameLength)]
+    public string? Name { get; init; }
+}
+
+/// <summary>
+/// Completes a pending second-factor challenge with a passkey.
+/// </summary>
+public sealed class NhTwoFactorPasskeyVerifyRequest
+{
+    [Required]
+    public string ChallengeToken { get; init; } = string.Empty;
+
+    [Required]
+    public string CeremonyToken { get; init; } = string.Empty;
+
+    /// <summary>The <c>PublicKeyCredential</c> in its JSON form (<c>credential.toJSON()</c>).</summary>
+    [Required]
+    public JsonElement Credential { get; init; }
+
+    /// <summary>Whether to skip the second factor on this device for later sign-ins.</summary>
+    public bool RememberDevice { get; init; }
+}
+
+/// <summary>
+/// Signs in without a password with a discoverable passkey.
+/// </summary>
+public sealed class NhPasskeySignInRequest
+{
+    [Required]
+    public string CeremonyToken { get; init; } = string.Empty;
+
+    /// <summary>The <c>PublicKeyCredential</c> in its JSON form (<c>credential.toJSON()</c>).</summary>
+    [Required]
+    public JsonElement Credential { get; init; }
+
+    /// <summary>A remember-device token for clients that send the <c>Authorization</c> header.</summary>
+    public string? RememberDeviceToken { get; init; }
+}
+
+/// <summary>
+/// Renames a passkey of the signed-in user.
+/// </summary>
+public sealed class NhPasskeyRenameRequest
+{
+    [Required]
+    [MaxLength(NhPasskeyViewModel.MaxNameLength)]
+    public string Name { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// A registered passkey. The public key and attestation data are never returned.
+/// </summary>
+public sealed class NhPasskeyViewModel
+{
+    internal const int MaxNameLength = 100;
+
+    /// <summary>The credential ID, base64url encoded.</summary>
+    public required string Id { get; init; }
+
+    public required string Name { get; init; }
+
+    public required DateTimeOffset CreatedAt { get; init; }
+
+    /// <summary>Whether the passkey is synced by a passkey provider, such as a password manager.</summary>
+    public bool IsBackedUp { get; init; }
+
+    /// <summary>Transport hints reported by the authenticator, such as <c>internal</c> or <c>usb</c>.</summary>
+    public IReadOnlyList<string> Transports { get; init; } = [];
 }

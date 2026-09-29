@@ -151,6 +151,37 @@ public class NhAuthenticationConfigurationBuilder<
         UseAuthenticationEndpoint<NhTwoFactorSessionRevocationEndpointHandler<TUser>>();
         return this;
     }
+
+    /// <summary>
+    /// Maps the passkey endpoints: passwordless sign-in, passkeys as a second factor, required
+    /// enrollment with a passkey and passkey management for the signed-in user. Requires
+    /// <c>EnablePasskeys()</c> in <c>AddTwoFactor(...)</c>.
+    /// </summary>
+    public NhAuthenticationConfigurationBuilder<
+        TUser,
+        TDivision,
+        TDivisionUser,
+        TDivisionRole,
+        TDivisionUserRole,
+        TDivisionRoleClaim,
+        TUserViewModel,
+        TDivisionViewModel,
+        TClaimViewModel
+    > AddPasskeyEndpoints()
+    {
+        UseAuthenticationEndpoint<NhPasskeySignInOptionsHandler>();
+        UseAuthenticationEndpoint<NhPasskeySignInHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorPasskeyOptionsHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorPasskeyVerifyHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentPasskeyOptionsHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentPasskeyHandler>();
+        UseAuthenticationEndpoint<NhPasskeysEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhPasskeyRegistrationOptionsEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhPasskeyRegistrationEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhPasskeyRenameEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhPasskeyRemoveEndpointHandler<TUser>>();
+        return this;
+    }
     
     /// <summary>
     /// Remove an endpoint

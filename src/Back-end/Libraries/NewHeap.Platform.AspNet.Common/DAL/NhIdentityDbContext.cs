@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
@@ -92,9 +93,36 @@ public abstract partial class NhIdentityDbContext<
     public DbSet<NhBackgroundOperationIdempotencyRecord> BackgroundOperationIdempotencyRecords { get; set; }
     public DbSet<NhBackgroundOperationLease> BackgroundOperationLeases { get; set; }
 
+    /// <summary>
+    /// Whether the model includes the ASP.NET Core Identity passkey table
+    /// (<c>AspNetUserPasskeys</c>), which two-factor passkeys need. Override it to return
+    /// <see langword="true"/> and add a migration: it adds only the passkey table and leaves
+    /// the existing Identity columns unchanged. A model that already maps passkeys, for
+    /// example through Identity schema version 3, is left as it is.
+    /// </summary>
+    protected virtual bool IncludeIdentityPasskeys => false;
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        if (IncludeIdentityPasskeys && builder.Model.FindEntityType(typeof(IdentityUserPasskey<Guid>)) == null)
+        {
+            // Same mapping as Identity schema version 3, without its other column changes.
+            builder.Entity<TUser>()
+                .HasMany<IdentityUserPasskey<Guid>>()
+                .WithOne()
+                .HasForeignKey(passkey => passkey.UserId)
+                .IsRequired();
+
+            builder.Entity<IdentityUserPasskey<Guid>>(entity =>
+            {
+                entity.HasKey(passkey => passkey.CredentialId);
+                entity.ToTable("AspNetUserPasskeys");
+                entity.Property(passkey => passkey.CredentialId).HasMaxLength(1024);
+                entity.OwnsOne(passkey => passkey.Data).ToJson();
+            });
+        }
 
         #region User
 

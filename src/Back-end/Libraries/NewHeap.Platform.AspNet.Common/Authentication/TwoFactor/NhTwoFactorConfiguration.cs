@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Identity;
+
 namespace NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 
 /// <summary>
@@ -37,6 +39,20 @@ public sealed class NhTwoFactorConfiguration
     /// usually also resets the password, so it is not accepted for required users by default.
     /// </summary>
     public bool EmailSatisfiesRequirement { get; internal set; }
+
+    public bool PasskeysEnabled { get; internal set; }
+
+    /// <summary>
+    /// Whether a passwordless passkey sign-in satisfies the two-factor requirement on its
+    /// own. A passkey with user verification proves possession and knowledge or biometrics.
+    /// </summary>
+    public bool PasskeySatisfiesRequirement { get; internal set; } = true;
+
+    /// <summary>The WebAuthn relying-party ID, usually the domain of the frontend.</summary>
+    public string? PasskeyServerDomain { get; internal set; }
+
+    /// <summary>Frontend origins allowed to create and use passkeys.</summary>
+    public IReadOnlyList<string> PasskeyAllowedOrigins { get; internal set; } = [];
 
     public bool SecurityNotificationsEnabled { get; internal set; }
 
@@ -96,6 +112,11 @@ public sealed class NhTwoFactorConfiguration
                 methods.Add(NhTwoFactorMethods.Email);
             }
 
+            if (PasskeysEnabled)
+            {
+                methods.Add(NhTwoFactorMethods.Passkey);
+            }
+
             if (RecoveryCodesEnabled)
             {
                 methods.Add(NhTwoFactorMethods.RecoveryCode);
@@ -145,7 +166,36 @@ public sealed class NhTwoFactorConfiguration
             methods.Add(NhTwoFactorMethods.Email);
         }
 
+        if (PasskeysEnabled)
+        {
+            methods.Add(NhTwoFactorMethods.Passkey);
+        }
+
         return methods;
+    }
+
+    /// <summary>
+    /// Applies the passkey settings to the Identity passkey options. Passkeys must verify the
+    /// user, so they count as a second factor, and must be discoverable, so they work for
+    /// sign-in without a username.
+    /// </summary>
+    internal void ConfigurePasskeyOptions(IdentityPasskeyOptions options)
+    {
+        if (PasskeyServerDomain != null)
+        {
+            options.ServerDomain = PasskeyServerDomain;
+        }
+
+        options.UserVerificationRequirement = "required";
+        options.ResidentKeyRequirement = "required";
+
+        if (PasskeyAllowedOrigins.Count > 0)
+        {
+            var allowedOrigins = PasskeyAllowedOrigins;
+            options.ValidateOrigin = context => ValueTask.FromResult(
+                !context.CrossOrigin
+                && allowedOrigins.Contains(context.Origin, StringComparer.OrdinalIgnoreCase));
+        }
     }
 
     internal static NhTwoFactorConfiguration Disabled()
@@ -160,16 +210,21 @@ public sealed class NhTwoFactorConfiguration
             return;
         }
 
-        if (!AuthenticatorEnabled && !EmailCodesEnabled)
+        if (!AuthenticatorEnabled && !EmailCodesEnabled && !PasskeysEnabled)
         {
             throw new InvalidOperationException(
-                "Two-factor authentication needs at least one enrollable method. Call EnableAuthenticator() or EnableEmailCodes().");
+                "Two-factor authentication needs at least one enrollable method. Call EnableAuthenticator(), EnableEmailCodes() or EnablePasskeys().");
         }
 
-        if (HasRequirements && !AuthenticatorEnabled && !EmailSatisfiesRequirement)
+        if (HasRequirements && !AuthenticatorEnabled && !PasskeysEnabled && !EmailSatisfiesRequirement)
         {
             throw new InvalidOperationException(
-                "A required second factor needs an enrollable method that satisfies it. Call EnableAuthenticator() or allow e-mail codes for required users.");
+                "A required second factor needs an enrollable method that satisfies it. Call EnableAuthenticator(), EnablePasskeys() or allow e-mail codes for required users.");
+        }
+
+        if (PasskeysEnabled && PasskeyAllowedOrigins.Any(origin => !Uri.TryCreate(origin, UriKind.Absolute, out _)))
+        {
+            throw new InvalidOperationException("Every allowed passkey origin must be an absolute origin such as https://app.example.com.");
         }
 
         if (RecoveryCodeCount is < 1 or > 50)
@@ -240,6 +295,34 @@ public sealed class NhEmailCodeOptions
     /// off when the same mailbox can reset the password.
     /// </summary>
     public bool SatisfiesRequirement { get; set; }
+}
+
+/// <summary>
+/// Options for WebAuthn passkeys.
+/// </summary>
+public sealed class NhPasskeyOptions
+{
+    internal NhPasskeyOptions()
+    {
+    }
+
+    /// <summary>
+    /// The relying-party ID: the domain of the frontend, or a registrable suffix of it such
+    /// as <c>example.com</c>. Defaults to the host of the request.
+    /// </summary>
+    public string? ServerDomain { get; set; }
+
+    /// <summary>
+    /// Frontend origins, such as <c>https://app.example.com</c>, that may create and use
+    /// passkeys. Required when the frontend and the API have different origins.
+    /// </summary>
+    public List<string> AllowedOrigins { get; } = [];
+
+    /// <summary>
+    /// Whether a passwordless passkey sign-in satisfies the two-factor requirement. The
+    /// passkey itself requires user verification, so this is on by default.
+    /// </summary>
+    public bool SatisfiesRequirement { get; set; } = true;
 }
 
 /// <summary>
@@ -359,6 +442,27 @@ public sealed class NhTwoFactorBuilder
         Configuration.EmailCodeLifetime = options.CodeLifetime;
         Configuration.EmailCodeResendCooldown = options.ResendCooldown;
         Configuration.EmailSatisfiesRequirement = options.SatisfiesRequirement;
+        return this;
+    }
+
+    /// <summary>
+    /// Lets users register WebAuthn passkeys, which work as a second factor and for
+    /// passwordless sign-in. Requires <c>IncludeIdentityPasskeys</c> on the application's
+    /// <c>NhIdentityDbContext</c> and a migration that adds the passkey table.
+    /// </summary>
+    public NhTwoFactorBuilder EnablePasskeys(Action<NhPasskeyOptions>? configure = null)
+    {
+        var options = new NhPasskeyOptions();
+        configure?.Invoke(options);
+
+        Configuration.PasskeysEnabled = true;
+        Configuration.PasskeyServerDomain = string.IsNullOrWhiteSpace(options.ServerDomain) ? null : options.ServerDomain.Trim();
+        Configuration.PasskeyAllowedOrigins = options.AllowedOrigins
+            .Select(origin => origin.Trim().TrimEnd('/'))
+            .Where(origin => origin.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        Configuration.PasskeySatisfiesRequirement = options.SatisfiesRequirement;
         return this;
     }
 

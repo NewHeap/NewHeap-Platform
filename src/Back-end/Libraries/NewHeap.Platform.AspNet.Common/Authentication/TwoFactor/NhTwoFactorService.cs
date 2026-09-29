@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
@@ -111,6 +112,51 @@ public interface INhTwoFactorService<TUser>
         string method,
         string code,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Returns the user's registered passkeys.</summary>
+    Task<IReadOnlyList<NhPasskeyViewModel>> GetPasskeysAsync(TUser user, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates WebAuthn creation options for a new passkey. Requires reauthentication while
+    /// two-factor authentication is enabled.
+    /// </summary>
+    Task<TaskResult<NhPasskeyOptionsResponse>> BeginPasskeyRegistrationAsync(
+        TUser user,
+        NhTwoFactorReauthentication? reauthentication,
+        HttpContext httpContext,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Verifies the authenticator's attestation, stores the passkey, enables two-factor
+    /// authentication and ends every session of the user.
+    /// </summary>
+    Task<TaskResult<NhTwoFactorChangeResult>> CompletePasskeyRegistrationAsync(
+        TUser user,
+        string ceremonyToken,
+        string credentialJson,
+        string? name,
+        HttpContext httpContext,
+        Guid? committedByUserId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Renames a passkey.</summary>
+    Task<TaskResult> RenamePasskeyAsync(
+        TUser user,
+        string passkeyId,
+        string name,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a passkey and ends every session of the user. Requires reauthentication.
+    /// Removing the last second factor disables two-factor authentication, which fails when
+    /// the policy requires a second factor.
+    /// </summary>
+    Task<TaskResult<NhTwoFactorChangeResult>> RemovePasskeyAsync(
+        TUser user,
+        string passkeyId,
+        NhTwoFactorReauthentication? reauthentication,
+        Guid? committedByUserId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -123,13 +169,15 @@ public sealed class NhTwoFactorEnrollment
         IReadOnlyList<string> methods,
         int recoveryCodesLeft,
         bool authenticatorSetupPending,
-        bool emailSetupPending)
+        bool emailSetupPending,
+        int passkeyCount = 0)
     {
         IsEnrolled = isEnrolled;
         Methods = methods;
         RecoveryCodesLeft = recoveryCodesLeft;
         AuthenticatorSetupPending = authenticatorSetupPending;
         EmailSetupPending = emailSetupPending;
+        PasskeyCount = passkeyCount;
     }
 
     public bool IsEnrolled { get; }
@@ -137,6 +185,7 @@ public sealed class NhTwoFactorEnrollment
     public int RecoveryCodesLeft { get; }
     public bool AuthenticatorSetupPending { get; }
     public bool EmailSetupPending { get; }
+    public int PasskeyCount { get; }
 }
 
 /// <summary>
@@ -163,9 +212,10 @@ public sealed class NhTwoFactorChangeResult
 /// <summary>
 /// Default two-factor implementation built on ASP.NET Core Identity storage. Keys, recovery
 /// codes, e-mail codes and replay state live in the Identity user-token table, so no schema
-/// change is needed.
+/// change is needed. Passkeys use the Identity passkey table, see
+/// <c>NhIdentityDbContext.IncludeIdentityPasskeys</c>.
 /// </summary>
-public class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
+public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
     where TUser : IdentityUser<Guid>
 {
     private const string LoginProvider = NhAuthenticationSessionDefaults.LoginProvider;
@@ -188,6 +238,7 @@ public class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
     private readonly INhTwoFactorMessageComposer _messageComposer;
     private readonly INhNotificationService? _notificationService;
     private readonly ILogger<NhTwoFactorService<TUser>> _logger;
+    private readonly IPasskeyHandler<TUser>? _passkeyHandler;
 
     internal NhTwoFactorService(
         UserManager<TUser> userManager,
@@ -202,7 +253,8 @@ public class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
         TimeProvider timeProvider,
         INhTwoFactorMessageComposer messageComposer,
         INhNotificationService? notificationService,
-        ILogger<NhTwoFactorService<TUser>> logger)
+        ILogger<NhTwoFactorService<TUser>> logger,
+        IPasskeyHandler<TUser>? passkeyHandler = null)
     {
         _userManager = userManager;
         _nhUserManager = nhUserManager;
@@ -217,6 +269,7 @@ public class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
         _messageComposer = messageComposer;
         _notificationService = notificationService;
         _logger = logger;
+        _passkeyHandler = passkeyHandler;
     }
 
     internal NhTwoFactorConfiguration Configuration => _configuration;
@@ -230,6 +283,7 @@ public class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
             && !string.IsNullOrEmpty(await _userManager.GetAuthenticatorKeyAsync(user));
         var hasEmail = _configuration.EmailCodesEnabled
             && await HasConfirmedEmailFactorAsync(user);
+        var passkeyCount = await CountPasskeysAsync(user);
 
         var recoveryCodesLeft = 0;
         if (_configuration.RecoveryCodesEnabled)
@@ -256,6 +310,11 @@ public class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
             methods.Add(NhTwoFactorMethods.Email);
         }
 
+        if (enabled && passkeyCount > 0)
+        {
+            methods.Add(NhTwoFactorMethods.Passkey);
+        }
+
         var isEnrolled = methods.Count > 0;
         if (isEnrolled && recoveryCodesLeft > 0)
         {
@@ -267,7 +326,8 @@ public class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
             methods,
             recoveryCodesLeft,
             !string.IsNullOrEmpty(pendingKey),
-            emailSetupPending);
+            emailSetupPending,
+            passkeyCount);
     }
 
     public virtual async Task<NhTwoFactorRequirement> EvaluatePolicyAsync(
@@ -295,6 +355,7 @@ public class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
             RecoveryCodesLeft = enrollment.RecoveryCodesLeft,
             AuthenticatorSetupPending = enrollment.AuthenticatorSetupPending,
             EmailSetupPending = enrollment.EmailSetupPending,
+            PasskeyCount = enrollment.PasskeyCount,
             RememberDeviceAvailable = _configuration.RememberDeviceEnabled && evaluation.Requirement.AllowRememberDevice,
         };
     }
@@ -658,7 +719,7 @@ public class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
         CancellationToken cancellationToken = default)
     {
         var enrollment = await GetEnrollmentAsync(user, cancellationToken);
-        if (!enrollment.Methods.Contains(method))
+        if (!enrollment.Methods.Contains(method) || method == NhTwoFactorMethods.Passkey)
         {
             return NhTwoFactorFailureCodes.Fail(NhTwoFactorFailureCodes.MethodNotAllowed);
         }
@@ -897,8 +958,8 @@ public class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
 
     /// <summary>
     /// Records a verified second factor inside the caller's transaction: consumes the
-    /// challenge, stores the authenticator step, clears the e-mailed code or redeems the
-    /// recovery code. Every write updates the user's concurrency stamp, so of two concurrent
+    /// challenge, stores the authenticator step, clears the e-mailed code, redeems the
+    /// recovery code or stores the passkey's signature counter. Every write updates the user's concurrency stamp, so of two concurrent
     /// attempts only one commits.
     /// </summary>
     internal async Task<TaskResult> CommitSecondFactorAsync(
@@ -964,6 +1025,11 @@ public class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
 
             var recoveryCodesLeft = await _userManager.CountRecoveryCodesAsync(user);
             return await NotifyAsync(user, NhTwoFactorSecurityEvent.RecoveryCodeUsed, recoveryCodesLeft, cancellationToken);
+        }
+
+        if (check.Method == NhTwoFactorMethods.Passkey)
+        {
+            return await StorePasskeyUseAsync(user, check.PasskeyValue!);
         }
 
         return NhTwoFactorFailureCodes.Fail(NhTwoFactorFailureCodes.MethodNotAllowed);
@@ -1277,12 +1343,19 @@ public class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
             return IdentityFailure(disableResult);
         }
 
-        // Replacing the key makes the old authenticator codes worthless even if two-factor
-        // authentication is enabled again later.
-        var resetKeyResult = await _userManager.ResetAuthenticatorKeyAsync(user);
-        if (!resetKeyResult.Succeeded)
+        // Clearing the key makes the old authenticator codes worthless, and the authenticator
+        // stays unenrolled when another method enables two-factor authentication again.
+        if (_userStore is not IUserAuthenticatorKeyStore<TUser> authenticatorKeyStore)
         {
-            return IdentityFailure(resetKeyResult);
+            throw new NotSupportedException("The configured user store does not support authenticator keys.");
+        }
+
+        await authenticatorKeyStore.SetAuthenticatorKeyAsync(user, null!, cancellationToken);
+
+        var removePasskeysResult = await RemoveAllPasskeysAsync(user);
+        if (!removePasskeysResult.Success)
+        {
+            return removePasskeysResult;
         }
 
         foreach (var tokenName in new[]
@@ -1590,12 +1663,18 @@ internal sealed record NhStoredEmailCode(
 
 internal sealed class NhSecondFactorCheck
 {
-    private NhSecondFactorCheck(string method, bool isCandidate, long? authenticatorStep, string? recoveryCodeValue)
+    private NhSecondFactorCheck(
+        string method,
+        bool isCandidate,
+        long? authenticatorStep,
+        string? recoveryCodeValue,
+        UserPasskeyInfo? passkeyValue = null)
     {
         Method = method;
         IsCandidate = isCandidate;
         AuthenticatorStep = authenticatorStep;
         RecoveryCodeValue = recoveryCodeValue;
+        PasskeyValue = passkeyValue;
     }
 
     internal string Method { get; }
@@ -1606,6 +1685,9 @@ internal sealed class NhSecondFactorCheck
     internal long? AuthenticatorStep { get; }
 
     internal string? RecoveryCodeValue { get; }
+
+    /// <summary>The verified passkey with its updated signature counter.</summary>
+    internal UserPasskeyInfo? PasskeyValue { get; }
 
     internal static NhSecondFactorCheck Invalid(string method)
     {
@@ -1625,5 +1707,10 @@ internal sealed class NhSecondFactorCheck
     internal static NhSecondFactorCheck RecoveryCode(string code)
     {
         return new NhSecondFactorCheck(NhTwoFactorMethods.RecoveryCode, true, null, code);
+    }
+
+    internal static NhSecondFactorCheck Passkey(UserPasskeyInfo passkey)
+    {
+        return new NhSecondFactorCheck(NhTwoFactorMethods.Passkey, true, null, null, passkey);
     }
 }

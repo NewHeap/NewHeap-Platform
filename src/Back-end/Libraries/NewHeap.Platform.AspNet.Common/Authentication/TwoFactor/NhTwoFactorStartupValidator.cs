@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
 using System.Net.Mail;
@@ -54,6 +57,7 @@ internal sealed class NhTwoFactorStartupValidator : IHostedService
         }
 
         ValidateNotifications(scope.ServiceProvider);
+        ValidatePasskeys(scope.ServiceProvider);
         await ValidateAdministrationPolicyAsync(scope.ServiceProvider);
 
         var keyManagementOptions = scope.ServiceProvider.GetRequiredService<IOptions<KeyManagementOptions>>().Value;
@@ -99,6 +103,22 @@ internal sealed class NhTwoFactorStartupValidator : IHostedService
                 "Two-factor e-mails use the default sender of the e-mail dispatcher. Configure " +
                 "NhEmailNotificationSettings.AllowDefaultFromAddress and DefaultFromAddress, or register a message composer " +
                 "with UseMessageComposer<T>() that sets the sender.");
+        }
+    }
+
+    private void ValidatePasskeys(IServiceProvider services)
+    {
+        if (!_twoFactorConfiguration.PasskeysEnabled)
+        {
+            return;
+        }
+
+        if (services.GetService<INhIdentityDbContext>() is DbContext dbContext
+            && dbContext.Model.FindEntityType(typeof(IdentityUserPasskey<Guid>)) == null)
+        {
+            throw new InvalidOperationException(
+                "Passkeys need the Identity passkey table. Override IncludeIdentityPasskeys to return true in " +
+                $"{dbContext.GetType().Name} and add a migration.");
         }
     }
 

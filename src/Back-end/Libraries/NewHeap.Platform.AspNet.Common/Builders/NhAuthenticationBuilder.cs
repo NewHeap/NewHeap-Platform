@@ -290,7 +290,8 @@ public class NhAuthenticationBuilder<
             serviceProvider.GetRequiredService<TimeProvider>(),
             serviceProvider.GetRequiredService<INhTwoFactorMessageComposer>(),
             serviceProvider.GetService<INhNotificationService>(),
-            serviceProvider.GetRequiredService<ILogger<NhTwoFactorService<TUser>>>()));
+            serviceProvider.GetRequiredService<ILogger<NhTwoFactorService<TUser>>>(),
+            configuration.PasskeysEnabled ? serviceProvider.GetService<IPasskeyHandler<TUser>>() : null));
         services.AddScoped<INhTwoFactorService<TUser>>(serviceProvider =>
             serviceProvider.GetRequiredService<NhTwoFactorService<TUser>>());
         services.AddScoped(serviceProvider => new NhTwoFactorAuthenticationContext<TUser>(
@@ -315,7 +316,31 @@ public class NhAuthenticationBuilder<
         services.AddSingleton<NhTwoFactorEnrollmentRemindersEndpointHandler<TUser>>();
         services.AddSingleton<NhTwoFactorSessionRevocationEndpointHandler<TUser>>();
 
+        if (configuration.PasskeysEnabled)
+        {
+            AddPasskeys(services, configuration);
+        }
+
         services.AddHostedService<NhTwoFactorStartupValidator>();
+    }
+
+    private static void AddPasskeys(IServiceCollection services, NhTwoFactorConfiguration configuration)
+    {
+        // AddIdentity registers the handler; AddIdentityCore does not.
+        services.TryAddScoped<IPasskeyHandler<TUser>, PasskeyHandler<TUser>>();
+        services.Configure<IdentityPasskeyOptions>(configuration.ConfigurePasskeyOptions);
+
+        services.AddSingleton<NhPasskeySignInOptionsHandler>();
+        services.AddSingleton<NhPasskeySignInHandler>();
+        services.AddSingleton<NhTwoFactorPasskeyOptionsHandler>();
+        services.AddSingleton<NhTwoFactorPasskeyVerifyHandler>();
+        services.AddSingleton<NhTwoFactorEnrollmentPasskeyOptionsHandler>();
+        services.AddSingleton<NhTwoFactorEnrollmentPasskeyHandler>();
+        services.AddSingleton<NhPasskeysEndpointHandler<TUser>>();
+        services.AddSingleton<NhPasskeyRegistrationOptionsEndpointHandler<TUser>>();
+        services.AddSingleton<NhPasskeyRegistrationEndpointHandler<TUser>>();
+        services.AddSingleton<NhPasskeyRenameEndpointHandler<TUser>>();
+        services.AddSingleton<NhPasskeyRemoveEndpointHandler<TUser>>();
     }
 
     private void AddRefreshTokenHandler(IServiceCollection services)

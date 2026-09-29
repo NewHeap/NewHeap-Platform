@@ -118,7 +118,8 @@ public sealed class NhTwoFactorRequirement
 /// Default policy. Users who enrolled a second factor must use it, and the requirements
 /// configured with <see cref="NhTwoFactorBuilder.RequireFor"/> (roles, permissions or all
 /// users) enforce it for everyone they match. A Microsoft OAuth sign-in is accepted without
-/// a NewHeap second factor unless the requirements include external providers.
+/// a NewHeap second factor unless the requirements include external providers, and a
+/// passwordless passkey sign-in satisfies the requirement on its own.
 /// </summary>
 public class NhDefaultTwoFactorPolicy : INhTwoFactorPolicy
 {
@@ -143,6 +144,14 @@ public class NhDefaultTwoFactorPolicy : INhTwoFactorPolicy
             return NhTwoFactorRequirement.NotRequired;
         }
 
+        // A passkey verifies the user on the authenticator itself, so a passwordless passkey
+        // sign-in is already multi-factor.
+        var passkeySatisfies = _configuration?.PasskeySatisfiesRequirement ?? true;
+        if (context.Factor == NhAuthenticationFactors.Passkey && passkeySatisfies)
+        {
+            return NhTwoFactorRequirement.NotRequired;
+        }
+
         var enforced = await IsEnforcedAsync(context, cancellationToken);
         if (!enforced && !context.IsEnrolled)
         {
@@ -152,6 +161,7 @@ public class NhDefaultTwoFactorPolicy : INhTwoFactorPolicy
         var emailSatisfies = !enforced || _configuration?.EmailSatisfiesRequirement == true;
         var allowedMethods = context.EnrolledMethods
             .Where(method => method != NhTwoFactorMethods.Email || emailSatisfies)
+            .Where(method => method != NhTwoFactorMethods.Passkey || context.Factor != NhAuthenticationFactors.Passkey)
             .ToList();
 
         var allowRememberDevice = !enforced || _configuration?.RememberDeviceForRequiredUsers != false;

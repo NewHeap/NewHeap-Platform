@@ -28,6 +28,7 @@ using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
 using NSubstitute;
 using System.Globalization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Testcontainers.MsSql;
 using Testcontainers.PostgreSql;
@@ -39,6 +40,8 @@ public sealed class TwoFactorAuthenticationProviderTests
 {
     private const string Credential = "Initial1!Password";
     private const string SecurityOfficerRole = "security-officer";
+    private const string PasskeyDomain = "localhost";
+    private const string PasskeyOrigin = "https://localhost";
 
     [Fact]
     public async Task TwoFactorLifecycleWorksOnBothRelationalProviders()
@@ -118,6 +121,24 @@ public sealed class TwoFactorAuthenticationProviderTests
         await VerifyEmailCodesAsync(featureEnvironment);
         await VerifyRememberedDevicesAsync(featureEnvironment);
         await VerifyResetAndPolicyOperationsAsync(featureEnvironment);
+
+        var passkeyConfiguration = TwoFactorEnvironment.CreateConfiguration(configuration =>
+        {
+            configuration.PasskeysEnabled = true;
+            configuration.PasskeyServerDomain = PasskeyDomain;
+            configuration.PasskeyAllowedOrigins = [PasskeyOrigin];
+            configuration.SecurityNotificationsEnabled = true;
+            configuration.AddRequiredRoles([SecurityOfficerRole]);
+        });
+        var passkeyEnvironment = new TwoFactorEnvironment(
+            optionsBuilder.Options,
+            new TestTimeProvider(DateTimeOffset.UtcNow.AddHours(2)),
+            dataProtectionProvider,
+            passkeyConfiguration,
+            new NhDefaultTwoFactorPolicy(passkeyConfiguration));
+
+        await VerifyPasskeysAsync(passkeyEnvironment);
+        await VerifyPasskeyEnrollmentAndPolicyAsync(passkeyEnvironment);
     }
 
     private static async Task VerifyEnrollmentChallengeAndDisableAsync(TwoFactorEnvironment environment)
@@ -670,6 +691,236 @@ public sealed class TwoFactorAuthenticationProviderTests
         Assert.Equal(NhAuthenticationStepStatuses.EnrollmentRequired, afterReset.Data!.Challenge!.Status);
     }
 
+    private static async Task VerifyPasskeysAsync(TwoFactorEnvironment environment)
+    {
+        using var stack = environment.CreateStack();
+        var httpContext = CreatePasskeyHttpContext();
+        var user = await stack.CreateUserAsync("passkey-user@example.test");
+        await stack.AddRefreshTokenAsync(user.Id, "passkey-user-device");
+        using var authenticator = new SoftwarePasskeyAuthenticator(PasskeyDomain, PasskeyOrigin);
+
+        // Registration verifies the attestation, enables two-factor authentication and ends
+        // every other session.
+        var registrationOptions = await stack.TwoFactor.BeginPasskeyRegistrationAsync(user, reauthentication: null, httpContext);
+        Assert.True(registrationOptions.Success);
+        var credential = authenticator.CreateCredential(registrationOptions.Data!.Options);
+
+        var registration = await stack.TwoFactor.CompletePasskeyRegistrationAsync(
+            user,
+            registrationOptions.Data.CeremonyToken,
+            credential,
+            "  Laptop  ",
+            httpContext,
+            user.Id);
+
+        Assert.True(registration.Success, string.Join("; ", registration.AllErrorMessages));
+        Assert.Equal(10, registration.Data!.RecoveryCodes!.Count);
+        Assert.True(registration.Data.SessionsInvalidated);
+        Assert.Equal(0, await stack.CountRefreshTokensAsync(user.Id));
+        Assert.Contains(environment.Notifications.Names, name => name == "two-factor-enabled");
+
+        // The registration rotated the security stamp, so the ceremony token works once.
+        AssertFailure(
+            await stack.TwoFactor.CompletePasskeyRegistrationAsync(
+                user,
+                registrationOptions.Data.CeremonyToken,
+                credential,
+                null,
+                httpContext,
+                user.Id),
+            NhTwoFactorFailureCodes.ChallengeExpired);
+
+        var passkey = Assert.Single(await stack.TwoFactor.GetPasskeysAsync(user));
+        Assert.Equal("Laptop", passkey.Name);
+        Assert.Equal(authenticator.CredentialIdText, passkey.Id);
+        Assert.Equal(
+            [NhTwoFactorMethods.Passkey, NhTwoFactorMethods.RecoveryCode],
+            (await stack.TwoFactor.GetEnrollmentAsync(user)).Methods);
+
+        // After the password, the passkey completes the challenge; a code cannot stand in for it.
+        var challenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential))).Data!.Challenge!;
+        Assert.Equal([NhTwoFactorMethods.Passkey, NhTwoFactorMethods.RecoveryCode], challenge.Methods);
+        AssertFailure(
+            await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+            {
+                ChallengeToken = challenge.ChallengeToken,
+                Method = NhTwoFactorMethods.Passkey,
+                Code = "{}",
+            }),
+            NhTwoFactorFailureCodes.MethodNotAllowed);
+
+        var assertionOptions = await stack.Authentication.BeginTwoFactorPasskeyAsync(challenge.ChallengeToken, httpContext);
+        Assert.True(assertionOptions.Success);
+        var verifyRequest = new NhTwoFactorPasskeyVerifyRequest
+        {
+            ChallengeToken = challenge.ChallengeToken,
+            CeremonyToken = assertionOptions.Data!.CeremonyToken,
+            Credential = ParseCredential(authenticator.CreateAssertion(assertionOptions.Data.Options)),
+        };
+
+        var verified = await stack.Authentication.VerifyTwoFactorPasskeyAsync(verifyRequest, httpContext);
+        Assert.True(verified.Success, string.Join("; ", verified.AllErrorMessages));
+        Assert.NotNull(verified.Data!.Session!.RefreshToken);
+
+        AssertFailure(
+            await stack.Authentication.VerifyTwoFactorPasskeyAsync(verifyRequest, httpContext),
+            NhTwoFactorFailureCodes.ChallengeExpired);
+
+        // A passwordless sign-in names no user up front and satisfies the requirement itself.
+        var signInOptions = await stack.Authentication.BeginPasskeySignInAsync(httpContext);
+        Assert.True(signInOptions.Success);
+        Assert.False(
+            signInOptions.Data!.Options.TryGetProperty("allowCredentials", out var allowCredentials)
+            && allowCredentials.GetArrayLength() > 0);
+
+        var signedIn = await stack.Authentication.AuthenticatePasskeyAsync(
+            new NhPasskeySignInRequest
+            {
+                CeremonyToken = signInOptions.Data.CeremonyToken,
+                Credential = ParseCredential(authenticator.CreateAssertion(signInOptions.Data.Options)),
+            },
+            httpContext);
+        Assert.True(signedIn.Success, string.Join("; ", signedIn.AllErrorMessages));
+        Assert.NotNull(signedIn.Data!.Session!.RefreshToken);
+
+        // A sign-in ceremony works once, even with a new signature.
+        AssertFailure(
+            await stack.Authentication.AuthenticatePasskeyAsync(
+                new NhPasskeySignInRequest
+                {
+                    CeremonyToken = signInOptions.Data.CeremonyToken,
+                    Credential = ParseCredential(authenticator.CreateAssertion(signInOptions.Data.Options)),
+                },
+                httpContext),
+            NhTwoFactorFailureCodes.ChallengeExpired);
+
+        // Assertions made for another origin are refused.
+        var otherOriginOptions = (await stack.Authentication.BeginPasskeySignInAsync(httpContext)).Data!;
+        AssertFailure(
+            await stack.Authentication.AuthenticatePasskeyAsync(
+                new NhPasskeySignInRequest
+                {
+                    CeremonyToken = otherOriginOptions.CeremonyToken,
+                    Credential = ParseCredential(authenticator.CreateAssertion(otherOriginOptions.Options, "https://other.example.test")),
+                },
+                httpContext),
+            NhTwoFactorFailureCodes.PasskeyInvalid);
+
+        user = (await stack.UserManager.FindByIdAsync(user.Id.ToString()))!;
+        Assert.True((await stack.TwoFactor.RenamePasskeyAsync(user, passkey.Id, "Work laptop")).Success);
+        Assert.Equal("Work laptop", Assert.Single(await stack.TwoFactor.GetPasskeysAsync(user)).Name);
+        AssertFailure(
+            await stack.TwoFactor.RenamePasskeyAsync(user, "not-a-passkey", "Unknown"),
+            NhTwoFactorFailureCodes.PasskeyNotFound);
+
+        // Removing the only second factor needs reauthentication and disables two-factor
+        // authentication, including the recovery codes.
+        AssertFailure(
+            await stack.TwoFactor.RemovePasskeyAsync(user, passkey.Id, reauthentication: null, user.Id),
+            NhTwoFactorFailureCodes.ReauthenticationRequired);
+
+        var removal = await stack.TwoFactor.RemovePasskeyAsync(
+            user,
+            passkey.Id,
+            new NhTwoFactorReauthentication { Password = Credential },
+            user.Id);
+        Assert.True(removal.Success, string.Join("; ", removal.AllErrorMessages));
+        Assert.Empty(await stack.TwoFactor.GetPasskeysAsync(user));
+
+        var afterRemoval = await stack.TwoFactor.GetEnrollmentAsync(user);
+        Assert.False(afterRemoval.IsEnrolled);
+        Assert.Equal(0, afterRemoval.RecoveryCodesLeft);
+
+        // A later passkey enables two-factor authentication without resurrecting an authenticator.
+        using var secondAuthenticator = new SoftwarePasskeyAuthenticator(PasskeyDomain, PasskeyOrigin);
+        var secondOptions = (await stack.TwoFactor.BeginPasskeyRegistrationAsync(user, reauthentication: null, httpContext)).Data!;
+        var secondRegistration = await stack.TwoFactor.CompletePasskeyRegistrationAsync(
+            user,
+            secondOptions.CeremonyToken,
+            secondAuthenticator.CreateCredential(secondOptions.Options),
+            null,
+            httpContext,
+            user.Id);
+        Assert.True(secondRegistration.Success, string.Join("; ", secondRegistration.AllErrorMessages));
+        Assert.Equal(
+            [NhTwoFactorMethods.Passkey, NhTwoFactorMethods.RecoveryCode],
+            (await stack.TwoFactor.GetEnrollmentAsync(user)).Methods);
+        Assert.Equal("Passkey", Assert.Single(await stack.TwoFactor.GetPasskeysAsync(user)).Name);
+    }
+
+    private static async Task VerifyPasskeyEnrollmentAndPolicyAsync(TwoFactorEnvironment environment)
+    {
+        using var stack = environment.CreateStack();
+        var httpContext = CreatePasskeyHttpContext();
+        var officer = await stack.CreateUserAsync("passkey-officer@example.test");
+        await stack.AddToRoleAsync(officer, SecurityOfficerRole);
+        using var authenticator = new SoftwarePasskeyAuthenticator(PasskeyDomain, PasskeyOrigin);
+
+        // A member of the required role enrolls a passkey during sign-in.
+        var enrollment = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(officer.UserName!, Credential))).Data!.Challenge!;
+        Assert.Equal(NhAuthenticationStepStatuses.EnrollmentRequired, enrollment.Status);
+        Assert.Equal([NhTwoFactorMethods.Authenticator, NhTwoFactorMethods.Passkey], enrollment.Methods);
+
+        var enrollmentOptions = await stack.Authentication.BeginEnrollmentPasskeyAsync(enrollment.ChallengeToken, httpContext);
+        Assert.True(enrollmentOptions.Success);
+
+        var completion = await stack.Authentication.ConfirmEnrollmentPasskeyAsync(
+            new NhPasskeyEnrollmentRequest
+            {
+                EnrollmentToken = enrollment.ChallengeToken,
+                CeremonyToken = enrollmentOptions.Data!.CeremonyToken,
+                Credential = ParseCredential(authenticator.CreateCredential(enrollmentOptions.Data.Options)),
+                Name = "Security key",
+            },
+            httpContext);
+        Assert.True(completion.Success, string.Join("; ", completion.AllErrorMessages));
+        Assert.NotNull(completion.Data!.Session.RefreshToken);
+        Assert.Equal(10, completion.Data.RecoveryCodes!.Count);
+
+        // A passkey sign-in of a required user needs no other factor.
+        var signInOptions = (await stack.Authentication.BeginPasskeySignInAsync(httpContext)).Data!;
+        var signedIn = await stack.Authentication.AuthenticatePasskeyAsync(
+            new NhPasskeySignInRequest
+            {
+                CeremonyToken = signInOptions.CeremonyToken,
+                Credential = ParseCredential(authenticator.CreateAssertion(signInOptions.Options)),
+            },
+            httpContext);
+        Assert.NotNull(signedIn.Data!.Session);
+
+        // The policy keeps the last passkey of a required user.
+        officer = (await stack.UserManager.FindByIdAsync(officer.Id.ToString()))!;
+        var officerPasskey = Assert.Single(await stack.TwoFactor.GetPasskeysAsync(officer));
+        Assert.Equal("Security key", officerPasskey.Name);
+        AssertFailure(
+            await stack.TwoFactor.RemovePasskeyAsync(
+                officer,
+                officerPasskey.Id,
+                new NhTwoFactorReauthentication { Password = Credential },
+                officer.Id),
+            NhTwoFactorFailureCodes.RequiredByPolicy);
+
+        // An administrator reset removes the passkeys as well.
+        Assert.True((await stack.TwoFactor.ResetAsync(officer, officer.Id)).Success);
+        Assert.Empty(await stack.TwoFactor.GetPasskeysAsync(officer));
+
+        var afterReset = await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(officer.UserName!, Credential));
+        Assert.Equal(NhAuthenticationStepStatuses.EnrollmentRequired, afterReset.Data!.Challenge!.Status);
+    }
+
+    private static HttpContext CreatePasskeyHttpContext()
+    {
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Scheme = "https";
+        httpContext.Request.Host = new HostString(PasskeyDomain);
+        return httpContext;
+    }
+
+    private static JsonElement ParseCredential(string credentialJson)
+    {
+        return JsonSerializer.Deserialize<JsonElement>(credentialJson);
+    }
+
     private static void AssertFailure(TaskResult result, string failureCode)
     {
         Assert.False(result.Success);
@@ -785,6 +1036,14 @@ public sealed class TwoFactorAuthenticationProviderTests
             var hostEnvironment = Substitute.For<IHostEnvironment>();
             hostEnvironment.ApplicationName.Returns("NewHeap.Platform.AspNet.Common.Tests");
 
+            PasskeyHandler<NhUser>? passkeyHandler = null;
+            if (environment.Configuration.PasskeysEnabled)
+            {
+                var passkeyOptions = new IdentityPasskeyOptions();
+                environment.Configuration.ConfigurePasskeyOptions(passkeyOptions);
+                passkeyHandler = new PasskeyHandler<NhUser>(UserManager, Options.Create(passkeyOptions));
+            }
+
             TwoFactor = new NhTwoFactorService<NhUser>(
                 UserManager,
                 UserManager,
@@ -798,7 +1057,8 @@ public sealed class TwoFactorAuthenticationProviderTests
                 environment.Clock,
                 new NhTwoFactorMessageComposer(new TestLocalizer(), environment.Clock),
                 environment.Notifications,
-                NullLogger<NhTwoFactorService<NhUser>>.Instance);
+                NullLogger<NhTwoFactorService<NhUser>>.Instance,
+                passkeyHandler);
 
             Authentication = CreateAuthenticationService(
                 new NhTwoFactorAuthenticationContext<NhUser>(environment.Configuration, TwoFactor));
@@ -1108,5 +1368,8 @@ public sealed class TwoFactorAuthenticationProviderTests
     }
 
     private sealed class TwoFactorDbContext(DbContextOptions<TwoFactorDbContext> options)
-        : NhIdentityDbContext(options);
+        : NhIdentityDbContext(options)
+    {
+        protected override bool IncludeIdentityPasskeys => true;
+    }
 }
