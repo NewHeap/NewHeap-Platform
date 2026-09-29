@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.50",
   "backEnd": {
-    "hash": "293a8a00a909a4ec9cc2e87ca4393a0afbfd8b00c17c768cf58f5a962d6b8d74",
+    "hash": "bb69a65b74990986c0706c6963a4f43c3d12add4467a7a8dbbba716a3b328db8",
     "declarationCount": 5763,
     "declarations": [
       {
@@ -8303,7 +8303,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
-        "declaration": "public const string Password = \"password\";"
+        "declaration": "public const string Password = PasswordFactorName;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",

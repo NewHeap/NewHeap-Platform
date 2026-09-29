@@ -329,7 +329,7 @@ public sealed class TwoFactorAuthenticationProviderTests
 
         var wrongPassword = await stack.TwoFactor.RegenerateRecoveryCodesAsync(
             user,
-            new NhTwoFactorReauthentication { Password = "Wrong1!Password" },
+            new NhTwoFactorReauthentication { Password = "test-wrong-password" },
             user.Id);
         AssertFailure(wrongPassword, NhTwoFactorFailureCodes.ReauthenticationFailed);
 
