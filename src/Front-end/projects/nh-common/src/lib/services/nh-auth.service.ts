@@ -9,22 +9,40 @@ import {
   ImpersonateAuthenticateModel,
   INhAuthorization,
   NhAccountInformationResponse,
+  NhAuthenticationStep,
+  NhAuthenticatorSetup,
   NhAuthorization,
   NhDivision,
+  NhLoginResponse,
+  NhTwoFactorChallenge,
+  NhTwoFactorChange,
+  NhTwoFactorFailureCodes,
+  NhTwoFactorReauthentication,
+  NhTwoFactorStatus,
+  NhTwoFactorVerifyModel,
   RefreshTokenLoginAccountMutateModel,
   RevertImpersonateAuthenticateModel
 } from "../models/auth.models";
 import {DateTime} from "luxon";
 import {TaskResult} from "../models/misc.models";
 import {HttpClient, HttpErrorResponse, HttpHeaders, HttpParams} from '@angular/common/http';
-import {NhCommonModuleConfig} from "../models/config.models";
+import {EndpointsAuthenticationNhCommonModuleConfig, NhCommonModuleConfig} from "../models/config.models";
 import {NhApiUtil} from "../util/nh-api-util";
 import {isPlatformServer} from "@angular/common";
 import {Base64} from "js-base64";
 
+interface NhTwoFactorChangeResponse {
+  recoveryCodes?: string[] | null;
+  session?: NhLoginResponse | null;
+}
+
 @Injectable()
 export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization> implements OnDestroy {
+  protected static readonly pendingTwoFactorChallengeStorageKey = 'nh-two-factor-challenge';
+  protected static readonly externalTwoFactorChallengePrefix = 'nh-two-factor=';
+
   protected authorization: TAuthorization | undefined = undefined;
+  protected pendingTwoFactorChallenge: NhTwoFactorChallenge | undefined = undefined;
   protected authSession: AuthenticationSessionCreateResponse | undefined = undefined;
   public readonly authSubject = new BehaviorSubject<TAuthorization | undefined>(this.getAuthorization());
   protected onReady: ((value: (PromiseLike<unknown> | unknown)) => void) | undefined;
@@ -340,28 +358,58 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     }).taskResultLastValueFrom();
   }
 
+  /**
+   * Signs in with username and password and stores the complete session.
+   *
+   * When the server requires a second factor this method fails with
+   * `NhTwoFactorFailureCodes.Required` and stores nothing. Use `authenticateInteractive`
+   * to receive the challenge, or read it with `getPendingTwoFactorChallenge()`.
+   */
   async authenticate(model: AuthenticateModel, loginAsUser: boolean = false): Promise<TaskResult<TAuthorization>> {
     const result = new TaskResult<TAuthorization>();
-    let httpParams = new HttpParams();
-    if (httpParams.get('language') === null) {
-      httpParams = httpParams.set('language', this.moduleConfig.language);
+    const stepResult = await this.authenticateInteractive(model);
+
+    if (!stepResult.isSuccess) {
+      stepResult.copyTo(result);
+      return result;
     }
 
+    if (stepResult.data?.status === 'two-factor-required') {
+      return result.withError(NhTwoFactorFailureCodes.Required, 'nh-two-factor.required');
+    }
+
+    result.data = stepResult.data?.authorization;
+    return result;
+  }
+
+  /**
+   * Signs in with username and password. Returns the stored authorization, or the
+   * second-factor challenge when the server requires one. A challenge is never stored as
+   * an authorization.
+   */
+  async authenticateInteractive(model: AuthenticateModel): Promise<TaskResult<NhAuthenticationStep<TAuthorization>>> {
+    const result = new TaskResult<NhAuthenticationStep<TAuthorization>>();
     model.realm = this.moduleConfig.authenticationRealm;
 
-    const request$ = this.httpClient.post<TAuthorization>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.login, model, {
-      params: httpParams,
+    const request$ = this.httpClient.post<NhLoginResponse>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.login, model, {
+      params: this.languageParams(),
       withCredentials: true
     });
 
     try {
-      result.data = await lastValueFrom(request$);
+      const response = await lastValueFrom(request$);
 
-      if (result.isSuccess) {
-        result.data.realm = this.moduleConfig.authenticationRealm;
+      if (response?.twoFactor) {
+        const challenge = new NhTwoFactorChallenge(response.twoFactor);
+        this.setPendingTwoFactorChallenge(challenge);
+        result.data = new NhAuthenticationStep<TAuthorization>({status: 'two-factor-required', challenge: challenge});
+        return result;
       }
 
-      this.setAuthorization(result.data);
+      const authorization = this.toAuthorization(response);
+      this.setAuthorization(authorization);
+      this.clearPendingTwoFactorChallenge();
+      result.data = new NhAuthenticationStep<TAuthorization>({status: 'authenticated', authorization: authorization});
     } catch (ex) {
       if (this.isAuthenticated()) {
         this.clearAuthorization();
@@ -372,6 +420,267 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     }
 
     return result;
+  }
+
+  /**
+   * Completes a second-factor challenge and stores the session.
+   */
+  async verifyTwoFactor(model: NhTwoFactorVerifyModel): Promise<TaskResult<TAuthorization>> {
+    const result = new TaskResult<TAuthorization>();
+
+    const request$ = this.httpClient.post<NhLoginResponse>(this.moduleConfig.authApiBaseUrl + this.twoFactorEndpoints().twoFactorVerify, model, {
+      params: this.languageParams(),
+      withCredentials: true
+    });
+
+    try {
+      const response = await lastValueFrom(request$);
+      const authorization = this.toAuthorization(response);
+
+      this.setAuthorization(authorization);
+      this.clearPendingTwoFactorChallenge();
+      result.data = authorization;
+    } catch (ex) {
+      const errResult = NhApiUtil.taskResultFromResponse(ex);
+      const challengeEnded = errResult.items.some(item =>
+        item.name === NhTwoFactorFailureCodes.ChallengeExpired || item.name === NhTwoFactorFailureCodes.LockedOut);
+
+      if (challengeEnded) {
+        this.clearPendingTwoFactorChallenge();
+      }
+
+      errResult.copyTo(result);
+    }
+
+    return result;
+  }
+
+  /**
+   * Returns the pending second-factor challenge of this browser tab, if it has not expired.
+   */
+  getPendingTwoFactorChallenge(): NhTwoFactorChallenge | undefined {
+    const challenge = this.pendingTwoFactorChallenge ?? this.readStoredTwoFactorChallenge();
+    if (!challenge) {
+      return undefined;
+    }
+
+    if (challenge.expiresAt && DateTime.fromISO(challenge.expiresAt) <= DateTime.now()) {
+      this.clearPendingTwoFactorChallenge();
+      return undefined;
+    }
+
+    this.pendingTwoFactorChallenge = challenge;
+    return challenge;
+  }
+
+  clearPendingTwoFactorChallenge(): void {
+    this.pendingTwoFactorChallenge = undefined;
+
+    if (isPlatformServer(this.platformId)) {
+      return;
+    }
+
+    try {
+      sessionStorage.removeItem(BaseNhAuthService.pendingTwoFactorChallengeStorageKey);
+    } catch {
+      // Storage can be unavailable in private browsing; the in-memory challenge is cleared.
+    }
+  }
+
+  /**
+   * Reads a challenge that an external sign-in (Microsoft OAuth) passed back in the URL
+   * fragment, stores it as the pending challenge and removes it from the address bar.
+   */
+  consumeExternalTwoFactorChallenge(fragment?: string): NhTwoFactorChallenge | undefined {
+    const browser = !isPlatformServer(this.platformId);
+    const source = fragment ?? (browser ? window.location.hash : '');
+    const value = source.startsWith('#') ? source.substring(1) : source;
+
+    if (!value.startsWith(BaseNhAuthService.externalTwoFactorChallengePrefix)) {
+      return undefined;
+    }
+
+    let challenge: NhTwoFactorChallenge;
+    try {
+      const payload = value.substring(BaseNhAuthService.externalTwoFactorChallengePrefix.length);
+      challenge = new NhTwoFactorChallenge(JSON.parse(Base64.decode(payload)));
+    } catch {
+      return undefined;
+    }
+
+    if (!challenge.challengeToken) {
+      return undefined;
+    }
+
+    this.setPendingTwoFactorChallenge(challenge);
+
+    if (browser && fragment === undefined) {
+      window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+    }
+
+    return challenge;
+  }
+
+  async getTwoFactorStatus(): Promise<TaskResult<NhTwoFactorStatus>> {
+    const result = new TaskResult<NhTwoFactorStatus>();
+    const request$ = this.httpClient.get<NhTwoFactorStatus>(
+      this.moduleConfig.authApiBaseUrl + this.twoFactorEndpoints().twoFactorStatus,
+      this.twoFactorAccountRequestOptions()
+    );
+
+    try {
+      result.data = new NhTwoFactorStatus(await lastValueFrom(request$));
+    } catch (ex) {
+      const errResult = NhApiUtil.taskResultFromResponse(ex);
+      errResult.copyTo(result);
+    }
+
+    return result;
+  }
+
+  /**
+   * Starts authenticator enrollment. Restarting enrollment while two-factor authentication
+   * is enabled requires reauthentication.
+   */
+  async beginAuthenticatorSetup(reauthentication?: NhTwoFactorReauthentication): Promise<TaskResult<NhAuthenticatorSetup>> {
+    const result = new TaskResult<NhAuthenticatorSetup>();
+    const request$ = this.httpClient.post<NhAuthenticatorSetup>(
+      this.moduleConfig.authApiBaseUrl + this.twoFactorEndpoints().twoFactorAuthenticator,
+      {reauthentication: reauthentication},
+      this.twoFactorAccountRequestOptions()
+    );
+
+    try {
+      result.data = new NhAuthenticatorSetup(await lastValueFrom(request$));
+    } catch (ex) {
+      const errResult = NhApiUtil.taskResultFromResponse(ex);
+      errResult.copyTo(result);
+    }
+
+    return result;
+  }
+
+  /**
+   * Confirms authenticator enrollment. The server ends every other session; the renewed
+   * session for this device is stored before the promise resolves.
+   */
+  confirmAuthenticator(code: string): Promise<TaskResult<NhTwoFactorChange>> {
+    return this.sendTwoFactorChange(this.twoFactorEndpoints().twoFactorAuthenticatorConfirm, {code: code});
+  }
+
+  regenerateRecoveryCodes(reauthentication: NhTwoFactorReauthentication): Promise<TaskResult<NhTwoFactorChange>> {
+    return this.sendTwoFactorChange(this.twoFactorEndpoints().twoFactorRecoveryCodes, {reauthentication: reauthentication});
+  }
+
+  disableTwoFactor(reauthentication: NhTwoFactorReauthentication): Promise<TaskResult<NhTwoFactorChange>> {
+    return this.sendTwoFactorChange(this.twoFactorEndpoints().twoFactorDisable, {reauthentication: reauthentication});
+  }
+
+  protected async sendTwoFactorChange(endpoint: string, body: object): Promise<TaskResult<NhTwoFactorChange>> {
+    const result = new TaskResult<NhTwoFactorChange>();
+    const request$ = this.httpClient.post<NhTwoFactorChangeResponse>(
+      this.moduleConfig.authApiBaseUrl + endpoint,
+      body,
+      this.twoFactorAccountRequestOptions()
+    );
+
+    try {
+      const response = await lastValueFrom(request$);
+      const sessionRenewed = this.applyRenewedSession(response?.session);
+
+      result.data = new NhTwoFactorChange({
+        recoveryCodes: response?.recoveryCodes ?? undefined,
+        sessionRenewed: sessionRenewed
+      });
+    } catch (ex) {
+      const errResult = NhApiUtil.taskResultFromResponse(ex);
+      errResult.copyTo(result);
+    }
+
+    return result;
+  }
+
+  /**
+   * Stores the session that the server issued for this device after a change that ended
+   * every session. The user, claims and divisions of the current authorization are kept.
+   */
+  protected applyRenewedSession(session: NhLoginResponse | null | undefined): boolean {
+    const authorization = this.getAuthorization();
+    if (!session?.token || !authorization) {
+      return false;
+    }
+
+    authorization.token = session.token;
+    authorization.validTo = session.validTo ?? authorization.validTo;
+    authorization.refreshToken = session.refreshToken ?? undefined;
+    authorization.refreshTokenExpires = session.refreshValidTo ?? undefined;
+
+    this.setAuthorization(authorization);
+    return true;
+  }
+
+  protected toAuthorization(response: NhLoginResponse): TAuthorization {
+    const authorization = response as unknown as TAuthorization;
+    delete (authorization as NhLoginResponse).twoFactor;
+    authorization.realm = this.moduleConfig.authenticationRealm;
+    return authorization;
+  }
+
+  protected setPendingTwoFactorChallenge(challenge: NhTwoFactorChallenge): void {
+    this.pendingTwoFactorChallenge = challenge;
+
+    if (isPlatformServer(this.platformId)) {
+      return;
+    }
+
+    try {
+      sessionStorage.setItem(BaseNhAuthService.pendingTwoFactorChallengeStorageKey, JSON.stringify(challenge));
+    } catch {
+      // Storage can be unavailable in private browsing; the in-memory challenge still works.
+    }
+  }
+
+  protected readStoredTwoFactorChallenge(): NhTwoFactorChallenge | undefined {
+    if (isPlatformServer(this.platformId)) {
+      return undefined;
+    }
+
+    try {
+      const stored = sessionStorage.getItem(BaseNhAuthService.pendingTwoFactorChallengeStorageKey);
+      if (!stored) {
+        return undefined;
+      }
+
+      return new NhTwoFactorChallenge(JSON.parse(stored));
+    } catch {
+      return undefined;
+    }
+  }
+
+  protected twoFactorEndpoints(): EndpointsAuthenticationNhCommonModuleConfig {
+    // Consumers that passed a plain endpoints object keep working with the default routes.
+    return new EndpointsAuthenticationNhCommonModuleConfig({
+      ...new EndpointsAuthenticationNhCommonModuleConfig(),
+      ...this.moduleConfig.authentication.endpoints
+    });
+  }
+
+  protected twoFactorAccountRequestOptions() {
+    let headers = new HttpHeaders();
+    const authorization = this.getAuthorization();
+    if (this.moduleConfig.authType === 'header' && authorization?.token) {
+      headers = headers.set('Authorization', `Bearer ${authorization.token}`);
+    }
+
+    return {
+      params: this.languageParams(),
+      headers: headers,
+      withCredentials: true
+    };
+  }
+
+  protected languageParams(): HttpParams {
+    return new HttpParams().set('language', this.moduleConfig.language);
   }
 
   public async reloadAuthorizationProfile(): Promise<TaskResult<TAuthorization>> {

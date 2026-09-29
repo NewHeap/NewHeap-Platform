@@ -154,6 +154,11 @@ builder.Services
             authentication.RefreshTokenCookieName = "sample_project_management_refresh";
             authentication.Enabled = true;
         });
+        // Users who enroll an authenticator app get a second-factor challenge after their
+        // password. Every session source (password, PIN, OAuth, refresh) respects the policy.
+        options.AddTwoFactor(twoFactor => twoFactor
+            .EnableAuthenticator(authenticator => authenticator.Issuer = "Sample Project Management")
+            .EnableRecoveryCodes());
     })
     .ConfigureCommon(common =>
     {
@@ -391,6 +396,7 @@ app.UseNewHeapPlatformAspNetCommon(
     {
         authentication.AddUserNamePasswordEndpoint();
         authentication.AddMicrosoftOauthEndpoints();
+        authentication.AddTwoFactorEndpoints();
     });
 
 app.MapNhMediaEndpoints("project-media", options =>

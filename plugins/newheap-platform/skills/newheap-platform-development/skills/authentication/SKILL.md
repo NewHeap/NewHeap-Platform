@@ -1,13 +1,13 @@
 ---
 name: newheap-authentication
-description: Implement or review NewHeap consumer authentication and authorization, including session lifecycle, token customization, roles, active divisions, resource permissions, claim hydration and removed-user handling.
+description: Implement or review NewHeap consumer authentication and authorization, including session lifecycle, two-factor authentication, token customization, roles, active divisions, resource permissions, claim hydration and removed-user handling.
 ---
 
 # NewHeap authentication
 
 Keep consumer-specific identity and resource rules in the consuming application while preserving NewHeap's standard endpoints, cookies and refresh-token behavior unless the requested protocol explicitly changes them.
 
-Read [authentication session lifecycle](references/authentication-session-lifecycle.md) for refresh rotation, logout revocation, password-driven session invalidation or compatible rollout. Read [authentication overrides](references/authentication-overrides.md) for token customization, claim hydration or removed-user behavior. Read [authorization permissions](references/authorization-permissions.md) for application, division or resource scopes. Read only the references whose boundaries the task crosses.
+Read [authentication session lifecycle](references/authentication-session-lifecycle.md) for refresh rotation, logout revocation, password-driven session invalidation or compatible rollout. Read [authentication overrides](references/authentication-overrides.md) for token customization, claim hydration or removed-user behavior. Read [authorization permissions](references/authorization-permissions.md) for application, division or resource scopes. Read [two-factor authentication](references/authentication-two-factor.md) for authenticator apps, recovery codes, second-factor challenges or the two-factor policy. Read only the references whose boundaries the task crosses.
 
 Preserve the complete authorization chain: seeded role or claim, token or claim hydration, backend policy enforcement and frontend visibility. Application, division and resource permissions are separate scopes. Resource claims encode the resource identity and validate that it belongs to the active division.
 

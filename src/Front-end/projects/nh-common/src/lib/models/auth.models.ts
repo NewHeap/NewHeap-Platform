@@ -253,3 +253,138 @@ export class RevertImpersonateAuthenticateModel {
 
 export type AuthenticationFlow = 'password' | 'microsoft-oauth' | string;
 
+
+/**
+ * Second-factor methods a user can present after the first factor succeeded.
+ */
+export const NhTwoFactorMethods = {
+  authenticator: 'authenticator',
+  recoveryCode: 'recovery-code'
+} as const;
+
+export type NhTwoFactorMethod = typeof NhTwoFactorMethods[keyof typeof NhTwoFactorMethods] | string;
+
+/**
+ * Safe failure codes returned by the two-factor endpoints. Each error item uses the code as
+ * its name and `nh-two-factor.<suffix>` as its translation key.
+ */
+export enum NhTwoFactorFailureCodes {
+  Required = 'two-factor-required',
+  EnrollmentRequired = 'two-factor-enrollment-required',
+  InvalidCode = 'two-factor-invalid-code',
+  ChallengeExpired = 'two-factor-challenge-expired',
+  LockedOut = 'two-factor-locked-out',
+  MethodNotAllowed = 'two-factor-method-not-allowed',
+  NotEnabled = 'two-factor-not-enabled',
+  SetupNotStarted = 'two-factor-setup-not-started',
+  ReauthenticationRequired = 'two-factor-reauthentication-required',
+  ReauthenticationFailed = 'two-factor-reauthentication-failed',
+  RequiredByPolicy = 'two-factor-required-by-policy',
+  NotAllowedWhileImpersonating = 'two-factor-not-allowed-while-impersonating',
+  ConfigurationInvalid = 'two-factor-configuration-invalid'
+}
+
+/**
+ * A pending sign-in that the user completes with a second factor.
+ */
+export class NhTwoFactorChallenge {
+  status: string = 'two-factor-required';
+  challengeToken: string = '';
+  expiresAt: string = '';
+  methods: NhTwoFactorMethod[] = [];
+
+  public constructor(init?: Partial<NhTwoFactorChallenge>) {
+    Object.assign(this, init);
+  }
+}
+
+/**
+ * Login response when two-factor authentication is enabled on the server. A complete
+ * session has the token fields; a pending sign-in only has `twoFactor`.
+ */
+export interface NhLoginResponse {
+  token?: string | null;
+  validTo?: string | null;
+  refreshToken?: string | null;
+  refreshValidTo?: string | null;
+  issuer?: string | null;
+  twoFactor?: NhTwoFactorChallenge | null;
+}
+
+export type NhAuthenticationStepStatus = 'authenticated' | 'two-factor-required';
+
+/**
+ * Outcome of an interactive sign-in step: either the stored authorization or a challenge.
+ */
+export class NhAuthenticationStep<TAuthorization extends INhAuthorization = INhAuthorization> {
+  status: NhAuthenticationStepStatus = 'authenticated';
+  authorization?: TAuthorization;
+  challenge?: NhTwoFactorChallenge;
+
+  public constructor(init?: Partial<NhAuthenticationStep<TAuthorization>>) {
+    Object.assign(this, init);
+  }
+}
+
+export class NhTwoFactorVerifyModel {
+  challengeToken: string = '';
+  method: NhTwoFactorMethod = NhTwoFactorMethods.authenticator;
+  code: string = '';
+
+  public constructor(init?: Partial<NhTwoFactorVerifyModel>) {
+    Object.assign(this, init);
+  }
+}
+
+/**
+ * Proof that the signed-in user is present before a sensitive change: the current password
+ * or a valid second-factor code.
+ */
+export class NhTwoFactorReauthentication {
+  password?: string;
+  method?: NhTwoFactorMethod;
+  code?: string;
+
+  public constructor(init?: Partial<NhTwoFactorReauthentication>) {
+    Object.assign(this, init);
+  }
+}
+
+export class NhTwoFactorStatus {
+  enabled: boolean = false;
+  required: boolean = false;
+  methods: NhTwoFactorMethod[] = [];
+  availableMethods: NhTwoFactorMethod[] = [];
+  recoveryCodesLeft: number = 0;
+  authenticatorSetupPending: boolean = false;
+
+  public constructor(init?: Partial<NhTwoFactorStatus>) {
+    Object.assign(this, init);
+  }
+}
+
+/**
+ * Pending authenticator enrollment. `qrCodeDataUri` is a PNG data URI rendered by the server.
+ */
+export class NhAuthenticatorSetup {
+  sharedKey: string = '';
+  authenticatorUri: string = '';
+  qrCodeDataUri?: string;
+
+  public constructor(init?: Partial<NhAuthenticatorSetup>) {
+    Object.assign(this, init);
+  }
+}
+
+/**
+ * Result of a two-factor change. Recovery codes are returned once. When the change ended
+ * every session, the service has already stored the renewed session for this device.
+ */
+export class NhTwoFactorChange {
+  recoveryCodes?: string[];
+  sessionRenewed: boolean = false;
+
+  public constructor(init?: Partial<NhTwoFactorChange>) {
+    Object.assign(this, init);
+  }
+}

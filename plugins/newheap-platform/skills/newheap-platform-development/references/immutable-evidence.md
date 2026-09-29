@@ -74,6 +74,10 @@ Source release: `newheap-platform-plugin-v1.13.50`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.50/docs/consumer-guide/authentication-session-lifecycle.md)
 
+## Authentication Two Factor
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.50/docs/consumer-guide/authentication-two-factor.md)
+
 ## Authorization Permissions
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.50/docs/consumer-guide/authorization-permissions.md)

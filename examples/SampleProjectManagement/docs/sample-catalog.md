@@ -492,6 +492,38 @@ anonymous. The request then ends with `401` through the normal pipeline.
 service that was actually selected and the claims rehydrated for that request.
 The authentication playground executes this endpoint interactively.
 
+## Two-factor authentication
+
+The sample enables authenticator apps and recovery codes on the standard
+authentication builder and maps the two-factor endpoints next to the password
+endpoints:
+
+```csharp
+options.AddTwoFactor(twoFactor => twoFactor
+    .EnableAuthenticator(authenticator => authenticator.Issuer = "Sample Project Management")
+    .EnableRecoveryCodes());
+
+authentication.AddTwoFactorEndpoints();
+```
+
+`SampleAuthenticationService` passes `NhTwoFactorAuthenticationContext<NhUser>`
+to its base constructor, and its PIN sample completes the first factor through
+`CompleteFirstFactorAsync`. An enrolled account therefore receives the same
+second-factor challenge after a PIN as after its password.
+
+The Development seeder enrolls `two-factor@example.test` with the fixed key
+`JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP`. Add the key to an authenticator app, select
+the account in the two-factor section of the authentication playground and use
+the interactive sign-in: the playground shows the challenge, verifies a code and
+stores the session only afterwards. The same section starts and confirms
+authenticator enrollment with a server-rendered QR code, regenerates recovery
+codes and disables two-factor authentication with the password as
+reauthentication.
+
+`TwoFactorSamplesTests` applies the PostgreSQL migrations, confirms that two-factor
+support needs no model change, and completes the seeded account's challenge with
+`NhTwoFactorTestCodes` from the reusable test package.
+
 ## API-to-API client
 
 `SampleProjectManagementApiService` shows how a backend service calls another

@@ -86,6 +86,13 @@
       "expectedOutcome": "Token-specific logout and atomic per-login refresh rotation, with legacy access tokens accepted until the user's first password mutation and all sessions invalidated afterward."
     },
     {
+      "id": "consumer-auth-two-factor",
+      "skill": "newheap-authentication",
+      "prompt": "Let users protect their account with an authenticator app and recovery codes, including the PIN sign-in that the application already offers.",
+      "expectedRules": ["nh-auth-two-factor", "nh-auth-session-lifecycle"],
+      "expectedOutcome": "AddTwoFactor with authenticator and recovery codes, a derived service that passes the two-factor context and completes the PIN through CompleteFirstFactorAsync, a frontend that uses authenticateInteractive and verifyTwoFactor, and relational tests for challenge, replay and session invalidation."
+    },
+    {
       "id": "consumer-provider-query",
       "skill": "newheap-database-development",
       "prompt": "Add a query and raw SQL path that work on SQL Server and PostgreSQL.",

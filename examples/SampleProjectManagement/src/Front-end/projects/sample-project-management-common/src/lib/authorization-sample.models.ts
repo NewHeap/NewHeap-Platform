@@ -34,6 +34,15 @@ export const AUTHORIZATION_DEMO_ACCOUNTS: readonly AuthorizationDemoAccount[] = 
   }
 ] as const;
 
+/**
+ * Development account enrolled with a fixed authenticator key. Add the key to an
+ * authenticator app, or generate codes with any RFC 6238 tool, to complete its sign-in.
+ */
+export const TWO_FACTOR_DEMO_ACCOUNT = {
+  email: 'two-factor@example.test',
+  authenticatorKey: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'
+} as const;
+
 export interface AuthorizationProbeSample {
   level: string;
   requiredPermission: string;

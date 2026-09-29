@@ -12,7 +12,12 @@ import {
   NhAuthorization,
   NhAuthService,
   NhCommonModule,
+  NhAuthenticatorSetup,
   NhDivision,
+  NhTwoFactorMethod,
+  NhTwoFactorMethods,
+  NhTwoFactorReauthentication,
+  NhTwoFactorVerifyModel,
   NhUser,
   RefreshTokenLoginAccountMutateModel,
   RevertImpersonateAuthenticateModel
@@ -29,7 +34,8 @@ import {
   IsOneProjectRoleGrantedPipe,
   SAMPLE_AUTHORIZATION_IDS,
   SampleAuthService,
-  SampleClaimTypes
+  SampleClaimTypes,
+  TWO_FACTOR_DEMO_ACCOUNT
 } from 'sample-project-management-common';
 
 @Component({
@@ -57,6 +63,12 @@ export class AuthPlaygroundComponent {
   readonly password = signal('Sample123!');
   readonly impersonateUserId = signal('');
   readonly result = signal('');
+  readonly twoFactorDemoAccount = TWO_FACTOR_DEMO_ACCOUNT;
+  readonly twoFactorMethods = [NhTwoFactorMethods.authenticator, NhTwoFactorMethods.recoveryCode];
+  readonly twoFactorMethod = signal<NhTwoFactorMethod>(NhTwoFactorMethods.authenticator);
+  readonly twoFactorCode = signal('');
+  readonly authenticatorSetup = signal<NhAuthenticatorSetup | undefined>(undefined);
+  readonly pendingChallenge = signal(this.authService.getPendingTwoFactorChallenge());
   readonly demoAccounts = AUTHORIZATION_DEMO_ACCOUNTS;
   readonly authorizationIds = SAMPLE_AUTHORIZATION_IDS;
   readonly permission = 'app.project.manage';
@@ -212,6 +224,91 @@ export class AuthPlaygroundComponent {
     this.result.set(JSON.stringify({ isSuccess: response.isSuccess, items: response.items }, null, 2));
   }
 
+  selectTwoFactorDemoAccount(): void {
+    this.username.set(this.twoFactorDemoAccount.email);
+    this.password.set('Sample123!');
+    this.result.set(this.translate.instant('project.two-factor-demo-account-selected', {
+      key: this.twoFactorDemoAccount.authenticatorKey
+    }));
+  }
+
+  /**
+   * Preferred sign-in for applications with two-factor authentication: the result is either
+   * a stored session or a challenge. A challenge is never stored as the authorization.
+   */
+  async interactiveLogin(): Promise<void> {
+    const response = await this.authService.authenticateInteractive(new AuthenticateModel({
+      realm: 'sample-project-management',
+      username: this.username(),
+      password: this.password()
+    }));
+    this.authorization.set(this.authService.getAuthorization());
+    this.pendingChallenge.set(this.authService.getPendingTwoFactorChallenge());
+    this.result.set(JSON.stringify({
+      isSuccess: response.isSuccess,
+      status: response.data?.status,
+      challenge: response.data?.challenge,
+      items: response.items
+    }, null, 2));
+  }
+
+  async verifyTwoFactor(): Promise<void> {
+    const challenge = this.authService.getPendingTwoFactorChallenge();
+    const response = await this.authService.verifyTwoFactor(new NhTwoFactorVerifyModel({
+      challengeToken: challenge?.challengeToken ?? '',
+      method: this.twoFactorMethod(),
+      code: this.twoFactorCode()
+    }));
+    if (response.isSuccess) {
+      await this.authService.reloadAuthorizationProfile();
+    }
+
+    this.authorization.set(this.authService.getAuthorization());
+    this.pendingChallenge.set(this.authService.getPendingTwoFactorChallenge());
+    this.result.set(JSON.stringify({ isSuccess: response.isSuccess, items: response.items }, null, 2));
+  }
+
+  async getTwoFactorStatus(): Promise<void> {
+    const response = await this.authService.getTwoFactorStatus();
+    this.result.set(JSON.stringify(response, null, 2));
+  }
+
+  async beginAuthenticatorSetup(): Promise<void> {
+    const response = await this.authService.beginAuthenticatorSetup(this.passwordReauthentication());
+    this.authenticatorSetup.set(response.data);
+    this.result.set(JSON.stringify({
+      isSuccess: response.isSuccess,
+      sharedKey: response.data?.sharedKey,
+      authenticatorUri: response.data?.authenticatorUri,
+      items: response.items
+    }, null, 2));
+  }
+
+  async confirmAuthenticator(): Promise<void> {
+    const response = await this.authService.confirmAuthenticator(this.twoFactorCode());
+    if (response.isSuccess) {
+      this.authenticatorSetup.set(undefined);
+    }
+
+    this.authorization.set(this.authService.getAuthorization());
+    this.result.set(JSON.stringify(response, null, 2));
+  }
+
+  async regenerateRecoveryCodes(): Promise<void> {
+    const response = await this.authService.regenerateRecoveryCodes(this.passwordReauthentication());
+    this.result.set(JSON.stringify(response, null, 2));
+  }
+
+  async disableTwoFactor(): Promise<void> {
+    const response = await this.authService.disableTwoFactor(this.passwordReauthentication());
+    this.authorization.set(this.authService.getAuthorization());
+    this.result.set(JSON.stringify(response, null, 2));
+  }
+
+  private passwordReauthentication(): NhTwoFactorReauthentication {
+    return new NhTwoFactorReauthentication({ password: this.password() });
+  }
+
   selectDemoAccount(account: AuthorizationDemoAccount): void {
     this.username.set(account.email);
     this.password.set('Sample123!');
@@ -276,4 +373,6 @@ export class AuthPlaygroundComponent {
   updateUsername(event: Event): void { this.username.set((event.target as HTMLInputElement).value); }
   updatePassword(event: Event): void { this.password.set((event.target as HTMLInputElement).value); }
   updateImpersonateId(event: Event): void { this.impersonateUserId.set((event.target as HTMLInputElement).value); }
+  updateTwoFactorCode(event: Event): void { this.twoFactorCode.set((event.target as HTMLInputElement).value); }
+  updateTwoFactorMethod(event: Event): void { this.twoFactorMethod.set((event.target as HTMLSelectElement).value); }
 }

@@ -10,7 +10,7 @@ Route the current consumer task to the smallest applicable internal module. Read
 - [foundation](../newheap-consumer-development/SKILL.md) for bootstrapping, inspecting, repairing or upgrading a consumer repository;
 - [backend](../newheap-backend-development/SKILL.md) for .NET foundations, modules, models, services, controllers, Scalar contracts, partial updates and units of work;
 - [frontend](../newheap-frontend-development/SKILL.md) for Angular configuration, collections, lifecycle behavior and modals;
-- [authentication](../newheap-authentication/SKILL.md) for roles, claims, policies, resource permissions and authentication overrides;
+- [authentication](../newheap-authentication/SKILL.md) for roles, claims, policies, resource permissions, two-factor authentication and authentication overrides;
 - [database](../newheap-database-development/SKILL.md) for provider-neutral queries, SQL Server and PostgreSQL behavior, and supported read-only investigation of unexpected staging or production data;
 - [media](../newheap-media-development/SKILL.md) for media contracts, storage, authorization, uploads and events;
 - [background processing](../newheap-background-processing/SKILL.md) for transactional events, jobs, consumers and notifications;

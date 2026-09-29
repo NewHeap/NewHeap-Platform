@@ -17,6 +17,7 @@
 - ai-protected-actions: ./ai-protected-actions.md
 - authentication-overrides: ./authentication-overrides.md
 - authentication-session-lifecycle: ./authentication-session-lifecycle.md
+- authentication-two-factor: ./authentication-two-factor.md
 - authorization-permissions: ./authorization-permissions.md
 - backend-collection-processing: ./backend-collection-processing.md
 - backend-controller-contracts: ./backend-controller-contracts.md

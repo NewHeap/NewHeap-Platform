@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using NewHeap.Platform.AspNet.Common.Authentication;
+using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Exceptions;
 using NewHeap.Platform.AspNet.Common.Models;
@@ -26,7 +27,7 @@ public class NhAuthenticationService<
     TDivisionRole,
     TDivisionUserRole,
     TDivisionRoleClaim
-    > : INhAuthenticationService
+    > : INhAuthenticationService, INhMultiFactorAuthenticationService
     where TUser : NhUser<TDivision, TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TUser>
     where TDivision : NhDivision<TDivisionUser, TDivisionUserRole, TDivisionRole, TDivisionRoleClaim, TDivision, TUser>
     where TDivisionRole : NhDivisionRole<TDivisionUserRole, TDivisionRoleClaim, TDivisionUser, TDivisionRole, TDivision, TUser>
@@ -40,6 +41,25 @@ public class NhAuthenticationService<
     protected readonly IConfiguration _configuration;
     protected readonly TokenValidationParameters _tokenValidationParameters;
     protected readonly AuthenticationConfiguration _authConfiguration;
+    private readonly NhTwoFactorAuthenticationContext<TUser>? _twoFactorContext;
+
+    /// <summary>
+    /// Creates the service with two-factor support. Derived services must use this
+    /// constructor when two-factor authentication is enabled; startup fails otherwise.
+    /// </summary>
+    public NhAuthenticationService(
+        SignInManager<TUser> signInManager,
+        INhUserManager<TUser> userManager,
+        ILogger<AuthenticationService> logger,
+        IConfiguration configuration,
+        TokenValidationParameters tokenValidationParameters,
+        AuthenticationConfiguration authConfiguration,
+        NhTwoFactorAuthenticationContext<TUser> twoFactorContext
+    )
+        : this(signInManager, userManager, logger, configuration, tokenValidationParameters, authConfiguration)
+    {
+        _twoFactorContext = twoFactorContext;
+    }
 
     public NhAuthenticationService(
         SignInManager<TUser> signInManager,
@@ -70,6 +90,12 @@ public class NhAuthenticationService<
         if (user == null)
         {
             return TaskResult<UserToken>.Failed("Invalid refresh token");
+        }
+
+        var twoFactorGate = await EvaluateSessionGateAsync(user, NhAuthenticationFactors.RefreshToken, allowEnrolledUsers: true);
+        if (!twoFactorGate.Success)
+        {
+            return TaskResult<UserToken>.Failed(twoFactorGate);
         }
 
         var repository = _userManager.GetRepository();
@@ -201,6 +227,24 @@ public class NhAuthenticationService<
         AuthenticateRequest request,
         IEnumerable<Claim>? requiredClaims = null)
     {
+        if (TwoFactor != null)
+        {
+            // A caller that can only handle a complete session must never receive one for a
+            // user who still has to present a second factor.
+            var stepResult = await AuthenticateAsync(request, requiredClaims);
+            if (!stepResult.Success)
+            {
+                return TaskResult<UserToken>.Failed(stepResult);
+            }
+
+            if (stepResult.Data!.Session == null)
+            {
+                return NhTwoFactorFailureCodes.Fail<UserToken>(NhTwoFactorFailureCodes.Required);
+            }
+
+            return stepResult.Data.Session;
+        }
+
         var user = await FindUserByUsernameAsync(request.UserName);
         if (user == null)
         {
@@ -243,9 +287,99 @@ public class NhAuthenticationService<
     /// <param name="user">The user whose consumer-specific credential was verified.</param>
     /// <param name="requiredClaims">Claims required before a session may be issued.</param>
     /// <returns>The newly created authentication session.</returns>
+    /// <remarks>
+    /// When two-factor authentication is enabled, this method fails with
+    /// <see cref="NhTwoFactorFailureCodes.Required"/> for users who need a second factor.
+    /// Use <see cref="CompleteFirstFactorAsync"/> so those users receive a challenge.
+    /// </remarks>
     protected virtual async Task<TaskResult<UserToken>> CreateAuthenticationSessionAsync(
         TUser user,
         IEnumerable<Claim>? requiredClaims = null)
+    {
+        var twoFactorGate = await EvaluateSessionGateAsync(
+            user,
+            NhAuthenticationFactors.Custom("unspecified"),
+            allowEnrolledUsers: false);
+        if (!twoFactorGate.Success)
+        {
+            return TaskResult<UserToken>.Failed(twoFactorGate);
+        }
+
+        return await CreateSessionCoreAsync(user, requiredClaims);
+    }
+
+    /// <summary>
+    /// Creates a session for a user whose required factors NewHeap verified.
+    /// </summary>
+    /// <param name="user">The verified user.</param>
+    /// <param name="proof">Proof created by a NewHeap verification path.</param>
+    /// <param name="requiredClaims">Claims required before a session may be issued.</param>
+    protected Task<TaskResult<UserToken>> CreateAuthenticationSessionAsync(
+        TUser user,
+        NhAuthenticationProof proof,
+        IEnumerable<Claim>? requiredClaims = null)
+    {
+        ArgumentNullException.ThrowIfNull(proof);
+
+        if (proof.UserId != user.Id)
+        {
+            throw new ArgumentException("The authentication proof belongs to another user.", nameof(proof));
+        }
+
+        return CreateSessionCoreAsync(user, requiredClaims);
+    }
+
+    /// <summary>
+    /// Completes a verified first factor. Returns a session, or a second-factor challenge
+    /// when the two-factor policy requires one. Use this from derived services after
+    /// verifying a consumer-specific credential such as a PIN.
+    /// </summary>
+    /// <param name="user">The user whose first factor was verified.</param>
+    /// <param name="factor">The verified factor, see <see cref="NhAuthenticationFactors"/>.</param>
+    /// <param name="requiredClaims">Claims required before a session may be issued.</param>
+    protected virtual async Task<TaskResult<NhAuthenticationResult>> CompleteFirstFactorAsync(
+        TUser user,
+        string factor,
+        IEnumerable<Claim>? requiredClaims = null)
+    {
+        if (!await _signInManager.CanSignInAsync(user)
+            || await _userManager.IsLockedOutAsync(user))
+        {
+            return TaskResult<NhAuthenticationResult>.Failed("User locked out");
+        }
+
+        var twoFactor = TwoFactor;
+        if (twoFactor != null)
+        {
+            var evaluation = await twoFactor.EvaluateAsync(user, factor, CancellationToken.None);
+            if (evaluation.Requirement.Required)
+            {
+                var methods = evaluation.Requirement.AllowedMethods
+                    .Intersect(evaluation.Enrollment.Methods, StringComparer.Ordinal)
+                    .ToList();
+
+                if (!evaluation.Enrollment.IsEnrolled || methods.Count == 0)
+                {
+                    return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.EnrollmentRequired);
+                }
+
+                var challenge = await twoFactor.CreateChallengeAsync(user, factor, methods);
+                return NhAuthenticationResult.TwoFactorRequired(challenge);
+            }
+        }
+
+        var session = await CreateSessionCoreAsync(user, requiredClaims);
+        if (!session.Success)
+        {
+            return TaskResult<NhAuthenticationResult>.Failed(session);
+        }
+
+        return NhAuthenticationResult.Authenticated(session.Data!);
+    }
+
+    private async Task<TaskResult<UserToken>> CreateSessionCoreAsync(
+        TUser user,
+        IEnumerable<Claim>? requiredClaims)
     {
         if (!await _signInManager.CanSignInAsync(user)
             || await _userManager.IsLockedOutAsync(user))
@@ -471,6 +605,12 @@ public class NhAuthenticationService<
             return TaskResult<UserToken>.Failed("Unknown user");
         }
 
+        var twoFactorGate = await EvaluateSessionGateAsync(user, NhAuthenticationFactors.Trusted, allowEnrolledUsers: false);
+        if (!twoFactorGate.Success)
+        {
+            return TaskResult<UserToken>.Failed(twoFactorGate);
+        }
+
         var refreshTokenResult = await CreateRefreshTokenAsync(user);
         if (!refreshTokenResult.Success)
         {
@@ -535,6 +675,219 @@ public class NhAuthenticationService<
         );
     }
 
+
+    /// <summary>
+    /// The two-factor service when two-factor authentication is enabled and this service was
+    /// constructed with the two-factor context; otherwise <see langword="null"/>.
+    /// </summary>
+    protected NhTwoFactorService<TUser>? TwoFactor
+    {
+        get
+        {
+            if (_twoFactorContext?.IsEnabled == true)
+            {
+                return _twoFactorContext.Service;
+            }
+
+            return null;
+        }
+    }
+
+    public bool IsTwoFactorAvailable => TwoFactor != null;
+
+    public virtual async Task<TaskResult<NhAuthenticationResult>> AuthenticateAsync(
+        AuthenticateRequest request,
+        IEnumerable<Claim>? requiredClaims = null)
+    {
+        var user = await FindUserByUsernameAsync(request.UserName);
+        if (user == null)
+        {
+            return TaskResult<NhAuthenticationResult>.Failed("Unknown user");
+        }
+
+        if (TwoFactor == null)
+        {
+            var session = await Authenticate(user, request, requiredClaims);
+            if (!session.Success)
+            {
+                return TaskResult<NhAuthenticationResult>.Failed(session);
+            }
+
+            return NhAuthenticationResult.Authenticated(session.Data!);
+        }
+
+        var passwordResult = await VerifyPasswordFactorAsync(user, request.Password);
+        if (!passwordResult.Success)
+        {
+            return TaskResult<NhAuthenticationResult>.Failed(passwordResult);
+        }
+
+        return await CompleteFirstFactorAsync(user, NhAuthenticationFactors.Password, requiredClaims);
+    }
+
+    public virtual async Task<TaskResult<NhAuthenticationResult>> VerifyTwoFactorAsync(
+        NhTwoFactorVerifyRequest request,
+        IEnumerable<Claim>? requiredClaims = null)
+    {
+        var twoFactor = TwoFactor;
+        if (twoFactor == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.ConfigurationInvalid);
+        }
+
+        var challenge = twoFactor.ReadChallenge(request.ChallengeToken);
+        if (challenge == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.ChallengeExpired);
+        }
+
+        var user = await _userManager.FindByIdAsync(challenge.UserId.ToString());
+        if (user == null || !await twoFactor.IsChallengeUsableAsync(user, challenge))
+        {
+            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.ChallengeExpired);
+        }
+
+        if (!await _signInManager.CanSignInAsync(user)
+            || await _userManager.IsLockedOutAsync(user))
+        {
+            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.LockedOut);
+        }
+
+        var evaluation = await twoFactor.EvaluateAsync(user, challenge.Factor, CancellationToken.None);
+        if (evaluation.Requirement.Required && !evaluation.Requirement.AllowedMethods.Contains(request.Method))
+        {
+            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.MethodNotAllowed);
+        }
+
+        if (!evaluation.Enrollment.Methods.Contains(request.Method))
+        {
+            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.MethodNotAllowed);
+        }
+
+        var check = await twoFactor.CheckCodeAsync(user, request.Method, request.Code);
+        if (!check.IsCandidate)
+        {
+            _logger.LogInformation("Failed second-factor attempt for user {user}", user.UserName);
+            var failure = await twoFactor.RecordFailedAttemptAsync(user);
+            return TaskResult<NhAuthenticationResult>.Failed(failure);
+        }
+
+        var repository = _userManager.GetRepository();
+        await using var transaction = await repository.StartOrGetTransactionScopeAsync();
+
+        try
+        {
+            var commitResult = await twoFactor.CommitSecondFactorAsync(user, check, challenge);
+            if (!commitResult.Success)
+            {
+                await transaction.RollbackAsync();
+
+                if (NhTwoFactorFailureCodes.Has(commitResult, NhTwoFactorFailureCodes.ChallengeExpired))
+                {
+                    return TaskResult<NhAuthenticationResult>.Failed(commitResult);
+                }
+
+                _logger.LogInformation("Failed second-factor attempt for user {user}", user.UserName);
+                var failure = await twoFactor.RecordFailedAttemptAfterRollbackAsync(user, transaction.IsMyTransaction);
+                return TaskResult<NhAuthenticationResult>.Failed(failure);
+            }
+
+            var proof = new NhAuthenticationProof(user.Id, [challenge.Factor, request.Method]);
+            var session = await CreateAuthenticationSessionAsync(user, proof, requiredClaims);
+            if (!session.Success)
+            {
+                await transaction.RollbackAsync();
+                return TaskResult<NhAuthenticationResult>.Failed(session);
+            }
+
+            await transaction.CommitAsync();
+            return NhAuthenticationResult.Authenticated(session.Data!);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+    }
+
+    public virtual async Task<TaskResult<NhAuthenticationResult>> AuthenticateExternalAsync(Guid userId, string factor)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+        {
+            return TaskResult<NhAuthenticationResult>.Failed("Unknown user");
+        }
+
+        return await CompleteFirstFactorAsync(user, factor);
+    }
+
+    public virtual async Task<TaskResult<UserToken>> RenewSessionAsync(NhAuthenticationProof proof)
+    {
+        ArgumentNullException.ThrowIfNull(proof);
+
+        var user = await _userManager.FindByIdAsync(proof.UserId.ToString());
+        if (user == null)
+        {
+            return TaskResult<UserToken>.Failed("Unknown user");
+        }
+
+        return await CreateAuthenticationSessionAsync(user, proof, _authConfiguration.AuthenticateRequiredClaims);
+    }
+
+    /// <summary>
+    /// Verifies the password as a first factor without resetting failed attempts. The reset
+    /// happens when the session is issued, after every required factor succeeded.
+    /// </summary>
+    protected virtual async Task<TaskResult> VerifyPasswordFactorAsync(TUser user, string password)
+    {
+        if (!await _signInManager.CanSignInAsync(user)
+            || await _userManager.IsLockedOutAsync(user))
+        {
+            return TaskResult.Failed("User locked out");
+        }
+
+        if (await _userManager.CheckPasswordAsync(user, password))
+        {
+            return TaskResult.Succeeded();
+        }
+
+        _logger.LogInformation("Failed login attempt for user {user}", user.UserName);
+        await _userManager.AccessFailedAsync(user);
+
+        if (await _userManager.IsLockedOutAsync(user))
+        {
+            return TaskResult.Failed("User locked out");
+        }
+
+        return TaskResult.Failed("Invalid password");
+    }
+
+    private async Task<TaskResult> EvaluateSessionGateAsync(TUser user, string factor, bool allowEnrolledUsers)
+    {
+        var twoFactor = TwoFactor;
+        if (twoFactor == null)
+        {
+            return TaskResult.Succeeded();
+        }
+
+        var evaluation = await twoFactor.EvaluateAsync(user, factor, CancellationToken.None);
+        if (!evaluation.Requirement.Required)
+        {
+            return TaskResult.Succeeded();
+        }
+
+        if (!evaluation.Enrollment.IsEnrolled)
+        {
+            return NhTwoFactorFailureCodes.Fail(NhTwoFactorFailureCodes.EnrollmentRequired);
+        }
+
+        if (allowEnrolledUsers)
+        {
+            return TaskResult.Succeeded();
+        }
+
+        return NhTwoFactorFailureCodes.Fail(NhTwoFactorFailureCodes.Required);
+    }
 
     public virtual void WriteTokenToCookie(HttpContext httpContext, UserToken token, string? authCookieName = null, string? refreshCookieName = null)
     {

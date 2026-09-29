@@ -142,6 +142,7 @@
         "references/ai-aspnet-context.md",
         "references/authentication-overrides.md",
         "references/authentication-session-lifecycle.md",
+        "references/authentication-two-factor.md",
         "references/authorization-permissions.md"
       ]
     },

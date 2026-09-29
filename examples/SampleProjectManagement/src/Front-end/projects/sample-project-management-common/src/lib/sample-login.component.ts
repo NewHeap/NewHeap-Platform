@@ -75,6 +75,11 @@ export class SampleLoginComponent {
       .map(item => item.trim())
       .find(item => item.length > 0 && item.length <= 240 && !/[<>]/.test(item));
 
+    if (message?.startsWith('nh-two-factor.')) {
+      // Two-factor failures carry a translation key instead of display text.
+      return this.translate.instant(message);
+    }
+
     return message ?? this.loginFailedMessage();
   }
 

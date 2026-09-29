@@ -8,6 +8,14 @@ public static class SampleAuthorizationDefaults
     public const string ViewerEmail = "viewer@example.test";
     public const string DivisionEditorEmail = "division-editor@example.test";
     public const string ProjectEditorEmail = "project-editor@example.test";
+    public const string TwoFactorEmail = "two-factor@example.test";
+
+    /// <summary>
+    /// Development-only authenticator key of <see cref="TwoFactorEmail"/>. Add it to an
+    /// authenticator app to sign in with the demo account; never seed fixed keys outside
+    /// Development.
+    /// </summary>
+    public const string TwoFactorAuthenticatorKey = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
 
     public const string ManagerRole = "sample-project-manager";
     public const string ViewerRole = "sample-project-viewer";

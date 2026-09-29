@@ -307,7 +307,23 @@
     "assistant-page-description": "Open a project as if you were on its page. The panel shows the project above the message box and sends it with the next message; the cross leaves it out.",
     "assistant-page-close": "Close the project page",
     "assistant-page-current": "Open now: {{page}}",
-    "assistant-page-none": "No project page is open; the panel sends the current route and title."
+    "assistant-page-none": "No project page is open; the panel sends the current route and title.",
+    "two-factor-playground-title": "Two-factor authentication",
+    "two-factor-playground-description": "Sign in with the enrolled demo account, complete the challenge with an authenticator or recovery code, and manage the second factor of the signed-in user.",
+    "two-factor-demo-account": "Two-factor demo account",
+    "two-factor-demo-account-selected": "Add the key {{key}} to an authenticator app, then use the interactive sign-in.",
+    "two-factor-method": "Second-factor method",
+    "two-factor-code": "Code",
+    "two-factor-pending-challenge": "Challenge pending. Allowed methods: {{methods}}.",
+    "two-factor-interactive-login": "Interactive sign-in",
+    "two-factor-verify": "Verify code",
+    "two-factor-status": "Two-factor status",
+    "two-factor-setup": "Start authenticator setup",
+    "two-factor-confirm": "Confirm authenticator",
+    "two-factor-recovery-codes": "New recovery codes",
+    "two-factor-disable": "Disable two-factor",
+    "two-factor-qr-alt": "QR code for the authenticator app",
+    "two-factor-shared-key": "Key for manual entry"
   },
   "nh-background-operations": {
     "operation": "Background operation",
@@ -490,5 +506,21 @@
         "description": "Explains the sample catalog. Read only."
       }
     }
+  },
+  "nh-two-factor": {
+    "required": "Enter the code from your authenticator app to finish signing in.",
+    "enrollment-required": "Set up two-factor authentication before you continue.",
+    "invalid-code": "The code is not valid. Try the next code from your app.",
+    "challenge-expired": "The sign-in expired. Sign in again.",
+    "locked-out": "Too many attempts. The account is temporarily locked.",
+    "method-not-allowed": "This method cannot be used for this account.",
+    "not-enabled": "Two-factor authentication is not enabled.",
+    "already-enabled": "Two-factor authentication is already enabled.",
+    "setup-not-started": "Start the authenticator setup first.",
+    "reauthentication-required": "Confirm your password or a code to continue.",
+    "reauthentication-failed": "The password or code is not correct.",
+    "required-by-policy": "Your organization requires two-factor authentication.",
+    "not-allowed-while-impersonating": "You cannot change two-factor settings while impersonating a user.",
+    "configuration-invalid": "Two-factor authentication is not configured correctly."
   }
 }

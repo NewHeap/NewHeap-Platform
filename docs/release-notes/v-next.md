@@ -11,6 +11,24 @@ resolve the validator.
 |---|---|
 | A consumer-side reflection or replacement registration for `NhAuthenticationSessionValidator<TUser>` is no longer needed. | Remove the workaround after upgrading to the release that contains this fix. |
 
+## NewHeap.Platform.AspNet.Common and @newheap/platform-common: two-factor authentication
+
+`AddTwoFactor(...)` adds opt-in two-factor authentication with authenticator apps
+and recovery codes. Users who enroll receive a single-use second-factor challenge
+after their password; `AddTwoFactorEndpoints()` maps the challenge and account
+endpoints. Without `AddTwoFactor(...)` behavior, endpoints, responses and schema
+are unchanged, and no migration is needed.
+
+| Adoption note | Required action |
+|---|---|
+| With two-factor authentication enabled the login endpoint returns `NhLoginResponse`, which has only `twoFactor` for a pending sign-in. Older frontends would store a challenge as a session. | Upgrade `@newheap/platform-common` and use `authenticateInteractive` and `verifyTwoFactor` before enabling two-factor authentication on the server. |
+| `NhAuthenticationService` gains a constructor with `NhTwoFactorAuthenticationContext<TUser>`; with two-factor authentication enabled, startup fails for a derived service that does not pass it. | Add the context parameter to the derived constructor and pass it to the base constructor. |
+| With two-factor authentication enabled, `CreateAuthenticationSessionAsync`, `Authenticate` and `LoginWithoutValidations` refuse users who need a second factor, refresh rotation refuses users the policy requires to enroll, and the Microsoft OAuth callback checks sign-in eligibility and lockout. | Complete consumer credentials through `CompleteFirstFactorAsync` and return its challenge to the client. |
+| `NhUserManager.GenerateNewTwoFactorRecoveryCodesAsync` now stores hashes; codes stored in plaintext before the upgrade still redeem once. | No action. |
+| Two-factor challenges are protected with ASP.NET Core Data Protection. | Persist the key ring to storage shared by every instance. |
+| The enrollment QR code is a PNG data URI rendered with QRCoder. | Allow `img-src data:` in the content security policy of the enrollment page. |
+| `@newheap/platform-common` `authenticate` fails with `two-factor-required` instead of storing a challenge. | No action for applications without two-factor authentication. |
+
 ## NewHeap.Platform.AI.AspNet.Mvc (new package)
 
 `AddNewHeapPlatformAIMvcBridge` publishes policy-protected MVC actions as governed,

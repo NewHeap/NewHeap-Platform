@@ -202,5 +202,21 @@
       "default-title": "Select",
       "all-selected": "All selected"
     }
+  },
+  "nh-two-factor": {
+    "required": "Enter the code from your authenticator app to finish signing in.",
+    "enrollment-required": "Set up two-factor authentication before you continue.",
+    "invalid-code": "The code is not valid. Try the next code from your app.",
+    "challenge-expired": "The sign-in expired. Sign in again.",
+    "locked-out": "Too many attempts. The account is temporarily locked.",
+    "method-not-allowed": "This method cannot be used for this account.",
+    "not-enabled": "Two-factor authentication is not enabled.",
+    "already-enabled": "Two-factor authentication is already enabled.",
+    "setup-not-started": "Start the authenticator setup first.",
+    "reauthentication-required": "Confirm your password or a code to continue.",
+    "reauthentication-failed": "The password or code is not correct.",
+    "required-by-policy": "Your organization requires two-factor authentication.",
+    "not-allowed-while-impersonating": "You cannot change two-factor settings while impersonating a user.",
+    "configuration-invalid": "Two-factor authentication is not configured correctly."
   }
 }

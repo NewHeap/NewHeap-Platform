@@ -31,6 +31,51 @@
         <button type="button" (click)="impersonate()">Impersonate</button>
         <button type="button" (click)="revertImpersonation()">Revert</button>
       </div>
+      <fieldset class="two-factor">
+        <legend>{{ 'project.two-factor-playground-title' | translate }}</legend>
+        <p>{{ 'project.two-factor-playground-description' | translate }}</p>
+        <button type="button" (click)="selectTwoFactorDemoAccount()">
+          <span>{{ 'project.two-factor-demo-account' | translate }}</span>
+          <small>{{ twoFactorDemoAccount.email }}</small>
+        </button>
+        <label>
+          <span>{{ 'project.two-factor-method' | translate }}</span>
+          <select [value]="twoFactorMethod()" (change)="updateTwoFactorMethod($event)">
+            @for (method of twoFactorMethods; track method) {
+              <option [value]="method">{{ method }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          <span>{{ 'project.two-factor-code' | translate }}</span>
+          <input [value]="twoFactorCode()" (input)="updateTwoFactorCode($event)" autocomplete="one-time-code" inputmode="numeric">
+        </label>
+        @if (pendingChallenge(); as challenge) {
+          <p class="pending-challenge">{{ 'project.two-factor-pending-challenge' | translate: { methods: challenge.methods.join(', ') } }}</p>
+        }
+        <div class="actions">
+          <button type="button" (click)="interactiveLogin()">{{ 'project.two-factor-interactive-login' | translate }}</button>
+          <button type="button" (click)="verifyTwoFactor()">{{ 'project.two-factor-verify' | translate }}</button>
+          <button type="button" (click)="getTwoFactorStatus()">{{ 'project.two-factor-status' | translate }}</button>
+        </div>
+        <div class="actions">
+          <button type="button" (click)="beginAuthenticatorSetup()">{{ 'project.two-factor-setup' | translate }}</button>
+          <button type="button" (click)="confirmAuthenticator()">{{ 'project.two-factor-confirm' | translate }}</button>
+          <button type="button" (click)="regenerateRecoveryCodes()">{{ 'project.two-factor-recovery-codes' | translate }}</button>
+          <button type="button" (click)="disableTwoFactor()">{{ 'project.two-factor-disable' | translate }}</button>
+        </div>
+        @if (authenticatorSetup(); as setup) {
+          <figure class="authenticator-setup">
+            @if (setup.qrCodeDataUri) {
+              <img [src]="setup.qrCodeDataUri" [alt]="'project.two-factor-qr-alt' | translate" width="180" height="180">
+            }
+            <figcaption>
+              <span>{{ 'project.two-factor-shared-key' | translate }}</span>
+              <code>{{ setup.sharedKey }}</code>
+            </figcaption>
+          </figure>
+        }
+      </fieldset>
       <div class="actions local">
         <button type="button" (click)="activateDemoAuthorization()">Activate local claim demo</button>
         <button type="button" (click)="activateExpiringDemoAuthorization()">{{ 'project.activate-expiring-session' | translate }}</button>

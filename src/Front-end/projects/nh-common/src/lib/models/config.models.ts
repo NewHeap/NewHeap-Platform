@@ -8,6 +8,12 @@ export class EndpointsAuthenticationNhCommonModuleConfig {
   impersonate: string = '/authentication/impersonate';
   revertImpersonate: string = '/authentication/ImpersonateRevert';
   accountInformation: string ='/account';
+  twoFactorVerify: string = '/authentication/two-factor/verify';
+  twoFactorStatus: string = '/account/two-factor';
+  twoFactorAuthenticator: string = '/account/two-factor/authenticator';
+  twoFactorAuthenticatorConfirm: string = '/account/two-factor/authenticator/confirm';
+  twoFactorRecoveryCodes: string = '/account/two-factor/recovery-codes';
+  twoFactorDisable: string = '/account/two-factor/disable';
 
   public constructor(init?: Partial<EndpointsAuthenticationNhCommonModuleConfig>) {
     Object.assign(this, init);

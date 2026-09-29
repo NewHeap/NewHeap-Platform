@@ -307,7 +307,23 @@
     "assistant-page-description": "Open een project alsof je op de projectpagina bent. Het paneel toont het project boven het berichtveld en stuurt het mee met het volgende bericht; met het kruisje laat je het weg.",
     "assistant-page-close": "Projectpagina sluiten",
     "assistant-page-current": "Nu open: {{page}}",
-    "assistant-page-none": "Er is geen projectpagina open; het paneel stuurt de huidige route en titel mee."
+    "assistant-page-none": "Er is geen projectpagina open; het paneel stuurt de huidige route en titel mee.",
+    "two-factor-playground-title": "Tweestapsverificatie",
+    "two-factor-playground-description": "Meld je aan met het ingeschreven demo-account, rond de challenge af met een authenticator- of herstelcode en beheer de tweede factor van de aangemelde gebruiker.",
+    "two-factor-demo-account": "Demo-account met tweestapsverificatie",
+    "two-factor-demo-account-selected": "Voeg de sleutel {{key}} toe aan een authenticator-app en gebruik daarna de interactieve aanmelding.",
+    "two-factor-method": "Methode voor de tweede factor",
+    "two-factor-code": "Code",
+    "two-factor-pending-challenge": "Challenge wacht op een code. Toegestane methodes: {{methods}}.",
+    "two-factor-interactive-login": "Interactief aanmelden",
+    "two-factor-verify": "Code controleren",
+    "two-factor-status": "Status tweestapsverificatie",
+    "two-factor-setup": "Authenticator instellen",
+    "two-factor-confirm": "Authenticator bevestigen",
+    "two-factor-recovery-codes": "Nieuwe herstelcodes",
+    "two-factor-disable": "Tweestapsverificatie uitzetten",
+    "two-factor-qr-alt": "QR-code voor de authenticator-app",
+    "two-factor-shared-key": "Sleutel om handmatig in te voeren"
   },
   "nh-background-operations": {
     "operation": "Achtergrondtaak",
@@ -490,5 +506,21 @@
         "description": "Legt de samplecatalogus uit. Alleen lezen."
       }
     }
+  },
+  "nh-two-factor": {
+    "required": "Voer de code uit je authenticator-app in om het aanmelden af te ronden.",
+    "enrollment-required": "Stel eerst tweestapsverificatie in.",
+    "invalid-code": "De code is ongeldig. Probeer de volgende code uit je app.",
+    "challenge-expired": "De aanmelding is verlopen. Meld je opnieuw aan.",
+    "locked-out": "Te veel pogingen. Het account is tijdelijk geblokkeerd.",
+    "method-not-allowed": "Deze methode kan niet voor dit account worden gebruikt.",
+    "not-enabled": "Tweestapsverificatie staat niet aan.",
+    "already-enabled": "Tweestapsverificatie staat al aan.",
+    "setup-not-started": "Start eerst het instellen van de authenticator.",
+    "reauthentication-required": "Bevestig je wachtwoord of een code om door te gaan.",
+    "reauthentication-failed": "Het wachtwoord of de code klopt niet.",
+    "required-by-policy": "Je organisatie vereist tweestapsverificatie.",
+    "not-allowed-while-impersonating": "Je kunt tweestapsverificatie niet wijzigen tijdens impersonatie.",
+    "configuration-invalid": "Tweestapsverificatie is niet goed geconfigureerd."
   }
 }
