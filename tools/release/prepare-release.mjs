@@ -13,6 +13,7 @@ import {
   releaseTag,
   repositoryRoot,
   resolveRepositoryPath,
+  validateReleaseNoteSections,
   writeJson
 } from './lib.mjs';
 
@@ -63,6 +64,14 @@ runGuidanceTool(
   ['--check'],
   'Public API snapshot validation failed before version preparation.'
 );
+
+// A section that names no release package would otherwise stay in v-next.md forever.
+const releaseNoteFailures = validateReleaseNoteSections(
+  manifest,
+  await readFile(resolve(repositoryRoot, 'docs', 'release-notes', 'v-next.md'), 'utf8'));
+if (releaseNoteFailures.length > 0) {
+  throw new Error(releaseNoteFailures.join('\n'));
+}
 
 const jsonWrites = [];
 const textWrites = await prepareReleaseNotes(releases);

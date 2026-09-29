@@ -85,6 +85,11 @@ follow-up work.
   `docs/release-notes/v-next.md` as part of the same change.
 - Group entries by package and use a `Breaking change | Required action` table;
   keep each entry to one short "X changed; do Y" row with the concrete replacement.
+- Start every `## ` heading with the package names of one release unit, optionally
+  followed by `: topic`, for example
+  `## NewHeap.Platform.AspNet.Common: two-factor authentication`. Write a separate
+  section per release unit when a change spans NuGet and npm. `npm run release:test`
+  rejects other headings, because release preparation could not archive them.
 - During stable release preparation, archive the applicable notes under the
   release version and create a fresh `v-next.md` in the same release commit.
   Preserve pending entries for packages not being released. Follow

@@ -12,10 +12,12 @@ import {
   missingTargetFrameworks,
   projectTargetFrameworks,
   prepareReleaseNotes,
+  releaseNoteHeadingPackages,
   releasePackages,
   releaseSelection,
   releaseTag,
-  repositoryRoot
+  repositoryRoot,
+  validateReleaseNoteSections
 } from './lib.mjs';
 import { validateNpmArtifactEntries, validateNugetArtifactEntries } from './validate-package-artifacts.mjs';
 
@@ -147,6 +149,35 @@ try {
     assert.equal(allWrites.get(resolve(notesDirectory, `v${release.version}.md`)), `# v${release.version}\n\n${section}\n`);
   }
   assert.equal(allWrites.get(archivePath), `# v${commonRelease.version}\n\n${common}\n\n${npm}\n`, 'An all-unit release must group matching versions into one archive.');
+
+  // Headings may add a topic, list packages of one unit and mark new packages.
+  assert.deepEqual(releaseNoteHeadingPackages('NewHeap.Platform.AspNet.Common: two-factor authentication'), ['NewHeap.Platform.AspNet.Common']);
+  assert.deepEqual(releaseNoteHeadingPackages('@newheap/platform-ai-chat (new package)'), ['@newheap/platform-ai-chat']);
+  assert.deepEqual(
+    releaseNoteHeadingPackages('NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.AspNet (new packages): assistant'),
+    ['NewHeap.Platform.AI.Chat', 'NewHeap.Platform.AI.Chat.SqlServer', 'NewHeap.Platform.AI.Chat.AspNet']);
+
+  const topicCommon = '## NewHeap.Platform.AspNet.Common and NewHeap.Platform.AI.Common: session validation\n\n| Adoption note | Required action |\n|---|---|\n| Validator moved | No action. |';
+  const mixedUnits = '## NewHeap.Platform.AspNet.Common and @newheap/platform-common: two-factor authentication\n\nBoth packages changed.';
+  const unknownPackage = '## Authentication: two-factor authentication\n\nNo package named.';
+  assert.deepEqual(validateReleaseNoteSections(manifest, ['# v-next', topicCommon, media, npm, plugin].join('\n\n')), []);
+  const failures = validateReleaseNoteSections(manifest, ['# v-next', mixedUnits, unknownPackage].join('\n\n'));
+  assert.equal(failures.length, 2);
+  assert.match(failures[0], /mixes the release units nuget-common and npm-platform-common/);
+  assert.match(failures[1], /unknown: Authentication/);
+  assert.deepEqual(
+    validateReleaseNoteSections(manifest, await readFile(resolve(repositoryRoot, 'docs/release-notes/v-next.md'), 'utf8')),
+    [],
+    'The pending release notes must be archivable.');
+
+  // A topic heading is archived with the unit's version instead of staying in v-next.md.
+  await writeFile(nextPath, ['# v-next', topicCommon, media].join('\n\n') + '\n');
+  await rm(archivePath, { force: true });
+  const topicWrites = new Map(await prepareReleaseNotes([commonRelease], notesDirectory));
+  assert.equal(topicWrites.get(archivePath), `# v${commonRelease.version}\n\n${topicCommon}\n`);
+  assert.equal(topicWrites.get(nextPath), ['# v-next', media].join('\n\n') + '\n');
+  await writeFile(nextPath, ['# v-next', mixedUnits].join('\n\n') + '\n');
+  await assert.rejects(prepareReleaseNotes([commonRelease], notesDirectory), /mixes packages of different releases/);
 
   await writeFile(nextPath, '# v-next\n');
   assert.deepEqual(await prepareReleaseNotes(allReleases, notesDirectory), []);

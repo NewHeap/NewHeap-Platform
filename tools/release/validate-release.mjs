@@ -7,7 +7,8 @@ import {
   readJson,
   releaseTag,
   repositoryRoot,
-  resolveRepositoryPath
+  resolveRepositoryPath,
+  validateReleaseNoteSections
 } from './lib.mjs';
 
 const manifest = await loadReleaseManifest();
@@ -395,5 +396,9 @@ for (const workflowPath of workflowPaths) {
   }
 }
 
+failures.push(...validateReleaseNoteSections(
+  manifest,
+  await readFile(resolve(repositoryRoot, 'docs', 'release-notes', 'v-next.md'), 'utf8')));
+
 if (failures.length > 0) throw new Error(failures.join('\n'));
-console.log(`Validated ${Object.keys(manifest.units).length} release units and ${workflowPaths.length} GitHub workflows.`);
+console.log(`Validated ${Object.keys(manifest.units).length} release units, ${workflowPaths.length} GitHub workflows and the pending release notes.`);

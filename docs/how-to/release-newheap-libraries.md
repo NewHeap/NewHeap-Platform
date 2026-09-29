@@ -75,6 +75,8 @@ If registry publication succeeds but finalization is interrupted, run **Finalize
 
 Every breaking public API or behavior change must update `docs/release-notes/v-next.md` in the same change. Group entries by package using a `Breaking change | Required action` table, with one short "X changed; do Y" row per item.
 
+Release preparation archives a section by the packages its `## ` heading names. Start the heading with the package names of one release unit, separated by commas or "and", optionally followed by `(new package)` and by `: topic`, for example `## NewHeap.Platform.AspNet.Common: two-factor authentication`. Write one section per release unit; a change that spans `nuget-common` and `npm-platform-common` gets a section for each. `npm run release:test` and **Prepare release** reject headings that name unknown packages or mix release units, so no section silently stays in `v-next.md`.
+
 `Prepare release` automatically includes these steps in the generated stable release commit, after determining the release version:
 
 1. Rename `docs/release-notes/v-next.md` to `docs/release-notes/v<version>.md` and change its heading to `# v<version>`.

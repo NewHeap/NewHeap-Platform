@@ -166,19 +166,67 @@ export function releaseTag(unit, version = unit.version) {
   return `${unit.tagPrefix}${version}`;
 }
 
-export async function prepareReleaseNotes(releases, directory = resolve(repositoryRoot, 'docs', 'release-notes')) {
-  const nextPath = resolve(directory, 'v-next.md');
-  const source = await readFile(nextPath, 'utf8');
+function releaseUnitPackageNames(unit) {
+  return unit.kind === 'nuget' ? unit.projects.map(project => project.packageId) : [unit.packageName];
+}
+
+/**
+ * Returns the packages that a release-note section heading names. A heading starts with one
+ * or more package names ("A", "A and B" or "A, B and C"), optionally followed by
+ * "(new package)" or "(new packages)" and by ": topic".
+ */
+export function releaseNoteHeadingPackages(heading) {
+  const topicStart = heading.indexOf(': ');
+  const subject = (topicStart >= 0 ? heading.slice(0, topicStart) : heading)
+    .replace(/\s*\(new packages?\)$/i, '')
+    .trim();
+  return subject.split(/,\s*|\s+and\s+/).map(name => name.trim()).filter(Boolean);
+}
+
+function releaseNoteSections(source, path) {
   // ponytail: release notes use package-level ## headings and short tables, not arbitrary Markdown.
   const [heading, ...sections] = source.replaceAll('\r\n', '\n').trim().split(/^## /m);
   if (heading.trim() !== '# v-next') {
-    throw new Error(`${nextPath}: expected # v-next followed by package sections.`);
+    throw new Error(`${path}: expected # v-next followed by package sections.`);
   }
+  return sections;
+}
+
+/**
+ * Checks that every section of v-next.md names known packages of exactly one release unit,
+ * so release preparation can archive it with that unit's version. Returns the failures.
+ */
+export function validateReleaseNoteSections(manifest, source, path = 'docs/release-notes/v-next.md') {
+  const packageUnits = new Map();
+  for (const [id, unit] of Object.entries(manifest.units)) {
+    for (const name of releaseUnitPackageNames(unit)) {
+      packageUnits.set(name, id);
+    }
+  }
+
+  const failures = [];
+  for (const section of releaseNoteSections(source, path)) {
+    const heading = section.split('\n', 1)[0].trim();
+    const packages = releaseNoteHeadingPackages(heading);
+    const unknown = packages.filter(name => !packageUnits.has(name));
+    const units = new Set(packages.map(name => packageUnits.get(name)).filter(Boolean));
+    if (packages.length === 0 || unknown.length > 0) {
+      failures.push(`${path}: '## ${heading}' must start with release package names, optionally followed by ': topic'; unknown: ${unknown.join(', ') || 'none'}.`);
+    } else if (units.size > 1) {
+      failures.push(`${path}: '## ${heading}' mixes the release units ${[...units].join(' and ')}; write one section per unit.`);
+    }
+  }
+  return failures;
+}
+
+export async function prepareReleaseNotes(releases, directory = resolve(repositoryRoot, 'docs', 'release-notes')) {
+  const nextPath = resolve(directory, 'v-next.md');
+  const source = await readFile(nextPath, 'utf8');
+  const sections = releaseNoteSections(source, nextPath);
 
   const packageVersions = new Map();
   for (const { unit, version } of releases) {
-    const names = unit.kind === 'nuget' ? unit.projects.map(project => project.packageId) : [unit.packageName];
-    for (const name of names) {
+    for (const name of releaseUnitPackageNames(unit)) {
       packageVersions.set(name, version);
     }
   }
@@ -186,9 +234,13 @@ export async function prepareReleaseNotes(releases, directory = resolve(reposito
   const pending = [];
   const archived = new Map();
   for (const section of sections) {
-    const packageName = section.split(/\r?\n/, 1)[0].trim();
-    const version = packageVersions.get(packageName);
+    const heading = section.split('\n', 1)[0].trim();
+    const versions = new Set(releaseNoteHeadingPackages(heading).map(name => packageVersions.get(name)));
     const text = `## ${section.trim()}`;
+    if (versions.size > 1) {
+      throw new Error(`${nextPath}: '## ${heading}' mixes packages of different releases; write one section per unit.`);
+    }
+    const [version] = versions;
     if (!version) {
       pending.push(text);
       continue;
