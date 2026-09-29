@@ -14,7 +14,7 @@ using static NewHeap.Platform.AspNet.Common.Constants;
 namespace NewHeap.Platform.AspNet.Common.Authentication;
 
 /// <summary>
-/// Endpoint for refreshing the access token
+/// Endpoint that ends an impersonation and restores the original user's session.
 /// </summary>
 public class NhRevertImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
 {
@@ -35,9 +35,9 @@ public class NhRevertImpersonateAuthenticationHandler : BaseNhAuthenticationEndp
     {
         _configuration = configuration;
 
-        if (!string.IsNullOrWhiteSpace(configuration.RefreshTokenEndpoint))
+        if (!string.IsNullOrWhiteSpace(configuration.RevertImpersonateEndpoint))
         {
-            Pattern = configuration.RefreshTokenEndpoint;
+            Pattern = configuration.RevertImpersonateEndpoint;
         }
         
         if(!string.IsNullOrWhiteSpace(configuration.RefreshCookieName))

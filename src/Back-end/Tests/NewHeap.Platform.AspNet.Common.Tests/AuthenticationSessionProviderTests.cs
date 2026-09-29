@@ -22,6 +22,7 @@ using NewHeap.Platform.AspNet.Common.Models.Options;
 using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.SqlServer;
+using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
@@ -374,6 +375,60 @@ public sealed class AuthenticationSessionProviderTests
         Assert.True(consumerPasswordChange.Success);
         Assert.Equal(0, await CountRefreshTokensAsync(context, user.Id));
         Assert.True(await userManager.CheckPasswordAsync(user, customCredential));
+
+        await VerifyImpersonationSessionHasNoRefreshTokenAsync(context, userManager, options, user);
+    }
+
+    /// <summary>
+    /// An impersonation session must not receive a refresh token: rotating it would rebuild
+    /// the token from the target user's claims, drop the impersonation origin and leave the
+    /// administrator with an ordinary long-lived login as the target user.
+    /// </summary>
+    private static async Task VerifyImpersonationSessionHasNoRefreshTokenAsync(
+        AuthenticationSessionDbContext context,
+        NhUserManager userManager,
+        IOptions<IdentityOptions> identityOptions,
+        NhUser administrator)
+    {
+        var target = new NhUser
+        {
+            Id = Guid.NewGuid(),
+            UserName = "impersonated-user@example.test",
+            Email = "impersonated-user@example.test",
+            EmailConfirmed = true,
+        };
+        var createTargetResult = await userManager.CreateAsync(target, "Target6!Password");
+        Assert.True(createTargetResult.Succeeded);
+
+        await AddRefreshTokensAsync(context, target.Id, "target-own-device");
+        var administratorRefreshTokens = await CountRefreshTokensAsync(context, administrator.Id);
+        var authenticationService = CreateAuthenticationService(userManager, identityOptions);
+
+        var impersonation = await authenticationService.Impersonate(
+            administrator.Id,
+            new ImpersonateRequest(target.Id));
+
+        Assert.True(impersonation.Success);
+        Assert.Null(impersonation.Data!.RefreshToken);
+        Assert.Null(impersonation.Data.RefreshValidTo);
+        Assert.Equal(1, await CountRefreshTokensAsync(context, target.Id));
+        Assert.Equal(administratorRefreshTokens, await CountRefreshTokensAsync(context, administrator.Id));
+
+        var impersonationToken = new JwtSecurityTokenHandler().ReadJwtToken(impersonation.Data.Token);
+        Assert.Equal(
+            administrator.Id.ToString(),
+            impersonationToken.Claims.Single(x => x.Type == NhPlatformClaimTypes.ImpersonateOriginUserId).Value);
+
+        // Reverting restores the administrator with a normal session of its own.
+        var revert = await authenticationService.ImpersonateRevert(target.Id, administrator.Id);
+
+        Assert.True(revert.Success);
+        Assert.NotNull(revert.Data!.RefreshToken);
+        Assert.Equal(administratorRefreshTokens + 1, await CountRefreshTokensAsync(context, administrator.Id));
+        Assert.Equal(1, await CountRefreshTokensAsync(context, target.Id));
+        Assert.DoesNotContain(
+            new JwtSecurityTokenHandler().ReadJwtToken(revert.Data.Token).Claims,
+            x => x.Type == NhPlatformClaimTypes.ImpersonateOriginUserId);
     }
 
     private static async Task AssertIssuedTokenContainsSecurityStampAsync(

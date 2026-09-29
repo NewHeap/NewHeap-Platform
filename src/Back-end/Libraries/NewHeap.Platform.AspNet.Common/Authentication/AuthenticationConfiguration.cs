@@ -14,6 +14,8 @@ public class AuthenticationConfiguration
     public string? AuthenticationEndpoint { get; init; }
     public string? AccountInformationEndpoint { get; init; }
     public string? LogoutEndpoint { get; init; }
+    public string? ImpersonateEndpoint { get; init; }
+    public string? RevertImpersonateEndpoint { get; init; }
 
     public string? AuthenticationServiceKey { get; set; }
 

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.50",
   "backEnd": {
-    "hash": "9b81d0063723c5c39d4610c8620e3b3a956737d97216dbfbb5bdc0c684d8364b",
-    "declarationCount": 5500,
+    "hash": "8e04137fdfea7cba8b65e5da247074faac5043c3ba9e8b54706328cb0b06c54e",
+    "declarationCount": 5504,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7599,6 +7599,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/AuthenticationConfiguration.cs",
+        "declaration": "public string? ImpersonateEndpoint { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/AuthenticationConfiguration.cs",
+        "declaration": "public string? RevertImpersonateEndpoint { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/AuthenticationConfiguration.cs",
         "declaration": "public string? AuthenticationServiceKey { get; set; }"
       },
       {
@@ -8532,6 +8540,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationBuilder.cs",
         "declaration": "public string? LogoutEndpoint { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationBuilder.cs",
+        "declaration": "public string? ImpersonateEndpoint { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationBuilder.cs",
+        "declaration": "public string? RevertImpersonateEndpoint { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationBuilder.cs",

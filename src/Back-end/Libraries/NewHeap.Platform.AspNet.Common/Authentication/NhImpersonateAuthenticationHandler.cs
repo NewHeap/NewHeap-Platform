@@ -13,7 +13,7 @@ using static NewHeap.Platform.Common.Constants;
 namespace NewHeap.Platform.AspNet.Common.Authentication;
 
 /// <summary>
-/// Endpoint for refreshing the access token
+/// Endpoint that lets an authorized user act as another user. The session has no refresh token.
 /// </summary>
 public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
 {
@@ -30,9 +30,9 @@ public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint
     {
         _configuration = configuration;
         
-        if(!string.IsNullOrWhiteSpace(configuration.RefreshTokenEndpoint))
+        if(!string.IsNullOrWhiteSpace(configuration.ImpersonateEndpoint))
         {
-            Pattern = configuration.RefreshTokenEndpoint;
+            Pattern = configuration.ImpersonateEndpoint;
         }
         
         if(!string.IsNullOrWhiteSpace(configuration.RefreshCookieName))

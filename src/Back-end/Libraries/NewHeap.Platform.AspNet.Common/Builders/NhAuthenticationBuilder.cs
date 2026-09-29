@@ -139,6 +139,12 @@ public class NhAuthenticationBuilder<
 
         public string? LogoutEndpoint { get; set; }
 
+        /// <summary>Route of the impersonate endpoint. Defaults to <c>authentication/impersonate</c>.</summary>
+        public string? ImpersonateEndpoint { get; set; }
+
+        /// <summary>Route of the revert-impersonation endpoint. Defaults to <c>authentication/ImpersonateRevert</c>.</summary>
+        public string? RevertImpersonateEndpoint { get; set; }
+
         public string? AccountInformationEndpoint { get; set; }
         public bool EnableDivisions { get; set; } = false;
         public bool EnableImpersonate { get; set; } = false;
@@ -174,6 +180,9 @@ public class NhAuthenticationBuilder<
             RefreshTokenEndpoint = UserNamePasswordOptionsValue.RefreshTokenEndpoint,
             AuthenticationEndpoint = UserNamePasswordOptionsValue.Endpoint,
             AccountInformationEndpoint = UserNamePasswordOptionsValue.AccountInformationEndpoint,
+            LogoutEndpoint = UserNamePasswordOptionsValue.LogoutEndpoint,
+            ImpersonateEndpoint = UserNamePasswordOptionsValue.ImpersonateEndpoint,
+            RevertImpersonateEndpoint = UserNamePasswordOptionsValue.RevertImpersonateEndpoint,
             AuthenticationServiceKey = UserNamePasswordOptionsValue.AuthenticationServiceKey,
             AuthenticateRequiredClaims = UserNamePasswordOptionsValue.AuthenticateRequiredClaims,
         };

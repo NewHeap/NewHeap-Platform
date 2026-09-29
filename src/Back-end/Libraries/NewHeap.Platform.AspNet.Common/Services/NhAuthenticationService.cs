@@ -567,28 +567,29 @@ public class NhAuthenticationService<
         return claims;
     }
 
+    /// <summary>
+    /// Creates an access token that lets <paramref name="currentUser"/> act as <paramref name="user"/>.
+    /// </summary>
+    /// <remarks>
+    /// The impersonation session deliberately has no refresh token. A refresh would rebuild
+    /// the token from the target user's claims and silently drop the impersonation origin,
+    /// turning the session into an ordinary long-lived login as the target user. The session
+    /// therefore ends when the access token expires or the origin user reverts it.
+    /// </remarks>
     protected virtual async Task<TaskResult<UserToken>> Impersonate(TUser currentUser, TUser user)
     {
         var claims = await GetClaimsAsync(user!.Id);
         claims.Add(new Claim(NhPlatformClaimTypes.ImpersonateOriginUserId, currentUser.Id.ToString()));
         var token = await CreateToken(
-            user.Id, 
-            c: claims, 
+            user.Id,
+            c: claims,
             expiration: null
         );
 
-        var refreshTokenResult = await CreateRefreshTokenAsync(user);
-        if (!refreshTokenResult.Success)
-        {
-            return TaskResult<UserToken>.Failed("Could not create refresh token");
-        }
-
-        var refreshToken = refreshTokenResult.Data!;
-
         return CreateUserToken(
             token,
-            refreshToken.RefreshToken,
-            refreshToken.ExpirationDateTime.DateTime
+            refreshToken: null,
+            refreshTokenValidTo: null
         );
     }
 
