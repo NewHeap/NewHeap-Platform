@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.50",
   "backEnd": {
-    "hash": "8e04137fdfea7cba8b65e5da247074faac5043c3ba9e8b54706328cb0b06c54e",
-    "declarationCount": 5504,
+    "hash": "f568e47f5958b3fe02f552c75cb8d7890d5051ef385dfed82f39cef4e2f9fd54",
+    "declarationCount": 5762,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7870,6 +7870,154 @@
         "declaration": "public NhTwoFactorConfiguration Configuration { get; }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhAuthenticationProof.cs",
+        "declaration": "public sealed class NhTwoFactorEnrollmentCompletion {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhAuthenticationProof.cs",
+        "declaration": "public NhTwoFactorEnrollmentCompletion(UserToken session, IReadOnlyList<string>? recoveryCodes) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhAuthenticationProof.cs",
+        "declaration": "public UserToken Session { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhAuthenticationProof.cs",
+        "declaration": "public IReadOnlyList<string>? RecoveryCodes { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public class NhPasskeySignInOptionsHandler : NhTwoFactorStepEndpointHandler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public NhPasskeySignInOptionsHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/passkey/options\", configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public class NhPasskeySignInHandler : NhTwoFactorStepEndpointHandler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public NhPasskeySignInHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/passkey/login\", configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorPasskeyOptionsHandler : NhTwoFactorStepEndpointHandler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorPasskeyOptionsHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/two-factor/passkey/options\", configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorPasskeyVerifyHandler : NhTwoFactorStepEndpointHandler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorPasskeyVerifyHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/two-factor/passkey\", configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorEnrollmentPasskeyOptionsHandler : NhTwoFactorStepEndpointHandler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorEnrollmentPasskeyOptionsHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/two-factor/enrollment/passkey/options\", configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorEnrollmentPasskeyHandler : NhTwoFactorStepEndpointHandler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorEnrollmentPasskeyHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/two-factor/enrollment/passkey\", configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public class NhPasskeysEndpointHandler<TUser> : NhTwoFactorAccountEndpointHandler<TUser> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public NhPasskeysEndpointHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"account/passkeys\", HttpMethod.Get, configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public class NhPasskeyRegistrationOptionsEndpointHandler<TUser> : NhTwoFactorAccountEndpointHandler<TUser> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public NhPasskeyRegistrationOptionsEndpointHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"account/passkeys/options\", HttpMethod.Post, configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public class NhPasskeyRegistrationEndpointHandler<TUser> : NhTwoFactorAccountEndpointHandler<TUser> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public NhPasskeyRegistrationEndpointHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"account/passkeys\", HttpMethod.Post, configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public class NhPasskeyRenameEndpointHandler<TUser> : NhTwoFactorAccountEndpointHandler<TUser> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public NhPasskeyRenameEndpointHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"account/passkeys/{passkeyId}\", HttpMethod.Put, configuration)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public class NhPasskeyRemoveEndpointHandler<TUser> : NhTwoFactorAccountEndpointHandler<TUser> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public NhPasskeyRemoveEndpointHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"account/passkeys/{passkeyId}/remove\", HttpMethod.Post, configuration)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhPasskeyEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhQrCodeRenderer.cs",
         "declaration": "public interface INhQrCodeRenderer {"
       },
@@ -7903,7 +8051,95 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool EmailCodesEnabled { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public TimeSpan EmailCodeLifetime { get; internal set; } = TimeSpan.FromMinutes(10);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public TimeSpan EmailCodeResendCooldown { get; internal set; } = TimeSpan.FromSeconds(60);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool EmailSatisfiesRequirement { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool PasskeysEnabled { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool PasskeySatisfiesRequirement { get; internal set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public string? PasskeyServerDomain { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public IReadOnlyList<string> PasskeyAllowedOrigins { get; internal set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool SecurityNotificationsEnabled { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool SecurityNotificationsByEmail { get; internal set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool SecurityNotificationsInApp { get; internal set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool RememberDeviceEnabled { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public TimeSpan RememberDeviceLifetime { get; internal set; } = TimeSpan.FromDays(30);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public string RememberDeviceCookieName { get; internal set; } = \"nh_two_factor_device\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
         "declaration": "public TimeSpan ChallengeLifetime { get; internal set; } = TimeSpan.FromMinutes(5);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public TimeSpan EnrollmentLifetime { get; internal set; } = TimeSpan.FromMinutes(15);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public string? AdministrationPolicy { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool RequireForAllUsers { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public IReadOnlyList<string> RequiredRoles => _requiredRoles;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public IReadOnlyList<string> RequiredPermissions => _requiredPermissions;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool ExternalProvidersSatisfyRequirement { get; internal set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool RememberDeviceForRequiredUsers { get; internal set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool HasRequirements => RequireForAllUsers || _requiredRoles.Count > 0 || _requiredPermissions.Count > 0;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
@@ -7919,6 +8155,74 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public sealed class NhEmailCodeOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public TimeSpan CodeLifetime { get; set; } = TimeSpan.FromMinutes(10);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public TimeSpan ResendCooldown { get; set; } = TimeSpan.FromSeconds(60);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool SatisfiesRequirement { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public sealed class NhPasskeyOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public string? ServerDomain { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public List<string> AllowedOrigins { get; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool SatisfiesRequirement { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public sealed class NhSecurityNotificationOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool Email { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public bool InApp { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public sealed class NhTwoFactorRequirementOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public NhTwoFactorRequirementOptions Roles(params string[] roles) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public NhTwoFactorRequirementOptions Permissions(params string[] permissions) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public NhTwoFactorRequirementOptions AllUsers() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public NhTwoFactorRequirementOptions IncludingExternalProviders() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public NhTwoFactorRequirementOptions WithoutRememberedDevices() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
         "declaration": "public sealed class NhTwoFactorBuilder {"
       },
       {
@@ -7931,11 +8235,43 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public NhTwoFactorBuilder EnableEmailCodes(Action<NhEmailCodeOptions>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public NhTwoFactorBuilder EnablePasskeys(Action<NhPasskeyOptions>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public NhTwoFactorBuilder UseSecurityNotifications(Action<NhSecurityNotificationOptions>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public NhTwoFactorBuilder EnableRememberDevice(TimeSpan? lifetime = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public NhTwoFactorBuilder RequireFor(Action<NhTwoFactorRequirementOptions> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
         "declaration": "public NhTwoFactorBuilder WithChallengeLifetime(TimeSpan lifetime) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public NhTwoFactorBuilder WithEnrollmentLifetime(TimeSpan lifetime) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public NhTwoFactorBuilder UseAdministrationPolicy(string policyName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
         "declaration": "public NhTwoFactorBuilder UsePolicy<TPolicy>() where TPolicy : class, INhTwoFactorPolicy {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConfiguration.cs",
+        "declaration": "public NhTwoFactorBuilder UseMessageComposer<TComposer>() where TComposer : class, INhTwoFactorMessageComposer {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
@@ -7951,6 +8287,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
+        "declaration": "public const string Email = \"email\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
+        "declaration": "public const string Passkey = \"passkey\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
+        "declaration": "public static bool IsPrimary(string method) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
         "declaration": "public static class NhAuthenticationFactors {"
       },
       {
@@ -7960,6 +8308,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
         "declaration": "public const string MicrosoftOAuth = \"microsoft-oauth\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
+        "declaration": "public const string Passkey = \"passkey\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
@@ -7984,6 +8336,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
         "declaration": "public const string TwoFactorRequired = \"two-factor-required\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
+        "declaration": "public const string EnrollmentRequired = \"enrollment-required\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
@@ -8047,11 +8403,63 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
+        "declaration": "public const string EmailCooldown = \"two-factor-email-cooldown\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
+        "declaration": "public const string EmailUnavailable = \"two-factor-email-unavailable\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
+        "declaration": "public const string UserNotFound = \"two-factor-user-not-found\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
+        "declaration": "public const string PasskeyInvalid = \"two-factor-passkey-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
+        "declaration": "public const string PasskeyNotFound = \"two-factor-passkey-not-found\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorConstants.cs",
         "declaration": "public static string MessageKey(string failureCode) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
-        "declaration": "public class NhTwoFactorVerifyAuthenticationHandler : BaseNhAuthenticationEndpoint, IConfigurableAuthenticationEndpoint {"
+        "declaration": "public abstract class NhTwoFactorStepEndpointHandler : BaseNhAuthenticationEndpoint, IConfigurableAuthenticationEndpoint {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "protected NhTwoFactorStepEndpointHandler( IHttpContextAccessor httpContextAccessor, string pattern, AuthenticationConfiguration configuration) : base(httpContextAccessor, pattern, configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public virtual void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "protected INhMultiFactorAuthenticationService? MultiFactorService {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "protected IResult ConfigurationInvalid() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "protected void WriteRememberDeviceCookie(string rememberDeviceToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "protected IResult EnrollmentCompleted(NhTwoFactorEnrollmentCompletion completion) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "protected static TaskResult RequireFields(params (string Name, string? Value)[] fields) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorVerifyAuthenticationHandler : NhTwoFactorStepEndpointHandler {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
@@ -8059,7 +8467,67 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
-        "declaration": "public virtual void Configure(RouteHandlerBuilder builder) {"
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorEmailCodeAuthenticationHandler : NhTwoFactorStepEndpointHandler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorEmailCodeAuthenticationHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/two-factor/email\", configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorEnrollmentAuthenticatorSetupHandler : NhTwoFactorStepEndpointHandler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorEnrollmentAuthenticatorSetupHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/two-factor/enrollment/authenticator\", configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorEnrollmentAuthenticatorConfirmHandler : NhTwoFactorStepEndpointHandler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorEnrollmentAuthenticatorConfirmHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/two-factor/enrollment/authenticator/confirm\", configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorEnrollmentEmailHandler : NhTwoFactorStepEndpointHandler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorEnrollmentEmailHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/two-factor/enrollment/email\", configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorEnrollmentEmailConfirmHandler : NhTwoFactorStepEndpointHandler {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorEnrollmentEmailConfirmHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/two-factor/enrollment/email/confirm\", configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
@@ -8080,6 +8548,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
         "declaration": "protected Guid? CurrentUserId {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "protected bool IsImpersonating =>"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
@@ -8135,6 +8607,30 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorEmailSetupEndpointHandler<TUser> : NhTwoFactorAccountEndpointHandler<TUser> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorEmailSetupEndpointHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"account/two-factor/email\", HttpMethod.Post, configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorEmailConfirmEndpointHandler<TUser> : NhTwoFactorAccountEndpointHandler<TUser> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorEmailConfirmEndpointHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"account/two-factor/email/confirm\", HttpMethod.Post, configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
         "declaration": "public class NhTwoFactorRecoveryCodesEndpointHandler<TUser> : NhTwoFactorAccountEndpointHandler<TUser> where TUser : IdentityUser<Guid> {"
       },
       {
@@ -8156,6 +8652,178 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
         "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorForgetDevicesEndpointHandler<TUser> : NhTwoFactorAccountEndpointHandler<TUser> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorForgetDevicesEndpointHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"account/two-factor/forget-devices\", HttpMethod.Post, configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public abstract class NhTwoFactorAdministrationEndpointHandler<TUser> : NhTwoFactorAccountEndpointHandler<TUser> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "protected NhTwoFactorAdministrationEndpointHandler( IHttpContextAccessor httpContextAccessor, string pattern, AuthenticationConfiguration configuration, NhTwoFactorConfiguration twoFactorConfiguration) : base(httpContextAccessor, pattern, HttpMethod.Post, configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "protected bool AdministrationEnabled => _twoFactorConfiguration.AdministrationPolicy != null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorResetEndpointHandler<TUser> : NhTwoFactorAdministrationEndpointHandler<TUser> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorResetEndpointHandler( AuthenticationConfiguration configuration, NhTwoFactorConfiguration twoFactorConfiguration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/two-factor/users/{userId:guid}/reset\", configuration, twoFactorConfiguration)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorEnrollmentRemindersEndpointHandler<TUser> : NhTwoFactorAdministrationEndpointHandler<TUser> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorEnrollmentRemindersEndpointHandler( AuthenticationConfiguration configuration, NhTwoFactorConfiguration twoFactorConfiguration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/two-factor/operations/enrollment-reminders\", configuration, twoFactorConfiguration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public class NhTwoFactorSessionRevocationEndpointHandler<TUser> : NhTwoFactorAdministrationEndpointHandler<TUser> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public NhTwoFactorSessionRevocationEndpointHandler( AuthenticationConfiguration configuration, NhTwoFactorConfiguration twoFactorConfiguration, IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor, \"authentication/two-factor/operations/session-revocation\", configuration, twoFactorConfiguration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorEndpointHandlers.cs",
+        "declaration": "public override void Configure(RouteHandlerBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public enum NhTwoFactorSecurityEvent {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public enum NhTwoFactorEmailCodePurpose {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public sealed class NhTwoFactorEmailCodeMessage {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public required Guid UserId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public required string Email { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public required string Code { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public required DateTimeOffset ExpiresAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public required NhTwoFactorEmailCodePurpose Purpose { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public sealed class NhTwoFactorSecurityEventMessage {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public required Guid UserId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public string? Email { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public required NhTwoFactorSecurityEvent Event { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public required DateTimeOffset OccurredAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public int? RecoveryCodesLeft { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public bool IncludeEmail { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public bool IncludeInApp { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public interface INhTwoFactorMessageComposer {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public sealed class NhTwoFactorMessages {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public class NhTwoFactorMessageComposer : INhTwoFactorMessageComposer {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public const string SecurityCategory = \"security\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "protected readonly IStringLocalizer<NhTwoFactorMessages> Localizer;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public NhTwoFactorMessageComposer(IStringLocalizer<NhTwoFactorMessages> localizer, TimeProvider timeProvider) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public virtual Task<NhNotification> ComposeEmailCodeAsync( NhTwoFactorEmailCodeMessage message, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public virtual Task<NhNotification?> ComposeSecurityEventAsync( NhTwoFactorSecurityEventMessage message, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public static string NotificationName(NhTwoFactorSecurityEvent securityEvent) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "protected virtual NhTwoFactorMessageDescription Describe(NhTwoFactorSecurityEventMessage message) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorMessages.cs",
+        "declaration": "public sealed record NhTwoFactorMessageDescription(string Title, string Message, NhUserNotificationSeverity Severity);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
@@ -8191,15 +8859,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public string? RememberDeviceToken { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
         "declaration": "public bool IsAuthenticated => Session != null;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
-        "declaration": "public static NhAuthenticationResult Authenticated(UserToken session) {"
+        "declaration": "public static NhAuthenticationResult Authenticated(UserToken session, string? rememberDeviceToken = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
-        "declaration": "public static NhAuthenticationResult TwoFactorRequired(NhTwoFactorChallengeResponse challenge) {"
+        "declaration": "public static NhAuthenticationResult Pending(NhTwoFactorChallengeResponse challenge) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
@@ -8231,7 +8903,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
-        "declaration": "public static NhLoginResponse FromSession(UserToken session) {"
+        "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? RememberDeviceToken { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public static NhLoginResponse FromSession(UserToken session, string? rememberDeviceToken = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
@@ -8252,6 +8928,58 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
         "declaration": "[Required] public string Code { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public bool RememberDevice { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public sealed class NhTwoFactorChallengeRequest {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public string ChallengeToken { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public sealed class NhTwoFactorEnrollmentRequest {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public string EnrollmentToken { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public sealed class NhTwoFactorEnrollmentConfirmRequest {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public string EnrollmentToken { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public string Code { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public sealed class NhTwoFactorEmailCodeSentResponse {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public required DateTimeOffset ExpiresAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public required DateTimeOffset ResendAvailableAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public sealed class NhTwoFactorOperationRequest {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] [StringLength(100)] public string IdempotencyKey { get; init; } = string.Empty;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
@@ -8279,7 +9007,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
-        "declaration": "public sealed class NhAuthenticatorConfirmRequest {"
+        "declaration": "public sealed class NhTwoFactorCodeRequest {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
@@ -8299,6 +9027,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public bool RememberDeviceAvailable { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public bool EmailSetupPending { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
         "declaration": "public IReadOnlyList<string> Methods { get; init; } = [];"
       },
       {
@@ -8312,6 +9048,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
         "declaration": "public bool AuthenticatorSetupPending { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public int PasskeyCount { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
@@ -8340,6 +9080,174 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
         "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public UserToken? Session { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public sealed class NhPasskeyOptionsResponse {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public required JsonElement Options { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public required string CeremonyToken { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public required DateTimeOffset ExpiresAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public sealed class NhPasskeyRegistrationRequest {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public string CeremonyToken { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public JsonElement Credential { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[MaxLength(NhPasskeyViewModel.MaxNameLength)] public string? Name { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public sealed class NhPasskeyEnrollmentRequest {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public string EnrollmentToken { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public string CeremonyToken { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public JsonElement Credential { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[MaxLength(NhPasskeyViewModel.MaxNameLength)] public string? Name { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public sealed class NhTwoFactorPasskeyVerifyRequest {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public string ChallengeToken { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public string CeremonyToken { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public JsonElement Credential { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public bool RememberDevice { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public sealed class NhPasskeySignInRequest {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public string CeremonyToken { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] public JsonElement Credential { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public string? RememberDeviceToken { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public sealed class NhPasskeyRenameRequest {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "[Required] [MaxLength(NhPasskeyViewModel.MaxNameLength)] public string Name { get; init; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public sealed class NhPasskeyViewModel {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public required string Id { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public required string Name { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public required DateTimeOffset CreatedAt { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public bool IsBackedUp { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public IReadOnlyList<string> Transports { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorOperations.cs",
+        "declaration": "public sealed record NhTwoFactorEnrollmentReminderRequest(Guid RequestedByUserId);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorOperations.cs",
+        "declaration": "public sealed record NhTwoFactorSessionRevocationRequest(Guid RequestedByUserId);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorOperations.cs",
+        "declaration": "public static class NhTwoFactorBackgroundOperationExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorOperations.cs",
+        "declaration": "public const string EnrollmentReminderOperationType = \"nh-two-factor-enrollment-reminders\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorOperations.cs",
+        "declaration": "public const string SessionRevocationOperationType = \"nh-two-factor-session-revocation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorOperations.cs",
+        "declaration": "public static NhBackgroundOperationBuilder AddTwoFactorOperations<TUser>(this NhBackgroundOperationBuilder builder) where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorOperations.cs",
+        "declaration": "public sealed class NhTwoFactorEnrollmentReminderOperation<TUser> : INhBackgroundOperationHandler<NhTwoFactorEnrollmentReminderRequest> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorOperations.cs",
+        "declaration": "public NhTwoFactorEnrollmentReminderOperation( NhTwoFactorService<TUser> twoFactor, UserManager<TUser> userManager, INhUserManager<TUser> nhUserManager) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorOperations.cs",
+        "declaration": "public Task<TaskResult> ExecuteAsync( NhTwoFactorEnrollmentReminderRequest request, INhBackgroundOperationContext context, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorOperations.cs",
+        "declaration": "public sealed class NhTwoFactorSessionRevocationOperation<TUser> : INhBackgroundOperationHandler<NhTwoFactorSessionRevocationRequest> where TUser : IdentityUser<Guid> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorOperations.cs",
+        "declaration": "public NhTwoFactorSessionRevocationOperation( NhTwoFactorService<TUser> twoFactor, UserManager<TUser> userManager, INhUserManager<TUser> nhUserManager) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorOperations.cs",
+        "declaration": "public Task<TaskResult> ExecuteAsync( NhTwoFactorSessionRevocationRequest request, INhBackgroundOperationContext context, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorPolicy.cs",
@@ -8375,7 +9283,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorPolicy.cs",
-        "declaration": "public static NhTwoFactorRequirement NotRequired { get; } = new(false, []);"
+        "declaration": "public static NhTwoFactorRequirement NotRequired { get; } = new(false, [], false, true);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorPolicy.cs",
@@ -8387,7 +9295,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorPolicy.cs",
-        "declaration": "public static NhTwoFactorRequirement RequiredWith(IEnumerable<string> allowedMethods) {"
+        "declaration": "public bool EnforcedByPolicy { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorPolicy.cs",
+        "declaration": "public bool AllowRememberDevice { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorPolicy.cs",
+        "declaration": "public static NhTwoFactorRequirement RequiredWith( IEnumerable<string> allowedMethods, bool enforcedByPolicy = false, bool allowRememberDevice = true)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorPolicy.cs",
@@ -8395,7 +9311,43 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorPolicy.cs",
-        "declaration": "public virtual Task<NhTwoFactorRequirement> EvaluateAsync( NhTwoFactorPolicyContext context, CancellationToken cancellationToken = default)"
+        "declaration": "public NhDefaultTwoFactorPolicy() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorPolicy.cs",
+        "declaration": "public NhDefaultTwoFactorPolicy(NhTwoFactorConfiguration configuration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorPolicy.cs",
+        "declaration": "public virtual async Task<NhTwoFactorRequirement> EvaluateAsync( NhTwoFactorPolicyContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorPolicy.cs",
+        "declaration": "protected virtual async Task<bool> IsEnforcedAsync( NhTwoFactorPolicyContext context, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.Passkeys.cs",
+        "declaration": "public partial class NhTwoFactorService<TUser> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.Passkeys.cs",
+        "declaration": "public virtual async Task<IReadOnlyList<NhPasskeyViewModel>> GetPasskeysAsync( TUser user, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.Passkeys.cs",
+        "declaration": "public virtual async Task<TaskResult<NhPasskeyOptionsResponse>> BeginPasskeyRegistrationAsync( TUser user, NhTwoFactorReauthentication? reauthentication, HttpContext httpContext, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.Passkeys.cs",
+        "declaration": "public virtual Task<TaskResult<NhTwoFactorChangeResult>> CompletePasskeyRegistrationAsync( TUser user, string ceremonyToken, string credentialJson, string? name, HttpContext httpContext, Guid? committedByUserId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.Passkeys.cs",
+        "declaration": "public virtual async Task<TaskResult> RenamePasskeyAsync( TUser user, string passkeyId, string name, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.Passkeys.cs",
+        "declaration": "public virtual async Task<TaskResult<NhTwoFactorChangeResult>> RemovePasskeyAsync( TUser user, string passkeyId, NhTwoFactorReauthentication? reauthentication, Guid? committedByUserId, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.cs",
@@ -8423,6 +9375,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.cs",
+        "declaration": "public bool EmailSetupPending { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.cs",
+        "declaration": "public int PasskeyCount { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.cs",
         "declaration": "public sealed class NhTwoFactorChangeResult {"
       },
       {
@@ -8439,7 +9399,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.cs",
-        "declaration": "public class NhTwoFactorService<TUser> : INhTwoFactorService<TUser> where TUser : IdentityUser<Guid> {"
+        "declaration": "public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser> where TUser : IdentityUser<Guid> {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.cs",
@@ -8463,6 +9423,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhTwoFactorEmailCodeSentResponse>> BeginEmailSetupAsync( TUser user, NhTwoFactorReauthentication? reauthentication, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhTwoFactorChangeResult>> ConfirmEmailSetupAsync( TUser user, string code, Guid? committedByUserId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.cs",
         "declaration": "public virtual async Task<TaskResult<NhTwoFactorChangeResult>> RegenerateRecoveryCodesAsync( TUser user, NhTwoFactorReauthentication? reauthentication, Guid? committedByUserId, CancellationToken cancellationToken = default)"
       },
       {
@@ -8471,15 +9439,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhTwoFactorChangeResult>> ForgetDevicesAsync( TUser user, NhTwoFactorReauthentication? reauthentication, Guid? committedByUserId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.cs",
+        "declaration": "public virtual async Task<TaskResult> ResetAsync( TUser user, Guid? committedByUserId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorService.cs",
         "declaration": "public virtual async Task<TaskResult> VerifySecondFactorAsync( TUser user, string method, string code, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorStartupValidator.cs",
-        "declaration": "public NhTwoFactorStartupValidator( IServiceProvider serviceProvider, AuthenticationConfiguration authenticationConfiguration, IHostEnvironment hostEnvironment, ILogger<NhTwoFactorStartupValidator> logger) {"
+        "declaration": "public NhTwoFactorStartupValidator( IServiceProvider serviceProvider, AuthenticationConfiguration authenticationConfiguration, NhTwoFactorConfiguration twoFactorConfiguration, IHostEnvironment hostEnvironment, ILogger<NhTwoFactorStartupValidator> logger) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorStartupValidator.cs",
-        "declaration": "public Task StartAsync(CancellationToken cancellationToken) {"
+        "declaration": "public async Task StartAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorStartupValidator.cs",
@@ -8596,6 +9572,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationConfigurationBuilder.cs",
         "declaration": "public NhAuthenticationConfigurationBuilder< TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel, TDivisionViewModel, TClaimViewModel > AddTwoFactorEndpoints() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationConfigurationBuilder.cs",
+        "declaration": "public NhAuthenticationConfigurationBuilder< TUser, TDivision, TDivisionUser, TDivisionRole, TDivisionUserRole, TDivisionRoleClaim, TUserViewModel, TDivisionViewModel, TClaimViewModel > AddPasskeyEndpoints() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationConfigurationBuilder.cs",
@@ -11079,6 +12059,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhIdentityDbContext.cs",
+        "declaration": "protected virtual bool IncludeIdentityPasskeys => false;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhIdentityDbContext.cs",
         "declaration": "protected override void OnModelCreating(ModelBuilder builder) {"
       },
       {
@@ -11751,7 +12735,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/AuthenticationModels.cs",
-        "declaration": "public record AuthenticateRequest([Required] string UserName, [Required] string Password);"
+        "declaration": "public record AuthenticateRequest([Required] string UserName, [Required] string Password) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/AuthenticationModels.cs",
+        "declaration": "public string? RememberDeviceToken { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/AuthenticationModels.cs",
@@ -14903,7 +15891,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
-        "declaration": "protected virtual async Task<TaskResult<NhAuthenticationResult>> CompleteFirstFactorAsync( TUser user, string factor, IEnumerable<Claim>? requiredClaims = null)"
+        "declaration": "protected virtual async Task<TaskResult<NhAuthenticationResult>> CompleteFirstFactorAsync( TUser user, string factor, IEnumerable<Claim>? requiredClaims = null, string? rememberDeviceToken = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
@@ -14968,6 +15956,50 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
         "declaration": "public virtual async Task<TaskResult<NhAuthenticationResult>> VerifyTwoFactorAsync( NhTwoFactorVerifyRequest request, IEnumerable<Claim>? requiredClaims = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhPasskeyOptionsResponse>> BeginTwoFactorPasskeyAsync( string challengeToken, HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhAuthenticationResult>> VerifyTwoFactorPasskeyAsync( NhTwoFactorPasskeyVerifyRequest request, HttpContext httpContext, IEnumerable<Claim>? requiredClaims = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhPasskeyOptionsResponse>> BeginPasskeySignInAsync(HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhAuthenticationResult>> AuthenticatePasskeyAsync( NhPasskeySignInRequest request, HttpContext httpContext, IEnumerable<Claim>? requiredClaims = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhPasskeyOptionsResponse>> BeginEnrollmentPasskeyAsync( string enrollmentToken, HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhTwoFactorEnrollmentCompletion>> ConfirmEnrollmentPasskeyAsync( NhPasskeyEnrollmentRequest request, HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhTwoFactorEmailCodeSentResponse>> SendTwoFactorEmailCodeAsync(string challengeToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhAuthenticatorSetupViewModel>> BeginEnrollmentAuthenticatorSetupAsync(string enrollmentToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhTwoFactorEnrollmentCompletion>> ConfirmEnrollmentAuthenticatorAsync( string enrollmentToken, string code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhTwoFactorEmailCodeSentResponse>> SendEnrollmentEmailCodeAsync(string enrollmentToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
+        "declaration": "public virtual async Task<TaskResult<NhTwoFactorEnrollmentCompletion>> ConfirmEnrollmentEmailAsync( string enrollmentToken, string code) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhAuthenticationService.cs",
@@ -22024,8 +23056,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "f7279f29c7e9df36a141b28c14a2705e68d1263b4f42962ff0c9a65d7c4fa443",
-    "declarationCount": 806,
+    "hash": "bff04083cf2ba0b9fe2db95b2e7bbef13128eb28c9ddda454cd57500002b6efc",
+    "declarationCount": 857,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
@@ -23017,6 +24049,10 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "export const NhAuthenticationStepStatuses = {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
         "declaration": "export class NhTwoFactorChallenge {"
       },
       {
@@ -23029,7 +24065,7 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
-        "declaration": "export type NhAuthenticationStepStatus = 'authenticated' | 'two-factor-required';"
+        "declaration": "export type NhAuthenticationStepStatus = 'authenticated' | 'two-factor-required' | 'enrollment-required';"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
@@ -23078,6 +24114,38 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
         "declaration": "public constructor(init?: Partial<NhTwoFactorChange>) {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "export class NhTwoFactorEmailCodeSent {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "public constructor(init?: Partial<NhTwoFactorEmailCodeSent>) {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "export class NhTwoFactorEnrollmentResult<TAuthorization extends INhAuthorization = INhAuthorization> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "public constructor(init?: Partial<NhTwoFactorEnrollmentResult<TAuthorization>>) {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "export class NhPasskeyOptions {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "public constructor(init?: Partial<NhPasskeyOptions>) {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "export class NhPasskey {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "public constructor(init?: Partial<NhPasskey>) {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
@@ -23825,6 +24893,10 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected static readonly rememberDeviceStorageKey = 'nh-two-factor-device';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
         "declaration": "protected authorization: TAuthorization | undefined = undefined;"
       },
       {
@@ -23878,6 +24950,10 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
         "declaration": "protected requestContext: any = inject(REQUEST_CONTEXT, {optional: true});"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected passkeyClient: NhPasskeyClient = inject(NhPasskeyClient);"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
@@ -23981,6 +25057,38 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected completeAuthenticationStep(response: NhLoginResponse): NhAuthenticationStep<TAuthorization> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected pendingStepFailed(ex: unknown): TaskResult<unknown> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected async sendEnrollmentCompletion(endpoint: string, body: object): Promise<TaskResult<NhTwoFactorEnrollmentResult<TAuthorization>>> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected async sendTwoFactorRequest<TResponse, TResult>("
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected async runPasskeyCeremony(ceremony: () => Promise<object>): Promise<TaskResult<object>> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected getRememberDeviceToken(): string | undefined {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected storeRememberDeviceToken(token: string | undefined): void {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected rememberDeviceStorageKey(): string {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
         "declaration": "protected setPendingTwoFactorChallenge(challenge: NhTwoFactorChallenge): void {"
       },
       {
@@ -23990,6 +25098,14 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
         "declaration": "protected twoFactorEndpoints(): EndpointsAuthenticationNhCommonModuleConfig {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected twoFactorUrl(endpoint: string): string {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected twoFactorStepRequestOptions() {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
@@ -24366,6 +25482,14 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-page.service.ts",
         "declaration": "public updateTransferState() {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-passkey-client.service.ts",
+        "declaration": "@Injectable({providedIn: 'root'})"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-passkey-client.service.ts",
+        "declaration": "export class NhPasskeyClient {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-router-setup.service.ts",
@@ -25053,6 +26177,10 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export * from './lib/services/nh-passkey-client.service';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
         "declaration": "export * from './lib/services/nh-modal.service';"
       },
       {
@@ -25250,6 +26378,114 @@
       {
         "path": "src/Front-end/projects/nh-common/src/public-api.ts",
         "declaration": "export * from './lib/miscellaneous/translate-loaders/translate-browser.loader';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/challenge/nh-two-factor-challenge.component.ts",
+        "declaration": "@Component({"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/challenge/nh-two-factor-challenge.component.ts",
+        "declaration": "export class NhTwoFactorChallengeComponent {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/enrollment/nh-two-factor-enrollment.component.ts",
+        "declaration": "@Component({"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/enrollment/nh-two-factor-enrollment.component.ts",
+        "declaration": "export class NhTwoFactorEnrollmentComponent implements OnInit {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/i18n/nh-two-factor-translations.ts",
+        "declaration": "export const NH_TWO_FACTOR_TRANSLATIONS: Readonly<Record<'en' | 'nl', TranslationObject>> = {en, nl};"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/i18n/nh-two-factor-translations.ts",
+        "declaration": "@Injectable({providedIn: 'root'})"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/i18n/nh-two-factor-translations.ts",
+        "declaration": "export class NhTwoFactorTranslationMerger {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/nh-two-factor-errors.ts",
+        "declaration": "export function nhTwoFactorErrorKeys(result: TaskResult<unknown>): string[] {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/nh-two-factor-errors.ts",
+        "declaration": "export function nhTwoFactorStepEnded(result: TaskResult<unknown>): boolean {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/nh-two-factor-errors.ts",
+        "declaration": "export function nhTwoFactorInputValue(event: Event): string {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/nh-two-factor-errors.ts",
+        "declaration": "export function nhTwoFactorInputChecked(event: Event): boolean {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/passkey-login/nh-passkey-login-button.component.ts",
+        "declaration": "@Component({"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/passkey-login/nh-passkey-login-button.component.ts",
+        "declaration": "export class NhPasskeyLoginButtonComponent {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/provide-nh-two-factor.ts",
+        "declaration": "export function provideNhTwoFactor(): EnvironmentProviders {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/recovery-codes/nh-two-factor-recovery-codes.component.ts",
+        "declaration": "@Component({"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/recovery-codes/nh-two-factor-recovery-codes.component.ts",
+        "declaration": "export class NhTwoFactorRecoveryCodesComponent {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/settings/nh-two-factor-settings.component.ts",
+        "declaration": "export type NhTwoFactorSettingsAction ="
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/settings/nh-two-factor-settings.component.ts",
+        "declaration": "@Component({"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/lib/settings/nh-two-factor-settings.component.ts",
+        "declaration": "export class NhTwoFactorSettingsComponent implements OnInit {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/public-api.ts",
+        "declaration": "export * from './lib/challenge/nh-two-factor-challenge.component';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/public-api.ts",
+        "declaration": "export * from './lib/enrollment/nh-two-factor-enrollment.component';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/public-api.ts",
+        "declaration": "export * from './lib/recovery-codes/nh-two-factor-recovery-codes.component';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/public-api.ts",
+        "declaration": "export * from './lib/settings/nh-two-factor-settings.component';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/public-api.ts",
+        "declaration": "export * from './lib/passkey-login/nh-passkey-login-button.component';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/public-api.ts",
+        "declaration": "export {NH_TWO_FACTOR_TRANSLATIONS, NhTwoFactorTranslationMerger} from './lib/i18n/nh-two-factor-translations';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/public-api.ts",
+        "declaration": "export {nhTwoFactorErrorKeys, nhTwoFactorStepEnded} from './lib/nh-two-factor-errors';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/two-factor/src/public-api.ts",
+        "declaration": "export * from './lib/provide-nh-two-factor';"
       }
     ]
   },
@@ -25469,6 +26705,16 @@
       "WithAuthenticationService",
       "NhUserManager"
     ],
+    "nh-auth-passkeys": [
+      "NhTwoFactorBuilder",
+      "NhPasskeyOptions",
+      "NhIdentityDbContext",
+      "INhTwoFactorService",
+      "INhMultiFactorAuthenticationService",
+      "NhPasskeyClient",
+      "BaseNhAuthService",
+      "NhPasskeyLoginButtonComponent"
+    ],
     "nh-auth-permission-scopes": [
       "ProtectedNhBaseController",
       "NhDivisionRoleClaim",
@@ -25487,8 +26733,13 @@
       "NhTwoFactorAuthenticationContext",
       "INhTwoFactorService",
       "INhTwoFactorPolicy",
+      "NhDefaultTwoFactorPolicy",
+      "INhTwoFactorMessageComposer",
       "NhLoginResponse",
       "BaseNhAuthService",
+      "NhTwoFactorChallengeComponent",
+      "NhTwoFactorEnrollmentComponent",
+      "NhTwoFactorSettingsComponent",
       "NhTwoFactorTestCodes"
     ],
     "nh-ai-local-tool-contract": [

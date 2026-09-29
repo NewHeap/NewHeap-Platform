@@ -1,0 +1,35 @@
+---
+id: nh-auth-passkeys
+title: "Passkeys"
+area: authentication
+reference: authentication-passkeys
+summary: "Opt into the Identity passkey table with one migration, enable passkeys with an explicit relying-party domain and allowed origins, and use them for passwordless sign-in, as a second factor and for required enrollment through the NewHeap ceremony endpoints."
+sample-cases: ["SPM-259", "SPM-261"]
+public-symbols: ["NhTwoFactorBuilder", "NhPasskeyOptions", "NhIdentityDbContext", "INhTwoFactorService", "INhMultiFactorAuthenticationService", "NhPasskeyClient", "BaseNhAuthService", "NhPasskeyLoginButtonComponent"]
+skills: ["newheap-authentication"]
+providers: ["sqlserver", "postgresql"]
+risk: critical
+---
+## Preferred approach
+
+Passkeys build on two-factor authentication (`nh-auth-two-factor`). Override `IncludeIdentityPasskeys` to return `true` in the application's `NhIdentityDbContext` and add a migration: it creates only the `AspNetUserPasskeys` table with its foreign key and index, and leaves the existing Identity columns unchanged. A model that already maps passkeys, for example through Identity schema version 3, is left as it is. Startup fails when passkeys are enabled without the table.
+
+Enable passkeys with `EnablePasskeys(passkeys => { ... })` and map the endpoints with `AddPasskeyEndpoints()`. Set `ServerDomain` to the domain of the frontend, not the API host, and list every frontend origin in `AllowedOrigins` when the frontend and the API have different origins. WebAuthn needs a domain: develop on `localhost`, never on an IP address. The options require user verification and discoverable credentials, so a passkey counts as a second factor and works without a username.
+
+A passkey serves three purposes. Signed-in users register passkeys through `BeginPasskeyRegistrationAsync` and `CompletePasskeyRegistrationAsync` or the account endpoints; registering the first factor enables two-factor authentication, issues recovery codes and ends every other session. After a password, a passkey completes the challenge through `BeginTwoFactorPasskeyAsync` and `VerifyTwoFactorPasskeyAsync`. Without a password, `BeginPasskeySignInAsync` and `AuthenticatePasskeyAsync` sign in with a discoverable passkey; the default policy accepts that sign-in as multi-factor unless `SatisfiesRequirement` is turned off. A required user can also enroll a passkey during sign-in.
+
+The WebAuthn ceremony state travels in a short-lived protected ceremony token, so no server session or Identity cookie is needed. Every ceremony works once and the new signature counter is stored. Removing the last second factor disables two-factor authentication, which fails while the policy requires one; an administrator reset and disabling two-factor authentication remove every passkey.
+
+In the frontend, `BaseNhAuthService.signInWithPasskey`, `verifyTwoFactorWithPasskey`, `registerPasskey`, `enrollPasskey`, `renamePasskey` and `removePasskey` run the ceremonies through `NhPasskeyClient`, which converts the WebAuthn JSON options and credentials with a fallback for older browsers. A cancelled prompt fails with `two-factor-passkey-unavailable`. `NhPasskeyLoginButtonComponent` renders nothing in browsers without passkey support.
+
+## Avoid
+
+- Enabling Identity schema version 3 only for passkeys; it also changes existing Identity key columns.
+- Setting the relying-party domain to the API host when the frontend runs on another domain, or leaving `AllowedOrigins` empty for a cross-origin frontend.
+- Testing passkeys on `127.0.0.1` or another IP address.
+- Calling the Identity `SignInManager` passkey methods, which rely on the Identity cookie instead of the NewHeap session and two-factor policy.
+- Treating a passkey without user verification as a second factor.
+
+## Verification
+
+Run the passkey scenarios against SQL Server and PostgreSQL with a software authenticator. Prove that registration verifies the attestation, enables two-factor authentication, issues recovery codes and ends every other session, and that its ceremony token works once; that a passkey completes a password challenge once, that a passwordless sign-in names no user in its options, works once and rejects another origin; that removing the last passkey disables two-factor authentication but is refused for a required user; and that a required user enrolls a passkey during sign-in. Confirm that `HasPendingModelChanges` is false after the passkey migration and that the startup validation fails without the table. In the frontend, verify the JSON conversion fallback and that a cancelled prompt reports `two-factor-passkey-unavailable` without calling the server.

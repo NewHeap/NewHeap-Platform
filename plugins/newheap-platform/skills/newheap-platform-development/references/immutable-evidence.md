@@ -70,6 +70,10 @@ Source release: `newheap-platform-plugin-v1.13.50`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.50/docs/consumer-guide/authentication-overrides.md)
 
+## Authentication Passkeys
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.50/docs/consumer-guide/authentication-passkeys.md)
+
 ## Authentication Session Lifecycle
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.50/docs/consumer-guide/authentication-session-lifecycle.md)
