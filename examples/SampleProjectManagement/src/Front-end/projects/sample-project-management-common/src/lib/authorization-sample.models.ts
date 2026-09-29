@@ -43,6 +43,26 @@ export const TWO_FACTOR_DEMO_ACCOUNT = {
   authenticatorKey: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'
 } as const;
 
+/**
+ * Development account in the security-officer role, which the two-factor policy requires to
+ * use a second factor. It has none, so it enrolls during its first sign-in.
+ */
+export const SECURITY_OFFICER_DEMO_ACCOUNT = {
+  email: 'security-officer@example.test'
+} as const;
+
+export interface LoginDemoAccount {
+  labelKey: string;
+  email: string;
+}
+
+/** Accounts offered on the login page: the authorization roles plus the two-factor accounts. */
+export const LOGIN_DEMO_ACCOUNTS: readonly LoginDemoAccount[] = [
+  ...AUTHORIZATION_DEMO_ACCOUNTS,
+  { labelKey: 'project.login-two-factor-account', email: TWO_FACTOR_DEMO_ACCOUNT.email },
+  { labelKey: 'project.login-security-officer-account', email: SECURITY_OFFICER_DEMO_ACCOUNT.email }
+];
+
 export interface AuthorizationProbeSample {
   level: string;
   requiredPermission: string;

@@ -78,8 +78,14 @@
       "division-saved": "De actieve divisie is bijgewerkt.",
       "password-saved": "Je wachtwoord is gewijzigd.",
       "password-mismatch": "Het nieuwe wachtwoord en de herhaling komen niet overeen.",
-      "save-failed": "Opslaan is niet gelukt. Controleer de invoer en probeer opnieuw."
-    }
+      "save-failed": "Opslaan is niet gelukt. Controleer de invoer en probeer opnieuw.",
+      "two-factor": "Tweestapsverificatie",
+      "two-factor-description": "Beveilig je account met een authenticator-app, e-mailcodes of een passkey."
+    },
+    "login-two-factor-account": "Tweestapsverificatie",
+    "login-security-officer-account": "Security officer (moet instellen)",
+    "login-passkey-alternative": "Of meld je aan zonder wachtwoord",
+    "login-two-factor-demo-key": "Ontwikkelsleutel van dit account: {{key}}"
   },
   "nh-background-operations": {
     "operation": "Achtergrondtaak",

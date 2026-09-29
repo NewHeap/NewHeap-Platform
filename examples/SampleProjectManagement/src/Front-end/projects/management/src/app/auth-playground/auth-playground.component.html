@@ -50,19 +50,35 @@
           <span>{{ 'project.two-factor-code' | translate }}</span>
           <input [value]="twoFactorCode()" (input)="updateTwoFactorCode($event)" autocomplete="one-time-code" inputmode="numeric">
         </label>
+        <label class="check">
+          <input type="checkbox" [checked]="rememberDevice()" (change)="updateRememberDevice($event)">
+          <span>{{ 'project.two-factor-remember-device' | translate }}</span>
+        </label>
         @if (pendingChallenge(); as challenge) {
-          <p class="pending-challenge">{{ 'project.two-factor-pending-challenge' | translate: { methods: challenge.methods.join(', ') } }}</p>
+          <p class="pending-challenge">{{ 'project.two-factor-pending-challenge' | translate: { status: challenge.status, methods: challenge.methods.join(', ') } }}</p>
         }
         <div class="actions">
           <button type="button" (click)="interactiveLogin()">{{ 'project.two-factor-interactive-login' | translate }}</button>
           <button type="button" (click)="verifyTwoFactor()">{{ 'project.two-factor-verify' | translate }}</button>
-          <button type="button" (click)="getTwoFactorStatus()">{{ 'project.two-factor-status' | translate }}</button>
+          <button type="button" (click)="sendTwoFactorEmailCode()">{{ 'project.two-factor-send-email-code' | translate }}</button>
+          <button type="button" (click)="verifyTwoFactorWithPasskey()">{{ 'project.two-factor-verify-passkey' | translate }}</button>
+          <button type="button" (click)="signInWithPasskey()">{{ 'project.two-factor-passkey-sign-in' | translate }}</button>
         </div>
         <div class="actions">
+          <button type="button" (click)="beginEnrollmentSetup()">{{ 'project.two-factor-enrollment-setup' | translate }}</button>
+          <button type="button" (click)="confirmEnrollment()">{{ 'project.two-factor-enrollment-confirm' | translate }}</button>
+        </div>
+        <div class="actions">
+          <button type="button" (click)="getTwoFactorStatus()">{{ 'project.two-factor-status' | translate }}</button>
           <button type="button" (click)="beginAuthenticatorSetup()">{{ 'project.two-factor-setup' | translate }}</button>
           <button type="button" (click)="confirmAuthenticator()">{{ 'project.two-factor-confirm' | translate }}</button>
           <button type="button" (click)="regenerateRecoveryCodes()">{{ 'project.two-factor-recovery-codes' | translate }}</button>
+          <button type="button" (click)="forgetTwoFactorDevices()">{{ 'project.two-factor-forget-devices' | translate }}</button>
           <button type="button" (click)="disableTwoFactor()">{{ 'project.two-factor-disable' | translate }}</button>
+        </div>
+        <div class="actions">
+          <button type="button" (click)="listPasskeys()">{{ 'project.two-factor-passkeys' | translate }}</button>
+          <button type="button" (click)="registerPasskey()">{{ 'project.two-factor-add-passkey' | translate }}</button>
         </div>
         @if (authenticatorSetup(); as setup) {
           <figure class="authenticator-setup">
@@ -75,6 +91,19 @@
             </figcaption>
           </figure>
         }
+      </fieldset>
+      <fieldset class="two-factor">
+        <legend>{{ 'project.two-factor-administration-title' | translate }}</legend>
+        <p>{{ 'project.two-factor-administration-description' | translate }}</p>
+        <label>
+          <span>{{ 'project.two-factor-administration-user-id' | translate }}</span>
+          <input [value]="twoFactorAdministrationUserId()" (input)="updateTwoFactorAdministrationUserId($event)">
+        </label>
+        <div class="actions">
+          <button type="button" (click)="resetUserTwoFactor()">{{ 'project.two-factor-administration-reset' | translate }}</button>
+          <button type="button" (click)="startTwoFactorEnrollmentReminders()">{{ 'project.two-factor-administration-reminders' | translate }}</button>
+          <button type="button" (click)="startTwoFactorSessionRevocation()">{{ 'project.two-factor-administration-revocation' | translate }}</button>
+        </div>
       </fieldset>
       <div class="actions local">
         <button type="button" (click)="activateDemoAuthorization()">Activate local claim demo</button>

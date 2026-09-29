@@ -21,6 +21,17 @@ public sealed class ProjectAssignmentMailViewModel
     public string ActionLabel { get; set; } = "";
 }
 
+/// <summary>
+/// Model of the e-mailed two-factor code, rendered by <c>Views/Mail/TwoFactorCode.cshtml</c>.
+/// </summary>
+public sealed class TwoFactorCodeMailViewModel
+{
+    public string Language { get; set; } = "nl";
+    public string Title { get; set; } = "";
+    public string Introduction { get; set; } = "";
+    public string Code { get; set; } = "";
+}
+
 public sealed class CreateSampleNotificationMutateModel
 {
     public Guid UserId { get; set; }

@@ -1,6 +1,6 @@
 <section class="nh-two-factor" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading() || busy()">
   <div class="nh-two-factor__status">
-    <h2 class="nh-two-factor__title" [id]="id + '-title'">{{ 'nh-two-factor.ui.settings-title' | translate }}</h2>
+    <h2 class="nh-two-factor__title" [class.visually-hidden]="!showTitle()" [id]="id + '-title'">{{ 'nh-two-factor.ui.settings-title' | translate }}</h2>
     @if (status(); as current) {
       <span class="nh-two-factor__badge" [class.nh-two-factor__badge--on]="current.enabled">
         {{ (current.enabled ? 'nh-two-factor.ui.status-enabled' : 'nh-two-factor.ui.status-disabled') | translate }}

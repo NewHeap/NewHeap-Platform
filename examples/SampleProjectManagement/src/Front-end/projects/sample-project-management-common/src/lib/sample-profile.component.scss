@@ -44,3 +44,16 @@ section > button:disabled { opacity: .6; }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid label:first-of-type, .form-grid input:first-of-type { grid-column: auto; }
 }
+nh-two-factor-settings {
+  --nh-color-text: var(--ink);
+  --nh-color-muted: var(--muted);
+  --nh-color-border: var(--line-strong);
+  --nh-color-surface: var(--surface);
+  --nh-color-input-background: var(--surface);
+  --nh-color-primary: var(--brand);
+  --nh-color-focus: var(--brand);
+  --nh-color-danger: var(--danger);
+  --nh-color-danger-background: var(--danger-soft);
+  --nh-color-success: var(--success);
+  --nh-color-success-background: var(--success-soft);
+}.two-factor-placeholder { margin: 0; color: var(--muted); }

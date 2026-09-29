@@ -64,9 +64,11 @@ export class AuthPlaygroundComponent {
   readonly impersonateUserId = signal('');
   readonly result = signal('');
   readonly twoFactorDemoAccount = TWO_FACTOR_DEMO_ACCOUNT;
-  readonly twoFactorMethods = [NhTwoFactorMethods.authenticator, NhTwoFactorMethods.recoveryCode];
+  readonly twoFactorMethods = [NhTwoFactorMethods.authenticator, NhTwoFactorMethods.recoveryCode, NhTwoFactorMethods.email];
   readonly twoFactorMethod = signal<NhTwoFactorMethod>(NhTwoFactorMethods.authenticator);
   readonly twoFactorCode = signal('');
+  readonly rememberDevice = signal(false);
+  readonly twoFactorAdministrationUserId = signal('');
   readonly authenticatorSetup = signal<NhAuthenticatorSetup | undefined>(undefined);
   readonly pendingChallenge = signal(this.authService.getPendingTwoFactorChallenge());
   readonly demoAccounts = AUTHORIZATION_DEMO_ACCOUNTS;
@@ -257,15 +259,99 @@ export class AuthPlaygroundComponent {
     const response = await this.authService.verifyTwoFactor(new NhTwoFactorVerifyModel({
       challengeToken: challenge?.challengeToken ?? '',
       method: this.twoFactorMethod(),
-      code: this.twoFactorCode()
+      code: this.twoFactorCode(),
+      rememberDevice: this.rememberDevice()
     }));
+    await this.afterSignInStep(response);
+  }
+
+  async sendTwoFactorEmailCode(): Promise<void> {
+    const challenge = this.authService.getPendingTwoFactorChallenge();
+    const response = await this.authService.sendTwoFactorEmailCode(challenge?.challengeToken ?? '');
+    this.result.set(JSON.stringify(response, null, 2));
+  }
+
+  async verifyTwoFactorWithPasskey(): Promise<void> {
+    const challenge = this.authService.getPendingTwoFactorChallenge();
+    const response = await this.authService.verifyTwoFactorWithPasskey(
+      challenge?.challengeToken ?? '',
+      this.rememberDevice());
+    await this.afterSignInStep(response);
+  }
+
+  /** Passwordless sign-in with a discoverable passkey; the policy may still ask for more. */
+  async signInWithPasskey(): Promise<void> {
+    const response = await this.authService.signInWithPasskey();
+    await this.afterSignInStep(response, response.data?.status === 'authenticated');
+  }
+
+  /** Starts the authenticator enrollment that the policy requires during sign-in. */
+  async beginEnrollmentSetup(): Promise<void> {
+    const enrollment = this.authService.getPendingTwoFactorChallenge();
+    const response = await this.authService.beginEnrollmentAuthenticatorSetup(enrollment?.challengeToken ?? '');
+    this.authenticatorSetup.set(response.data);
+    this.result.set(JSON.stringify({ isSuccess: response.isSuccess, sharedKey: response.data?.sharedKey, items: response.items }, null, 2));
+  }
+
+  async confirmEnrollment(): Promise<void> {
+    const enrollment = this.authService.getPendingTwoFactorChallenge();
+    const response = await this.authService.confirmEnrollmentAuthenticator(
+      enrollment?.challengeToken ?? '',
+      this.twoFactorCode());
     if (response.isSuccess) {
+      this.authenticatorSetup.set(undefined);
+    }
+
+    await this.afterSignInStep(response);
+  }
+
+  async forgetTwoFactorDevices(): Promise<void> {
+    const response = await this.authService.forgetTwoFactorDevices(this.passwordReauthentication());
+    this.authorization.set(this.authService.getAuthorization());
+    this.result.set(JSON.stringify(response, null, 2));
+  }
+
+  async listPasskeys(): Promise<void> {
+    const response = await this.authService.getPasskeys();
+    this.result.set(JSON.stringify(response, null, 2));
+  }
+
+  async registerPasskey(): Promise<void> {
+    const response = await this.authService.registerPasskey(
+      this.translate.instant('project.two-factor-playground-passkey-name'),
+      this.passwordReauthentication());
+    this.authorization.set(this.authService.getAuthorization());
+    this.result.set(JSON.stringify(response, null, 2));
+  }
+
+  /** Administration: removes every second factor of another user who lost access to them. */
+  async resetUserTwoFactor(): Promise<void> {
+    const response = await this.authService.resetUserTwoFactor(this.twoFactorAdministrationUserId().trim());
+    this.result.set(JSON.stringify(response, null, 2));
+  }
+
+  /** Administration: reminds every user whom the policy requires to enroll. */
+  async startTwoFactorEnrollmentReminders(): Promise<void> {
+    const response = await this.authService.startTwoFactorEnrollmentReminders(crypto.randomUUID());
+    this.result.set(JSON.stringify(response, null, 2));
+  }
+
+  /** Administration: ends the sessions of users who must enroll, so they enroll at their next sign-in. */
+  async startTwoFactorSessionRevocation(): Promise<void> {
+    const response = await this.authService.startTwoFactorSessionRevocation(crypto.randomUUID());
+    this.result.set(JSON.stringify(response, null, 2));
+  }
+
+  private async afterSignInStep(
+    response: { isSuccess: boolean, items: unknown[] },
+    authenticated: boolean = response.isSuccess): Promise<void> {
+    if (response.isSuccess && authenticated) {
       await this.authService.reloadAuthorizationProfile();
     }
 
     this.authorization.set(this.authService.getAuthorization());
     this.pendingChallenge.set(this.authService.getPendingTwoFactorChallenge());
-    this.result.set(JSON.stringify({ isSuccess: response.isSuccess, items: response.items }, null, 2));
+    this.result.set(JSON.stringify(response, null, 2));
   }
 
   async getTwoFactorStatus(): Promise<void> {
@@ -375,4 +461,6 @@ export class AuthPlaygroundComponent {
   updateImpersonateId(event: Event): void { this.impersonateUserId.set((event.target as HTMLInputElement).value); }
   updateTwoFactorCode(event: Event): void { this.twoFactorCode.set((event.target as HTMLInputElement).value); }
   updateTwoFactorMethod(event: Event): void { this.twoFactorMethod.set((event.target as HTMLSelectElement).value); }
+  updateRememberDevice(event: Event): void { this.rememberDevice.set((event.target as HTMLInputElement).checked); }
+  updateTwoFactorAdministrationUserId(event: Event): void { this.twoFactorAdministrationUserId.set((event.target as HTMLInputElement).value); }
 }

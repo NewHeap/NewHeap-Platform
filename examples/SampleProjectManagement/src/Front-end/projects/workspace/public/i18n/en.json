@@ -78,8 +78,14 @@
       "division-saved": "The active division has been updated.",
       "password-saved": "Your password has been changed.",
       "password-mismatch": "The new password and confirmation do not match.",
-      "save-failed": "Could not save. Check the input and try again."
-    }
+      "save-failed": "Could not save. Check the input and try again.",
+      "two-factor": "Two-step verification",
+      "two-factor-description": "Protect your account with an authenticator app, e-mail codes or a passkey."
+    },
+    "login-two-factor-account": "Two-step verification",
+    "login-security-officer-account": "Security officer (must enroll)",
+    "login-passkey-alternative": "Or sign in without a password",
+    "login-two-factor-demo-key": "Development key of this account: {{key}}"
   },
   "nh-background-operations": {
     "operation": "Background operation",

@@ -56,3 +56,4 @@
 .authenticator-setup img { border-radius: var(--radius-control); background: #fff; }
 .authenticator-setup figcaption { display: grid; gap: 4px; min-width: 0; font-size: 12px; }
 .authenticator-setup code { overflow-wrap: anywhere; }
+.two-factor .check { display: flex; align-items: center; gap: 8px; font-size: 12px; }

@@ -9,6 +9,7 @@ using DotNetCore.CAP;
 using NewHeap.Platform.AspNet;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.DAL;
+using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.Options;
@@ -114,6 +115,12 @@ var platformOptions = NewHeapAspNetCommonOptions
             policy => policy.RequireClaim(
                 NhPlatformClaimTypes.Permission,
                 SampleAuthorizationPolicies.BackgroundOperationAdministration));
+
+        options.AddPolicy(
+            SampleAuthorizationPolicies.TwoFactorAdministration,
+            policy => policy.RequireClaim(
+                NhPlatformClaimTypes.Permission,
+                SampleAuthorizationPolicies.TwoFactorAdministration));
     })
     .Build();
 
@@ -154,11 +161,9 @@ builder.Services
             authentication.RefreshTokenCookieName = "sample_project_management_refresh";
             authentication.Enabled = true;
         });
-        // Users who enroll an authenticator app get a second-factor challenge after their
-        // password. Every session source (password, PIN, OAuth, refresh) respects the policy.
-        options.AddTwoFactor(twoFactor => twoFactor
-            .EnableAuthenticator(authenticator => authenticator.Issuer = "Sample Project Management")
-            .EnableRecoveryCodes());
+        // Authenticator, recovery codes, e-mail codes, passkeys, remembered devices and the
+        // security-officer requirement; see SampleTwoFactorComposition.
+        options.AddTwoFactor(twoFactor => twoFactor.ConfigureSampleTwoFactor(builder.Configuration));
     })
     .ConfigureCommon(common =>
     {
@@ -265,6 +270,8 @@ builder.Services
         // owner/division/priority/correlation and uses its normal handler queue.
         operations.Add<ProjectAnalysisChildRequest, ProjectAnalysisChildOperation>(
             "sample-project-analysis-child");
+        // Enrollment reminders and session revocation for the two-factor policy.
+        operations.AddTwoFactorOperations<NhUser>();
         operations.Add<ProjectAiPortfolioReportRequest, ProjectAiPortfolioReportOperation>(
             "sample-project-ai-portfolio-report",
             operation => operation
@@ -397,6 +404,7 @@ app.UseNewHeapPlatformAspNetCommon(
         authentication.AddUserNamePasswordEndpoint();
         authentication.AddMicrosoftOauthEndpoints();
         authentication.AddTwoFactorEndpoints();
+        authentication.AddPasskeyEndpoints();
     });
 
 app.MapNhMediaEndpoints("project-media", options =>

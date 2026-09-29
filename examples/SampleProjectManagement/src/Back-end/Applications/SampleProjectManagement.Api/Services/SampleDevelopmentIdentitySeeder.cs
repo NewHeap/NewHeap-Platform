@@ -27,11 +27,16 @@ public static class SampleDevelopmentIdentitySeeder
                 "app.project.view",
                 "app.project.manage",
                 "app.project.confidential.view",
-                SampleAuthorizationPolicies.BackgroundOperationAdministration
+                SampleAuthorizationPolicies.BackgroundOperationAdministration,
+                SampleAuthorizationPolicies.TwoFactorAdministration
             ]);
         await EnsureApplicationRoleAsync(
             roleManager,
             SampleAuthorizationDefaults.ViewerRole,
+            ["app.project.view"]);
+        await EnsureApplicationRoleAsync(
+            roleManager,
+            SampleAuthorizationDefaults.SecurityOfficerRole,
             ["app.project.view"]);
 
         var manager = await EnsureUserAsync(
@@ -53,6 +58,9 @@ public static class SampleDevelopmentIdentitySeeder
             serviceProvider,
             userManager,
             twoFactorUser);
+        var securityOfficer = await EnsureUserAsync(
+            userManager,
+            SampleAuthorizationDefaults.SecurityOfficerEmail);
 
         await EnsureUserRoleAsync(
             userManager,
@@ -66,6 +74,10 @@ public static class SampleDevelopmentIdentitySeeder
             userManager,
             twoFactorUser,
             SampleAuthorizationDefaults.ViewerRole);
+        await EnsureUserRoleAsync(
+            userManager,
+            securityOfficer,
+            SampleAuthorizationDefaults.SecurityOfficerRole);
 
         await EnsureDivisionAsync(
             dbContext,

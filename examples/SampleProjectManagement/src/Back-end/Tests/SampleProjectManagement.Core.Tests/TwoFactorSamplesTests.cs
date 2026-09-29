@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,7 @@ using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Test;
 using SampleProjectManagement.Api.Authorization;
+using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Api.Services;
 using SampleProjectManagement.DAL;
 using Testcontainers.PostgreSql;
@@ -23,8 +25,9 @@ using Xunit;
 namespace SampleProjectManagement.Core.Tests;
 
 /// <summary>
-/// Evidence for the two-factor sample: the seeded demo account signs in with a password and
-/// an authenticator code, and the sample schema needs no migration for two-factor support.
+/// Evidence for the two-factor sample with the API's own composition: the seeded demo account
+/// signs in with a password and an authenticator code, a security officer enrolls during
+/// sign-in, and the sample migrations include the passkey table.
 /// </summary>
 public sealed class TwoFactorSamplesTests : IAsyncLifetime
 {
@@ -49,6 +52,7 @@ public sealed class TwoFactorSamplesTests : IAsyncLifetime
 
         var context = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
         Assert.False(context.Database.HasPendingModelChanges());
+        Assert.NotNull(context.Model.FindEntityType(typeof(IdentityUserPasskey<Guid>)));
         await context.Database.MigrateAsync(cancellationToken);
         await SampleDevelopmentIdentitySeeder.SeedAsync(scope.ServiceProvider);
 
@@ -92,6 +96,34 @@ public sealed class TwoFactorSamplesTests : IAsyncLifetime
 
         Assert.True(managerLogin.Success);
         Assert.NotNull(managerLogin.Data!.Session);
+
+        // A security officer has no second factor yet, so the password step returns an
+        // enrollment. Passkeys and the authenticator satisfy the requirement; e-mail does not.
+        var officerLogin = await sampleService.AuthenticateAsync(new AuthenticateRequest(
+            SampleAuthorizationDefaults.SecurityOfficerEmail,
+            SampleAuthorizationDefaults.Password));
+
+        var enrollment = officerLogin.Data!.Challenge!;
+        Assert.Equal(NhAuthenticationStepStatuses.EnrollmentRequired, enrollment.Status);
+        Assert.Equal([NhTwoFactorMethods.Authenticator, NhTwoFactorMethods.Passkey], enrollment.Methods);
+
+        var setup = await sampleService.BeginEnrollmentAuthenticatorSetupAsync(enrollment.ChallengeToken);
+        Assert.True(setup.Success);
+
+        var completion = await sampleService.ConfirmEnrollmentAuthenticatorAsync(
+            enrollment.ChallengeToken,
+            NhTwoFactorTestCodes.AuthenticatorCode(setup.Data!.SharedKey.Replace(" ", string.Empty)));
+
+        Assert.True(completion.Success);
+        Assert.NotNull(completion.Data!.Session.RefreshToken);
+        Assert.Equal(10, completion.Data.RecoveryCodes!.Count);
+
+        var twoFactor = scope.ServiceProvider.GetRequiredService<INhTwoFactorService<NhUser>>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<NhUser>>();
+        var officer = await userManager.FindByEmailAsync(SampleAuthorizationDefaults.SecurityOfficerEmail);
+        var status = await twoFactor.GetStatusAsync(officer!, cancellationToken);
+        Assert.True(status.Required);
+        Assert.Empty(await twoFactor.GetPasskeysAsync(officer!, cancellationToken));
     }
 
     private static WebApplication BuildApplication(string connectionString)
@@ -110,6 +142,8 @@ public sealed class TwoFactorSamplesTests : IAsyncLifetime
             ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Issuer"] = "https://sample-project-management.example.test",
             ["NewHeap:PlatformAspNetCommon:Authorization:JWT:Token:Key"] =
                 "sample-project-management-two-factor-signing-key",
+            ["TwoFactor:PasskeyServerDomain"] = "localhost",
+            ["TwoFactor:PasskeyAllowedOrigins:0"] = "http://localhost:4210",
         });
 
         builder.Services
@@ -140,9 +174,7 @@ public sealed class TwoFactorSamplesTests : IAsyncLifetime
                     authentication.EnableRefreshToken = true;
                     authentication.EnableDivisions = true;
                 });
-                options.AddTwoFactor(twoFactor => twoFactor
-                    .EnableAuthenticator(authenticator => authenticator.Issuer = "Sample Project Management")
-                    .EnableRecoveryCodes());
+                options.AddTwoFactor(twoFactor => twoFactor.ConfigureSampleTwoFactor(builder.Configuration));
             })
             .WithIdentityEntityFramework(options => options.UseNewHeapPostgreSql(connectionString))
             .WithIdentity()

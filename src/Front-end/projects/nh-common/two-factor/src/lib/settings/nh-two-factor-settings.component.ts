@@ -6,6 +6,7 @@ import {
   ElementRef,
   inject,
   Injector,
+  input,
   OnInit,
   output,
   signal,
@@ -60,6 +61,9 @@ export class NhTwoFactorSettingsComponent implements OnInit {
   private readonly injector = inject(Injector);
   private readonly reauthenticationInput = viewChild<ElementRef<HTMLInputElement>>('reauthenticationInput');
   private readonly codeInput = viewChild<ElementRef<HTMLInputElement>>('codeInput');
+
+  /** Whether the title is visible. Hosts with their own heading hide it; screen readers keep it. */
+  readonly showTitle = input(true);
 
   /** Emits the reloaded status after every saved change. */
   readonly changed = output<NhTwoFactorStatus>();
