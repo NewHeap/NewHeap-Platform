@@ -648,17 +648,22 @@
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth.service.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
-      "src/Front-end/scripts/verify-frontend-integrity.mjs"
+      "src/Front-end/scripts/verify-frontend-integrity.mjs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
     ],
     "SPM-067": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
     ],
     "SPM-068": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
     ],
     "SPM-069": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",

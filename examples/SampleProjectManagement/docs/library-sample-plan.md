@@ -108,9 +108,9 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-063 | Choose a login method | method picker service | Email or domain selection chooses the correct flow. |
 | SPM-064 | Refresh token | refresh handler and session-validator registration | A refresh token rotates at most once while independent device sessions remain usable, and the platform authentication services pass startup validation. |
 | SPM-065 | Session expiration | expiration information | The live countdown expires, token state is cleared, and both apps open login with a reason and return URL. |
-| SPM-066 | Logout | logout handler | Logout revokes only the current login's refresh token, clears local state even when server logout fails, and closes the protected route. |
-| SPM-067 | Impersonation | handler/models | A visible impersonation banner is displayed. |
-| SPM-068 | Revert impersonation | revert handler/models | The original user is restored. |
+| SPM-066 | Logout | logout handler | Logout revokes only the current login's refresh token, clears local state even when server logout fails, and closes the protected route. A custom logout route configured through `LogoutEndpoint` is mapped to the logout endpoint. |
+| SPM-067 | Impersonation | handler/models | A visible impersonation banner is displayed. The impersonation session has no refresh token, so it ends with its access token and can never turn into an ordinary session of the impersonated user, and a custom `ImpersonateEndpoint` route is independent of the refresh route. |
+| SPM-068 | Revert impersonation | revert handler/models | The original user is restored with a new session of its own, including a refresh token, and a custom `RevertImpersonateEndpoint` route is independent of the refresh route. |
 | SPM-069 | Account information | account endpoint/models | User, claims, division, and roles load. |
 | SPM-070 | Claim authorization | authorize attribute | The endpoint returns 403 without the claim. |
 | SPM-071 | Any claim | match-one attribute | An editor or administrator may update. |

@@ -922,7 +922,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Logout",
     "category": "Authentication, identity, and authorization",
     "surface": "logout handler",
-    "outcome": "Logout revokes only the current login's refresh token, clears local state even when server logout fails, and closes the protected route.",
+    "outcome": "Logout revokes only the current login's refresh token, clears local state even when server logout fails, and closes the protected route. A custom logout route configured through `LogoutEndpoint` is mapped to the logout endpoint.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -930,7 +930,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth.service.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
-      "src/Front-end/scripts/verify-frontend-integrity.mjs"
+      "src/Front-end/scripts/verify-frontend-integrity.mjs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
     ]
   },
   {
@@ -938,12 +939,14 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Impersonation",
     "category": "Authentication, identity, and authorization",
     "surface": "handler/models",
-    "outcome": "A visible impersonation banner is displayed.",
+    "outcome": "A visible impersonation banner is displayed. The impersonation session has no refresh token, so it ends with its access token and can never turn into an ordinary session of the impersonated user, and a custom `ImpersonateEndpoint` route is independent of the refresh route.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
     ]
   },
   {
@@ -951,12 +954,14 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Revert impersonation",
     "category": "Authentication, identity, and authorization",
     "surface": "revert handler/models",
-    "outcome": "The original user is restored.",
+    "outcome": "The original user is restored with a new session of its own, including a refresh token, and a custom `RevertImpersonateEndpoint` route is independent of the refresh route.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts"
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs"
     ]
   },
   {

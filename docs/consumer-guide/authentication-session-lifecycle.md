@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Authentication session lifecycle
 
-Keep refresh tokens independent per login, keep the session validator startup-safe, revoke the current token on logout, and invalidate every session after a password mutation without expiring existing sessions during adoption.
+Keep refresh tokens independent per login, keep the session validator startup-safe, revoke the current token on logout, keep impersonation sessions short-lived, and invalidate every session after a password mutation without expiring existing sessions during adoption.
 
 ## Preferred approach
 
@@ -19,6 +19,10 @@ Treat every successful login as an independent refresh-token session. Rotate onl
 Use the standard `NhUserManager` password change and reset methods. A successful password mutation records the current Identity security stamp as a compatibility marker, deletes every refresh token for the user, and causes stamped access tokens to fail validation. Access tokens issued before this behavior remain valid during rollout until that user's first password mutation, so upgrading does not create a mass logout or require a data backfill.
 
 When a derived user manager has consumer-specific password models or additional atomic updates, run its Identity mutation through `ExecutePasswordMutationWithSessionInvalidationAsync`; do not call the Identity password APIs directly. For a PIN, passkey or other credential, derive `NhAuthenticationService`, record a failed Identity attempt when verification fails, and call `CreateAuthenticationSessionAsync` after verification succeeds. That extension point enforces account eligibility and lockout, resets an existing failed-attempt count, checks required claims, preserves every other device session and leaves the password unchanged.
+
+Treat impersonation as a short-lived, access-token-only session. The impersonate endpoint issues no refresh token, because a refresh rebuilds the token from the impersonated user's claims and would drop the impersonation origin. The session ends when its access token expires or when the origin user reverts it; revert issues a normal session with a refresh token for the origin user. Do not add a refresh step to the impersonation flow in the frontend.
+
+Customize authentication routes only through the username/password options (`Endpoint`, `RefreshTokenEndpoint`, `LogoutEndpoint`, `ImpersonateEndpoint`, `RevertImpersonateEndpoint` and `AccountInformationEndpoint`) and set the same routes in the frontend `authentication.endpoints` configuration. Each option moves only its own endpoint.
 
 Configure consumer JWT events through `NewHeapAspNetCommonOptionsBuilder.ConfigureJwtBearer` or compose with the existing `JwtBearerOptions.Events` delegates. NewHeap invokes consumer `OnTokenValidated` behavior and then enforces its session check. Code that validates tokens outside ASP.NET's bearer pipeline must also call the registered `INhAuthenticationSessionValidator` after cryptographic validation.
 
@@ -37,10 +41,12 @@ Deploy backend versions across the cluster before relying on immediate access-to
 - Replacing the platform session-validator registration with reflection or another consumer-owned construction workaround.
 - Treating `DecodeToken` or `ValidateToken` alone as session-aware authorization.
 - Claiming cluster-wide access-token invalidation while old backend nodes still serve traffic.
+- Issuing or refreshing a refresh token for an impersonation session, which turns it into an ordinary long-lived login as the impersonated user.
+- Copying authentication handlers only to move a route instead of setting the matching endpoint option.
 
 ## Verification
 
-Build a Development `WebApplication` host with `ValidateOnBuild` enabled and the standard platform registration. Run the lifecycle test against SQL Server and PostgreSQL. Prove that two device tokens refresh independently, one token can be consumed only once, logout is idempotent and token-specific, failed password changes preserve sessions, and every successful standard or derived change/reset path removes all refresh tokens. Also verify that legacy access tokens are accepted before the compatibility marker exists and rejected afterward, while a token carrying the current security stamp succeeds. Exercise a verified custom credential without a password mutation and prove that it resets a prior failed-attempt count while an existing device refresh token remains usable. Verify that configured JWT event delegates remain registered and that manual token consumers call `INhAuthenticationSessionValidator`.
+Build a Development `WebApplication` host with `ValidateOnBuild` enabled and the standard platform registration. Run the lifecycle test against SQL Server and PostgreSQL. Prove that two device tokens refresh independently, one token can be consumed only once, logout is idempotent and token-specific, failed password changes preserve sessions, and every successful standard or derived change/reset path removes all refresh tokens. Also verify that legacy access tokens are accepted before the compatibility marker exists and rejected afterward, while a token carrying the current security stamp succeeds. Exercise a verified custom credential without a password mutation and prove that it resets a prior failed-attempt count while an existing device refresh token remains usable. Verify that configured JWT event delegates remain registered and that manual token consumers call `INhAuthenticationSessionValidator`. Prove that impersonation returns an access token with the origin claim and no refresh token, creates no refresh-token row, and that revert issues a normal session for the origin user. Map the endpoints with custom routes and assert that each option moves only its own endpoint.
 
 ## Executable evidence
 
@@ -54,6 +60,16 @@ Build a Development `WebApplication` host with `ValidateOnBuild` enabled and the
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts)
   - [src/Front-end/projects/sample-project-management-common/src/lib/sample-auth.service.ts](../../examples/SampleProjectManagement/src/Front-end/projects/sample-project-management-common/src/lib/sample-auth.service.ts)
+- SPM-067 — Impersonation
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts)
+  - [../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs)
+- SPM-068 — Revert impersonation
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts)
+  - [../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs)
 - SPM-075 — Password management
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAuthenticationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAuthenticationService.cs)

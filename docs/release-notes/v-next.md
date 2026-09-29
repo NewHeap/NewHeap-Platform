@@ -11,6 +11,19 @@ resolve the validator.
 |---|---|
 | A consumer-side reflection or replacement registration for `NhAuthenticationSessionValidator<TUser>` is no longer needed. | Remove the workaround after upgrading to the release that contains this fix. |
 
+## NewHeap.Platform.AspNet.Common: impersonation sessions and endpoint routes
+
+Impersonation no longer issues a refresh token. A refresh rebuilt the token from the
+impersonated user's claims and dropped the impersonation origin, which turned the
+session into an ordinary login as that user. The endpoint route options now each
+move only their own endpoint.
+
+| Adoption note | Required action |
+|---|---|
+| The impersonate endpoint returns `refreshToken: null`; the session ends when its access token expires or on revert. Revert still issues a normal session with a refresh token. | Revert or sign in again instead of refreshing an impersonation session. Refresh tokens issued by impersonation before the upgrade stay valid until they expire; revoke the impersonated users' refresh tokens if that is a concern. |
+| `UserNamePasswordOptions.LogoutEndpoint` is now applied; it was ignored before and logout stayed on `authentication/logout`. | If you set it, set the frontend `authentication.endpoints.logout` to the same route. |
+| Impersonate and revert no longer move to `RefreshTokenEndpoint`; the new `ImpersonateEndpoint` and `RevertImpersonateEndpoint` options set their routes. | If you set `RefreshTokenEndpoint`, impersonate and revert return to `authentication/impersonate` and `authentication/ImpersonateRevert`, the frontend defaults. Set the new options only to customize them. |
+
 ## NewHeap.Platform.AI.AspNet.Mvc (new package)
 
 `AddNewHeapPlatformAIMvcBridge` publishes policy-protected MVC actions as governed,
