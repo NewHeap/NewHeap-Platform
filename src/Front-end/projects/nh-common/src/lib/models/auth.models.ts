@@ -231,6 +231,8 @@ export class AuthenticateModel {
   realm: string = '';
   username!: string;
   password: string | undefined;
+  /** Remember-device token for header authentication; cookie clients send it as a cookie. */
+  rememberDeviceToken?: string;
 
   public constructor(init?: Partial<AuthenticateModel>) {
     Object.assign(this, init);
@@ -259,7 +261,9 @@ export type AuthenticationFlow = 'password' | 'microsoft-oauth' | string;
  */
 export const NhTwoFactorMethods = {
   authenticator: 'authenticator',
-  recoveryCode: 'recovery-code'
+  recoveryCode: 'recovery-code',
+  email: 'email',
+  passkey: 'passkey'
 } as const;
 
 export type NhTwoFactorMethod = typeof NhTwoFactorMethods[keyof typeof NhTwoFactorMethods] | string;
@@ -276,19 +280,37 @@ export enum NhTwoFactorFailureCodes {
   LockedOut = 'two-factor-locked-out',
   MethodNotAllowed = 'two-factor-method-not-allowed',
   NotEnabled = 'two-factor-not-enabled',
+  AlreadyEnabled = 'two-factor-already-enabled',
   SetupNotStarted = 'two-factor-setup-not-started',
   ReauthenticationRequired = 'two-factor-reauthentication-required',
   ReauthenticationFailed = 'two-factor-reauthentication-failed',
   RequiredByPolicy = 'two-factor-required-by-policy',
   NotAllowedWhileImpersonating = 'two-factor-not-allowed-while-impersonating',
-  ConfigurationInvalid = 'two-factor-configuration-invalid'
+  ConfigurationInvalid = 'two-factor-configuration-invalid',
+  EmailCooldown = 'two-factor-email-cooldown',
+  EmailUnavailable = 'two-factor-email-unavailable',
+  UserNotFound = 'two-factor-user-not-found',
+  PasskeyInvalid = 'two-factor-passkey-invalid',
+  PasskeyNotFound = 'two-factor-passkey-not-found',
+  /** The browser does not support passkeys or the user cancelled the passkey prompt. */
+  PasskeyUnavailable = 'two-factor-passkey-unavailable'
 }
 
 /**
- * A pending sign-in that the user completes with a second factor.
+ * Status values of a pending authentication step.
+ */
+export const NhAuthenticationStepStatuses = {
+  twoFactorRequired: 'two-factor-required',
+  enrollmentRequired: 'enrollment-required'
+} as const;
+
+/**
+ * A pending sign-in step. With status `two-factor-required` the user presents a second
+ * factor; with `enrollment-required` the policy requires the user to enroll one first, and
+ * `challengeToken` is the enrollment token.
  */
 export class NhTwoFactorChallenge {
-  status: string = 'two-factor-required';
+  status: string = NhAuthenticationStepStatuses.twoFactorRequired;
   challengeToken: string = '';
   expiresAt: string = '';
   methods: NhTwoFactorMethod[] = [];
@@ -309,12 +331,15 @@ export interface NhLoginResponse {
   refreshValidTo?: string | null;
   issuer?: string | null;
   twoFactor?: NhTwoFactorChallenge | null;
+  /** Remember-device token for header authentication, returned when the user chose to remember the device. */
+  rememberDeviceToken?: string | null;
 }
 
-export type NhAuthenticationStepStatus = 'authenticated' | 'two-factor-required';
+export type NhAuthenticationStepStatus = 'authenticated' | 'two-factor-required' | 'enrollment-required';
 
 /**
- * Outcome of an interactive sign-in step: either the stored authorization or a challenge.
+ * Outcome of an interactive sign-in step: the stored authorization, a second-factor
+ * challenge or a required enrollment.
  */
 export class NhAuthenticationStep<TAuthorization extends INhAuthorization = INhAuthorization> {
   status: NhAuthenticationStepStatus = 'authenticated';
@@ -330,6 +355,8 @@ export class NhTwoFactorVerifyModel {
   challengeToken: string = '';
   method: NhTwoFactorMethod = NhTwoFactorMethods.authenticator;
   code: string = '';
+  /** Skip the second factor on this device for later sign-ins, when the server allows it. */
+  rememberDevice?: boolean;
 
   public constructor(init?: Partial<NhTwoFactorVerifyModel>) {
     Object.assign(this, init);
@@ -357,6 +384,9 @@ export class NhTwoFactorStatus {
   availableMethods: NhTwoFactorMethod[] = [];
   recoveryCodesLeft: number = 0;
   authenticatorSetupPending: boolean = false;
+  emailSetupPending: boolean = false;
+  rememberDeviceAvailable: boolean = false;
+  passkeyCount: number = 0;
 
   public constructor(init?: Partial<NhTwoFactorStatus>) {
     Object.assign(this, init);
@@ -385,6 +415,63 @@ export class NhTwoFactorChange {
   sessionRenewed: boolean = false;
 
   public constructor(init?: Partial<NhTwoFactorChange>) {
+    Object.assign(this, init);
+  }
+}
+
+/**
+ * Confirmation that the server e-mailed a code.
+ */
+export class NhTwoFactorEmailCodeSent {
+  expiresAt: string = '';
+  /** When another code can be requested. */
+  resendAvailableAt: string = '';
+
+  public constructor(init?: Partial<NhTwoFactorEmailCodeSent>) {
+    Object.assign(this, init);
+  }
+}
+
+/**
+ * Result of an enrollment that the policy required during sign-in. The session is already
+ * stored; the recovery codes are returned once.
+ */
+export class NhTwoFactorEnrollmentResult<TAuthorization extends INhAuthorization = INhAuthorization> {
+  authorization?: TAuthorization;
+  recoveryCodes?: string[];
+
+  public constructor(init?: Partial<NhTwoFactorEnrollmentResult<TAuthorization>>) {
+    Object.assign(this, init);
+  }
+}
+
+/**
+ * WebAuthn options from the server for one passkey ceremony. `options` is the JSON form of
+ * the creation or request options; `ceremonyToken` goes back with the credential.
+ */
+export class NhPasskeyOptions {
+  options: any = {};
+  ceremonyToken: string = '';
+  expiresAt: string = '';
+
+  public constructor(init?: Partial<NhPasskeyOptions>) {
+    Object.assign(this, init);
+  }
+}
+
+/**
+ * A registered passkey. The public key is never returned.
+ */
+export class NhPasskey {
+  /** Credential ID, base64url encoded. */
+  id: string = '';
+  name: string = '';
+  createdAt: string = '';
+  /** Whether a passkey provider, such as a password manager, syncs the passkey. */
+  isBackedUp: boolean = false;
+  transports: string[] = [];
+
+  public constructor(init?: Partial<NhPasskey>) {
     Object.assign(this, init);
   }
 }

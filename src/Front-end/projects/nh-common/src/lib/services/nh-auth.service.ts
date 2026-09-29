@@ -1,5 +1,5 @@
 import {inject, Injectable, NgZone, OnDestroy, PLATFORM_ID, REQUEST_CONTEXT} from '@angular/core';
-import {BehaviorSubject, lastValueFrom} from 'rxjs';
+import {BehaviorSubject, lastValueFrom, Observable} from 'rxjs';
 import {
   AuthenticateModel, AuthenticationFlow,
   AuthenticationSessionCreateResponse,
@@ -10,12 +10,17 @@ import {
   INhAuthorization,
   NhAccountInformationResponse,
   NhAuthenticationStep,
+  NhAuthenticationStepStatuses,
   NhAuthenticatorSetup,
   NhAuthorization,
   NhDivision,
   NhLoginResponse,
+  NhPasskey,
+  NhPasskeyOptions,
   NhTwoFactorChallenge,
   NhTwoFactorChange,
+  NhTwoFactorEmailCodeSent,
+  NhTwoFactorEnrollmentResult,
   NhTwoFactorFailureCodes,
   NhTwoFactorReauthentication,
   NhTwoFactorStatus,
@@ -30,6 +35,8 @@ import {EndpointsAuthenticationNhCommonModuleConfig, NhCommonModuleConfig} from 
 import {NhApiUtil} from "../util/nh-api-util";
 import {isPlatformServer} from "@angular/common";
 import {Base64} from "js-base64";
+import {NhPasskeyClient} from "./nh-passkey-client.service";
+import {NhBackgroundOperation} from "../models/background-operation.models";
 
 interface NhTwoFactorChangeResponse {
   recoveryCodes?: string[] | null;
@@ -40,6 +47,7 @@ interface NhTwoFactorChangeResponse {
 export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization> implements OnDestroy {
   protected static readonly pendingTwoFactorChallengeStorageKey = 'nh-two-factor-challenge';
   protected static readonly externalTwoFactorChallengePrefix = 'nh-two-factor=';
+  protected static readonly rememberDeviceStorageKey = 'nh-two-factor-device';
 
   protected authorization: TAuthorization | undefined = undefined;
   protected pendingTwoFactorChallenge: NhTwoFactorChallenge | undefined = undefined;
@@ -57,6 +65,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
   protected httpClient: HttpClient = inject(HttpClient);
   protected platformId: Object = inject(PLATFORM_ID);
   protected requestContext: any = inject(REQUEST_CONTEXT, {optional: true});
+  protected passkeyClient: NhPasskeyClient = inject(NhPasskeyClient);
 
   constructor() {
     this.authReady = new Promise(resolve => {
@@ -378,18 +387,23 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
       return result.withError(NhTwoFactorFailureCodes.Required, 'nh-two-factor.required');
     }
 
+    if (stepResult.data?.status === 'enrollment-required') {
+      return result.withError(NhTwoFactorFailureCodes.EnrollmentRequired, 'nh-two-factor.enrollment-required');
+    }
+
     result.data = stepResult.data?.authorization;
     return result;
   }
 
   /**
-   * Signs in with username and password. Returns the stored authorization, or the
-   * second-factor challenge when the server requires one. A challenge is never stored as
+   * Signs in with username and password. Returns the stored authorization, the
+   * second-factor challenge or the required enrollment. A pending step is never stored as
    * an authorization.
    */
   async authenticateInteractive(model: AuthenticateModel): Promise<TaskResult<NhAuthenticationStep<TAuthorization>>> {
     const result = new TaskResult<NhAuthenticationStep<TAuthorization>>();
     model.realm = this.moduleConfig.authenticationRealm;
+    model.rememberDeviceToken = model.rememberDeviceToken ?? this.getRememberDeviceToken();
 
     const request$ = this.httpClient.post<NhLoginResponse>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.login, model, {
       params: this.languageParams(),
@@ -397,19 +411,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     });
 
     try {
-      const response = await lastValueFrom(request$);
-
-      if (response?.twoFactor) {
-        const challenge = new NhTwoFactorChallenge(response.twoFactor);
-        this.setPendingTwoFactorChallenge(challenge);
-        result.data = new NhAuthenticationStep<TAuthorization>({status: 'two-factor-required', challenge: challenge});
-        return result;
-      }
-
-      const authorization = this.toAuthorization(response);
-      this.setAuthorization(authorization);
-      this.clearPendingTwoFactorChallenge();
-      result.data = new NhAuthenticationStep<TAuthorization>({status: 'authenticated', authorization: authorization});
+      result.data = this.completeAuthenticationStep(await lastValueFrom(request$));
     } catch (ex) {
       if (this.isAuthenticated()) {
         this.clearAuthorization();
@@ -434,25 +436,192 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     });
 
     try {
-      const response = await lastValueFrom(request$);
-      const authorization = this.toAuthorization(response);
-
-      this.setAuthorization(authorization);
-      this.clearPendingTwoFactorChallenge();
-      result.data = authorization;
+      result.data = this.completeAuthenticationStep(await lastValueFrom(request$)).authorization;
     } catch (ex) {
-      const errResult = NhApiUtil.taskResultFromResponse(ex);
-      const challengeEnded = errResult.items.some(item =>
-        item.name === NhTwoFactorFailureCodes.ChallengeExpired || item.name === NhTwoFactorFailureCodes.LockedOut);
-
-      if (challengeEnded) {
-        this.clearPendingTwoFactorChallenge();
-      }
-
-      errResult.copyTo(result);
+      this.pendingStepFailed(ex).copyTo(result);
     }
 
     return result;
+  }
+
+  /**
+   * E-mails a sign-in code for the pending challenge when the user enrolled the e-mail factor.
+   */
+  sendTwoFactorEmailCode(challengeToken: string): Promise<TaskResult<NhTwoFactorEmailCodeSent>> {
+    return this.sendTwoFactorRequest(
+      this.httpClient.post<NhTwoFactorEmailCodeSent>(
+        this.twoFactorUrl(this.twoFactorEndpoints().twoFactorEmail),
+        {challengeToken: challengeToken},
+        this.twoFactorStepRequestOptions()),
+      response => new NhTwoFactorEmailCodeSent(response));
+  }
+
+  /**
+   * Whether this browser can use passkeys.
+   */
+  isPasskeySupported(): boolean {
+    return this.passkeyClient.isSupported();
+  }
+
+  /**
+   * Completes the pending challenge with a passkey and stores the session.
+   */
+  async verifyTwoFactorWithPasskey(challengeToken: string, rememberDevice: boolean = false): Promise<TaskResult<TAuthorization>> {
+    const result = new TaskResult<TAuthorization>();
+    const endpoints = this.twoFactorEndpoints();
+
+    const options = await this.sendTwoFactorRequest(
+      this.httpClient.post<NhPasskeyOptions>(
+        this.twoFactorUrl(endpoints.twoFactorPasskeyOptions),
+        {challengeToken: challengeToken},
+        this.twoFactorStepRequestOptions()),
+      response => new NhPasskeyOptions(response));
+    if (!options.isSuccess) {
+      options.copyTo(result);
+      return result;
+    }
+
+    const credential = await this.runPasskeyCeremony(() => this.passkeyClient.get(options.data!.options));
+    if (!credential.isSuccess) {
+      credential.copyTo(result);
+      return result;
+    }
+
+    const request$ = this.httpClient.post<NhLoginResponse>(
+      this.twoFactorUrl(endpoints.twoFactorPasskey),
+      {
+        challengeToken: challengeToken,
+        ceremonyToken: options.data!.ceremonyToken,
+        credential: credential.data,
+        rememberDevice: rememberDevice
+      },
+      this.twoFactorStepRequestOptions());
+
+    try {
+      result.data = this.completeAuthenticationStep(await lastValueFrom(request$)).authorization;
+    } catch (ex) {
+      this.pendingStepFailed(ex).copyTo(result);
+    }
+
+    return result;
+  }
+
+  /**
+   * Signs in with a discoverable passkey, without a username or password. Returns the
+   * stored authorization, or a pending step when the server's policy asks for more.
+   */
+  async signInWithPasskey(): Promise<TaskResult<NhAuthenticationStep<TAuthorization>>> {
+    const result = new TaskResult<NhAuthenticationStep<TAuthorization>>();
+    const endpoints = this.twoFactorEndpoints();
+
+    const options = await this.sendTwoFactorRequest(
+      this.httpClient.post<NhPasskeyOptions>(
+        this.twoFactorUrl(endpoints.passkeySignInOptions),
+        {},
+        this.twoFactorStepRequestOptions()),
+      response => new NhPasskeyOptions(response));
+    if (!options.isSuccess) {
+      options.copyTo(result);
+      return result;
+    }
+
+    const credential = await this.runPasskeyCeremony(() => this.passkeyClient.get(options.data!.options));
+    if (!credential.isSuccess) {
+      credential.copyTo(result);
+      return result;
+    }
+
+    const request$ = this.httpClient.post<NhLoginResponse>(
+      this.twoFactorUrl(endpoints.passkeySignIn),
+      {
+        ceremonyToken: options.data!.ceremonyToken,
+        credential: credential.data,
+        rememberDeviceToken: this.getRememberDeviceToken()
+      },
+      this.twoFactorStepRequestOptions());
+
+    try {
+      result.data = this.completeAuthenticationStep(await lastValueFrom(request$));
+    } catch (ex) {
+      NhApiUtil.taskResultFromResponse(ex).copyTo(result);
+    }
+
+    return result;
+  }
+
+  /**
+   * Starts authenticator enrollment for a user whom the policy requires to enroll during
+   * sign-in. `enrollmentToken` is the `challengeToken` of the enrollment step.
+   */
+  beginEnrollmentAuthenticatorSetup(enrollmentToken: string): Promise<TaskResult<NhAuthenticatorSetup>> {
+    return this.sendTwoFactorRequest(
+      this.httpClient.post<NhAuthenticatorSetup>(
+        this.twoFactorUrl(this.twoFactorEndpoints().twoFactorEnrollmentAuthenticator),
+        {enrollmentToken: enrollmentToken},
+        this.twoFactorStepRequestOptions()),
+      response => new NhAuthenticatorSetup(response));
+  }
+
+  /**
+   * Confirms the authenticator during a required enrollment and stores the session.
+   */
+  confirmEnrollmentAuthenticator(enrollmentToken: string, code: string): Promise<TaskResult<NhTwoFactorEnrollmentResult<TAuthorization>>> {
+    return this.sendEnrollmentCompletion(
+      this.twoFactorEndpoints().twoFactorEnrollmentAuthenticatorConfirm,
+      {enrollmentToken: enrollmentToken, code: code});
+  }
+
+  /**
+   * E-mails a confirmation code during a required enrollment.
+   */
+  sendEnrollmentEmailCode(enrollmentToken: string): Promise<TaskResult<NhTwoFactorEmailCodeSent>> {
+    return this.sendTwoFactorRequest(
+      this.httpClient.post<NhTwoFactorEmailCodeSent>(
+        this.twoFactorUrl(this.twoFactorEndpoints().twoFactorEnrollmentEmail),
+        {enrollmentToken: enrollmentToken},
+        this.twoFactorStepRequestOptions()),
+      response => new NhTwoFactorEmailCodeSent(response));
+  }
+
+  /**
+   * Confirms the e-mail factor during a required enrollment and stores the session.
+   */
+  confirmEnrollmentEmail(enrollmentToken: string, code: string): Promise<TaskResult<NhTwoFactorEnrollmentResult<TAuthorization>>> {
+    return this.sendEnrollmentCompletion(
+      this.twoFactorEndpoints().twoFactorEnrollmentEmailConfirm,
+      {enrollmentToken: enrollmentToken, code: code});
+  }
+
+  /**
+   * Registers a passkey during a required enrollment and stores the session.
+   */
+  async enrollPasskey(enrollmentToken: string, name?: string): Promise<TaskResult<NhTwoFactorEnrollmentResult<TAuthorization>>> {
+    const result = new TaskResult<NhTwoFactorEnrollmentResult<TAuthorization>>();
+    const endpoints = this.twoFactorEndpoints();
+
+    const options = await this.sendTwoFactorRequest(
+      this.httpClient.post<NhPasskeyOptions>(
+        this.twoFactorUrl(endpoints.twoFactorEnrollmentPasskeyOptions),
+        {enrollmentToken: enrollmentToken},
+        this.twoFactorStepRequestOptions()),
+      response => new NhPasskeyOptions(response));
+    if (!options.isSuccess) {
+      options.copyTo(result);
+      return result;
+    }
+
+    const credential = await this.runPasskeyCeremony(() => this.passkeyClient.create(options.data!.options));
+    if (!credential.isSuccess) {
+      credential.copyTo(result);
+      return result;
+    }
+
+    return this.sendEnrollmentCompletion(endpoints.twoFactorEnrollmentPasskey, {
+      enrollmentToken: enrollmentToken,
+      ceremonyToken: options.data!.ceremonyToken,
+      credential: credential.data,
+      name: name
+    });
   }
 
   /**
@@ -576,6 +745,132 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     return this.sendTwoFactorChange(this.twoFactorEndpoints().twoFactorDisable, {reauthentication: reauthentication});
   }
 
+  /**
+   * E-mails a code that confirms the user's e-mail address as a second factor. Requires
+   * reauthentication while two-factor authentication is enabled.
+   */
+  beginEmailSetup(reauthentication?: NhTwoFactorReauthentication): Promise<TaskResult<NhTwoFactorEmailCodeSent>> {
+    return this.sendTwoFactorRequest(
+      this.httpClient.post<NhTwoFactorEmailCodeSent>(
+        this.twoFactorUrl(this.twoFactorEndpoints().twoFactorEmailSetup),
+        {reauthentication: reauthentication},
+        this.twoFactorAccountRequestOptions()),
+      response => new NhTwoFactorEmailCodeSent(response));
+  }
+
+  confirmEmailSetup(code: string): Promise<TaskResult<NhTwoFactorChange>> {
+    return this.sendTwoFactorChange(this.twoFactorEndpoints().twoFactorEmailConfirm, {code: code});
+  }
+
+  /**
+   * Forgets every remembered device, including this one, and ends every other session.
+   */
+  async forgetTwoFactorDevices(reauthentication: NhTwoFactorReauthentication): Promise<TaskResult<NhTwoFactorChange>> {
+    const result = await this.sendTwoFactorChange(this.twoFactorEndpoints().twoFactorForgetDevices, {reauthentication: reauthentication});
+    if (result.isSuccess) {
+      this.storeRememberDeviceToken(undefined);
+    }
+
+    return result;
+  }
+
+  getPasskeys(): Promise<TaskResult<NhPasskey[]>> {
+    return this.sendTwoFactorRequest(
+      this.httpClient.get<NhPasskey[]>(
+        this.twoFactorUrl(this.twoFactorEndpoints().passkeys),
+        this.twoFactorAccountRequestOptions()),
+      response => (response ?? []).map(passkey => new NhPasskey(passkey)));
+  }
+
+  /**
+   * Registers a passkey on this device. Adding a passkey while two-factor authentication is
+   * enabled requires reauthentication. The server ends every other session; the renewed
+   * session for this device is stored before the promise resolves.
+   */
+  async registerPasskey(name?: string, reauthentication?: NhTwoFactorReauthentication): Promise<TaskResult<NhTwoFactorChange>> {
+    const result = new TaskResult<NhTwoFactorChange>();
+    const endpoints = this.twoFactorEndpoints();
+
+    const options = await this.sendTwoFactorRequest(
+      this.httpClient.post<NhPasskeyOptions>(
+        this.twoFactorUrl(endpoints.passkeyRegistrationOptions),
+        {reauthentication: reauthentication},
+        this.twoFactorAccountRequestOptions()),
+      response => new NhPasskeyOptions(response));
+    if (!options.isSuccess) {
+      options.copyTo(result);
+      return result;
+    }
+
+    const credential = await this.runPasskeyCeremony(() => this.passkeyClient.create(options.data!.options));
+    if (!credential.isSuccess) {
+      credential.copyTo(result);
+      return result;
+    }
+
+    return this.sendTwoFactorChange(endpoints.passkeys, {
+      ceremonyToken: options.data!.ceremonyToken,
+      credential: credential.data,
+      name: name
+    });
+  }
+
+  renamePasskey(passkeyId: string, name: string): Promise<TaskResult<void>> {
+    return this.sendTwoFactorRequest(
+      this.httpClient.put<void>(
+        this.twoFactorUrl(this.twoFactorEndpoints().passkeys) + '/' + encodeURIComponent(passkeyId),
+        {name: name},
+        this.twoFactorAccountRequestOptions()),
+      () => undefined);
+  }
+
+  /**
+   * Removes a passkey. Removing the last second factor disables two-factor authentication,
+   * which fails when the policy requires it.
+   */
+  removePasskey(passkeyId: string, reauthentication: NhTwoFactorReauthentication): Promise<TaskResult<NhTwoFactorChange>> {
+    return this.sendTwoFactorChange(
+      this.twoFactorEndpoints().passkeys + '/' + encodeURIComponent(passkeyId) + '/remove',
+      {reauthentication: reauthentication});
+  }
+
+  /**
+   * Removes every second factor of another user who lost access to them. Requires the
+   * server's two-factor administration policy.
+   */
+  resetUserTwoFactor(userId: string): Promise<TaskResult<void>> {
+    const endpoint = this.twoFactorEndpoints().twoFactorUserReset.replace('{userId}', encodeURIComponent(userId));
+    return this.sendTwoFactorRequest(
+      this.httpClient.post<void>(this.twoFactorUrl(endpoint), {}, this.twoFactorAccountRequestOptions()),
+      () => undefined);
+  }
+
+  /**
+   * Starts a background operation that reminds every user whom the policy requires to
+   * enroll. A repeated idempotency key returns the operation that was already started.
+   */
+  startTwoFactorEnrollmentReminders(idempotencyKey: string): Promise<TaskResult<NhBackgroundOperation>> {
+    return this.sendTwoFactorRequest(
+      this.httpClient.post<NhBackgroundOperation>(
+        this.twoFactorUrl(this.twoFactorEndpoints().twoFactorEnrollmentReminders),
+        {idempotencyKey: idempotencyKey},
+        this.twoFactorAccountRequestOptions()),
+      response => response);
+  }
+
+  /**
+   * Starts a background operation that ends the sessions of every user whom the policy
+   * requires to enroll, so their next sign-in enrolls them.
+   */
+  startTwoFactorSessionRevocation(idempotencyKey: string): Promise<TaskResult<NhBackgroundOperation>> {
+    return this.sendTwoFactorRequest(
+      this.httpClient.post<NhBackgroundOperation>(
+        this.twoFactorUrl(this.twoFactorEndpoints().twoFactorSessionRevocation),
+        {idempotencyKey: idempotencyKey},
+        this.twoFactorAccountRequestOptions()),
+      response => response);
+  }
+
   protected async sendTwoFactorChange(endpoint: string, body: object): Promise<TaskResult<NhTwoFactorChange>> {
     const result = new TaskResult<NhTwoFactorChange>();
     const request$ = this.httpClient.post<NhTwoFactorChangeResponse>(
@@ -622,8 +917,138 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
   protected toAuthorization(response: NhLoginResponse): TAuthorization {
     const authorization = response as unknown as TAuthorization;
     delete (authorization as NhLoginResponse).twoFactor;
+    delete (authorization as NhLoginResponse).rememberDeviceToken;
     authorization.realm = this.moduleConfig.authenticationRealm;
     return authorization;
+  }
+
+  /**
+   * Stores a complete session, or keeps a second-factor challenge or enrollment as the
+   * pending step of this browser tab.
+   */
+  protected completeAuthenticationStep(response: NhLoginResponse): NhAuthenticationStep<TAuthorization> {
+    if (response?.twoFactor) {
+      const challenge = new NhTwoFactorChallenge(response.twoFactor);
+      this.setPendingTwoFactorChallenge(challenge);
+
+      return new NhAuthenticationStep<TAuthorization>({
+        status: challenge.status === NhAuthenticationStepStatuses.enrollmentRequired ? 'enrollment-required' : 'two-factor-required',
+        challenge: challenge
+      });
+    }
+
+    if (response?.rememberDeviceToken) {
+      this.storeRememberDeviceToken(response.rememberDeviceToken);
+    }
+
+    const authorization = this.toAuthorization(response);
+    this.setAuthorization(authorization);
+    this.clearPendingTwoFactorChallenge();
+    return new NhAuthenticationStep<TAuthorization>({status: 'authenticated', authorization: authorization});
+  }
+
+  /**
+   * Converts a failed challenge or enrollment request and forgets the pending step when the
+   * server ended it.
+   */
+  protected pendingStepFailed(ex: unknown): TaskResult<unknown> {
+    const errResult = NhApiUtil.taskResultFromResponse(ex);
+    const stepEnded = errResult.items.some(item =>
+      item.name === NhTwoFactorFailureCodes.ChallengeExpired || item.name === NhTwoFactorFailureCodes.LockedOut);
+
+    if (stepEnded) {
+      this.clearPendingTwoFactorChallenge();
+    }
+
+    return errResult;
+  }
+
+  protected async sendEnrollmentCompletion(endpoint: string, body: object): Promise<TaskResult<NhTwoFactorEnrollmentResult<TAuthorization>>> {
+    const result = new TaskResult<NhTwoFactorEnrollmentResult<TAuthorization>>();
+    const request$ = this.httpClient.post<NhTwoFactorChangeResponse>(
+      this.twoFactorUrl(endpoint),
+      body,
+      this.twoFactorStepRequestOptions());
+
+    try {
+      const response = await lastValueFrom(request$);
+      const authorization = response?.session ? this.completeAuthenticationStep(response.session).authorization : undefined;
+
+      result.data = new NhTwoFactorEnrollmentResult<TAuthorization>({
+        authorization: authorization,
+        recoveryCodes: response?.recoveryCodes ?? undefined
+      });
+    } catch (ex) {
+      this.pendingStepFailed(ex).copyTo(result);
+    }
+
+    return result;
+  }
+
+  protected async sendTwoFactorRequest<TResponse, TResult>(
+    request$: Observable<TResponse>,
+    map: (response: TResponse) => TResult): Promise<TaskResult<TResult>> {
+    const result = new TaskResult<TResult>();
+
+    try {
+      result.data = map(await lastValueFrom(request$, {defaultValue: undefined as TResponse}));
+    } catch (ex) {
+      NhApiUtil.taskResultFromResponse(ex).copyTo(result);
+    }
+
+    return result;
+  }
+
+  /**
+   * Runs a WebAuthn prompt. A cancelled prompt or an unsupported browser becomes a failed
+   * result with `NhTwoFactorFailureCodes.PasskeyUnavailable`.
+   */
+  protected async runPasskeyCeremony(ceremony: () => Promise<object>): Promise<TaskResult<object>> {
+    const result = new TaskResult<object>();
+
+    try {
+      result.data = await ceremony();
+    } catch {
+      return result.withError(NhTwoFactorFailureCodes.PasskeyUnavailable, 'nh-two-factor.passkey-unavailable');
+    }
+
+    return result;
+  }
+
+  /**
+   * Returns the remember-device token of header clients. Cookie clients receive it as an
+   * HttpOnly cookie, so nothing is stored in the browser.
+   */
+  protected getRememberDeviceToken(): string | undefined {
+    if (this.moduleConfig.authType !== 'header' || isPlatformServer(this.platformId)) {
+      return undefined;
+    }
+
+    try {
+      return localStorage.getItem(this.rememberDeviceStorageKey()) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  protected storeRememberDeviceToken(token: string | undefined): void {
+    if (this.moduleConfig.authType !== 'header' || isPlatformServer(this.platformId)) {
+      return;
+    }
+
+    try {
+      if (token) {
+        localStorage.setItem(this.rememberDeviceStorageKey(), token);
+      } else {
+        localStorage.removeItem(this.rememberDeviceStorageKey());
+      }
+    } catch {
+      // Storage can be unavailable in private browsing; the device is then not remembered.
+    }
+  }
+
+  protected rememberDeviceStorageKey(): string {
+    return BaseNhAuthService.rememberDeviceStorageKey + ':' + this.moduleConfig.authenticationRealm;
   }
 
   protected setPendingTwoFactorChallenge(challenge: NhTwoFactorChallenge): void {
@@ -663,6 +1088,17 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
       ...new EndpointsAuthenticationNhCommonModuleConfig(),
       ...this.moduleConfig.authentication.endpoints
     });
+  }
+
+  protected twoFactorUrl(endpoint: string): string {
+    return this.moduleConfig.authApiBaseUrl + endpoint;
+  }
+
+  protected twoFactorStepRequestOptions() {
+    return {
+      params: this.languageParams(),
+      withCredentials: true
+    };
   }
 
   protected twoFactorAccountRequestOptions() {
