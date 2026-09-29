@@ -7,6 +7,8 @@ namespace NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 internal static class NhTwoFactorTicketPurposes
 {
     internal const string Challenge = "challenge";
+    internal const string Enrollment = "enrollment";
+    internal const string RememberDevice = "remember-device";
 }
 
 /// <summary>

@@ -32,6 +32,33 @@ public interface INhMultiFactorAuthenticationService
         IEnumerable<Claim>? requiredClaims = null);
 
     /// <summary>
+    /// E-mails a sign-in code for a pending challenge when the user enrolled the e-mail factor.
+    /// </summary>
+    Task<TaskResult<NhTwoFactorEmailCodeSentResponse>> SendTwoFactorEmailCodeAsync(string challengeToken);
+
+    /// <summary>
+    /// Starts authenticator enrollment for a user whom the policy requires to enroll during
+    /// sign-in.
+    /// </summary>
+    Task<TaskResult<NhAuthenticatorSetupViewModel>> BeginEnrollmentAuthenticatorSetupAsync(string enrollmentToken);
+
+    /// <summary>
+    /// Confirms the authenticator during a required enrollment and issues the session.
+    /// </summary>
+    Task<TaskResult<NhTwoFactorEnrollmentCompletion>> ConfirmEnrollmentAuthenticatorAsync(string enrollmentToken, string code);
+
+    /// <summary>
+    /// E-mails a confirmation code during a required enrollment when e-mail codes satisfy the
+    /// requirement.
+    /// </summary>
+    Task<TaskResult<NhTwoFactorEmailCodeSentResponse>> SendEnrollmentEmailCodeAsync(string enrollmentToken);
+
+    /// <summary>
+    /// Confirms the e-mail factor during a required enrollment and issues the session.
+    /// </summary>
+    Task<TaskResult<NhTwoFactorEnrollmentCompletion>> ConfirmEnrollmentEmailAsync(string enrollmentToken, string code);
+
+    /// <summary>
     /// Completes a sign-in that an external identity provider verified and returns a session
     /// or a second-factor challenge, depending on the two-factor policy.
     /// </summary>

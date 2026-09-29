@@ -1,3 +1,4 @@
+using NewHeap.Platform.Common.Identity.Claims;
 using System.Security.Claims;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
@@ -70,13 +71,19 @@ public sealed class NhTwoFactorPolicyContext
 /// </summary>
 public sealed class NhTwoFactorRequirement
 {
-    private NhTwoFactorRequirement(bool required, IReadOnlyList<string> allowedMethods)
+    private NhTwoFactorRequirement(
+        bool required,
+        IReadOnlyList<string> allowedMethods,
+        bool enforcedByPolicy,
+        bool allowRememberDevice)
     {
         Required = required;
         AllowedMethods = allowedMethods;
+        EnforcedByPolicy = enforcedByPolicy;
+        AllowRememberDevice = allowRememberDevice;
     }
 
-    public static NhTwoFactorRequirement NotRequired { get; } = new(false, []);
+    public static NhTwoFactorRequirement NotRequired { get; } = new(false, [], false, true);
 
     /// <summary>Whether the user must present a second factor.</summary>
     public bool Required { get; }
@@ -84,34 +91,96 @@ public sealed class NhTwoFactorRequirement
     /// <summary>Methods that satisfy the requirement, see <see cref="NhTwoFactorMethods"/>.</summary>
     public IReadOnlyList<string> AllowedMethods { get; }
 
-    public static NhTwoFactorRequirement RequiredWith(IEnumerable<string> allowedMethods)
+    /// <summary>
+    /// Whether the policy requires the second factor regardless of the user's own choice.
+    /// Such a user must enroll before receiving a session and cannot disable the factor.
+    /// </summary>
+    public bool EnforcedByPolicy { get; }
+
+    /// <summary>Whether a remembered device may skip the second factor.</summary>
+    public bool AllowRememberDevice { get; }
+
+    public static NhTwoFactorRequirement RequiredWith(
+        IEnumerable<string> allowedMethods,
+        bool enforcedByPolicy = false,
+        bool allowRememberDevice = true)
     {
         ArgumentNullException.ThrowIfNull(allowedMethods);
-        return new NhTwoFactorRequirement(true, allowedMethods.Distinct(StringComparer.Ordinal).ToList());
+        return new NhTwoFactorRequirement(
+            true,
+            allowedMethods.Distinct(StringComparer.Ordinal).ToList(),
+            enforcedByPolicy,
+            allowRememberDevice);
     }
 }
 
 /// <summary>
-/// Default policy: users who enrolled a second factor must use it. A Microsoft OAuth
-/// sign-in is accepted without a NewHeap second factor because the identity provider
-/// enforces its own MFA policy.
+/// Default policy. Users who enrolled a second factor must use it, and the requirements
+/// configured with <see cref="NhTwoFactorBuilder.RequireFor"/> (roles, permissions or all
+/// users) enforce it for everyone they match. A Microsoft OAuth sign-in is accepted without
+/// a NewHeap second factor unless the requirements include external providers.
 /// </summary>
 public class NhDefaultTwoFactorPolicy : INhTwoFactorPolicy
 {
-    public virtual Task<NhTwoFactorRequirement> EvaluateAsync(
+    private readonly NhTwoFactorConfiguration? _configuration;
+
+    public NhDefaultTwoFactorPolicy()
+    {
+    }
+
+    public NhDefaultTwoFactorPolicy(NhTwoFactorConfiguration configuration)
+    {
+        _configuration = configuration;
+    }
+
+    public virtual async Task<NhTwoFactorRequirement> EvaluateAsync(
         NhTwoFactorPolicyContext context,
         CancellationToken cancellationToken = default)
     {
-        if (!context.IsEnrolled)
+        var externalProvidersSatisfy = _configuration?.ExternalProvidersSatisfyRequirement ?? true;
+        if (context.Factor == NhAuthenticationFactors.MicrosoftOAuth && externalProvidersSatisfy)
         {
-            return Task.FromResult(NhTwoFactorRequirement.NotRequired);
+            return NhTwoFactorRequirement.NotRequired;
         }
 
-        if (context.Factor == NhAuthenticationFactors.MicrosoftOAuth)
+        var enforced = await IsEnforcedAsync(context, cancellationToken);
+        if (!enforced && !context.IsEnrolled)
         {
-            return Task.FromResult(NhTwoFactorRequirement.NotRequired);
+            return NhTwoFactorRequirement.NotRequired;
         }
 
-        return Task.FromResult(NhTwoFactorRequirement.RequiredWith(context.EnrolledMethods));
+        var emailSatisfies = !enforced || _configuration?.EmailSatisfiesRequirement == true;
+        var allowedMethods = context.EnrolledMethods
+            .Where(method => method != NhTwoFactorMethods.Email || emailSatisfies)
+            .ToList();
+
+        var allowRememberDevice = !enforced || _configuration?.RememberDeviceForRequiredUsers != false;
+
+        return NhTwoFactorRequirement.RequiredWith(allowedMethods, enforced, allowRememberDevice);
+    }
+
+    /// <summary>
+    /// Returns whether the configured requirements match the user: every user, one of the
+    /// required application roles or one of the required application permissions.
+    /// </summary>
+    protected virtual async Task<bool> IsEnforcedAsync(
+        NhTwoFactorPolicyContext context,
+        CancellationToken cancellationToken)
+    {
+        if (_configuration == null || !_configuration.HasRequirements)
+        {
+            return false;
+        }
+
+        if (_configuration.RequireForAllUsers)
+        {
+            return true;
+        }
+
+        var claims = await context.GetClaimsAsync(cancellationToken);
+        return claims.Any(claim =>
+            (claim.Type == ClaimTypes.Role && _configuration.RequiredRoles.Contains(claim.Value, StringComparer.Ordinal))
+            || (claim.Type == NhPlatformClaimTypes.Permission
+                && _configuration.RequiredPermissions.Contains(claim.Value, StringComparer.Ordinal)));
     }
 }

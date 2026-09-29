@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.AspNet.Common.Services.Notification;
 using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
 using System.Diagnostics.CodeAnalysis;
@@ -272,6 +274,9 @@ public class NhAuthenticationBuilder<
             serviceProvider.GetRequiredService<TimeProvider>()));
 
         services.AddScoped(typeof(INhTwoFactorPolicy), TwoFactorBuilderValue!.PolicyType);
+        services.AddScoped(
+            typeof(INhTwoFactorMessageComposer),
+            TwoFactorBuilderValue.MessageComposerType ?? typeof(NhTwoFactorMessageComposer));
         services.AddScoped(serviceProvider => new NhTwoFactorService<TUser>(
             serviceProvider.GetRequiredService<UserManager<TUser>>(),
             serviceProvider.GetRequiredService<INhUserManager<TUser>>(),
@@ -282,7 +287,10 @@ public class NhAuthenticationBuilder<
             serviceProvider.GetRequiredService<NhTwoFactorTicketProtector>(),
             serviceProvider.GetRequiredService<INhQrCodeRenderer>(),
             serviceProvider.GetRequiredService<IHostEnvironment>(),
-            serviceProvider.GetRequiredService<TimeProvider>()));
+            serviceProvider.GetRequiredService<TimeProvider>(),
+            serviceProvider.GetRequiredService<INhTwoFactorMessageComposer>(),
+            serviceProvider.GetService<INhNotificationService>(),
+            serviceProvider.GetRequiredService<ILogger<NhTwoFactorService<TUser>>>()));
         services.AddScoped<INhTwoFactorService<TUser>>(serviceProvider =>
             serviceProvider.GetRequiredService<NhTwoFactorService<TUser>>());
         services.AddScoped(serviceProvider => new NhTwoFactorAuthenticationContext<TUser>(
@@ -290,11 +298,22 @@ public class NhAuthenticationBuilder<
             serviceProvider.GetRequiredService<NhTwoFactorService<TUser>>()));
 
         services.AddSingleton<NhTwoFactorVerifyAuthenticationHandler>();
+        services.AddSingleton<NhTwoFactorEmailCodeAuthenticationHandler>();
+        services.AddSingleton<NhTwoFactorEnrollmentAuthenticatorSetupHandler>();
+        services.AddSingleton<NhTwoFactorEnrollmentAuthenticatorConfirmHandler>();
+        services.AddSingleton<NhTwoFactorEnrollmentEmailHandler>();
+        services.AddSingleton<NhTwoFactorEnrollmentEmailConfirmHandler>();
         services.AddSingleton<NhTwoFactorStatusEndpointHandler<TUser>>();
         services.AddSingleton<NhTwoFactorAuthenticatorSetupEndpointHandler<TUser>>();
         services.AddSingleton<NhTwoFactorAuthenticatorConfirmEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorEmailSetupEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorEmailConfirmEndpointHandler<TUser>>();
         services.AddSingleton<NhTwoFactorRecoveryCodesEndpointHandler<TUser>>();
         services.AddSingleton<NhTwoFactorDisableEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorForgetDevicesEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorResetEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorEnrollmentRemindersEndpointHandler<TUser>>();
+        services.AddSingleton<NhTwoFactorSessionRevocationEndpointHandler<TUser>>();
 
         services.AddHostedService<NhTwoFactorStartupValidator>();
     }

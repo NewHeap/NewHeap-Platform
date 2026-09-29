@@ -12,6 +12,15 @@ public static class NhTwoFactorMethods
 
     /// <summary>A single-use recovery code issued when two-factor authentication was enabled.</summary>
     public const string RecoveryCode = "recovery-code";
+
+    /// <summary>A single-use code sent to the user's confirmed e-mail address.</summary>
+    public const string Email = "email";
+
+    /// <summary>Whether the method proves possession on its own, unlike a recovery code.</summary>
+    public static bool IsPrimary(string method)
+    {
+        return method != RecoveryCode;
+    }
 }
 
 /// <summary>
@@ -60,6 +69,9 @@ public static class NhAuthenticationStepStatuses
 {
     /// <summary>The user must present a second factor.</summary>
     public const string TwoFactorRequired = "two-factor-required";
+
+    /// <summary>The policy requires a second factor that the user has not enrolled yet.</summary>
+    public const string EnrollmentRequired = "enrollment-required";
 }
 
 /// <summary>
@@ -82,6 +94,9 @@ public static class NhTwoFactorFailureCodes
     public const string RequiredByPolicy = "two-factor-required-by-policy";
     public const string NotAllowedWhileImpersonating = "two-factor-not-allowed-while-impersonating";
     public const string ConfigurationInvalid = "two-factor-configuration-invalid";
+    public const string EmailCooldown = "two-factor-email-cooldown";
+    public const string EmailUnavailable = "two-factor-email-unavailable";
+    public const string UserNotFound = "two-factor-user-not-found";
 
     private const string MessageKeyPrefix = "nh-two-factor.";
     private const string CodePrefix = "two-factor-";

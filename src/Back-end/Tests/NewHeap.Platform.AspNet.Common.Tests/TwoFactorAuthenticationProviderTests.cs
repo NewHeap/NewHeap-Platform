@@ -8,7 +8,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using NewHeap.Platform.AspNet.Common.Authentication;
@@ -18,11 +20,15 @@ using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.PostgreSql;
 using NewHeap.Platform.AspNet.Common.Services;
+using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
+using NewHeap.Platform.AspNet.Common.Services.Notification;
 using NewHeap.Platform.AspNet.Common.SqlServer;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Models.Options;
 using NewHeap.Platform.Common.Services;
 using NSubstitute;
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Testcontainers.MsSql;
 using Testcontainers.PostgreSql;
 using Xunit;
@@ -32,6 +38,7 @@ namespace NewHeap.Platform.AspNet.Common.Tests;
 public sealed class TwoFactorAuthenticationProviderTests
 {
     private const string Credential = "Initial1!Password";
+    private const string SecurityOfficerRole = "security-officer";
 
     [Fact]
     public async Task TwoFactorLifecycleWorksOnBothRelationalProviders()
@@ -59,6 +66,7 @@ public sealed class TwoFactorAuthenticationProviderTests
             optionsBuilder.Options,
             new TestTimeProvider(DateTimeOffset.UtcNow),
             new EphemeralDataProtectionProvider(),
+            TwoFactorEnvironment.CreateConfiguration(null),
             new TestTwoFactorPolicy());
 
         using var stack = environment.CreateStack();
@@ -73,10 +81,12 @@ public sealed class TwoFactorAuthenticationProviderTests
         var optionsBuilder = new DbContextOptionsBuilder<TwoFactorDbContext>();
         configureProvider(optionsBuilder);
 
+        var dataProtectionProvider = new EphemeralDataProtectionProvider();
         var environment = new TwoFactorEnvironment(
             optionsBuilder.Options,
             new TestTimeProvider(DateTimeOffset.UtcNow),
-            new EphemeralDataProtectionProvider(),
+            dataProtectionProvider,
+            TwoFactorEnvironment.CreateConfiguration(null),
             new TestTwoFactorPolicy());
 
         await using (var context = new TwoFactorDbContext(optionsBuilder.Options))
@@ -87,6 +97,27 @@ public sealed class TwoFactorAuthenticationProviderTests
         await VerifyEnrollmentChallengeAndDisableAsync(environment);
         await VerifyConcurrentVerificationCommitsOnceAsync(environment);
         await VerifyPolicyGatesEverySessionSourceAsync(environment);
+
+        // The remaining scenarios use the default policy with a role requirement, e-mail codes,
+        // remembered devices and security notifications.
+        var featureConfiguration = TwoFactorEnvironment.CreateConfiguration(configuration =>
+        {
+            configuration.EmailCodesEnabled = true;
+            configuration.SecurityNotificationsEnabled = true;
+            configuration.RememberDeviceEnabled = true;
+            configuration.AddRequiredRoles([SecurityOfficerRole]);
+        });
+        var featureEnvironment = new TwoFactorEnvironment(
+            optionsBuilder.Options,
+            new TestTimeProvider(DateTimeOffset.UtcNow.AddHours(1)),
+            dataProtectionProvider,
+            featureConfiguration,
+            new NhDefaultTwoFactorPolicy(featureConfiguration));
+
+        await VerifyRoleEnforcementAndSignInEnrollmentAsync(featureEnvironment);
+        await VerifyEmailCodesAsync(featureEnvironment);
+        await VerifyRememberedDevicesAsync(featureEnvironment);
+        await VerifyResetAndPolicyOperationsAsync(featureEnvironment);
     }
 
     private static async Task VerifyEnrollmentChallengeAndDisableAsync(TwoFactorEnvironment environment)
@@ -354,25 +385,28 @@ public sealed class TwoFactorAuthenticationProviderTests
     {
         using var stack = environment.CreateStack();
         var user = await stack.CreateUserAsync("policy@example.test");
-        environment.Policy.RequiredUserIds.Add(user.Id);
+        environment.TestPolicy.RequiredUserIds.Add(user.Id);
 
         try
         {
             await stack.AddRefreshTokenAsync(user.Id, "device-before-policy");
 
-            // A user that the policy covers cannot get a session before enrolling.
-            AssertFailure(
-                await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential)),
-                NhTwoFactorFailureCodes.EnrollmentRequired);
+            // A user that the policy covers enrolls before any session is issued.
+            var login = await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential));
+            Assert.True(login.Success);
+            Assert.Null(login.Data!.Session);
+            Assert.Equal(NhAuthenticationStepStatuses.EnrollmentRequired, login.Data.Challenge!.Status);
+
+            var external = await stack.Authentication.AuthenticateExternalAsync(user.Id, NhAuthenticationFactors.MicrosoftOAuth);
+            Assert.Equal(NhAuthenticationStepStatuses.EnrollmentRequired, external.Data!.Challenge!.Status);
+
             AssertFailure(
                 await stack.Authentication.AuthenticateRefreshTokenAsync(new RefreshTokenRequest(user.UserName!, "device-before-policy")),
                 NhTwoFactorFailureCodes.EnrollmentRequired);
             AssertFailure(
                 await stack.Authentication.CreateSessionForVerifiedCredentialAsync(user),
                 NhTwoFactorFailureCodes.EnrollmentRequired);
-            AssertFailure(
-                await stack.Authentication.AuthenticateExternalAsync(user.Id, NhAuthenticationFactors.MicrosoftOAuth),
-                NhTwoFactorFailureCodes.EnrollmentRequired);
+            Assert.Equal(1, await stack.CountRefreshTokensAsync(user.Id));
 
             var status = await stack.TwoFactor.GetStatusAsync(user);
             Assert.True(status.Required);
@@ -390,8 +424,250 @@ public sealed class TwoFactorAuthenticationProviderTests
         }
         finally
         {
-            environment.Policy.RequiredUserIds.Remove(user.Id);
+            environment.TestPolicy.RequiredUserIds.Remove(user.Id);
         }
+    }
+
+    private static async Task VerifyRoleEnforcementAndSignInEnrollmentAsync(TwoFactorEnvironment environment)
+    {
+        using var stack = environment.CreateStack();
+        var officer = await stack.CreateUserAsync("officer@example.test");
+        await stack.AddToRoleAsync(officer, SecurityOfficerRole);
+        var regularUser = await stack.CreateUserAsync("regular@example.test");
+        await stack.AddRefreshTokenAsync(officer.Id, "officer-device");
+
+        // Users outside the required role keep signing in with the password alone.
+        var regularLogin = await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(regularUser.UserName!, Credential));
+        Assert.NotNull(regularLogin.Data!.Session);
+
+        // A member of the required role enrolls during sign-in before any session is issued.
+        var login = await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(officer.UserName!, Credential));
+        Assert.True(login.Success);
+        Assert.Null(login.Data!.Session);
+        var enrollment = login.Data.Challenge!;
+        Assert.Equal(NhAuthenticationStepStatuses.EnrollmentRequired, enrollment.Status);
+        Assert.Equal([NhTwoFactorMethods.Authenticator], enrollment.Methods);
+
+        AssertFailure(
+            await stack.Authentication.AuthenticateRefreshTokenAsync(new RefreshTokenRequest(officer.UserName!, "officer-device")),
+            NhTwoFactorFailureCodes.EnrollmentRequired);
+
+        // An enrollment token never completes a sign-in challenge.
+        AssertFailure(
+            await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+            {
+                ChallengeToken = enrollment.ChallengeToken,
+                Method = NhTwoFactorMethods.Authenticator,
+                Code = "123456",
+            }),
+            NhTwoFactorFailureCodes.ChallengeExpired);
+
+        var setup = await stack.Authentication.BeginEnrollmentAuthenticatorSetupAsync(enrollment.ChallengeToken);
+        Assert.True(setup.Success);
+        var key = setup.Data!.SharedKey.Replace(" ", string.Empty).ToUpperInvariant();
+
+        var completion = await stack.Authentication.ConfirmEnrollmentAuthenticatorAsync(
+            enrollment.ChallengeToken,
+            environment.CurrentCode(key));
+
+        Assert.True(completion.Success);
+        Assert.NotNull(completion.Data!.Session.RefreshToken);
+        Assert.Equal(10, completion.Data.RecoveryCodes!.Count);
+        Assert.Contains(environment.Notifications.Names, name => name == "two-factor-enabled");
+
+        // Enrollment rotated the security stamp, so the enrollment token cannot be reused.
+        AssertFailure(
+            await stack.Authentication.ConfirmEnrollmentAuthenticatorAsync(enrollment.ChallengeToken, environment.CurrentCode(key)),
+            NhTwoFactorFailureCodes.ChallengeExpired);
+
+        environment.Clock.Advance(TimeSpan.FromSeconds(30));
+        var secondLogin = await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(officer.UserName!, Credential));
+        Assert.Equal(NhAuthenticationStepStatuses.TwoFactorRequired, secondLogin.Data!.Challenge!.Status);
+
+        var status = await stack.TwoFactor.GetStatusAsync(officer);
+        Assert.True(status.Required);
+        Assert.True(status.Enabled);
+
+        AssertFailure(
+            await stack.TwoFactor.DisableAsync(officer, new NhTwoFactorReauthentication { Password = Credential }, officer.Id),
+            NhTwoFactorFailureCodes.RequiredByPolicy);
+    }
+
+    private static async Task VerifyEmailCodesAsync(TwoFactorEnvironment environment)
+    {
+        using var stack = environment.CreateStack();
+        var user = await stack.CreateUserAsync("email-factor@example.test");
+
+        var setup = await stack.TwoFactor.BeginEmailSetupAsync(user, reauthentication: null);
+        Assert.True(setup.Success);
+        var confirmationCode = environment.Notifications.LastEmailCode();
+
+        AssertFailure(
+            await stack.TwoFactor.ConfirmEmailSetupAsync(user, confirmationCode == "000000" ? "111111" : "000000", user.Id),
+            NhTwoFactorFailureCodes.InvalidCode);
+
+        var confirmation = await stack.TwoFactor.ConfirmEmailSetupAsync(user, confirmationCode, user.Id);
+        Assert.True(confirmation.Success);
+        Assert.Equal(10, confirmation.Data!.RecoveryCodes!.Count);
+        Assert.Contains(NhTwoFactorMethods.Email, (await stack.TwoFactor.GetEnrollmentAsync(user)).Methods);
+
+        var login = await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential));
+        var challenge = login.Data!.Challenge!;
+        Assert.Equal([NhTwoFactorMethods.Email, NhTwoFactorMethods.RecoveryCode], challenge.Methods);
+
+        var firstSend = await stack.Authentication.SendTwoFactorEmailCodeAsync(challenge.ChallengeToken);
+        Assert.True(firstSend.Success);
+        var firstCode = environment.Notifications.LastEmailCode();
+
+        // A new code can only be requested after the cooldown, and it replaces the previous one.
+        AssertFailure(
+            await stack.Authentication.SendTwoFactorEmailCodeAsync(challenge.ChallengeToken),
+            NhTwoFactorFailureCodes.EmailCooldown);
+
+        environment.Clock.Advance(TimeSpan.FromMinutes(2));
+        var sent = await stack.Authentication.SendTwoFactorEmailCodeAsync(challenge.ChallengeToken);
+        Assert.True(sent.Success);
+        var signInCode = environment.Notifications.LastEmailCode();
+
+        if (firstCode != signInCode)
+        {
+            AssertFailure(
+                await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+                {
+                    ChallengeToken = challenge.ChallengeToken,
+                    Method = NhTwoFactorMethods.Email,
+                    Code = firstCode,
+                }),
+                NhTwoFactorFailureCodes.InvalidCode);
+        }
+
+        var storedCode = await stack.Context.Set<IdentityUserToken<Guid>>()
+            .Where(x => x.UserId == user.Id && x.Name == "TwoFactorEmailCode")
+            .Select(x => x.Value)
+            .SingleAsync();
+        Assert.DoesNotContain(signInCode, storedCode!, StringComparison.Ordinal);
+
+        var verified = await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+        {
+            ChallengeToken = challenge.ChallengeToken,
+            Method = NhTwoFactorMethods.Email,
+            Code = signInCode,
+        });
+        Assert.True(verified.Success);
+
+        // An e-mailed code works once.
+        var nextChallenge = (await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential))).Data!.Challenge!;
+        AssertFailure(
+            await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+            {
+                ChallengeToken = nextChallenge.ChallengeToken,
+                Method = NhTwoFactorMethods.Email,
+                Code = signInCode,
+            }),
+            NhTwoFactorFailureCodes.InvalidCode);
+
+        // E-mail codes do not satisfy a requirement of the role policy.
+        user = (await stack.UserManager.FindByIdAsync(user.Id.ToString()))!;
+        await stack.AddToRoleAsync(user, SecurityOfficerRole);
+        var requiredLogin = await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(user.UserName!, Credential));
+        Assert.Equal(NhAuthenticationStepStatuses.EnrollmentRequired, requiredLogin.Data!.Challenge!.Status);
+    }
+
+    private static async Task VerifyRememberedDevicesAsync(TwoFactorEnvironment environment)
+    {
+        using var stack = environment.CreateStack();
+        var user = await stack.CreateUserAsync("remembered-device@example.test");
+        var key = await stack.EnrollAsync(user, environment);
+        var loginRequest = new AuthenticateRequest(user.UserName!, Credential);
+
+        environment.Clock.Advance(TimeSpan.FromSeconds(30));
+        var challenge = (await stack.Authentication.AuthenticateAsync(loginRequest)).Data!.Challenge!;
+        var verified = await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
+        {
+            ChallengeToken = challenge.ChallengeToken,
+            Method = NhTwoFactorMethods.Authenticator,
+            Code = environment.CurrentCode(key),
+            RememberDevice = true,
+        });
+
+        Assert.True(verified.Success);
+        var rememberDeviceToken = verified.Data!.RememberDeviceToken!;
+
+        // The remembered device skips the second factor.
+        var remembered = await stack.Authentication.AuthenticateAsync(loginRequest with { RememberDeviceToken = rememberDeviceToken });
+        Assert.NotNull(remembered.Data!.Session);
+
+        // The token belongs to one user only.
+        var otherUser = await stack.CreateUserAsync("other-device@example.test");
+        await stack.EnrollAsync(otherUser, environment);
+        var otherLogin = await stack.Authentication.AuthenticateAsync(
+            new AuthenticateRequest(otherUser.UserName!, Credential) { RememberDeviceToken = rememberDeviceToken });
+        Assert.NotNull(otherLogin.Data!.Challenge);
+
+        // Forgetting devices invalidates every remember-device token.
+        var forgotten = await stack.TwoFactor.ForgetDevicesAsync(
+            user,
+            new NhTwoFactorReauthentication { Password = Credential },
+            user.Id);
+        Assert.True(forgotten.Success);
+        Assert.True(forgotten.Data!.SessionsInvalidated);
+
+        var afterForget = await stack.Authentication.AuthenticateAsync(loginRequest with { RememberDeviceToken = rememberDeviceToken });
+        Assert.NotNull(afterForget.Data!.Challenge);
+    }
+
+    private static async Task VerifyResetAndPolicyOperationsAsync(TwoFactorEnvironment environment)
+    {
+        using var stack = environment.CreateStack();
+        var administrator = await stack.CreateUserAsync("two-factor-administrator@example.test");
+        var mustEnroll = await stack.CreateUserAsync("must-enroll@example.test");
+        await stack.AddToRoleAsync(mustEnroll, SecurityOfficerRole);
+        var enrolledOfficer = await stack.CreateUserAsync("enrolled-officer@example.test");
+        await stack.AddToRoleAsync(enrolledOfficer, SecurityOfficerRole);
+        await stack.EnrollAsync(enrolledOfficer, environment);
+
+        await stack.AddRefreshTokenAsync(mustEnroll.Id, "must-enroll-device");
+        await stack.AddRefreshTokenAsync(enrolledOfficer.Id, "enrolled-officer-device");
+
+        var context = Substitute.For<INhBackgroundOperationContext>();
+        context.Progress.Returns(Substitute.For<INhBackgroundOperationProgressContext>());
+
+        // Reminders reach only the users whom the role requires to enroll.
+        environment.Notifications.Clear();
+        var reminders = await new NhTwoFactorEnrollmentReminderOperation<NhUser>(stack.TwoFactor, stack.UserManager, stack.UserManager)
+            .ExecuteAsync(new NhTwoFactorEnrollmentReminderRequest(administrator.Id), context, CancellationToken.None);
+
+        Assert.True(reminders.Success);
+        var remindedUsers = environment.Notifications.InAppRecipients("two-factor-enrollment-reminder");
+        Assert.Contains(mustEnroll.Id, remindedUsers);
+        Assert.DoesNotContain(enrolledOfficer.Id, remindedUsers);
+        Assert.DoesNotContain(administrator.Id, remindedUsers);
+
+        // Ending sessions only affects users who must enroll.
+        var revocation = await new NhTwoFactorSessionRevocationOperation<NhUser>(stack.TwoFactor, stack.UserManager, stack.UserManager)
+            .ExecuteAsync(new NhTwoFactorSessionRevocationRequest(administrator.Id), context, CancellationToken.None);
+
+        Assert.True(revocation.Success);
+        Assert.Equal(0, await stack.CountRefreshTokensAsync(mustEnroll.Id));
+        Assert.Equal(1, await stack.CountRefreshTokensAsync(enrolledOfficer.Id));
+        await context.Progress.Received().ReportAsync(
+            Arg.Any<decimal>(),
+            Arg.Any<decimal>(),
+            Arg.Any<string?>(),
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+
+        // An administrator reset removes every factor; the role requires enrollment again.
+        enrolledOfficer = (await stack.UserManager.FindByIdAsync(enrolledOfficer.Id.ToString()))!;
+        var reset = await stack.TwoFactor.ResetAsync(enrolledOfficer, administrator.Id);
+
+        Assert.True(reset.Success);
+        Assert.False((await stack.TwoFactor.GetEnrollmentAsync(enrolledOfficer)).IsEnrolled);
+        Assert.Equal(0, await stack.CountRefreshTokensAsync(enrolledOfficer.Id));
+        Assert.Contains(environment.Notifications.Names, name => name == "two-factor-reset-by-administrator");
+
+        var afterReset = await stack.Authentication.AuthenticateAsync(new AuthenticateRequest(enrolledOfficer.UserName!, Credential));
+        Assert.Equal(NhAuthenticationStepStatuses.EnrollmentRequired, afterReset.Data!.Challenge!.Status);
     }
 
     private static void AssertFailure(TaskResult result, string failureCode)
@@ -409,13 +685,25 @@ public sealed class TwoFactorAuthenticationProviderTests
             DbContextOptions<TwoFactorDbContext> options,
             TestTimeProvider clock,
             IDataProtectionProvider dataProtectionProvider,
-            TestTwoFactorPolicy policy)
+            NhTwoFactorConfiguration configuration,
+            INhTwoFactorPolicy policy)
         {
             _options = options;
             Clock = clock;
             _dataProtectionProvider = dataProtectionProvider;
+            Configuration = configuration;
             Policy = policy;
-            Configuration = new NhTwoFactorConfiguration
+        }
+
+        internal TestTimeProvider Clock { get; }
+        internal INhTwoFactorPolicy Policy { get; }
+        internal TestTwoFactorPolicy TestPolicy => (TestTwoFactorPolicy)Policy;
+        internal NhTwoFactorConfiguration Configuration { get; }
+        internal NotificationRecorder Notifications { get; } = new();
+
+        internal static NhTwoFactorConfiguration CreateConfiguration(Action<NhTwoFactorConfiguration>? configure)
+        {
+            var configuration = new NhTwoFactorConfiguration
             {
                 Enabled = true,
                 AuthenticatorEnabled = true,
@@ -423,11 +711,11 @@ public sealed class TwoFactorAuthenticationProviderTests
                 RecoveryCodesEnabled = true,
                 RecoveryCodeCount = 10,
             };
-        }
 
-        internal TestTimeProvider Clock { get; }
-        internal TestTwoFactorPolicy Policy { get; }
-        internal NhTwoFactorConfiguration Configuration { get; }
+            configure?.Invoke(configuration);
+            configuration.Validate();
+            return configuration;
+        }
 
         internal TwoFactorStack CreateStack()
         {
@@ -507,7 +795,10 @@ public sealed class TwoFactorAuthenticationProviderTests
                 new NhTwoFactorTicketProtector(dataProtectionProvider, environment.Clock),
                 new NhQrCodeRenderer(),
                 hostEnvironment,
-                environment.Clock);
+                environment.Clock,
+                new NhTwoFactorMessageComposer(new TestLocalizer(), environment.Clock),
+                environment.Notifications,
+                NullLogger<NhTwoFactorService<NhUser>>.Instance);
 
             Authentication = CreateAuthenticationService(
                 new NhTwoFactorAuthenticationContext<NhUser>(environment.Configuration, TwoFactor));
@@ -542,6 +833,16 @@ public sealed class TwoFactorAuthenticationProviderTests
             var createResult = await UserManager.CreateAsync(user, Credential);
             Assert.True(createResult.Succeeded);
             return user;
+        }
+
+        internal async Task AddToRoleAsync(NhUser user, string role)
+        {
+            if (!await _roleManager.RoleExistsAsync(role))
+            {
+                Assert.True((await _roleManager.CreateAsync(new NhUserRole(role))).Succeeded);
+            }
+
+            Assert.True((await UserManager.AddToRoleAsync(user, role)).Succeeded);
         }
 
         internal async Task<string> EnrollAsync(NhUser user, TwoFactorEnvironment environment)
@@ -695,10 +996,94 @@ public sealed class TwoFactorAuthenticationProviderTests
         {
             if (RequiredUserIds.Contains(context.UserId))
             {
-                return Task.FromResult(NhTwoFactorRequirement.RequiredWith(context.EnrolledMethods));
+                return Task.FromResult(NhTwoFactorRequirement.RequiredWith(context.EnrolledMethods, enforcedByPolicy: true));
             }
 
             return base.EvaluateAsync(context, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Records created notifications instead of dispatching them.
+    /// </summary>
+    private sealed class NotificationRecorder : INhNotificationService
+    {
+        private readonly List<NhNotification> _notifications = [];
+        private readonly object _gate = new();
+
+        internal IReadOnlyList<string> Names
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _notifications.Select(x => x.Name).ToList();
+                }
+            }
+        }
+
+        public Task<TaskResult<NhNotification>> CreateAsync(NhNotification notification, CancellationToken cancellationToken = default)
+        {
+            lock (_gate)
+            {
+                _notifications.Add(notification);
+            }
+
+            return Task.FromResult(TaskResult<NhNotification>.Succeeded(notification));
+        }
+
+        internal void Clear()
+        {
+            lock (_gate)
+            {
+                _notifications.Clear();
+            }
+        }
+
+        internal string LastEmailCode()
+        {
+            lock (_gate)
+            {
+                var body = _notifications
+                    .Where(x => x.Name == "two-factor-email-code")
+                    .SelectMany(x => x.Deliveries)
+                    .Select(x => x.Data)
+                    .OfType<NhEmailDeliveryData>()
+                    .Last()
+                    .Body!;
+
+                return Regex.Match(body, "\\d{6}").Value;
+            }
+        }
+
+        internal IReadOnlyList<Guid> InAppRecipients(string notificationName)
+        {
+            lock (_gate)
+            {
+                return _notifications
+                    .Where(x => x.Name == notificationName)
+                    .SelectMany(x => x.Deliveries)
+                    .Select(x => x.Data)
+                    .OfType<NhUserNotificationDeliveryData>()
+                    .Select(x => x.Notification.UserId!.Value)
+                    .ToList();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns the English source texts, formatted with their arguments.
+    /// </summary>
+    private sealed class TestLocalizer : IStringLocalizer<NhTwoFactorMessages>
+    {
+        public LocalizedString this[string name] => new(name, name);
+
+        public LocalizedString this[string name, params object[] arguments] =>
+            new(name, string.Format(CultureInfo.InvariantCulture, name, arguments));
+
+        public IEnumerable<LocalizedString> GetAllStrings(bool includeParentCultures)
+        {
+            return [];
         }
     }
 

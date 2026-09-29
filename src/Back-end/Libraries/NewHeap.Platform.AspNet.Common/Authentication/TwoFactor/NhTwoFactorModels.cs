@@ -28,31 +28,42 @@ public sealed class NhTwoFactorChallengeResponse
 /// </summary>
 public sealed class NhAuthenticationResult
 {
-    private NhAuthenticationResult(UserToken? session, NhTwoFactorChallengeResponse? challenge)
+    private NhAuthenticationResult(
+        UserToken? session,
+        NhTwoFactorChallengeResponse? challenge,
+        string? rememberDeviceToken)
     {
         Session = session;
         Challenge = challenge;
+        RememberDeviceToken = rememberDeviceToken;
     }
 
     /// <summary>The issued session when every required factor was satisfied.</summary>
     public UserToken? Session { get; }
 
-    /// <summary>The pending second-factor challenge when another factor is required.</summary>
+    /// <summary>
+    /// The pending step when another action is required: a second-factor challenge
+    /// (<see cref="NhAuthenticationStepStatuses.TwoFactorRequired"/>) or an enrollment
+    /// (<see cref="NhAuthenticationStepStatuses.EnrollmentRequired"/>).
+    /// </summary>
     public NhTwoFactorChallengeResponse? Challenge { get; }
+
+    /// <summary>A new remember-device token when the user chose to remember this device.</summary>
+    public string? RememberDeviceToken { get; }
 
     /// <summary>Whether a complete session was issued.</summary>
     public bool IsAuthenticated => Session != null;
 
-    public static NhAuthenticationResult Authenticated(UserToken session)
+    public static NhAuthenticationResult Authenticated(UserToken session, string? rememberDeviceToken = null)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return new NhAuthenticationResult(session, null);
+        return new NhAuthenticationResult(session, null, rememberDeviceToken);
     }
 
-    public static NhAuthenticationResult TwoFactorRequired(NhTwoFactorChallengeResponse challenge)
+    public static NhAuthenticationResult Pending(NhTwoFactorChallengeResponse challenge)
     {
         ArgumentNullException.ThrowIfNull(challenge);
-        return new NhAuthenticationResult(null, challenge);
+        return new NhAuthenticationResult(null, challenge, null);
     }
 }
 
@@ -69,11 +80,18 @@ public sealed class NhLoginResponse
     public DateTime? RefreshValidTo { get; init; }
     public string? Issuer { get; init; }
 
-    /// <summary>The second-factor challenge, or <see langword="null"/> for a complete session.</summary>
+    /// <summary>The pending step, or <see langword="null"/> for a complete session.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NhTwoFactorChallengeResponse? TwoFactor { get; init; }
 
-    public static NhLoginResponse FromSession(UserToken session)
+    /// <summary>
+    /// A remember-device token for clients that send the <c>Authorization</c> header. Cookie
+    /// clients receive the same token as an HttpOnly cookie.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RememberDeviceToken { get; init; }
+
+    public static NhLoginResponse FromSession(UserToken session, string? rememberDeviceToken = null)
     {
         ArgumentNullException.ThrowIfNull(session);
 
@@ -84,6 +102,7 @@ public sealed class NhLoginResponse
             RefreshToken = session.RefreshToken,
             RefreshValidTo = session.RefreshValidTo,
             Issuer = session.Issuer,
+            RememberDeviceToken = rememberDeviceToken,
         };
     }
 
@@ -108,6 +127,61 @@ public sealed class NhTwoFactorVerifyRequest
 
     [Required]
     public string Code { get; init; } = string.Empty;
+
+    /// <summary>Whether to skip the second factor on this device for later sign-ins.</summary>
+    public bool RememberDevice { get; init; }
+}
+
+/// <summary>
+/// Refers to a pending challenge, for example to send an e-mailed code.
+/// </summary>
+public sealed class NhTwoFactorChallengeRequest
+{
+    [Required]
+    public string ChallengeToken { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Refers to a pending enrollment of a user whom the policy requires to use a second factor.
+/// </summary>
+public sealed class NhTwoFactorEnrollmentRequest
+{
+    [Required]
+    public string EnrollmentToken { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Confirms a method during a pending enrollment.
+/// </summary>
+public sealed class NhTwoFactorEnrollmentConfirmRequest
+{
+    [Required]
+    public string EnrollmentToken { get; init; } = string.Empty;
+
+    [Required]
+    public string Code { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Confirmation that a code was e-mailed.
+/// </summary>
+public sealed class NhTwoFactorEmailCodeSentResponse
+{
+    public required DateTimeOffset ExpiresAt { get; init; }
+
+    /// <summary>When another code can be requested.</summary>
+    public required DateTimeOffset ResendAvailableAt { get; init; }
+}
+
+/// <summary>
+/// Starts an administrative two-factor background operation.
+/// </summary>
+public sealed class NhTwoFactorOperationRequest
+{
+    /// <summary>Key that makes a repeated request return the operation that was already started.</summary>
+    [Required]
+    [StringLength(100)]
+    public string IdempotencyKey { get; init; } = string.Empty;
 }
 
 /// <summary>
@@ -133,9 +207,9 @@ public sealed class NhTwoFactorReauthenticationRequest
 }
 
 /// <summary>
-/// Confirms a pending authenticator setup with a code from the authenticator app.
+/// Confirms a pending setup with a code from the authenticator app or e-mail.
 /// </summary>
-public sealed class NhAuthenticatorConfirmRequest
+public sealed class NhTwoFactorCodeRequest
 {
     [Required]
     public string Code { get; init; } = string.Empty;
@@ -150,6 +224,12 @@ public sealed class NhTwoFactorStatusViewModel
 
     /// <summary>Whether the two-factor policy requires a second factor for this user.</summary>
     public bool Required { get; init; }
+
+    /// <summary>Whether the user can remember a device to skip the second factor.</summary>
+    public bool RememberDeviceAvailable { get; init; }
+
+    /// <summary>Whether an e-mail factor confirmation is pending.</summary>
+    public bool EmailSetupPending { get; init; }
 
     /// <summary>Enrolled methods, see <see cref="NhTwoFactorMethods"/>.</summary>
     public IReadOnlyList<string> Methods { get; init; } = [];

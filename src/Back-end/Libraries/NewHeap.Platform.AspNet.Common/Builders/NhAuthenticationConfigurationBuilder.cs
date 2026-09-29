@@ -133,11 +133,22 @@ public class NhAuthenticationConfigurationBuilder<
     > AddTwoFactorEndpoints()
     {
         UseAuthenticationEndpoint<NhTwoFactorVerifyAuthenticationHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEmailCodeAuthenticationHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentAuthenticatorSetupHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentAuthenticatorConfirmHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentEmailHandler>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentEmailConfirmHandler>();
         UseAuthenticationEndpoint<NhTwoFactorStatusEndpointHandler<TUser>>();
         UseAuthenticationEndpoint<NhTwoFactorAuthenticatorSetupEndpointHandler<TUser>>();
         UseAuthenticationEndpoint<NhTwoFactorAuthenticatorConfirmEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorEmailSetupEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorEmailConfirmEndpointHandler<TUser>>();
         UseAuthenticationEndpoint<NhTwoFactorRecoveryCodesEndpointHandler<TUser>>();
         UseAuthenticationEndpoint<NhTwoFactorDisableEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorForgetDevicesEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorResetEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorEnrollmentRemindersEndpointHandler<TUser>>();
+        UseAuthenticationEndpoint<NhTwoFactorSessionRevocationEndpointHandler<TUser>>();
         return this;
     }
     

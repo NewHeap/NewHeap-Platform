@@ -337,10 +337,20 @@ public class NhAuthenticationService<
     /// <param name="user">The user whose first factor was verified.</param>
     /// <param name="factor">The verified factor, see <see cref="NhAuthenticationFactors"/>.</param>
     /// <param name="requiredClaims">Claims required before a session may be issued.</param>
+    /// <param name="rememberDeviceToken">
+    /// A remember-device token from an earlier sign-in; a valid token skips the second factor
+    /// when the policy allows it.
+    /// </param>
+    /// <remarks>
+    /// A user whom the policy requires to use a second factor but who has not enrolled one
+    /// receives an enrollment step (<see cref="NhAuthenticationStepStatuses.EnrollmentRequired"/>)
+    /// instead of a session.
+    /// </remarks>
     protected virtual async Task<TaskResult<NhAuthenticationResult>> CompleteFirstFactorAsync(
         TUser user,
         string factor,
-        IEnumerable<Claim>? requiredClaims = null)
+        IEnumerable<Claim>? requiredClaims = null,
+        string? rememberDeviceToken = null)
     {
         if (!await _signInManager.CanSignInAsync(user)
             || await _userManager.IsLockedOutAsync(user))
@@ -354,17 +364,25 @@ public class NhAuthenticationService<
             var evaluation = await twoFactor.EvaluateAsync(user, factor, CancellationToken.None);
             if (evaluation.Requirement.Required)
             {
-                var methods = evaluation.Requirement.AllowedMethods
-                    .Intersect(evaluation.Enrollment.Methods, StringComparer.Ordinal)
-                    .ToList();
-
-                if (!evaluation.Enrollment.IsEnrolled || methods.Count == 0)
+                var methods = NhTwoFactorService<TUser>.UsableMethods(evaluation);
+                if (methods.Count == 0)
                 {
-                    return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.EnrollmentRequired);
+                    var enrollment = await twoFactor.CreateEnrollmentAsync(user, factor);
+                    if (enrollment == null)
+                    {
+                        return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.EnrollmentRequired);
+                    }
+
+                    return NhAuthenticationResult.Pending(enrollment);
                 }
 
-                var challenge = await twoFactor.CreateChallengeAsync(user, factor, methods);
-                return NhAuthenticationResult.TwoFactorRequired(challenge);
+                var remembered = evaluation.Requirement.AllowRememberDevice
+                    && await twoFactor.IsRememberedDeviceAsync(user, rememberDeviceToken);
+                if (!remembered)
+                {
+                    var challenge = await twoFactor.CreateChallengeAsync(user, factor, methods);
+                    return NhAuthenticationResult.Pending(challenge);
+                }
             }
         }
 
@@ -723,7 +741,11 @@ public class NhAuthenticationService<
             return TaskResult<NhAuthenticationResult>.Failed(passwordResult);
         }
 
-        return await CompleteFirstFactorAsync(user, NhAuthenticationFactors.Password, requiredClaims);
+        return await CompleteFirstFactorAsync(
+            user,
+            NhAuthenticationFactors.Password,
+            requiredClaims,
+            request.RememberDeviceToken);
     }
 
     public virtual async Task<TaskResult<NhAuthenticationResult>> VerifyTwoFactorAsync(
@@ -736,26 +758,16 @@ public class NhAuthenticationService<
             return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.ConfigurationInvalid);
         }
 
-        var challenge = twoFactor.ReadChallenge(request.ChallengeToken);
-        if (challenge == null)
+        var pending = await ReadPendingStepAsync(twoFactor, request.ChallengeToken, enrollment: false);
+        if (!pending.Success)
         {
-            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.ChallengeExpired);
+            return TaskResult<NhAuthenticationResult>.Failed(pending);
         }
 
-        var user = await _userManager.FindByIdAsync(challenge.UserId.ToString());
-        if (user == null || !await twoFactor.IsChallengeUsableAsync(user, challenge))
-        {
-            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.ChallengeExpired);
-        }
-
-        if (!await _signInManager.CanSignInAsync(user)
-            || await _userManager.IsLockedOutAsync(user))
-        {
-            return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.LockedOut);
-        }
-
+        var (user, challenge) = pending.Data!;
         var evaluation = await twoFactor.EvaluateAsync(user, challenge.Factor, CancellationToken.None);
-        if (evaluation.Requirement.Required && !evaluation.Requirement.AllowedMethods.Contains(request.Method))
+        var usableMethods = NhTwoFactorService<TUser>.UsableMethods(evaluation);
+        if (evaluation.Requirement.Required && !usableMethods.Contains(request.Method))
         {
             return NhTwoFactorFailureCodes.Fail<NhAuthenticationResult>(NhTwoFactorFailureCodes.MethodNotAllowed);
         }
@@ -769,7 +781,7 @@ public class NhAuthenticationService<
         if (!check.IsCandidate)
         {
             _logger.LogInformation("Failed second-factor attempt for user {user}", user.UserName);
-            var failure = await twoFactor.RecordFailedAttemptAsync(user);
+            var failure = await twoFactor.RecordFailedAttemptAsync(user, CancellationToken.None);
             return TaskResult<NhAuthenticationResult>.Failed(failure);
         }
 
@@ -778,18 +790,21 @@ public class NhAuthenticationService<
 
         try
         {
-            var commitResult = await twoFactor.CommitSecondFactorAsync(user, check, challenge);
+            var commitResult = await twoFactor.CommitSecondFactorAsync(user, check, challenge, CancellationToken.None);
             if (!commitResult.Success)
             {
                 await transaction.RollbackAsync();
 
-                if (NhTwoFactorFailureCodes.Has(commitResult, NhTwoFactorFailureCodes.ChallengeExpired))
+                if (!NhTwoFactorFailureCodes.Has(commitResult, NhTwoFactorFailureCodes.InvalidCode))
                 {
                     return TaskResult<NhAuthenticationResult>.Failed(commitResult);
                 }
 
                 _logger.LogInformation("Failed second-factor attempt for user {user}", user.UserName);
-                var failure = await twoFactor.RecordFailedAttemptAfterRollbackAsync(user, transaction.IsMyTransaction);
+                var failure = await twoFactor.RecordFailedAttemptAfterRollbackAsync(
+                    user,
+                    transaction.IsMyTransaction,
+                    CancellationToken.None);
                 return TaskResult<NhAuthenticationResult>.Failed(failure);
             }
 
@@ -802,13 +817,128 @@ public class NhAuthenticationService<
             }
 
             await transaction.CommitAsync();
-            return NhAuthenticationResult.Authenticated(session.Data!);
+
+            string? rememberDeviceToken = null;
+            if (request.RememberDevice
+                && twoFactor.Configuration.RememberDeviceEnabled
+                && evaluation.Requirement.AllowRememberDevice)
+            {
+                rememberDeviceToken = await twoFactor.CreateRememberDeviceTokenAsync(user);
+            }
+
+            return NhAuthenticationResult.Authenticated(session.Data!, rememberDeviceToken);
         }
         catch
         {
             await transaction.RollbackAsync(CancellationToken.None);
             throw;
         }
+    }
+
+    public virtual async Task<TaskResult<NhTwoFactorEmailCodeSentResponse>> SendTwoFactorEmailCodeAsync(string challengeToken)
+    {
+        var twoFactor = TwoFactor;
+        if (twoFactor == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhTwoFactorEmailCodeSentResponse>(NhTwoFactorFailureCodes.ConfigurationInvalid);
+        }
+
+        var pending = await ReadPendingStepAsync(twoFactor, challengeToken, enrollment: false);
+        if (!pending.Success)
+        {
+            return TaskResult<NhTwoFactorEmailCodeSentResponse>.Failed(pending);
+        }
+
+        var (user, challenge) = pending.Data!;
+        var evaluation = await twoFactor.EvaluateAsync(user, challenge.Factor, CancellationToken.None);
+
+        return await twoFactor.SendSignInEmailCodeAsync(
+            user,
+            NhTwoFactorService<TUser>.UsableMethods(evaluation),
+            CancellationToken.None);
+    }
+
+    public virtual async Task<TaskResult<NhAuthenticatorSetupViewModel>> BeginEnrollmentAuthenticatorSetupAsync(string enrollmentToken)
+    {
+        var twoFactor = TwoFactor;
+        if (twoFactor == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhAuthenticatorSetupViewModel>(NhTwoFactorFailureCodes.ConfigurationInvalid);
+        }
+
+        var pending = await ReadPendingStepAsync(twoFactor, enrollmentToken, enrollment: true);
+        if (!pending.Success)
+        {
+            return TaskResult<NhAuthenticatorSetupViewModel>.Failed(pending);
+        }
+
+        return await twoFactor.BeginEnrollmentAuthenticatorSetupAsync(pending.Data!.User);
+    }
+
+    public virtual async Task<TaskResult<NhTwoFactorEnrollmentCompletion>> ConfirmEnrollmentAuthenticatorAsync(
+        string enrollmentToken,
+        string code)
+    {
+        var twoFactor = TwoFactor;
+        if (twoFactor == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhTwoFactorEnrollmentCompletion>(NhTwoFactorFailureCodes.ConfigurationInvalid);
+        }
+
+        var pending = await ReadPendingStepAsync(twoFactor, enrollmentToken, enrollment: true);
+        if (!pending.Success)
+        {
+            return TaskResult<NhTwoFactorEnrollmentCompletion>.Failed(pending);
+        }
+
+        var user = pending.Data!.User;
+        var change = await twoFactor.ConfirmAuthenticatorAsync(user, code, user.Id);
+
+        return await CompleteEnrollmentAsync(user, change);
+    }
+
+    public virtual async Task<TaskResult<NhTwoFactorEmailCodeSentResponse>> SendEnrollmentEmailCodeAsync(string enrollmentToken)
+    {
+        var twoFactor = TwoFactor;
+        if (twoFactor == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhTwoFactorEmailCodeSentResponse>(NhTwoFactorFailureCodes.ConfigurationInvalid);
+        }
+
+        var pending = await ReadPendingStepAsync(twoFactor, enrollmentToken, enrollment: true);
+        if (!pending.Success)
+        {
+            return TaskResult<NhTwoFactorEmailCodeSentResponse>.Failed(pending);
+        }
+
+        return await twoFactor.SendEnrollmentEmailCodeAsync(pending.Data!.User, CancellationToken.None);
+    }
+
+    public virtual async Task<TaskResult<NhTwoFactorEnrollmentCompletion>> ConfirmEnrollmentEmailAsync(
+        string enrollmentToken,
+        string code)
+    {
+        var twoFactor = TwoFactor;
+        if (twoFactor == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhTwoFactorEnrollmentCompletion>(NhTwoFactorFailureCodes.ConfigurationInvalid);
+        }
+
+        var pending = await ReadPendingStepAsync(twoFactor, enrollmentToken, enrollment: true);
+        if (!pending.Success)
+        {
+            return TaskResult<NhTwoFactorEnrollmentCompletion>.Failed(pending);
+        }
+
+        if (!twoFactor.Configuration.EnrollableMethods(requiredByPolicy: true).Contains(NhTwoFactorMethods.Email))
+        {
+            return NhTwoFactorFailureCodes.Fail<NhTwoFactorEnrollmentCompletion>(NhTwoFactorFailureCodes.MethodNotAllowed);
+        }
+
+        var user = pending.Data!.User;
+        var change = await twoFactor.ConfirmEmailSetupAsync(user, code, user.Id);
+
+        return await CompleteEnrollmentAsync(user, change);
     }
 
     public virtual async Task<TaskResult<NhAuthenticationResult>> AuthenticateExternalAsync(Guid userId, string factor)
@@ -863,6 +993,60 @@ public class NhAuthenticationService<
         return TaskResult.Failed("Invalid password");
     }
 
+    /// <summary>
+    /// Reads a pending challenge or enrollment and checks that it still belongs to the
+    /// account state and that the account may sign in.
+    /// </summary>
+    private async Task<TaskResult<NhPendingTwoFactorStep<TUser>>> ReadPendingStepAsync(
+        NhTwoFactorService<TUser> twoFactor,
+        string? token,
+        bool enrollment)
+    {
+        var ticket = enrollment ? twoFactor.ReadEnrollment(token) : twoFactor.ReadChallenge(token);
+        if (ticket == null)
+        {
+            return NhTwoFactorFailureCodes.Fail<NhPendingTwoFactorStep<TUser>>(NhTwoFactorFailureCodes.ChallengeExpired);
+        }
+
+        var user = await _userManager.FindByIdAsync(ticket.UserId.ToString());
+        if (user == null || !await twoFactor.IsTicketUsableAsync(user, ticket))
+        {
+            return NhTwoFactorFailureCodes.Fail<NhPendingTwoFactorStep<TUser>>(NhTwoFactorFailureCodes.ChallengeExpired);
+        }
+
+        if (!await _signInManager.CanSignInAsync(user)
+            || await _userManager.IsLockedOutAsync(user))
+        {
+            return NhTwoFactorFailureCodes.Fail<NhPendingTwoFactorStep<TUser>>(NhTwoFactorFailureCodes.LockedOut);
+        }
+
+        return new NhPendingTwoFactorStep<TUser>(user, ticket);
+    }
+
+    /// <summary>
+    /// Issues the session after a required user enrolled a second factor during sign-in.
+    /// </summary>
+    private async Task<TaskResult<NhTwoFactorEnrollmentCompletion>> CompleteEnrollmentAsync(
+        TUser user,
+        TaskResult<NhTwoFactorChangeResult> change)
+    {
+        if (!change.Success)
+        {
+            return TaskResult<NhTwoFactorEnrollmentCompletion>.Failed(change);
+        }
+
+        var session = await CreateAuthenticationSessionAsync(
+            user,
+            change.Data!.RenewalProof!,
+            _authConfiguration.AuthenticateRequiredClaims);
+        if (!session.Success)
+        {
+            return TaskResult<NhTwoFactorEnrollmentCompletion>.Failed(session);
+        }
+
+        return new NhTwoFactorEnrollmentCompletion(session.Data!, change.Data.RecoveryCodes);
+    }
+
     private async Task<TaskResult> EvaluateSessionGateAsync(TUser user, string factor, bool allowEnrolledUsers)
     {
         var twoFactor = TwoFactor;
@@ -877,7 +1061,7 @@ public class NhAuthenticationService<
             return TaskResult.Succeeded();
         }
 
-        if (!evaluation.Enrollment.IsEnrolled)
+        if (NhTwoFactorService<TUser>.UsableMethods(evaluation).Count == 0)
         {
             return NhTwoFactorFailureCodes.Fail(NhTwoFactorFailureCodes.EnrollmentRequired);
         }

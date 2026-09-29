@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using NewHeap.Platform.AspNet.Common.Models;
 
 namespace NewHeap.Platform.AspNet.Common.Authentication.TwoFactor;
 
@@ -43,3 +44,27 @@ public sealed class NhTwoFactorAuthenticationContext<TUser>
 
     internal bool IsEnabled => Configuration.Enabled && Service != null;
 }
+
+/// <summary>
+/// Session and recovery codes issued after a required user enrolled a second factor during
+/// sign-in.
+/// </summary>
+public sealed class NhTwoFactorEnrollmentCompletion
+{
+    public NhTwoFactorEnrollmentCompletion(UserToken session, IReadOnlyList<string>? recoveryCodes)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        Session = session;
+        RecoveryCodes = recoveryCodes;
+    }
+
+    public UserToken Session { get; }
+
+    /// <summary>Recovery codes to show once, if the enrollment issued them.</summary>
+    public IReadOnlyList<string>? RecoveryCodes { get; }
+}
+
+/// <summary>
+/// A pending challenge or enrollment that still belongs to the account state.
+/// </summary>
+internal sealed record NhPendingTwoFactorStep<TUser>(TUser User, NhTwoFactorTicket Ticket);

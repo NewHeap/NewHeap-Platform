@@ -78,7 +78,7 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
             ?? HttpContext!.RequestServices.GetService<NhTwoFactorConfiguration>();
         if (twoFactorConfiguration?.Enabled == true)
         {
-            return await AuthenticateWithTwoFactorAsync(authenticationService, request!);
+            return await AuthenticateWithTwoFactorAsync(authenticationService, request!, twoFactorConfiguration);
         }
 
         var result = await authenticationService.Authenticate(request!, _configuration.AuthenticateRequiredClaims);
@@ -95,11 +95,21 @@ public class NhUserNamePasswordAuthenticationHandler : BaseNhAuthenticationEndpo
 
     private async Task<IResult> AuthenticateWithTwoFactorAsync(
         INhAuthenticationService authenticationService,
-        AuthenticateRequest request)
+        AuthenticateRequest request,
+        NhTwoFactorConfiguration twoFactorConfiguration)
     {
         if (authenticationService is not INhMultiFactorAuthenticationService { IsTwoFactorAvailable: true } multiFactorService)
         {
             return BadRequest(NhTwoFactorFailureCodes.Fail(NhTwoFactorFailureCodes.ConfigurationInvalid));
+        }
+
+        if (string.IsNullOrEmpty(request.RememberDeviceToken) && twoFactorConfiguration.RememberDeviceEnabled)
+        {
+            // Cookie clients send the remember-device token as an HttpOnly cookie.
+            request = request with
+            {
+                RememberDeviceToken = HttpContext!.Request.Cookies[twoFactorConfiguration.RememberDeviceCookieName],
+            };
         }
 
         var result = await multiFactorService.AuthenticateAsync(request, _configuration.AuthenticateRequiredClaims);
