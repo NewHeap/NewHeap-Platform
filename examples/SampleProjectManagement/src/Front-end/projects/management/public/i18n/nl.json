@@ -273,7 +273,8 @@
       "password-mismatch": "Het nieuwe wachtwoord en de herhaling komen niet overeen.",
       "save-failed": "Opslaan is niet gelukt. Controleer de invoer en probeer opnieuw.",
       "two-factor": "Tweestapsverificatie",
-      "two-factor-description": "Beveilig je account met een authenticator-app, e-mailcodes of een passkey."
+      "two-factor-description": "Beveilig je account met een authenticator-app, e-mailcodes of een passkey.",
+      "two-factor-loading": "Tweestapsverificatie laden…"
     },
     "assistant-playground-nav": "Assistent",
     "assistant-playground-title": "Assistentpaneel",

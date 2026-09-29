@@ -52,7 +52,8 @@
         @defer (on viewport) {
           <nh-two-factor-settings [showTitle]="false" />
         } @placeholder {
-          <p class="two-factor-placeholder">{{ 'nh-two-factor.ui.loading' | translate }}</p>
+          <!-- The library texts load with the deferred component, so the placeholder uses a sample key. -->
+          <p class="two-factor-placeholder">{{ 'project.account-menu.two-factor-loading' | translate }}</p>
         }
       </section>
     </section>

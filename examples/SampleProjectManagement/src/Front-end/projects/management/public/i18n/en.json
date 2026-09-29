@@ -273,7 +273,8 @@
       "password-mismatch": "The new password and confirmation do not match.",
       "save-failed": "Could not save. Check the input and try again.",
       "two-factor": "Two-step verification",
-      "two-factor-description": "Protect your account with an authenticator app, e-mail codes or a passkey."
+      "two-factor-description": "Protect your account with an authenticator app, e-mail codes or a passkey.",
+      "two-factor-loading": "Loading two-step verification…"
     },
     "assistant-playground-nav": "Assistant",
     "assistant-playground-title": "Assistant panel",
