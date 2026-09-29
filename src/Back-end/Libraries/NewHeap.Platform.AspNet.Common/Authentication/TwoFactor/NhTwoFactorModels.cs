@@ -21,6 +21,9 @@ public sealed class NhTwoFactorChallengeResponse
 
     /// <summary>Second-factor methods the user may present, see <see cref="NhTwoFactorMethods"/>.</summary>
     public required IReadOnlyList<string> Methods { get; init; }
+
+    /// <summary>Whether completing the challenge can remember this device for later sign-ins.</summary>
+    public bool RememberDeviceAvailable { get; init; }
 }
 
 /// <summary>

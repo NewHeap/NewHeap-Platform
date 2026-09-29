@@ -54,7 +54,7 @@
     <p class="nh-two-factor__hint">{{ 'nh-two-factor.ui.passkey-verify-instructions' | translate }}</p>
   }
 
-  @if (allowRememberDevice()) {
+  @if (offerRememberDevice()) {
     <label class="nh-two-factor__check">
       <input type="checkbox" [checked]="rememberDevice()" [disabled]="busy()" (change)="rememberDevice.set(checked($event))" />
       <span>{{ 'nh-two-factor.ui.remember-device' | translate }}</span>

@@ -46,7 +46,7 @@ export class NhTwoFactorChallengeComponent {
 
   /** The pending challenge from the login response. */
   readonly challenge = input.required<NhTwoFactorChallenge>();
-  /** Whether to offer "remember this device". The server still decides whether it may. */
+  /** Whether to offer "remember this device" when the server allows it for this challenge. */
   readonly allowRememberDevice = input(true);
 
   readonly authenticated = output<INhAuthorization>();
@@ -68,6 +68,7 @@ export class NhTwoFactorChallengeComponent {
   readonly method = computed(() => this.selectedMethod() ?? this.defaultMethod());
   readonly usesCode = computed(() => this.method() !== NhTwoFactorMethods.passkey);
   readonly numericCode = computed(() => this.method() !== NhTwoFactorMethods.recoveryCode);
+  readonly offerRememberDevice = computed(() => this.allowRememberDevice() && this.challenge().rememberDeviceAvailable);
 
   readonly value = nhTwoFactorInputValue;
   readonly checked = nhTwoFactorInputChecked;

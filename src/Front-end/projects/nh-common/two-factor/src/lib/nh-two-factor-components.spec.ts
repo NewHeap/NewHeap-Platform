@@ -90,7 +90,8 @@ const challenge = new NhTwoFactorChallenge({
   status: 'two-factor-required',
   challengeToken: 'protected-challenge',
   expiresAt: '2099-01-01T00:00:00Z',
-  methods: [NhTwoFactorMethods.authenticator, NhTwoFactorMethods.passkey, NhTwoFactorMethods.recoveryCode]
+  methods: [NhTwoFactorMethods.authenticator, NhTwoFactorMethods.passkey, NhTwoFactorMethods.recoveryCode],
+  rememberDeviceAvailable: true
 });
 
 describe('NhTwoFactorChallengeComponent', () => {
@@ -120,6 +121,9 @@ describe('NhTwoFactorChallengeComponent', () => {
     expect(methods).toEqual([NhTwoFactorMethods.authenticator, NhTwoFactorMethods.recoveryCode]);
 
     type(element<HTMLInputElement>(fixture, 'input[autocomplete=one-time-code]'), ' 123456 ');
+    const remember = element<HTMLInputElement>(fixture, 'input[type=checkbox]');
+    remember.checked = true;
+    remember.dispatchEvent(new Event('change'));
     element<HTMLFormElement>(fixture, 'form').dispatchEvent(new Event('submit'));
     await settle(fixture);
 
@@ -127,9 +131,17 @@ describe('NhTwoFactorChallengeComponent', () => {
       challengeToken: 'protected-challenge',
       method: NhTwoFactorMethods.authenticator,
       code: '123456',
-      rememberDevice: false
+      rememberDevice: true
     }));
     expect(authenticated).toHaveBeenCalledWith(authorization);
+  });
+
+  it('offers to remember the device only when the server allows it', () => {
+    const fixture = TestBed.createComponent(NhTwoFactorChallengeComponent);
+    fixture.componentRef.setInput('challenge', new NhTwoFactorChallenge({...challenge, rememberDeviceAvailable: false}));
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('input[type=checkbox]')).toBeNull();
   });
 
   it('shows the failure and reports an ended challenge', async () => {

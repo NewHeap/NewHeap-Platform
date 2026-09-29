@@ -61,6 +61,8 @@ export class NhTwoFactorSettingsComponent implements OnInit {
   private readonly injector = inject(Injector);
   private readonly reauthenticationInput = viewChild<ElementRef<HTMLInputElement>>('reauthenticationInput');
   private readonly codeInput = viewChild<ElementRef<HTMLInputElement>>('codeInput');
+  /** Reauthentication of a running e-mail setup, reused when the user requests a new code. */
+  private emailReauthentication?: NhTwoFactorReauthentication;
 
   /** Whether the title is visible. Hosts with their own heading hide it; screen readers keep it. */
   readonly showTitle = input(true);
@@ -199,10 +201,11 @@ export class NhTwoFactorSettingsComponent implements OnInit {
     this.setup.set(null);
     this.emailSent.set(null);
     this.code.set('');
+    this.emailReauthentication = undefined;
   }
 
   async resendEmailCode(): Promise<void> {
-    const sent = await this.run(() => this.auth.beginEmailSetup());
+    const sent = await this.run(() => this.auth.beginEmailSetup(this.emailReauthentication));
     if (sent) {
       this.emailSent.set(sent);
     }
@@ -265,6 +268,7 @@ export class NhTwoFactorSettingsComponent implements OnInit {
         if (sent) {
           this.openSetup('email');
           this.emailSent.set(sent);
+          this.emailReauthentication = reauthentication;
         }
         return;
       }

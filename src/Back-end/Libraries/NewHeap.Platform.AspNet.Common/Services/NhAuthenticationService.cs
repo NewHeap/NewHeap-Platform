@@ -381,7 +381,11 @@ public class NhAuthenticationService<
                     && await twoFactor.IsRememberedDeviceAsync(user, rememberDeviceToken);
                 if (!remembered)
                 {
-                    var challenge = await twoFactor.CreateChallengeAsync(user, factor, methods);
+                    var challenge = await twoFactor.CreateChallengeAsync(
+                        user,
+                        factor,
+                        methods,
+                        evaluation.Requirement.AllowRememberDevice);
                     return NhAuthenticationResult.Pending(challenge);
                 }
             }

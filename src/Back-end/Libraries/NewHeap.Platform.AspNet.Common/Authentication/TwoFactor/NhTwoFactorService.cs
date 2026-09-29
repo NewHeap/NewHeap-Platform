@@ -772,7 +772,8 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
     internal async Task<NhTwoFactorChallengeResponse> CreateChallengeAsync(
         TUser user,
         string factor,
-        IReadOnlyList<string> methods)
+        IReadOnlyList<string> methods,
+        bool rememberDeviceAllowed)
     {
         return await CreateStepAsync(
             user,
@@ -780,7 +781,8 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
             methods,
             NhTwoFactorTicketPurposes.Challenge,
             NhAuthenticationStepStatuses.TwoFactorRequired,
-            _configuration.ChallengeLifetime);
+            _configuration.ChallengeLifetime,
+            _configuration.RememberDeviceEnabled && rememberDeviceAllowed);
     }
 
     internal async Task<NhTwoFactorChallengeResponse?> CreateEnrollmentAsync(TUser user, string factor)
@@ -797,7 +799,8 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
             methods,
             NhTwoFactorTicketPurposes.Enrollment,
             NhAuthenticationStepStatuses.EnrollmentRequired,
-            _configuration.EnrollmentLifetime);
+            _configuration.EnrollmentLifetime,
+            rememberDeviceAvailable: false);
     }
 
     internal NhTwoFactorTicket? ReadChallenge(string? challengeToken)
@@ -1142,7 +1145,8 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
         IReadOnlyList<string> methods,
         string purpose,
         string status,
-        TimeSpan lifetime)
+        TimeSpan lifetime,
+        bool rememberDeviceAvailable)
     {
         var securityStamp = await _userManager.GetSecurityStampAsync(user);
         if (string.IsNullOrEmpty(securityStamp))
@@ -1165,6 +1169,7 @@ public partial class NhTwoFactorService<TUser> : INhTwoFactorService<TUser>
             ChallengeToken = _ticketProtector.Protect(ticket),
             ExpiresAt = expiresAt,
             Methods = methods,
+            RememberDeviceAvailable = rememberDeviceAvailable,
         };
     }
 

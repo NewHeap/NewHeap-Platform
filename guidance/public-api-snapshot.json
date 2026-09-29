@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.50",
   "backEnd": {
-    "hash": "f568e47f5958b3fe02f552c75cb8d7890d5051ef385dfed82f39cef4e2f9fd54",
-    "declarationCount": 5762,
+    "hash": "293a8a00a909a4ec9cc2e87ca4393a0afbfd8b00c17c768cf58f5a962d6b8d74",
+    "declarationCount": 5763,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -8844,6 +8844,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
         "declaration": "public required IReadOnlyList<string> Methods { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",
+        "declaration": "public bool RememberDeviceAvailable { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/TwoFactor/NhTwoFactorModels.cs",

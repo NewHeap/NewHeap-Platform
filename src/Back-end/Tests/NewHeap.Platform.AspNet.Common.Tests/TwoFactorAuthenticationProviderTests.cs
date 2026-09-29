@@ -201,6 +201,7 @@ public sealed class TwoFactorAuthenticationProviderTests
         Assert.True(login.Success);
         Assert.Null(login.Data!.Session);
         var challenge = login.Data.Challenge!;
+        Assert.False(challenge.RememberDeviceAvailable);
         Assert.Equal(NhAuthenticationStepStatuses.TwoFactorRequired, challenge.Status);
         Assert.Equal([NhTwoFactorMethods.Authenticator, NhTwoFactorMethods.RecoveryCode], challenge.Methods);
         Assert.Equal(0, await stack.CountRefreshTokensAsync(user.Id));
@@ -603,6 +604,7 @@ public sealed class TwoFactorAuthenticationProviderTests
 
         environment.Clock.Advance(TimeSpan.FromSeconds(30));
         var challenge = (await stack.Authentication.AuthenticateAsync(loginRequest)).Data!.Challenge!;
+        Assert.True(challenge.RememberDeviceAvailable);
         var verified = await stack.Authentication.VerifyTwoFactorAsync(new NhTwoFactorVerifyRequest
         {
             ChallengeToken = challenge.ChallengeToken,

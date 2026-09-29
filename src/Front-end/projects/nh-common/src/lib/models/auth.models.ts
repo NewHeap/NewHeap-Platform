@@ -314,6 +314,8 @@ export class NhTwoFactorChallenge {
   challengeToken: string = '';
   expiresAt: string = '';
   methods: NhTwoFactorMethod[] = [];
+  /** Whether completing the challenge can remember this device for later sign-ins. */
+  rememberDeviceAvailable: boolean = false;
 
   public constructor(init?: Partial<NhTwoFactorChallenge>) {
     Object.assign(this, init);
