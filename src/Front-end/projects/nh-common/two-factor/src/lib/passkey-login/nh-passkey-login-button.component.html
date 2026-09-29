@@ -1,0 +1,27 @@
+@if (supported) {
+  <div class="nh-two-factor">
+    <div class="nh-two-factor__actions">
+      <button
+        type="button"
+        class="nh-two-factor__button"
+        [disabled]="busy()"
+        [attr.aria-busy]="busy()"
+        [attr.aria-describedby]="errorKeys().length > 0 ? id + '-errors' : null"
+        (click)="signIn()">
+        {{ 'nh-two-factor.ui.sign-in-with-passkey' | translate }}
+      </button>
+    </div>
+
+    @if (showErrors()) {
+      <div [id]="id + '-errors'" aria-live="assertive">
+        @if (errorKeys().length > 0) {
+          <ul class="nh-two-factor__errors" role="alert">
+            @for (key of errorKeys(); track key) {
+              <li>{{ key | translate }}</li>
+            }
+          </ul>
+        }
+      </div>
+    }
+  </div>
+}

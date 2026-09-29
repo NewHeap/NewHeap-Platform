@@ -43,3 +43,25 @@ import { NhCommonModule } from '@newheap/platform-common';
 })
 export class AppModule {}
 ```
+
+## Two-factor components
+
+`BaseNhAuthService` covers the two-factor API: challenges, required enrollment, e-mail codes,
+remembered devices, passkeys and account settings. The optional standalone components live in a
+separate entry point, so applications that do not import it ship none of their code:
+
+```typescript
+import {
+  NhPasskeyLoginButtonComponent,
+  NhTwoFactorChallengeComponent,
+  NhTwoFactorEnrollmentComponent,
+  NhTwoFactorSettingsComponent
+} from '@newheap/platform-common/two-factor';
+```
+
+The components inject `NhAuthService` and add their English and Dutch texts under
+`nh-two-factor.`; keys the application defines win. The bundles are also available as
+`@newheap/platform-common/two-factor/i18n/en.json` and `nl.json`. Call `provideNhTwoFactor()`
+to register the texts at startup when a custom login page translates the `nh-two-factor.`
+failure keys without the components. The authenticator QR code is a PNG data URI, so a Content
+Security Policy must allow `img-src data:`.
