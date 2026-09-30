@@ -63,7 +63,7 @@ public sealed class ProxyLiteralRedirectSamplesTests
             builder.WebHost.UseUrls("http://127.0.0.1:0");
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["NewHeapProxy:Limits:RedirectResolutionTimeoutMilliseconds"] = "75",
+                ["NewHeapProxy:Limits:RedirectResolutionTimeoutMilliseconds"] = Environment.GetEnvironmentVariable("NH_PROBE_TIMEOUT") ?? "75",
                 ["NewHeapProxy:Sqlite:DatabasePath"] = databasePath
             });
             builder.Services.AddNewHeapProxy(builder.Configuration.GetSection(NhProxyOptions.ConfigurationSectionName));
@@ -72,7 +72,7 @@ public sealed class ProxyLiteralRedirectSamplesTests
             await app.StartAsync(cancellationToken);
             try
             {
-                Assert.Equal(75, app.Services.GetRequiredService<IOptions<NhProxyOptions>>().Value.Limits.RedirectResolutionTimeoutMilliseconds);
+                Assert.Equal(int.Parse(Environment.GetEnvironmentVariable("NH_PROBE_TIMEOUT") ?? "75"), app.Services.GetRequiredService<IOptions<NhProxyOptions>>().Value.Limits.RedirectResolutionTimeoutMilliseconds);
                 using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
                 using var response = await client.GetAsync(app.Urls.Single() + "/old-projects?campaign=sample", cancellationToken);
                 Assert.Equal(HttpStatusCode.Found, response.StatusCode);
