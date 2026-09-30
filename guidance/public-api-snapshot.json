@@ -26946,6 +26946,7 @@
       "INhBackgroundOperationNotificationFormatter",
       "INhBackgroundOperationNotificationPolicy",
       "INhBackgroundOperationOwnerDirectory",
+      "INhBackgroundOperationService",
       "INhNotificationDispatcher",
       "INhUserNotificationService",
       "NhBackgroundOperationAdministrationService",

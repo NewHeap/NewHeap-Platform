@@ -96,22 +96,34 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
         }
 
         var now = DateTimeOffset.UtcNow;
-        var servedQueues = _servedQueues;
-        // Another process with the same processor key may place work on a queue that only
-        // its own Hangfire server serves; claiming it here would strand the job.
-        var operation = await repository.GetAll()
-            .Where(x => x.ProcessorKey == _options.ProcessorKey)
-            .Where(x => servedQueues.Contains(x.Queue))
-            .Where(x => (x.Status == NhBackgroundOperationStatus.PendingDispatch
-                         || x.Status == NhBackgroundOperationStatus.RetryScheduled
-                         || x.Status == NhBackgroundOperationStatus.WaitingForChildren
-                         || x.Status == NhBackgroundOperationStatus.WaitingForSignal
-                         || (x.Status == NhBackgroundOperationStatus.CancelRequested
-                             && x.CurrentAttemptId == null))
-                        && (x.NextDispatchAt == null || x.NextDispatchAt <= now))
+        var candidateOperationIds = await GetDispatchableOperations(repository, now)
+            .AsNoTracking()
             .OrderByDescending(x => x.Priority)
             .ThenBy(x => x.CreationDateTime)
-            .FirstOrDefaultAsync(cancellationToken);
+            .Take(_options.DispatchBatchSize)
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        NhBackgroundOperation? operation = null;
+        foreach (var candidateOperationId in candidateOperationIds)
+        {
+            // Cancellation, retry and reconciliation change an operation under its own lock.
+            // Claiming or cancelling it without that lock would race with those writers, so a
+            // busy operation stays unchanged for a later round and the next candidate is tried.
+            if (!await LockOperationAsync(repository, transaction, candidateOperationId, cancellationToken))
+            {
+                continue;
+            }
+
+            // The previous lock holder may have changed the candidate; read it again.
+            operation = await GetDispatchableOperations(repository, now)
+                .SingleOrDefaultAsync(x => x.Id == candidateOperationId, cancellationToken);
+            if (operation is not null)
+            {
+                break;
+            }
+        }
+
         if (operation is null)
         {
             await transaction.CommitAsync(cancellationToken);
@@ -256,6 +268,26 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
         NhBackgroundOperationService.Touch(operation, DateTimeOffset.UtcNow);
         await repository.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    private IQueryable<NhBackgroundOperation> GetDispatchableOperations(
+        IRepository<NhBackgroundOperation> repository,
+        DateTimeOffset now)
+    {
+        var servedQueues = _servedQueues;
+
+        // Another process with the same processor key may place work on a queue that only
+        // its own Hangfire server serves; claiming it here would strand the job.
+        return repository.GetAll()
+            .Where(x => x.ProcessorKey == _options.ProcessorKey)
+            .Where(x => servedQueues.Contains(x.Queue))
+            .Where(x => (x.Status == NhBackgroundOperationStatus.PendingDispatch
+                         || x.Status == NhBackgroundOperationStatus.RetryScheduled
+                         || x.Status == NhBackgroundOperationStatus.WaitingForChildren
+                         || x.Status == NhBackgroundOperationStatus.WaitingForSignal
+                         || (x.Status == NhBackgroundOperationStatus.CancelRequested
+                             && x.CurrentAttemptId == null))
+                        && (x.NextDispatchAt == null || x.NextDispatchAt <= now));
     }
 
     private Task<bool> LockOperationAsync(
