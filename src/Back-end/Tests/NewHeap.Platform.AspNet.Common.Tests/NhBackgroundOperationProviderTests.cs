@@ -390,6 +390,12 @@ public sealed class NhBackgroundOperationProviderTests
             registry,
             fanOutCoordinator,
             ownerId);
+        await VerifyDispatchOperationLockAsync(
+            serviceProvider,
+            options,
+            registry,
+            fanOutCoordinator,
+            ownerId);
 
         persistenceLogger.Entries.Should().Contain(entry =>
             entry.Level == LogLevel.Information
@@ -674,6 +680,137 @@ public sealed class NhBackgroundOperationProviderTests
                 .Select(operationEvent => operationEvent.Sequence)
                 .ToListAsync())
             .Should().Equal(1, 2);
+    }
+
+    private static async Task VerifyDispatchOperationLockAsync(
+        ServiceProvider serviceProvider,
+        NhBackgroundOperationsOptions options,
+        NhBackgroundOperationRegistry registry,
+        NhBackgroundOperationFanOutCoordinator fanOutCoordinator,
+        Guid ownerId)
+    {
+        var cancelRequestedId = Guid.NewGuid();
+        var pendingId = Guid.NewGuid();
+        var uncontendedId = Guid.NewGuid();
+        await using (var seedScope = serviceProvider.CreateAsyncScope())
+        {
+            var context = seedScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            var dispatchAt = DateTimeOffset.UtcNow;
+
+            // The priorities put the two contended operations ahead of the uncontended one.
+            var cancelRequested = CreateQueuedOperation(cancelRequestedId, ownerId, "provider-parent");
+            cancelRequested.Status = NhBackgroundOperationStatus.CancelRequested;
+            cancelRequested.CancelRequestedAt = dispatchAt;
+            cancelRequested.NextDispatchAt = dispatchAt;
+            cancelRequested.Priority = 3;
+            cancelRequested.LatestEventSequence = 1;
+            cancelRequested.Events.Add(new NhBackgroundOperationEvent
+            {
+                Id = Guid.NewGuid(),
+                OperationId = cancelRequestedId,
+                Sequence = 1,
+                EventType = NhBackgroundOperationEventType.CancellationRequested,
+                Severity = NhBackgroundOperationMessageSeverity.Information,
+                MessageKey = "background-operation.cancellation-requested",
+                SnapshotVersion = cancelRequested.Version
+            });
+
+            var pending = CreateQueuedOperation(pendingId, ownerId, "provider-parent");
+            pending.Status = NhBackgroundOperationStatus.PendingDispatch;
+            pending.NextDispatchAt = dispatchAt;
+            pending.Priority = 2;
+
+            var uncontended = CreateQueuedOperation(uncontendedId, ownerId, "provider-parent");
+            uncontended.Status = NhBackgroundOperationStatus.PendingDispatch;
+            uncontended.NextDispatchAt = dispatchAt;
+            uncontended.Priority = 1;
+
+            context.BackgroundOperations.AddRange(cancelRequested, pending, uncontended);
+            await context.SaveChangesAsync();
+        }
+
+        var dispatcher = new NhBackgroundOperationDispatchService(
+            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            options,
+            new NoOpLiveUpdatePublisher(),
+            new NoOpNotificationProjector(),
+            fanOutCoordinator,
+            new NhBackgroundOperationServedQueues(registry, new NhHangfireQueueNameResolver()),
+            NullLogger<NhBackgroundOperationDispatchService>.Instance);
+
+        await using (var lockScope = serviceProvider.CreateAsyncScope())
+        {
+            var repository = lockScope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
+            await using var transaction = await repository.StartOrGetTransactionScopeAsync();
+            foreach (var contendedId in new[] { cancelRequestedId, pendingId })
+            {
+                var acquired = await repository.TryAcquireTransactionLockAsync(
+                    transaction,
+                    $"NhBackgroundOperation:Operation:{contendedId:N}",
+                    250);
+                acquired.Should().BeTrue();
+            }
+
+            await dispatcher.DispatchAvailableAsync(CancellationToken.None);
+
+            await using var verificationScope = serviceProvider.CreateAsyncScope();
+            var verificationContext = verificationScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            var contendedCancellation = await verificationContext.BackgroundOperations
+                .AsNoTracking()
+                .SingleAsync(operation => operation.Id == cancelRequestedId);
+            contendedCancellation.Status.Should().Be(NhBackgroundOperationStatus.CancelRequested);
+            contendedCancellation.LatestEventSequence.Should().Be(1);
+
+            var contendedClaim = await verificationContext.BackgroundOperations
+                .AsNoTracking()
+                .SingleAsync(operation => operation.Id == pendingId);
+            contendedClaim.Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
+            contendedClaim.DispatchGeneration.Should().Be(1);
+
+            // A busy operation does not hold up the dispatchable work behind it.
+            var claimedBehindContention = await verificationContext.BackgroundOperations
+                .AsNoTracking()
+                .SingleAsync(operation => operation.Id == uncontendedId);
+            claimedBehindContention.Status.Should().Be(NhBackgroundOperationStatus.Queued);
+            claimedBehindContention.DispatchGeneration.Should().Be(2);
+        }
+
+        // Completing the cancellation ends a dispatch batch; the next batch claims the pending operation.
+        await dispatcher.DispatchAvailableAsync(CancellationToken.None);
+        await dispatcher.DispatchAvailableAsync(CancellationToken.None);
+
+        await using (var finalScope = serviceProvider.CreateAsyncScope())
+        {
+            var finalContext = finalScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+            var cancelled = await finalContext.BackgroundOperations
+                .AsNoTracking()
+                .SingleAsync(operation => operation.Id == cancelRequestedId);
+            cancelled.Status.Should().Be(NhBackgroundOperationStatus.Cancelled);
+            cancelled.LatestEventSequence.Should().Be(2);
+            (await finalContext.BackgroundOperationEvents
+                    .AsNoTracking()
+                    .Where(operationEvent => operationEvent.OperationId == cancelRequestedId)
+                    .OrderBy(operationEvent => operationEvent.Sequence)
+                    .Select(operationEvent => operationEvent.Sequence)
+                    .ToListAsync())
+                .Should().Equal(1, 2);
+
+            var claimed = await finalContext.BackgroundOperations
+                .AsNoTracking()
+                .SingleAsync(operation => operation.Id == pendingId);
+            claimed.Status.Should().Be(NhBackgroundOperationStatus.Queued);
+            claimed.DispatchGeneration.Should().Be(2);
+        }
+
+        await using var cleanupScope = serviceProvider.CreateAsyncScope();
+        var cleanupContext = cleanupScope.ServiceProvider.GetRequiredService<BackgroundOperationDbContext>();
+        cleanupContext.BackgroundOperations.RemoveRange(
+            await cleanupContext.BackgroundOperations
+                .Where(operation => operation.Id == cancelRequestedId
+                                    || operation.Id == pendingId
+                                    || operation.Id == uncontendedId)
+                .ToListAsync());
+        await cleanupContext.SaveChangesAsync();
     }
 
     private static async Task VerifyDivisionQueryIsolationAsync(
