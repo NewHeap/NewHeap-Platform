@@ -1,8 +1,11 @@
 using NewHeap.Platform.AI;
+using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Test;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -290,6 +293,110 @@ public sealed class AiToolSamplesTests
         Assert.NotEqual(true, result.Data.IsError);
         Assert.Equal(1, allowedCalls);
         Assert.Equal(0, unlistedCalls);
+    }
+
+    [Fact]
+    public async Task Run_scoped_imported_catalog_serves_the_agent_without_entering_the_mcp_export()
+    {
+        var lookupCalls = 0;
+        var remoteTools = new[]
+        {
+            McpServerTool.Create(
+                (string query) =>
+                {
+                    lookupCalls++;
+                    return $"approved:{query}";
+                },
+                new McpServerToolCreateOptions
+                {
+                    Name = "lookup",
+                    Description = "Looks up projects."
+                })
+        };
+        var readService = new RecordingProjectAiReadService();
+        var context = CreateContext(Guid.NewGuid()) with
+        {
+            CapabilityGrants = new HashSet<string>(StringComparer.Ordinal)
+            {
+                ProjectAiTools.ReadCapability,
+                "mcp-project-lookup"
+            }
+        };
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = Environments.Development
+        });
+        builder.Services.AddSingleton<IProjectAiReadService>(readService);
+        builder.Services.AddSingleton<IProjectAiMutationService>(readService);
+        builder.Services.AddSingleton<IProjectAiContextService>(new RecordingProjectAiContextService());
+        builder.Services.AddScoped<ProjectAiTools>();
+        builder.Services.AddScoped<INhAiToolInvocationGate>(
+            _ => NhAiTestInvocationGate.Authorized(context));
+        builder.Services.AddSampleProjectManagementAi();
+        builder.Services.AddScoped<AgentRunMcpTools>();
+        builder.Services.AddScoped<INhAiToolCatalog, AgentRunMcpCatalog>();
+        builder.Services.AddMcpServer().WithNewHeapPlatformAITools();
+        await using var app = builder.Build();
+
+        // Development validates scopes on build; startup validates the run catalog in its own
+        // scope, where no run has imported tools yet.
+        await app.StartAsync(TestContext.Current.CancellationToken);
+
+        await using var run = app.Services.CreateAsyncScope();
+        var clientToServer = new Pipe();
+        var serverToClient = new Pipe();
+        await using var remoteServer = McpServer.Create(
+            new StreamServerTransport(
+                clientToServer.Reader.AsStream(),
+                serverToClient.Writer.AsStream()),
+            new McpServerOptions
+            {
+                ScopeRequests = false,
+                ToolCollection = [.. remoteTools]
+            });
+        _ = remoteServer.RunAsync();
+        await using var client = await McpClient.CreateAsync(
+            new StreamClientTransport(
+                clientToServer.Writer.AsStream(),
+                serverToClient.Reader.AsStream()));
+        var imported = run.ServiceProvider
+            .GetRequiredService<INhAiMcpClientToolImporter>()
+            .Import(
+                await client.ListToolsAsync(),
+                new NhAiMcpImportOptions(
+                    "project-provider",
+                    "projects",
+                    [
+                        new NhAiMcpImportedToolPolicy(
+                            "lookup",
+                            "lookup",
+                            "Looks up projects through the approved provider.",
+                            NhAiToolEffect.ReadOnly,
+                            NhAiToolExposure.Agent,
+                            ["sample.mcp.lookup"])
+                        {
+                            Approval = NhAiApprovalRequirement.NotRequired,
+                            RequiredCapabilities = ["mcp-project-lookup"]
+                        }
+                    ]));
+        run.ServiceProvider.GetRequiredService<AgentRunMcpTools>().Use(imported);
+
+        var exported = await run.ServiceProvider
+            .GetRequiredService<INhAiMcpToolAdapter>()
+            .CreateToolsAsync(run.ServiceProvider, context);
+        var agentFunction = Assert.Single(run.ServiceProvider
+            .GetServices<INhAiToolCatalog>()
+            .OfType<AgentRunMcpCatalog>()
+            .Single()
+            .CreateFunctions(run.ServiceProvider));
+        var result = Assert.IsType<TaskResult<CallToolResult>>(
+            await agentFunction.InvokeAsync(new AIFunctionArguments { ["query"] = "roadmap" }));
+
+        Assert.Equal(["projects_search_v1"], exported.Select(tool => tool.ProtocolTool.Name));
+        Assert.Equal("mcp_projects_lookup", agentFunction.Name);
+        Assert.True(result.Success, string.Join("; ", result.AllErrorMessages));
+        Assert.Equal(1, lookupCalls);
+        await app.StopAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -758,6 +865,48 @@ public sealed class AiToolSamplesTests
         public object? GetService(Type serviceType)
         {
             return services.SingleOrDefault(service => serviceType.IsInstanceOfType(service));
+        }
+    }
+
+    /// <summary>
+    /// Holds the MCP tools that the current agent run imported from its assigned servers.
+    /// </summary>
+    private sealed class AgentRunMcpTools
+    {
+        public INhAiToolCatalog? Catalog { get; private set; }
+
+        public void Use(INhAiToolCatalog catalog)
+        {
+            Catalog = catalog;
+        }
+    }
+
+    /// <summary>
+    /// Run-scoped catalog over the imported MCP tools of the current agent run. Outside a run,
+    /// including the startup validation scope, it declares no tools.
+    /// </summary>
+    private sealed class AgentRunMcpCatalog(AgentRunMcpTools run) : INhAiToolCatalog
+    {
+        private static readonly NhAiToolCatalogManifest EmptyManifest = new(
+            "agent-run-mcp",
+            1,
+            "no-run",
+            []);
+
+        public NhAiToolCatalogGovernance Governance => NhAiToolCatalogGovernance.SharedInvoker;
+
+        public IReadOnlyList<NhAiToolDescriptor> Descriptors => run.Catalog?.Descriptors ?? [];
+
+        public NhAiToolCatalogManifest Manifest => run.Catalog?.Manifest ?? EmptyManifest;
+
+        public IReadOnlyList<AIFunction> CreateFunctions(IServiceProvider services)
+        {
+            if (run.Catalog is null)
+            {
+                return [];
+            }
+
+            return run.Catalog.CreateFunctions(services);
         }
     }
 

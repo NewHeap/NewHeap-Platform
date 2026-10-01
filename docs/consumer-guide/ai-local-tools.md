@@ -43,9 +43,22 @@ names honor `JsonPropertyName`, and `JsonIgnore` conditions keep or remove
 properties per direction. Keep the schema and the wire in agreement through these
 serializer attributes rather than by editing the generated schema.
 
-Register an `INhAiToolInvocationGate` and `INhAiToolInvoker` before creating
-functions. The gate must validate the current actor and derive tenant, division,
-or resource scope server-side. The tool receives that authorized scope through
+`AddNewHeapPlatformAI` registers the shared `INhAiToolInvoker`. Register an
+`INhAiToolInvocationGate`, through `AddNewHeapPlatformAIAspNet` or
+`UseInvocationGate<TGate>()`, in every host that creates or runs tool functions.
+A host that only uses model profiles, such as a structured-output worker, needs
+no gate: it passes container validation, and resolving the invoker there fails
+with a clear configuration error. The gate must validate the current actor and
+derive tenant, division, or resource scope server-side.
+
+Register generated catalogs through `AddGeneratedToolCatalog`, which adds them as
+singletons. A runtime catalog whose tools depend on the current agent run, such
+as the run's imported MCP tools, may be registered as a scoped
+`INhAiToolCatalog`. Startup validation resolves every catalog once in a
+validation scope of its own, without an HTTP request or run, so a scoped catalog
+must be constructible there and may declare no tools outside a run. Its
+descriptors that only exist during a run are governed by the importer and the
+shared invoker when they are used. The tool receives that authorized scope through
 `NhAiInvocationContext`; request input is never authorization evidence. Keep the
 first exposure local unless a separately reviewed transport and discovery policy
 exists. Telemetry records tool ID, version, effect, exposure, and outcome only.
@@ -91,6 +104,8 @@ the existing generated `<toolset>_<tool>_v<version>` name remains unchanged.
 - Calling controllers or bypassing the normal application service from a tool.
 - Accepting a tenant or division from model input as proof of authorization.
 - Registering an allow-all production gate or creating functions without a gate.
+- Registering a deny-all gate only to make container validation pass in a host without tools.
+- Resolving a scoped catalog from a singleton, which keeps one root-scoped instance for the lifetime of the host.
 - Omitting the budget manager or assuming a missing remaining-run budget means unlimited execution.
 - Hand-writing an attested catalog around a function that does not actually call `INhAiToolInvoker`.
 - Exposing a tool through MCP or an agent merely because a local catalog exists.
@@ -109,11 +124,15 @@ proposal binding, duplicate retries, and verifier disagreement. Exercise an
 oversized input, a denied budget reservation, and an ungoverned catalog; none may
 reach the application service. Invoke a governed function with flat arguments and
 with `input` mixed with another property: the first runs once with the enveloped
-result, the second returns `ai-tool-input-invalid` without execution. SPM-234
+result, the second returns `ai-tool-input-invalid` without execution. Build and
+start the host in the Development environment, where the container validates
+scopes and registrations on build; a run-scoped catalog must be validated at
+startup and released with its validation scope. SPM-228 registers such a catalog
+per agent run. SPM-234
 publishes the generated catalog through a trimmed Native AOT smoke executable
 and invokes a generated function so reflection-free descriptors, schemas,
 manifests, argument binding, and result serialization remain rooted.
-SPM-219, SPM-221, SPM-224, SPM-234, and the `NewHeap.Platform.AI.Tests`
+SPM-219, SPM-221, SPM-224, SPM-228, SPM-234, and the `NewHeap.Platform.AI.Tests`
 project are the executable references.
 
 ## Executable evidence
@@ -133,6 +152,11 @@ project are the executable references.
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs)
+- SPM-228 — Governed external MCP tool import
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs)
 - SPM-234 — Native AOT generated AI tool catalog smoke
   - [../../src/Back-end/Tests/NewHeap.Platform.AI.AotSmoke/Program.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.AI.AotSmoke/Program.cs)
   - [../../src/Back-end/Tests/NewHeap.Platform.AI.AotSmoke/NewHeap.Platform.AI.AotSmoke.csproj](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.AI.AotSmoke/NewHeap.Platform.AI.AotSmoke.csproj)

@@ -28,6 +28,12 @@ bounded decision trace as operational metadata; it contains no provider secret
 or prompt content. Register optional audit, usage, budget, and context
 contributors at composition boundaries.
 
+Share one AI composition between the API and a worker when both use the same
+profiles. A worker that only uses chat or structured output needs no
+`INhAiToolInvocationGate`; the host still passes the Development container
+validation of scopes and registrations, and only resolving `INhAiToolInvoker`
+fails with a clear configuration error.
+
 `UseInMemoryBudget` is a bounded per-actor option for samples, local development
 and explicitly accepted process-local deployments. Configure call, token, cost,
 window and actor-ledger ceilings. It charges the authenticated actor or accountable
@@ -52,7 +58,9 @@ opt-in and require their own credentials, data policy, and budget controls.
 ## Verification
 
 Start the service provider and verify missing keyed clients, required profiles,
-required capabilities, fallback targets, and fallback cycles fail clearly.
+required capabilities, fallback targets, and fallback cycles fail clearly. Build
+and start the worker composition in the Development environment, where scopes
+and registrations are validated on build.
 Resolve the named profile for allowed and denied classifications, capabilities,
 and regions. Prove repeated identical registration is idempotent and conflicting
 registration is rejected. For the in-memory budget, prove per-actor isolation,

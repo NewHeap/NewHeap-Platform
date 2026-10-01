@@ -1489,7 +1489,9 @@
       "src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiModelProfileSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiFoundationTests.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiFoundationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiHostValidationTests.cs"
     ],
     "SPM-221": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs",
@@ -1503,7 +1505,9 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiHostValidationTests.cs"
     ],
     "SPM-223": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
@@ -1542,7 +1546,9 @@
     "SPM-228": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiHostValidationTests.cs"
     ],
     "SPM-229": [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSuspension.cs",

@@ -53,6 +53,14 @@ internal sealed class NhAiMcpToolAdapter(
         foreach (var catalog in catalogs.OrderBy(item => item.Manifest.CatalogId, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var descriptors = catalog.Descriptors;
+            if (!descriptors.Any(descriptor => descriptor.Exposure.HasFlag(NhAiToolExposure.Mcp)))
+            {
+                // A catalog without MCP exposure, such as an imported catalog that only serves
+                // agents, never enters the export path.
+                continue;
+            }
+
             // Generated catalogs are governed by construction; attested runtime catalogs are
             // validated with NhAiToolCatalogAttestation at startup. Every function of both is
             // re-checked against its descriptor below.
@@ -62,7 +70,6 @@ internal sealed class NhAiMcpToolAdapter(
                 throw new InvalidOperationException(
                     $"AI catalog '{catalog.Manifest.CatalogId}' is not a generated or attested catalog governed by INhAiToolInvoker.");
             }
-            var descriptors = catalog.Descriptors;
             var functions = catalog.CreateFunctions(services);
             if (descriptors.Count != functions.Count)
             {

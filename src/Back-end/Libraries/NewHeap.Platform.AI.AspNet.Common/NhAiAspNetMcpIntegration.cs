@@ -122,18 +122,29 @@ internal static class NhAiMcpRequestHandlers
 internal sealed record NhAiMcpError(string Code, string Message);
 
 internal sealed class NhAiMcpAuthorityStartupValidator(
-    IEnumerable<McpServerTool> registeredSdkTools,
-    IEnumerable<INhAiToolCatalog> newHeapCatalogs,
     IServiceScopeFactory serviceScopeFactory) : IHostedService
 {
-    public Task StartAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        // Catalogs and SDK tools may be scoped services, so they are resolved in a validation scope.
+        await using var scope = serviceScopeFactory.CreateAsyncScope();
+        var services = scope.ServiceProvider;
         var newHeapExports = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var catalog in newHeapCatalogs)
+        foreach (var catalog in services.GetServices<INhAiToolCatalog>())
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var exportedDescriptors = catalog.Descriptors
+                .Where(descriptor => descriptor.Exposure.HasFlag(NhAiToolExposure.Mcp))
+                .ToArray();
+            if (exportedDescriptors.Length == 0)
+            {
+                // A catalog without MCP exposure, such as an imported catalog that only serves
+                // agents, never enters the export path.
+                continue;
+            }
+
             if (catalog is not (INhAiGeneratedToolCatalog or INhAiAttestedToolCatalog)
                 || catalog.Governance != NhAiToolCatalogGovernance.SharedInvoker)
             {
@@ -143,12 +154,10 @@ internal sealed class NhAiMcpAuthorityStartupValidator(
             if (catalog is INhAiAttestedToolCatalog)
             {
                 // A runtime catalog only enters the MCP export path after its attestation holds.
-                using var scope = serviceScopeFactory.CreateScope();
-                NhAiToolCatalogAttestation.Validate(catalog, scope.ServiceProvider);
+                NhAiToolCatalogAttestation.Validate(catalog, services);
             }
 
-            foreach (var descriptor in catalog.Descriptors.Where(descriptor =>
-                descriptor.Exposure.HasFlag(NhAiToolExposure.Mcp)))
+            foreach (var descriptor in exportedDescriptors)
             {
                 if (!newHeapExports.TryAdd(descriptor.ExportName, descriptor.Id))
                 {
@@ -158,7 +167,7 @@ internal sealed class NhAiMcpAuthorityStartupValidator(
             }
         }
 
-        foreach (var tool in registeredSdkTools)
+        foreach (var tool in services.GetServices<McpServerTool>())
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (IsNewHeapGovernedTool(tool))
@@ -172,8 +181,6 @@ internal sealed class NhAiMcpAuthorityStartupValidator(
                     $"MCP tool name '{tool.ProtocolTool.Name}' conflicts with a NewHeap AI export name. Give the external tool a distinct name.");
             }
         }
-
-        return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken cancellationToken)

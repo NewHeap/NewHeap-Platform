@@ -17,6 +17,8 @@ tools. The host still owns transport, authentication, endpoint, and
 credentials. Only generated catalogs and runtime catalogs that implement
 `INhAiAttestedToolCatalog` and pass `NhAiToolCatalogAttestation` at startup, such
 as the `NewHeap.Platform.AI.AspNet.Mvc` API bridge, enter the NewHeap export path.
+Catalogs without an MCP-exposed descriptor, such as a run-scoped imported catalog
+that only serves agents, are skipped by the export path and may share the host.
 
 External MCP servers are a separate, untrusted boundary. Discover their tools
 with the official client and pass only reviewed entries to

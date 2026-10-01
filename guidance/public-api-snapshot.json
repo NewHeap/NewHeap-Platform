@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.52",
   "backEnd": {
-    "hash": "bb69a65b74990986c0706c6963a4f43c3d12add4467a7a8dbbba716a3b328db8",
+    "hash": "54309fb6cf5e195b57ef6b920596d9f4cccb6a5d86eb94d7dd727393dc32a375",
     "declarationCount": 5763,
     "declarations": [
       {
@@ -251,7 +251,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
-        "declaration": "public Task StartAsync(CancellationToken cancellationToken) {"
+        "declaration": "public async Task StartAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
@@ -5295,7 +5295,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs",
-        "declaration": "public Task StartAsync(CancellationToken cancellationToken) {"
+        "declaration": "public async Task StartAsync(CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs",

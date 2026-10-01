@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace NewHeap.Platform.AI;
 
@@ -26,7 +27,9 @@ public static class NhAiServiceCollectionExtensions
             services.TryAddScoped<INhAiModelProfileResolver, NhAiModelProfileResolver>();
             services.TryAddScoped<INhAiChatExecutor, NhAiChatExecutor>();
             services.TryAddScoped<INhAiInvocationContextFactory, NhAiInvocationContextFactory>();
-            services.TryAddScoped<INhAiToolInvoker, NhAiToolInvoker>();
+            // A factory keeps hosts without tools valid under ValidateOnBuild: only a host that
+            // actually resolves the invoker needs an invocation gate.
+            services.TryAddScoped<INhAiToolInvoker>(CreateToolInvoker);
             services.TryAddScoped<INhAiToolDiscoveryPolicy, NhAiDenyAllToolDiscoveryPolicy>();
             services.TryAddScoped<INhAiToolDiscoveryService, NhAiToolDiscoveryService>();
             services.TryAddScoped<INhAiContextResolver, NhAiContextResolver>();
@@ -58,6 +61,30 @@ public static class NhAiServiceCollectionExtensions
 
         configure?.Invoke(new NhAiBuilder(services, state));
         return services;
+    }
+
+    private static NhAiToolInvoker CreateToolInvoker(IServiceProvider provider)
+    {
+        var invocationGate = provider.GetService<INhAiToolInvocationGate>();
+        if (invocationGate is null)
+        {
+            throw new InvalidOperationException(
+                "AI tool invocation requires an INhAiToolInvocationGate. Call AddNewHeapPlatformAIAspNet or UseInvocationGate<TGate>() in a host that runs AI tools.");
+        }
+
+        return new NhAiToolInvoker(
+            invocationGate,
+            provider.GetServices<INhAiAuditSink>(),
+            provider.GetRequiredService<INhAiEffectPolicy>(),
+            provider.GetRequiredService<INhAiApprovalEvidenceProvider>(),
+            provider.GetRequiredService<INhAiApprovalValidator>(),
+            provider.GetRequiredService<INhAiIdempotencyManager>(),
+            provider.GetServices<INhAiToolVerifier>(),
+            provider.GetRequiredService<INhAiCapabilityResolver>(),
+            provider.GetRequiredService<INhAiBudgetManager>(),
+            provider.GetRequiredService<INhAiToolConcurrencyLimiter>(),
+            provider.GetService<INhAiAuthoritativeExecutionEvidenceValidator>(),
+            provider.GetService<ILogger<NhAiToolInvoker>>());
     }
 }
 

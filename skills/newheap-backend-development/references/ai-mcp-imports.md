@@ -35,6 +35,13 @@ audit behavior. Runtime arguments are also bounded before the remote call.
 Imported tools cannot be re-exported through MCP. MCP export accepts only
 descriptor-bound governed functions from a `SharedInvoker` catalog.
 
+When the imported servers depend on the agent or the person of a run, import
+them when the run starts and expose the result through a consumer-owned
+`INhAiToolCatalog` registered as a scoped service. Outside a run, including the
+startup validation scope, that catalog declares no tools. Because imported tools
+never carry MCP exposure, the catalog may share a host that publishes its own
+tools through `WithNewHeapPlatformAITools`.
+
 ## Avoid
 
 - Passing every tool returned by `ListToolsAsync` directly to a model.
@@ -44,6 +51,7 @@ descriptor-bound governed functions from a `SharedInvoker` catalog.
 - Allowing imported mutations to opt out of approval or idempotent mutations to omit idempotency.
 - Exporting a raw or self-declared catalog function that bypasses the shared invoker.
 - Re-exporting an imported tool through the NewHeap MCP server adapter.
+- Registering a run-specific imported catalog as a singleton or building it at startup.
 
 ## Verification
 
@@ -53,7 +61,10 @@ catalog contains only the namespaced read tool, exposes the reviewed local
 description, requires its local policy and capability, runs through the shared
 invoker, enforces schema/result limits, and never calls the unlisted tool.
 Also reject oversized runtime arguments and an ungoverned export catalog.
-SPM-228 is the executable reference.
+Register the run catalog as a scoped service in a Development host that also
+publishes generated tools over MCP: startup must pass container validation, the
+agent must run the imported tool through the shared invoker, and the MCP export
+must list only the generated tools. SPM-228 is the executable reference.
 
 ## Optional source evidence
 

@@ -3,7 +3,11 @@
 Provider-neutral contracts for exposing application-owned AI tools through
 `Microsoft.Extensions.AI`. Tool execution is fail-closed: consumers provide an
 `INhAiToolInvocationGate` that resolves and authorizes the invocation context
-before application code runs.
+before application code runs. A host that only uses model profiles needs no
+gate; it passes container validation, and resolving `INhAiToolInvoker` there
+fails with a clear configuration error. Tool catalogs may be registered as
+singletons or, when their tools depend on the current run, as scoped services;
+startup validation resolves them in a scope of its own.
 
 Provider-backed `IChatClient` instances remain consumer-owned. Register them as
 keyed services, then map stable application intent to those keys with

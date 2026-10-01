@@ -3003,14 +3003,16 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-220",
     "title": "Named AI model profile",
     "category": "AI tools and generated catalogs",
-    "surface": "AddNewHeapPlatformAI, AddChatProfile, keyed IChatClient, startup validation, and INhAiModelProfileResolver",
-    "outcome": "A consumer-owned deterministic chat client resolves through a stable project-assistant profile only when its declared capabilities, classification, execution region, budget, keyed client and fail-closed budget manager satisfy startup validation.",
+    "surface": "AddNewHeapPlatformAI, AddChatProfile, keyed IChatClient, startup validation, Development container validation, and INhAiModelProfileResolver",
+    "outcome": "A consumer-owned deterministic chat client resolves through a stable project-assistant profile only when its declared capabilities, classification, execution region, budget, keyed client and fail-closed budget manager satisfy startup validation. A worker that shares the AI composition without an invocation gate passes Development scope and build validation and fails clearly only when it resolves the tool invoker.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiModelProfileSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Test/NhAiDeterministicClients.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiFoundationTests.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiFoundationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiHostValidationTests.cs"
     ]
   },
   {
@@ -3032,7 +3034,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Generated tool over MCP",
     "category": "AI tools and generated catalogs",
     "surface": "WithNewHeapPlatformAITools, INhAiMcpToolAdapter, CallNewHeapToolAsync<TInput, TOutput>, official ASP.NET Streamable HTTP and in-memory MCP transports, generated AIFunction, and the shared discovery/invocation pipeline",
-    "outcome": "The API publishes the same generated project search implementation through the official stateless ASP.NET MCP transport. Every list and call resolves the current authenticated request independently; actor- and tenant-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` errors remain in the shared NewHeap pipeline. A typed .NET client passes generated input directly through the official helper, which creates the `input` envelope, honors explicit JSON options including omitted optional null properties, returns the typed `TaskResult<T>.data` value, and preserves failed MCP tool results in `NhAiMcpToolException`. Only generated catalogs and attested runtime catalogs (see SPM-243) enter the NewHeap export path. Independently governed external SDK tools can coexist under distinct wire names and continue using the official SDK directly, while duplicate NewHeap publication and export-name collisions fail at startup.",
+    "outcome": "The API publishes the same generated project search implementation through the official stateless ASP.NET MCP transport. Every list and call resolves the current authenticated request independently; actor- and tenant-specific discovery, invocation authorization, budget, cancellation, input bounds and structured `TaskResult` errors remain in the shared NewHeap pipeline. A typed .NET client passes generated input directly through the official helper, which creates the `input` envelope, honors explicit JSON options including omitted optional null properties, returns the typed `TaskResult<T>.data` value, and preserves failed MCP tool results in `NhAiMcpToolException`. Only generated catalogs and attested runtime catalogs (see SPM-243) enter the NewHeap export path; a catalog without MCP exposure, such as a run-scoped imported catalog (see SPM-228), is skipped. Independently governed external SDK tools can coexist under distinct wire names and continue using the official SDK directly, while duplicate NewHeap publication and export-name collisions fail at startup.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
@@ -3040,7 +3042,9 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientExtensions.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpToolAdapter.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAspNetMcpTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiHostValidationTests.cs"
     ]
   },
   {
@@ -3121,13 +3125,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-228",
     "title": "Governed external MCP tool import",
     "category": "AI tools and generated catalogs",
-    "surface": "INhAiMcpClientToolImporter, explicit per-server allow-list and namespace, local effect and authorization metadata, bounded remote schemas and results, and shared invocation governance",
-    "outcome": "Only the explicitly allowlisted external lookup is imported under a collision-safe namespace; its remote description grants no authority, an unlisted destructive-looking tool remains absent, and bounded arguments still cross NewHeap authorization, capability, budget, timeout, concurrency, idempotency, result-bound, and audit controls.",
+    "surface": "INhAiMcpClientToolImporter, explicit per-server allow-list and namespace, local effect and authorization metadata, bounded remote schemas and results, run-scoped INhAiToolCatalog registration, and shared invocation governance",
+    "outcome": "Only the explicitly allowlisted external lookup is imported under a collision-safe namespace; its remote description grants no authority, an unlisted destructive-looking tool remains absent, and bounded arguments still cross NewHeap authorization, capability, budget, timeout, concurrency, idempotency, result-bound, and audit controls. A run-scoped catalog over the tools a run imported passes Development container validation, is validated in its own startup scope, serves the agent through the shared invoker and stays out of the NewHeap MCP export of the same host.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiHostValidationTests.cs"
     ]
   },
   {

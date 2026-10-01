@@ -54,6 +54,39 @@ public sealed class AiModelProfileSamplesTests
     }
 
     [Fact]
+    public async Task Worker_composition_without_a_tool_gate_passes_container_validation()
+    {
+        // A worker that only uses the model profile shares the AI composition with the API but
+        // registers no invocation gate. Development validates scopes and registrations on build.
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            EnvironmentName = Environments.Development
+        });
+        var projects = new FakeProjects();
+        builder.Services.AddSingleton<IProjectAiMutationService>(projects);
+        builder.Services.AddSingleton<IProjectAiContextService>(projects);
+        builder.Services.AddSampleProjectManagementAi();
+        using var host = builder.Build();
+
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        await using var scope = host.Services.CreateAsyncScope();
+        var resolution = await scope.ServiceProvider
+            .GetRequiredService<INhAiModelProfileResolver>()
+            .ResolveChatAsync(new NhAiModelResolutionRequest(
+                "project-assistant",
+                NhAiModelCapability.StructuredOutput,
+                NhAiDataClassification.Internal,
+                "project-summary",
+                "local"));
+        var invokerFailure = Assert.Throws<InvalidOperationException>(
+            () => scope.ServiceProvider.GetRequiredService<INhAiToolInvoker>());
+
+        Assert.True(resolution.Success);
+        Assert.Contains("requires an INhAiToolInvocationGate", invokerFailure.Message, StringComparison.Ordinal);
+        await host.StopAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public void Api_composition_resolves_the_aspnet_tool_invocation_gate()
     {
         var services = new ServiceCollection();

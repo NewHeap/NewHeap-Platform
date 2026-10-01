@@ -100,7 +100,12 @@ name collisions and SDK registrations whose metadata identifies them as a
 NewHeap tool, because those form a second publication path. Only source-generated
 `INhAiGeneratedToolCatalog` implementations and runtime catalogs that implement
 `INhAiAttestedToolCatalog` and pass `NhAiToolCatalogAttestation` at startup, such as
-the API bridge catalog, enter the NewHeap export path.
+the API bridge catalog, enter the NewHeap export path. Any other catalog with an
+MCP-exposed descriptor fails at startup and on every list or call. A catalog
+without MCP exposure, such as a run-scoped imported MCP catalog that only serves
+agents, is skipped by the export path and may share the host. Catalogs may be
+registered as scoped services; startup validation resolves them in a scope of its
+own.
 
 ## Avoid
 
@@ -130,7 +135,10 @@ tool without a network or live model. Verify an unauthorized context receives no
 NewHeap tool, a direct call still passes the invocation gate, cancellation
 propagates, failed `TaskResult` values remain structured tool errors, an external
 SDK tool with a distinct name remains available, and an export-name collision
-fails at startup. Also call the generated tool through
+fails at startup. Start the host in the Development environment next to a
+run-scoped agent-only catalog and assert that only generated MCP tools are
+listed, while a hand-written catalog with MCP exposure still fails at startup.
+Also call the generated tool through
 `CallNewHeapToolAsync<TInput, TOutput>`, omit an optional null property through
 explicit serializer options, assert the typed data is returned, and assert a
 failed result becomes `NhAiMcpToolException` without changing direct SDK calls.
