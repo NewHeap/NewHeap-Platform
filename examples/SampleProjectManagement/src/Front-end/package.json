@@ -14,15 +14,15 @@
     "sync:nh-common": "node scripts/sync-nh-common.mjs"
   },
   "dependencies": {
-    "@angular/animations": "20.3.28",
+    "@angular/animations": "20.3.32",
     "@angular/cdk": "^20.2.14",
-    "@angular/common": "20.3.28",
-    "@angular/compiler": "20.3.28",
-    "@angular/core": "20.3.28",
-    "@angular/forms": "20.3.28",
-    "@angular/platform-browser": "20.3.28",
-    "@angular/platform-browser-dynamic": "20.3.28",
-    "@angular/router": "20.3.28",
+    "@angular/common": "20.3.32",
+    "@angular/compiler": "20.3.32",
+    "@angular/core": "20.3.32",
+    "@angular/forms": "20.3.32",
+    "@angular/platform-browser": "20.3.32",
+    "@angular/platform-browser-dynamic": "20.3.32",
+    "@angular/router": "20.3.32",
     "@microsoft/signalr": "^10.0.11",
     "@msgpack/msgpack": "^2.8.0",
     "@newheap/nh-toastr": "file:../../../../src/Front-end/projects/nh-toastr",
@@ -47,11 +47,12 @@
   "devDependencies": {
     "@angular/build": "^20.3.34",
     "@angular/cli": "^20.3.34",
-    "@angular/compiler-cli": "20.3.28",
+    "@angular/compiler-cli": "20.3.32",
     "typescript": "~5.9.2"
   },
   "overrides": {
     "@modelcontextprotocol/sdk": "1.30.0",
-    "@hono/node-server": "2.1.0"
+    "@hono/node-server": "2.1.0",
+    "piscina": "^5.3.2"
   }
 }
