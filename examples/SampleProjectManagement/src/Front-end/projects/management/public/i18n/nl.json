@@ -346,7 +346,12 @@
     "two-factor-administration-user-id": "Gebruikers-ID",
     "two-factor-administration-reset": "Tweestapsverificatie resetten",
     "two-factor-administration-reminders": "Inschrijfherinneringen versturen",
-    "two-factor-administration-revocation": "Sessies van niet-ingeschreven gebruikers beëindigen"
+    "two-factor-administration-revocation": "Sessies van niet-ingeschreven gebruikers beëindigen",
+    "assistant-collaboration-title": "Gedeelde en parallelle gesprekken",
+    "assistant-collaboration-description": "Prompts starten een nieuw gesprek terwijl het open gesprek nog bezig is, zodat meerdere gesprekken tegelijk lopen; de strook onder de kop van het paneel toont ze. Deel een gesprek via de kop van het paneel, of laat een collega het open gesprek voortzetten.",
+    "assistant-simulate-colleague": "{{name}} gaat verder in dit gesprek",
+    "assistant-colleague-working": "{{name}} stelt de assistent een vraag…",
+    "assistant-colleague-needs-conversation": "Open of start eerst een gesprek."
   },
   "nh-background-operations": {
     "operation": "Achtergrondtaak",

@@ -29,25 +29,125 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
             .SingleOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<(IReadOnlyList<AssistantConversation> Items, int Total)> ListConversationsAsync(
-        string ownerActorId,
+    public async Task<NhAssistantConversationAccess?> FindAccessAsync(
+        Guid conversationId,
+        string actorId,
+        string? tenantId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        await using var context = contextFactory.CreateDbContext();
+        var conversation = await context.Conversations
+            .AsNoTracking()
+            .Where(item => item.Id == conversationId
+                && item.Status != NhAssistantConversationStatuses.Archived)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (conversation is null)
+        {
+            return null;
+        }
+        if (string.Equals(conversation.OwnerActorId, actorId, StringComparison.Ordinal))
+        {
+            return new NhAssistantConversationAccess(conversation, actorId, null);
+        }
+
+        // A participant never reaches a conversation of another tenant, even with a stale row.
+        if (!string.Equals(conversation.TenantId, tenantId, StringComparison.Ordinal))
+        {
+            return null;
+        }
+        var participant = await context.Participants
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                item => item.ConversationId == conversationId && item.ActorId == actorId,
+                cancellationToken);
+        return participant is null
+            ? null
+            : new NhAssistantConversationAccess(conversation, actorId, participant);
+    }
+
+    public async Task<AssistantConversation?> FindShareableConversationAsync(
+        Guid conversationId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Conversations
+            .AsNoTracking()
+            .Where(conversation => conversation.Id == conversationId
+                && conversation.Status != NhAssistantConversationStatuses.Archived)
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<(IReadOnlyList<NhAssistantConversationListItem> Items, int Total)> ListConversationsAsync(
+        string actorId,
+        string? tenantId,
         int page,
         int itemsPerPage,
         CancellationToken cancellationToken)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
         await using var context = contextFactory.CreateDbContext();
         var query = context.Conversations
             .AsNoTracking()
-            .Where(conversation => conversation.OwnerActorId == ownerActorId
-                && conversation.Status != NhAssistantConversationStatuses.Archived);
+            .Where(conversation => conversation.Status != NhAssistantConversationStatuses.Archived
+                && (conversation.OwnerActorId == actorId
+                    || (conversation.TenantId == tenantId
+                        && conversation.Participants.Any(participant => participant.ActorId == actorId))));
         var total = await query.CountAsync(cancellationToken);
-        var items = await query
+        var rows = await query
             .OrderByDescending(conversation => conversation.UpdatedAt)
             .ThenBy(conversation => conversation.Id)
             .Skip((page - 1) * itemsPerPage)
             .Take(itemsPerPage)
+            .Select(conversation => new
+            {
+                Conversation = conversation,
+                ParticipantCount = conversation.Participants.Count(),
+                LastMessageSequence = conversation.Messages.Max(message => (int?)message.Sequence) ?? 0,
+                ParticipantLastRead = conversation.Participants
+                    .Where(participant => participant.ActorId == actorId)
+                    .Select(participant => (int?)participant.LastReadSequence)
+                    .FirstOrDefault()
+            })
             .ToListAsync(cancellationToken);
+
+        var items = new List<NhAssistantConversationListItem>(rows.Count);
+        foreach (var row in rows)
+        {
+            var isOwner = string.Equals(row.Conversation.OwnerActorId, actorId, StringComparison.Ordinal);
+            // An owner whose read state was never tracked has read everything.
+            var lastRead = isOwner
+                ? row.Conversation.OwnerLastReadSequence ?? row.LastMessageSequence
+                : row.ParticipantLastRead ?? 0;
+            items.Add(new NhAssistantConversationListItem(
+                row.Conversation,
+                isOwner ? NhAssistantParticipantRoles.Owner : NhAssistantParticipantRoles.Participant,
+                row.ParticipantCount,
+                row.LastMessageSequence,
+                lastRead));
+        }
         return (items, total);
+    }
+
+    public async Task<NhAssistantConversationState?> GetConversationStateAsync(
+        Guid conversationId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Conversations
+            .AsNoTracking()
+            .Where(conversation => conversation.Id == conversationId)
+            .Select(conversation => new NhAssistantConversationState(
+                conversation.Id,
+                conversation.Status,
+                conversation.Title,
+                conversation.UpdatedAt,
+                conversation.ActiveTurnId == null
+                    ? null
+                    : conversation.ActiveActorId ?? conversation.OwnerActorId,
+                conversation.Messages.Max(message => (int?)message.Sequence) ?? 0,
+                conversation.Participants.Count()))
+            .SingleOrDefaultAsync(cancellationToken);
     }
 
     public async Task<bool> TryArchiveConversationAsync(
@@ -66,6 +166,8 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
                 setters => setters
                     .SetProperty(conversation => conversation.Status, NhAssistantConversationStatuses.Archived)
                     .SetProperty(conversation => conversation.ActiveTurnId, (Guid?)null)
+                    .SetProperty(conversation => conversation.ActiveActorId, (string?)null)
+                    .SetProperty(conversation => conversation.ProtectedShareToken, (string?)null)
                     .SetProperty(conversation => conversation.UpdatedAt, now)
                     .SetProperty(conversation => conversation.ConcurrencyStamp, Guid.NewGuid()),
                 cancellationToken);
@@ -74,19 +176,19 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
 
     public async Task<bool> TryBeginTurnAsync(
         Guid conversationId,
-        string ownerActorId,
+        string actorId,
         IReadOnlyCollection<string> expectedStatuses,
         Guid turnId,
         DateTimeOffset staleBefore,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(expectedStatuses);
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
         var statuses = expectedStatuses.ToArray();
         await using var context = contextFactory.CreateDbContext();
         var now = DateTimeOffset.UtcNow;
         var affected = await context.Conversations
             .Where(conversation => conversation.Id == conversationId
-                && conversation.OwnerActorId == ownerActorId
                 && (statuses.Contains(conversation.Status)
                     || (conversation.Status == NhAssistantConversationStatuses.Running
                         && conversation.UpdatedAt < staleBefore)))
@@ -94,6 +196,7 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
                 setters => setters
                     .SetProperty(conversation => conversation.Status, NhAssistantConversationStatuses.Running)
                     .SetProperty(conversation => conversation.ActiveTurnId, turnId)
+                    .SetProperty(conversation => conversation.ActiveActorId, actorId)
                     .SetProperty(conversation => conversation.UpdatedAt, now)
                     .SetProperty(conversation => conversation.ConcurrencyStamp, Guid.NewGuid()),
                 cancellationToken);
@@ -109,9 +212,8 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
         ArgumentException.ThrowIfNullOrWhiteSpace(status);
         await using var context = contextFactory.CreateDbContext();
         var now = DateTimeOffset.UtcNow;
-        Guid? activeTurnId = status == NhAssistantConversationStatuses.WaitingForApproval
-            ? turnId
-            : null;
+        var waiting = status == NhAssistantConversationStatuses.WaitingForApproval;
+        Guid? activeTurnId = waiting ? turnId : null;
         var affected = await context.Conversations
             .Where(conversation => conversation.Id == conversationId
                 && conversation.ActiveTurnId == turnId
@@ -120,6 +222,10 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
                 setters => setters
                     .SetProperty(conversation => conversation.Status, status)
                     .SetProperty(conversation => conversation.ActiveTurnId, activeTurnId)
+                    // The actor who waits for approval keeps the turn; any other outcome releases it.
+                    .SetProperty(
+                        conversation => conversation.ActiveActorId,
+                        conversation => waiting ? conversation.ActiveActorId : null)
                     .SetProperty(conversation => conversation.UpdatedAt, now)
                     .SetProperty(conversation => conversation.ConcurrencyStamp, Guid.NewGuid()),
                 cancellationToken);
@@ -204,6 +310,18 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
             .ToListAsync(cancellationToken);
         latest.Reverse();
         return latest;
+    }
+
+    public async Task<AssistantMessage?> GetFirstUserMessageAsync(
+        Guid conversationId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Messages
+            .AsNoTracking()
+            .Where(message => message.ConversationId == conversationId && message.Role == NhAssistantMessageRoles.User)
+            .OrderBy(message => message.Sequence)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task AddToolInvocationAsync(
@@ -343,22 +461,197 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
 
     public async Task<bool> TryReleaseWaitingConversationAsync(
         Guid conversationId,
-        string ownerActorId,
         CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
         var now = DateTimeOffset.UtcNow;
         var affected = await context.Conversations
             .Where(conversation => conversation.Id == conversationId
-                && conversation.OwnerActorId == ownerActorId
                 && conversation.Status == NhAssistantConversationStatuses.WaitingForApproval)
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(conversation => conversation.Status, NhAssistantConversationStatuses.Idle)
                     .SetProperty(conversation => conversation.ActiveTurnId, (Guid?)null)
+                    .SetProperty(conversation => conversation.ActiveActorId, (string?)null)
                     .SetProperty(conversation => conversation.UpdatedAt, now)
                     .SetProperty(conversation => conversation.ConcurrencyStamp, Guid.NewGuid()),
                 cancellationToken);
         return affected == 1;
+    }
+
+    public async Task<int?> MarkReadAsync(
+        NhAssistantConversationAccess access,
+        int sequence,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(access);
+        await using var context = contextFactory.CreateDbContext();
+        var conversationId = access.Conversation.Id;
+        var latest = await context.Messages
+            .Where(message => message.ConversationId == conversationId)
+            .Select(message => (int?)message.Sequence)
+            .MaxAsync(cancellationToken) ?? 0;
+        var target = Math.Clamp(sequence, 0, latest);
+
+        int affected;
+        if (access.IsOwner)
+        {
+            affected = await context.Conversations
+                .Where(conversation => conversation.Id == conversationId
+                    && conversation.OwnerActorId == access.ActorId
+                    && (conversation.OwnerLastReadSequence == null || conversation.OwnerLastReadSequence < target))
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(conversation => conversation.OwnerLastReadSequence, target),
+                    cancellationToken);
+        }
+        else
+        {
+            affected = await context.Participants
+                .Where(participant => participant.ConversationId == conversationId
+                    && participant.ActorId == access.ActorId
+                    && participant.LastReadSequence < target)
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(participant => participant.LastReadSequence, target),
+                    cancellationToken);
+        }
+        return affected == 1 ? target : null;
+    }
+
+    public async Task UpdateDisplayNameAsync(
+        NhAssistantConversationAccess access,
+        string displayName,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(access);
+        ArgumentNullException.ThrowIfNull(displayName);
+        await using var context = contextFactory.CreateDbContext();
+        var conversationId = access.Conversation.Id;
+        if (access.IsOwner)
+        {
+            await context.Conversations
+                .Where(conversation => conversation.Id == conversationId
+                    && conversation.OwnerActorId == access.ActorId
+                    && (conversation.OwnerDisplayName == null || conversation.OwnerDisplayName != displayName))
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(conversation => conversation.OwnerDisplayName, displayName),
+                    cancellationToken);
+            return;
+        }
+
+        await context.Participants
+            .Where(participant => participant.ConversationId == conversationId
+                && participant.ActorId == access.ActorId
+                && participant.DisplayName != displayName)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(participant => participant.DisplayName, displayName),
+                cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<AssistantConversationParticipant>> GetParticipantsAsync(
+        Guid conversationId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Participants
+            .AsNoTracking()
+            .Where(participant => participant.ConversationId == conversationId)
+            .OrderBy(participant => participant.JoinedAt)
+            .ThenBy(participant => participant.ActorId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<NhAssistantParticipantAddResult> TryAddParticipantAsync(
+        AssistantConversationParticipant participant,
+        int maximumParticipants,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(participant);
+        await using var context = contextFactory.CreateDbContext();
+        var conversationId = participant.ConversationId;
+        var actorId = participant.ActorId;
+        if (await context.Participants.AnyAsync(
+            item => item.ConversationId == conversationId && item.ActorId == actorId,
+            cancellationToken))
+        {
+            return NhAssistantParticipantAddResult.AlreadyParticipant;
+        }
+        var count = await context.Participants.CountAsync(
+            item => item.ConversationId == conversationId,
+            cancellationToken);
+        if (count >= maximumParticipants)
+        {
+            return NhAssistantParticipantAddResult.LimitReached;
+        }
+
+        context.Participants.Add(participant);
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            return NhAssistantParticipantAddResult.Added;
+        }
+        catch (DbUpdateException)
+        {
+            // A concurrent join of the same actor won the insert; any other failure is rethrown.
+            await using var verification = contextFactory.CreateDbContext();
+            if (await verification.Participants.AnyAsync(
+                item => item.ConversationId == conversationId && item.ActorId == actorId,
+                cancellationToken))
+            {
+                return NhAssistantParticipantAddResult.AlreadyParticipant;
+            }
+            throw;
+        }
+    }
+
+    public async Task<bool> TryRemoveParticipantAsync(
+        Guid conversationId,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var affected = await context.Participants
+            .Where(participant => participant.ConversationId == conversationId && participant.ActorId == actorId)
+            .ExecuteDeleteAsync(cancellationToken);
+        return affected == 1;
+    }
+
+    public async Task<bool> SetProtectedShareTokenAsync(
+        Guid conversationId,
+        string ownerActorId,
+        string? protectedToken,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var affected = await context.Conversations
+            .Where(conversation => conversation.Id == conversationId
+                && conversation.OwnerActorId == ownerActorId
+                && conversation.Status != NhAssistantConversationStatuses.Archived)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(conversation => conversation.ProtectedShareToken, protectedToken),
+                cancellationToken);
+        return affected == 1;
+    }
+
+    public async Task<IReadOnlyList<string>> GetAudienceAsync(
+        Guid conversationId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var owner = await context.Conversations
+            .AsNoTracking()
+            .Where(conversation => conversation.Id == conversationId
+                && conversation.Status != NhAssistantConversationStatuses.Archived)
+            .Select(conversation => conversation.OwnerActorId)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (owner is null)
+        {
+            return [];
+        }
+        var participants = await context.Participants
+            .AsNoTracking()
+            .Where(participant => participant.ConversationId == conversationId)
+            .Select(participant => participant.ActorId)
+            .ToListAsync(cancellationToken);
+        return [owner, .. participants];
     }
 }

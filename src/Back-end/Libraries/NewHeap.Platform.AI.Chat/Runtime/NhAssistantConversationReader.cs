@@ -12,24 +12,42 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
 {
     public const int MaxMessages = 200;
 
+    /// <summary>
+    /// Returns the conversation as the owner or a participant of the same tenant sees it.
+    /// </summary>
     public async Task<NhAssistantConversationView?> GetAsync(
         Guid conversationId,
-        string ownerActorId,
+        string actorId,
+        string? tenantId,
         CancellationToken cancellationToken)
     {
-        var conversation = await store.FindConversationAsync(conversationId, ownerActorId, cancellationToken);
-        if (conversation is null)
+        var access = await store.FindAccessAsync(conversationId, actorId, tenantId, cancellationToken);
+        if (access is null)
         {
             return null;
         }
-        return await CreateViewAsync(conversation, cancellationToken);
+        return await CreateViewAsync(access, cancellationToken);
     }
 
-    public async Task<NhAssistantConversationView> CreateViewAsync(
+    /// <summary>
+    /// Returns the conversation as its owner sees it.
+    /// </summary>
+    public Task<NhAssistantConversationView> CreateViewAsync(
         AssistantConversation conversation,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(conversation);
+        return CreateViewAsync(
+            new NhAssistantConversationAccess(conversation, conversation.OwnerActorId, null),
+            cancellationToken);
+    }
+
+    public async Task<NhAssistantConversationView> CreateViewAsync(
+        NhAssistantConversationAccess access,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(access);
+        var conversation = access.Conversation;
         var messages = await store.GetMessagesAsync(conversation.Id, MaxMessages, cancellationToken);
         var storedParts = messages.ToDictionary(
             message => message.Id,
@@ -70,7 +88,13 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
                         break;
                 }
             }
-            messageViews.Add(new NhAssistantMessageView(message.Id, message.Role, message.CreatedAt, parts));
+            messageViews.Add(new NhAssistantMessageView(message.Id, message.Role, message.CreatedAt, parts)
+            {
+                Sequence = message.Sequence,
+                AuthorActorId = message.Role == NhAssistantMessageRoles.User
+                    ? message.AuthorActorId ?? conversation.OwnerActorId
+                    : null
+            });
         }
 
         NhAssistantApprovalView? pending = null;
@@ -79,6 +103,24 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
             var pendingApproval = await store.FindPendingApprovalAsync(conversation.Id, cancellationToken);
             pending = pendingApproval is null ? null : ToView(pendingApproval);
         }
+
+        var participants = await store.GetParticipantsAsync(conversation.Id, cancellationToken);
+        IReadOnlyList<NhAssistantMemberView> members = participants.Count == 0
+            ? []
+            :
+            [
+                new NhAssistantMemberView(
+                    conversation.OwnerActorId,
+                    conversation.OwnerDisplayName ?? string.Empty,
+                    NhAssistantParticipantRoles.Owner,
+                    conversation.CreatedAt),
+                .. participants.Select(participant => new NhAssistantMemberView(
+                    participant.ActorId,
+                    participant.DisplayName,
+                    NhAssistantParticipantRoles.Participant,
+                    participant.JoinedAt))
+            ];
+        var lastMessageSequence = messages.Count == 0 ? 0 : messages.Max(message => message.Sequence);
 
         return new NhAssistantConversationView(
             conversation.Id,
@@ -89,7 +131,15 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
             conversation.CreatedAt,
             conversation.UpdatedAt,
             messageViews,
-            pending);
+            pending)
+        {
+            Role = access.Role,
+            LastReadSequence = access.LastReadSequence ?? lastMessageSequence,
+            LastMessageSequence = lastMessageSequence,
+            ActiveActorId = access.ActiveActorId,
+            Members = members,
+            ProtectedShareToken = access.IsOwner ? conversation.ProtectedShareToken : null
+        };
     }
 
     public static NhAssistantToolCallPartView ToView(AssistantToolInvocation invocation)

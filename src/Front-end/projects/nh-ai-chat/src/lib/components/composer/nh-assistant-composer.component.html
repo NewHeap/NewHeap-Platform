@@ -14,7 +14,7 @@
     (keydown)="onKeydown($event)"></textarea>
 
   <div class="actions">
-    @if (busy()) {
+    @if (busy() && canStop()) {
       <button
         class="stop"
         type="button"
@@ -38,7 +38,11 @@
 
 @if (status(); as status) {
   <p class="composer-status" role="status" aria-live="polite">
-    {{ 'nh-assistant.composer.status.' + status | translate }}
+    @if (statusActor(); as name) {
+      {{ 'nh-assistant.composer.status.' + status + '-by' | translate: { name } }}
+    } @else {
+      {{ 'nh-assistant.composer.status.' + status | translate }}
+    }
   </p>
 }
 

@@ -77,6 +77,15 @@ cdk-virtual-scroll-viewport.scroller {
   background: var(--nha-user-bubble);
 }
 
+.message[data-others='true'] {
+  align-items: flex-start;
+}
+
+.message[data-others='true'] .bubble {
+  color: var(--nha-text);
+  background: var(--nha-surface-strong);
+}
+
 .message[data-role='assistant'] .bubble,
 .message[data-role='tool'] .bubble {
   border: 1px solid var(--nha-border);

@@ -122,3 +122,19 @@ h3 {
     font-size: 12px;
   }
 }
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+
+  input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--nha-highlight);
+  }
+}

@@ -42,6 +42,42 @@ export interface NhAssistantConfig {
   adminRoute?: string | any[];
   /** Renders assistant text as sanitized Markdown. Default `{ enabled: true }`. */
   markdown?: { enabled: boolean };
+  /**
+   * Live updates of shared and parallel conversations through the server's SignalR hub, which
+   * `GET status` reports. Uses `@microsoft/signalr`, loaded on first use. Default `true`; when off
+   * or unavailable the assistant reloads snapshots instead.
+   */
+  liveUpdates?: boolean;
+  /**
+   * Base the server's hub path is appended to, for example `'/api'` when a proxy serves the API
+   * below a prefix, as for the NewHeap background operation hub. Default: the origin of `apiBaseUrl`.
+   */
+  hubBaseUrl?: string;
+  /**
+   * Web Push notifications for people who are away. Copy the bundled worker from
+   * `node_modules/@newheap/platform-ai-chat/push` into the application's assets and point
+   * `serviceWorkerUrl` to it. Without this setting the assistant never subscribes the browser.
+   */
+  push?: NhAssistantPushConfig;
+  /**
+   * Builds the invitation link an owner copies. Default: the current page with
+   * `#nh-assistant-join=<conversationId>.<token>`; the panel joins when the page opens with it.
+   */
+  buildShareLink?: (conversationId: string, token: string) => string;
+}
+
+export interface NhAssistantPushConfig {
+  /** URL of the bundled worker, for example `/nh-assistant/nh-assistant-push-worker.js`. */
+  serviceWorkerUrl: string;
+  /**
+   * Scope of the worker. Default: the worker's folder. Keep it apart from an application service
+   * worker; the assistant worker only shows notifications and never controls pages.
+   */
+  scope?: string;
+  /** Page a notification opens when no window of the application is open. Default `/`. */
+  openUrl?: string;
+  /** Icon URL of the notifications. */
+  icon?: string;
 }
 
 export const NH_ASSISTANT_CONFIG = new InjectionToken<NhAssistantConfig>('NH_ASSISTANT_CONFIG');

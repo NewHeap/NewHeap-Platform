@@ -15,7 +15,23 @@ export interface AssistantStatus {
   };
   /** True when the caller also passes the admin policy and may use the `admin/*` endpoints. */
   canAdminister: boolean;
+  /** Sharing, live update and notification features; missing on servers without them. */
+  collaboration?: AssistantCollaboration | null;
 }
+
+export interface AssistantCollaboration {
+  /** Owners can invite colleagues directly through the application's directory. */
+  directory: boolean;
+  /** Path of the SignalR hub for live updates, for example `/hub/assistant`; `null` when off. */
+  hubPath: string | null;
+  /** Web Push notifications are configured on the server. */
+  push: boolean;
+  /** Maximum participants per conversation, not counting the owner. */
+  maxParticipants: number;
+}
+
+/** The caller's relation to a conversation. */
+export type ConversationRole = 'owner' | 'participant';
 
 export interface AgentSummary {
   id: string;
@@ -32,21 +48,50 @@ export interface ConversationSummary {
   status: ConversationStatus;
   createdAt: string;
   updatedAt: string;
+  /** Default `owner` for servers without sharing. */
+  role?: ConversationRole;
+  /** People the owner shared the conversation with. */
+  participantCount?: number;
+  /** Sequence of the latest message. */
+  lastMessageSequence?: number;
+  /** The caller's read position; the conversation is unread while it is lower than `lastMessageSequence`. */
+  lastReadSequence?: number;
+  /** The owner or participant whose turn runs or waits for approval. */
+  activeActorId?: string | null;
 }
 
 export interface Conversation extends ConversationSummary {
   agentVersion: number;
   messages: Message[];
   pendingApproval: ApprovalPart | null;
+  /** The owner followed by the participants; empty while the conversation is not shared. */
+  members?: ConversationMember[];
+  /** The current invitation-link token; only for the owner. */
+  shareToken?: string | null;
+  /** The caller's actor id, to recognize the caller's own messages. */
+  currentActorId?: string | null;
 }
 
 export type ConversationStatus = 'idle' | 'running' | 'waiting-for-approval' | 'failed' | 'archived';
+
+/** The owner or a participant of a shared conversation. */
+export interface ConversationMember {
+  actorId: string;
+  /** `null` when the application provides no name. */
+  displayName: string | null;
+  role: ConversationRole;
+  joinedAt: string;
+}
 
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'tool';
   createdAt: string;
   parts: MessagePart[];
+  /** Position in the conversation; missing on optimistic messages and old servers. */
+  sequence?: number;
+  /** The writer of a user message. */
+  authorActorId?: string | null;
 }
 
 export type MessagePart = TextPart | ToolCallPart | ApprovalPart;
@@ -152,4 +197,33 @@ export interface DecideApprovalRequest {
   decision: ApprovalDecision;
   expectedProposalHash: string;
   reason?: string;
+}
+
+/** Response of `POST conversations/{id}/share-link`. */
+export interface ShareLink {
+  token: string;
+}
+
+/** A person the owner may invite, from the application's directory. */
+export interface DirectoryEntry {
+  actorId: string;
+  displayName: string;
+  detail: string | null;
+}
+
+/** Response of `GET` and `PUT notifications`. */
+export interface NotificationSettings {
+  /** The caller's choice; on by default. */
+  pushEnabled: boolean;
+  /** The server has Web Push configured. */
+  pushAvailable: boolean;
+  /** The VAPID key browsers subscribe with. */
+  publicKey: string | null;
+}
+
+/** Body of `PUT notifications/push-subscription`: `PushSubscription.toJSON()` plus the text language. */
+export interface PushSubscriptionRequest {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+  language?: string;
 }

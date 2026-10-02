@@ -8,7 +8,11 @@ import {
   ConversationPage,
   CreateConversationRequest,
   DecideApprovalRequest,
-  SendMessageRequest
+  DirectoryEntry,
+  NotificationSettings,
+  PushSubscriptionRequest,
+  SendMessageRequest,
+  ShareLink
 } from '../models/assistant-api.models';
 import {
   NH_ASSISTANT_SSE_EVENT_TYPES,
@@ -69,6 +73,67 @@ export class NhAssistantApiService {
 
   cancel(conversationId: string): Observable<void> {
     return this.transport.json<void>('POST', `conversations/${encodeURIComponent(conversationId)}/cancel`);
+  }
+
+  /** Raises the caller's read position to `sequence`, or to the latest message when omitted. */
+  markRead(conversationId: string, sequence?: number): Observable<void> {
+    return this.transport.json<void>(
+      'POST',
+      `conversations/${encodeURIComponent(conversationId)}/read`,
+      sequence === undefined ? {} : { sequence }
+    );
+  }
+
+  /** Owner only: creates a new invitation link; an earlier link stops working. */
+  createShareLink(conversationId: string): Observable<ShareLink> {
+    return this.transport.json<ShareLink>('POST', `conversations/${encodeURIComponent(conversationId)}/share-link`);
+  }
+
+  /** Owner only: the invitation link stops working; people who joined stay. */
+  revokeShareLink(conversationId: string): Observable<void> {
+    return this.transport.json<void>('DELETE', `conversations/${encodeURIComponent(conversationId)}/share-link`);
+  }
+
+  /** Joins a shared conversation with the token of its invitation link. */
+  joinConversation(conversationId: string, token: string): Observable<Conversation> {
+    return this.transport.json<Conversation>('POST', `conversations/${encodeURIComponent(conversationId)}/join`, { token });
+  }
+
+  /** Owner only: searches the application's directory for people to invite. */
+  searchParticipantCandidates(conversationId: string, query: string): Observable<DirectoryEntry[]> {
+    const path = `conversations/${encodeURIComponent(conversationId)}/participant-candidates?query=${encodeURIComponent(query)}`;
+    return this.transport.json<DirectoryEntry[]>('GET', path);
+  }
+
+  /** Owner only: invites a person the directory returned. */
+  inviteParticipant(conversationId: string, actorId: string): Observable<void> {
+    return this.transport.json<void>('POST', `conversations/${encodeURIComponent(conversationId)}/participants`, { actorId });
+  }
+
+  /** The owner removes a participant, or a participant passes their own id to leave. */
+  removeParticipant(conversationId: string, actorId: string): Observable<void> {
+    const path = `conversations/${encodeURIComponent(conversationId)}/participants/${encodeURIComponent(actorId)}`;
+    return this.transport.json<void>('DELETE', path);
+  }
+
+  /** The caller's notification choice and the server's Web Push key. */
+  getNotificationSettings(): Observable<NotificationSettings> {
+    return this.transport.json<NotificationSettings>('GET', 'notifications');
+  }
+
+  /** Turns push notifications on or off for every browser of the caller. */
+  updateNotificationSettings(pushEnabled: boolean): Observable<NotificationSettings> {
+    return this.transport.json<NotificationSettings>('PUT', 'notifications', { pushEnabled });
+  }
+
+  /** Registers this browser's push subscription for the caller. */
+  subscribePush(subscription: PushSubscriptionRequest): Observable<void> {
+    return this.transport.json<void>('PUT', 'notifications/push-subscription', subscription);
+  }
+
+  /** Removes this browser's push subscription. */
+  unsubscribePush(endpoint: string): Observable<void> {
+    return this.transport.json<void>('DELETE', 'notifications/push-subscription', { endpoint });
   }
 
   /** The caller's own assistant preferences. */

@@ -131,7 +131,8 @@ pre {
 }
 
 .expiry,
-.deciding {
+.deciding,
+.waiting-for-other {
   display: flex;
   align-items: center;
   gap: 6px;

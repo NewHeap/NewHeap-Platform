@@ -15,6 +15,8 @@ import {
   ASSISTANT_PLAYGROUND_ADMIN_ROUTE,
   ASSISTANT_PLAYGROUND_PROMPTS,
   PLAYGROUND_CHANGED_REMOTE_TOOLS,
+  PLAYGROUND_COLLEAGUE,
+  PLAYGROUND_COLLEAGUE_MESSAGE,
   PLAYGROUND_PROJECT_PAGES,
   PLAYGROUND_MCP_SERVER_ID
 } from './assistant-playground.scenario';
@@ -23,6 +25,8 @@ import { SampleAssistantPageContext } from './sample-assistant.config';
 /**
  * Executable evidence for the assistant panel: a scripted mock API, the feature flag and
  * the access policy as switches, prompts for every scripted turn and the live store state.
+ * Prompts start a new conversation while another one still runs, so several conversations
+ * work at the same time, and a simulated colleague continues a shared conversation live.
  */
 @Component({
   selector: 'app-assistant-playground',
@@ -44,6 +48,10 @@ export class AssistantPlaygroundComponent {
   readonly schemaChangeSimulated = signal(false);
   readonly projectPages = PLAYGROUND_PROJECT_PAGES;
   readonly pageContext = inject(SampleAssistantPageContext);
+  readonly colleague = PLAYGROUND_COLLEAGUE;
+  readonly colleagueBusy = signal(false);
+  readonly canSimulateColleague = computed(() =>
+    !this.colleagueBusy() && this.store.activeConversation()?.status === 'idle' && !this.store.streaming());
 
   constructor() {
     // Leaving the page closes the simulated project page, as a real page would on destroy.
@@ -78,13 +86,31 @@ export class AssistantPlaygroundComponent {
     }
   }
 
+  /**
+   * Sends a prompt. When the open conversation is busy, the prompt starts a new conversation
+   * and the other one keeps running in the background.
+   */
   async tryPrompt(text: string): Promise<void> {
     this.panel.open();
     await this.store.initialize();
-    if (this.store.activeConversation()?.status !== 'idle') {
+    if (this.store.streaming() || (this.store.activeConversation()?.status ?? 'idle') !== 'idle') {
       this.store.startNewConversation();
     }
     await this.store.send(text);
+  }
+
+  /** The colleague joins the open conversation and asks the assistant something; it arrives live. */
+  async simulateColleague(): Promise<void> {
+    const conversationId = this.store.activeConversation()?.id;
+    if (!conversationId || !this.canSimulateColleague()) {
+      return;
+    }
+    this.colleagueBusy.set(true);
+    try {
+      await this.backend.simulateParticipantTurn(conversationId, PLAYGROUND_COLLEAGUE, PLAYGROUND_COLLEAGUE_MESSAGE);
+    } finally {
+      this.colleagueBusy.set(false);
+    }
   }
 
   async setAdminGranted(granted: boolean): Promise<void> {

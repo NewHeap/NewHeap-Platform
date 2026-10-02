@@ -7,6 +7,7 @@ import {
   NhAssistantAccessPolicy,
   NhAssistantConfig,
   NhAssistantIconName,
+  NhAssistantPushConfig,
   provideNhAssistant
 } from '@newheap/platform-ai-chat';
 import { SampleAuthService } from 'sample-project-management-common';
@@ -50,7 +51,11 @@ export const SAMPLE_ASSISTANT_ICONS: Record<NhAssistantIconName, string> = {
   edit: 'ph ph-pencil-simple',
   refresh: 'ph ph-arrows-clockwise',
   link: 'ph ph-plugs-connected',
-  page: 'ph ph-file-text'
+  page: 'ph ph-file-text',
+  users: 'ph ph-users',
+  copy: 'ph ph-copy',
+  bell: 'ph ph-bell',
+  leave: 'ph ph-sign-out'
 };
 
 /** The bearer token of the NewHeap session; runs in the assistant's injection context. */
@@ -99,9 +104,19 @@ export function sampleAssistantPageContext(): ClientContext | null {
 }
 
 /**
+ * Web Push for the portal. `angular.json` copies the bundled worker from
+ * `@newheap/platform-ai-chat/push` to `/nh-assistant/`; the worker gets its own scope there and
+ * opens the portal when a notification is clicked while no portal window is open.
+ */
+export const SAMPLE_ASSISTANT_PUSH: NhAssistantPushConfig = {
+  serviceWorkerUrl: '/nh-assistant/nh-assistant-push-worker.js',
+  openUrl: '/management'
+};
+
+/**
  * Registers the assistant for the management portal: the `/api/assistant` endpoints,
- * the NewHeap session token, the page context, the permission-based access policy and the
- * sample icons.
+ * the NewHeap session token, the page context, the permission-based access policy, live
+ * updates through the `/hub/assistant` hub the server reports, Web Push and the sample icons.
  */
 export function provideSampleAssistant(overrides: Partial<NhAssistantConfig> = {}): EnvironmentProviders {
   return makeEnvironmentProviders([
@@ -111,6 +126,9 @@ export function provideSampleAssistant(overrides: Partial<NhAssistantConfig> = {
       getPageContext: sampleAssistantPageContext,
       getStateScope: sampleAssistantStateScope,
       accessPolicy: SampleAssistantAccessPolicy,
+      // The development proxy serves the API below /api, like the background operation hub.
+      hubBaseUrl: '/api',
+      push: SAMPLE_ASSISTANT_PUSH,
       ...overrides
     }),
     { provide: NH_ASSISTANT_ICONS, useValue: SAMPLE_ASSISTANT_ICONS }

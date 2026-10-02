@@ -23,6 +23,31 @@ public static class NhAssistantMessageRoles
 }
 
 /// <summary>
+/// The caller's relation to a conversation, exposed by the assistant HTTP contract.
+/// </summary>
+public static class NhAssistantParticipantRoles
+{
+    public const string Owner = "owner";
+    public const string Participant = "participant";
+}
+
+/// <summary>
+/// How a participant joined a shared conversation.
+/// </summary>
+public static class NhAssistantParticipantSources
+{
+    /// <summary>
+    /// The participant opened the owner's invitation link.
+    /// </summary>
+    public const string Link = "link";
+
+    /// <summary>
+    /// The owner invited the participant through the application's participant directory.
+    /// </summary>
+    public const string Invitation = "invitation";
+}
+
+/// <summary>
 /// Tool-call status values exposed by the assistant HTTP contract.
 /// </summary>
 public static class NhAssistantToolCallStatuses
@@ -92,6 +117,45 @@ public static class NhAssistantErrorCodes
     public const string ModelUnavailable = "assistant-model-unavailable";
     public const string TurnFailed = "assistant-turn-failed";
     public const string ContextUnavailable = "assistant-context-unavailable";
+
+    /// <summary>
+    /// Only the owner may share, invite, remove participants or delete the conversation.
+    /// </summary>
+    public const string OwnerRequired = "assistant-owner-required";
+
+    /// <summary>
+    /// The pending approval belongs to the turn of another participant.
+    /// </summary>
+    public const string ApprovalForbidden = "assistant-approval-forbidden";
+
+    /// <summary>
+    /// Only the owner or the participant who started the turn may stop it.
+    /// </summary>
+    public const string TurnForbidden = "assistant-turn-forbidden";
+
+    /// <summary>
+    /// The invitation link is unknown, revoked or replaced.
+    /// </summary>
+    public const string ShareLinkInvalid = "assistant-share-link-invalid";
+
+    public const string ParticipantNotFound = "assistant-participant-not-found";
+
+    public const string ParticipantLimitReached = "assistant-participant-limit-reached";
+
+    /// <summary>
+    /// The application registered no participant directory, so direct invitations are unavailable.
+    /// </summary>
+    public const string DirectoryUnavailable = "assistant-directory-unavailable";
+
+    /// <summary>
+    /// Web Push is not configured on the server.
+    /// </summary>
+    public const string PushUnavailable = "assistant-push-unavailable";
+
+    /// <summary>
+    /// The push subscription has an invalid shape or an endpoint outside the allowed push services.
+    /// </summary>
+    public const string PushSubscriptionInvalid = "assistant-push-subscription-invalid";
 
     /// <summary>
     /// Creates the localization key for a code.

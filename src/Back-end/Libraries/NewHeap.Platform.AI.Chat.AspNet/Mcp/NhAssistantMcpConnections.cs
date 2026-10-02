@@ -454,6 +454,7 @@ internal sealed partial class NhAssistantMcpToolSource(
     NhAssistantMcpConnectionPlanner planner,
     NhAssistantMcpConnectionCache cache,
     INhAiMcpClientToolImporter importer,
+    NhAssistantMcpContextBindings contextBindings,
     NhAssistantRegistrationState state,
     IOptionsMonitor<NhAssistantOptions> options,
     IHttpContextAccessor httpContextAccessor,
@@ -578,7 +579,9 @@ internal sealed partial class NhAssistantMcpToolSource(
             {
                 Approval = readOnly ? NhAiApprovalRequirement.PolicyControlled : NhAiApprovalRequirement.Required,
                 Idempotency = readOnly ? NhAiIdempotencySupport.None : NhAiIdempotencySupport.Required,
-                DataClassification = NhAiDataClassification.Internal
+                DataClassification = NhAiDataClassification.Internal,
+                // Only a host-reviewed server, URL and tool receives the assistant context.
+                InvocationBinderId = contextBindings.Find(server, tool.RemoteName) is null ? null : NhAssistantMcpContextBinder.BinderId
             });
             remotes.Add(remote);
         }

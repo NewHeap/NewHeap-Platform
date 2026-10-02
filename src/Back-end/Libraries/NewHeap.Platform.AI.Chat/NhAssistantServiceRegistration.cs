@@ -1,7 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.AgentFramework;
+using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Governance;
+using NewHeap.Platform.AI.Chat.Live;
+using NewHeap.Platform.AI.Chat.Notifications;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runtime;
 
@@ -61,7 +64,18 @@ internal static class NhAssistantServiceRegistration
         services.TryAddSingleton<NhAssistantTurnCancellationRegistry>();
         services.TryAddScoped<INhAssistantTurnRunner, NhAssistantTurnRunner>();
         services.TryAddScoped<NhAssistantConversationReader>();
+        services.TryAddScoped<INhAssistantConversationSnapshotProvider, NhAssistantConversationSnapshotProvider>();
         services.TryAddScoped<INhAssistantTitleGenerator, NhAssistantFirstLineTitleGenerator>();
+
+        // Collaboration: sharing, read state, live updates and notifications. The ASP.NET package
+        // replaces the transport, the notifier and the token protector.
+        services.TryAddSingleton<NhAssistantConversationAudience>();
+        services.TryAddSingleton<INhAssistantLiveUpdateTransport, NhAssistantNoLiveUpdateTransport>();
+        services.TryAddScoped<NhAssistantLivePublisher>();
+        services.TryAddScoped<INhAssistantNotifier, NhAssistantNoNotifier>();
+        services.TryAddScoped<NhAssistantNotificationStore>();
+        services.TryAddScoped<NhAssistantCollaboration>();
+        services.TryAddScoped<INhAssistantDisplayNameResolver, NhAssistantClaimsDisplayNameResolver>();
         return state;
     }
 

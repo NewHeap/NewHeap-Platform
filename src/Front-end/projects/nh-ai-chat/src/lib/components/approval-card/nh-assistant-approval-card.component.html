@@ -43,7 +43,14 @@
     }
   </details>
 
-  @if (actionable()) {
+  @if (actionable() && !canDecide()) {
+    <p class="waiting-for-other" role="status">
+      <nh-assistant-icon name="users" />
+      {{ decisionOwner()
+        ? ('nh-assistant.approval.waiting-for' | translate: { name: decisionOwner() })
+        : ('nh-assistant.approval.waiting-for-participant' | translate) }}
+    </p>
+  } @else if (actionable()) {
     <p class="expiry" aria-live="off">
       <nh-assistant-icon name="clock" />
       {{ 'nh-assistant.approval.expires-in' | translate: { time: countdown() } }}

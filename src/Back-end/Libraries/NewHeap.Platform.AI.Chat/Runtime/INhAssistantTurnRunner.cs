@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI.Chat.Runtime;
@@ -29,10 +30,10 @@ internal interface INhAssistantTurnRunner
 
     /// <summary>
     /// Cancels the running turn of a conversation in this process, or dismisses a pending approval.
+    /// Only the owner or the participant who started the turn may do so.
     /// </summary>
-    Task CancelAsync(
-        Guid conversationId,
-        string ownerActorId,
+    Task<TaskResult> CancelAsync(
+        NhAssistantConversationAccess access,
         CancellationToken cancellationToken);
 }
 

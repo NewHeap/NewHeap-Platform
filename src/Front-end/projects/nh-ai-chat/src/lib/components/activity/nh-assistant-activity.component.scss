@@ -1,0 +1,96 @@
+@use '../../styles/tokens';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 0 12px 8px 16px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  height: 26px;
+  border: 1px solid var(--nha-border);
+  border-radius: 999px;
+  padding: 0 10px 0 8px;
+  color: var(--nha-text);
+  background: var(--nha-surface);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  @include tokens.focus-ring;
+
+  &:hover {
+    border-color: var(--nha-highlight);
+  }
+}
+
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shared {
+  flex: none;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+}
+
+.indicator {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--nha-accent);
+}
+
+.chip[data-state='unread'] .indicator {
+  background: var(--nha-highlight);
+}
+
+.chip[data-state='waiting'] .indicator {
+  background: var(--nha-warning);
+}
+
+.chip[data-state='running'] .indicator {
+  width: 10px;
+  height: 10px;
+  border: 2px solid color-mix(in srgb, var(--nha-highlight) 30%, transparent);
+  border-top-color: var(--nha-highlight);
+  background: transparent;
+  animation: nh-assistant-spin 900ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip[data-state='running'] .indicator {
+    border-color: var(--nha-highlight);
+    animation: none;
+  }
+}
+
+@keyframes nh-assistant-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.visually-hidden {
+  @include tokens.visually-hidden;
+}

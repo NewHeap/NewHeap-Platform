@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Add a governed assistant with durable conversations and in-chat approvals
 
-Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, and let administrators manage agents, MCP servers and the application context while users set style preferences.
+Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences.
 
 ## Preferred approach
 
@@ -175,6 +175,80 @@ prompt hash or the approval binding, so another moment or page never invalidates
 pending approval. Audit events carry only `ContextFactCount`, `PageEntityCount` and
 `HadPageContext`.
 
+## Sharing, live updates and notifications
+
+A conversation keeps exactly one owner. The owner shares it with `POST
+conversations/{id}/share-link`, which returns a token the client turns into a link;
+the token is protected with ASP.NET Data Protection, so hosts with several instances
+share their key ring as for MCP secrets. A new link replaces the old one and `DELETE
+share-link` revokes it; people who joined stay until the owner removes them. A caller
+joins with `POST conversations/{id}/join` only when the token matches, the caller
+belongs to the owner's tenant and passes the agent's policy. Register
+`UseParticipantDirectory<T>()` to let owners invite colleagues directly: the
+directory searches people the caller may invite (`participant-candidates`) and
+resolves them again on `POST participants`; it never receives an id from the client
+it has not approved itself. `NhAssistantLimits.MaxParticipantsPerConversation`
+(20 by default) bounds a conversation. A participant leaves with `DELETE
+conversations/{id}`, the owner deletes it for everyone. Names come from
+`INhAssistantDisplayNameResolver` (default: the `name`, given and family name, name,
+`preferred_username` and e-mail claims) and are normalized before they are stored.
+
+Every person runs their own turns: the sender's permissions, budget and invocation
+context apply, the user message records its author, and the model receives each user
+message as `[name] text` plus a "Shared conversation" data block after the
+situation. Only the person whose turn created a proposal decides it
+(`assistant-approval-forbidden`); the owner or that person can cancel
+(`assistant-turn-forbidden`). The owner and each participant keep their own read
+position (`POST conversations/{id}/read`), which only moves forward; the list
+returns `lastMessageSequence` and `lastReadSequence`, so a conversation is unread
+while the first is higher. Conversations from before sharing count as read.
+Sharing, joining, inviting, removing and leaving are content-free audit events
+(`Conversation*`).
+
+`MapNewHeapAssistant` maps the SignalR hub at `NhAssistantOptions.HubPath`
+(`/hub/assistant` by default; empty turns live updates off). A connection joins
+the group of its authenticated actor, and the server decides per event who belongs to
+the conversation, so a removed participant stops receiving updates. The hub sends
+`ConversationChanged`, `ConversationRead` (to the reader only), `ConversationRemoved`
+and `ConversationEvent` with the same turn events the starting request streams plus
+`message.created`. NewHeap hosts read the bearer token and active division from the
+query string below `/hub`; other hosts must accept `access_token` there. Updates
+reach the instance that runs the turn and use the host's SignalR backplane when there
+is one; clients reload snapshots after every reconnect.
+
+Configure Web Push with `ConfigurePush` or `NewHeap:AI:Assistant:Push`: a VAPID key
+pair from `NhAssistantWebPushKeys.Generate()` kept as a secret and a `mailto:` or
+https `Subject`. Startup fails on invalid keys. Notifications are on by default and
+every user can turn them off for all devices (`PUT notifications`). A browser
+subscribes with `PUT notifications/push-subscription`; the endpoint must be https on a
+host in `AllowedEndpointHosts` (the Chrome, Edge, Firefox and Safari push services by
+default), so the server never posts to an address a client chose. When a turn that ran
+at least `MinimumTurnDuration` (10 seconds) completes or fails, the owner and
+participants receive an RFC 8291 encrypted, VAPID-signed notification; an approval
+notifies only the person who decides it, and cancelled turns stay silent. The payload
+carries the conversation id, a kind and short localized texts with the conversation
+title (`IncludeConversationTitle`); never messages or tool data. Delivery happens after
+the final event and never fails the turn; subscriptions reported as gone are removed.
+
+## Context for a reviewed MCP tool
+
+When a remote service needs the conversation to answer, keep its model-facing schema
+small (for example only `question`) and send the context as request metadata instead.
+Register the reviewed tool in code with `AddMcpContextBinding(new
+NhAssistantMcpContextBinding(serverId, serverUrl, remoteName))`. The binding applies
+only while an administrator connects the server under that id and URL; any other
+server, URL or tool never receives the context. Each call then carries `_meta` key
+`com.newheap/assistant-context` with the acting agent, the accountable person, the
+conversation, turn and tool invocation ids, the approval and proposal ids of an approved
+call and, unless `IncludeSnapshot` is off, a bounded snapshot: the first question plus
+the latest completed user and assistant text within `NhAssistantConversationSnapshotRequest`
+(`MaxRecentMessages`, `MaxBytes`, `MaxMessageBytes`), with omitted messages and bytes.
+Code that needs the snapshot elsewhere inside a tool call uses
+`INhAssistantConversationSnapshotProvider` with the call's invocation context. It
+verifies the running call, the run, the accountable actor's access and the active turn
+itself, and never returns instructions, tool calls or results, approvals, page context
+or output of the running turn, also not text written before an approval pause.
+
 ## Avoid
 
 - Calling `AddNewHeapAssistant` before `AddNewHeapPlatformAIAspNet` or replacing the
@@ -199,6 +273,17 @@ pending approval. Audit events carry only `ContextFactCount`, `PageEntityCount` 
 - Deciding access from page context or provider facts. Entity ids on the user's screen are
   search hints; authorization and division scope stay with the tools and the gate.
 - Putting secrets, tokens or model input into provider facts.
+- Sharing a conversation that holds confidential tool results with people who may not
+  see them: participants read the whole history, including result previews.
+- Returning people of another tenant from `INhAssistantParticipantDirectory`, or
+  trusting an actor id from the client without resolving it in the directory.
+- Letting a participant decide another participant's approval, or treating the
+  conversation owner as the actor of every turn.
+- Committing VAPID private keys, widening `AllowedEndpointHosts` to arbitrary hosts or
+  putting message content into notification texts.
+- Binding the assistant context to a server id without its reviewed URL, asking the model
+  to repeat conversation text as tool arguments, or treating the metadata as
+  authorization on the remote side.
 
 ## Verification
 
@@ -226,6 +311,20 @@ absent from responses, logs and audit. SPM-245, SPM-246, SPM-247, SPM-250, SPM-2
 SPM-252 and SPM-254 are the executable references. SPM-249 is the end-to-end reference: one agent
 over the API bridge and curated tools, an administrator agent with an MCP tool, and a
 viewer who is offered no mutating tools.
+For sharing, assert on both providers that a participant of another tenant never
+reaches the conversation, read positions only move forward, concurrent joins add one
+row and the participant limit holds; over HTTP that a wrong or revoked token fails,
+the model sees named user messages, the owner cannot decide a participant's approval,
+another participant cannot cancel, removal stops access and live updates, and the hub
+rejects anonymous connections (SPM-263). For push, check the RFC 8291 test vector,
+a verifiable VAPID token, the endpoint allow-list, the notification rules, an
+encrypted delivery without message content, the opt-out and the removal of a gone
+subscription (SPM-264). For the MCP context, read `_meta` in the server's call handler
+over the official transport: the reviewed tool receives the identities and snapshot, the
+same tool under another server id or URL receives nothing, an approved call carries its
+approval, and the snapshot refuses another person, another invocation or run, a stale
+turn and calls outside a tool call while leaving out output of the running turn and
+reporting cut text as omitted bytes (SPM-266).
 
 ## Executable evidence
 
@@ -269,3 +368,18 @@ viewer who is offered no mutating tools.
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantContextSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantContextSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantTurnContext.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs)
+- SPM-263 — Shared assistant conversations with read state and live updates
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCollaboration.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCollaboration.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantCollaborationSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantCollaborationSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantCollaboration.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantCollaboration.cs)
+- SPM-264 — Assistant Web Push notifications for longer turns
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCollaboration.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCollaboration.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantCollaborationSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantCollaborationSamplesTests.cs)
+  - [src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts)
+  - [src/Front-end/angular.json](../../examples/SampleProjectManagement/src/Front-end/angular.json)
+- SPM-266 — Assistant context for a reviewed MCP tool
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantResearch.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantResearch.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpContextSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpContextSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Snapshots/NhAssistantConversationSnapshots.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Snapshots/NhAssistantConversationSnapshots.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs)

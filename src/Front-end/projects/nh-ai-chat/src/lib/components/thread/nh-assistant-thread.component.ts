@@ -16,7 +16,7 @@ import {
   viewChild
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
-import { ApprovalDecision, Message } from '../../models/assistant-api.models';
+import { ApprovalDecision, ConversationMember, Message } from '../../models/assistant-api.models';
 import { NhAssistantMarkdownPipe } from '../../internal/nh-assistant-markdown.pipe';
 import { NhAssistantPartGroupsPipe } from '../../internal/nh-assistant-part-groups';
 import { NhAssistantApprovalCardComponent } from '../approval-card/nh-assistant-approval-card.component';
@@ -57,7 +57,17 @@ export class NhAssistantThreadComponent {
   readonly streaming = input(false);
   readonly deciding = input(false);
   readonly markdown = input(true);
+  /** The owner and participants of a shared conversation; empty while it is not shared. */
+  readonly members = input<readonly ConversationMember[]>([]);
+  /** The current user, to tell their own messages from those of others. */
+  readonly currentActorId = input<string | null>(null);
+  /** False when the pending approval belongs to another participant's turn. */
+  readonly canDecide = input(true);
+  /** Name of the participant who decides the pending approval, when it is someone else. */
+  readonly decisionOwner = input<string | null>(null);
   readonly approvalDecision = output<ApprovalDecision>();
+
+  private readonly names = computed(() => new Map(this.members().map(member => [member.actorId, member.displayName])));
 
   readonly virtualThreshold = NH_ASSISTANT_VIRTUAL_SCROLL_THRESHOLD;
   readonly virtual = computed(() => this.messages().length > NH_ASSISTANT_VIRTUAL_SCROLL_THRESHOLD);
@@ -124,6 +134,19 @@ export class NhAssistantThreadComponent {
 
   trackMessage(_index: number, message: Message): string {
     return message.id;
+  }
+
+  /** True for a user message written by another person in a shared conversation. */
+  isOthers(message: Message): boolean {
+    return message.role === 'user'
+      && !!message.authorActorId
+      && !!this.currentActorId()
+      && message.authorActorId !== this.currentActorId();
+  }
+
+  /** Display name of another person's message, or `null` when the application provides none. */
+  authorName(message: Message): string | null {
+    return message.authorActorId ? this.names().get(message.authorActorId) ?? null : null;
   }
 
   private scrollElement(): HTMLElement | null {

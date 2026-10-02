@@ -19,7 +19,37 @@ public enum NhAssistantAuditEventKind
     AdminMcpServerUpdated = 16,
     AdminMcpServerDeleted = 17,
     AdminMcpServerSynced = 18,
-    AdminMcpToolUpdated = 19
+    AdminMcpToolUpdated = 19,
+
+    /// <summary>
+    /// The owner created or replaced the invitation link of a conversation.
+    /// </summary>
+    ConversationShareLinkCreated = 20,
+
+    /// <summary>
+    /// The owner revoked the invitation link of a conversation.
+    /// </summary>
+    ConversationShareLinkRevoked = 21,
+
+    /// <summary>
+    /// A person joined a conversation through its invitation link. <see cref="NhAssistantAuditEvent.ObjectId"/> is that person.
+    /// </summary>
+    ConversationParticipantJoined = 22,
+
+    /// <summary>
+    /// The owner invited a person directly. <see cref="NhAssistantAuditEvent.ObjectId"/> is that person.
+    /// </summary>
+    ConversationParticipantInvited = 23,
+
+    /// <summary>
+    /// The owner removed a participant. <see cref="NhAssistantAuditEvent.ObjectId"/> is that person.
+    /// </summary>
+    ConversationParticipantRemoved = 24,
+
+    /// <summary>
+    /// A participant left a conversation.
+    /// </summary>
+    ConversationParticipantLeft = 25
 }
 
 /// <summary>

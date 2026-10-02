@@ -3,7 +3,9 @@
     "launcher": {
       "open": "Open assistant",
       "close": "Close assistant",
-      "pending-approval": "An action is waiting for your approval"
+      "pending-approval": "An action is waiting for your approval",
+      "unread": "{{count}} unread conversations",
+      "running": "{{count}} conversations working"
     },
     "panel": {
       "title": "Assistant",
@@ -21,7 +23,9 @@
       "dismiss-error": "Dismiss message",
       "usage": "{{inputTokens}} input tokens, {{outputTokens}} output tokens, {{toolCalls}} tool calls",
       "open-preferences": "Your assistant preferences",
-      "open-admin": "Assistant administration"
+      "open-admin": "Assistant administration",
+      "share": "Share conversation",
+      "members": "People in this conversation"
     },
     "agent-picker": {
       "label": "Agent",
@@ -41,7 +45,11 @@
         "waiting-for-approval": "Waiting for approval",
         "failed": "Failed",
         "archived": "Archived"
-      }
+      },
+      "leave": "Leave conversation",
+      "unread": "Unread",
+      "shared": "Shared with {{count}} people",
+      "shared-with-you": "Shared with you"
     },
     "thread": {
       "label": "Conversation",
@@ -50,7 +58,8 @@
       "tool": "Tool",
       "working": "The assistant is working",
       "loading": "Loading conversation",
-      "elapsed": "{{seconds}}s"
+      "elapsed": "{{seconds}}s",
+      "participant": "Participant"
     },
     "composer": {
       "label": "Message",
@@ -62,7 +71,9 @@
       "too-long": "The message is too long.",
       "status": {
         "running": "You can keep typing while the assistant works. Sending is temporarily unavailable.",
-        "waiting-for-approval": "You can keep typing while an action waits for your approval. Sending is temporarily unavailable."
+        "waiting-for-approval": "You can keep typing while an action waits for your approval. Sending is temporarily unavailable.",
+        "running-by": "{{name}} is working with the assistant…",
+        "waiting-for-approval-by": "Waiting for {{name}} to decide…"
       }
     },
     "tool-call": {
@@ -110,7 +121,9 @@
         "approved": "Approved",
         "rejected": "Rejected",
         "expired": "Expired"
-      }
+      },
+      "waiting-for": "Waiting for {{name}} to decide. The action uses their permissions.",
+      "waiting-for-participant": "Waiting for the participant who started this task to decide."
     },
     "result-codes": {
       "api-bridge-validation": "The request was not valid.",
@@ -168,10 +181,21 @@
       "assistant-tool-call-limit-reached": "The assistant reached the maximum number of steps for one answer. Ask a narrower question.",
       "assistant-tools-disabled": "No further actions were run in this answer because an action was rejected.",
       "assistant-turn-failed": "The assistant could not finish the answer. Try again.",
-      "assistant-turn-timeout": "The answer took too long and was stopped. Try again or ask a narrower question."
+      "assistant-turn-timeout": "The answer took too long and was stopped. Try again or ask a narrower question.",
+      "assistant-owner-required": "Only the owner of this conversation can do this.",
+      "assistant-approval-forbidden": "Only the person who started this task can decide about it.",
+      "assistant-turn-forbidden": "Only the owner or the person who started this task can stop it.",
+      "assistant-share-link-invalid": "This invitation link is no longer valid. Ask the owner for a new one.",
+      "assistant-participant-not-found": "This person is not part of the conversation.",
+      "assistant-participant-limit-reached": "This conversation has the maximum number of participants.",
+      "assistant-directory-unavailable": "Inviting colleagues directly is not available.",
+      "assistant-push-unavailable": "Desktop notifications are not available.",
+      "assistant-push-subscription-invalid": "This browser could not be registered for notifications.",
+      "assistant-conversation-removed": "This conversation is no longer available to you."
     },
     "notices": {
-      "no-answer": "The assistant finished without an answer. Try again or rephrase your question."
+      "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",
+      "conversation-removed": "This conversation is no longer available to you."
     },
     "preferences": {
       "title": "Your preferences",
@@ -208,7 +232,16 @@
       "back": "Back to the conversation",
       "loading": "Loading your preferences",
       "load-failed": "Your preferences could not be loaded.",
-      "retry": "Try again"
+      "retry": "Try again",
+      "notifications-label": "Notifications",
+      "notifications": "Desktop notifications",
+      "notifications-state": {
+        "on": "You get a notification when a longer task finishes or needs your approval while you are away.",
+        "prompt": "Your browser asks for permission the next time you send a message.",
+        "blocked": "Your browser blocks notifications for this site. Allow them in the browser settings.",
+        "off": "Notifications are off for all your devices.",
+        "unavailable": "Notifications are not available."
+      }
     },
     "admin": {
       "title": "Assistant administration",
@@ -393,6 +426,45 @@
       "excluded": "Not sent with this message: {{page}}",
       "exclude": "Do not send {{page}} with this message",
       "include": "Send {{page}} with this message again"
+    },
+    "activity": {
+      "label": "Other conversations",
+      "running": "Working",
+      "waiting": "Waiting for approval",
+      "unread": "Unread"
+    },
+    "share": {
+      "title": "Share conversation",
+      "members-title": "People in this conversation",
+      "back": "Back to the conversation",
+      "description": "People you share with read the whole conversation, including tool results, and can continue it with their own permissions.",
+      "link-title": "Invitation link",
+      "link-label": "Invitation link",
+      "link-hint": "Anyone in your organization who may use this assistant can join with the link. A new link replaces the old one; people who joined stay.",
+      "create": "Create invitation link",
+      "copy": "Copy link",
+      "copied": "Link copied.",
+      "renew": "New link",
+      "revoke": "Stop link",
+      "invite-title": "Invite a colleague",
+      "search-label": "Search colleagues",
+      "search-placeholder": "Search by name",
+      "searching": "Searching…",
+      "no-results": "No colleagues found.",
+      "invite": "Invite",
+      "invited": "{{name}} was invited.",
+      "members": "People",
+      "count": "{{count}} of {{max}} invited",
+      "not-shared": "Only you take part in this conversation.",
+      "unnamed": "Unnamed colleague",
+      "you": "(you)",
+      "role": {
+        "owner": "Owner",
+        "participant": "Participant"
+      },
+      "remove": "Remove {{name}}",
+      "leave": "Leave conversation",
+      "no-conversation": "Start or open a conversation to share it."
     }
   }
 }

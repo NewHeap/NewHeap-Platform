@@ -11,6 +11,11 @@
       "input": "src/lib/i18n",
       "glob": "*.json",
       "output": "i18n"
+    },
+    {
+      "input": "push",
+      "glob": "*.js",
+      "output": "push"
     }
   ]
 }

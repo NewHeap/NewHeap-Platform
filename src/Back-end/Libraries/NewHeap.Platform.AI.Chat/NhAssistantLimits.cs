@@ -77,6 +77,11 @@ public sealed class NhAssistantLimits
     /// </summary>
     public TimeSpan IdempotencyLeaseDuration { get; set; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Maximum people the owner can share one conversation with, not counting the owner.
+    /// </summary>
+    public int MaxParticipantsPerConversation { get; set; } = 20;
+
     internal void Validate()
     {
         if (MaxToolCallsPerTurn < 1
@@ -89,7 +94,8 @@ public sealed class NhAssistantLimits
             || MaxToolsPerAgent < 1
             || MaxToolSelectorsPerAgent < 1
             || MaxHistoryMessages < 1
-            || IdempotencyLeaseDuration <= TimeSpan.Zero)
+            || IdempotencyLeaseDuration <= TimeSpan.Zero
+            || MaxParticipantsPerConversation is < 1 or > 100)
         {
             throw new InvalidOperationException("Assistant limits must be positive and bounded.");
         }

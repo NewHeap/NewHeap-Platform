@@ -14,7 +14,7 @@ namespace NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 /// </summary>
 internal sealed class InMemoryMcpServers : INhAssistantMcpClientFactory
 {
-    private readonly ConcurrentDictionary<string, Func<IReadOnlyList<McpServerTool>>> _servers = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Func<McpServerOptions>> _servers = new(StringComparer.Ordinal);
 
     public ConcurrentQueue<NhAssistantMcpConnectionPlan> Connections { get; } = new();
 
@@ -22,13 +22,21 @@ internal sealed class InMemoryMcpServers : INhAssistantMcpClientFactory
 
     public void Register(string url, Func<IReadOnlyList<McpServerTool>> tools)
     {
-        _servers[url] = tools;
+        _servers[url] = () => new McpServerOptions { ScopeRequests = false, ToolCollection = [.. tools()] };
+    }
+
+    /// <summary>
+    /// Registers a server with its own request handlers, for example to read the request metadata.
+    /// </summary>
+    public void Register(string url, McpServerHandlers handlers)
+    {
+        _servers[url] = () => new McpServerOptions { ScopeRequests = false, Handlers = handlers };
     }
 
     public async Task<McpClient> ConnectAsync(NhAssistantMcpConnectionPlan plan, CancellationToken cancellationToken)
     {
         Connections.Enqueue(plan);
-        if (!_servers.TryGetValue(plan.Endpoint.ToString(), out var tools))
+        if (!_servers.TryGetValue(plan.Endpoint.ToString(), out var options))
         {
             throw new HttpRequestException("No server.");
         }
@@ -36,7 +44,7 @@ internal sealed class InMemoryMcpServers : INhAssistantMcpClientFactory
         var serverToClient = new Pipe();
         var server = McpServer.Create(
             new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()),
-            new McpServerOptions { ScopeRequests = false, ToolCollection = [.. tools()] });
+            options());
         _ = server.RunAsync(CancellationToken.None);
         return await McpClient.CreateAsync(
             new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()),

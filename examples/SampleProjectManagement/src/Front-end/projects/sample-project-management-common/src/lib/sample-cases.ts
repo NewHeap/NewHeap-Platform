@@ -3125,15 +3125,17 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-228",
     "title": "Governed external MCP tool import",
     "category": "AI tools and generated catalogs",
-    "surface": "INhAiMcpClientToolImporter, explicit per-server allow-list and namespace, local effect and authorization metadata, bounded remote schemas and results, run-scoped INhAiToolCatalog registration, and shared invocation governance",
-    "outcome": "Only the explicitly allowlisted external lookup is imported under a collision-safe namespace; its remote description grants no authority, an unlisted destructive-looking tool remains absent, and bounded arguments still cross NewHeap authorization, capability, budget, timeout, concurrency, idempotency, result-bound, and audit controls. A run-scoped catalog over the tools a run imported passes Development container validation, is validated in its own startup scope, serves the agent through the shared invoker and stays out of the NewHeap MCP export of the same host.",
+    "surface": "INhAiMcpClientToolImporter, explicit per-server allow-list and namespace, local effect and authorization metadata, bounded remote schemas and results, run-scoped INhAiToolCatalog registration, and shared invocation governance, and opt-in per-call request metadata through a reviewed INhAiMcpInvocationBinder (AddNewHeapPlatformAIMcpInvocationBinder, NhAiMcpImportedToolPolicy.InvocationBinderId, NhAiMcpRequestMetadata, NhAiMcpInvocationIdentity)",
+    "outcome": "Only the explicitly allowlisted external lookup is imported under a collision-safe namespace; its remote description grants no authority, an unlisted destructive-looking tool remains absent, and bounded arguments still cross NewHeap authorization, capability, budget, timeout, concurrency, idempotency, result-bound, and audit controls. A run-scoped catalog over the tools a run imported passes Development container validation, is validated in its own startup scope, serves the agent through the shared invoker and stays out of the NewHeap MCP export of the same host. A binder registered for one server and tool adds `_meta` only to a policy that names it, runs after authorization, capability, approval, budget and idempotency checks, counts toward the input limit, binds its id into the tool contract and stops the call with an audited code when it fails.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProfileResolver.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiHostValidationTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiHostValidationTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpInvocationBinding.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpInvocationBinderTests.cs"
     ]
   },
   {
@@ -3724,6 +3726,89 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorAuthenticationProviderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/TwoFactorRegistrationTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Resources/Authentication/TwoFactor/NhTwoFactorMessages.nl-NL.resx"
+    ]
+  },
+  {
+    "id": "SPM-263",
+    "title": "Shared assistant conversations with read state and live updates",
+    "category": "AI tools and generated catalogs",
+    "surface": "POST conversations/{id}/share-link and DELETE, POST conversations/{id}/join, GET conversations/{id}/participant-candidates, POST conversations/{id}/participants, DELETE conversations/{id}/participants/{actorId}, POST conversations/{id}/read, INhAssistantParticipantDirectory with UseParticipantDirectory, INhAssistantDisplayNameResolver, NhAssistantLimits.MaxParticipantsPerConversation, NhAssistantOptions.HubPath, the NhAssistantHub SignalR hub (ConversationChanged, ConversationRead, ConversationRemoved, ConversationEvent), the conversation fields role, members, currentActorId, activeActorId, lastMessageSequence and lastReadSequence, and NhAssistantAuditEventKind.Conversation*",
+    "outcome": "An owner shares a conversation through an invitation link whose token is protected with ASP.NET Data Protection, or invites a colleague of the active division through the sample's `SampleAssistantParticipantDirectory`. A colleague of the same tenant who may use the agent joins, sees the whole history as read and continues the conversation: the turn runs with the colleague's own permissions, budget and approval, the model receives every user message with its writer's name and a shared-conversation data block, and only the person whose turn created a proposal can decide it while the owner or that person can stop the turn. Each user message records its author; owner and participants keep their own read position, which only moves forward and marks the other person's answer as unread. The owner removes participants, renews or revokes the link and deletes the conversation for everyone; a participant leaves. Every change is a content-free audit event, and the SignalR hub sends status, read and removal updates and the streamed turn events to the owner and current participants only. Conversations from before sharing keep working as read.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCollaboration.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantCollaborationSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantCollaboration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantCollaborationHooks.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantSpeakers.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantLiveUpdates.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantCollaborationEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261002120044_Collaboration.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261002120047_Collaboration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCollaborationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCollaborationPersistenceTests.cs"
+    ]
+  },
+  {
+    "id": "SPM-264",
+    "title": "Assistant Web Push notifications for longer turns",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantBuilder.ConfigurePush, NhAssistantPushOptions (NewHeap:AI:Assistant:Push: PublicKey, PrivateKey, Subject, AllowedEndpointHosts, MinimumTurnDuration, IncludeConversationTitle, TimeToLive), NhAssistantWebPushKeys.Generate, GET/PUT notifications, PUT/DELETE notifications/push-subscription, the bundled @newheap/platform-ai-chat/push/nh-assistant-push-worker.js and NhAssistantConfig.push",
+    "outcome": "With VAPID keys the server offers Web Push; the sample creates a key pair per run in Development and reads keys from configuration elsewhere. Notifications are on by default and each user can turn them off for all devices. A browser registers a subscription only for an allowed push service over https, so the server never posts to an address a client chose. When a turn that ran at least the minimum duration finishes or fails, the owner and participants get an RFC 8291 encrypted, VAPID-signed notification with the conversation title and a short localized status; an approval notifies only the person who decides it, and cancelled or quick turns stay silent. Notifications never contain messages or tool data. The worker shows a notification only while no window of the application is focused and opens the conversation on click. Subscriptions the push service reports as gone are removed.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCollaboration.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantCollaborationSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts",
+      "src/Front-end/angular.json",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantPushOptions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantWebPush.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantPushSubscriptionValidator.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantWebPushTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantCollaborationTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-push.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/push/nh-assistant-push-worker.js"
+    ]
+  },
+  {
+    "id": "SPM-265",
+    "title": "Parallel and shared conversations in the assistant panel",
+    "category": "AI tools and generated catalogs",
+    "surface": "@newheap/platform-ai-chat: NhAssistantStore sessions (activity, runningCount, unreadCount, members, canDecide, activeMember, joinConversation, createShareLink, inviteParticipant, removeParticipant, setViewing), nhAssistantIsUnread, NhAssistantLiveService, NhAssistantPushService, nh-assistant-activity, nh-assistant-share, the launcher badge, the notification setting in nh-assistant-preferences, NhAssistantConfig.liveUpdates, hubBaseUrl, buildShareLink, the #nh-assistant-join and #nh-assistant-conversation fragments, and NhAssistantMockLiveService with NhAssistantMockBackend.simulateParticipantTurn from @newheap/platform-ai-chat/testing",
+    "outcome": "Several conversations run at the same time: starting or opening another conversation never stops a running turn. A slim row below the panel header appears only when another conversation works, waits for approval or has an unread answer, and selecting a chip opens it; the launcher shows one badge for a waiting approval, the number of unread conversations or a running turn, and the conversation list marks the same states. The open conversation counts as read only while the drawer shows it in a visible, focused window. The owner shares from the panel header with a copyable invitation link and, when the server offers a directory, a colleague search; participants see who takes part and can leave. In a shared conversation messages of other people show their names, their turns and answers arrive live, the composer says who is working and an approval of someone else's turn shows who decides instead of the buttons. Opening an invitation link joins and opens the conversation and removes the token from the address bar. The preferences turn desktop notifications on or off and explain the browser state; the browser asks for permission on the next message sent. The management playground demonstrates parallel prompts and a simulated colleague on the scripted mock API with in-memory live updates, and the portal registers live updates through `/api/hub/assistant` and Web Push with the bundled worker.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-live.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-collaboration.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/activity/nh-assistant-activity.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/share/nh-assistant-share.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/collaboration-components.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-live.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-backend.ts"
+    ]
+  },
+  {
+    "id": "SPM-266",
+    "title": "Assistant context for a reviewed MCP tool",
+    "category": "AI tools and generated catalogs",
+    "surface": "AddMcpContextBinding with NhAssistantMcpContextBinding (server id, URL and remote tool name, IncludeSnapshot, Snapshot), NhAssistantMcpContext.MetaKey (com.newheap/assistant-context), INhAssistantConversationSnapshotProvider, NhAssistantConversationSnapshotRequest, NhAssistantConversationSnapshot, NhAssistantSnapshotCodes and the generic INhAiMcpInvocationBinder",
+    "outcome": "A research MCP tool that an administrator connected under the reviewed server id and URL receives, in the request metadata, the acting agent, the accountable person, the conversation, turn and tool invocation ids, approval and proposal ids after an approval, and a bounded snapshot with the first question and the latest completed user and assistant text; its model-facing schema only asks for the question. The same tool under another server id or URL receives nothing. The snapshot refuses calls outside the running tool call, another person, another invocation or run and a stale turn, leaves out output of the running turn, also after an approval pause, and reports omitted messages and bytes.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantResearch.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpContextSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Snapshots/NhAssistantConversationSnapshots.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpContextTests.cs"
     ]
   }
 ] as const;

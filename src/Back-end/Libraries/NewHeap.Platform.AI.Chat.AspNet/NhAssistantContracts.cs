@@ -7,11 +7,26 @@ public sealed record NhAssistantLimitsDto(
     int MaxMessageChars,
     int MaxToolCallsPerTurn);
 
+/// <param name="Collaboration">
+/// Which sharing, live update and notification features the server offers; <see langword="null"/>
+/// while the assistant is disabled.
+/// </param>
 public sealed record NhAssistantStatusDto(
     bool Enabled,
     IReadOnlyList<NhAssistantAgentSummaryDto> Agents,
     NhAssistantLimitsDto Limits,
-    bool CanAdminister);
+    bool CanAdminister,
+    NhAssistantCollaborationDto? Collaboration = null);
+
+/// <param name="Directory">Owners can invite colleagues directly through the application's directory.</param>
+/// <param name="HubPath">Path of the SignalR hub for live updates, or <see langword="null"/> when they are off.</param>
+/// <param name="Push">Web Push notifications are configured.</param>
+/// <param name="MaxParticipants">Maximum participants per conversation, not counting the owner.</param>
+public sealed record NhAssistantCollaborationDto(
+    bool Directory,
+    string? HubPath,
+    bool Push,
+    int MaxParticipants);
 
 public sealed record NhAssistantAgentSummaryDto(
     string Id,
@@ -20,22 +35,39 @@ public sealed record NhAssistantAgentSummaryDto(
     string DescriptionKey,
     bool CanMutate);
 
+/// <param name="Role">The caller's relation: <c>owner</c> or <c>participant</c>.</param>
+/// <param name="ParticipantCount">People the owner shared the conversation with.</param>
+/// <param name="LastMessageSequence">Sequence of the latest message.</param>
+/// <param name="LastReadSequence">The caller's read position; unread while lower than <paramref name="LastMessageSequence"/>.</param>
+/// <param name="ActiveActorId">The owner or participant whose turn runs or waits for approval.</param>
 public sealed record NhAssistantConversationSummaryDto(
     Guid Id,
     string AgentId,
     string? Title,
     string Status,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string Role = NhAssistantParticipantRoles.Owner,
+    int ParticipantCount = 0,
+    int LastMessageSequence = 0,
+    int LastReadSequence = 0,
+    string? ActiveActorId = null);
 
 public sealed record NhAssistantConversationListDto(
     IReadOnlyList<NhAssistantConversationSummaryDto> Items,
     int Total);
 
 /// <summary>
-/// A conversation with its messages. <see cref="PendingApproval"/> is typed as a message part so the
-/// <c>type: "approval"</c> discriminator is part of the payload.
+/// A conversation with its messages as the caller sees it. <see cref="PendingApproval"/> is typed as a
+/// message part so the <c>type: "approval"</c> discriminator is part of the payload.
 /// </summary>
+/// <param name="Role">The caller's relation: <c>owner</c> or <c>participant</c>.</param>
+/// <param name="LastReadSequence">The caller's read position.</param>
+/// <param name="LastMessageSequence">Sequence of the latest message.</param>
+/// <param name="ActiveActorId">The owner or participant whose turn runs or waits for approval. Only that person decides the approval.</param>
+/// <param name="Members">The owner followed by the participants; empty while the conversation is not shared.</param>
+/// <param name="ShareToken">The current invitation-link token; only returned to the owner.</param>
+/// <param name="CurrentActorId">The caller's actor id, to recognize the caller's own messages.</param>
 public sealed record NhAssistantConversationDto(
     Guid Id,
     string AgentId,
@@ -45,13 +77,108 @@ public sealed record NhAssistantConversationDto(
     DateTimeOffset UpdatedAt,
     int AgentVersion,
     IReadOnlyList<NhAssistantMessageDto> Messages,
-    NhAssistantMessagePartDto? PendingApproval);
+    NhAssistantMessagePartDto? PendingApproval,
+    string Role = NhAssistantParticipantRoles.Owner,
+    int LastReadSequence = 0,
+    int LastMessageSequence = 0,
+    string? ActiveActorId = null,
+    IReadOnlyList<NhAssistantMemberDto>? Members = null,
+    string? ShareToken = null,
+    string? CurrentActorId = null);
 
+/// <param name="Sequence">Position of the message in the conversation.</param>
+/// <param name="AuthorActorId">The writer of a user message; <see langword="null"/> for assistant messages.</param>
 public sealed record NhAssistantMessageDto(
     Guid Id,
     string Role,
     DateTimeOffset CreatedAt,
-    IReadOnlyList<NhAssistantMessagePartDto> Parts);
+    IReadOnlyList<NhAssistantMessagePartDto> Parts,
+    int Sequence = 0,
+    string? AuthorActorId = null);
+
+/// <summary>
+/// The owner or a participant of a shared conversation. <paramref name="DisplayName"/> is
+/// <see langword="null"/> when the application provides no name.
+/// </summary>
+public sealed record NhAssistantMemberDto(
+    string ActorId,
+    string? DisplayName,
+    string Role,
+    DateTimeOffset JoinedAt);
+
+/// <param name="Sequence">The sequence the caller has read up to; omitted means the latest message.</param>
+public sealed record NhAssistantMarkReadRequest(int? Sequence);
+
+public sealed record NhAssistantShareLinkDto(string Token);
+
+public sealed record NhAssistantJoinConversationRequest(string? Token);
+
+public sealed record NhAssistantInviteParticipantRequest(string? ActorId);
+
+public sealed record NhAssistantDirectoryEntryDto(
+    string ActorId,
+    string DisplayName,
+    string? Detail);
+
+/// <param name="PushEnabled">The caller's choice; push notifications are on by default.</param>
+/// <param name="PushAvailable">The server has Web Push configured.</param>
+/// <param name="PublicKey">The VAPID application server key browsers subscribe with.</param>
+public sealed record NhAssistantNotificationSettingsDto(
+    bool PushEnabled,
+    bool PushAvailable,
+    string? PublicKey);
+
+public sealed record NhAssistantUpdateNotificationSettingsRequest(bool? PushEnabled);
+
+/// <summary>
+/// A browser push subscription as <c>PushSubscription.toJSON()</c> returns it, plus the language of
+/// the notification texts (<c>en</c> or <c>nl</c>).
+/// </summary>
+public sealed record NhAssistantPushSubscriptionRequest(
+    string? Endpoint,
+    NhAssistantPushSubscriptionKeysDto? Keys,
+    string? Language = null);
+
+public sealed record NhAssistantPushSubscriptionKeysDto(
+    string? P256dh,
+    string? Auth);
+
+public sealed record NhAssistantRemovePushSubscriptionRequest(string? Endpoint);
+
+/// <summary>
+/// Live update: status, title, active actor, latest message or participants of a conversation changed.
+/// </summary>
+public sealed record NhAssistantLiveConversationDto(
+    Guid ConversationId,
+    string Status,
+    string? Title,
+    DateTimeOffset UpdatedAt,
+    string? ActiveActorId,
+    int LastMessageSequence,
+    int ParticipantCount);
+
+/// <summary>
+/// Live update for the caller only: the caller read the conversation in another tab or device.
+/// </summary>
+public sealed record NhAssistantLiveReadDto(
+    Guid ConversationId,
+    int LastReadSequence);
+
+/// <summary>
+/// Live update for the caller only: the conversation is no longer available to the caller.
+/// </summary>
+public sealed record NhAssistantLiveRemovedDto(Guid ConversationId);
+
+/// <summary>
+/// Live update: one event of a turn, with the same <paramref name="Type"/> and <paramref name="Data"/>
+/// as the server-sent events of the starting request, or <c>message.created</c> with a
+/// <see cref="NhAssistantMessageDto"/> when a participant's message was stored.
+/// </summary>
+public sealed record NhAssistantLiveEventDto(
+    Guid ConversationId,
+    string ActorId,
+    string Type,
+    JsonElement Data);
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(NhAssistantTextPartDto), "text")]
@@ -186,6 +313,20 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantToolStartedDto))]
 [JsonSerializable(typeof(NhAssistantToolCompletedDto))]
 [JsonSerializable(typeof(NhAssistantTurnCompletedDto))]
+[JsonSerializable(typeof(NhAssistantMessageDto))]
+[JsonSerializable(typeof(NhAssistantMarkReadRequest))]
+[JsonSerializable(typeof(NhAssistantShareLinkDto))]
+[JsonSerializable(typeof(NhAssistantJoinConversationRequest))]
+[JsonSerializable(typeof(NhAssistantInviteParticipantRequest))]
+[JsonSerializable(typeof(NhAssistantDirectoryEntryDto[]))]
+[JsonSerializable(typeof(NhAssistantNotificationSettingsDto))]
+[JsonSerializable(typeof(NhAssistantUpdateNotificationSettingsRequest))]
+[JsonSerializable(typeof(NhAssistantPushSubscriptionRequest))]
+[JsonSerializable(typeof(NhAssistantRemovePushSubscriptionRequest))]
+[JsonSerializable(typeof(NhAssistantLiveConversationDto))]
+[JsonSerializable(typeof(NhAssistantLiveReadDto))]
+[JsonSerializable(typeof(NhAssistantLiveRemovedDto))]
+[JsonSerializable(typeof(NhAssistantLiveEventDto))]
 [JsonSerializable(typeof(NhAssistantPreferencesDto))]
 [JsonSerializable(typeof(NhAssistantApplicationContextDto))]
 [JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))]

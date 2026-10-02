@@ -42,6 +42,22 @@ startup validation scope, that catalog declares no tools. Because imported tools
 never carry MCP exposure, the catalog may share a host that publishes its own
 tools through `WithNewHeapPlatformAITools`.
 
+When a reviewed remote tool needs host context that the model must not supply,
+such as who acts for whom, register an `INhAiMcpInvocationBinder` for exactly
+that server and remote tool with `AddNewHeapPlatformAIMcpInvocationBinder` and
+set `InvocationBinderId` on its import policy. Both sides are required: a policy
+that names an unregistered binder fails the import, and a registered binder does
+nothing for a policy that does not name it. The binder runs inside the invoker
+after authorization, capability, approval, budget and idempotency checks and
+returns `NhAiMcpRequestMetadata` under a reverse-DNS key, for example
+`com.example/research-context`; the importer sends it as the request's `_meta`.
+Include `NhAiMcpInvocationIdentity` so the server can separate the acting agent
+from the accountable person and correlate the run and invocation ids. Metadata
+counts toward the tool's input limit, the binder id and version become part of
+the tool contract that approvals bind to, and a failed binding stops the call
+with an audited result code. Metadata is provenance, not authorization: the
+remote server keeps its own credentials and scope checks.
+
 ## Avoid
 
 - Passing every tool returned by `ListToolsAsync` directly to a model.
@@ -52,6 +68,8 @@ tools through `WithNewHeapPlatformAITools`.
 - Exporting a raw or self-declared catalog function that bypasses the shared invoker.
 - Re-exporting an imported tool through the NewHeap MCP server adapter.
 - Registering a run-specific imported catalog as a singleton or building it at startup.
+- Asking the model for identity or conversation context that a reviewed invocation binder should add.
+- Registering an invocation binder for every server or for tools an administrator can add without review.
 
 ## Verification
 
@@ -64,7 +82,12 @@ Also reject oversized runtime arguments and an ungoverned export catalog.
 Register the run catalog as a scoped service in a Development host that also
 publishes generated tools over MCP: startup must pass container validation, the
 agent must run the imported tool through the shared invoker, and the MCP export
-must list only the generated tools. SPM-228 is the executable reference.
+must list only the generated tools. For an invocation binder, read `_meta` in
+the server's call handler: assert that it arrives only for the opted-in tool,
+that denied authorization or a missing approval never runs the binder, that
+oversized metadata fails with `ai-tool-input-too-large` before the remote call
+and that a failed binding is audited with its code. SPM-228 is the executable
+reference.
 
 ## Optional source evidence
 

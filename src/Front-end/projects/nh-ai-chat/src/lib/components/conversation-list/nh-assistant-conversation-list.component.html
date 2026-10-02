@@ -22,27 +22,42 @@
   } @else {
     <ul>
       @for (conversation of conversations(); track conversation.id) {
-        <li [class.active]="conversation.id === activeConversationId()">
+        <li [class.active]="conversation.id === activeConversationId()" [class.unread]="unread(conversation)">
           <button
             class="item"
             type="button"
             [disabled]="disabled()"
             [attr.aria-current]="conversation.id === activeConversationId() ? 'true' : null"
             (click)="conversationSelect.emit(conversation.id)">
-            <span class="title">{{ conversation.title || ('nh-assistant.conversation-list.untitled' | translate) }}</span>
+            <span class="title-row">
+              <span class="indicator" [attr.data-state]="indicator(conversation)" aria-hidden="true"></span>
+              <span class="title">{{ conversation.title || ('nh-assistant.conversation-list.untitled' | translate) }}</span>
+              @if ((conversation.participantCount ?? 0) > 0) {
+                <nh-assistant-icon
+                  class="shared"
+                  name="users"
+                  [attr.title]="'nh-assistant.conversation-list.shared' | translate: { count: conversation.participantCount }" />
+              }
+            </span>
             <span class="meta">
               <span class="status" [attr.data-status]="conversation.status">{{ 'nh-assistant.conversation-list.status.' + conversation.status | translate }}</span>
+              @if (unread(conversation)) {
+                <span class="unread-label">{{ 'nh-assistant.conversation-list.unread' | translate }}</span>
+              }
+              @if (conversation.role === 'participant') {
+                <span>{{ 'nh-assistant.conversation-list.shared-with-you' | translate }}</span>
+              }
               <time [attr.datetime]="conversation.updatedAt">{{ conversation.updatedAt | date: 'short' }}</time>
             </span>
           </button>
           <button
             class="icon-button delete"
             type="button"
-            [disabled]="disabled()"
-            [attr.aria-label]="('nh-assistant.conversation-list.delete' | translate) + ': ' + (conversation.title || ('nh-assistant.conversation-list.untitled' | translate))"
-            [attr.title]="'nh-assistant.conversation-list.delete' | translate"
+            [disabled]="disabled() || conversation.status === 'running'"
+            [attr.aria-label]="((conversation.role === 'participant' ? 'nh-assistant.conversation-list.leave' : 'nh-assistant.conversation-list.delete') | translate) + ': ' + (conversation.title || ('nh-assistant.conversation-list.untitled' | translate))"
+            [attr.title]="(conversation.role === 'participant' ? 'nh-assistant.conversation-list.leave' : 'nh-assistant.conversation-list.delete') | translate"
             (click)="conversationDelete.emit(conversation.id)">
-            <nh-assistant-icon name="trash" />
+            <nh-assistant-icon [name]="conversation.role === 'participant' ? 'leave' : 'trash'" />
           </button>
         </li>
       }

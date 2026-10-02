@@ -4,8 +4,13 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet.Live;
 using NewHeap.Platform.AI.Chat.AspNet.Mcp;
+using NewHeap.Platform.AI.Chat.AspNet.Notifications;
+using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Governance;
+using NewHeap.Platform.AI.Chat.Live;
+using NewHeap.Platform.AI.Chat.Notifications;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Mcp;
 using Microsoft.AspNetCore.DataProtection;
@@ -38,11 +43,26 @@ public static class NhAssistantServiceCollectionExtensions
             services.AddNewHeapPlatformAIMcp();
             services.TryAddSingleton<NhAssistantMcpSecretProtector>();
             services.TryAddSingleton<NhAssistantMcpHostGuard>();
+            services.TryAddSingleton<NhAssistantMcpContextBindings>();
             services.TryAddSingleton<INhAssistantMcpClientFactory, NhAssistantHttpMcpClientFactory>();
             services.TryAddSingleton<NhAssistantMcpConnectionCache>();
             services.TryAddScoped<NhAssistantMcpConnectionPlanner>();
             services.TryAddScoped<NhAssistantMcpAdministration>();
             services.Replace(ServiceDescriptor.Scoped<INhAssistantMcpToolSource, NhAssistantMcpToolSource>());
+
+            // Live updates through a SignalR hub, invitation links protected with Data Protection and
+            // Web Push sent directly after a turn; the core library keeps no-op defaults.
+            services.AddSignalR();
+            services.Replace(ServiceDescriptor.Singleton<INhAssistantLiveUpdateTransport, NhAssistantSignalRLiveUpdateTransport>());
+            services.TryAddSingleton<INhAssistantShareTokenProtector, NhAssistantShareTokenProtector>();
+            services.Replace(ServiceDescriptor.Scoped<INhAssistantNotifier, NhAssistantWebPushNotifier>());
+            services.AddHttpClient(NhAssistantWebPushNotifier.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+                {
+                    // A push service answers directly; following a redirect would post elsewhere.
+                    AllowAutoRedirect = false,
+                    UseCookies = false
+                });
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantStartupValidator>());
         }
 
@@ -123,6 +143,9 @@ internal sealed class NhAssistantStartupValidator(
             throw new InvalidOperationException(
                 "The assistant budget, idempotency or approval-evidence manager was replaced. Call AddNewHeapAssistant after the application's own AI registrations.");
         }
+
+        // Invalid push keys or limits fail here instead of at the first notification.
+        options.Value.Push.Validate();
 
         var accessPolicy = NhAssistantEndpointOptions.ResolveAccessPolicy(state, options.Value);
         if (await policyProvider.GetPolicyAsync(accessPolicy) is null)

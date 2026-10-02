@@ -6,7 +6,8 @@ import {
   MessagePart,
   ToolCallPart
 } from '../models/assistant-api.models';
-import { NhAssistantSseEvent, TurnCompletionStatus } from '../models/assistant-sse.models';
+import { LiveConversationChanged, LiveConversationEvent } from '../models/assistant-live.models';
+import { NH_ASSISTANT_SSE_EVENT_TYPES, NhAssistantSseEvent, TurnCompletionStatus } from '../models/assistant-sse.models';
 
 /**
  * Applies one assistant event to a conversation and returns the new conversation.
@@ -151,6 +152,39 @@ export function applyNhAssistantApprovalDecision(
   }
 
   return updated;
+}
+
+/**
+ * Applies a live update of another session: `message.created` adds a participant's message,
+ * the turn events behave exactly like the starting request's stream. Unknown types are ignored.
+ */
+export function applyNhAssistantLiveEvent(conversation: Conversation, event: LiveConversationEvent): Conversation {
+  if (event.type === 'message.created') {
+    const message = event.data as Message;
+    if (!message?.id || conversation.messages.some(existing => existing.id === message.id)) {
+      return conversation;
+    }
+    return { ...conversation, messages: [...conversation.messages, message] };
+  }
+
+  if (!(NH_ASSISTANT_SSE_EVENT_TYPES as readonly string[]).includes(event.type)) {
+    return conversation;
+  }
+  return applyNhAssistantEvent(conversation, { type: event.type, data: event.data } as NhAssistantSseEvent);
+}
+
+/** Applies the shared state of a conversation that a live update announced. */
+export function applyNhAssistantConversationChange(conversation: Conversation, change: LiveConversationChanged): Conversation {
+  return {
+    ...conversation,
+    status: change.status,
+    title: change.title,
+    updatedAt: change.updatedAt,
+    activeActorId: change.activeActorId,
+    lastMessageSequence: change.lastMessageSequence,
+    participantCount: change.participantCount,
+    pendingApproval: change.status === 'waiting-for-approval' ? conversation.pendingApproval : null
+  };
 }
 
 /**

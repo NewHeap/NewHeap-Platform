@@ -151,6 +151,38 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Configures Web Push notifications. Applied after the <c>NewHeap:AI:Assistant:Push</c>
+    /// configuration. Without VAPID keys push notifications stay off.
+    /// </summary>
+    public NhAssistantBuilder ConfigurePush(Action<NhAssistantPushOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        Services.PostConfigure<NhAssistantOptions>(options => configure(options.Push));
+        return this;
+    }
+
+    /// <summary>
+    /// Lets owners invite colleagues directly, next to sharing an invitation link. The directory
+    /// decides who the caller may invite.
+    /// </summary>
+    public NhAssistantBuilder UseParticipantDirectory<TDirectory>()
+        where TDirectory : class, INhAssistantParticipantDirectory
+    {
+        Services.Replace(ServiceDescriptor.Scoped<INhAssistantParticipantDirectory, TDirectory>());
+        return this;
+    }
+
+    /// <summary>
+    /// Replaces the claims-based display name other people see in a shared conversation.
+    /// </summary>
+    public NhAssistantBuilder UseDisplayNameResolver<TResolver>()
+        where TResolver : class, INhAssistantDisplayNameResolver
+    {
+        Services.Replace(ServiceDescriptor.Scoped<INhAssistantDisplayNameResolver, TResolver>());
+        return this;
+    }
+
+    /// <summary>
     /// Sets the execution region every agent model call must be permitted to run in. Defaults to
     /// <c>local</c>, the NewHeap agent default; the chat profile must permit the region.
     /// </summary>

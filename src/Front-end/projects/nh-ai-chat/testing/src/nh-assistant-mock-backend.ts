@@ -3,9 +3,15 @@ import {
   ApprovalPart,
   ClientContext,
   Conversation,
+  ConversationMember,
   ConversationSummary,
   CreateConversationRequest,
   DecideApprovalRequest,
+  LiveConversationChanged,
+  LiveConversationEvent,
+  LiveConversationRead,
+  LiveConversationRemoved,
+  Message,
   NH_ASSISTANT_CONFIG,
   NhAssistantSseEvent,
   SendMessageRequest,
@@ -14,9 +20,11 @@ import {
   applyNhAssistantEvent,
   normalizeNhAssistantClientContext
 } from '@newheap/platform-ai-chat';
+import { Observable, Subject } from 'rxjs';
 import { NhAssistantMockAdmin } from './nh-assistant-mock-admin';
 import {
   NhAssistantMockApprovalStep,
+  NhAssistantMockPerson,
   NhAssistantMockRemoteTool,
   NhAssistantMockRequest,
   NhAssistantMockScenario,
@@ -26,7 +34,18 @@ import {
 
 export const NH_ASSISTANT_MOCK_SCENARIO = new InjectionToken<NhAssistantMockScenario>('NH_ASSISTANT_MOCK_SCENARIO');
 
+/** Path the mock reports as hub; the mock live service answers it in memory. */
+export const NH_ASSISTANT_MOCK_HUB_PATH = '/hub/assistant-mock';
+
+/** One live update of the mock, as the assistant hub would send it. */
+export type NhAssistantMockLiveMessage =
+  | { kind: 'changed'; data: LiveConversationChanged }
+  | { kind: 'read'; data: LiveConversationRead }
+  | { kind: 'removed'; data: LiveConversationRemoved }
+  | { kind: 'event'; data: LiveConversationEvent };
+
 const defaultLimits = { maxMessageChars: 4_000, maxToolCallsPerTurn: 8 };
+const defaultUser: NhAssistantMockPerson = { actorId: 'mock-user', displayName: 'You' };
 
 interface PendingApproval {
   approval: ApprovalPart;
@@ -61,17 +80,69 @@ export class NhAssistantMockBackend {
   private readonly enabledState = signal(this.scenario.enabled ?? true);
   private readonly admin = new NhAssistantMockAdmin(this.scenario, () => new Date().toISOString());
   private readonly canAdministerState = signal(this.admin.administers);
+  private readonly currentUser = this.scenario.collaboration?.currentUser ?? defaultUser;
+  private readonly members = new Map<string, ConversationMember[]>();
+  private readonly readPositions = new Map<string, number>();
+  private readonly shareTokens = new Map<string, string>();
+  private readonly activeActors = new Map<string, string>();
+  private readonly liveSubject = new Subject<NhAssistantMockLiveMessage>();
+  private pushEnabled = true;
   private sequence = 0;
 
   /** Requests received so far, oldest first. */
   readonly requests: NhAssistantMockRequest[] = [];
   readonly enabled = this.enabledState.asReadonly();
   readonly canAdminister = this.canAdministerState.asReadonly();
+  /** Live updates for the mock live service, in the order the hub would send them. */
+  readonly live$: Observable<NhAssistantMockLiveMessage> = this.liveSubject.asObservable();
 
   constructor() {
     for (const conversation of this.scenario.conversations ?? []) {
-      this.conversations.set(conversation.id, structuredClone(conversation));
+      const copy = withSequences(structuredClone(conversation));
+      this.conversations.set(copy.id, copy);
+      this.readPositions.set(copy.id, lastSequence(copy));
     }
+  }
+
+  /**
+   * Plays a scripted turn as another person in the conversation, as if a colleague with an
+   * invitation sent a message: the conversation becomes shared, and the message and the
+   * answer arrive as live updates. Resolves when the turn ends.
+   */
+  async simulateParticipantTurn(conversationId: string, person: NhAssistantMockPerson, text: string): Promise<void> {
+    const conversation = this.conversations.get(conversationId);
+    if (!conversation || conversation.status !== 'idle') {
+      return;
+    }
+
+    this.addMember(conversationId, person, 'participant');
+    const userMessage: Message = {
+      id: this.nextId(),
+      role: 'user',
+      createdAt: new Date().toISOString(),
+      parts: [{ type: 'text', text }],
+      authorActorId: person.actorId
+    };
+    this.activeActors.set(conversationId, person.actorId);
+    this.update(conversationId, current => ({ ...current, status: 'running', messages: [...current.messages, userMessage] }));
+    const stored = this.conversations.get(conversationId)!.messages.find(message => message.id === userMessage.id)!;
+    this.emitLive({ kind: 'event', data: { conversationId, actorId: person.actorId, type: 'message.created', data: stored } });
+
+    const timing = this.scenario.timing ?? {};
+    const assistantMessageId = this.nextId();
+    const emit: Emit = async event => {
+      await delay(timing.eventDelayMs ?? 40);
+      this.update(conversationId, current => applyNhAssistantEvent(current, event));
+      if (event.type === 'turn.completed' && event.data.status !== 'waiting-for-approval') {
+        this.activeActors.delete(conversationId);
+        this.emitChanged(conversationId);
+      }
+      this.emitLive({ kind: 'event', data: { conversationId, actorId: person.actorId, type: event.type, data: event.data } });
+    };
+    await delay(timing.firstEventDelayMs ?? 200);
+    await emit({ type: 'turn.started', data: { turnId: this.nextId(), userMessageId: userMessage.id, assistantMessageId } });
+    const turn = this.findTurn(text, conversation.agentId, null);
+    await this.playSteps(conversationId, assistantMessageId, turn?.steps ?? [], emit);
   }
 
   /** Switches the simulated `NewHeap:AI:Assistant:Enabled` flag. */
@@ -115,8 +186,14 @@ export class NhAssistantMockBackend {
 
     if (method === 'GET' && path === 'status') {
       const limits = { ...defaultLimits, ...this.scenario.limits };
+      const collaboration = {
+        directory: (this.scenario.collaboration?.directory?.length ?? 0) > 0,
+        hubPath: NH_ASSISTANT_MOCK_HUB_PATH,
+        push: false,
+        maxParticipants: this.maxParticipants()
+      };
       return this.json(200, this.enabledState()
-        ? { enabled: true, agents: this.admin.chatAgents(), limits, canAdminister: this.admin.administers }
+        ? { enabled: true, agents: this.admin.chatAgents(), limits, canAdminister: this.admin.administers, collaboration }
         : { enabled: false, agents: [], limits, canAdminister: false });
     }
     if (!this.enabledState()) {
@@ -128,6 +205,15 @@ export class NhAssistantMockBackend {
     }
     if (path === 'preferences') {
       return this.result(this.admin.handlePreferences(method, body));
+    }
+    if (path === 'notifications') {
+      if (method === 'PUT') {
+        this.pushEnabled = (body as { pushEnabled?: boolean } | undefined)?.pushEnabled === true;
+      }
+      return this.json(200, { pushEnabled: this.pushEnabled, pushAvailable: false, publicKey: null });
+    }
+    if (path === 'notifications/push-subscription') {
+      return this.error(404, 'assistant-push-unavailable');
     }
     if (segments[0] === 'admin') {
       return this.result(this.admin.handleAdmin(method, segments, body));
@@ -153,14 +239,46 @@ export class NhAssistantMockBackend {
 
     if (segments.length === 2) {
       if (method === 'GET') {
-        return this.json(200, conversation);
+        return this.json(200, this.view(conversation));
       }
       if (method === 'DELETE') {
         this.conversations.delete(conversation.id);
         this.pendingApprovals.delete(conversation.id);
+        this.emitLive({ kind: 'removed', data: { conversationId: conversation.id } });
         return this.empty(204);
       }
       return this.empty(405);
+    }
+
+    if (method === 'POST' && segments.length === 3 && segments[2] === 'read') {
+      return this.markRead(conversation, (body as { sequence?: number } | undefined)?.sequence);
+    }
+    if (segments.length === 3 && segments[2] === 'share-link') {
+      if (method === 'POST') {
+        const token = this.nextId().replace(/-/g, '');
+        this.shareTokens.set(conversation.id, token);
+        return this.json(200, { token });
+      }
+      if (method === 'DELETE') {
+        this.shareTokens.delete(conversation.id);
+        return this.empty(204);
+      }
+    }
+    if (method === 'POST' && segments.length === 3 && segments[2] === 'join') {
+      const token = (body as { token?: string } | undefined)?.token;
+      return token && this.shareTokens.get(conversation.id) === token
+        ? this.json(200, this.view(conversation))
+        : this.error(404, 'assistant-share-link-invalid');
+    }
+    if (method === 'GET' && segments.length === 3 && segments[2] === 'participant-candidates') {
+      return this.candidates(conversation, query.get('query') ?? '');
+    }
+    if (method === 'POST' && segments.length === 3 && segments[2] === 'participants') {
+      return this.invite(conversation, (body as { actorId?: string } | undefined)?.actorId);
+    }
+    if (method === 'DELETE' && segments.length === 4 && segments[2] === 'participants') {
+      const removed = this.removeMember(conversation.id, segments[3]);
+      return removed ? this.empty(204) : this.error(404, 'assistant-participant-not-found');
     }
 
     if (method === 'POST' && segments.length === 3 && segments[2] === 'messages') {
@@ -181,7 +299,7 @@ export class NhAssistantMockBackend {
     const itemsPerPage = Math.max(1, Number(query.get('itemsPerPage') ?? 20));
     const all = [...this.conversations.values()]
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-      .map(({ id, agentId, title, status, createdAt, updatedAt }) => ({ id, agentId, title, status, createdAt, updatedAt }));
+      .map(conversation => this.summary(conversation));
 
     return { items: all.slice((page - 1) * itemsPerPage, page * itemsPerPage), total: all.length };
   }
@@ -205,8 +323,9 @@ export class NhAssistantMockBackend {
       pendingApproval: null
     };
     this.conversations.set(conversation.id, conversation);
+    this.readPositions.set(conversation.id, 0);
 
-    return this.json(201, conversation);
+    return this.json(201, this.view(conversation));
   }
 
   private sendMessage(conversation: Conversation, request: SendMessageRequest): Response {
@@ -225,12 +344,18 @@ export class NhAssistantMockBackend {
     const turn = this.findTurn(text, conversation.agentId, pageContext);
     const userMessageId = this.nextId();
     const assistantMessageId = this.nextId();
+    this.activeActors.set(conversation.id, this.currentUser.actorId);
     this.update(conversation.id, current => ({
       ...current,
       title: current.title ?? text.slice(0, 60),
       status: 'running',
-      messages: [...current.messages, { id: userMessageId, role: 'user', createdAt: new Date().toISOString(), parts: [{ type: 'text', text }] }]
+      messages: [
+        ...current.messages,
+        { id: userMessageId, role: 'user', createdAt: new Date().toISOString(), parts: [{ type: 'text', text }], authorActorId: this.currentUser.actorId }
+      ]
     }));
+    // The sender has read their own message.
+    this.readPositions.set(conversation.id, lastSequence(this.conversations.get(conversation.id)!));
 
     return this.stream(conversation.id, async emit => {
       await emit({ type: 'turn.started', data: { turnId: this.nextId(), userMessageId, assistantMessageId } });
@@ -242,6 +367,10 @@ export class NhAssistantMockBackend {
     const pending = this.pendingApprovals.get(conversation.id);
     if (!pending || pending.approval.approvalId !== approvalId) {
       return this.empty(404);
+    }
+    const decider = this.activeActors.get(conversation.id);
+    if (decider && decider !== this.currentUser.actorId) {
+      return this.error(403, 'assistant-approval-forbidden');
     }
     if (request?.expectedProposalHash !== pending.approval.proposalHash) {
       return this.empty(409);
@@ -462,9 +591,143 @@ export class NhAssistantMockBackend {
 
   private update(conversationId: string, change: (conversation: Conversation) => Conversation): void {
     const conversation = this.conversations.get(conversationId);
-    if (conversation) {
-      this.conversations.set(conversationId, { ...change(conversation), updatedAt: new Date().toISOString() });
+    if (!conversation) {
+      return;
     }
+    const updated = withSequences({ ...change(conversation), updatedAt: new Date().toISOString() });
+    if (updated.status !== 'running' && updated.status !== 'waiting-for-approval') {
+      this.activeActors.delete(conversationId);
+    }
+    this.conversations.set(conversationId, updated);
+    if (updated.status !== conversation.status || updated.title !== conversation.title) {
+      this.emitChanged(conversationId);
+    }
+  }
+
+  /** The conversation as the signed-in user sees it. */
+  private view(conversation: Conversation): Conversation {
+    const members = this.members.get(conversation.id) ?? [];
+    return {
+      ...conversation,
+      ...this.summary(conversation),
+      members,
+      shareToken: this.shareTokens.get(conversation.id) ?? null,
+      currentActorId: this.currentUser.actorId
+    };
+  }
+
+  private summary(conversation: Conversation): ConversationSummary {
+    const latest = lastSequence(conversation);
+    const members = this.members.get(conversation.id) ?? [];
+    return {
+      id: conversation.id,
+      agentId: conversation.agentId,
+      title: conversation.title,
+      status: conversation.status,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
+      role: 'owner',
+      participantCount: Math.max(0, members.length - 1),
+      lastMessageSequence: latest,
+      lastReadSequence: Math.min(this.readPositions.get(conversation.id) ?? latest, latest),
+      activeActorId: this.activeActors.get(conversation.id) ?? null
+    };
+  }
+
+  private markRead(conversation: Conversation, sequence: number | undefined): Response {
+    const latest = lastSequence(conversation);
+    const target = Math.min(sequence ?? latest, latest);
+    if (target > (this.readPositions.get(conversation.id) ?? 0)) {
+      this.readPositions.set(conversation.id, target);
+      this.emitLive({ kind: 'read', data: { conversationId: conversation.id, lastReadSequence: target } });
+    }
+    return this.empty(204);
+  }
+
+  private candidates(conversation: Conversation, query: string): Response {
+    const directory = this.scenario.collaboration?.directory ?? [];
+    if (directory.length === 0) {
+      return this.error(404, 'assistant-directory-unavailable');
+    }
+    const text = query.trim().toLowerCase();
+    if (text.length < 2) {
+      return this.error(400, 'assistant-validation');
+    }
+    const members = new Set((this.members.get(conversation.id) ?? []).map(member => member.actorId));
+    return this.json(200, directory
+      .filter(person => person.actorId !== this.currentUser.actorId && !members.has(person.actorId))
+      .filter(person => person.displayName.toLowerCase().includes(text))
+      .map(person => ({ actorId: person.actorId, displayName: person.displayName, detail: person.detail ?? null })));
+  }
+
+  private invite(conversation: Conversation, actorId: string | undefined): Response {
+    const person = (this.scenario.collaboration?.directory ?? []).find(item => item.actorId === actorId);
+    if (!person) {
+      return this.error(404, 'assistant-participant-not-found');
+    }
+    const participants = (this.members.get(conversation.id) ?? []).filter(member => member.role === 'participant');
+    if (participants.length >= this.maxParticipants()) {
+      return this.error(409, 'assistant-participant-limit-reached');
+    }
+    this.addMember(conversation.id, person, 'participant');
+    return this.empty(204);
+  }
+
+  private addMember(conversationId: string, person: NhAssistantMockPerson, role: ConversationMember['role']): void {
+    const members = this.members.get(conversationId) ?? [];
+    if (members.some(member => member.actorId === person.actorId)) {
+      return;
+    }
+    const joinedAt = new Date().toISOString();
+    const owner: ConversationMember[] = members.length === 0
+      ? [{ actorId: this.currentUser.actorId, displayName: this.currentUser.displayName, role: 'owner', joinedAt }]
+      : [];
+    this.members.set(conversationId, [...members, ...owner, { actorId: person.actorId, displayName: person.displayName, role, joinedAt }]);
+    this.emitChanged(conversationId);
+  }
+
+  private removeMember(conversationId: string, actorId: string): boolean {
+    const members = this.members.get(conversationId) ?? [];
+    if (!members.some(member => member.actorId === actorId && member.role === 'participant')) {
+      return false;
+    }
+    const remaining = members.filter(member => member.actorId !== actorId);
+    this.members.set(conversationId, remaining.length > 1 ? remaining : []);
+    this.emitChanged(conversationId);
+    return true;
+  }
+
+  private emitChanged(conversationId: string): void {
+    const conversation = this.conversations.get(conversationId);
+    if (!conversation) {
+      return;
+    }
+    const summary = this.summary(conversation);
+    this.emitLive({
+      kind: 'changed',
+      data: {
+        conversationId,
+        status: summary.status,
+        title: summary.title,
+        updatedAt: summary.updatedAt,
+        activeActorId: summary.activeActorId ?? null,
+        lastMessageSequence: summary.lastMessageSequence ?? 0,
+        participantCount: summary.participantCount ?? 0
+      }
+    });
+  }
+
+  private emitLive(message: NhAssistantMockLiveMessage): void {
+    // Delivered after the current request, as a hub message would arrive.
+    queueMicrotask(() => this.liveSubject.next(message));
+  }
+
+  private maxParticipants(): number {
+    return this.scenario.collaboration?.maxParticipants ?? 20;
+  }
+
+  private error(status: number, code: string): Response {
+    return this.json(status, { code, messageKey: `nh-assistant.errors.${code}` });
   }
 
   private nextId(): string {
@@ -488,4 +751,20 @@ export class NhAssistantMockBackend {
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+/** Numbers messages in order, as the server does, keeping numbers that are already set. */
+function withSequences(conversation: Conversation): Conversation {
+  let next = lastSequence(conversation);
+  if (conversation.messages.every(message => message.sequence !== undefined)) {
+    return conversation;
+  }
+  return {
+    ...conversation,
+    messages: conversation.messages.map(message => message.sequence === undefined ? { ...message, sequence: ++next } : message)
+  };
+}
+
+function lastSequence(conversation: Conversation): number {
+  return conversation.messages.reduce((maximum, message) => Math.max(maximum, message.sequence ?? 0), 0);
 }

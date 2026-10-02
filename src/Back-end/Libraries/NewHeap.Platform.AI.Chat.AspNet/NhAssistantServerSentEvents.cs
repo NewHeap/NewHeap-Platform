@@ -133,18 +133,29 @@ internal static class NhAssistantDtoMapper
             agent.CanMutate);
     }
 
-    public static NhAssistantConversationSummaryDto ToSummary(Entities.AssistantConversation conversation)
+    public static NhAssistantConversationSummaryDto ToSummary(Persistence.NhAssistantConversationListItem item)
     {
+        var conversation = item.Conversation;
         return new NhAssistantConversationSummaryDto(
             conversation.Id,
             conversation.AgentId,
             conversation.Title,
             conversation.Status,
             conversation.CreatedAt,
-            conversation.UpdatedAt);
+            conversation.UpdatedAt,
+            item.Role,
+            item.ParticipantCount,
+            item.LastMessageSequence,
+            item.LastReadSequence,
+            conversation.ActiveTurnId is null ? null : conversation.ActiveActorId ?? conversation.OwnerActorId);
     }
 
-    public static NhAssistantConversationDto ToDto(NhAssistantConversationView view)
+    /// <param name="currentActorId">The caller.</param>
+    /// <param name="shareToken">The unprotected invitation token for the owner, otherwise <see langword="null"/>.</param>
+    public static NhAssistantConversationDto ToDto(
+        NhAssistantConversationView view,
+        string? currentActorId = null,
+        string? shareToken = null)
     {
         return new NhAssistantConversationDto(
             view.Id,
@@ -154,12 +165,32 @@ internal static class NhAssistantDtoMapper
             view.CreatedAt,
             view.UpdatedAt,
             view.AgentVersion,
-            view.Messages.Select(message => new NhAssistantMessageDto(
-                message.Id,
-                message.Role,
-                message.CreatedAt,
-                message.Parts.Select(ToDto).ToArray())).ToArray(),
-            view.PendingApproval is null ? null : ToDto(view.PendingApproval));
+            view.Messages.Select(ToDto).ToArray(),
+            view.PendingApproval is null ? null : ToDto(view.PendingApproval),
+            view.Role,
+            view.LastReadSequence,
+            view.LastMessageSequence,
+            view.ActiveActorId,
+            view.Members
+                .Select(member => new NhAssistantMemberDto(
+                    member.ActorId,
+                    string.IsNullOrEmpty(member.DisplayName) ? null : member.DisplayName,
+                    member.Role,
+                    member.JoinedAt))
+                .ToArray(),
+            shareToken,
+            currentActorId);
+    }
+
+    public static NhAssistantMessageDto ToDto(NhAssistantMessageView message)
+    {
+        return new NhAssistantMessageDto(
+            message.Id,
+            message.Role,
+            message.CreatedAt,
+            message.Parts.Select(ToDto).ToArray(),
+            message.Sequence,
+            message.AuthorActorId);
     }
 
     public static NhAssistantMessagePartDto ToDto(NhAssistantPartView part)

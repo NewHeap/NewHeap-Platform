@@ -162,9 +162,12 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database)
         Assert.Single(app.Tools.StatusChanges);
 
         var final = await ReadJsonAsync(await client.GetAsync($"/api/assistant/conversations/{id}"));
-        AssertNames(final, "id", "agentId", "title", "status", "createdAt", "updatedAt", "agentVersion", "messages", "pendingApproval");
+        AssertNames(
+            final,
+            "id", "agentId", "title", "status", "createdAt", "updatedAt", "agentVersion", "messages", "pendingApproval",
+            "role", "lastReadSequence", "lastMessageSequence", "activeActorId", "members", "shareToken", "currentActorId");
         var message = final.GetProperty("messages")[1];
-        AssertNames(message, "id", "role", "createdAt", "parts");
+        AssertNames(message, "id", "role", "createdAt", "parts", "sequence", "authorActorId");
         var toolPart = message.GetProperty("parts").EnumerateArray().First(part => part.GetProperty("type").GetString() == "tool-call");
         AssertNames(toolPart, "type", "invocationId", "toolId", "toolVersion", "displayName", "status", "argumentsPreview", "resultPreview", "resultCode");
         var textPart = final.GetProperty("messages")[0].GetProperty("parts")[0];
@@ -288,11 +291,14 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database)
             new NhAssistantErrorDto("code", "key", new Dictionary<string, string[]> { ["displayName"] = ["required"] }),
             context.NhAssistantErrorDto);
 
-        AssertNames(status, "enabled", "agents", "limits", "canAdminister");
+        AssertNames(status, "enabled", "agents", "limits", "canAdminister", "collaboration");
         AssertNames(status.GetProperty("agents")[0], "id", "version", "displayNameKey", "descriptionKey", "canMutate");
         AssertNames(status.GetProperty("limits"), "maxMessageChars", "maxToolCallsPerTurn");
         AssertNames(summary, "items", "total");
-        AssertNames(summary.GetProperty("items")[0], "id", "agentId", "title", "status", "createdAt", "updatedAt");
+        AssertNames(
+            summary.GetProperty("items")[0],
+            "id", "agentId", "title", "status", "createdAt", "updatedAt",
+            "role", "participantCount", "lastMessageSequence", "lastReadSequence", "activeActorId");
         AssertNames(error, "code", "messageKey");
         AssertNames(validation, "code", "messageKey", "errors");
         AssertNames(validation.GetProperty("errors"), "displayName");

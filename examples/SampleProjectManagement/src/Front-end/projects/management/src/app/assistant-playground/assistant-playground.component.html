@@ -97,13 +97,30 @@
       <ul class="prompts">
         @for (prompt of prompts; track prompt.key) {
           <li>
-            <button type="button" class="prompt" [disabled]="!store.enabled() || store.streaming()" (click)="tryPrompt(prompt.text)">
+            <button type="button" class="prompt" [disabled]="!store.enabled()" (click)="tryPrompt(prompt.text)">
               <span class="prompt-label">{{ 'project.assistant-prompt-' + prompt.key | translate }}</span>
               <span class="prompt-text">{{ prompt.text }}</span>
             </button>
           </li>
         }
       </ul>
+    </section>
+
+    <section class="panel" aria-labelledby="assistant-collaboration-title">
+      <h3 id="assistant-collaboration-title">{{ 'project.assistant-collaboration-title' | translate }}</h3>
+      <p class="hint">{{ 'project.assistant-collaboration-description' | translate }}</p>
+      <div class="actions">
+        <button type="button" [disabled]="!canSimulateColleague()" (click)="simulateColleague()">
+          <i class="ph ph-users" aria-hidden="true"></i>{{ 'project.assistant-simulate-colleague' | translate: { name: colleague.displayName } }}
+        </button>
+      </div>
+      <p class="hint" role="status">
+        @if (colleagueBusy()) {
+          {{ 'project.assistant-colleague-working' | translate: { name: colleague.displayName } }}
+        } @else if (!store.activeConversation()) {
+          {{ 'project.assistant-colleague-needs-conversation' | translate }}
+        }
+      </p>
     </section>
 
     <section class="panel state" aria-labelledby="assistant-state-title">
@@ -116,6 +133,10 @@
         <div><dt>activeConversation().id</dt><dd>{{ store.activeConversation()?.id ?? '–' }}</dd></div>
         <div><dt>activeConversation().status</dt><dd>{{ conversationStatus() ?? '–' }}</dd></div>
         <div><dt>streaming()</dt><dd [attr.data-on]="store.streaming()">{{ store.streaming() }}</dd></div>
+        <div><dt>runningCount()</dt><dd>{{ store.runningCount() }}</dd></div>
+        <div><dt>unreadCount()</dt><dd>{{ store.unreadCount() }}</dd></div>
+        <div><dt>members().length</dt><dd>{{ store.members().length }}</dd></div>
+        <div><dt>liveState()</dt><dd>{{ store.liveState() }}</dd></div>
         <div><dt>pendingApproval()</dt><dd>{{ store.pendingApproval()?.summary ?? '–' }}</dd></div>
         <div><dt>error()</dt><dd>{{ store.error()?.code ?? '–' }}</dd></div>
         <div>

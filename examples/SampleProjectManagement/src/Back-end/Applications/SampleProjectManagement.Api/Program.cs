@@ -303,7 +303,7 @@ builder.Services.AddNewHeapPlatformAIAspNet(ai => ai
         ProjectAiTools.ManageCapability,
         "app.active-division.project.manage"));
 builder.Services.AddSampleAiBridge();
-builder.Services.AddSampleAssistant();
+builder.Services.AddSampleAssistant(builder.Environment, builder.Configuration);
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     .WithNewHeapPlatformAITools();

@@ -20,6 +20,24 @@
     </div>
   } @else {
     <form class="form" (submit)="$event.preventDefault(); save()">
+      @if (push.state() !== 'unavailable') {
+        <fieldset class="notifications">
+          <legend>{{ 'nh-assistant.preferences.notifications-label' | translate }}</legend>
+          <label class="switch">
+            <input
+              type="checkbox"
+              [checked]="push.settings()?.pushEnabled === true"
+              [disabled]="push.busy()"
+              [attr.aria-describedby]="id + '-notifications-hint'"
+              (change)="toggleNotifications($event)" />
+            <span>{{ 'nh-assistant.preferences.notifications' | translate }}</span>
+          </label>
+          <p class="hint" [id]="id + '-notifications-hint'">
+            <span>{{ 'nh-assistant.preferences.notifications-state.' + push.state() | translate }}</span>
+          </p>
+        </fieldset>
+      }
+
       <p class="description">{{ 'nh-assistant.preferences.description' | translate }}</p>
 
       <fieldset>

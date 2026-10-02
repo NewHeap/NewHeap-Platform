@@ -17,9 +17,16 @@ internal sealed class NhAssistantTurnScope
     public required NhAssistantAgentDefinition Agent { get; init; }
 
     /// <summary>
-    /// The accountable human actor who owns the conversation.
+    /// The accountable human actor who started the turn: the conversation owner or, in a shared
+    /// conversation, the participant who sent the message. Tools, budgets and approvals use this actor.
     /// </summary>
     public required string OwnerActorId { get; init; }
+
+    /// <summary>
+    /// The owner of the conversation, which differs from <see cref="OwnerActorId"/> when a participant
+    /// started the turn.
+    /// </summary>
+    public string? ConversationOwnerActorId { get; init; }
 
     /// <summary>
     /// The accountable owner taken from the caller's invocation context, or the owner actor when the

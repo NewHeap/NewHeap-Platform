@@ -92,12 +92,75 @@ li {
   }
 }
 
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .title {
   overflow: hidden;
   font-size: 13px;
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+li.unread .title {
+  font-weight: 800;
+}
+
+.shared {
+  flex: none;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+}
+
+.indicator {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+
+  // A quiet conversation keeps its title aligned with the meta line below it.
+  &:not([data-state]) {
+    display: none;
+  }
+
+  &[data-state='unread'] {
+    background: var(--nha-highlight);
+  }
+
+  &[data-state='waiting'] {
+    background: var(--nha-warning);
+  }
+
+  &[data-state='running'] {
+    width: 10px;
+    height: 10px;
+    border: 2px solid color-mix(in srgb, var(--nha-highlight) 30%, transparent);
+    border-top-color: var(--nha-highlight);
+    animation: nh-assistant-spin 900ms linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .indicator[data-state='running'] {
+    border-color: var(--nha-highlight);
+    animation: none;
+  }
+}
+
+@keyframes nh-assistant-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.unread-label {
+  color: var(--nha-highlight);
+  font-weight: 700;
 }
 
 .meta {

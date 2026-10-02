@@ -1,4 +1,17 @@
-import { DestroyRef, EnvironmentInjector, Injectable, computed, inject, runInInjectionContext, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import {
+  DestroyRef,
+  EnvironmentInjector,
+  Injectable,
+  PLATFORM_ID,
+  computed,
+  effect,
+  inject,
+  runInInjectionContext,
+  signal,
+  untracked
+} from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { Observable, Subscription, firstValueFrom, isObservable } from 'rxjs';
 import {
   AgentSummary,
@@ -6,12 +19,29 @@ import {
   AssistantStatus,
   ClientContext,
   Conversation,
-  ConversationSummary
+  ConversationMember,
+  ConversationStatus,
+  ConversationSummary,
+  DirectoryEntry
 } from '../models/assistant-api.models';
+import {
+  LiveConversationChanged,
+  LiveConversationEvent,
+  LiveConversationRead,
+  LiveConversationRemoved
+} from '../models/assistant-live.models';
 import { NhAssistantClientErrorCodes, NhAssistantSseEvent, TurnUsage } from '../models/assistant-sse.models';
 import { NH_ASSISTANT_ACCESS_POLICY, NH_ASSISTANT_CONFIG } from '../nh-assistant.config';
 import { NhAssistantApiError, NhAssistantApiService, nhAssistantErrorMessageKey } from './nh-assistant-api.service';
-import { applyNhAssistantApprovalDecision, applyNhAssistantEvent, nhAssistantLatestTurnHasText } from './nh-assistant-reducer';
+import { NhAssistantLiveService } from './nh-assistant-live.service';
+import { NhAssistantPushService } from './nh-assistant-push.service';
+import {
+  applyNhAssistantApprovalDecision,
+  applyNhAssistantConversationChange,
+  applyNhAssistantEvent,
+  applyNhAssistantLiveEvent,
+  nhAssistantLatestTurnHasText
+} from './nh-assistant-reducer';
 import { normalizeNhAssistantClientContext } from './nh-assistant-page-context';
 import { NhAssistantUiState } from './nh-assistant-ui-state';
 
@@ -30,12 +60,52 @@ export type NhAssistantNotice = NhAssistantError;
 /** Notice code for a completed turn that produced no answer text and no server code. */
 export const NH_ASSISTANT_NO_ANSWER_NOTICE_CODE = 'assistant-no-answer';
 
-const conversationPageSize = 50;
-const cancelGracePeriodMs = 5_000;
 
 /**
- * Signal-based state of one assistant scope: availability, agents, the conversation list
- * and the active conversation with its streamed turn.
+ * A conversation that needs attention outside the open thread: a turn runs, an approval waits or
+ * there is something unread.
+ */
+export interface NhAssistantActivity {
+  id: string;
+  title: string | null;
+  status: ConversationStatus;
+  unread: boolean;
+  shared: boolean;
+  /** True for the conversation shown in the panel. */
+  active: boolean;
+  updatedAt: string;
+}
+
+/** True when a conversation has messages the caller has not read. A running turn is not unread yet. */
+export function nhAssistantIsUnread(summary: Pick<ConversationSummary, 'status' | 'lastMessageSequence' | 'lastReadSequence'>): boolean {
+  if (summary.status === 'running' || summary.lastReadSequence === undefined) {
+    return false;
+  }
+  return (summary.lastMessageSequence ?? 0) > summary.lastReadSequence;
+}
+
+/** The state of one conversation this tab has opened. */
+interface NhAssistantSession {
+  conversation: Conversation;
+  /** A request of this tab streams a turn of the conversation. */
+  streaming: boolean;
+  deciding: boolean;
+  error: NhAssistantError | null;
+  notice: NhAssistantNotice | null;
+  lastUsage: TurnUsage | null;
+}
+
+const conversationPageSize = 50;
+const cancelGracePeriodMs = 5_000;
+const maxSessions = 20;
+const refreshDelayMs = 300;
+const newConversationKey = '';
+
+/**
+ * Signal-based state of one assistant scope: availability, agents, the conversation list and
+ * every conversation this tab has opened. Several conversations can run turns at the same time;
+ * the public signals describe the conversation that is open in the panel. With live updates the
+ * store follows turns of other people and of the user's other tabs.
  */
 @Injectable()
 export class NhAssistantStore {
@@ -44,6 +114,10 @@ export class NhAssistantStore {
   private readonly injector = inject(EnvironmentInjector);
   private readonly accessPolicy = inject(NH_ASSISTANT_ACCESS_POLICY);
   private readonly uiState = inject(NhAssistantUiState);
+  private readonly live = inject(NhAssistantLiveService);
+  private readonly push = inject(NhAssistantPushService);
+  private readonly document = inject(DOCUMENT);
+  private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
 
   private readonly accessGrantedState = signal<boolean | null>(null);
   private readonly statusState = signal<AssistantStatus | null>(null);
@@ -52,25 +126,35 @@ export class NhAssistantStore {
   private readonly conversationsState = signal<ConversationSummary[]>([]);
   private readonly conversationsTotalState = signal(0);
   private readonly conversationsLoadingState = signal(false);
-  private readonly activeConversationState = signal<Conversation | null>(null);
+  private readonly sessionsState = signal<ReadonlyMap<string, NhAssistantSession>>(new Map());
+  private readonly activeIdState = signal<string | null>(null);
   private readonly conversationLoadingState = signal(false);
-  private readonly streamingState = signal(false);
-  private readonly decidingState = signal(false);
-  private readonly errorState = signal<NhAssistantError | null>(null);
-  private readonly noticeState = signal<NhAssistantNotice | null>(null);
-  private readonly lastUsageState = signal<TurnUsage | null>(null);
+  /** The conversation a message is being prepared for; `''` while a new conversation is created. */
+  private readonly sendingState = signal<string | null>(null);
+  private readonly draftErrorState = signal<NhAssistantError | null>(null);
   private readonly restoredDraftState = signal<string | null>(null);
   private readonly pageContextState = signal<ClientContext | null>(null);
   private readonly pageContextExcludedState = signal(false);
   private readonly restorePanelOpenState = signal(false);
+  private readonly viewingState = signal(false);
+  private readonly pageVisibleState = signal(true);
 
+  private readonly streams = new Map<string, Subscription>();
+  private readonly cancelTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly pendingSendResolves = new Map<string, (accepted: boolean) => void>();
+  private readonly markingRead = new Set<string>();
+  private readonly liveSubscription = new Subscription();
   private accessSubscription?: Subscription;
-  private streamSubscription?: Subscription;
-  private cancelTimer?: ReturnType<typeof setTimeout>;
+  private refreshTimer?: ReturnType<typeof setTimeout>;
   private initialization?: Promise<void>;
   private statusRevision = 0;
   private accountRevision = 0;
-  private pendingSendResolve?: (accepted: boolean) => void;
+  private collaborationKey: string | null = null;
+
+  private readonly activeSession = computed(() => {
+    const id = this.activeIdState();
+    return id === null ? null : this.sessionsState().get(id) ?? null;
+  });
 
   /** True when the access policy allows the user and the server reports the assistant as enabled. */
   readonly enabled = computed(() => this.accessGrantedState() === true && this.statusState()?.enabled === true);
@@ -80,6 +164,8 @@ export class NhAssistantStore {
   readonly statusLoading = this.statusLoadingState.asReadonly();
   readonly limits = computed(() => this.statusState()?.limits ?? null);
   readonly agents = computed<AgentSummary[]>(() => this.statusState()?.agents ?? []);
+  /** Sharing, live update and notification features the server offers. */
+  readonly collaboration = computed(() => this.statusState()?.collaboration ?? null);
   readonly selectedAgentId = this.selectedAgentIdState.asReadonly();
   readonly selectedAgent = computed(() =>
     this.agents().find(agent => agent.id === this.selectedAgentIdState()) ?? null
@@ -87,15 +173,21 @@ export class NhAssistantStore {
   readonly conversations = this.conversationsState.asReadonly();
   readonly conversationsTotal = this.conversationsTotalState.asReadonly();
   readonly conversationsLoading = this.conversationsLoadingState.asReadonly();
-  readonly activeConversation = this.activeConversationState.asReadonly();
+  /** The conversation open in the panel, or `null` for a new one. */
+  readonly activeConversation = computed(() => this.activeSession()?.conversation ?? null);
   readonly conversationLoading = this.conversationLoadingState.asReadonly();
-  readonly streaming = this.streamingState.asReadonly();
-  readonly pendingApproval = computed(() => this.activeConversationState()?.pendingApproval ?? null);
-  readonly deciding = this.decidingState.asReadonly();
-  readonly error = this.errorState.asReadonly();
+  /** True while this tab sends a message or streams a turn of the open conversation. */
+  readonly streaming = computed(() => {
+    const sending = this.sendingState();
+    const activeId = this.activeIdState();
+    return (sending !== null && sending === (activeId ?? newConversationKey)) || this.activeSession()?.streaming === true;
+  });
+  readonly pendingApproval = computed(() => this.activeConversation()?.pendingApproval ?? null);
+  readonly deciding = computed(() => this.activeSession()?.deciding === true);
+  readonly error = computed(() => this.activeIdState() === null ? this.draftErrorState() : this.activeSession()?.error ?? null);
   /** Non-blocking remark about the latest completed turn; shown only while no error is shown. */
-  readonly notice = this.noticeState.asReadonly();
-  readonly lastUsage = this.lastUsageState.asReadonly();
+  readonly notice = computed(() => this.activeSession()?.notice ?? null);
+  readonly lastUsage = computed(() => this.activeSession()?.lastUsage ?? null);
   /** Text of a message the server did not accept, so the composer can offer it again. */
   readonly restoredDraft = this.restoredDraftState.asReadonly();
   /** Page context that the next message would send, for the transparency chip. */
@@ -106,16 +198,99 @@ export class NhAssistantStore {
   readonly restorePanelOpen = this.restorePanelOpenState.asReadonly();
   /** True while the user can send: enabled, an agent is chosen and no turn runs or waits. */
   readonly canSend = computed(() => {
-    const conversation = this.activeConversationState();
+    const conversation = this.activeConversation();
     const blocked = conversation !== null && conversation.status !== 'idle';
-    return this.enabled() && this.selectedAgentIdState() !== null && !this.streamingState() && !this.conversationLoadingState() && !blocked;
+    return this.enabled() && this.selectedAgentIdState() !== null && !this.streaming() && !this.conversationLoadingState() && !blocked;
   });
+  /** The owner and participants of the open conversation; empty while it is not shared. */
+  readonly members = computed<ConversationMember[]>(() => this.activeConversation()?.members ?? []);
+  /** True when the current user owns the open conversation (or it is new). */
+  readonly isOwner = computed(() => (this.activeConversation()?.role ?? 'owner') === 'owner');
+  /** True when the current user may decide the pending approval: it belongs to their own turn. */
+  readonly canDecide = computed(() => {
+    const conversation = this.activeConversation();
+    if (!conversation?.pendingApproval) {
+      return false;
+    }
+    return !conversation.activeActorId || !conversation.currentActorId || conversation.activeActorId === conversation.currentActorId;
+  });
+  /** The member whose turn runs or waits in the open conversation, when it is someone else. */
+  readonly activeMember = computed<ConversationMember | null>(() => {
+    const conversation = this.activeConversation();
+    if (!conversation?.activeActorId || conversation.activeActorId === conversation.currentActorId) {
+      return null;
+    }
+    return conversation.members?.find(member => member.actorId === conversation.activeActorId) ?? null;
+  });
+  /** Conversations that need attention: running, waiting for approval or unread. Most recent first. */
+  readonly activity = computed<NhAssistantActivity[]>(() => {
+    const sessions = this.sessionsState();
+    const activeId = this.activeIdState();
+    return this.conversationsState()
+      .map(summary => {
+        const session = sessions.get(summary.id);
+        const status = session?.streaming ? session.conversation.status : summary.status;
+        return {
+          id: summary.id,
+          title: summary.title,
+          status,
+          unread: nhAssistantIsUnread({ ...summary, status }),
+          shared: (summary.participantCount ?? 0) > 0,
+          active: summary.id === activeId,
+          updatedAt: summary.updatedAt
+        };
+      })
+      .filter(item => item.status === 'running' || item.status === 'waiting-for-approval' || item.unread);
+  });
+  readonly runningCount = computed(() => this.activity().filter(item => item.status === 'running').length);
+  readonly waitingCount = computed(() => this.activity().filter(item => item.status === 'waiting-for-approval').length);
+  readonly unreadCount = computed(() => this.activity().filter(item => item.unread).length);
+  /** Live update connection state. */
+  readonly liveState = this.live.state;
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => {
+    const destroyRef = inject(DestroyRef);
+    destroyRef.onDestroy(() => {
       this.accessSubscription?.unsubscribe();
-      this.streamSubscription?.unsubscribe();
-      clearTimeout(this.cancelTimer);
+      this.liveSubscription.unsubscribe();
+      this.stopAllTurns();
+      clearTimeout(this.refreshTimer);
+    });
+
+    this.liveSubscription.add(this.live.changed$.subscribe(change => this.onLiveChanged(change)));
+    this.liveSubscription.add(this.live.read$.subscribe(read => this.onLiveRead(read)));
+    this.liveSubscription.add(this.live.removed$.subscribe(removed => this.onLiveRemoved(removed)));
+    this.liveSubscription.add(this.live.events$.subscribe(event => this.onLiveEvent(event)));
+    this.liveSubscription.add(this.live.resync$.subscribe(() => this.resync()));
+
+    if (this.browser) {
+      const update = () => this.pageVisibleState.set(this.document.visibilityState === 'visible' && this.document.hasFocus());
+      const visible = () => {
+        update();
+        if (this.document.visibilityState === 'visible' && this.enabled()) {
+          // Without live updates, or on another instance, coming back reloads the list.
+          void this.refreshConversations();
+        }
+      };
+      this.document.addEventListener('visibilitychange', visible);
+      globalThis.addEventListener?.('focus', update);
+      globalThis.addEventListener?.('blur', update);
+      destroyRef.onDestroy(() => {
+        this.document.removeEventListener('visibilitychange', visible);
+        globalThis.removeEventListener?.('focus', update);
+        globalThis.removeEventListener?.('blur', update);
+      });
+      update();
+    }
+
+    // Marks the open conversation as read while the user looks at it.
+    effect(() => {
+      this.activeIdState();
+      this.viewingState();
+      this.pageVisibleState();
+      this.conversationsState();
+      this.sessionsState();
+      untracked(() => this.markActiveReadWhenSeen());
     });
   }
 
@@ -129,21 +304,9 @@ export class NhAssistantStore {
   async reloadStatus(): Promise<void> {
     const revision = ++this.statusRevision;
     if (this.accessGrantedState() !== true) {
-      this.accountRevision++;
-      this.stopLocalTurn();
+      this.resetAccount();
       this.statusState.set(null);
-      this.activeConversationState.set(null);
       this.selectedAgentIdState.set(null);
-      this.conversationsState.set([]);
-      this.conversationsTotalState.set(0);
-      this.conversationLoadingState.set(false);
-      this.conversationsLoadingState.set(false);
-      this.pageContextState.set(null);
-      this.pageContextExcludedState.set(false);
-      this.restoredDraftState.set(null);
-      this.errorState.set(null);
-      this.noticeState.set(null);
-      this.lastUsageState.set(null);
       this.restorePanelOpenState.set(false);
       this.uiState.deactivate();
       return;
@@ -156,20 +319,8 @@ export class NhAssistantStore {
         return;
       }
       if (restored.changed) {
-        this.accountRevision++;
-        this.stopLocalTurn();
+        this.resetAccount();
         this.statusState.set(null);
-        this.activeConversationState.set(null);
-        this.conversationsState.set([]);
-        this.conversationsTotalState.set(0);
-        this.conversationLoadingState.set(false);
-        this.conversationsLoadingState.set(false);
-        this.pageContextState.set(null);
-        this.pageContextExcludedState.set(false);
-        this.restoredDraftState.set(null);
-        this.errorState.set(null);
-        this.noticeState.set(null);
-        this.lastUsageState.set(null);
         this.selectedAgentIdState.set(restored.state.agentId);
         this.restorePanelOpenState.set(restored.state.panelOpen);
       }
@@ -181,7 +332,8 @@ export class NhAssistantStore {
       this.statusState.set(status);
       if (status.enabled) {
         this.selectInitialAgent(status.agents);
-        if (!this.activeConversationState() && restored.state.conversationId) {
+        this.startCollaboration(status);
+        if (this.activeIdState() === null && restored.state.conversationId) {
           await this.loadConversation(restored.state.conversationId, true);
         }
       }
@@ -207,12 +359,12 @@ export class NhAssistantStore {
     try {
       const page = await firstValueFrom(this.api.listConversations(1, conversationPageSize));
       if (revision === this.accountRevision) {
-        this.conversationsState.set(page.items);
+        this.conversationsState.set(page.items.map(item => this.withLocalState(item)));
         this.conversationsTotalState.set(page.total);
       }
     } catch (error) {
       if (revision === this.accountRevision) {
-        this.setError(error);
+        this.setError(this.activeIdState(), error);
       }
     } finally {
       if (revision === this.accountRevision) {
@@ -221,7 +373,7 @@ export class NhAssistantStore {
     }
   }
 
-  /** Chooses the agent for the next new conversation. Switching away from the active conversation's agent starts a new one. */
+  /** Chooses the agent for the next new conversation. Switching away from the open conversation's agent starts a new one. */
   selectAgent(agentId: string): void {
     if (!this.agents().some(agent => agent.id === agentId)) {
       return;
@@ -229,69 +381,34 @@ export class NhAssistantStore {
 
     this.selectedAgentIdState.set(agentId);
     this.uiState.update({ agentId });
-    const active = this.activeConversationState();
-    if (active && active.agentId !== agentId && !this.streamingState()) {
+    const active = this.activeConversation();
+    if (active && active.agentId !== agentId) {
       this.startNewConversation();
     }
   }
 
-  /** Leaves the active conversation; the next message creates a new one. */
+  /**
+   * Leaves the open conversation; the next message creates a new one. Turns of other
+   * conversations keep running in the background.
+   */
   startNewConversation(): void {
-    if (this.streamingState()) {
-      return;
-    }
-
-    this.activeConversationState.set(null);
+    this.activeIdState.set(null);
     this.uiState.update({ conversationId: null });
-    this.errorState.set(null);
-    this.noticeState.set(null);
-    this.lastUsageState.set(null);
+    this.draftErrorState.set(null);
   }
 
+  /** Opens a conversation; one that this tab already follows opens immediately. */
   async openConversation(conversationId: string): Promise<void> {
     await this.loadConversation(conversationId, false);
   }
 
-  private async loadConversation(conversationId: string, restoring: boolean): Promise<void> {
-    if (this.streamingState() || this.activeConversationState()?.id === conversationId) {
-      return;
-    }
-
-    const revision = this.accountRevision;
-    this.conversationLoadingState.set(true);
-    this.errorState.set(null);
-    this.noticeState.set(null);
-    try {
-      const conversation = await firstValueFrom(this.api.getConversation(conversationId));
-      if (revision !== this.accountRevision) {
-        return;
-      }
-      if (!this.agents().some(agent => agent.id === conversation.agentId)) {
-        this.uiState.update({ conversationId: null });
-        return;
-      }
-      this.activeConversationState.set(conversation);
-      this.selectedAgentIdState.set(conversation.agentId);
-      this.uiState.update({ conversationId, agentId: conversation.agentId });
-    } catch (error) {
-      if (revision !== this.accountRevision) {
-        return;
-      }
-      if (error instanceof NhAssistantApiError && (error.status === 403 || error.status === 404)) {
-        this.uiState.update({ conversationId: null });
-      }
-      if (!restoring) {
-        this.setError(error);
-      }
-    } finally {
-      if (revision === this.accountRevision) {
-        this.conversationLoadingState.set(false);
-      }
-    }
+  /** Tells the store whether the user can see the open thread, so it can mark it as read. */
+  setViewing(viewing: boolean): void {
+    this.viewingState.set(viewing);
   }
 
   async deleteConversation(conversationId: string): Promise<void> {
-    if (this.streamingState() && this.activeConversationState()?.id === conversationId) {
+    if (this.sessionsState().get(conversationId)?.streaming) {
       return;
     }
 
@@ -301,26 +418,22 @@ export class NhAssistantStore {
       if (revision !== this.accountRevision) {
         return;
       }
-      this.conversationsState.update(items => items.filter(item => item.id !== conversationId));
-      this.conversationsTotalState.update(total => Math.max(0, total - 1));
-      if (this.activeConversationState()?.id === conversationId) {
-        this.activeConversationState.set(null);
-        this.noticeState.set(null);
-        this.uiState.update({ conversationId: null });
-      }
+      this.forget(conversationId);
     } catch (error) {
       if (revision === this.accountRevision) {
-        this.setError(error);
+        this.setError(this.activeIdState(), error);
       }
     }
   }
 
   /**
-   * Sends a user message. Creates a conversation with the selected agent when none is
-   * active, shows the message optimistically and applies the streamed events.
-   * Resolves `false` when the message was not accepted.
+   * Sends a user message. Creates a conversation with the selected agent when none is open,
+   * shows the message optimistically and applies the streamed events. Other conversations keep
+   * their own turns. Resolves `false` when the message was not accepted.
    */
   async send(text: string): Promise<boolean> {
+    // Browsers only ask for notification permission during a user action such as this one.
+    void this.push.onUserGesture().catch(() => undefined);
     const trimmed = text.trim();
     await this.initialize();
     await this.reloadStatus();
@@ -329,56 +442,69 @@ export class NhAssistantStore {
       return false;
     }
 
-    this.errorState.set(null);
-
-    this.noticeState.set(null);
-    this.restoredDraftState.set(null);
-    this.streamingState.set(true);
     const accountRevision = this.accountRevision;
+    let conversation = this.activeConversation();
+    this.sendingState.set(conversation?.id ?? newConversationKey);
+    this.restoredDraftState.set(null);
+    this.draftErrorState.set(null);
 
-    let conversation = this.activeConversationState();
     if (!conversation) {
       conversation = await this.createConversation();
       if (!conversation) {
         if (accountRevision === this.accountRevision) {
-          this.streamingState.set(false);
+          this.sendingState.set(null);
           this.restoredDraftState.set(text);
         }
         return false;
       }
+      this.sendingState.set(conversation.id);
     }
 
     const clientContext = await this.contextForMessage();
     if (accountRevision !== this.accountRevision) {
       return false;
     }
+    const conversationId = conversation.id;
     const clientMessageId = createClientMessageId();
     const previousStatus = conversation.status;
-    this.activeConversationState.set({
-      ...conversation,
-      status: 'running',
-      messages: [
-        ...conversation.messages,
-        { id: clientMessageId, role: 'user', createdAt: new Date().toISOString(), parts: [{ type: 'text', text: trimmed }] }
-      ]
-    });
+    this.patchSession(conversationId, session => ({
+      ...session,
+      error: null,
+      notice: null,
+      conversation: {
+        ...session.conversation,
+        status: 'running',
+        messages: [
+          ...session.conversation.messages,
+          {
+            id: clientMessageId,
+            role: 'user',
+            createdAt: new Date().toISOString(),
+            parts: [{ type: 'text', text: trimmed }],
+            authorActorId: session.conversation.currentActorId ?? null
+          }
+        ]
+      }
+    }));
+    this.patchSummary(conversationId, { status: 'running', updatedAt: new Date().toISOString() });
 
-    const conversationId = conversation.id;
     return new Promise<boolean>(resolve => {
-      this.pendingSendResolve = resolve;
+      this.pendingSendResolves.set(conversationId, resolve);
       let started = false;
       let failedAfterStart = false;
 
-      this.runStream(this.api.sendMessage(conversationId, {
+      this.runStream(conversationId, this.api.sendMessage(conversationId, {
         text: trimmed,
         clientMessageId,
         ...(clientContext === undefined ? {} : { clientContext })
       }), {
         next: event => {
           if (event.type === 'error' && !started) {
-            this.removeMessage(clientMessageId, previousStatus);
-            this.restoredDraftState.set(text);
-            this.errorState.set(event.data);
+            this.removeMessage(conversationId, clientMessageId, previousStatus);
+            if (this.activeIdState() === conversationId) {
+              this.restoredDraftState.set(text);
+            }
+            this.patchSession(conversationId, session => ({ ...session, error: event.data }));
             resolve(false);
             return;
           }
@@ -391,70 +517,75 @@ export class NhAssistantStore {
             failedAfterStart = true;
           }
 
-          this.applyEvent(event, clientMessageId);
+          this.applyEvent(conversationId, event, clientMessageId);
         },
         complete: () => {
-          this.pendingSendResolve = undefined;
+          this.pendingSendResolves.delete(conversationId);
           resolve(started);
           this.afterTurn(conversationId, failedAfterStart);
         }
       });
+      this.sendingState.set(null);
     });
   }
 
   /** Approves or rejects the pending approval. Ignores repeated calls while a decision is in flight. */
   decide(decision: ApprovalDecision, reason?: string): void {
-    const conversation = this.activeConversationState();
+    const session = this.activeSession();
+    const conversation = session?.conversation;
     const approval = conversation?.pendingApproval ?? null;
-    if (!conversation || !approval || this.decidingState() || this.streamingState()) {
+    if (!session || !conversation || !approval || session.deciding || session.streaming || !this.canDecide()) {
       return;
     }
 
-    this.decidingState.set(true);
-    this.streamingState.set(true);
-    this.errorState.set(null);
-    this.noticeState.set(null);
+    const conversationId = conversation.id;
+    this.patchSession(conversationId, current => ({ ...current, deciding: true, error: null, notice: null }));
 
     let accepted = false;
     let failed = false;
     const request = { decision, expectedProposalHash: approval.proposalHash, ...(reason ? { reason } : {}) };
 
-    this.runStream(this.api.decideApproval(conversation.id, approval.approvalId, request), {
+    this.runStream(conversationId, this.api.decideApproval(conversationId, approval.approvalId, request), {
       next: event => {
         if (!accepted && event.type !== 'error') {
           accepted = true;
-          this.updateActive(current => applyNhAssistantApprovalDecision(current, approval.approvalId, decision));
+          this.patchSession(conversationId, current => ({
+            ...current,
+            conversation: applyNhAssistantApprovalDecision(current.conversation, approval.approvalId, decision)
+          }));
         }
         if (event.type === 'error') {
           failed = true;
           if (!accepted) {
-            this.errorState.set(event.data);
+            this.patchSession(conversationId, current => ({ ...current, error: event.data }));
             return;
           }
         }
 
-        this.applyEvent(event);
+        this.applyEvent(conversationId, event);
       },
       complete: () => {
-        this.decidingState.set(false);
-        this.afterTurn(conversation.id, failed);
+        this.patchSession(conversationId, current => ({ ...current, deciding: false }));
+        this.afterTurn(conversationId, failed);
       }
     });
   }
 
-  /** Asks the server to stop the running turn or to abandon a waiting approval. */
+  /** Asks the server to stop the running turn or to abandon a waiting approval of the open conversation. */
   async cancel(): Promise<void> {
-    const conversation = this.activeConversationState();
-    if (!conversation || (conversation.status === 'idle' && !this.streamingState())) {
+    const session = this.activeSession();
+    const conversation = session?.conversation;
+    if (!session || !conversation || (conversation.status === 'idle' && !session.streaming)) {
       return;
     }
 
+    const conversationId = conversation.id;
     const revision = this.accountRevision;
     try {
-      await firstValueFrom(this.api.cancel(conversation.id), { defaultValue: undefined });
+      await firstValueFrom(this.api.cancel(conversationId), { defaultValue: undefined });
     } catch (error) {
       if (revision === this.accountRevision) {
-        this.setError(error);
+        this.setError(conversationId, error);
       }
       return;
     }
@@ -463,29 +594,151 @@ export class NhAssistantStore {
       return;
     }
 
-    if (!this.streamingState()) {
-      await this.reloadActiveConversation(conversation.id);
+    if (!this.sessionsState().get(conversationId)?.streaming) {
+      await this.reloadSession(conversationId);
       return;
     }
 
     // The server ends the stream with turn.completed(cancelled); stop waiting if it does not.
-    clearTimeout(this.cancelTimer);
-    this.cancelTimer = setTimeout(() => {
-      if (this.streamingState()) {
-        this.streamSubscription?.unsubscribe();
-        this.streamingState.set(false);
-        this.decidingState.set(false);
-        void this.reloadActiveConversation(conversation.id);
+    clearTimeout(this.cancelTimers.get(conversationId));
+    this.cancelTimers.set(conversationId, setTimeout(() => {
+      this.cancelTimers.delete(conversationId);
+      if (this.sessionsState().get(conversationId)?.streaming) {
+        this.streams.get(conversationId)?.unsubscribe();
+        this.streams.delete(conversationId);
+        this.patchSession(conversationId, current => ({ ...current, streaming: false, deciding: false }));
+        void this.reloadSession(conversationId);
       }
-    }, cancelGracePeriodMs);
+    }, cancelGracePeriodMs));
+  }
+
+  /** Joins a shared conversation with an invitation link and opens it. Resolves `false` on failure. */
+  async joinConversation(conversationId: string, token: string): Promise<boolean> {
+    await this.initialize();
+    const revision = this.accountRevision;
+    try {
+      const conversation = await firstValueFrom(this.api.joinConversation(conversationId, token));
+      if (revision !== this.accountRevision) {
+        return false;
+      }
+      this.upsertSession(conversation);
+      this.setActive(conversation.id, conversation.agentId);
+      void this.refreshConversations();
+      return true;
+    } catch (error) {
+      if (revision === this.accountRevision) {
+        this.startNewConversation();
+        this.setError(null, error);
+      }
+      return false;
+    }
+  }
+
+  /** Owner only: creates a new invitation link for the open conversation and returns its token. */
+  async createShareLink(): Promise<string | null> {
+    const conversationId = this.activeIdState();
+    if (!conversationId) {
+      return null;
+    }
+    try {
+      const link = await firstValueFrom(this.api.createShareLink(conversationId));
+      this.patchSession(conversationId, session => ({
+        ...session,
+        conversation: { ...session.conversation, shareToken: link.token }
+      }));
+      return link.token;
+    } catch (error) {
+      this.setError(conversationId, error);
+      return null;
+    }
+  }
+
+  /** Owner only: the invitation link of the open conversation stops working. */
+  async revokeShareLink(): Promise<boolean> {
+    const conversationId = this.activeIdState();
+    if (!conversationId) {
+      return false;
+    }
+    try {
+      await firstValueFrom(this.api.revokeShareLink(conversationId), { defaultValue: undefined });
+      this.patchSession(conversationId, session => ({
+        ...session,
+        conversation: { ...session.conversation, shareToken: null }
+      }));
+      return true;
+    } catch (error) {
+      this.setError(conversationId, error);
+      return false;
+    }
+  }
+
+  /** Owner only: searches the application's directory for people to invite to the open conversation. */
+  async searchParticipantCandidates(query: string): Promise<DirectoryEntry[]> {
+    const conversationId = this.activeIdState();
+    if (!conversationId || query.trim().length < 2) {
+      return [];
+    }
+    try {
+      return await firstValueFrom(this.api.searchParticipantCandidates(conversationId, query.trim()));
+    } catch (error) {
+      this.setError(conversationId, error);
+      return [];
+    }
+  }
+
+  /** Owner only: invites a person from the directory to the open conversation. */
+  async inviteParticipant(actorId: string): Promise<boolean> {
+    const conversationId = this.activeIdState();
+    if (!conversationId) {
+      return false;
+    }
+    try {
+      await firstValueFrom(this.api.inviteParticipant(conversationId, actorId), { defaultValue: undefined });
+      await this.reloadSession(conversationId);
+      return true;
+    } catch (error) {
+      this.setError(conversationId, error);
+      return false;
+    }
+  }
+
+  /**
+   * The owner removes a participant of the open conversation; with the current user's own id a
+   * participant leaves it.
+   */
+  async removeParticipant(actorId: string): Promise<boolean> {
+    const conversation = this.activeConversation();
+    if (!conversation) {
+      return false;
+    }
+    try {
+      await firstValueFrom(this.api.removeParticipant(conversation.id, actorId), { defaultValue: undefined });
+      if (actorId === conversation.currentActorId) {
+        this.forget(conversation.id);
+      } else {
+        await this.reloadSession(conversation.id);
+      }
+      return true;
+    } catch (error) {
+      this.setError(conversation.id, error);
+      return false;
+    }
   }
 
   clearError(): void {
-    this.errorState.set(null);
+    const activeId = this.activeIdState();
+    if (activeId === null) {
+      this.draftErrorState.set(null);
+      return;
+    }
+    this.patchSession(activeId, session => ({ ...session, error: null }));
   }
 
   clearNotice(): void {
-    this.noticeState.set(null);
+    const activeId = this.activeIdState();
+    if (activeId !== null) {
+      this.patchSession(activeId, session => ({ ...session, notice: null }));
+    }
   }
 
   /** Persists only drawer visibility, never the page context or a message draft. */
@@ -513,6 +766,55 @@ export class NhAssistantStore {
     const draft = this.restoredDraftState();
     this.restoredDraftState.set(null);
     return draft;
+  }
+
+  private async loadConversation(conversationId: string, restoring: boolean): Promise<void> {
+    if (this.sessionsState().has(conversationId)) {
+      const session = this.sessionsState().get(conversationId)!;
+      this.setActive(conversationId, session.conversation.agentId);
+      return;
+    }
+    if (this.activeIdState() === conversationId) {
+      return;
+    }
+
+    const revision = this.accountRevision;
+    this.conversationLoadingState.set(true);
+    this.draftErrorState.set(null);
+    try {
+      const conversation = await firstValueFrom(this.api.getConversation(conversationId));
+      if (revision !== this.accountRevision) {
+        return;
+      }
+      if (!this.agents().some(agent => agent.id === conversation.agentId)) {
+        this.uiState.update({ conversationId: null });
+        return;
+      }
+      this.upsertSession(conversation);
+      this.setActive(conversationId, conversation.agentId);
+    } catch (error) {
+      if (revision !== this.accountRevision) {
+        return;
+      }
+      if (error instanceof NhAssistantApiError && (error.status === 403 || error.status === 404)) {
+        this.uiState.update({ conversationId: null });
+      }
+      if (!restoring) {
+        this.setError(null, error);
+      }
+    } finally {
+      if (revision === this.accountRevision) {
+        this.conversationLoadingState.set(false);
+      }
+    }
+  }
+
+  private setActive(conversationId: string | null, agentId?: string): void {
+    this.activeIdState.set(conversationId);
+    if (agentId) {
+      this.selectedAgentIdState.set(agentId);
+    }
+    this.uiState.update(agentId ? { conversationId, agentId } : { conversationId });
   }
 
   /**
@@ -578,6 +880,39 @@ export class NhAssistantStore {
     });
   }
 
+  /** Connects live updates and notifications once per account and server configuration. */
+  private startCollaboration(status: AssistantStatus): void {
+    const collaboration = status.collaboration ?? null;
+    const key = `${this.accountRevision}|${collaboration?.hubPath ?? ''}|${collaboration?.push === true}`;
+    if (key === this.collaborationKey) {
+      return;
+    }
+    const accountChanged = this.collaborationKey?.split('|')[0] !== String(this.accountRevision);
+    this.collaborationKey = key;
+    void this.live.connect(collaboration?.hubPath ?? null, accountChanged);
+    void this.push.activate(collaboration?.push === true);
+  }
+
+  /** Forgets everything about the previous account: turns, conversations, live updates and push. */
+  private resetAccount(): void {
+    this.accountRevision++;
+    this.collaborationKey = null;
+    this.stopAllTurns();
+    this.sessionsState.set(new Map());
+    this.activeIdState.set(null);
+    this.conversationsState.set([]);
+    this.conversationsTotalState.set(0);
+    this.conversationLoadingState.set(false);
+    this.conversationsLoadingState.set(false);
+    this.pageContextState.set(null);
+    this.pageContextExcludedState.set(false);
+    this.restoredDraftState.set(null);
+    this.draftErrorState.set(null);
+    this.sendingState.set(null);
+    void this.live.stop();
+    void this.push.deactivate().catch(() => undefined);
+  }
+
   private async createConversation(): Promise<Conversation | null> {
     const agentId = this.selectedAgentIdState();
     if (!agentId) {
@@ -590,122 +925,328 @@ export class NhAssistantStore {
       if (revision !== this.accountRevision) {
         return null;
       }
-      this.activeConversationState.set(conversation);
-      this.uiState.update({ conversationId: conversation.id });
+      this.upsertSession(conversation);
+      this.setActive(conversation.id);
       this.conversationsState.update(items => [toSummary(conversation), ...items.filter(item => item.id !== conversation.id)]);
       this.conversationsTotalState.update(total => total + 1);
       return conversation;
     } catch (error) {
       if (revision === this.accountRevision) {
-        this.setError(error);
+        this.setError(null, error);
       }
       return null;
     }
   }
 
   private runStream(
+    conversationId: string,
     stream: Observable<NhAssistantSseEvent>,
     handlers: { next: (event: NhAssistantSseEvent) => void; complete: () => void }
   ): void {
-    this.streamSubscription?.unsubscribe();
-    this.streamingState.set(true);
+    this.streams.get(conversationId)?.unsubscribe();
+    this.patchSession(conversationId, session => ({ ...session, streaming: true }));
 
     const finish = () => {
-      clearTimeout(this.cancelTimer);
-      this.streamingState.set(false);
+      clearTimeout(this.cancelTimers.get(conversationId));
+      this.cancelTimers.delete(conversationId);
+      this.streams.delete(conversationId);
+      this.patchSession(conversationId, session => ({ ...session, streaming: false }));
       handlers.complete();
     };
 
-    this.streamSubscription = stream.subscribe({
+    const subscription = stream.subscribe({
       next: event => handlers.next(event),
       error: () => {
-        this.errorState.set(clientError(NhAssistantClientErrorCodes.network));
+        this.patchSession(conversationId, session => ({ ...session, error: clientError(NhAssistantClientErrorCodes.network) }));
         finish();
       },
       complete: finish
     });
-  }
-
-  private stopLocalTurn(): void {
-    this.streamSubscription?.unsubscribe();
-    this.pendingSendResolve?.(false);
-    this.pendingSendResolve = undefined;
-    clearTimeout(this.cancelTimer);
-    this.streamingState.set(false);
-    this.decidingState.set(false);
-  }
-
-  private applyEvent(event: NhAssistantSseEvent, clientMessageId?: string): void {
-    this.updateActive(conversation => applyNhAssistantEvent(conversation, event, clientMessageId));
-
-    if (event.type === 'error') {
-      this.errorState.set(event.data);
+    if (!subscription.closed) {
+      this.streams.set(conversationId, subscription);
     }
-    if (event.type === 'turn.completed') {
-      this.lastUsageState.set(event.data.usage);
-      if (event.data.status === 'failed') {
-        const code = event.data.errorCode ?? NhAssistantClientErrorCodes.server;
-        this.errorState.set(clientError(code));
-      } else if (event.data.status === 'completed') {
-        this.noticeState.set(this.completionNotice(event.data.errorCode));
+  }
+
+  private stopAllTurns(): void {
+    for (const subscription of this.streams.values()) {
+      subscription.unsubscribe();
+    }
+    this.streams.clear();
+    for (const resolve of this.pendingSendResolves.values()) {
+      resolve(false);
+    }
+    this.pendingSendResolves.clear();
+    for (const timer of this.cancelTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.cancelTimers.clear();
+  }
+
+  private applyEvent(conversationId: string, event: NhAssistantSseEvent, clientMessageId?: string): void {
+    this.patchSession(conversationId, session => {
+      const conversation = applyNhAssistantEvent(session.conversation, event, clientMessageId);
+      let { error, notice, lastUsage } = session;
+      if (event.type === 'error') {
+        error = event.data;
       }
-    }
-  }
-
-  /** A completed turn with a server code, or without any answer text, explains itself with a notice. */
-  private completionNotice(errorCode: string | null): NhAssistantNotice | null {
-    if (errorCode) {
-      return clientError(errorCode);
-    }
-    const conversation = this.activeConversationState();
-    if (conversation && !nhAssistantLatestTurnHasText(conversation)) {
-      return { code: NH_ASSISTANT_NO_ANSWER_NOTICE_CODE, messageKey: 'nh-assistant.notices.no-answer' };
-    }
-
-    return null;
+      if (event.type === 'turn.completed') {
+        lastUsage = event.data.usage;
+        if (event.data.status === 'failed') {
+          error = clientError(event.data.errorCode ?? NhAssistantClientErrorCodes.server);
+        } else if (event.data.status === 'completed') {
+          notice = completionNotice(conversation, event.data.errorCode);
+        }
+      }
+      return { ...session, conversation, error, notice, lastUsage };
+    });
   }
 
   private afterTurn(conversationId: string, reload: boolean): void {
-    const active = this.activeConversationState();
-    if (active?.id === conversationId) {
-      this.conversationsState.update(items => items.map(item =>
-        item.id === conversationId ? { ...item, status: active.status, updatedAt: new Date().toISOString() } : item
-      ));
+    const session = this.sessionsState().get(conversationId);
+    if (session) {
+      const status = session.conversation.status;
+      this.patchSummary(conversationId, summary => ({
+        ...summary,
+        status,
+        updatedAt: new Date().toISOString(),
+        activeActorId: status === 'waiting-for-approval' ? summary.activeActorId ?? session.conversation.currentActorId ?? null : null
+      }));
     }
 
     if (reload) {
-      void this.reloadActiveConversation(conversationId);
+      void this.reloadSession(conversationId);
     }
-    if (!active?.title) {
-      void this.refreshConversations();
-    }
+    // The list carries the exact title, latest message and read position of the finished turn.
+    void this.refreshConversations();
   }
 
-  private async reloadActiveConversation(conversationId: string): Promise<void> {
+  private async reloadSession(conversationId: string): Promise<void> {
     const revision = this.accountRevision;
     try {
       const conversation = await firstValueFrom(this.api.getConversation(conversationId));
-      if (revision === this.accountRevision && this.activeConversationState()?.id === conversationId && !this.streamingState()) {
-        this.activeConversationState.set(conversation);
+      const session = this.sessionsState().get(conversationId);
+      if (revision === this.accountRevision && session && !session.streaming) {
+        this.upsertSession(conversation);
       }
+    } catch (error) {
+      if (error instanceof NhAssistantApiError && (error.status === 403 || error.status === 404)) {
+        this.forget(conversationId);
+      }
+      // Otherwise keep the local state; the error of the turn is already shown.
+    }
+  }
+
+  private markActiveReadWhenSeen(): void {
+    const conversationId = this.activeIdState();
+    if (!conversationId || !this.viewingState() || !this.pageVisibleState() || this.markingRead.has(conversationId)) {
+      return;
+    }
+    const session = this.sessionsState().get(conversationId);
+    const summary = this.conversationsState().find(item => item.id === conversationId);
+    if (!session || session.streaming || !summary || !nhAssistantIsUnread(summary)) {
+      return;
+    }
+
+    this.markingRead.add(conversationId);
+    const revision = this.accountRevision;
+    let request: Observable<void>;
+    try {
+      request = this.api.markRead(conversationId);
     } catch {
-      // Keep the local state; the error of the turn is already shown.
+      this.markingRead.delete(conversationId);
+      return;
     }
+    firstValueFrom(request, { defaultValue: undefined })
+      .then(() => {
+        if (revision === this.accountRevision) {
+          this.patchSummary(conversationId, item => ({ ...item, lastReadSequence: item.lastMessageSequence ?? item.lastReadSequence }));
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => this.markingRead.delete(conversationId));
   }
 
-  private updateActive(update: (conversation: Conversation) => Conversation): void {
-    const conversation = this.activeConversationState();
-    if (conversation) {
-      this.activeConversationState.set(update(conversation));
+  private onLiveChanged(change: LiveConversationChanged): void {
+    const known = this.conversationsState().some(item => item.id === change.conversationId);
+    if (!known) {
+      this.scheduleRefresh();
+    } else {
+      this.patchSummary(change.conversationId, summary => ({
+        ...summary,
+        status: change.status,
+        title: change.title,
+        updatedAt: change.updatedAt,
+        activeActorId: change.activeActorId,
+        lastMessageSequence: Math.max(summary.lastMessageSequence ?? 0, change.lastMessageSequence),
+        participantCount: change.participantCount
+      }));
     }
-  }
 
-  private removeMessage(messageId: string, status: Conversation['status']): void {
-    this.updateActive(conversation => ({
-      ...conversation,
-      status,
-      messages: conversation.messages.filter(message => message.id !== messageId)
+    const session = this.sessionsState().get(change.conversationId);
+    if (!session || session.streaming) {
+      return;
+    }
+    const wasRunning = session.conversation.status === 'running';
+    this.patchSession(change.conversationId, current => ({
+      ...current,
+      conversation: applyNhAssistantConversationChange(current.conversation, change)
     }));
+    if (wasRunning && change.status !== 'running') {
+      // Another session ended its turn; the snapshot holds the exact answer and approvals.
+      void this.reloadSession(change.conversationId);
+    } else if (session.conversation.participantCount !== change.participantCount) {
+      void this.reloadSession(change.conversationId);
+    }
+  }
+
+  private onLiveRead(read: LiveConversationRead): void {
+    this.patchSummary(read.conversationId, summary => ({
+      ...summary,
+      lastReadSequence: Math.max(summary.lastReadSequence ?? 0, read.lastReadSequence)
+    }));
+  }
+
+  private onLiveRemoved(removed: LiveConversationRemoved): void {
+    const wasActive = this.activeIdState() === removed.conversationId;
+    this.forget(removed.conversationId);
+    if (wasActive) {
+      this.draftErrorState.set(clientError(NhAssistantClientErrorCodes.conversationRemoved));
+    }
+  }
+
+  private onLiveEvent(event: LiveConversationEvent): void {
+    const session = this.sessionsState().get(event.conversationId);
+    if (event.type === 'turn.started') {
+      this.patchSummary(event.conversationId, summary => ({ ...summary, status: 'running', activeActorId: event.actorId }));
+    }
+    if (!session || session.streaming) {
+      // This tab streams the turn itself, or does not show the conversation.
+      return;
+    }
+    this.patchSession(event.conversationId, current => ({
+      ...current,
+      conversation: applyNhAssistantLiveEvent(current.conversation, event)
+    }));
+  }
+
+  /** After a reconnect: updates sent while disconnected are lost, so reload what is shown. */
+  private resync(): void {
+    if (!this.enabled()) {
+      return;
+    }
+    void this.refreshConversations();
+    for (const [conversationId, session] of this.sessionsState()) {
+      if (!session.streaming) {
+        void this.reloadSession(conversationId);
+      }
+    }
+  }
+
+  private scheduleRefresh(): void {
+    clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => void this.refreshConversations(), refreshDelayMs);
+  }
+
+  /** Stores a snapshot, keeping at most `maxSessions` idle conversations in memory. */
+  private upsertSession(conversation: Conversation): void {
+    this.sessionsState.update(sessions => {
+      const next = new Map(sessions);
+      const existing = next.get(conversation.id);
+      next.set(conversation.id, existing
+        ? { ...existing, conversation }
+        : { conversation, streaming: false, deciding: false, error: null, notice: null, lastUsage: null });
+      if (next.size > maxSessions) {
+        const activeId = this.activeIdState();
+        for (const [id, session] of next) {
+          if (next.size <= maxSessions) {
+            break;
+          }
+          if (id !== activeId && id !== conversation.id && !session.streaming) {
+            next.delete(id);
+          }
+        }
+      }
+      return next;
+    });
+    this.patchSummary(conversation.id, summary => ({
+      ...summary,
+      title: conversation.title,
+      status: conversation.status,
+      updatedAt: conversation.updatedAt,
+      ...(conversation.lastMessageSequence === undefined ? {} : { lastMessageSequence: conversation.lastMessageSequence }),
+      ...(conversation.lastReadSequence === undefined ? {} : { lastReadSequence: conversation.lastReadSequence }),
+      ...(conversation.activeActorId === undefined ? {} : { activeActorId: conversation.activeActorId }),
+      ...(conversation.members === undefined ? {} : { participantCount: Math.max(0, conversation.members.length - 1) })
+    }));
+  }
+
+  private patchSession(conversationId: string, update: (session: NhAssistantSession) => NhAssistantSession): void {
+    const session = this.sessionsState().get(conversationId);
+    if (!session) {
+      return;
+    }
+    this.sessionsState.update(sessions => new Map(sessions).set(conversationId, update(session)));
+  }
+
+  private patchSummary(
+    conversationId: string,
+    update: Partial<ConversationSummary> | ((summary: ConversationSummary) => ConversationSummary)
+  ): void {
+    this.conversationsState.update(items => items.map(item => {
+      if (item.id !== conversationId) {
+        return item;
+      }
+      return typeof update === 'function' ? update(item) : { ...item, ...update };
+    }));
+  }
+
+  /**
+   * Keeps local knowledge when the list is reloaded: the status of turns this tab streams, and a
+   * read position the server already confirmed, which a list response sent earlier may not show.
+   */
+  private withLocalState(summary: ConversationSummary): ConversationSummary {
+    const session = this.sessionsState().get(summary.id);
+    const known = this.conversationsState().find(item => item.id === summary.id)?.lastReadSequence;
+    const lastReadSequence = known !== undefined && summary.lastReadSequence !== undefined
+      ? Math.max(known, summary.lastReadSequence)
+      : summary.lastReadSequence;
+    return {
+      ...summary,
+      lastReadSequence,
+      status: session?.streaming ? session.conversation.status : summary.status
+    };
+  }
+
+  /** Removes a deleted, left or inaccessible conversation everywhere. */
+  private forget(conversationId: string): void {
+    this.streams.get(conversationId)?.unsubscribe();
+    this.streams.delete(conversationId);
+    this.sessionsState.update(sessions => {
+      const next = new Map(sessions);
+      next.delete(conversationId);
+      return next;
+    });
+    const before = this.conversationsState().length;
+    this.conversationsState.update(items => items.filter(item => item.id !== conversationId));
+    if (this.conversationsState().length < before) {
+      this.conversationsTotalState.update(total => Math.max(0, total - 1));
+    }
+    if (this.activeIdState() === conversationId) {
+      this.activeIdState.set(null);
+      this.uiState.update({ conversationId: null });
+    }
+  }
+
+  private removeMessage(conversationId: string, messageId: string, status: Conversation['status']): void {
+    this.patchSession(conversationId, session => ({
+      ...session,
+      conversation: {
+        ...session.conversation,
+        status,
+        messages: session.conversation.messages.filter(message => message.id !== messageId)
+      }
+    }));
+    this.patchSummary(conversationId, { status });
   }
 
   private selectInitialAgent(agents: AgentSummary[]): void {
@@ -719,18 +1260,33 @@ export class NhAssistantStore {
     this.uiState.update({ agentId: preferred?.id ?? null });
   }
 
-  private setError(error: unknown): void {
-    if (error instanceof NhAssistantApiError) {
-      this.errorState.set({ code: error.code, messageKey: error.messageKey });
+  /** Shows an error on a conversation, or on the new-conversation view for `null`. */
+  private setError(conversationId: string | null, error: unknown): void {
+    const value = error instanceof NhAssistantApiError
+      ? { code: error.code, messageKey: error.messageKey }
+      : clientError(NhAssistantClientErrorCodes.server);
+    if (conversationId === null || !this.sessionsState().has(conversationId)) {
+      this.draftErrorState.set(value);
       return;
     }
-
-    this.errorState.set(clientError(NhAssistantClientErrorCodes.server));
+    this.patchSession(conversationId, session => ({ ...session, error: value }));
   }
 }
 
 function clientError(code: string): NhAssistantError {
   return { code, messageKey: nhAssistantErrorMessageKey(code) };
+}
+
+/** A completed turn with a server code, or without any answer text, explains itself with a notice. */
+function completionNotice(conversation: Conversation, errorCode: string | null): NhAssistantNotice | null {
+  if (errorCode) {
+    return clientError(errorCode);
+  }
+  if (!nhAssistantLatestTurnHasText(conversation)) {
+    return { code: NH_ASSISTANT_NO_ANSWER_NOTICE_CODE, messageKey: 'nh-assistant.notices.no-answer' };
+  }
+
+  return null;
 }
 
 function toSummary(conversation: Conversation): ConversationSummary {
@@ -740,7 +1296,12 @@ function toSummary(conversation: Conversation): ConversationSummary {
     title: conversation.title,
     status: conversation.status,
     createdAt: conversation.createdAt,
-    updatedAt: conversation.updatedAt
+    updatedAt: conversation.updatedAt,
+    role: conversation.role,
+    participantCount: conversation.members ? Math.max(0, conversation.members.length - 1) : conversation.participantCount,
+    lastMessageSequence: conversation.lastMessageSequence,
+    lastReadSequence: conversation.lastReadSequence,
+    activeActorId: conversation.activeActorId
   };
 }
 

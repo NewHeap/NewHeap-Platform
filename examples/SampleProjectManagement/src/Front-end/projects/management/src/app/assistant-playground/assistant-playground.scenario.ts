@@ -1,5 +1,5 @@
 import { ClientContext } from '@newheap/platform-ai-chat';
-import { NhAssistantMockRemoteTool, NhAssistantMockScenario } from '@newheap/platform-ai-chat/testing';
+import { NhAssistantMockPerson, NhAssistantMockRemoteTool, NhAssistantMockScenario } from '@newheap/platform-ai-chat/testing';
 
 export const PROJECT_ASSISTANT_ID = 'sample-project-assistant';
 export const ASSISTANT_PLAYGROUND_ADMIN_ROUTE = '/management/assistant/admin';
@@ -41,6 +41,15 @@ function describePageContext(context: ClientContext | null): string {
     ? `You have **${entity.label ?? entity.id}** open (${entity.type} \`${entity.id}\`). I use it only as a search hint; the API still checks your permissions.`
     : `You are on \`${context.route}\`${context.title ? ` (${context.title})` : ''}.`;
 }
+
+/** The signed-in user of the playground's simulated organization. */
+export const PLAYGROUND_CURRENT_USER: NhAssistantMockPerson = { actorId: 'playground-user', displayName: 'Robin Jansen' };
+
+/** The colleague who joins and continues a shared conversation in the playground. */
+export const PLAYGROUND_COLLEAGUE: NhAssistantMockPerson = { actorId: 'colleague-sam', displayName: 'Sam de Vries', detail: 'Planning' };
+
+/** The message the simulated colleague sends. */
+export const PLAYGROUND_COLLEAGUE_MESSAGE = 'Can you give a short update for the team?';
 
 /** Prompts that exercise each scripted turn of the playground scenario. */
 export const ASSISTANT_PLAYGROUND_PROMPTS = [
@@ -92,6 +101,14 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
     }
   ],
   limits: { maxMessageChars: 2_000, maxToolCallsPerTurn: 8 },
+  collaboration: {
+    currentUser: PLAYGROUND_CURRENT_USER,
+    directory: [
+      PLAYGROUND_COLLEAGUE,
+      { actorId: 'colleague-noor', displayName: 'Noor Bakker', detail: 'Finance' }
+    ],
+    maxParticipants: 5
+  },
   admin: {
     context: [
       'Sample Project Management tracks projects for divisions.',
@@ -150,6 +167,20 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
   },
   timing: { firstEventDelayMs: 350, eventDelayMs: 45 },
   turns: [
+    {
+      match: /update for the team/i,
+      steps: [
+        {
+          tool: {
+            toolId: 'sample-api.project.list',
+            displayName: 'List projects',
+            argumentsPreview: '{"page":1,"itemsPerPage":20}',
+            resultPreview: '{"items":[{"key":"PRJ-ALPHA","status":"active"},{"key":"PRJ-BETA","status":"on-hold"}],"total":2}'
+          }
+        },
+        { text: 'Team update: **Alpha migration** is active and on schedule; **Beta onboarding** waits for the contract scope.' }
+      ]
+    },
     {
       match: /looking at|this page/i,
       steps: [{ text: describePageContext }]

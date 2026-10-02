@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Host the NewHeap assistant panel in an Angular application
 
-Register the assistant once with the host's token and access policy, place the launcher and one panel in the layout, route to the lazily loaded administration page behind the admin permission, and test against the scripted mock API instead of a live model.
+Register the assistant once with the host's token and access policy, place the launcher and one panel in the layout, let users run several conversations at once, share them and get desktop notifications, route to the lazily loaded administration page behind the admin permission, and test against the scripted mock API instead of a live model.
 
 ## Preferred approach
 
@@ -97,13 +97,50 @@ targets and bounded/redacted argument previews in collapsed technical details. A
 presentation is explanatory only: always decide with the approval id and exact proposal
 hash supplied by the server.
 
+Conversations run in parallel: opening or starting another conversation never stops a
+running turn, and the store keeps one session per opened conversation. The public
+signals (`activeConversation`, `streaming`, `error`, ...) describe the open one;
+`activity`, `runningCount` and `unreadCount` describe the others. The panel shows a
+slim chip row below its header only while another conversation works, waits for
+approval or has an unread answer, and the launcher shows one badge in that priority.
+Use these signals in custom layouts instead of polling the list. The store marks the
+open conversation as read only while the drawer shows it in a visible, focused
+window; call `setViewing` when a custom layout shows the thread elsewhere.
+
+Sharing needs no host code beyond the backend registration: the panel header opens the
+share view, where the owner creates, copies, renews and stops the invitation link and,
+when the server reports a directory, searches and invites colleagues. The default link
+is the current page with `#nh-assistant-join=<id>.<token>`; the panel joins when the
+page opens with it and removes the fragment. Pass `buildShareLink` when invitations
+must open a specific route. In a shared conversation the thread names other people's
+messages, the composer says who is working, and an approval of someone else's turn
+shows who decides instead of the buttons.
+
+Live updates connect to the hub path the server reports in `status.collaboration`,
+using `@microsoft/signalr`, loaded on first use, and the same `getAccessToken`. When
+a proxy serves the API below a prefix, set `hubBaseUrl` to that prefix (for example
+`'/api'`), as for the NewHeap background operation hub. Set `liveUpdates: false` to
+reload snapshots instead.
+
+For desktop notifications, copy `node_modules/@newheap/platform-ai-chat/push/nh-assistant-push-worker.js`
+into the application's assets (for example to `/nh-assistant/`) and pass
+`push: { serviceWorkerUrl: '/nh-assistant/nh-assistant-push-worker.js', openUrl }`.
+The worker registers with its own scope, never controls pages and therefore coexists
+with an application service worker. Notifications are on by default: the browser
+asks for permission on the next message sent, and the preferences view turns them off
+or on and explains a blocked permission. The worker shows a notification only while no
+window of the application is focused, and a click opens the conversation in an open
+window or through `#nh-assistant-conversation=<id>`.
+
 Test hosts and demos with `provideNhAssistantMockApi(script)` from
 `@newheap/platform-ai-chat/testing`, registered after `provideNhAssistant` in the
 same injector. The mock plays scripted turns as contract events over a real
 event stream, including approvals, cancellation and the disabled flag, and serves
 the preference and administration endpoints with the same rules as the server, so
 the panel and the administration page are exercised without a model or assistant
-back-end. A route may host its own assistant scope with route-level providers; put
+back-end. The mock also offers sharing, read state and in-memory live updates through
+`NhAssistantMockLiveService`; `NhAssistantMockBackend.simulateParticipantTurn` lets a
+colleague continue a conversation in a demo or test. A route may host its own assistant scope with route-level providers; put
 the administration route under the same parent to share that scope.
 
 ## Avoid
@@ -150,6 +187,14 @@ the administration route under the same parent to share that scope.
   annotations such as `readOnlyHint`; they are untrusted hints.
 - Retrying an administration save after `assistant-version-conflict` without
   reloading the latest version.
+- Blocking new conversations while a turn runs, or rebuilding a second status list
+  next to `activity`, `runningCount` and `unreadCount`.
+- Marking conversations as read on arrival instead of when the user sees them.
+- Registering the push worker at the root scope next to an application service worker,
+  requesting notification permission without a user action, or showing a notification
+  while the user looks at the application.
+- Sharing the invitation token in logs, analytics or a URL query string; keep it in the
+  fragment.
 
 ## Verification
 
@@ -175,7 +220,13 @@ host, open the assistant playground and walk through a new conversation, a
 streamed answer, a tool call, approve, reject, stop, an error, an agent switch,
 the page-context chip on a simulated project page, the preferences and the
 administration tabs at desktop and mobile width in light
-and dark mode. SPM-248 and SPM-253 are the executable references.
+and dark mode. The collaboration tests run two conversations at once, mark only a
+viewed conversation as read, show a colleague's turn live with a name, refuse a
+decision about another participant's approval, create, revoke and join links, invite
+from the directory and forget a conversation removed elsewhere (SPM-265). In the
+playground, start a second prompt while the first still answers, watch the chip row
+and the launcher badge, share the conversation and let the simulated colleague
+continue it. SPM-248, SPM-253 and SPM-265 are the executable references.
 
 ## Optional source evidence
 

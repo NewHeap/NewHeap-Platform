@@ -25,6 +25,8 @@ public static class NhAiMcpServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.AddNewHeapPlatformAI();
         services.TryAddScoped<INhAiMcpToolAdapter, NhAiMcpToolAdapter>();
+        services.TryAddSingleton(provider => new NhAiMcpInvocationBinderRegistry(
+            provider.GetServices<NhAiMcpInvocationBinderRegistration>()));
         services.TryAddSingleton<INhAiMcpClientToolImporter, NhAiMcpClientToolImporter>();
         return services;
     }

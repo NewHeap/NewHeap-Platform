@@ -32,6 +32,16 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-turn-failed',
   'assistant-context-unavailable',
   'assistant-actor-mismatch',
+  // Sharing and notifications
+  'assistant-owner-required',
+  'assistant-approval-forbidden',
+  'assistant-turn-forbidden',
+  'assistant-share-link-invalid',
+  'assistant-participant-not-found',
+  'assistant-participant-limit-reached',
+  'assistant-directory-unavailable',
+  'assistant-push-unavailable',
+  'assistant-push-subscription-invalid',
   // Preferences and administration
   'assistant-validation',
   'assistant-instructions-too-long',

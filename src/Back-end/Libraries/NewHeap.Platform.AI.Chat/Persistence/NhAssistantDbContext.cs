@@ -47,6 +47,12 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantUserPreference> UserPreferences => Set<AssistantUserPreference>();
 
+    public DbSet<AssistantConversationParticipant> Participants => Set<AssistantConversationParticipant>();
+
+    public DbSet<AssistantPushSubscription> PushSubscriptions => Set<AssistantPushSubscription>();
+
+    public DbSet<AssistantNotificationSetting> NotificationSettings => Set<AssistantNotificationSetting>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(_storageOptions.Schema);
@@ -57,14 +63,21 @@ public sealed class NhAssistantDbContext : DbContext
             conversation.HasKey(item => item.Id);
             conversation.Property(item => item.Id).ValueGeneratedNever();
             conversation.Property(item => item.OwnerActorId).HasMaxLength(256).IsRequired();
+            conversation.Property(item => item.OwnerDisplayName).HasMaxLength(NhAssistantParticipantNames.MaxLength);
             conversation.Property(item => item.TenantId).HasMaxLength(256);
             conversation.Property(item => item.AgentId).HasMaxLength(128).IsRequired();
             conversation.Property(item => item.Title).HasMaxLength(200);
             conversation.Property(item => item.Status).HasMaxLength(32).IsRequired();
+            conversation.Property(item => item.ActiveActorId).HasMaxLength(256);
+            conversation.Property(item => item.ProtectedShareToken).HasMaxLength(1_000);
             conversation.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
             conversation.HasIndex(item => new { item.OwnerActorId, item.UpdatedAt });
             conversation.HasMany(item => item.Messages)
                 .WithOne(item => item.Conversation)
+                .HasForeignKey(item => item.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            conversation.HasMany(item => item.Participants)
+                .WithOne()
                 .HasForeignKey(item => item.ConversationId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
@@ -75,10 +88,44 @@ public sealed class NhAssistantDbContext : DbContext
             message.HasKey(item => item.Id);
             message.Property(item => item.Id).ValueGeneratedNever();
             message.Property(item => item.Role).HasMaxLength(16).IsRequired();
+            message.Property(item => item.AuthorActorId).HasMaxLength(256);
             message.Property(item => item.PartsJson).IsRequired();
             message.Property(item => item.ClientMessageId).HasMaxLength(128);
             message.Property(item => item.ClientContextJson).HasMaxLength(4000);
             message.HasIndex(item => new { item.ConversationId, item.CreatedAt });
+        });
+
+        modelBuilder.Entity<AssistantConversationParticipant>(participant =>
+        {
+            participant.ToTable("AssistantConversationParticipant");
+            participant.HasKey(item => new { item.ConversationId, item.ActorId });
+            participant.Property(item => item.ActorId).HasMaxLength(256);
+            participant.Property(item => item.DisplayName).HasMaxLength(NhAssistantParticipantNames.MaxLength).IsRequired();
+            participant.Property(item => item.JoinedVia).HasMaxLength(16).IsRequired();
+            participant.Property(item => item.InvitedByActorId).HasMaxLength(256);
+            participant.HasIndex(item => item.ActorId);
+        });
+
+        modelBuilder.Entity<AssistantPushSubscription>(subscription =>
+        {
+            subscription.ToTable("AssistantPushSubscription");
+            subscription.HasKey(item => item.Id);
+            subscription.Property(item => item.Id).ValueGeneratedNever();
+            subscription.Property(item => item.ActorId).HasMaxLength(256).IsRequired();
+            subscription.Property(item => item.EndpointHash).HasMaxLength(64).IsRequired();
+            subscription.Property(item => item.Endpoint).HasMaxLength(NhAssistantPushLimits.MaxEndpointLength).IsRequired();
+            subscription.Property(item => item.P256dh).HasMaxLength(128).IsRequired();
+            subscription.Property(item => item.Auth).HasMaxLength(64).IsRequired();
+            subscription.Property(item => item.Language).HasMaxLength(8).IsRequired();
+            subscription.HasIndex(item => item.EndpointHash).IsUnique();
+            subscription.HasIndex(item => item.ActorId);
+        });
+
+        modelBuilder.Entity<AssistantNotificationSetting>(setting =>
+        {
+            setting.ToTable("AssistantNotificationSetting");
+            setting.HasKey(item => item.ActorId);
+            setting.Property(item => item.ActorId).HasMaxLength(256);
         });
 
         modelBuilder.Entity<AssistantToolInvocation>(invocation =>

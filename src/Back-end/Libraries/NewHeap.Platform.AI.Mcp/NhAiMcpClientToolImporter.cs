@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.AI;
+using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using NewHeap.Platform.Common.Models;
@@ -27,6 +28,13 @@ public sealed record NhAiMcpImportedToolPolicy(
     public NhAiDataClassification DataClassification { get; init; } = NhAiDataClassification.Internal;
     public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.Operational;
     public IReadOnlyList<string> RequiredCapabilities { get; init; } = [];
+
+    /// <summary>
+    /// Opts this tool in to the invocation binder registered for its server and remote name with
+    /// <see cref="NhAiMcpInvocationBinderServiceCollectionExtensions.AddNewHeapPlatformAIMcpInvocationBinder{TBinder}"/>.
+    /// The import fails when no matching binder is registered.
+    /// </summary>
+    public string? InvocationBinderId { get; init; }
 }
 
 public sealed record NhAiMcpImportOptions(
@@ -45,8 +53,14 @@ public interface INhAiMcpClientToolImporter
         NhAiMcpImportOptions options);
 }
 
-internal sealed partial class NhAiMcpClientToolImporter : INhAiMcpClientToolImporter
+internal sealed partial class NhAiMcpClientToolImporter(
+    NhAiMcpInvocationBinderRegistry binders) : INhAiMcpClientToolImporter
 {
+    public NhAiMcpClientToolImporter()
+        : this(new NhAiMcpInvocationBinderRegistry())
+    {
+    }
+
     [GeneratedRegex("^[a-z0-9]+(?:-[a-z0-9]+)*$", RegexOptions.CultureInvariant)]
     private static partial Regex SegmentPattern();
 
@@ -105,13 +119,17 @@ internal sealed partial class NhAiMcpClientToolImporter : INhAiMcpClientToolImpo
                     policy.RemoteName,
                     "output")
                 : "{}";
+            var binder = policy.InvocationBinderId is { } binderId
+                ? binders.Resolve(options.ServerId, policy.RemoteName, binderId)
+                : null;
             imported.Add(new NhAiImportedMcpTool(
                 options.ServerId,
                 options.Namespace,
                 policy,
                 remote,
                 inputSchema,
-                outputSchema));
+                outputSchema,
+                binder));
         }
 
         return new NhAiImportedMcpCatalog(options.ServerId, options.Namespace, imported);
@@ -251,8 +269,19 @@ internal sealed class NhAiImportedMcpCatalog : INhAiToolCatalog
             ?? throw new InvalidOperationException(
                 "INhAiToolInvoker is not registered. Imported MCP execution remains disabled.");
         return _tools
-            .Select(tool => (AIFunction)new NhAiGovernedMcpClientFunction(tool, invoker))
+            .Select(tool => (AIFunction)new NhAiGovernedMcpClientFunction(tool, invoker, ResolveBinder(tool, services)))
             .ToArray();
+    }
+
+    private static INhAiMcpInvocationBinder? ResolveBinder(NhAiImportedMcpTool tool, IServiceProvider services)
+    {
+        if (tool.Binder is null)
+        {
+            return null;
+        }
+        return services.GetService(tool.Binder.BinderType) as INhAiMcpInvocationBinder
+            ?? throw new InvalidOperationException(
+                $"Invocation binder '{tool.Binder.Binding.BinderId}' could not be resolved. Imported MCP execution remains disabled.");
     }
 }
 
@@ -262,21 +291,24 @@ internal sealed record NhAiImportedMcpTool(
     NhAiMcpImportedToolPolicy Policy,
     McpClientTool Remote,
     string InputSchema,
-    string OutputSchema)
+    string OutputSchema,
+    NhAiMcpInvocationBinderRegistration? Binder = null)
 {
     public NhAiToolDescriptor Descriptor { get; } = CreateDescriptor(
         ServerId,
         Namespace,
         Policy,
         InputSchema,
-        OutputSchema);
+        OutputSchema,
+        Binder?.Binding);
 
     private static NhAiToolDescriptor CreateDescriptor(
         string serverId,
         string toolNamespace,
         NhAiMcpImportedToolPolicy policy,
         string inputSchema,
-        string outputSchema)
+        string outputSchema,
+        NhAiMcpInvocationBinding? binding)
     {
         var schemaHash = NhAiCanonicalJson.ComputeHash(new
         {
@@ -306,6 +338,15 @@ internal sealed record NhAiImportedMcpTool(
             RequiredCapabilities = policy.RequiredCapabilities.Order(StringComparer.Ordinal),
             schemaHash
         });
+        if (binding is not null)
+        {
+            // Approvals and audit bind to the binder; tools without one keep their existing contract.
+            contractHash = NhAiCanonicalJson.ComputeHash(new
+            {
+                contractHash,
+                InvocationBinder = new { binding.BinderId, binding.Version }
+            });
+        }
         return new NhAiToolDescriptor(
             id,
             policy.Version,
@@ -340,7 +381,8 @@ internal sealed record NhAiImportedMcpTool(
 
 internal sealed class NhAiGovernedMcpClientFunction(
     NhAiImportedMcpTool imported,
-    INhAiToolInvoker invoker) : AIFunction, INhAiGovernedAIFunction
+    INhAiToolInvoker invoker,
+    INhAiMcpInvocationBinder? binder = null) : AIFunction, INhAiGovernedAIFunction
 {
     private readonly JsonElement _inputSchema = JsonDocument.Parse(imported.InputSchema).RootElement.Clone();
     private readonly JsonElement? _outputSchema = imported.OutputSchema == "{}"
@@ -370,10 +412,32 @@ internal sealed class NhAiGovernedMcpClientFunction(
         return await invoker.InvokeAsync(
             imported.Descriptor,
             remoteArguments,
-            async (_, invocationCancellationToken) =>
+            async (context, invocationCancellationToken) =>
             {
+                RequestOptions? requestOptions = null;
+                if (binder is not null)
+                {
+                    // Runs after every invoker check, so only an authorized, approved call is bound.
+                    var bound = await NhAiMcpInvocationBinderRunner.BindAsync(
+                        binder,
+                        new NhAiMcpInvocationBindingContext(
+                            imported.ServerId,
+                            imported.Namespace,
+                            imported.Policy.RemoteName,
+                            imported.Descriptor,
+                            remoteArguments,
+                            context),
+                        invocationCancellationToken);
+                    if (!bound.Success)
+                    {
+                        return TaskResult<CallToolResult>.Failed(bound);
+                    }
+                    requestOptions = new RequestOptions { Meta = bound.Data };
+                }
                 var result = await imported.Remote.CallAsync(
                     remoteArguments,
+                    progress: null,
+                    options: requestOptions,
                     cancellationToken: invocationCancellationToken);
                 return result.IsError is true
                     ? TaskResult<CallToolResult>

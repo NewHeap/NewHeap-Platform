@@ -32,6 +32,21 @@ public sealed class NhAssistantOptions
     /// Connection rules for administrator-connected MCP servers (<c>NewHeap:AI:Assistant:Mcp</c>).
     /// </summary>
     public NhAssistantMcpOptions Mcp { get; set; } = new();
+
+    /// <summary>
+    /// Web Push notifications for people who are away (<c>NewHeap:AI:Assistant:Push</c>).
+    /// </summary>
+    public NhAssistantPushOptions Push { get; set; } = new();
+
+    public const string DefaultHubPath = "/hub/assistant";
+
+    /// <summary>
+    /// Path of the SignalR hub that sends live updates of conversations, mapped by
+    /// <c>MapNewHeapAssistant</c>. NewHeap hosts read the bearer token and active division from the
+    /// query string for paths below <c>/hub</c>, which SignalR needs for WebSockets. Set it empty to
+    /// turn live updates off; clients then reload snapshots instead.
+    /// </summary>
+    public string? HubPath { get; set; } = DefaultHubPath;
 }
 
 /// <summary>

@@ -346,7 +346,12 @@
     "two-factor-administration-user-id": "User ID",
     "two-factor-administration-reset": "Reset two-step verification",
     "two-factor-administration-reminders": "Send enrollment reminders",
-    "two-factor-administration-revocation": "End sessions of unenrolled users"
+    "two-factor-administration-revocation": "End sessions of unenrolled users",
+    "assistant-collaboration-title": "Shared and parallel conversations",
+    "assistant-collaboration-description": "Prompts start a new conversation while the open one still works, so several conversations run at once; the strip below the panel header shows them. Share a conversation from the panel header, or let a colleague continue the open conversation.",
+    "assistant-simulate-colleague": "{{name}} continues this conversation",
+    "assistant-colleague-working": "{{name}} is asking the assistant…",
+    "assistant-colleague-needs-conversation": "Open or start a conversation first."
   },
   "nh-background-operations": {
     "operation": "Background operation",

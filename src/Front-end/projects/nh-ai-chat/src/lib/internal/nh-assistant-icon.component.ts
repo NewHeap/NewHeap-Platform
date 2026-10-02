@@ -19,7 +19,11 @@ export type NhAssistantIconName =
   | 'edit'
   | 'refresh'
   | 'link'
-  | 'page';
+  | 'page'
+  | 'users'
+  | 'copy'
+  | 'bell'
+  | 'leave';
 
 /**
  * Optional icon classes of the host's icon library, for example `{ close: 'ph ph-x' }`.
@@ -46,7 +50,11 @@ const builtInPaths: Record<NhAssistantIconName, string> = {
   edit: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
   refresh: 'M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4',
   link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1',
-  page: 'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6'
+  page: 'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6',
+  users: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 1 0 0 7zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14.5c1.8.9 3 2.8 3 5',
+  copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
+  bell: 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0',
+  leave: 'M10 4H5v16h5M14 8l4 4-4 4M18 12H9'
 };
 
 /** Decorative icon. The surrounding control provides the accessible name. */

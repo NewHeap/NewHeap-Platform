@@ -4,8 +4,11 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.AgentFramework;
+using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Governance;
+using NewHeap.Platform.AI.Chat.Live;
+using NewHeap.Platform.AI.Chat.Notifications;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.Common.Models;
 
@@ -33,6 +36,8 @@ internal sealed class NhAssistantTurnRunner(
     INhAssistantMcpToolSource mcpToolSource,
     NhAssistantTurnContextCollector turnContext,
     NhAssistantToolPresentationResolver toolPresentation,
+    NhAssistantLivePublisher live,
+    INhAssistantNotifier notifier,
     ILogger<NhAssistantTurnRunner> logger) : INhAssistantTurnRunner
 {
     private static readonly string[] MessageStartStatuses =
@@ -55,7 +60,7 @@ internal sealed class NhAssistantTurnRunner(
     {
         ArgumentNullException.ThrowIfNull(request);
         var limits = registration.Limits;
-        var owner = request.CallerContext.ActorId;
+        var actorId = request.CallerContext.ActorId;
         var text = request.Text?.Trim() ?? string.Empty;
         if (text.Length == 0 || request.ClientMessageId is { Length: > 128 })
         {
@@ -66,11 +71,16 @@ internal sealed class NhAssistantTurnRunner(
             return Failed(NhAssistantErrorCodes.MessageTooLong, "The assistant message is too long.");
         }
 
-        var conversation = await store.FindConversationAsync(request.ConversationId, owner, cancellationToken);
-        if (conversation is null)
+        var access = await store.FindAccessAsync(
+            request.ConversationId,
+            actorId,
+            request.CallerContext.TenantId,
+            cancellationToken);
+        if (access is null)
         {
             return Failed(NhAssistantErrorCodes.ConversationNotFound, "The assistant conversation was not found.");
         }
+        var conversation = access.Conversation;
         var effectiveAgent = await agents.FindAsync(conversation.AgentId, includeDisabled: false, cancellationToken);
         if (effectiveAgent is null)
         {
@@ -86,7 +96,7 @@ internal sealed class NhAssistantTurnRunner(
         var turnId = Guid.NewGuid();
         var claimed = await store.TryBeginTurnAsync(
             conversation.Id,
-            owner,
+            actorId,
             MessageStartStatuses,
             turnId,
             StaleBefore(limits),
@@ -100,7 +110,7 @@ internal sealed class NhAssistantTurnRunner(
             conversation,
             turnId,
             request.RequestAborted,
-            (events, token) => RunMessageTurnAsync(conversation, effectiveAgent, turnId, request, text, events, token));
+            (events, token) => RunMessageTurnAsync(access, effectiveAgent, turnId, request, text, events, token));
     }
 
     public async Task<TaskResult<NhAssistantTurnHandle>> StartDecisionTurnAsync(
@@ -108,17 +118,22 @@ internal sealed class NhAssistantTurnRunner(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var owner = request.CallerContext.ActorId;
+        var actorId = request.CallerContext.ActorId;
         if (request.Reason is { Length: > 500 } || string.IsNullOrWhiteSpace(request.ExpectedProposalHash))
         {
             return Failed(NhAssistantErrorCodes.ApprovalDecisionInvalid, "The approval decision is invalid.");
         }
 
-        var conversation = await store.FindConversationAsync(request.ConversationId, owner, cancellationToken);
-        if (conversation is null)
+        var access = await store.FindAccessAsync(
+            request.ConversationId,
+            actorId,
+            request.CallerContext.TenantId,
+            cancellationToken);
+        if (access is null)
         {
             return Failed(NhAssistantErrorCodes.ConversationNotFound, "The assistant conversation was not found.");
         }
+        var conversation = access.Conversation;
         var approval = await store.FindApprovalAsync(request.ApprovalId, cancellationToken);
         if (approval is null || approval.ConversationId != conversation.Id)
         {
@@ -130,6 +145,12 @@ internal sealed class NhAssistantTurnRunner(
         {
             return Failed(NhAssistantErrorCodes.ApprovalNotPending, "The approval is no longer pending.");
         }
+        if (!string.Equals(access.ActiveActorId, actorId, StringComparison.Ordinal))
+        {
+            // The proposal is bound to the person whose turn created it; another participant cannot
+            // approve with their own permissions.
+            return Failed(NhAssistantErrorCodes.ApprovalForbidden, "The approval belongs to another participant.");
+        }
         if (!string.Equals(approval.ProposalHash, request.ExpectedProposalHash, StringComparison.Ordinal))
         {
             return Failed(NhAssistantErrorCodes.ProposalHashMismatch, "The approval does not match the expected proposal.");
@@ -140,7 +161,7 @@ internal sealed class NhAssistantTurnRunner(
             return Failed(NhAssistantErrorCodes.AgentNotFound, "The assistant agent is no longer available.");
         }
         var agent = effectiveAgent.Definition;
-        if (string.Equals(owner, agent.ActorId, StringComparison.Ordinal))
+        if (string.Equals(actorId, agent.ActorId, StringComparison.Ordinal))
         {
             // An agent identity can never decide about its own proposal.
             return Failed(NhAssistantErrorCodes.ApprovalDecisionInvalid, "The approval decision is invalid.");
@@ -148,7 +169,7 @@ internal sealed class NhAssistantTurnRunner(
 
         var claimed = await store.TryBeginTurnAsync(
             conversation.Id,
-            owner,
+            actorId,
             DecisionStartStatuses,
             approval.TurnId,
             DateTimeOffset.MinValue,
@@ -162,27 +183,30 @@ internal sealed class NhAssistantTurnRunner(
             conversation,
             approval.TurnId,
             request.RequestAborted,
-            (events, token) => RunDecisionTurnAsync(conversation, effectiveAgent, approval, request, events, token));
+            (events, token) => RunDecisionTurnAsync(access, effectiveAgent, approval, request, events, token));
     }
 
-    public async Task CancelAsync(
-        Guid conversationId,
-        string ownerActorId,
+    public async Task<TaskResult> CancelAsync(
+        NhAssistantConversationAccess access,
         CancellationToken cancellationToken)
     {
-        var conversation = await store.FindConversationAsync(conversationId, ownerActorId, cancellationToken);
-        if (conversation is null)
+        ArgumentNullException.ThrowIfNull(access);
+        var conversation = access.Conversation;
+        var conversationId = conversation.Id;
+        if (conversation.Status is not (NhAssistantConversationStatuses.Running or NhAssistantConversationStatuses.WaitingForApproval))
         {
-            return;
+            return TaskResult.Succeeded();
+        }
+        if (!access.IsOwner && !string.Equals(access.ActiveActorId, access.ActorId, StringComparison.Ordinal))
+        {
+            return TaskResult.Failed(
+                NhAssistantErrorCodes.TurnForbidden,
+                "Only the owner or the participant who started the turn can stop it.");
         }
         if (conversation.Status == NhAssistantConversationStatuses.Running)
         {
             cancellations.Cancel(conversationId);
-            return;
-        }
-        if (conversation.Status != NhAssistantConversationStatuses.WaitingForApproval)
-        {
-            return;
+            return TaskResult.Succeeded();
         }
 
         var pending = await store.FindPendingApprovalAsync(conversationId, cancellationToken);
@@ -190,7 +214,7 @@ internal sealed class NhAssistantTurnRunner(
             && await store.TryDecideApprovalAsync(
                 pending.Id,
                 NhAssistantApprovalStatuses.Rejected,
-                ownerActorId,
+                access.ActorId,
                 DateTimeOffset.UtcNow,
                 null,
                 null,
@@ -205,7 +229,11 @@ internal sealed class NhAssistantTurnRunner(
                 await store.UpdateToolInvocationAsync(invocation, cancellationToken);
             }
         }
-        await store.TryReleaseWaitingConversationAsync(conversationId, ownerActorId, cancellationToken);
+        if (await store.TryReleaseWaitingConversationAsync(conversationId, cancellationToken))
+        {
+            await live.PublishChangedAsync(conversationId, CancellationToken.None);
+        }
+        return TaskResult.Succeeded();
     }
 
     private TaskResult<NhAssistantTurnHandle> Start(
@@ -237,7 +265,7 @@ internal sealed class NhAssistantTurnRunner(
     }
 
     private async Task RunMessageTurnAsync(
-        AssistantConversation conversation,
+        NhAssistantConversationAccess access,
         NhAssistantAgent effectiveAgent,
         Guid turnId,
         NhAssistantMessageTurnRequest request,
@@ -245,7 +273,9 @@ internal sealed class NhAssistantTurnRunner(
         ChannelWriter<NhAssistantTurnEvent> events,
         CancellationToken cancellationToken)
     {
+        var conversation = access.Conversation;
         var agent = effectiveAgent.Definition;
+        await live.PublishChangedAsync(conversation.Id, CancellationToken.None);
         var history = await store.GetMessagesAsync(
             conversation.Id,
             registration.Limits.MaxHistoryMessages,
@@ -256,18 +286,21 @@ internal sealed class NhAssistantTurnRunner(
             ConversationId = conversation.Id,
             TurnId = turnId,
             Role = NhAssistantMessageRoles.User,
+            AuthorActorId = access.ActorId,
             PartsJson = NhAssistantContent.SerializeParts([new NhAssistantStoredPart(NhAssistantStoredPart.TextType, Text: text)]),
             ClientMessageId = string.IsNullOrWhiteSpace(request.ClientMessageId) ? null : request.ClientMessageId,
             ClientContextJson = request.ClientContext?.ToStorage(),
             CreatedAt = DateTimeOffset.UtcNow
         };
         await store.AddMessageAsync(userMessage, CancellationToken.None);
+        await AnnounceUserMessageAsync(access, userMessage, text);
         if (history.All(message => message.Role != NhAssistantMessageRoles.User))
         {
             await GenerateTitleAsync(conversation, agent, text);
         }
 
-        var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, request.ClientContext, events);
+        var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
+        var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, request.ClientContext, speakers, events);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(turnId, userMessage.Id, state.AssistantMessageId));
 
         var toolCallsToday = await store.GetToolCallsAsync(
@@ -280,20 +313,22 @@ internal sealed class NhAssistantTurnRunner(
             return;
         }
 
-        var messages = await BuildHistoryAsync(conversation.Id, history, agent, text, null);
-        messages.Add(new ChatMessage(ChatRole.User, text));
+        var messages = await BuildHistoryAsync(conversation.Id, history, agent, text, null, speakers);
+        messages.Add(new ChatMessage(ChatRole.User, speakers?.Mark(access.ActorId, text) ?? text));
         await RunModelAsync(state, request.CallerContext, messages, cancellationToken);
     }
 
     private async Task RunDecisionTurnAsync(
-        AssistantConversation conversation,
+        NhAssistantConversationAccess access,
         NhAssistantAgent effectiveAgent,
         AssistantApproval approval,
         NhAssistantDecisionTurnRequest request,
         ChannelWriter<NhAssistantTurnEvent> events,
         CancellationToken cancellationToken)
     {
+        var conversation = access.Conversation;
         var agent = effectiveAgent.Definition;
+        await live.PublishChangedAsync(conversation.Id, CancellationToken.None);
         var history = await store.GetMessagesAsync(
             conversation.Id,
             registration.Limits.MaxHistoryMessages,
@@ -303,7 +338,8 @@ internal sealed class NhAssistantTurnRunner(
         var userMessageId = userMessage?.Id ?? Guid.Empty;
         // The resumed turn sees the page the user had open when the message was sent.
         var clientContext = NhAssistantClientContext.FromStorage(userMessage?.ClientContextJson);
-        var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, request.CallerContext, request.Language, clientContext, events);
+        var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
+        var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, request.CallerContext, request.Language, clientContext, speakers, events);
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(approval.TurnId, userMessageId, state.AssistantMessageId));
 
@@ -384,7 +420,7 @@ internal sealed class NhAssistantTurnRunner(
         }
 
         // The resumed call is replayed below with its real result; the summary leaves it out.
-        var messages = await BuildHistoryAsync(conversation.Id, history, agent, null, invocation.Id);
+        var messages = await BuildHistoryAsync(conversation.Id, history, agent, null, invocation.Id, speakers);
         messages.Add(new ChatMessage(
             ChatRole.Assistant,
             [new FunctionCallContent(invocation.CallId, invocation.FunctionName, NhAssistantContent.DeserializeArguments(invocation.ArgumentsJson))]));
@@ -658,6 +694,72 @@ internal sealed class NhAssistantTurnRunner(
             outcomeStatus,
             new NhAssistantTurnUsage(state.InputTokens, state.OutputTokens, state.ToolCalls),
             errorCode));
+        await AfterTurnAsync(state, outcomeStatus);
+    }
+
+    /// <summary>
+    /// Announces the new conversation state and notifies people who are away. Runs after the final
+    /// event was written, so the user never waits for it; neither step can fail the turn.
+    /// </summary>
+    private async Task AfterTurnAsync(NhAssistantTurnState state, string outcomeStatus)
+    {
+        await live.PublishChangedAsync(state.Conversation.Id, CancellationToken.None);
+        await notifier.TurnEndedAsync(
+            new NhAssistantTurnOutcome(
+                state.Conversation.Id,
+                state.Scope.TurnId,
+                state.Scope.OwnerActorId,
+                outcomeStatus,
+                DateTimeOffset.UtcNow - state.StartedAt),
+            CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Marks the sender's own message as read and shows it to the other people in the conversation.
+    /// </summary>
+    private async Task AnnounceUserMessageAsync(
+        NhAssistantConversationAccess access,
+        AssistantMessage message,
+        string text)
+    {
+        var conversationId = access.Conversation.Id;
+        var read = await store.MarkReadAsync(access, message.Sequence, CancellationToken.None);
+        if (read is { } position)
+        {
+            await live.PublishToAsync(
+                access.ActorId,
+                new NhAssistantLiveConversationRead(conversationId, position),
+                CancellationToken.None);
+        }
+        var view = new NhAssistantMessageView(
+            message.Id,
+            message.Role,
+            message.CreatedAt,
+            [new NhAssistantTextPartView(text)])
+        {
+            Sequence = message.Sequence,
+            AuthorActorId = access.ActorId
+        };
+        await live.PublishAsync(
+            new NhAssistantLiveMessageCreated(conversationId, access.ActorId, view),
+            CancellationToken.None);
+    }
+
+    /// <summary>
+    /// The names the model sees in a shared conversation, or <see langword="null"/> when the owner
+    /// has not shared it.
+    /// </summary>
+    private async Task<NhAssistantSpeakers?> LoadSpeakersAsync(
+        AssistantConversation conversation,
+        string currentActorId,
+        string language)
+    {
+        var participants = await store.GetParticipantsAsync(conversation.Id, CancellationToken.None);
+        if (participants.Count == 0)
+        {
+            return null;
+        }
+        return NhAssistantSpeakers.Create(conversation, participants, currentActorId, language);
     }
 
     /// <summary>
@@ -867,6 +969,7 @@ internal sealed class NhAssistantTurnRunner(
         NhAiInvocationContext callerContext,
         string language,
         NhAssistantClientContext? clientContext,
+        NhAssistantSpeakers? speakers,
         ChannelWriter<NhAssistantTurnEvent> events)
     {
         var agent = effectiveAgent.Definition;
@@ -877,7 +980,8 @@ internal sealed class NhAssistantTurnRunner(
             NhAssistantPromptComposer.Compose(agent, applicationContext, preferences, language),
             facts,
             clientContext,
-            language);
+            language,
+            speakers);
         logger.LogDebug(
             "Assistant turn {TurnId} has {FactCount} context facts, page context {HadPageContext} with {EntityCount} entities.",
             turnId,
@@ -904,6 +1008,7 @@ internal sealed class NhAssistantTurnRunner(
                 TurnId = turnId,
                 Agent = agent,
                 OwnerActorId = callerContext.ActorId,
+                ConversationOwnerActorId = conversation.OwnerActorId,
                 AccountableOwnerId = string.IsNullOrWhiteSpace(callerContext.AccountableOwnerId)
                     ? callerContext.ActorId
                     : callerContext.AccountableOwnerId,
@@ -919,7 +1024,10 @@ internal sealed class NhAssistantTurnRunner(
             EffectiveAgent = effectiveAgent,
             UserMessageId = userMessageId,
             AssistantMessageId = assistantMessage.Id,
-            Events = events
+            Events = events,
+            Broadcast = evt => live.PublishAsync(
+                new NhAssistantLiveTurnEvent(conversation.Id, callerContext.ActorId, evt),
+                CancellationToken.None)
         };
     }
 
@@ -948,6 +1056,7 @@ internal sealed class NhAssistantTurnRunner(
             state.Scope.Agent.Id,
             code);
         await state.EmitAsync(new NhAssistantErrorEvent(code));
+        await AfterTurnAsync(state, NhAssistantTurnStatuses.Failed);
     }
 
     private async Task GenerateTitleAsync(
@@ -970,14 +1079,16 @@ internal sealed class NhAssistantTurnRunner(
     /// Replays persisted user and assistant text, newest first until the model profile's input
     /// budget is used, leaving room for the instructions and the new message. An assistant message
     /// that made tool calls carries a compact summary of them (tool id, short argument preview and
-    /// outcome, never results), so a follow-up turn knows what was already done.
+    /// outcome, never results), so a follow-up turn knows what was already done. In a shared
+    /// conversation every user message starts with its writer's name in square brackets.
     /// </summary>
     private async Task<List<ChatMessage>> BuildHistoryAsync(
         Guid conversationId,
         IReadOnlyList<AssistantMessage> history,
         NhAssistantAgentDefinition agent,
         string? newMessage,
-        Guid? excludedInvocationId)
+        Guid? excludedInvocationId,
+        NhAssistantSpeakers? speakers)
     {
         var budget = profiles.TryGet(agent.ProfileName, out var profile)
             ? (long)profile.Budget.MaxInputTokens * 3
@@ -1004,13 +1115,17 @@ internal sealed class NhAssistantTurnRunner(
             {
                 continue;
             }
+            var isUser = message.Role == NhAssistantMessageRoles.User;
+            if (isUser && speakers is not null)
+            {
+                text = speakers.Mark(message.AuthorActorId ?? speakers.OwnerActorId, text);
+            }
             budget -= text.Length;
             if (budget < 0)
             {
                 break;
             }
-            var role = message.Role == NhAssistantMessageRoles.User ? ChatRole.User : ChatRole.Assistant;
-            selected.Add(new ChatMessage(role, text));
+            selected.Add(new ChatMessage(isUser ? ChatRole.User : ChatRole.Assistant, text));
         }
         selected.Reverse();
         return selected;

@@ -236,7 +236,13 @@ internal sealed class AssistantTestHost : IAsyncDisposable
     {
         await using var scope = _provider.CreateAsyncScope();
         var reader = scope.ServiceProvider.GetRequiredService<NhAssistantConversationReader>();
-        return (await reader.GetAsync(conversationId, owner, CancellationToken.None))!;
+        return (await reader.GetAsync(conversationId, owner, null, CancellationToken.None))!;
+    }
+
+    public async Task<NhAssistantConversationAccess> FindAccessAsync(Guid conversationId, string actorId = UserId)
+    {
+        var store = _provider.GetRequiredService<INhAssistantStore>();
+        return (await store.FindAccessAsync(conversationId, actorId, null, CancellationToken.None))!;
     }
 
     public async ValueTask DisposeAsync()

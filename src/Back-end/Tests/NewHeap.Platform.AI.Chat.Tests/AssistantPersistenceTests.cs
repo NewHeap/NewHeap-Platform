@@ -162,9 +162,9 @@ public sealed class AssistantPersistenceTests(AssistantDatabaseFixture database)
             NhAssistantApprovalStatuses.Approved,
             (await store.FindApprovalAsync(approval.Id, CancellationToken.None))!.Status);
         Assert.Null(await store.FindConversationAsync(conversation.Id, "other-owner", CancellationToken.None));
-        var (items, total) = await store.ListConversationsAsync("owner-1", 1, 20, CancellationToken.None);
+        var (items, total) = await store.ListConversationsAsync("owner-1", null, 1, 20, CancellationToken.None);
         Assert.Equal(1, total);
-        Assert.Equal(conversation.Id, Assert.Single(items).Id);
+        Assert.Equal(conversation.Id, Assert.Single(items).Conversation.Id);
     }
 
     [Theory]
@@ -260,5 +260,8 @@ public sealed class AssistantPersistenceTests(AssistantDatabaseFixture database)
         Assert.Equal(0, await context.McpServers.CountAsync());
         Assert.Equal(0, await context.McpTools.CountAsync());
         Assert.Equal(0, await context.UserPreferences.CountAsync());
+        Assert.Equal(0, await context.Participants.CountAsync());
+        Assert.Equal(0, await context.PushSubscriptions.CountAsync());
+        Assert.Equal(0, await context.NotificationSettings.CountAsync());
     }
 }

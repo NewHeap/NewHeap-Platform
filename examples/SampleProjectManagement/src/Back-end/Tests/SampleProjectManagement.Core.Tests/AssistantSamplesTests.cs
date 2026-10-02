@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -195,7 +196,7 @@ public class AssistantSampleHost : IAsyncLifetime
 
     public IServiceProvider Services => _app!.Services;
 
-    public async ValueTask InitializeAsync()
+    public virtual async ValueTask InitializeAsync()
     {
         await _database.StartAsync();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
@@ -225,6 +226,9 @@ public class AssistantSampleHost : IAsyncLifetime
         services.AddSingleton<IProjectAiContextService>(Projects);
         services.AddScoped<ProjectAiTools>();
         services.AddKeyedSingleton<IChatClient>(SampleAssistantComposition.ModelKey, Model);
+        // The sample's participant directory reads users and divisions through the sample DAL.
+        services.AddDbContext<SampleProjectManagement.DAL.SampleProjectManagementDbContext>(options =>
+            options.UseNpgsql(_database.GetConnectionString()));
 
         // The same AI composition order as SampleProjectManagement.Api/Program.cs.
         services.AddSampleProjectManagementAi();
@@ -234,7 +238,7 @@ public class AssistantSampleHost : IAsyncLifetime
             .AddCapabilityGrant(ProjectAiTools.ReadCapability, SampleAssistantComposition.AccessPolicy)
             .AddCapabilityGrant(ProjectAiTools.ManageCapability, ManagePolicy));
         ConfigureServices(services);
-        services.AddSampleAssistant();
+        services.AddSampleAssistant(builder.Environment, builder.Configuration);
         services.Configure<RequestLocalizationOptions>(options =>
         {
             var supportedCultures = new[]
@@ -283,7 +287,7 @@ public class AssistantSampleHost : IAsyncLifetime
     {
     }
 
-    public async ValueTask DisposeAsync()
+    public virtual async ValueTask DisposeAsync()
     {
         if (_app is not null)
         {

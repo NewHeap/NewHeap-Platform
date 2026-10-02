@@ -1,13 +1,25 @@
 namespace NewHeap.Platform.AI.Chat.Entities;
 
 /// <summary>
-/// One assistant conversation owned by exactly one authenticated actor.
+/// One assistant conversation owned by exactly one authenticated actor. The owner may share it with
+/// participants of the same tenant; see <see cref="AssistantConversationParticipant"/>.
 /// </summary>
 public sealed class AssistantConversation
 {
     public Guid Id { get; set; }
 
     public string OwnerActorId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Display name of the owner shown to participants, refreshed whenever the owner uses the conversation.
+    /// </summary>
+    public string? OwnerDisplayName { get; set; }
+
+    /// <summary>
+    /// Highest message sequence the owner has read. <see langword="null"/> means read state was never
+    /// tracked, which counts as read, so conversations from before read tracking show no unread marker.
+    /// </summary>
+    public int? OwnerLastReadSequence { get; set; }
 
     public string? TenantId { get; set; }
 
@@ -27,6 +39,17 @@ public sealed class AssistantConversation
     /// </summary>
     public Guid? ActiveTurnId { get; set; }
 
+    /// <summary>
+    /// The owner or participant who started the active turn. Only this actor decides its approval.
+    /// </summary>
+    public string? ActiveActorId { get; set; }
+
+    /// <summary>
+    /// The invitation-link token, protected with ASP.NET Data Protection, or <see langword="null"/>
+    /// while the owner has no active invitation link.
+    /// </summary>
+    public string? ProtectedShareToken { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
@@ -37,6 +60,8 @@ public sealed class AssistantConversation
     public Guid ConcurrencyStamp { get; set; }
 
     public List<AssistantMessage> Messages { get; set; } = [];
+
+    public List<AssistantConversationParticipant> Participants { get; set; } = [];
 }
 
 /// <summary>
@@ -57,6 +82,12 @@ public sealed class AssistantMessage
     public string Role { get; set; } = NhAssistantMessageRoles.User;
 
     public int Sequence { get; set; }
+
+    /// <summary>
+    /// The owner or participant who wrote a user message. <see langword="null"/> for assistant messages
+    /// and for user messages written before conversations could be shared, which belong to the owner.
+    /// </summary>
+    public string? AuthorActorId { get; set; }
 
     public int PartsVersion { get; set; } = 1;
 

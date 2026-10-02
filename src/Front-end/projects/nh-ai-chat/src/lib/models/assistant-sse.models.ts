@@ -97,7 +97,9 @@ export const NhAssistantClientErrorCodes = {
   versionConflict: 'assistant-version-conflict',
   invalidResponse: 'assistant-invalid-response',
   streamInterrupted: 'assistant-stream-interrupted',
-  server: 'assistant-server'
+  server: 'assistant-server',
+  /** The open conversation was deleted by its owner, or the user left or was removed. */
+  conversationRemoved: 'assistant-conversation-removed'
 } as const;
 
 export type NhAssistantClientErrorCode = typeof NhAssistantClientErrorCodes[keyof typeof NhAssistantClientErrorCodes];

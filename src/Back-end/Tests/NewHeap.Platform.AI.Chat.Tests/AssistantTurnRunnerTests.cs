@@ -389,7 +389,8 @@ public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database)
         var turn = await host.StartWithoutWaitingAsync(conversation.Id, "Think for a long time.", async runner =>
         {
             await model.Started.Task.WaitAsync(TimeSpan.FromSeconds(30));
-            await runner.CancelAsync(conversation.Id, AssistantTestHost.UserId, CancellationToken.None);
+            var access = await host.FindAccessAsync(conversation.Id);
+            Assert.True((await runner.CancelAsync(access, CancellationToken.None)).Success);
         });
 
         var end = Assert.IsType<NhAssistantTurnCompletedEvent>(turn.Events[^1]);

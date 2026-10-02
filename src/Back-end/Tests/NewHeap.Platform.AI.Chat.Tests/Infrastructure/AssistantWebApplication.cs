@@ -25,6 +25,7 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
     public const string UserHeader = "X-Test-User";
     public const string AccessHeader = "X-Test-Access";
     public const string AdminHeader = "X-Test-Admin";
+    public const string NameHeader = "X-Test-Name";
     public const string AccessPolicy = "app.assistant.access";
 
     private readonly WebApplication _app;
@@ -108,9 +109,15 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
         return new AssistantWebApplication(app);
     }
 
-    public HttpClient CreateClient(string? user = "user-1", bool access = true, bool admin = false)
+    public TestServer Server => _app.GetTestServer();
+
+    public HttpClient CreateClient(string? user = "user-1", bool access = true, bool admin = false, string? name = null)
     {
         var client = _app.GetTestClient();
+        if (name is not null)
+        {
+            client.DefaultRequestHeaders.Add(NameHeader, name);
+        }
         if (admin)
         {
             client.DefaultRequestHeaders.Add(AdminHeader, "true");
@@ -149,6 +156,11 @@ internal sealed class TestAuthenticationHandler(
             return Task.FromResult(AuthenticateResult.NoResult());
         }
         var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, user) };
+        var name = Request.Headers[AssistantWebApplication.NameHeader].ToString();
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            claims.Add(new Claim("name", name));
+        }
         if (Request.Headers.ContainsKey(AssistantWebApplication.AccessHeader))
         {
             claims.Add(new Claim("permission", "assistant"));

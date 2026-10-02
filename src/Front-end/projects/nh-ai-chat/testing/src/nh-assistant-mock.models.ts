@@ -133,6 +133,27 @@ export interface NhAssistantMockAdminScenario {
   forwardUserTokenHosts?: string[];
 }
 
+/** A person in the simulated organization. */
+export interface NhAssistantMockPerson {
+  actorId: string;
+  displayName: string;
+  /** Short distinguishing text the directory shows, such as a department. */
+  detail?: string;
+}
+
+/**
+ * Sharing, live updates and notifications of the mock. The mock always offers invitation links
+ * and live updates; with `directory` it also offers direct invitations.
+ */
+export interface NhAssistantMockCollaboration {
+  /** The signed-in user. Default `{ actorId: 'mock-user', displayName: 'You' }`. */
+  currentUser?: NhAssistantMockPerson;
+  /** Colleagues the directory finds; enables direct invitations. */
+  directory?: NhAssistantMockPerson[];
+  /** Default 20. */
+  maxParticipants?: number;
+}
+
 /** The scenario the mock API plays without a back-end. */
 export interface NhAssistantMockScenario {
   /** Default `true`. */
@@ -147,6 +168,7 @@ export interface NhAssistantMockScenario {
   /** Stored preferences of the caller. Default: default style, informal, normal length. */
   preferences?: AssistantPreferences;
   admin?: NhAssistantMockAdminScenario;
+  collaboration?: NhAssistantMockCollaboration;
 }
 
 /** One request the mock API received, for assertions in tests. */

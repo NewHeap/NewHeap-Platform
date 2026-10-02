@@ -10,6 +10,7 @@ import {
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NhAssistantApiService } from '../../services/nh-assistant-api.service';
+import { NhAssistantPushService } from '../../services/nh-assistant-push.service';
 import { NhAssistantError } from '../../services/nh-assistant.store';
 import { NhAssistantApiError, nhAssistantErrorMessageKey } from '../../services/nh-assistant-transport';
 
@@ -19,9 +20,10 @@ export const NH_ASSISTANT_MAX_CUSTOM_INSTRUCTIONS = 1_000;
 let nextId = 0;
 
 /**
- * The user's own assistant preferences: style, form of address, answer length and
- * optional instructions. Preferences steer style only; the server keeps them below the
- * application context and agent instructions.
+ * The user's own assistant preferences: desktop notifications, style, form of address,
+ * answer length and optional instructions. Notifications apply immediately; the other
+ * preferences steer style only and are saved together, below the application context and
+ * agent instructions.
  */
 @Component({
   selector: 'nh-assistant-preferences',
@@ -33,6 +35,7 @@ let nextId = 0;
 })
 export class NhAssistantPreferencesComponent {
   private readonly api = inject(NhAssistantApiService);
+  readonly push = inject(NhAssistantPushService);
   private subscription?: Subscription;
 
   /** Emitted when the user leaves the preferences. */
@@ -90,6 +93,19 @@ export class NhAssistantPreferencesComponent {
         this.loadFailed.set(true);
       }
     });
+  }
+
+  /** Turns desktop notifications on or off; turning them on asks the browser for permission. */
+  async toggleNotifications(event: Event): Promise<void> {
+    const enabled = (event.target as HTMLInputElement).checked;
+    this.error.set(null);
+    try {
+      await this.push.setEnabled(enabled);
+    } catch (error) {
+      this.error.set(error instanceof NhAssistantApiError
+        ? { code: error.code, messageKey: error.messageKey }
+        : { code: 'assistant-server', messageKey: nhAssistantErrorMessageKey('assistant-server') });
+    }
   }
 
   onInstructionsInput(event: Event): void {

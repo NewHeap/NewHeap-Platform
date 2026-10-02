@@ -7,12 +7,23 @@
           <nh-assistant-agent-picker
             [agents]="store.agents()"
             [selectedAgentId]="store.selectedAgentId()"
-            [disabled]="store.streaming()"
             (agentChange)="store.selectAgent($event)" />
         }
       </div>
       <div class="header-actions">
         @if (store.enabled()) {
+          @if (canShare()) {
+            <button
+              class="icon-button"
+              type="button"
+              [class.active]="showShare() || shared()"
+              [attr.aria-expanded]="showShare()"
+              [attr.aria-label]="(store.isOwner() ? 'nh-assistant.panel.share' : 'nh-assistant.panel.members') | translate"
+              [attr.title]="(store.isOwner() ? 'nh-assistant.panel.share' : 'nh-assistant.panel.members') | translate"
+              (click)="toggleShare()">
+              <nh-assistant-icon name="users" />
+            </button>
+          }
           <button
             class="icon-button"
             type="button"
@@ -46,7 +57,6 @@
           <button
             class="icon-button"
             type="button"
-            [disabled]="store.streaming()"
             [attr.aria-label]="'nh-assistant.panel.new-conversation' | translate"
             [attr.title]="'nh-assistant.panel.new-conversation' | translate"
             (click)="newConversation()">
@@ -64,6 +74,10 @@
       </div>
     </header>
 
+    @if (store.enabled()) {
+      <nh-assistant-activity [items]="store.activity()" (conversationSelect)="openConversation($event)" />
+    }
+
     <div class="body">
       @if (store.statusLoading() && !store.enabled()) {
         <div class="state" role="status">
@@ -80,6 +94,10 @@
           <nh-assistant-preferences class="overlay-view" (closed)="showPreferences.set(false)" />
         }
 
+        @if (showShare()) {
+          <nh-assistant-share class="overlay-view" (closed)="showShare.set(false)" />
+        }
+
         @if (showConversations()) {
           <nh-assistant-conversation-list
             class="overlay-view"
@@ -87,7 +105,6 @@
             [total]="store.conversationsTotal()"
             [activeConversationId]="conversation()?.id ?? null"
             [loading]="store.conversationsLoading()"
-            [disabled]="store.streaming()"
             (conversationSelect)="openConversation($event)"
             (conversationDelete)="deleteConversation($event)"
             (conversationCreate)="newConversation()" />
@@ -107,9 +124,13 @@
           <nh-assistant-thread
             class="thread"
             [messages]="messages()"
-            [streaming]="store.streaming()"
+            [streaming]="busy()"
             [deciding]="store.deciding()"
             [markdown]="markdown"
+            [members]="store.members()"
+            [currentActorId]="conversation()?.currentActorId ?? null"
+            [canDecide]="store.canDecide()"
+            [decisionOwner]="activeMemberName()"
             (approvalDecision)="decide($event)" />
         }
       }
@@ -143,7 +164,7 @@
       </div>
     }
 
-    @if (store.enabled() && !showPreferences()) {
+    @if (store.enabled() && !showPreferences() && !showShare()) {
       <footer class="footer" (focusin)="refreshPageContext()">
         @if (closed()) {
           <p class="notice">{{ 'nh-assistant.panel.conversation-closed' | translate }}</p>
@@ -170,6 +191,8 @@
           [sendDisabled]="composerDisabled()"
           [busy]="busy()"
           [status]="composerStatus()"
+          [statusActor]="activeMemberName()"
+          [canStop]="canStop()"
           [maxLength]="store.limits()?.maxMessageChars ?? null"
           [restore]="store.restoredDraft()"
           (restored)="store.consumeRestoredDraft()"

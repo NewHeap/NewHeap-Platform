@@ -40,6 +40,47 @@
   background: var(--nha-highlight);
 }
 
+.badge[data-state='waiting'] {
+  background: var(--nha-warning);
+}
+
+.badge.count {
+  top: 2px;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  padding: 0 3px;
+  color: var(--nha-accent-contrast);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.badge[data-state='running'] {
+  border-color: color-mix(in srgb, var(--nha-highlight) 30%, transparent);
+  border-top-color: var(--nha-highlight);
+  background: var(--nh-assistant-launcher-badge-ring, var(--nha-background));
+  animation: nh-assistant-spin 900ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge[data-state='running'] {
+    border-color: var(--nha-highlight);
+    animation: none;
+  }
+}
+
+@keyframes nh-assistant-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .visually-hidden {
   @include tokens.visually-hidden;
 }

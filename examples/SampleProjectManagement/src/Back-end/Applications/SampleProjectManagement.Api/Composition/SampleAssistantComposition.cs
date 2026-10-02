@@ -58,8 +58,13 @@ public static class SampleAssistantComposition
         NhAiRetentionCategory.Operational,
         "sample-application-context-v1");
 
-    public static IServiceCollection AddSampleAssistant(this IServiceCollection services)
+    public static IServiceCollection AddSampleAssistant(
+        this IServiceCollection services,
+        IHostEnvironment environment,
+        IConfiguration configuration)
     {
+        ArgumentNullException.ThrowIfNull(environment);
+        ArgumentNullException.ThrowIfNull(configuration);
         // The sample has no model provider. A deterministic local model drives the agent;
         // hosts and tests register their own keyed client before this call to replace it.
         services.TryAddKeyedSingleton<IChatClient, SampleAssistantChatClient>(ModelKey);
@@ -114,6 +119,14 @@ public static class SampleAssistantComposition
                 Autonomy: NhAiAutonomyLevel.Execute,
                 RequiredPolicy: AccessPolicy))
             .AddBusinessAuditSink<SampleAssistantAuditSink>()
+            // Owners share conversations through an invitation link or invite colleagues of
+            // their division directly; colleagues continue with their own permissions.
+            .UseParticipantDirectory<SampleAssistantParticipantDirectory>()
+            // Desktop notifications when a longer turn ends or an approval waits while the user is away.
+            .ConfigurePush(push => SampleAssistantPush.Configure(push, environment))
+            // A reviewed research MCP tool receives who acts for whom and a bounded snapshot of the
+            // conversation as request metadata; other MCP servers never do.
+            .AddSampleResearchContext(configuration)
             .WithLimits(limits =>
             {
                 limits.MaxToolCallsPerTurn = 4;
@@ -123,6 +136,7 @@ public static class SampleAssistantComposition
                 // Agents that list many exact settings actions need more selectors than the
                 // default 128. Prefer prefix selectors; this does not raise MaxToolsPerAgent.
                 limits.MaxToolSelectorsPerAgent = 256;
+                limits.MaxParticipantsPerConversation = 10;
             }));
         return services;
     }

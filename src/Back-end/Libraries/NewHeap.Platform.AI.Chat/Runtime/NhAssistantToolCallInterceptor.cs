@@ -35,6 +35,16 @@ internal sealed class NhAssistantTurnState
 
     public required ChannelWriter<NhAssistantTurnEvent> Events { get; init; }
 
+    /// <summary>
+    /// Shares every event with the other open sessions of the owner and participants. It never throws.
+    /// </summary>
+    public Func<NhAssistantTurnEvent, ValueTask>? Broadcast { get; init; }
+
+    /// <summary>
+    /// When this run of the turn started; a resumed turn starts again after the decision.
+    /// </summary>
+    public DateTimeOffset StartedAt { get; init; } = DateTimeOffset.UtcNow;
+
     public NhAssistantApprovalView? PendingApproval { get; set; }
 
     public bool ToolCallLimitReached { get; set; }
@@ -94,7 +104,7 @@ internal sealed class NhAssistantTurnState
     {
         // The stream is unbounded; a disconnected client never blocks the turn.
         Events.TryWrite(evt);
-        return ValueTask.CompletedTask;
+        return Broadcast?.Invoke(evt) ?? ValueTask.CompletedTask;
     }
 }
 

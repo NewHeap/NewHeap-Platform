@@ -38,6 +38,10 @@ export class NhAssistantComposerComponent {
   readonly busy = input(false);
   /** Announces why sending is temporarily unavailable. */
   readonly status = input<'running' | 'waiting-for-approval' | null>(null);
+  /** Name of the participant whose turn runs or waits, when it is someone else. */
+  readonly statusActor = input<string | null>(null);
+  /** False when the user may not stop the running turn, such as another participant's turn. */
+  readonly canStop = input(true);
   readonly maxLength = input<number | null>(null);
   /** Text to put back into the input, for example a message the server did not accept. */
   readonly restore = input<string | null>(null);

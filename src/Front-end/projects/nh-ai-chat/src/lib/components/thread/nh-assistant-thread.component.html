@@ -23,8 +23,12 @@
 </div>
 
 <ng-template #messageTemplate let-message>
-  <article class="message" [attr.data-role]="message.role">
-    <p class="author">{{ 'nh-assistant.thread.' + (message.role === 'user' ? 'you' : message.role) | translate }}</p>
+  <article class="message" [attr.data-role]="message.role" [attr.data-others]="isOthers(message) ? 'true' : null">
+    @if (isOthers(message)) {
+      <p class="author">{{ authorName(message) ?? ('nh-assistant.thread.participant' | translate) }}</p>
+    } @else {
+      <p class="author">{{ 'nh-assistant.thread.' + (message.role === 'user' ? 'you' : message.role) | translate }}</p>
+    }
     @for (group of message.parts | nhAssistantPartGroups; track group.key) {
       @switch (group.kind) {
         @case ('text') {
@@ -38,7 +42,13 @@
           <nh-assistant-tool-call-group class="part" [calls]="group.calls" />
         }
         @case ('approval') {
-          <nh-assistant-approval-card class="part" [approval]="group.part" [deciding]="deciding()" (decide)="approvalDecision.emit($event)" />
+          <nh-assistant-approval-card
+            class="part"
+            [approval]="group.part"
+            [deciding]="deciding()"
+            [canDecide]="canDecide()"
+            [decisionOwner]="decisionOwner()"
+            (decide)="approvalDecision.emit($event)" />
         }
       }
     }

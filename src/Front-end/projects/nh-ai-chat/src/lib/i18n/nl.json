@@ -3,7 +3,9 @@
     "launcher": {
       "open": "Assistent openen",
       "close": "Assistent sluiten",
-      "pending-approval": "Er wacht een actie op je goedkeuring"
+      "pending-approval": "Er wacht een actie op je goedkeuring",
+      "unread": "{{count}} ongelezen gesprekken",
+      "running": "{{count}} gesprekken bezig"
     },
     "panel": {
       "title": "Assistent",
@@ -21,7 +23,9 @@
       "dismiss-error": "Melding sluiten",
       "usage": "{{inputTokens}} invoertokens, {{outputTokens}} uitvoertokens, {{toolCalls}} toolaanroepen",
       "open-preferences": "Je assistentvoorkeuren",
-      "open-admin": "Beheer van de assistent"
+      "open-admin": "Beheer van de assistent",
+      "share": "Gesprek delen",
+      "members": "Mensen in dit gesprek"
     },
     "agent-picker": {
       "label": "Agent",
@@ -41,7 +45,11 @@
         "waiting-for-approval": "Wacht op goedkeuring",
         "failed": "Mislukt",
         "archived": "Gearchiveerd"
-      }
+      },
+      "leave": "Gesprek verlaten",
+      "unread": "Ongelezen",
+      "shared": "Gedeeld met {{count}} mensen",
+      "shared-with-you": "Met jou gedeeld"
     },
     "thread": {
       "label": "Gesprek",
@@ -50,7 +58,8 @@
       "tool": "Tool",
       "working": "De assistent is bezig",
       "loading": "Gesprek laden",
-      "elapsed": "{{seconds}} s"
+      "elapsed": "{{seconds}} s",
+      "participant": "Deelnemer"
     },
     "composer": {
       "label": "Bericht",
@@ -62,7 +71,9 @@
       "too-long": "Het bericht is te lang.",
       "status": {
         "running": "Je kunt verder typen terwijl de assistent bezig is. Versturen is tijdelijk niet mogelijk.",
-        "waiting-for-approval": "Je kunt verder typen terwijl een actie op je goedkeuring wacht. Versturen is tijdelijk niet mogelijk."
+        "waiting-for-approval": "Je kunt verder typen terwijl een actie op je goedkeuring wacht. Versturen is tijdelijk niet mogelijk.",
+        "running-by": "{{name}} werkt met de assistent…",
+        "waiting-for-approval-by": "Wacht op de beslissing van {{name}}…"
       }
     },
     "tool-call": {
@@ -110,7 +121,9 @@
         "approved": "Goedgekeurd",
         "rejected": "Afgewezen",
         "expired": "Verlopen"
-      }
+      },
+      "waiting-for": "Wacht op de beslissing van {{name}}. De actie gebruikt diens rechten.",
+      "waiting-for-participant": "Wacht op de beslissing van de deelnemer die deze taak startte."
     },
     "result-codes": {
       "api-bridge-validation": "Het verzoek was niet geldig.",
@@ -168,10 +181,21 @@
       "assistant-tool-call-limit-reached": "De assistent heeft het maximale aantal stappen voor één antwoord bereikt. Stel een gerichtere vraag.",
       "assistant-tools-disabled": "In dit antwoord zijn geen verdere acties uitgevoerd omdat een actie is afgewezen.",
       "assistant-turn-failed": "De assistent kon het antwoord niet afmaken. Probeer het opnieuw.",
-      "assistant-turn-timeout": "Het antwoord duurde te lang en is gestopt. Probeer het opnieuw of stel een gerichtere vraag."
+      "assistant-turn-timeout": "Het antwoord duurde te lang en is gestopt. Probeer het opnieuw of stel een gerichtere vraag.",
+      "assistant-owner-required": "Alleen de eigenaar van dit gesprek kan dit doen.",
+      "assistant-approval-forbidden": "Alleen degene die deze taak startte, kan erover beslissen.",
+      "assistant-turn-forbidden": "Alleen de eigenaar of degene die deze taak startte, kan haar stoppen.",
+      "assistant-share-link-invalid": "Deze uitnodigingslink is niet meer geldig. Vraag de eigenaar om een nieuwe.",
+      "assistant-participant-not-found": "Deze persoon doet niet mee aan het gesprek.",
+      "assistant-participant-limit-reached": "Dit gesprek heeft het maximale aantal deelnemers.",
+      "assistant-directory-unavailable": "Collega’s direct uitnodigen is niet beschikbaar.",
+      "assistant-push-unavailable": "Bureaubladmeldingen zijn niet beschikbaar.",
+      "assistant-push-subscription-invalid": "Deze browser kon niet worden aangemeld voor meldingen.",
+      "assistant-conversation-removed": "Dit gesprek is niet meer voor je beschikbaar."
     },
     "notices": {
-      "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders."
+      "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",
+      "conversation-removed": "Dit gesprek is niet meer voor je beschikbaar."
     },
     "preferences": {
       "title": "Je voorkeuren",
@@ -208,7 +232,16 @@
       "back": "Terug naar het gesprek",
       "loading": "Je voorkeuren laden",
       "load-failed": "Je voorkeuren konden niet worden geladen.",
-      "retry": "Opnieuw proberen"
+      "retry": "Opnieuw proberen",
+      "notifications-label": "Meldingen",
+      "notifications": "Bureaubladmeldingen",
+      "notifications-state": {
+        "on": "Je krijgt een melding als een langere taak klaar is of je goedkeuring nodig heeft terwijl je weg bent.",
+        "prompt": "Je browser vraagt om toestemming wanneer je het volgende bericht verstuurt.",
+        "blocked": "Je browser blokkeert meldingen voor deze site. Sta ze toe in de browserinstellingen.",
+        "off": "Meldingen staan uit op al je apparaten.",
+        "unavailable": "Meldingen zijn niet beschikbaar."
+      }
     },
     "admin": {
       "title": "Beheer van de assistent",
@@ -393,6 +426,45 @@
       "excluded": "Niet meegestuurd bij dit bericht: {{page}}",
       "exclude": "{{page}} niet meesturen met dit bericht",
       "include": "{{page}} toch meesturen met dit bericht"
+    },
+    "activity": {
+      "label": "Andere gesprekken",
+      "running": "Bezig",
+      "waiting": "Wacht op goedkeuring",
+      "unread": "Ongelezen"
+    },
+    "share": {
+      "title": "Gesprek delen",
+      "members-title": "Mensen in dit gesprek",
+      "back": "Terug naar het gesprek",
+      "description": "Mensen met wie je deelt lezen het hele gesprek, ook de resultaten van tools, en kunnen het voortzetten met hun eigen rechten.",
+      "link-title": "Uitnodigingslink",
+      "link-label": "Uitnodigingslink",
+      "link-hint": "Iedereen in je organisatie die deze assistent mag gebruiken, kan met de link meedoen. Een nieuwe link vervangt de oude; wie al meedoet, blijft.",
+      "create": "Uitnodigingslink maken",
+      "copy": "Link kopiëren",
+      "copied": "Link gekopieerd.",
+      "renew": "Nieuwe link",
+      "revoke": "Link stoppen",
+      "invite-title": "Collega uitnodigen",
+      "search-label": "Collega’s zoeken",
+      "search-placeholder": "Zoek op naam",
+      "searching": "Zoeken…",
+      "no-results": "Geen collega’s gevonden.",
+      "invite": "Uitnodigen",
+      "invited": "{{name}} is uitgenodigd.",
+      "members": "Mensen",
+      "count": "{{count}} van {{max}} uitgenodigd",
+      "not-shared": "Alleen jij doet mee aan dit gesprek.",
+      "unnamed": "Collega zonder naam",
+      "you": "(jij)",
+      "role": {
+        "owner": "Eigenaar",
+        "participant": "Deelnemer"
+      },
+      "remove": "{{name}} verwijderen",
+      "leave": "Gesprek verlaten",
+      "no-conversation": "Start of open een gesprek om het te delen."
     }
   }
 }

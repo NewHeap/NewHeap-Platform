@@ -49,7 +49,7 @@ internal sealed record NhAssistantErrorEvent(
 }
 
 /// <summary>
-/// Read model of one conversation with hydrated message parts.
+/// Read model of one conversation with hydrated message parts, seen by one caller.
 /// </summary>
 internal sealed record NhAssistantConversationView(
     Guid Id,
@@ -60,13 +60,58 @@ internal sealed record NhAssistantConversationView(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     IReadOnlyList<NhAssistantMessageView> Messages,
-    NhAssistantApprovalView? PendingApproval);
+    NhAssistantApprovalView? PendingApproval)
+{
+    /// <summary>
+    /// The caller's relation: <c>owner</c> or <c>participant</c>.
+    /// </summary>
+    public string Role { get; init; } = NhAssistantParticipantRoles.Owner;
+
+    /// <summary>
+    /// The caller's read position; the latest sequence when read state was never tracked.
+    /// </summary>
+    public int LastReadSequence { get; init; }
+
+    public int LastMessageSequence { get; init; }
+
+    /// <summary>
+    /// The owner or participant whose turn is active, or <see langword="null"/>.
+    /// </summary>
+    public string? ActiveActorId { get; init; }
+
+    /// <summary>
+    /// The owner followed by the participants. Empty for an unshared conversation of its owner.
+    /// </summary>
+    public IReadOnlyList<NhAssistantMemberView> Members { get; init; } = [];
+
+    /// <summary>
+    /// The protected invitation-link token; only set for the owner.
+    /// </summary>
+    public string? ProtectedShareToken { get; init; }
+}
+
+/// <summary>
+/// The owner or a participant of a shared conversation.
+/// </summary>
+internal sealed record NhAssistantMemberView(
+    string ActorId,
+    string DisplayName,
+    string Role,
+    DateTimeOffset JoinedAt);
 
 internal sealed record NhAssistantMessageView(
     Guid Id,
     string Role,
     DateTimeOffset CreatedAt,
-    IReadOnlyList<NhAssistantPartView> Parts);
+    IReadOnlyList<NhAssistantPartView> Parts)
+{
+    public int Sequence { get; init; }
+
+    /// <summary>
+    /// The writer of a user message; the owner for user messages from before sharing.
+    /// </summary>
+    public string? AuthorActorId { get; init; }
+}
 
 internal abstract record NhAssistantPartView;
 
