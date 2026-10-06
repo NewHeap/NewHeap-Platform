@@ -616,6 +616,22 @@ describe('NhAssistantPanelComponent', () => {
     expect(overlay.textContent).not.toContain('Sending is temporarily unavailable');
   });
 
+  it('hides the picker for one assistant and sends with the automatically selected agent', async () => {
+    await open();
+
+    expect(overlay.querySelector('nh-assistant-agent-picker')).toBeNull();
+    expect(TestBed.inject(NhAssistantStore).selectedAgentId()).toBe('projects');
+    const input = overlay.querySelector('nh-assistant-composer textarea') as HTMLTextAreaElement;
+    input.value = 'Hello';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flush();
+
+    expect(api.createConversation.calls.mostRecent().args[0].agentId).toBe('projects');
+    expect(api.sendMessage.calls.mostRecent().args[1].text).toBe('Hello');
+  });
+
   it('selects the assistant in the prompt bar while preserving the draft', async () => {
     api.status.and.returnValue(of({ ...status, agents: [
       ...status.agents,

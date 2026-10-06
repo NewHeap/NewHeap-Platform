@@ -267,12 +267,14 @@
           (restored)="store.consumeRestoredDraft()"
           (send)="send($event)"
           (cancel)="cancel()">
-          <nh-assistant-agent-picker
-            nhAssistantComposerControls
-            [compact]="true"
-            [agents]="store.agents()"
-            [selectedAgentId]="store.selectedAgentId()"
-            (agentChange)="store.selectAgent($event)" />
+          @if (store.agents().length > 1) {
+            <nh-assistant-agent-picker
+              nhAssistantComposerControls
+              [compact]="true"
+              [agents]="store.agents()"
+              [selectedAgentId]="store.selectedAgentId()"
+              (agentChange)="store.selectAgent($event)" />
+          }
         </nh-assistant-composer>
       </footer>
     }

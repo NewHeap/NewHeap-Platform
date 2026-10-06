@@ -53,7 +53,9 @@ panel through `NhAssistantPanelService.open(conversationId?)`. The launcher stay
 hidden while the server reports the assistant disabled or the policy denies the
 user; do not add a second feature flag in the host.
 
-Select the assistant in the prompt bar below the message field. In custom layouts,
+Select the assistant in the prompt bar below the message field. The panel shows the
+picker only when more than one assistant is available; a single assistant remains
+automatically selected without showing a disabled selector. In custom layouts,
 project controls marked with `nhAssistantComposerControls` into `nh-assistant-composer`
 and use `[compact]="true"` on `nh-assistant-agent-picker`. The compact picker keeps
 capability information in its tooltip and accessible description. Selection preserves

@@ -145,7 +145,8 @@ more) and the actions `send`, `submit`, `pauseQueue`, `resumeQueue`,
 standalone and use `OnPush`.
 
 The panel selects the assistant in the prompt bar below the message field, alongside
-the send/stop action. Custom composer layouts can project controls marked with
+the send/stop action. The picker is hidden when only one assistant is available;
+that assistant stays automatically selected. Custom composer layouts can project controls marked with
 `nhAssistantComposerControls`; use `[compact]="true"` on `nh-assistant-agent-picker`
 for the same appearance. Capability information stays available in its tooltip and
 accessible description. Changing the agent keeps the draft and selects the agent for
