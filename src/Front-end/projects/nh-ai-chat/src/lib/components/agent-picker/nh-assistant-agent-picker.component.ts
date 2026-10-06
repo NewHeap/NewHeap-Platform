@@ -14,12 +14,14 @@ let nextId = 0;
   standalone: true,
   imports: [TranslatePipe, NhAssistantTranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.compact]': 'compact()' },
   template: `
     <label class="visually-hidden" [for]="selectId">{{ 'nh-assistant.agent-picker.label' | translate }}</label>
     <select
       [id]="selectId"
       [disabled]="disabled() || agents().length < 2"
-      [attr.title]="selected() ? ([selected()!.descriptionKey] | nhAssistantTranslate: selected()!.descriptionKey) : null"
+      [attr.aria-describedby]="selected() ? selectId + '-capability' : null"
+      [attr.title]="selected() ? (([selected()!.descriptionKey] | nhAssistantTranslate: selected()!.descriptionKey) + (compact() ? ' · ' + ((selected()!.canMutate ? 'nh-assistant.agent-picker.can-mutate' : 'nh-assistant.agent-picker.read-only') | translate) : '')) : null"
       (change)="onChange($event)">
       @for (agent of agents(); track agent.id) {
         <option [value]="agent.id" [selected]="agent.id === selectedAgentId()">
@@ -28,7 +30,7 @@ let nextId = 0;
       }
     </select>
     @if (selected(); as agent) {
-      <span class="capability" [attr.data-can-mutate]="agent.canMutate">
+      <span class="capability" [id]="selectId + '-capability'" [class.visually-hidden]="compact()" [attr.data-can-mutate]="agent.canMutate">
         {{ (agent.canMutate ? 'nh-assistant.agent-picker.can-mutate' : 'nh-assistant.agent-picker.read-only') | translate }}
       </span>
     }
@@ -39,6 +41,8 @@ export class NhAssistantAgentPickerComponent {
   readonly agents = input.required<readonly AgentSummary[]>();
   readonly selectedAgentId = input<string | null>(null);
   readonly disabled = input(false);
+  /** Compact prompt-bar control; capability information remains in the tooltip and accessible description. */
+  readonly compact = input(false);
   readonly agentChange = output<string>();
 
   readonly selectId = `nh-assistant-agent-picker-${nextId++}`;

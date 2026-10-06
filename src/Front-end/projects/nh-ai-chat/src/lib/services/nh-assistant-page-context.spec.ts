@@ -165,11 +165,11 @@ describe('page context of a message', () => {
   });
 });
 
-describe('page context chip', () => {
+describe('page context icon', () => {
   @Component({ standalone: true, imports: [NhAssistantPanelComponent], template: '<nh-assistant-panel />' })
   class HostComponent {}
 
-  it('shows what is sent and leaves it out of the next message with the close button', async () => {
+  it('keeps context in the tooltip and lets the user leave it out without a context text row', async () => {
     TestBed.configureTestingModule({
       providers: [
         provideTranslateService({ fallbackLang: 'en' }),
@@ -195,15 +195,14 @@ describe('page context chip', () => {
     }
     const overlay = TestBed.inject(OverlayContainer).getContainerElement();
 
-    const chip = overlay.querySelector('.context-chip') as HTMLElement;
-    expect(chip.textContent).toContain('Sent with your message: Project AA09027');
-    const button = chip.querySelector('button') as HTMLButtonElement;
+    expect(overlay.querySelector('.context-chip')).toBeNull();
+    const button = overlay.querySelector('.page-context-button') as HTMLButtonElement;
     expect(button.getAttribute('aria-label')).toBe('Do not send Project AA09027 with this message');
 
     button.click();
     fixture.detectChanges();
-    expect(chip.textContent).toContain('Not sent with this message: Project AA09027');
-    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(button.getAttribute('aria-label')).toBe('Send Project AA09027 with this message again');
+    expect(button.getAttribute('aria-pressed')).toBe('false');
 
     const store = TestBed.inject(NhAssistantStore);
     await store.send('Hello');

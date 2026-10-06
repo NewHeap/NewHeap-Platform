@@ -1,7 +1,7 @@
 <section class="share" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="busy()">
   <header class="header">
     <h3 [id]="id + '-title'">
-      {{ (isOwner() ? 'nh-assistant.share.title' : 'nh-assistant.share.members-title') | translate }}
+      {{ (isOwner() && section() !== 'members' ? 'nh-assistant.share.title' : 'nh-assistant.share.members-title') | translate }}
     </h3>
     <button
       class="icon-button"
@@ -18,45 +18,47 @@
       @if (isOwner()) {
         <p class="description">{{ 'nh-assistant.share.description' | translate }}</p>
 
-        <section class="block" [attr.aria-labelledby]="id + '-link'">
-          <h4 [id]="id + '-link'">{{ 'nh-assistant.share.link-title' | translate }}</h4>
-          @if (link(); as link) {
-            <div class="link-row">
-              <label class="visually-hidden" [for]="id + '-link-input'">{{ 'nh-assistant.share.link-label' | translate }}</label>
-              <input #linkInput type="text" readonly [id]="id + '-link-input'" [value]="link" (focus)="linkInput.select()" />
-              <button
-                class="icon-button"
-                type="button"
-                [attr.aria-label]="'nh-assistant.share.copy' | translate"
-                [attr.title]="'nh-assistant.share.copy' | translate"
-                (click)="copy(linkInput)">
-                <nh-assistant-icon name="copy" />
+        @if (section() !== 'members' || !directory()) {
+          <section class="block" [attr.aria-labelledby]="id + '-link'">
+            <h4 [id]="id + '-link'">{{ 'nh-assistant.share.link-title' | translate }}</h4>
+            @if (link(); as link) {
+              <div class="link-row">
+                <label class="visually-hidden" [for]="id + '-link-input'">{{ 'nh-assistant.share.link-label' | translate }}</label>
+                <input #linkInput type="text" readonly [id]="id + '-link-input'" [value]="link" (focus)="linkInput.select()" />
+                <button
+                  class="icon-button"
+                  type="button"
+                  [attr.aria-label]="'nh-assistant.share.copy' | translate"
+                  [attr.title]="'nh-assistant.share.copy' | translate"
+                  (click)="copy(linkInput)">
+                  <nh-assistant-icon name="copy" />
+                </button>
+              </div>
+              @if (copied()) {
+                <p class="message success" role="status">
+                  <nh-assistant-icon name="check" />
+                  {{ 'nh-assistant.share.copied' | translate }}
+                </p>
+              }
+              <div class="actions">
+                <button class="secondary" type="button" [disabled]="busy()" (click)="revokeLink()">
+                  {{ 'nh-assistant.share.revoke' | translate }}
+                </button>
+                <button class="secondary" type="button" [disabled]="busy()" (click)="createLink()">
+                  {{ 'nh-assistant.share.renew' | translate }}
+                </button>
+              </div>
+              <p class="hint">{{ 'nh-assistant.share.link-hint' | translate }}</p>
+            } @else {
+              <button class="primary" type="button" [disabled]="busy() || full()" (click)="createLink()">
+                <nh-assistant-icon name="link" />
+                {{ 'nh-assistant.share.create' | translate }}
               </button>
-            </div>
-            @if (copied()) {
-              <p class="message success" role="status">
-                <nh-assistant-icon name="check" />
-                {{ 'nh-assistant.share.copied' | translate }}
-              </p>
             }
-            <div class="actions">
-              <button class="secondary" type="button" [disabled]="busy()" (click)="revokeLink()">
-                {{ 'nh-assistant.share.revoke' | translate }}
-              </button>
-              <button class="secondary" type="button" [disabled]="busy()" (click)="createLink()">
-                {{ 'nh-assistant.share.renew' | translate }}
-              </button>
-            </div>
-            <p class="hint">{{ 'nh-assistant.share.link-hint' | translate }}</p>
-          } @else {
-            <button class="primary" type="button" [disabled]="busy() || full()" (click)="createLink()">
-              <nh-assistant-icon name="link" />
-              {{ 'nh-assistant.share.create' | translate }}
-            </button>
-          }
-        </section>
+          </section>
+        }
 
-        @if (directory()) {
+        @if (directory() && section() !== 'link') {
           <section class="block" [attr.aria-labelledby]="id + '-invite'">
             <h4 [id]="id + '-invite'">{{ 'nh-assistant.share.invite-title' | translate }}</h4>
             <label class="visually-hidden" [for]="id + '-search'">{{ 'nh-assistant.share.search-label' | translate }}</label>
@@ -100,44 +102,46 @@
         }
       }
 
-      <section class="block" [attr.aria-labelledby]="id + '-members'">
-        <h4 [id]="id + '-members'">
-          {{ 'nh-assistant.share.members' | translate }}
-          @if (maxParticipants() !== null && isOwner()) {
-            <span class="count">{{ 'nh-assistant.share.count' | translate: { count: participants().length, max: maxParticipants() } }}</span>
-          }
-        </h4>
-        @if (store.members().length === 0) {
-          <p class="hint">{{ 'nh-assistant.share.not-shared' | translate }}</p>
-        } @else {
-          <ul class="people">
-            @for (member of store.members(); track member.actorId) {
-              <li>
-                <span class="person">
-                  <strong>
-                    {{ member.displayName || ('nh-assistant.share.unnamed' | translate) }}
-                    @if (isCurrentUser(member)) {
-                      <small class="you">{{ 'nh-assistant.share.you' | translate }}</small>
-                    }
-                  </strong>
-                  <small>{{ 'nh-assistant.share.role.' + member.role | translate }}</small>
-                </span>
-                @if (isOwner() && member.role === 'participant') {
-                  <button
-                    class="icon-button"
-                    type="button"
-                    [disabled]="busy()"
-                    [attr.aria-label]="'nh-assistant.share.remove' | translate: { name: member.displayName || ('nh-assistant.share.unnamed' | translate) }"
-                    [attr.title]="'nh-assistant.share.remove' | translate: { name: member.displayName || ('nh-assistant.share.unnamed' | translate) }"
-                    (click)="remove(member)">
-                    <nh-assistant-icon name="trash" />
-                  </button>
-                }
-              </li>
+      @if (section() !== 'link') {
+        <section class="block" [attr.aria-labelledby]="id + '-members'">
+          <h4 [id]="id + '-members'">
+            {{ 'nh-assistant.share.members' | translate }}
+            @if (maxParticipants() !== null && isOwner()) {
+              <span class="count">{{ 'nh-assistant.share.count' | translate: { count: participants().length, max: maxParticipants() } }}</span>
             }
-          </ul>
-        }
-      </section>
+          </h4>
+          @if (store.members().length === 0) {
+            <p class="hint">{{ 'nh-assistant.share.not-shared' | translate }}</p>
+          } @else {
+            <ul class="people">
+              @for (member of store.members(); track member.actorId) {
+                <li>
+                  <span class="person">
+                    <strong>
+                      {{ member.displayName || ('nh-assistant.share.unnamed' | translate) }}
+                      @if (isCurrentUser(member)) {
+                        <small class="you">{{ 'nh-assistant.share.you' | translate }}</small>
+                      }
+                    </strong>
+                    <small>{{ 'nh-assistant.share.role.' + member.role | translate }}</small>
+                  </span>
+                  @if (isOwner() && member.role === 'participant') {
+                    <button
+                      class="icon-button"
+                      type="button"
+                      [disabled]="busy()"
+                      [attr.aria-label]="'nh-assistant.share.remove' | translate: { name: member.displayName || ('nh-assistant.share.unnamed' | translate) }"
+                      [attr.title]="'nh-assistant.share.remove' | translate: { name: member.displayName || ('nh-assistant.share.unnamed' | translate) }"
+                      (click)="remove(member)">
+                      <nh-assistant-icon name="trash" />
+                    </button>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
 
       @if (!isOwner()) {
         <div class="actions">

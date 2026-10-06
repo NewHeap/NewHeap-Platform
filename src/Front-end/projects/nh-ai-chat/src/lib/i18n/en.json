@@ -25,6 +25,9 @@
       "open-preferences": "Your assistant preferences",
       "open-admin": "Assistant administration",
       "share": "Share conversation",
+      "add-members": "Add people to the conversation",
+      "notifications-on": "Turn notifications on",
+      "notifications-off": "Turn notifications off",
       "members": "People in this conversation"
     },
     "agent-picker": {

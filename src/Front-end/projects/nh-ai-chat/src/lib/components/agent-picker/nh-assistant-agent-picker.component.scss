@@ -9,6 +9,29 @@
   min-width: 0;
 }
 
+:host(.compact) {
+  flex-direction: row;
+  align-items: center;
+
+  select {
+    min-width: 0;
+    max-width: 100%;
+    border-color: transparent;
+    padding-left: 8px;
+    background: transparent;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      border-color: var(--nha-border);
+      background: var(--nha-surface-strong);
+    }
+
+    &:disabled {
+      cursor: default;
+    }
+  }
+}
+
 select {
   align-self: flex-start;
   max-width: 100%;

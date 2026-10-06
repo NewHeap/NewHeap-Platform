@@ -13,26 +13,31 @@
     (input)="onInput($event)"
     (keydown)="onKeydown($event)"></textarea>
 
-  <div class="actions">
-    @if (busy() && canStop()) {
-      <button
-        class="stop"
-        type="button"
-        [attr.aria-label]="'nh-assistant.composer.stop' | translate"
-        [attr.title]="'nh-assistant.composer.stop' | translate"
-        (click)="cancel.emit()">
-        <nh-assistant-icon name="stop" />
-      </button>
-    } @else {
-      <button
-        class="send"
-        type="submit"
-        [disabled]="!canSend()"
-        [attr.aria-label]="'nh-assistant.composer.send' | translate"
-        [attr.title]="'nh-assistant.composer.send' | translate">
-        <nh-assistant-icon name="send" />
-      </button>
-    }
+  <div class="prompt-bar">
+    <div class="prompt-controls">
+      <ng-content select="[nhAssistantComposerControls]" />
+    </div>
+    <div class="actions">
+      @if (busy() && canStop()) {
+        <button
+          class="stop"
+          type="button"
+          [attr.aria-label]="'nh-assistant.composer.stop' | translate"
+          [attr.title]="'nh-assistant.composer.stop' | translate"
+          (click)="cancel.emit()">
+          <nh-assistant-icon name="stop" />
+        </button>
+      } @else {
+        <button
+          class="send"
+          type="submit"
+          [disabled]="!canSend()"
+          [attr.aria-label]="'nh-assistant.composer.send' | translate"
+          [attr.title]="'nh-assistant.composer.send' | translate">
+          <nh-assistant-icon name="send" />
+        </button>
+      }
+    </div>
   </div>
 </form>
 

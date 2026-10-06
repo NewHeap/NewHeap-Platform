@@ -307,7 +307,7 @@
     "assistant-admin-back": "Back to the assistant playground",
     "assistant-prompt-page": "Page context",
     "assistant-page-title": "Project page",
-    "assistant-page-description": "Open a project as if you were on its page. The panel shows the project above the message box and sends it with the next message; the cross leaves it out.",
+    "assistant-page-description": "Open a project as if you were on its page. Its context is sent with the next message; use the page icon beside the sharing actions to leave it out. Hover over the icon to see which page is included.",
     "assistant-page-close": "Close the project page",
     "assistant-page-current": "Open now: {{page}}",
     "assistant-page-none": "No project page is open; the panel sends the current route and title.",
@@ -348,7 +348,7 @@
     "two-factor-administration-reminders": "Send enrollment reminders",
     "two-factor-administration-revocation": "End sessions of unenrolled users",
     "assistant-collaboration-title": "Shared and parallel conversations",
-    "assistant-collaboration-description": "Prompts start a new conversation while the open one still works, so several conversations run at once; the strip below the panel header shows them. Share a conversation from the panel header, or let a colleague continue the open conversation.",
+    "assistant-collaboration-description": "Prompts start a new conversation while the open one still works. Use the link icon above the composer to share, and the people icon to invite colleagues or manage participants.",
     "assistant-simulate-colleague": "{{name}} continues this conversation",
     "assistant-colleague-working": "{{name}} is asking the assistant…",
     "assistant-colleague-needs-conversation": "Open or start a conversation first."

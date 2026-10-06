@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, output, signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ConversationMember, DirectoryEntry } from '../../models/assistant-api.models';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
@@ -30,6 +30,8 @@ export class NhAssistantShareComponent {
 
   /** Emitted when the user leaves the view. */
   readonly closed = output<void>();
+  /** Show the invitation link, participants, or both (the default for custom hosts). */
+  readonly section = input<'all' | 'link' | 'members'>('all');
 
   readonly id = `nh-assistant-share-${nextId++}`;
   readonly conversation = this.store.activeConversation;

@@ -1923,6 +1923,9 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/activity/nh-assistant-activity.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/share/nh-assistant-share.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/collaboration-components.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/panel/nh-assistant-panel.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/components.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-live.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-backend.ts"
     ],

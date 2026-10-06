@@ -132,6 +132,13 @@ more) and the actions `send`, `decide`, `cancel`, `openConversation`,
 `nh-assistant-agent-picker` are exported for custom layouts. All components are
 standalone and use `OnPush`.
 
+The panel selects the assistant in the prompt bar below the message field, alongside
+the send/stop action. Custom composer layouts can project controls marked with
+`nhAssistantComposerControls`; use `[compact]="true"` on `nh-assistant-agent-picker`
+for the same appearance. Capability information stays available in its tooltip and
+accessible description. Changing the agent keeps the draft and selects the agent for
+the next new conversation.
+
 Assistant text is rendered as Markdown with `marked` and sanitized with DOMPurify
 against a small allow-list. Inline HTML in model text is shown as text, images
 render as their alt text, `javascript:` and `data:` links lose their target, and
@@ -159,8 +166,8 @@ The library validates and truncates the result: route at most 200 characters, ti
 and labels at most 120, at most five entities with a dash-case `type` and an `id` of
 at most 64 characters. Entities with an invalid type or id are dropped rather than
 truncated. An invalid shape, an exception or a rejected promise leaves the context out
-of that message; sending continues. A chip above the message box shows what is sent;
-its close button leaves the context out of the next message, which then sends
+of that message; sending continues. The page icon beside the composer actions describes
+the included context in its tooltip; clicking it leaves context out of the next message, which sends
 `clientContext: null`. Page context is untrusted data: the server treats entity ids as
 search hints and still authorizes every tool call.
 
@@ -173,6 +180,17 @@ saves through `NhAssistantApiService.getPreferences()` and `updatePreferences()`
 Preferences steer the style only; the server keeps them below the application
 context and the agent instructions and never lets them change approvals or tool
 access.
+
+The header bell turns desktop notifications on or off when the server, host and browser
+support Web Push. Its tooltip explains the current browser state; an off bell has a slash
+and a blocked permission uses the warning color. Updates disable the control while pending
+and report failures in the panel's localized error bar. The preferences retain the detailed setting.
+
+Separate link and people icons above the composer open the invitation-link and participant
+views. They become usable after a conversation has been created. The owner can invite
+colleagues when the server offers a directory; otherwise the participant view offers the
+invitation link. Participants can view members and leave. Custom hosts using
+`nh-assistant-share` can select `section="link"` or `section="members"`; the default shows both.
 
 ## Administration
 

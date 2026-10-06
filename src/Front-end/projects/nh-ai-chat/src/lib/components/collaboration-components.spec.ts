@@ -1,4 +1,5 @@
 import { Component, signal } from '@angular/core';
+import { OverlayContainer } from '@angular/cdk/overlay';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideTranslateService } from '@ngx-translate/core';
 import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
@@ -9,6 +10,8 @@ import { NhAssistantActivityComponent } from './activity/nh-assistant-activity.c
 import { NhAssistantConversationListComponent } from './conversation-list/nh-assistant-conversation-list.component';
 import { NhAssistantLauncherComponent } from './launcher/nh-assistant-launcher.component';
 import { NhAssistantShareComponent } from './share/nh-assistant-share.component';
+import { NhAssistantPanelComponent } from './panel/nh-assistant-panel.component';
+import { NhAssistantPanelService } from '../services/nh-assistant-panel.service';
 
 const scenario: NhAssistantMockScenario = {
   agents: [{ id: 'projects', version: 1, displayNameKey: 'agents.projects', descriptionKey: 'agents.projects-description', canMutate: true }],
@@ -54,6 +57,9 @@ class ListHostComponent {
   readonly conversations = signal<ConversationSummary[]>([]);
   deleted: string | null = null;
 }
+
+@Component({ standalone: true, imports: [NhAssistantPanelComponent], template: '<nh-assistant-panel />' })
+class PanelHostComponent {}
 
 describe('collaboration components', () => {
   beforeEach(() => {
@@ -129,6 +135,32 @@ describe('collaboration components', () => {
       await store.initialize();
       await store.send('Hello');
       await until(() => store.activeConversation()?.status === 'idle');
+    });
+
+    it('opens separate invitation-link and participant views from composer actions', async () => {
+      const fixture = TestBed.createComponent(PanelHostComponent);
+      fixture.detectChanges();
+      TestBed.inject(NhAssistantPanelService).open();
+      await until(() => !!TestBed.inject(OverlayContainer).getContainerElement().querySelector('.conversation-actions'));
+      fixture.detectChanges();
+      const overlay = TestBed.inject(OverlayContainer).getContainerElement();
+      const share = overlay.querySelector('.conversation-actions button[aria-label="nh-assistant.panel.share"]') as HTMLButtonElement;
+      const members = overlay.querySelector('.conversation-actions button[aria-label="nh-assistant.panel.add-members"]') as HTMLButtonElement;
+      expect(share.disabled).toBeFalse();
+      expect(members.disabled).toBeFalse();
+      share.click();
+      fixture.detectChanges();
+      expect(overlay.querySelector('nh-assistant-share button.primary')).not.toBeNull();
+      expect(overlay.querySelector('nh-assistant-share input[type="search"]')).toBeNull();
+      expect(overlay.querySelector('nh-assistant-thread')?.hasAttribute('inert')).toBeTrue();
+
+      (overlay.querySelector('nh-assistant-share .header button') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      (overlay.querySelector('.conversation-actions button[aria-label="nh-assistant.panel.add-members"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(overlay.querySelector('nh-assistant-share input[type="search"]')).not.toBeNull();
+      expect(overlay.querySelector('nh-assistant-share .link-row')).toBeNull();
+      expect(overlay.querySelector('nh-assistant-share button.primary')).toBeNull();
     });
 
     it('lets the owner create, copy and stop an invitation link and invite a colleague', async () => {

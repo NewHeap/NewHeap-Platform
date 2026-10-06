@@ -10,6 +10,7 @@ import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantApiService } from '../services/nh-assistant-api.service';
 import { NhAssistantPanelService } from '../services/nh-assistant-panel.service';
 import { NhAssistantStore } from '../services/nh-assistant.store';
+import { NhAssistantPushService } from '../services/nh-assistant-push.service';
 import { NhAssistantApprovalCardComponent, formatNhAssistantCountdown } from './approval-card/nh-assistant-approval-card.component';
 import { NhAssistantComposerComponent } from './composer/nh-assistant-composer.component';
 import { NhAssistantLauncherComponent } from './launcher/nh-assistant-launcher.component';
@@ -565,6 +566,31 @@ describe('NhAssistantPanelComponent', () => {
     }
   });
 
+  it('selects the assistant in the prompt bar while preserving the draft', async () => {
+    api.status.and.returnValue(of({ ...status, agents: [
+      ...status.agents,
+      { id: 'research', version: 1, displayNameKey: 'Research', descriptionKey: 'Find answers', canMutate: false }
+    ] }));
+    await open();
+
+    expect(overlay.querySelector('.header nh-assistant-agent-picker')).toBeNull();
+    const select = overlay.querySelector('.prompt-bar nh-assistant-agent-picker select') as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    expect(select.disabled).toBeFalse();
+    const input = overlay.querySelector('textarea') as HTMLTextAreaElement;
+    input.value = 'Draft question';
+    input.dispatchEvent(new Event('input'));
+
+    select.value = 'research';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(TestBed.inject(NhAssistantStore).selectedAgentId()).toBe('research');
+    expect(select.title).toContain('Find answers');
+    expect(select.getAttribute('aria-describedby')).toBeTruthy();
+    expect((overlay.querySelector('textarea') as HTMLTextAreaElement).value).toBe('Draft question');
+  });
+
   it('streams an answer into the thread and shows a translated error bar', async () => {
     await open();
     const store = TestBed.inject(NhAssistantStore);
@@ -591,6 +617,52 @@ describe('NhAssistantPanelComponent', () => {
 
     expect(overlay.querySelector('.drawer')?.textContent).toContain('The assistant is not available');
     expect(overlay.querySelector('textarea')).toBeNull();
+  });
+
+  it('shows notifications only when available and toggles them from the header', async () => {
+    await open();
+    expect(overlay.querySelector('.notification-button')).toBeNull();
+    const push = TestBed.inject(NhAssistantPushService);
+    const state = spyOn(push, 'state').and.returnValue('off');
+    const settings = spyOn(push, 'settings').and.returnValue({ pushEnabled: false, pushAvailable: true, publicKey: null });
+    spyOn(push, 'setEnabled').and.resolveTo();
+    fixture.detectChanges();
+
+    const button = overlay.querySelector('.header-actions .notification-button') as HTMLButtonElement;
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+    expect(button.getAttribute('aria-label')).toBe('Turn notifications on');
+    button.click();
+    await flush();
+    expect(push.setEnabled).toHaveBeenCalledOnceWith(true);
+
+    state.and.returnValue('blocked');
+    settings.and.returnValue({ pushEnabled: true, pushAvailable: true, publicKey: null });
+    fixture.detectChanges();
+    expect(button.classList.contains('blocked')).toBeTrue();
+    expect(button.title).toContain('browser');
+    button.click();
+    await flush();
+    expect(push.setEnabled).toHaveBeenCalledWith(false);
+  });
+
+  it('disables the bell during an update and shows a recoverable notification error', async () => {
+    await open();
+    const push = TestBed.inject(NhAssistantPushService);
+    spyOn(push, 'state').and.returnValue('off');
+    const busy = spyOn(push, 'busy').and.returnValue(true);
+    spyOn(push, 'setEnabled').and.rejectWith(new Error('Unavailable'));
+    fixture.detectChanges();
+    const button = overlay.querySelector('.notification-button') as HTMLButtonElement;
+    expect(button.disabled).toBeTrue();
+    button.click();
+    expect(push.setEnabled).not.toHaveBeenCalled();
+
+    busy.and.returnValue(false);
+    fixture.detectChanges();
+    button.click();
+    await flush();
+    fixture.detectChanges();
+    expect(overlay.querySelector('[role="alert"]')?.textContent).toContain('The assistant could not complete the request.');
   });
 
   it('reopens the drawer when a scoped session restarts while it was open', async () => {

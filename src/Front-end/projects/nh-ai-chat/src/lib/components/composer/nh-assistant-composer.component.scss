@@ -8,21 +8,22 @@
 
 .composer {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   gap: 8px;
   border: 1px solid var(--nha-border);
   border-radius: var(--nha-radius-control);
-  padding: 6px 6px 6px 12px;
-  background: var(--nha-background);
+  padding: 8px 8px 8px 14px;
+  background: var(--nha-surface);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--nha-text) 4%, transparent);
 
   &:focus-within {
     border-color: var(--nha-focus);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--nha-focus) 30%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--nha-focus) 16%, transparent);
   }
 }
 
 textarea {
-  flex: 1;
+  width: 100%;
   min-width: 0;
   min-height: 44px;
   max-height: 180px;
@@ -46,8 +47,21 @@ textarea {
   }
 }
 
+.prompt-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.prompt-controls {
+  flex: 1;
+  min-width: 0;
+}
+
 .actions {
   display: flex;
+  flex-shrink: 0;
 }
 
 .send,

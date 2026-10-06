@@ -32,8 +32,8 @@ returns `{ route, title?, entities? }`, for example the project a detail page sh
 Keep a small root service that entity pages set while they are active and clear on
 destroy, and fall back to the route and title. The library validates and truncates
 the result to the contract limits, and a failing getter only leaves the context out.
-The panel shows what it sends in a chip above the message box; the user can leave it
-out of the next message, which sends `null`. Page context is untrusted data for the
+The page icon beside the composer actions describes the included context in its
+tooltip; the user can leave it out of the next message, which sends `null`. Page context is untrusted data for the
 model: entity ids are search hints and never replace authorization.
 
 Pass `getStateScope` with a stable, non-secret user-and-tenant identifier when
@@ -52,6 +52,12 @@ Place `<nh-assistant-launcher />` in the header and exactly one
 panel through `NhAssistantPanelService.open(conversationId?)`. The launcher stays
 hidden while the server reports the assistant disabled or the policy denies the
 user; do not add a second feature flag in the host.
+
+Select the assistant in the prompt bar below the message field. In custom layouts,
+project controls marked with `nhAssistantComposerControls` into `nh-assistant-composer`
+and use `[compact]="true"` on `nh-assistant-agent-picker`. The compact picker keeps
+capability information in its tooltip and accessible description. Selection preserves
+the draft and uses the chosen agent for the next new conversation.
 
 Personal preferences need no host code: the panel header opens
 `nh-assistant-preferences`, which stores style, form of address, answer length and
@@ -107,8 +113,8 @@ Use these signals in custom layouts instead of polling the list. The store marks
 open conversation as read only while the drawer shows it in a visible, focused
 window; call `setViewing` when a custom layout shows the thread elsewhere.
 
-Sharing needs no host code beyond the backend registration: the panel header opens the
-share view, where the owner creates, copies, renews and stops the invitation link and,
+Sharing needs no host code beyond the backend registration: separate link and people
+icons above the composer open the invitation-link and participant views, where the owner creates, copies, renews and stops the invitation link and,
 when the server reports a directory, searches and invites colleagues. The default link
 is the current page with `#nh-assistant-join=<id>.<token>`; the panel joins when the
 page opens with it and removes the fragment. Pass `buildShareLink` when invitations
@@ -127,8 +133,9 @@ into the application's assets (for example to `/nh-assistant/`) and pass
 `push: { serviceWorkerUrl: '/nh-assistant/nh-assistant-push-worker.js', openUrl }`.
 The worker registers with its own scope, never controls pages and therefore coexists
 with an application service worker. Notifications are on by default: the browser
-asks for permission on the next message sent, and the preferences view turns them off
-or on and explains a blocked permission. The worker shows a notification only while no
+asks for permission on the next message sent. The header bell turns them off or on,
+is hidden when unavailable, and shows off or blocked states in its icon and tooltip.
+The preferences view also explains a blocked permission. The worker shows a notification only while no
 window of the application is focused, and a click opens the conversation in an open
 window or through `#nh-assistant-conversation=<id>`.
 
@@ -175,7 +182,7 @@ the administration route under the same parent to share that scope.
 - Putting permissions, tokens, personal data or free text from forms into the page
   context, or treating it as authorization; send route, title and entity references
   only.
-- Hiding the page-context chip or sending page context the user cannot see.
+- Hiding the page-context icon or removing its tooltip and opt-out action.
 - Putting an access token, page context or another user's identity in
   `getStateScope`, or sharing a scope between the live API and a mock playground.
 - Importing `NhAssistantAdminComponent` in an eagerly loaded module or showing the
@@ -218,7 +225,7 @@ and inaccessible-conversation fallback, and check that restored chats send only
 the current page hint. In the
 host, open the assistant playground and walk through a new conversation, a
 streamed answer, a tool call, approve, reject, stop, an error, an agent switch,
-the page-context chip on a simulated project page, the preferences and the
+the page-context tooltip and opt-out on a simulated project page, the preferences and the
 administration tabs at desktop and mobile width in light
 and dark mode. The collaboration tests run two conversations at once, mark only a
 viewed conversation as read, show a colleague's turn live with a name, refuse a

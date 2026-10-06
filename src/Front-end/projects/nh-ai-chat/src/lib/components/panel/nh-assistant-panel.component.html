@@ -3,25 +3,22 @@
     <header class="header">
       <div class="heading">
         <h2 [id]="titleId">{{ 'nh-assistant.panel.title' | translate }}</h2>
-        @if (store.enabled()) {
-          <nh-assistant-agent-picker
-            [agents]="store.agents()"
-            [selectedAgentId]="store.selectedAgentId()"
-            (agentChange)="store.selectAgent($event)" />
-        }
       </div>
       <div class="header-actions">
         @if (store.enabled()) {
-          @if (canShare()) {
+          @if (push.state() !== 'unavailable') {
             <button
-              class="icon-button"
+              class="icon-button notification-button"
               type="button"
-              [class.active]="showShare() || shared()"
-              [attr.aria-expanded]="showShare()"
-              [attr.aria-label]="(store.isOwner() ? 'nh-assistant.panel.share' : 'nh-assistant.panel.members') | translate"
-              [attr.title]="(store.isOwner() ? 'nh-assistant.panel.share' : 'nh-assistant.panel.members') | translate"
-              (click)="toggleShare()">
-              <nh-assistant-icon name="users" />
+              [class.active]="push.state() === 'on'"
+              [class.off]="!push.settings()?.pushEnabled"
+              [class.blocked]="push.state() === 'blocked'"
+              [disabled]="push.busy()"
+              [attr.aria-pressed]="push.settings()?.pushEnabled === true"
+              [attr.aria-label]="notificationsLabel() | translate"
+              [attr.title]="('nh-assistant.preferences.notifications-state.' + push.state() | translate) + ' · ' + (notificationsLabel() | translate)"
+              (click)="toggleNotifications()">
+              <nh-assistant-icon name="bell" />
             </button>
           }
           <button
@@ -95,7 +92,7 @@
         }
 
         @if (showShare()) {
-          <nh-assistant-share class="overlay-view" (closed)="showShare.set(false)" />
+          <nh-assistant-share class="overlay-view" [section]="shareSection()" (closed)="showShare.set(false)" />
         }
 
         @if (showConversations()) {
@@ -123,6 +120,7 @@
         } @else {
           <nh-assistant-thread
             class="thread"
+            [attr.inert]="showPreferences() || showShare() || showConversations() ? '' : null"
             [messages]="messages()"
             [streaming]="busy()"
             [deciding]="store.deciding()"
@@ -136,7 +134,7 @@
       }
     </div>
 
-    @if (store.error(); as error) {
+    @if (notificationError() ?? store.error(); as error) {
       <div class="error" role="alert">
         <nh-assistant-icon name="warning" />
         <p>{{ errorKeys() | nhAssistantTranslate: error.code }}</p>
@@ -145,7 +143,7 @@
           type="button"
           [attr.aria-label]="'nh-assistant.panel.dismiss-error' | translate"
           [attr.title]="'nh-assistant.panel.dismiss-error' | translate"
-          (click)="store.clearError()">
+          (click)="store.clearError(); notificationError.set(null)">
           <nh-assistant-icon name="close" />
         </button>
       </div>
@@ -169,21 +167,39 @@
         @if (closed()) {
           <p class="notice">{{ 'nh-assistant.panel.conversation-closed' | translate }}</p>
         }
-        @if (store.pageContext(); as context) {
-          <div class="context-chip" [class.excluded]="store.pageContextExcluded()" [attr.title]="context.route">
-            <nh-assistant-icon name="page" />
-            <span class="context-text">
-              {{ (store.pageContextExcluded() ? 'nh-assistant.page-context.excluded' : 'nh-assistant.page-context.included') | translate: { page: describeContext(context) } }}
-            </span>
-            <button
-              class="icon-button small"
-              type="button"
-              [attr.aria-pressed]="store.pageContextExcluded()"
-              [attr.aria-label]="(store.pageContextExcluded() ? 'nh-assistant.page-context.include' : 'nh-assistant.page-context.exclude') | translate: { page: describeContext(context) }"
-              [attr.title]="(store.pageContextExcluded() ? 'nh-assistant.page-context.include' : 'nh-assistant.page-context.exclude') | translate: { page: describeContext(context) }"
-              (click)="store.setPageContextExcluded(!store.pageContextExcluded())">
-              <nh-assistant-icon [name]="store.pageContextExcluded() ? 'plus' : 'x'" />
-            </button>
+        @if (store.collaboration() || store.pageContext()) {
+          <div class="conversation-actions">
+            @if (store.collaboration()) {
+              @if (!conversation() || store.isOwner()) {
+                <button class="icon-button" type="button" [disabled]="!canShare()"
+                  [attr.aria-label]="'nh-assistant.panel.share' | translate"
+                  [attr.title]="'nh-assistant.panel.share' | translate"
+                  [attr.aria-expanded]="showShare() && shareSection() === 'link'"
+                  (click)="toggleShare('link')">
+                  <nh-assistant-icon name="link" />
+                </button>
+              }
+              <button class="icon-button" type="button" [disabled]="!canShare()"
+                [class.active]="shared()"
+                [attr.aria-label]="(store.isOwner() || !conversation() ? 'nh-assistant.panel.add-members' : 'nh-assistant.panel.members') | translate"
+                [attr.title]="(store.isOwner() || !conversation() ? 'nh-assistant.panel.add-members' : 'nh-assistant.panel.members') | translate"
+                [attr.aria-expanded]="showShare() && shareSection() === 'members'"
+                (click)="toggleShare('members')">
+                <nh-assistant-icon name="users" />
+              </button>
+            }
+            @if (store.pageContext(); as context) {
+              <button
+                class="icon-button page-context-button"
+                [class.active]="!store.pageContextExcluded()"
+                type="button"
+                [attr.aria-pressed]="!store.pageContextExcluded()"
+                [attr.aria-label]="(store.pageContextExcluded() ? 'nh-assistant.page-context.include' : 'nh-assistant.page-context.exclude') | translate: { page: describeContext(context) }"
+                [attr.title]="(store.pageContextExcluded() ? 'nh-assistant.page-context.include' : 'nh-assistant.page-context.exclude') | translate: { page: describeContext(context) }"
+                (click)="store.setPageContextExcluded(!store.pageContextExcluded())">
+                <nh-assistant-icon name="page" />
+              </button>
+            }
           </div>
         }
         <nh-assistant-composer
@@ -197,7 +213,14 @@
           [restore]="store.restoredDraft()"
           (restored)="store.consumeRestoredDraft()"
           (send)="send($event)"
-          (cancel)="cancel()" />
+          (cancel)="cancel()">
+          <nh-assistant-agent-picker
+            nhAssistantComposerControls
+            [compact]="true"
+            [agents]="store.agents()"
+            [selectedAgentId]="store.selectedAgentId()"
+            (agentChange)="store.selectAgent($event)" />
+        </nh-assistant-composer>
       </footer>
     }
   </section>

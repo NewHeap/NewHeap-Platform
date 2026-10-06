@@ -25,6 +25,9 @@
       "open-preferences": "Je assistentvoorkeuren",
       "open-admin": "Beheer van de assistent",
       "share": "Gesprek delen",
+      "add-members": "Mensen toevoegen aan het gesprek",
+      "notifications-on": "Notificaties aanzetten",
+      "notifications-off": "Notificaties uitzetten",
       "members": "Mensen in dit gesprek"
     },
     "agent-picker": {

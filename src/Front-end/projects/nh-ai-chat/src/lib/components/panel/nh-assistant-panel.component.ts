@@ -21,7 +21,7 @@ import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.compo
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NH_ASSISTANT_CONFIG } from '../../nh-assistant.config';
 import { NhAssistantPanelService } from '../../services/nh-assistant-panel.service';
-import { NhAssistantStore } from '../../services/nh-assistant.store';
+import { NhAssistantError, NhAssistantStore } from '../../services/nh-assistant.store';
 import { describeNhAssistantClientContext } from '../../services/nh-assistant-page-context';
 import { NhAssistantPushService } from '../../services/nh-assistant-push.service';
 import { NhAssistantActivityComponent } from '../activity/nh-assistant-activity.component';
@@ -32,6 +32,7 @@ import { NhAssistantPreferencesComponent } from '../preferences/nh-assistant-pre
 import { NhAssistantShareComponent } from '../share/nh-assistant-share.component';
 import { NH_ASSISTANT_CONVERSATION_FRAGMENT, NH_ASSISTANT_JOIN_FRAGMENT } from '../../services/nh-assistant-share-link';
 import { NhAssistantThreadComponent } from '../thread/nh-assistant-thread.component';
+import { NhAssistantApiError, nhAssistantErrorMessageKey } from '../../services/nh-assistant-transport';
 
 let nextId = 0;
 
@@ -63,7 +64,7 @@ let nextId = 0;
 export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   readonly store = inject(NhAssistantStore);
   readonly panel = inject(NhAssistantPanelService);
-  private readonly push = inject(NhAssistantPushService);
+  readonly push = inject(NhAssistantPushService);
   private readonly config = inject(NH_ASSISTANT_CONFIG);
   private readonly viewContainerRef = inject(ViewContainerRef);
   private readonly router = inject(Router, { optional: true });
@@ -75,6 +76,10 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   readonly showConversations = signal(false);
   readonly showPreferences = signal(false);
   readonly showShare = signal(false);
+  readonly shareSection = signal<'all' | 'link' | 'members'>('all');
+  readonly notificationError = signal<NhAssistantError | null>(null);
+  readonly notificationsLabel = computed(() => this.push.settings()?.pushEnabled
+    ? 'nh-assistant.panel.notifications-off' : 'nh-assistant.panel.notifications-on');
   readonly adminRoute = this.config.adminRoute ?? null;
   readonly conversation = this.store.activeConversation;
   private readonly conversationId = computed(() => this.conversation()?.id ?? null);
@@ -98,10 +103,10 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   });
   /** The owner and the person who started the turn may stop it. */
   readonly canStop = computed(() => this.store.isOwner() || this.store.activeMember() === null);
-  readonly shared = computed(() => this.store.members().length > 0);
+  readonly shared = computed(() => this.store.members().some(member => member.role === 'participant'));
   readonly canShare = computed(() => this.conversation() !== null && !!this.store.collaboration());
   readonly errorKeys = computed(() => {
-    const error = this.store.error();
+    const error = this.notificationError() ?? this.store.error();
     return error ? [error.messageKey, `nh-assistant.errors.${error.code}`, 'nh-assistant.errors.generic'] : [];
   });
   readonly noticeKeys = computed(() => {
@@ -140,7 +145,7 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
       }
     });
 
-    // The drawer stays open while the user navigates; keep the page-context chip current.
+    // The drawer stays open while the user navigates; keep the page-context control current.
     const navigation = this.router?.events.subscribe(event => {
       if (event instanceof NavigationEnd && this.panel.isOpen()) {
         this.refreshPageContext();
@@ -181,10 +186,27 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
     this.showPreferences.update(show => !show);
   }
 
-  toggleShare(): void {
+  toggleShare(section: 'all' | 'link' | 'members' = 'all'): void {
     this.showConversations.set(false);
     this.showPreferences.set(false);
-    this.showShare.update(show => !show);
+    const close = this.showShare() && this.shareSection() === section;
+    this.shareSection.set(section);
+    this.showShare.set(!close);
+  }
+
+  /** Applies the notification choice immediately, including browser permission handling. */
+  async toggleNotifications(): Promise<void> {
+    if (this.push.busy() || this.push.state() === 'unavailable') {
+      return;
+    }
+    this.notificationError.set(null);
+    try {
+      await this.push.setEnabled(!this.push.settings()?.pushEnabled);
+    } catch (error) {
+      this.notificationError.set(error instanceof NhAssistantApiError
+        ? { code: error.code, messageKey: error.messageKey }
+        : { code: 'assistant-server', messageKey: nhAssistantErrorMessageKey('assistant-server') });
+    }
   }
 
   newConversation(): void {

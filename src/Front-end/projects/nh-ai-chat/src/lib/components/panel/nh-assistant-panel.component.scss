@@ -39,14 +39,8 @@
   padding: 12px 12px 12px 16px;
 }
 
-// Title and actions share the first row; the agent picker gets the full width below.
 .heading {
   display: contents;
-}
-
-nh-assistant-agent-picker {
-  grid-column: 1 / -1;
-  grid-row: 2;
 }
 
 h2 {
@@ -66,7 +60,13 @@ h2 {
   flex: none;
   grid-column: 2;
   grid-row: 1;
-  gap: 4px;
+  gap: 2px;
+  min-width: 0;
+
+  .icon-button {
+    width: 32px;
+    height: 32px;
+  }
 }
 
 .icon-button {
@@ -171,41 +171,41 @@ h2 {
 }
 
 .footer {
-  border-top: 1px solid var(--nha-border);
   padding: 12px 16px 14px;
 }
 
-.context-chip {
+.conversation-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
-  max-width: 100%;
-  margin: 0 0 8px;
-  border: 1px solid var(--nha-border);
-  border-radius: 999px;
-  padding: 2px 2px 2px 10px;
-  width: fit-content;
-  color: var(--nha-text-muted);
-  background: var(--nha-surface);
-  font-size: 12px;
+  gap: 4px;
+  margin: 0 -4px 6px;
+}
 
-  &.excluded .context-text {
-    text-decoration: line-through;
+.page-context-button {
+  margin-left: auto;
+}
+
+.notification-button {
+  position: relative;
+
+  &.off::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 2px;
+    border-radius: 1px;
+    background: currentColor;
+    transform: rotate(-45deg);
+  }
+
+  &.blocked {
+    color: var(--nha-warning);
   }
 }
 
-.context-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.icon-button.small {
-  flex: none;
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
+@media (max-width: 359px) {
+  .header { gap: 6px; padding-inline: 12px; }
+  .header-actions .icon-button { width: 28px; height: 32px; }
 }
 
 .notice {

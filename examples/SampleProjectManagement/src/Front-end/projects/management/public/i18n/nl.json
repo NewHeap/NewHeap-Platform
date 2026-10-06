@@ -307,7 +307,7 @@
     "assistant-admin-back": "Terug naar de assistent-playground",
     "assistant-prompt-page": "Paginacontext",
     "assistant-page-title": "Projectpagina",
-    "assistant-page-description": "Open een project alsof je op de projectpagina bent. Het paneel toont het project boven het berichtveld en stuurt het mee met het volgende bericht; met het kruisje laat je het weg.",
+    "assistant-page-description": "Open een project alsof je op de projectpagina bent. De context gaat mee met het volgende bericht; met het pagina-icoon naast de deelacties laat je die weg. De tooltip toont welke pagina wordt meegestuurd.",
     "assistant-page-close": "Projectpagina sluiten",
     "assistant-page-current": "Nu open: {{page}}",
     "assistant-page-none": "Er is geen projectpagina open; het paneel stuurt de huidige route en titel mee.",
@@ -348,7 +348,7 @@
     "two-factor-administration-reminders": "Inschrijfherinneringen versturen",
     "two-factor-administration-revocation": "Sessies van niet-ingeschreven gebruikers beëindigen",
     "assistant-collaboration-title": "Gedeelde en parallelle gesprekken",
-    "assistant-collaboration-description": "Prompts starten een nieuw gesprek terwijl het open gesprek nog bezig is, zodat meerdere gesprekken tegelijk lopen; de strook onder de kop van het paneel toont ze. Deel een gesprek via de kop van het paneel, of laat een collega het open gesprek voortzetten.",
+    "assistant-collaboration-description": "Prompts starten een nieuw gesprek terwijl het open gesprek nog bezig is. Gebruik het linkicoon boven het berichtveld om te delen en het personenicoon om collega’s toe te voegen of deelnemers te beheren.",
     "assistant-simulate-colleague": "{{name}} gaat verder in dit gesprek",
     "assistant-colleague-working": "{{name}} stelt de assistent een vraag…",
     "assistant-colleague-needs-conversation": "Open of start eerst een gesprek."
