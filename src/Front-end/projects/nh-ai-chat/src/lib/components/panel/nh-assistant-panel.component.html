@@ -202,10 +202,63 @@
             }
           </div>
         }
+        @if (store.queuedMessages().length > 0) {
+          <section class="message-queue" [attr.aria-label]="'nh-assistant.queue.title' | translate: { count: store.queuedMessages().length }">
+            <div class="queue-heading">
+              <span aria-live="polite">{{ 'nh-assistant.queue.title' | translate: { count: store.queuedMessages().length } }}</span>
+              @if (store.queuePaused()) {
+                <button type="button" class="queue-resume" [disabled]="editingQueuedId() !== null" (click)="store.resumeQueue()">
+                  {{ 'nh-assistant.queue.resume' | translate }}
+                </button>
+              }
+            </div>
+            <ol class="queue-items">
+              @for (item of store.queuedMessages(); track item.id) {
+                <li class="queue-item" [class.failed]="item.state === 'failed'">
+                  @if (editingQueuedId() === item.id && item.state !== 'sending') {
+                    <div class="queue-edit">
+                      <textarea rows="2" [value]="queuedDraft()" (input)="changeQueuedDraft($event)"
+                        [attr.aria-label]="'nh-assistant.queue.edit' | translate"></textarea>
+                      <div class="queue-buttons">
+                        <button type="button" class="icon-button" [disabled]="!validQueuedDraft()"
+                          [attr.aria-label]="'nh-assistant.queue.save' | translate" [attr.title]="'nh-assistant.queue.save' | translate"
+                          (click)="saveQueuedMessage(item.id)"><nh-assistant-icon name="check" /></button>
+                        <button type="button" class="icon-button" [attr.aria-label]="'nh-assistant.queue.cancel-edit' | translate"
+                          [attr.title]="'nh-assistant.queue.cancel-edit' | translate"
+                          (click)="cancelQueueEdit()"><nh-assistant-icon name="close" /></button>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="queue-message">
+                      <p [title]="item.text">{{ item.text }}</p>
+                      @if (item.state !== 'queued') {
+                        <span class="queue-state">{{ 'nh-assistant.queue.state.' + item.state | translate }}</span>
+                      }
+                    </div>
+                    <div class="queue-buttons">
+                      @if (store.canSteer() && item.state === 'queued') {
+                        <button type="button" class="queue-steer" [disabled]="editingQueuedId() !== null"
+                          [attr.title]="'nh-assistant.queue.steer-hint' | translate"
+                          (click)="store.steerQueuedMessage(item.id)">{{ 'nh-assistant.queue.steer' | translate }}</button>
+                      }
+                      <button type="button" class="icon-button" [disabled]="item.state === 'sending'"
+                        [attr.aria-label]="'nh-assistant.queue.edit' | translate" [attr.title]="'nh-assistant.queue.edit' | translate"
+                        (click)="editQueuedMessage(item.id, item.text)"><nh-assistant-icon name="edit" /></button>
+                      <button type="button" class="icon-button" [disabled]="item.state === 'sending'"
+                        [attr.aria-label]="'nh-assistant.queue.remove' | translate" [attr.title]="'nh-assistant.queue.remove' | translate"
+                        (click)="store.removeQueuedMessage(item.id)"><nh-assistant-icon name="close" /></button>
+                    </div>
+                  }
+                </li>
+              }
+            </ol>
+          </section>
+        }
         <nh-assistant-composer
           [disabled]="closed()"
           [sendDisabled]="composerDisabled()"
           [busy]="busy()"
+          [queueWhileBusy]="true"
           [status]="composerStatus()"
           [statusActor]="activeMemberName()"
           [canStop]="canStop()"

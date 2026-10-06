@@ -73,10 +73,27 @@
       "characters": "{{count}} van {{max}} tekens",
       "too-long": "Het bericht is te lang.",
       "status": {
-        "running": "Je kunt verder typen terwijl de assistent bezig is. Versturen is tijdelijk niet mogelijk.",
-        "waiting-for-approval": "Je kunt verder typen terwijl een actie op je goedkeuring wacht. Versturen is tijdelijk niet mogelijk.",
+        "running": "De assistent is bezig",
+        "waiting-for-approval": "Wacht op goedkeuring",
         "running-by": "{{name}} werkt met de assistent…",
         "waiting-for-approval-by": "Wacht op de beslissing van {{name}}…"
+      }
+    },
+    "queue": {
+      "title": "Wachtrij ({{count}})",
+      "add": "Bericht in de wachtrij zetten",
+      "hint": "Enter zet in wachtrij, Shift+Enter voegt een regel toe",
+      "steer": "Bijsturen",
+      "steer-hint": "Stop het huidige antwoord en vervolg dit gesprek eerst met dit bericht",
+      "edit": "Bericht in wachtrij bewerken",
+      "save": "Bericht opslaan",
+      "cancel-edit": "Bewerken annuleren",
+      "remove": "Bericht uit wachtrij verwijderen",
+      "resume": "Wachtrij hervatten",
+      "state": {
+        "preparing": "Klaarzetten…",
+        "sending": "Versturen…",
+        "failed": "Niet verstuurd; hervat om opnieuw te proberen"
       }
     },
     "tool-call": {

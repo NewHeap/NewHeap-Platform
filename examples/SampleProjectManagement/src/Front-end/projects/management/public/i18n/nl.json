@@ -288,6 +288,8 @@
     "assistant-open-panel": "Assistent openen",
     "assistant-prompts-title": "Gescripte vragen",
     "assistant-prompts-description": "Elke vraag speelt een gescripte beurt af in het paneel.",
+    "assistant-try-queue": "Berichtenwachtrij proberen",
+    "assistant-queue-description": "Start een lang antwoord met twee vervolgberichten in de wachtrij. Bewerk of verwijder een bericht in het paneel, of kies Bijsturen om te onderbreken en het voorrang te geven. Stoppen pauzeert de wachtrij; Wachtrij hervatten gaat verder.",
     "assistant-prompt-list": "Toolaanroep en tabel",
     "assistant-prompt-tools": "Meerdere tool-aanroepen",
     "assistant-prompt-approval": "Goedkeuring",

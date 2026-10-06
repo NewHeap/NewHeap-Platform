@@ -36,6 +36,8 @@ export class NhAssistantComposerComponent {
   readonly sendDisabled = input(false);
   /** Shows the stop button instead of the send button. */
   readonly busy = input(false);
+  /** Keeps the send action available next to Stop so the host can queue messages. */
+  readonly queueWhileBusy = input(false);
   /** Announces why sending is temporarily unavailable. */
   readonly status = input<'running' | 'waiting-for-approval' | null>(null);
   /** Name of the participant whose turn runs or waits, when it is someone else. */

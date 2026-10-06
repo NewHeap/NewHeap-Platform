@@ -203,9 +203,24 @@ describe('NhAssistantComposerComponent', () => {
     expect(textarea.disabled).toBeFalse();
     expect(textarea.value).toBe('Next question');
     expect(sent).toEqual([]);
-    expect(fixture.nativeElement.textContent).toContain('You can keep typing while the assistant works.');
+    expect(fixture.nativeElement.querySelector('.composer-status')).toBeNull();
     expect(stop.getAttribute('aria-label')).toBe('Stop the assistant');
     expect(cancelled).toBe(1);
+  });
+
+  it('offers queueing beside Stop and clears only the submitted draft while running', () => {
+    fixture.componentRef.setInput('maxLength', 100);
+    fixture.componentRef.setInput('busy', true);
+    fixture.componentRef.setInput('queueWhileBusy', true);
+    fixture.componentRef.setInput('status', 'running');
+    const textarea = type('Next question');
+    expect(fixture.nativeElement.querySelector('button.stop')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('button.send').getAttribute('aria-label')).toBe('Add message to queue');
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+    fixture.detectChanges();
+    expect(sent).toEqual(['Next question']);
+    expect(textarea.value).toBe('');
+    expect(fixture.nativeElement.querySelector('.composer-status')).toBeNull();
   });
 
   it('returns focus after the explicit send button is used', async () => {
@@ -564,6 +579,41 @@ describe('NhAssistantPanelComponent', () => {
     for (const button of Array.from(drawer.querySelectorAll('button'))) {
       expect(button.getAttribute('aria-label')).withContext(button.outerHTML).toBeTruthy();
     }
+  });
+
+  it('edits a queued message without replacing the fresh draft or dispatching an unfinished edit', async () => {
+    await open();
+    const store = TestBed.inject(NhAssistantStore);
+    const sent = store.submit('First');
+    await flush();
+    stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+    await sent;
+    await store.submit('Next');
+    fixture.detectChanges();
+    const draft = overlay.querySelector('nh-assistant-composer textarea') as HTMLTextAreaElement;
+    draft.value = 'Fresh draft';
+    draft.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    (overlay.querySelector('.queue-item button[aria-label="Edit queued message"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const edit = overlay.querySelector('.queue-edit textarea') as HTMLTextAreaElement;
+    expect((overlay.querySelector('.queue-resume') as HTMLButtonElement).disabled).toBeTrue();
+    edit.value = 'Edited follow-up';
+    edit.dispatchEvent(new Event('input'));
+    stream.next({ type: 'turn.completed', data: { turnId: 't1', status: 'completed', usage: { inputTokens: 0, outputTokens: 0, toolCalls: 0 }, errorCode: null } });
+    stream.complete();
+    await flush();
+    fixture.detectChanges();
+    expect(api.sendMessage).toHaveBeenCalledTimes(1);
+    expect(draft.value).toBe('Fresh draft');
+    api.sendMessage.and.returnValue(new Subject<NhAssistantSseEvent>());
+    (overlay.querySelector('.queue-edit button[aria-label="Save message"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await flush();
+    fixture.detectChanges();
+    expect(api.sendMessage.calls.mostRecent().args[1].text).toBe('Edited follow-up');
+    expect(draft.value).toBe('Fresh draft');
+    expect(overlay.textContent).not.toContain('Sending is temporarily unavailable');
   });
 
   it('selects the assistant in the prompt bar while preserving the draft', async () => {

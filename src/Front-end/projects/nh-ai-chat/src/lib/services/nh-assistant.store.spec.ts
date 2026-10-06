@@ -113,6 +113,196 @@ describe('NhAssistantStore', () => {
     api.cancel.and.returnValue(of(undefined));
   });
 
+  async function processQueue(): Promise<void> {
+    TestBed.flushEffects();
+    await flush();
+    TestBed.flushEffects();
+    await flush();
+  }
+
+  async function startTurn(store: NhAssistantStore): Promise<void> {
+    await store.initialize();
+    const sent = store.submit('First');
+    await flush();
+    stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+    expect(await sent).toBeTrue();
+  }
+
+  function finishTurn(subject: Subject<NhAssistantSseEvent>, cancelled = false): void {
+    subject.next({ type: 'turn.completed', data: { turnId: 't1', status: cancelled ? 'cancelled' : 'completed', usage, errorCode: null } });
+    subject.complete();
+  }
+
+  it('dispatches queued messages in FIFO order only after the current stream closes', async () => {
+    const store = setup();
+    await startTurn(store);
+    await store.submit('Second');
+    await store.submit('Third');
+    await processQueue();
+    expect(store.queuedMessages().map(item => item.text)).toEqual(['Second', 'Third']);
+    expect(api.sendMessage).toHaveBeenCalledTimes(1);
+
+    const second = new Subject<NhAssistantSseEvent>();
+    const third = new Subject<NhAssistantSseEvent>();
+    api.sendMessage.and.returnValues(second, third);
+    stream.next({ type: 'turn.completed', data: { turnId: 't1', status: 'completed', usage, errorCode: null } });
+    await processQueue();
+    expect(api.sendMessage).toHaveBeenCalledTimes(1);
+    stream.complete();
+    await processQueue();
+    expect(api.sendMessage.calls.mostRecent().args[1].text).toBe('Second');
+    expect(store.queuedMessages()[0].state).toBe('sending');
+    second.next({ type: 'turn.started', data: { turnId: 't2', userMessageId: 'u2', assistantMessageId: 'a2' } });
+    await processQueue();
+    expect(store.queuedMessages().map(item => item.text)).toEqual(['Third']);
+    finishTurn(second);
+    await processQueue();
+    expect(api.sendMessage.calls.mostRecent().args[1].text).toBe('Third');
+    expect(api.sendMessage).toHaveBeenCalledTimes(3);
+  });
+
+  it('keeps the original conversation and captured page context when the user switches away', async () => {
+    let route = '/projects/alpha';
+    const store = setup(undefined, () => ({ route }));
+    await startTurn(store);
+    await store.submit('Continue Alpha');
+    route = '/projects/beta';
+    store.startNewConversation();
+    api.sendMessage.and.returnValue(new Subject<NhAssistantSseEvent>());
+    finishTurn(stream);
+    await processQueue();
+    const [conversationId, request] = api.sendMessage.calls.mostRecent().args;
+    expect(conversationId).toBe('c1');
+    expect(request.clientContext?.route).toBe('/projects/alpha');
+    expect(store.activeConversation()).toBeNull();
+    expect(store.queuedMessages()).toEqual([]);
+  });
+
+  it('lets an existing conversation queue a second message while the first request is preparing', async () => {
+    const store = setup();
+    await store.initialize();
+    await store.openConversation('c1');
+    const first = store.submit('First');
+    await store.submit('Second');
+    await flush();
+    stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
+    await first;
+    await processQueue();
+    expect(api.sendMessage).toHaveBeenCalledTimes(1);
+    expect(store.queuedMessages().map(item => item.text)).toEqual(['Second']);
+  });
+
+  it('pauses a queue on Stop and resumes it only on an explicit action', async () => {
+    const store = setup();
+    await startTurn(store);
+    await store.submit('Next');
+    await store.cancel();
+    api.sendMessage.and.returnValue(new Subject<NhAssistantSseEvent>());
+    finishTurn(stream, true);
+    await processQueue();
+    expect(store.queuePaused()).toBeTrue();
+    expect(api.sendMessage).toHaveBeenCalledTimes(1);
+    store.resumeQueue();
+    await processQueue();
+    expect(api.sendMessage.calls.mostRecent().args[1].text).toBe('Next');
+  });
+
+  it('prioritizes steering but waits for confirmed cancellation and retains other queued messages', async () => {
+    const store = setup();
+    await startTurn(store);
+    await store.submit('Later');
+    await store.submit('Correction');
+    const correction = store.queuedMessages()[1];
+    await store.steerQueuedMessage(correction.id);
+    await store.steerQueuedMessage(correction.id);
+    await processQueue();
+    expect(api.cancel).toHaveBeenCalledOnceWith('c1');
+    expect(api.sendMessage).toHaveBeenCalledTimes(1);
+    const replacement = new Subject<NhAssistantSseEvent>();
+    api.sendMessage.and.returnValue(replacement);
+    finishTurn(stream, true);
+    await processQueue();
+    expect(api.sendMessage.calls.mostRecent().args[1].text).toBe('Correction');
+    replacement.next({ type: 'turn.started', data: { turnId: 't2', userMessageId: 'u2', assistantMessageId: 'a2' } });
+    await processQueue();
+    expect(store.queuedMessages().map(item => item.text)).toEqual(['Later']);
+  });
+
+  it('preserves the queue and running stream when steering cancellation fails', async () => {
+    const store = setup();
+    await startTurn(store);
+    await store.submit('Correction');
+    api.cancel.and.returnValue(throwError(() => new NhAssistantApiError(403, 'assistant-forbidden', 'nh-assistant.errors.assistant-forbidden')));
+    await store.steerQueuedMessage(store.queuedMessages()[0].id);
+    await processQueue();
+    expect(store.streaming()).toBeTrue();
+    expect(store.queuedMessages()[0].text).toBe('Correction');
+    expect(store.queuePaused()).toBeTrue();
+    expect(api.sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let a participant steer another person even when their member details are unavailable', async () => {
+    const store = setup();
+    await store.initialize();
+    api.getConversation.and.returnValue(of({ ...conversation(), status: 'running', role: 'participant',
+      activeActorId: 'colleague', currentActorId: 'self', members: [] }));
+    await store.openConversation('c1');
+    await store.submit('Correction');
+    expect(store.canSteer()).toBeFalse();
+    await store.steerQueuedMessage(store.queuedMessages()[0].id);
+    expect(api.cancel).not.toHaveBeenCalled();
+  });
+
+  it('holds queued messages behind an approval without approving it automatically', async () => {
+    const store = setup();
+    await waitingForApproval(store);
+    await store.submit('Next question');
+    await processQueue();
+    expect(store.queuedMessages().length).toBe(1);
+    expect(api.sendMessage).toHaveBeenCalledTimes(1);
+    expect(api.decideApproval).not.toHaveBeenCalled();
+    expect(store.pendingApproval()?.proposalHash).toBe('hash-1');
+  });
+
+  it('keeps a refused queued message for explicit retry without restoring over a fresh draft', async () => {
+    const store = setup();
+    await startTurn(store);
+    await store.submit('Next');
+    const refused = new Subject<NhAssistantSseEvent>();
+    api.sendMessage.and.returnValue(refused);
+    finishTurn(stream);
+    await processQueue();
+    refused.next({ type: 'error', data: { code: 'assistant-conversation-busy', messageKey: 'nh-assistant.errors.assistant-conversation-busy' } });
+    refused.complete();
+    await processQueue();
+    expect(store.queuedMessages()[0].state).toBe('failed');
+    expect(store.restoredDraft()).toBeNull();
+    expect(store.queuePaused()).toBeTrue();
+    const calls = api.sendMessage.calls.count();
+    await processQueue();
+    expect(api.sendMessage.calls.count()).toBe(calls);
+    api.sendMessage.and.returnValue(new Subject<NhAssistantSseEvent>());
+    store.resumeQueue();
+    await processQueue();
+    expect(api.sendMessage.calls.count()).toBe(calls + 1);
+  });
+
+  it('edits and removes unsent messages, validates length, and forgets them on account change', async () => {
+    const store = setup();
+    await startTurn(store);
+    await store.submit('Second');
+    await store.submit('Third');
+    const [second, third] = store.queuedMessages();
+    expect(store.updateQueuedMessage(second.id, '')).toBeFalse();
+    expect(store.updateQueuedMessage(second.id, 'x'.repeat(101))).toBeFalse();
+    expect(store.updateQueuedMessage(second.id, '  Edited  ')).toBeTrue();
+    store.removeQueuedMessage(third.id);
+    expect(store.queuedMessages().map(item => item.text)).toEqual(['Edited']);
+    access.next(false);
+    await processQueue();
+    expect(store.queuedMessages()).toEqual([]);
+  });
+
   it('is enabled when the policy allows and the server enables it, and selects the default agent', async () => {
     const store = setup();
 

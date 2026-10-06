@@ -1717,6 +1717,7 @@
       "src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts",
       "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.routes.ts",
       "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.ts",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.component.html",
       "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
       "src/Front-end/projects/management/src/app/management-layout/management-layout.component.html",
       "src/Front-end/projects/management/src/app/app.config.ts",

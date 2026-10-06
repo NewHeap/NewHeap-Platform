@@ -81,11 +81,25 @@ which the panel shows as is. Theme the panel through the `--nh-assistant-*` cust
 properties mapped onto the host's tokens, and pass the host icon library through
 `NH_ASSISTANT_ICONS`.
 
-Keep the composer editable while `running` or `waiting-for-approval`, but disable the
-send action. Enter must preserve the draft while sending is blocked. Return focus after
+Use `NhAssistantStore.submit` for the panel's composer: it sends while idle and queues
+follow-ups while `running` or `waiting-for-approval`. The queue is FIFO per conversation,
+keeps the page context captured when each message was queued and continues when the
+user opens another conversation or closes the drawer. It lives only in this tab's
+memory and clears on account changes, loss of access, deletion or leaving the conversation.
+Render `queuedMessages` with edit/remove controls. Pausing the queue while editing
+prevents dispatching unfinished edits; changing a queued message must keep the current
+composer draft. Stop pauses dispatch; `resumeQueue` is an explicit action after Stop or
+a failure. A refused message stays in the queue without overwriting a newer draft.
+`steerQueuedMessage` prioritizes the selected correction, cancels the active turn through
+the normal authorized API and waits for confirmed idle state before sending it in the
+same conversation. It does not inject instructions into a running model request or
+automatically approve tools. Only the owner or the active turn's author may steer.
+Keep the composer editable and use `[queueWhileBusy]="true"` with `canSubmit` for a
+custom layout. Standalone composers retain their default send-blocking behavior.
+Return focus after
 an explicit send and restore it after a disappearing composer-owned control only when
 the user has not moved focus elsewhere; skip automatic restoration on coarse pointers.
-Announce the temporary state through a localized polite status.
+Use a compact localized approval status; do not show the old sending-unavailable notice.
 
 Let the thread render tool calls. Consecutive calls collapse into one
 `nh-assistant-tool-call-group` line that names the tool that runs now and counts

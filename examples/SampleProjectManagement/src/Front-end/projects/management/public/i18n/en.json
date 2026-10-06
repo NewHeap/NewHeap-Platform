@@ -288,6 +288,8 @@
     "assistant-open-panel": "Open the assistant",
     "assistant-prompts-title": "Scripted prompts",
     "assistant-prompts-description": "Each prompt plays one scripted turn in the panel.",
+    "assistant-try-queue": "Try a message queue",
+    "assistant-queue-description": "Start a long answer with two queued follow-ups. In the panel, edit or remove a message, or choose Steer now to interrupt and prioritize it. Stop pauses the queue; Resume queue continues it.",
     "assistant-prompt-list": "Tool call and table",
     "assistant-prompt-tools": "Several tool calls",
     "assistant-prompt-approval": "Approval",

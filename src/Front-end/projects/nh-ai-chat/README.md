@@ -111,8 +111,19 @@ inject(NhAssistantPanelService).open(conversationId);
 The drawer is 420 px wide on the right and fills the screen below 600 px. Escape
 closes it and focus returns to the element that opened it.
 
-The composer stays editable while a turn runs or waits for approval. Sending is
-temporarily blocked, so Enter preserves the draft; explicit send returns focus to the
+The panel's composer stays editable while a turn runs or waits for approval. Enter
+adds follow-ups to a visible FIFO queue; they send after the current turn finishes.
+Queued messages can be edited or removed without replacing the current draft.
+**Steer now** prioritizes one message, cancels the current turn and waits for confirmed
+idle state before sending the correction in the same conversation. It does not modify
+a running model request or approve tools. Stop pauses the queue; **Resume queue** is
+explicit after Stop or failure. Failed sends stay queued for retry. Queues retain the
+original conversation and page context, continue when the drawer closes or another
+conversation opens, and live only in this tab's memory. They clear on account changes,
+loss of access, deletion or leaving a conversation. Standalone composers preserve their
+default behavior; opt into the extra send button with `[queueWhileBusy]="true"` and
+connect it to `NhAssistantStore.submit` using `canSubmit`.
+Explicit send returns focus to the
 editor. Automatic focus restoration happens only when a disappearing composer control
 owned focus, never after the user chose another control, and is skipped for coarse
 pointer devices to avoid opening a mobile keyboard unexpectedly.
@@ -125,7 +136,8 @@ authorization basis.
 
 `NhAssistantStore` exposes the state as signals (`enabled`, `agents`,
 `conversations`, `activeConversation`, `streaming`, `pendingApproval`, `error` and
-more) and the actions `send`, `decide`, `cancel`, `openConversation`,
+more) and the actions `send`, `submit`, `pauseQueue`, `resumeQueue`,
+`updateQueuedMessage`, `removeQueuedMessage`, `steerQueuedMessage`, `decide`, `cancel`, `openConversation`,
 `startNewConversation` and `selectAgent`. The building blocks
 `nh-assistant-thread`, `nh-assistant-composer`, `nh-assistant-conversation-list`,
 `nh-assistant-tool-call-card`, `nh-assistant-approval-card` and

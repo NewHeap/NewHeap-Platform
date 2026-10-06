@@ -89,7 +89,12 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
     return status === 'failed' || status === 'archived';
   });
   readonly busy = computed(() => this.store.streaming() || this.conversation()?.status === 'running');
-  readonly composerDisabled = computed(() => !this.store.canSend());
+  readonly composerDisabled = computed(() => !this.store.canSubmit());
+  readonly editingQueuedId = signal<string | null>(null);
+  readonly queuedDraft = signal('');
+  private resumeAfterEditing = false;
+  readonly validQueuedDraft = computed(() => this.queuedDraft().trim().length > 0
+    && this.queuedDraft().trim().length <= (this.store.limits()?.maxMessageChars ?? Infinity));
   readonly composerStatus = computed<'running' | 'waiting-for-approval' | null>(() => {
     if (this.store.streaming() || this.conversation()?.status === 'running') {
       return 'running';
@@ -227,7 +232,31 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
     this.showConversations.set(false);
     this.showPreferences.set(false);
     this.showShare.set(false);
-    void this.store.send(text);
+    void this.store.submit(text);
+  }
+
+  editQueuedMessage(id: string, text: string): void {
+    this.resumeAfterEditing = !this.store.queuePaused();
+    this.store.pauseQueue();
+    this.editingQueuedId.set(id);
+    this.queuedDraft.set(text);
+  }
+
+  changeQueuedDraft(event: Event): void {
+    this.queuedDraft.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  saveQueuedMessage(id: string): void {
+    if (this.store.updateQueuedMessage(id, this.queuedDraft())) {
+      this.cancelQueueEdit();
+    }
+  }
+
+  cancelQueueEdit(): void {
+    this.editingQueuedId.set(null);
+    if (this.resumeAfterEditing && !this.store.error()) {
+      this.store.resumeQueue();
+    }
   }
 
   /**

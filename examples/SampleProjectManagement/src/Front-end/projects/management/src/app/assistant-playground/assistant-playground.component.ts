@@ -99,6 +99,17 @@ export class AssistantPlaygroundComponent {
     await this.store.send(text);
   }
 
+  /** Runs one long answer and queues two follow-ups in the same conversation. */
+  async tryMessageQueue(): Promise<void> {
+    this.panel.open();
+    await this.store.initialize();
+    this.store.startNewConversation();
+    if (await this.store.submit('Write a long status report for all projects.')) {
+      await this.store.submit('What am I looking at?');
+      await this.store.submit('Which projects are active?');
+    }
+  }
+
   /** The colleague joins the open conversation and asks the assistant something; it arrives live. */
   async simulateColleague(): Promise<void> {
     const conversationId = this.store.activeConversation()?.id;

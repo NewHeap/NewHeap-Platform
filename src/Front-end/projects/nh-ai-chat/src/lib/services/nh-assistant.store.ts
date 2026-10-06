@@ -57,6 +57,18 @@ export interface NhAssistantError {
  */
 export type NhAssistantNotice = NhAssistantError;
 
+/** An unsent message held in this tab, scoped to its original conversation. */
+export interface NhAssistantQueuedMessage {
+  id: string;
+  conversationId: string;
+  text: string;
+  state: 'preparing' | 'queued' | 'sending' | 'failed';
+}
+
+interface QueuedMessage extends NhAssistantQueuedMessage {
+  clientContext?: ClientContext | null;
+}
+
 /** Notice code for a completed turn that produced no answer text and no server code. */
 export const NH_ASSISTANT_NO_ANSWER_NOTICE_CODE = 'assistant-no-answer';
 
@@ -138,6 +150,12 @@ export class NhAssistantStore {
   private readonly restorePanelOpenState = signal(false);
   private readonly viewingState = signal(false);
   private readonly pageVisibleState = signal(true);
+  private readonly queuedState = signal<QueuedMessage[]>([]);
+  private readonly pausedQueuesState = signal<ReadonlySet<string>>(new Set());
+  private readonly queueDispatchState = signal<string | null>(null);
+  private readonly steeringState = signal<string | null>(null);
+  private readonly submittingState = signal(false);
+  private destroyed = false;
 
   private readonly streams = new Map<string, Subscription>();
   private readonly cancelTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -202,6 +220,24 @@ export class NhAssistantStore {
     const blocked = conversation !== null && conversation.status !== 'idle';
     return this.enabled() && this.selectedAgentIdState() !== null && !this.streaming() && !this.conversationLoadingState() && !blocked;
   });
+  /** Messages not yet accepted by the server, for the open conversation. Never persisted. */
+  readonly queuedMessages = computed<readonly NhAssistantQueuedMessage[]>(() =>
+    this.queuedState().filter(item => item.conversationId === this.activeIdState()));
+  /** Sending or queueing is available during a turn and while an approval waits. */
+  readonly canSubmit = computed(() => (this.canSend() && !this.submittingState()) || (this.enabled()
+    && !this.conversationLoading() && this.activeConversation() !== null
+    && ['idle', 'running', 'waiting-for-approval'].includes(this.activeConversation()!.status)));
+  readonly queuePaused = computed(() => this.pausedQueuesState().has(this.activeIdState() ?? '') || this.error() !== null);
+  /** Steering cancels the active turn before sending the selected correction. */
+  readonly canSteer = computed(() => {
+    const conversation = this.activeConversation();
+    const ownsTurn = conversation?.activeActorId && conversation.currentActorId
+      ? conversation.activeActorId === conversation.currentActorId : this.activeSession()?.streaming === true;
+    return this.enabled() && this.steeringState() === null && !this.submittingState()
+      && this.queueDispatchState() === null
+      && ['running', 'waiting-for-approval'].includes(conversation?.status ?? '')
+      && (this.isOwner() || ownsTurn);
+  });
   /** The owner and participants of the open conversation; empty while it is not shared. */
   readonly members = computed<ConversationMember[]>(() => this.activeConversation()?.members ?? []);
   /** True when the current user owns the open conversation (or it is new). */
@@ -251,10 +287,36 @@ export class NhAssistantStore {
   constructor() {
     const destroyRef = inject(DestroyRef);
     destroyRef.onDestroy(() => {
+      this.destroyed = true;
       this.accessSubscription?.unsubscribe();
       this.liveSubscription.unsubscribe();
       this.stopAllTurns();
       clearTimeout(this.refreshTimer);
+    });
+
+    effect(() => {
+      const queued = this.queuedState();
+      const sessions = this.sessionsState();
+      const paused = this.pausedQueuesState();
+      const steering = this.steeringState();
+      const steeringItem = queued.find(item => item.id === steering);
+      const steeringSession = steeringItem ? sessions.get(steeringItem.conversationId) : null;
+      if (steering && (!steeringItem || steeringSession?.error
+        || (steeringSession?.conversation.status === 'idle' && !steeringSession.streaming))) {
+        untracked(() => this.steeringState.set(null));
+      }
+      if (!this.enabled() || this.queueDispatchState() !== null || this.sendingState() !== null || this.submittingState()) {
+        return;
+      }
+      const next = queued.find((item, index) => {
+        const session = sessions.get(item.conversationId);
+        return item.state === 'queued' && !paused.has(item.conversationId)
+          && !queued.slice(0, index).some(previous => previous.conversationId === item.conversationId)
+          && session?.conversation.status === 'idle' && !session.streaming && !session.deciding && !session.error;
+      });
+      if (next) {
+        untracked(() => void this.dispatchQueued(next));
+      }
     });
 
     this.liveSubscription.add(this.live.changed$.subscribe(change => this.onLiveChanged(change)));
@@ -434,18 +496,132 @@ export class NhAssistantStore {
   async send(text: string): Promise<boolean> {
     // Browsers only ask for notification permission during a user action such as this one.
     void this.push.onUserGesture().catch(() => undefined);
+    return this.sendMessage(text);
+  }
+
+  /** Sends immediately when idle, otherwise appends to the conversation's FIFO queue. */
+  async submit(text: string): Promise<boolean> {
+    if (this.canSend() && this.queuedMessages().length === 0 && !this.queuePaused() && !this.submittingState()) {
+      const revision = this.accountRevision;
+      this.submittingState.set(true);
+      try {
+        return await this.send(text);
+      } finally {
+        if (revision === this.accountRevision && !this.destroyed) {
+          this.submittingState.set(false);
+        }
+      }
+    }
+    const conversationId = this.activeIdState();
     const trimmed = text.trim();
+    if (!conversationId || !this.canSubmit() || !trimmed || trimmed.length > (this.limits()?.maxMessageChars ?? Infinity)) {
+      return false;
+    }
+    void this.push.onUserGesture().catch(() => undefined);
+    const revision = this.accountRevision;
+    const item: QueuedMessage = { id: createClientMessageId(), conversationId, text: trimmed, state: 'preparing' };
+    this.queuedState.update(items => [...items, item]);
+    const clientContext = await this.contextForMessage();
+    if (revision !== this.accountRevision || this.destroyed) {
+      return false;
+    }
+    this.queuedState.update(items => items.map(current => current.id === item.id
+      ? { ...current, state: 'queued', clientContext } : current));
+    return true;
+  }
+
+  /** Edits an unsent queued message without replacing the composer's current draft. */
+  updateQueuedMessage(id: string, text: string): boolean {
+    const trimmed = text.trim();
+    if (!trimmed || trimmed.length > (this.limits()?.maxMessageChars ?? Infinity)
+      || !this.queuedMessages().some(item => item.id === id && item.state !== 'sending')) {
+      return false;
+    }
+    this.queuedState.update(items => items.map(item => item.id === id ? { ...item, text: trimmed } : item));
+    return true;
+  }
+
+  removeQueuedMessage(id: string): void {
+    this.queuedState.update(items => items.filter(item => item.id !== id
+      || item.conversationId !== this.activeIdState() || item.state === 'sending'));
+  }
+
+  /** Pauses automatic dispatch while keeping all unsent messages available. */
+  pauseQueue(): void {
+    const conversationId = this.activeIdState();
+    if (conversationId) {
+      this.pausedQueuesState.update(paused => new Set([...paused, conversationId]));
+    }
+  }
+
+  /** Explicitly resumes after Stop or a failure; approval decisions remain separate. */
+  resumeQueue(): void {
+    const conversationId = this.activeIdState();
+    if (!conversationId) {
+      return;
+    }
+    this.pausedQueuesState.update(paused => new Set([...paused].filter(id => id !== conversationId)));
+    this.patchSession(conversationId, session => ({ ...session, error: null }));
+    this.queuedState.update(items => items.map(item => item.conversationId === conversationId && item.state === 'failed'
+      ? { ...item, state: 'queued' } : item));
+  }
+
+  /** Prioritizes a queued correction and waits for confirmed cancellation before dispatch. */
+  async steerQueuedMessage(id: string): Promise<void> {
+    const item = this.queuedState().find(message => message.id === id && message.conversationId === this.activeIdState());
+    if (!item || item.state !== 'queued' || !this.canSteer()) {
+      return;
+    }
+    this.steeringState.set(id);
+    this.queuedState.update(items => [item, ...items.filter(message => message.id !== id)]);
+    this.resumeQueue();
+    try {
+      await this.cancelConversation(item.conversationId);
+    } finally {
+      if (this.steeringState() === id && this.sessionsState().get(item.conversationId)?.error) {
+        this.steeringState.set(null);
+      }
+    }
+  }
+
+  private async dispatchQueued(item: QueuedMessage): Promise<void> {
+    const revision = this.accountRevision;
+    this.queueDispatchState.set(item.id);
+    this.queuedState.update(items => items.map(current => current.id === item.id ? { ...current, state: 'sending' } : current));
+    const accepted = await this.sendMessage(item.text, item);
+    if (revision !== this.accountRevision || this.destroyed) {
+      return;
+    }
+    this.queuedState.update(items => accepted ? items.filter(current => current.id !== item.id)
+      : items.map(current => current.id === item.id ? { ...current, state: 'failed' } : current));
+    if (!accepted) {
+      this.pausedQueuesState.update(paused => new Set([...paused, item.conversationId]));
+    }
+    this.queueDispatchState.set(null);
+  }
+
+  private async sendMessage(text: string, queued?: QueuedMessage): Promise<boolean> {
+    const trimmed = text.trim();
+    const accountRevision = this.accountRevision;
     await this.initialize();
     await this.reloadStatus();
+    if (accountRevision !== this.accountRevision || this.destroyed) {
+      return false;
+    }
+    let conversation = queued ? this.sessionsState().get(queued.conversationId)?.conversation ?? null : this.activeConversation();
+    const session = queued ? this.sessionsState().get(queued.conversationId) : null;
+    const available = queued ? this.enabled() && !this.pausedQueuesState().has(queued.conversationId)
+      && conversation?.status === 'idle' && !session?.streaming
+      && !session?.deciding && this.agents().some(agent => agent.id === conversation?.agentId) : this.canSend();
     const maxChars = this.limits()?.maxMessageChars ?? Number.MAX_SAFE_INTEGER;
-    if (trimmed.length === 0 || trimmed.length > maxChars || !this.canSend()) {
+    if (trimmed.length === 0 || trimmed.length > maxChars || !available) {
       return false;
     }
 
-    const accountRevision = this.accountRevision;
-    let conversation = this.activeConversation();
     this.sendingState.set(conversation?.id ?? newConversationKey);
-    this.restoredDraftState.set(null);
+    if (!queued) {
+      this.restoredDraftState.set(null);
+    }
     this.draftErrorState.set(null);
 
     if (!conversation) {
@@ -460,7 +636,7 @@ export class NhAssistantStore {
       this.sendingState.set(conversation.id);
     }
 
-    const clientContext = await this.contextForMessage();
+    const clientContext = queued ? queued.clientContext : await this.contextForMessage();
     if (accountRevision !== this.accountRevision) {
       return false;
     }
@@ -501,7 +677,7 @@ export class NhAssistantStore {
         next: event => {
           if (event.type === 'error' && !started) {
             this.removeMessage(conversationId, clientMessageId, previousStatus);
-            if (this.activeIdState() === conversationId) {
+            if (!queued && this.activeIdState() === conversationId) {
               this.restoredDraftState.set(text);
             }
             this.patchSession(conversationId, session => ({ ...session, error: event.data }));
@@ -573,13 +749,20 @@ export class NhAssistantStore {
 
   /** Asks the server to stop the running turn or to abandon a waiting approval of the open conversation. */
   async cancel(): Promise<void> {
-    const session = this.activeSession();
+    const conversationId = this.activeIdState();
+    if (conversationId) {
+      this.pauseQueue();
+      await this.cancelConversation(conversationId);
+    }
+  }
+
+  private async cancelConversation(conversationId: string): Promise<void> {
+    const session = this.sessionsState().get(conversationId);
     const conversation = session?.conversation;
     if (!session || !conversation || (conversation.status === 'idle' && !session.streaming)) {
       return;
     }
 
-    const conversationId = conversation.id;
     const revision = this.accountRevision;
     try {
       await firstValueFrom(this.api.cancel(conversationId), { defaultValue: undefined });
@@ -909,6 +1092,11 @@ export class NhAssistantStore {
     this.restoredDraftState.set(null);
     this.draftErrorState.set(null);
     this.sendingState.set(null);
+    this.queuedState.set([]);
+    this.pausedQueuesState.set(new Set());
+    this.queueDispatchState.set(null);
+    this.steeringState.set(null);
+    this.submittingState.set(false);
     void this.live.stop();
     void this.push.deactivate().catch(() => undefined);
   }
@@ -1161,7 +1349,8 @@ export class NhAssistantStore {
           if (next.size <= maxSessions) {
             break;
           }
-          if (id !== activeId && id !== conversation.id && !session.streaming) {
+          if (id !== activeId && id !== conversation.id && !session.streaming
+            && !this.queuedState().some(item => item.conversationId === id)) {
             next.delete(id);
           }
         }
@@ -1219,6 +1408,8 @@ export class NhAssistantStore {
 
   /** Removes a deleted, left or inaccessible conversation everywhere. */
   private forget(conversationId: string): void {
+    this.queuedState.update(items => items.filter(item => item.conversationId !== conversationId));
+    this.pausedQueuesState.update(paused => new Set([...paused].filter(id => id !== conversationId)));
     this.streams.get(conversationId)?.unsubscribe();
     this.streams.delete(conversationId);
     this.sessionsState.update(sessions => {

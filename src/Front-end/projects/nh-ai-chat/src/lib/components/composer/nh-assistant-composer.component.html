@@ -27,13 +27,14 @@
           (click)="cancel.emit()">
           <nh-assistant-icon name="stop" />
         </button>
-      } @else {
+      }
+      @if (!busy() || !canStop() || queueWhileBusy()) {
         <button
           class="send"
           type="submit"
           [disabled]="!canSend()"
-          [attr.aria-label]="'nh-assistant.composer.send' | translate"
-          [attr.title]="'nh-assistant.composer.send' | translate">
+          [attr.aria-label]="(busy() && queueWhileBusy() ? 'nh-assistant.queue.add' : 'nh-assistant.composer.send') | translate"
+          [attr.title]="(busy() && queueWhileBusy() ? 'nh-assistant.queue.add' : 'nh-assistant.composer.send') | translate">
           <nh-assistant-icon name="send" />
         </button>
       }
@@ -41,12 +42,12 @@
   </div>
 </form>
 
-@if (status(); as status) {
+@if (status() === 'waiting-for-approval') {
   <p class="composer-status" role="status" aria-live="polite">
     @if (statusActor(); as name) {
-      {{ 'nh-assistant.composer.status.' + status + '-by' | translate: { name } }}
+      {{ 'nh-assistant.composer.status.waiting-for-approval-by' | translate: { name } }}
     } @else {
-      {{ 'nh-assistant.composer.status.' + status | translate }}
+      {{ 'nh-assistant.composer.status.waiting-for-approval' | translate }}
     }
   </p>
 }
@@ -55,7 +56,7 @@
   @if (tooLong()) {
     <span class="error">{{ 'nh-assistant.composer.too-long' | translate }}</span>
   } @else {
-    <span>{{ 'nh-assistant.composer.hint' | translate }}</span>
+    <span>{{ (busy() && queueWhileBusy() ? 'nh-assistant.queue.hint' : 'nh-assistant.composer.hint') | translate }}</span>
   }
   @if (showCounter()) {
     <span class="counter" [class.error]="tooLong()">

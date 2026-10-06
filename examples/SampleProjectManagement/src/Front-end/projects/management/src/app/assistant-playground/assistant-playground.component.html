@@ -94,6 +94,12 @@
     <section class="panel" aria-labelledby="assistant-prompts-title">
       <h3 id="assistant-prompts-title">{{ 'project.assistant-prompts-title' | translate }}</h3>
       <p class="hint">{{ 'project.assistant-prompts-description' | translate }}</p>
+      <div class="actions">
+        <button type="button" [disabled]="!store.enabled()" (click)="tryMessageQueue()">
+          {{ 'project.assistant-try-queue' | translate }}
+        </button>
+      </div>
+      <p class="hint">{{ 'project.assistant-queue-description' | translate }}</p>
       <ul class="prompts">
         @for (prompt of prompts; track prompt.key) {
           <li>
@@ -133,6 +139,8 @@
         <div><dt>activeConversation().id</dt><dd>{{ store.activeConversation()?.id ?? '–' }}</dd></div>
         <div><dt>activeConversation().status</dt><dd>{{ conversationStatus() ?? '–' }}</dd></div>
         <div><dt>streaming()</dt><dd [attr.data-on]="store.streaming()">{{ store.streaming() }}</dd></div>
+        <div><dt>queuedMessages().length</dt><dd>{{ store.queuedMessages().length }}</dd></div>
+        <div><dt>queuePaused()</dt><dd [attr.data-on]="store.queuePaused()">{{ store.queuePaused() }}</dd></div>
         <div><dt>runningCount()</dt><dd>{{ store.runningCount() }}</dd></div>
         <div><dt>unreadCount()</dt><dd>{{ store.unreadCount() }}</dd></div>
         <div><dt>members().length</dt><dd>{{ store.members().length }}</dd></div>
