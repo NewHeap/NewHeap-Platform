@@ -6,6 +6,12 @@ namespace SampleProjectManagement.Core.Models.View;
 
 public class ProjectCollectionRequestModel : CollectionRequestModel
 {
+    /// <summary>Optional comma-separated scalar fields. Absence preserves the legacy response.</summary>
+    public string? Fields { get; set; }
+
+    /// <summary>JSON by default; messagepack is supported only when fields is present.</summary>
+    public string? Format { get; set; }
+
     public Guid? DivisionId { get; set; }
 
     public List<ProjectStatus> Statuses { get; set; } = [];

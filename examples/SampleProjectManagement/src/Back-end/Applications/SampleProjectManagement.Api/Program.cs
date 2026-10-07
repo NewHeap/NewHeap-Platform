@@ -49,7 +49,10 @@ builder.AddNewHeapPlatformCachingDefault(options =>
     options.DefaultEntryOptions.JitterMaxDuration = TimeSpan.FromSeconds(10);
 });
 builder.Services.AddOpenApi("v1", options =>
-    options.AddSchemaTransformer<OneOfSchemaTransformer>());
+{
+    options.AddSchemaTransformer<OneOfSchemaTransformer>();
+    options.AddOperationTransformer<SampleProjectManagement.Api.Models.ProjectCollectionOpenApiTransformer>();
+});
 builder.Services.Configure<RequestLocalizationOptions>(options =>
 {
     var supportedCultures = new[]
