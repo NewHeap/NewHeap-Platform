@@ -4,8 +4,8 @@ title: "Media storage and authorization as a consumer contract"
 area: media
 reference: media
 summary: "Choose an independent storage-provider package in the composition root, keep media authorization domain-specific, and provide one typed HTTP contract for folders, files, metadata, and events."
-sample-cases: ["SPM-177", "SPM-178", "SPM-179", "SPM-180", "SPM-181", "SPM-182", "SPM-183", "SPM-184", "SPM-185", "SPM-186", "SPM-187", "SPM-188"]
-public-symbols: ["UseFileSystemMediaStorage", "NhMediaServiceConfigurationContext", "IAuthorizationModule", "FileStructureDbContext", "RelationalFileStructureStorage"]
+sample-cases: ["SPM-177", "SPM-178", "SPM-179", "SPM-180", "SPM-181", "SPM-182", "SPM-183", "SPM-184", "SPM-185", "SPM-186", "SPM-187", "SPM-188", "SPM-267"]
+public-symbols: ["UseFileSystemMediaStorage", "NhMediaServiceConfigurationContext", "IAuthorizationModule", "FileStructureDbContext", "RelationalFileStructureStorage", "IMediaLibraryService", "IFileStructureStorage"]
 skills: ["newheap-media-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -20,6 +20,8 @@ Reference only the relational provider that the application uses. The PostgreSQL
 
 Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup hashes, folder operations and file operations. Test the selected blob adapter separately with the same storage contract tests.
 
+Resolve the media files of one view together. Collect the referenced file ids first, for example while mapping content blocks, and call `IMediaLibraryService.GetFilesAsync` once instead of `GetFileAsync(Guid)` per block. Relational storage then reads the files with one primary-key query and their distinct folders with one lookup-index query, and splits very large sets into fixed-size batches. The result is keyed by id and omits missing files, so handle missing references explicitly. Id lookups, single or batched, do not call the path-based `IAuthorizationModule`; only resolve ids that content the caller may already see refers to. Custom `IFileStructureStorage` or `IMediaLibraryService` implementations inherit a fallback with one lookup per id and can override the batch method.
+
 Keep relational media pages deterministic. Unsorted folder and search results use `Id`; requested file sorting appends `Id` as its final tie-breaker. Preserve that ordering before every `Skip` or `Take`, including when a sort key is absent, invalid, or equal for multiple files.
 
 Configure the PostgreSQL media schema through `FileStructureDbContextOptions.Scheme`. The provider applies it to the model, migration history, historical migration operations and lookup-hash backfills. Upgrade existing media databases with the provider migrations before serving media requests; retain file and folder records and let the migration recompute lookup hashes from their original paths and names.
@@ -30,10 +32,13 @@ Configure the PostgreSQL media schema through `FileStructureDbContextOptions.Sch
 - Trusting only file extensions for content type or safety.
 - Creating a media record without handling the corresponding blob failure and rollback.
 - Leaking provider-specific metadata into a neutral media contract.
+- Calling `GetFileAsync(Guid)` in a loop for the files of one view, or replacing provider lookups with string-concatenated folder paths that cannot use an index.
 
 ## Verification
 
 Test the folder lifecycle, upload and download, search and sorting, metadata, thumbnails, authorization, and events. Seed files in reverse `Id` order, page unsorted and tied sorted results, and verify SQL Server and PostgreSQL return the same deterministic `Id` sequence. Check missing blobs, oversized uploads, forbidden access, and consistent cleanup after failures. For provider lookup indexes, use `EXPLAIN (ANALYZE, FORMAT JSON)` against a real provider and assert the expected index scan without a sequential scan.
+
+For file lookups, count the database round trips of one call with a command interceptor and replay the recorded commands against SQL Server and PostgreSQL to assert index seeks without table or sequential scans: a batch by id costs one file query and one folder query, and a lookup by path costs one query.
 
 For folder creation and renaming through `IMediaLibraryService`, verify that directory separators and surrounding whitespace are removed while internal spaces and the existing folder lookup remain intact. Names that normalize to empty must return a failed result without storage calls or folder events.
 

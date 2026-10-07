@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -9,6 +9,7 @@ using NewHeap.Media.FileStructureStorage.SqlServer;
 using NewHeap.Media.FileStructureStorage.SqlServer.Entities;
 using NewHeap.Media.Models;
 using NewHeap.Media.Modules;
+using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -154,6 +155,262 @@ public sealed class FileStructureStorageProviderTests
             postgreSql.GetConnectionString(), options => options.RunMigrations = false),
             verifyQueryPlan: AssertPostgreSqlUsesLookupIndexAsync,
             migrateDatabase: MigratePostgreSqlWithExistingLookupRowAsync);
+    }
+
+    [Fact]
+    public async Task FileLookupsUseFixedRoundTripsAndLookupIndexesOnBothRelationalProviders()
+    {
+        await using var sqlServer = new MsSqlBuilder(
+            "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
+        await sqlServer.StartAsync();
+        await VerifyFileLookupsAsync(
+            services => services.AddMediaSqlServerStorage(
+                sqlServer.GetConnectionString(), options => options.RunMigrations = false),
+            "UPDATE STATISTICS",
+            "IX_Files_PathNameLookup",
+            "IX_Folders_PathNameLookup",
+            AssertSqlServerCommandUsesIndexesAsync);
+
+        await using var postgreSql = new PostgreSqlBuilder("postgres:15.1").Build();
+        await postgreSql.StartAsync();
+        await VerifyFileLookupsAsync(
+            services => services.AddMediaPostgreSqlStorage(
+                postgreSql.GetConnectionString(), options => options.RunMigrations = false),
+            "ANALYZE",
+            "IX_Files_PathNameLookupHash",
+            "IX_Folders_PathNameLookupHash",
+            AssertPostgreSqlCommandUsesIndexesAsync);
+    }
+
+    private static async Task VerifyFileLookupsAsync(Action<IServiceCollection> configureProvider,
+        string updateStatisticsCommand,
+        string fileLookupIndex,
+        string folderLookupIndex,
+        Func<FileStructureDbContext, RecordedCommand, string[], Task> assertCommandUsesIndexes)
+    {
+        var commands = new RecordingCommandInterceptor();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        configureProvider(services);
+        services.AddDbContextPool<FileStructureDbContext>(options => options
+            .ConfigureWarnings(warnings => warnings.Throw(CoreEventId.RowLimitingOperationWithoutOrderByWarning))
+            .AddInterceptors(commands));
+        await using var serviceProvider = services.BuildServiceProvider();
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FileStructureDbContext>();
+        await dbContext.Database.MigrateAsync();
+        var storage = scope.ServiceProvider.GetRequiredService<IFileStructureStorage>();
+
+        // Enough rows that both planners prefer the lookup indexes over scanning the tables.
+        var folders = Enumerable.Range(0, 2_048)
+            .Select(index => new FolderEntity { Id = Guid.NewGuid(), Path = "/gallery", Name = $"album-{index:D4}" })
+            .ToArray();
+        var files = folders
+            .Select(folder => new FileEntity
+            {
+                Id = Guid.NewGuid(),
+                Path = $"/gallery/{folder.Name}",
+                Name = "cover.png",
+                Title = folder.Name
+            })
+            .ToArray();
+        var rootFile = new FileEntity { Id = Guid.NewGuid(), Path = "/", Name = "logo.svg" };
+        dbContext.Folders.Add(new FolderEntity { Path = "/", Name = "gallery" });
+        dbContext.Folders.AddRange(folders);
+        dbContext.Files.AddRange(files);
+        dbContext.Files.Add(rootFile);
+        await dbContext.SaveChangesAsync();
+        dbContext.ChangeTracker.Clear();
+
+        var sqlGenerationHelper = dbContext.GetService<ISqlGenerationHelper>();
+        foreach (var entityType in new[] { typeof(FileEntity), typeof(FolderEntity) })
+        {
+            var table = dbContext.Model.FindEntityType(entityType)!;
+            await dbContext.Database.ExecuteSqlRawAsync(updateStatisticsCommand + " " +
+                sqlGenerationHelper.DelimitIdentifier(table.GetTableName()!, table.GetSchema()));
+        }
+
+        // A page that references 30 files in 30 folders costs one file query and one folder query.
+        var page = files.Take(29).Select(file => file.Id).Append(rootFile.Id).ToArray();
+        var missingId = Guid.NewGuid();
+        commands.Clear();
+        var references = await storage.GetByIdsAsync([.. page, page[0], missingId]);
+
+        Assert.Equal(2, commands.Commands.Count);
+        var fileIdsCommand = commands.Commands[0];
+        var folderIdsCommand = commands.Commands[1];
+        Assert.Equal(page.Order(), references.Keys.Order());
+        for (var index = 0; index < 29; index++)
+        {
+            var reference = references[files[index].Id];
+            Assert.Equal("cover.png", reference.Name);
+            Assert.Equal(folders[index].Name, reference.Title);
+            Assert.Equal(folders[index].Id, reference.Folder.Id);
+            Assert.Equal("/gallery", reference.Folder.Path);
+            Assert.Equal(folders[index].Name, reference.Folder.Name);
+            Assert.Equal(files[index].Path, reference.Folder.FullPath);
+        }
+
+        Assert.Null(references[rootFile.Id].Folder.Id);
+        Assert.Equal("/", references[rootFile.Id].Folder.FullPath);
+        foreach (var reference in references.Values)
+        {
+            var folder = await storage.GetFolderReferenceAsync(reference.Folder.FullPath);
+            Assert.Equal(folder.Id, reference.Folder.Id);
+            Assert.Equal(folder.Path, reference.Folder.Path);
+            Assert.Equal(folder.Name, reference.Folder.Name);
+        }
+
+        await assertCommandUsesIndexes(dbContext, fileIdsCommand, ["PK_Files"]);
+        await assertCommandUsesIndexes(dbContext, folderIdsCommand, [folderLookupIndex]);
+
+        // Large sets are split into fixed-size batches: 500 ids per file query and 50 folders per folder query.
+        commands.Clear();
+        var allReferences = await storage.GetByIdsAsync(files.Select(file => file.Id).Append(rootFile.Id));
+
+        Assert.Equal(5 + 41, commands.Commands.Count);
+        Assert.Equal(files.Length + 1, allReferences.Count);
+        for (var index = 0; index < files.Length; index++)
+        {
+            Assert.Equal(folders[index].Id, allReferences[files[index].Id].Folder.Id);
+        }
+
+        commands.Clear();
+        Assert.Empty(await storage.GetByIdsAsync([]));
+        Assert.Empty(await storage.GetByIdsAsync([missingId]));
+        Assert.Single(commands.Commands);
+
+        commands.Clear();
+        var byId = await storage.GetByIdAsync(files[0].Id);
+        Assert.Equal(2, commands.Commands.Count);
+        Assert.Equal(folders[0].Id, byId?.Folder.Id);
+
+        // A lookup by path reads the file and its folder id in one indexed round trip.
+        commands.Clear();
+        var byPath = await storage.GetFileAsync(files[1].Path, "cover.png", null);
+        var fileByPathCommand = Assert.Single(commands.Commands);
+        Assert.Equal(files[1].Id, byPath?.Id);
+        Assert.Equal(folders[1].Id, byPath?.Folder.Id);
+        Assert.Equal("/gallery", byPath?.Folder.Path);
+        Assert.Equal(folders[1].Name, byPath?.Folder.Name);
+        Assert.Equal(files[1].Path, byPath?.Folder.FullPath);
+        await assertCommandUsesIndexes(dbContext, fileByPathCommand, [fileLookupIndex, folderLookupIndex]);
+
+        commands.Clear();
+        var rootByPath = await storage.GetFileAsync("/", "logo.svg", null);
+        Assert.Single(commands.Commands);
+        Assert.Equal(rootFile.Id, rootByPath?.Id);
+        Assert.Null(rootByPath?.Folder.Id);
+        Assert.Equal("/", rootByPath?.Folder.FullPath);
+
+        commands.Clear();
+        Assert.Null(await storage.GetFileAsync(files[1].Path, "missing.png", null));
+        Assert.Single(commands.Commands);
+
+        // Localizations remain one extra query, and only when a language is requested.
+        Assert.True((await storage.LocalizeAsync(files[1].Id, "nl", nameof(FileReference.Title), "Cover (nl)"))
+            .Success);
+        commands.Clear();
+        var localized = await storage.GetFileAsync(files[1].Path, "cover.png", "nl");
+        Assert.Equal(2, commands.Commands.Count);
+        Assert.Equal("Cover (nl)", localized?.Title);
+
+        // Search results from many folders resolve those folders together.
+        commands.Clear();
+        var search = await storage.SearchAsync("", "/gallery",
+            new SearchOptions { PageSize = 30, IncludeTotalCount = false });
+        Assert.Equal(2, commands.Commands.Count);
+        Assert.Equal(30, search.Results.Count());
+        foreach (var result in search.Results)
+        {
+            Assert.Equal(folders.Single(folder => folder.Name == result.Folder.Name).Id, result.Folder.Id);
+        }
+    }
+
+    private static async Task AssertSqlServerCommandUsesIndexesAsync(FileStructureDbContext dbContext,
+        RecordedCommand recorded, string[] expectedIndexNames)
+    {
+        var plans = new List<string>();
+        await dbContext.Database.OpenConnectionAsync();
+        try
+        {
+            var connection = dbContext.Database.GetDbConnection();
+            await ExecuteNonQueryAsync(connection, "SET STATISTICS XML ON");
+            await using (var command = CreateCommand(connection, recorded, recorded.CommandText))
+            await using (var reader = await command.ExecuteReaderAsync())
+            {
+                do
+                {
+                    var isPlan = reader.FieldCount == 1 &&
+                                 reader.GetName(0) == "Microsoft SQL Server 2005 XML Showplan";
+                    while (await reader.ReadAsync())
+                    {
+                        if (isPlan)
+                        {
+                            plans.Add(reader.GetString(0));
+                        }
+                    }
+                } while (await reader.NextResultAsync());
+            }
+
+            await ExecuteNonQueryAsync(connection, "SET STATISTICS XML OFF");
+        }
+        finally
+        {
+            await dbContext.Database.CloseConnectionAsync();
+        }
+
+        var plan = Assert.Single(plans);
+        Assert.DoesNotContain("PhysicalOp=\"Table Scan\"", plan, StringComparison.Ordinal);
+        Assert.DoesNotContain("PhysicalOp=\"Clustered Index Scan\"", plan, StringComparison.Ordinal);
+        Assert.DoesNotContain("PhysicalOp=\"Index Scan\"", plan, StringComparison.Ordinal);
+        foreach (var indexName in expectedIndexNames)
+        {
+            Assert.Contains($"Index=\"[{indexName}]\"", plan, StringComparison.Ordinal);
+        }
+    }
+
+    private static async Task AssertPostgreSqlCommandUsesIndexesAsync(FileStructureDbContext dbContext,
+        RecordedCommand recorded, string[] expectedIndexNames)
+    {
+        string planJson;
+        await dbContext.Database.OpenConnectionAsync();
+        try
+        {
+            await using var command = CreateCommand(dbContext.Database.GetDbConnection(), recorded,
+                "EXPLAIN (ANALYZE, COSTS OFF, FORMAT JSON)" + Environment.NewLine + recorded.CommandText);
+            planJson = (string)(await command.ExecuteScalarAsync())!;
+        }
+        finally
+        {
+            await dbContext.Database.CloseConnectionAsync();
+        }
+
+        using var plan = JsonDocument.Parse(planJson);
+        Assert.DoesNotContain("Seq Scan", GetPlanNodeTypes(plan.RootElement));
+        foreach (var indexName in expectedIndexNames)
+        {
+            Assert.Contains($"\"{indexName}\"", planJson, StringComparison.Ordinal);
+        }
+    }
+
+    private static DbCommand CreateCommand(DbConnection connection, RecordedCommand recorded, string commandText)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        foreach (var parameter in recorded.Parameters)
+        {
+            command.Parameters.Add(((ICloneable)parameter).Clone());
+        }
+
+        return command;
+    }
+
+    private static async Task ExecuteNonQueryAsync(DbConnection connection, string commandText)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        await command.ExecuteNonQueryAsync();
     }
 
     private static async Task VerifyProviderAsync(Action<IServiceCollection> configureProvider,
@@ -459,6 +716,58 @@ public sealed class FileStructureStorageProviderTests
             {
                 yield return childNodeType;
             }
+        }
+    }
+
+    private sealed record RecordedCommand(string CommandText, IReadOnlyList<DbParameter> Parameters);
+
+    /// <summary>
+    /// Records every database round trip with a copy of its parameters, so a test can count the
+    /// round trips of one storage call and replay a command to inspect its query plan.
+    /// </summary>
+    private sealed class RecordingCommandInterceptor : DbCommandInterceptor
+    {
+        private readonly List<RecordedCommand> _commands = [];
+
+        public IReadOnlyList<RecordedCommand> Commands => _commands;
+
+        public void Clear()
+        {
+            _commands.Clear();
+        }
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command,
+            CommandEventData eventData, InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            Record(command);
+            return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
+        }
+
+        public override ValueTask<InterceptionResult<object>> ScalarExecutingAsync(DbCommand command,
+            CommandEventData eventData, InterceptionResult<object> result,
+            CancellationToken cancellationToken = default)
+        {
+            Record(command);
+            return base.ScalarExecutingAsync(command, eventData, result, cancellationToken);
+        }
+
+        public override ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(DbCommand command,
+            CommandEventData eventData, InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            Record(command);
+            return base.NonQueryExecutingAsync(command, eventData, result, cancellationToken);
+        }
+
+        private void Record(DbCommand command)
+        {
+            var parameters = command.Parameters
+                .Cast<DbParameter>()
+                .Select(parameter => (DbParameter)((ICloneable)parameter).Clone())
+                .ToArray();
+
+            _commands.Add(new RecordedCommand(command.CommandText, parameters));
         }
     }
 }

@@ -3822,5 +3822,20 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpContextTests.cs"
     ]
+  },
+  {
+    "id": "SPM-267",
+    "title": "Batch media file lookup",
+    "category": "Media",
+    "surface": "IMediaLibraryService.GetFilesAsync(IEnumerable<Guid>), IFileStructureStorage.GetByIdsAsync, RelationalFileStructureStorage file lookups",
+    "outcome": "A view that references many media files collects their ids and resolves them with one call: SQL Server and PostgreSQL read the files with one primary-key query and their distinct folders with one lookup-index query, instead of two queries per file, and very large sets use fixed-size batches. Duplicate ids are ignored, missing ids are reported separately and thumbnails are filled. A lookup by path reads the file and its folder id in one round trip. Both providers keep every lookup on an index seek. Custom storage and media services without a batch implementation fall back to one lookup per id.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/FileStructureStorageProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryFileLookupTests.cs"
+    ]
   }
 ] as const;

@@ -59,6 +59,44 @@ public sealed class ProjectMediaSampleService
         return new ProjectMediaDownload(stream, fileName, ResolveContentType(fileName));
     }
 
+    /// <summary>
+    /// Resolves every media file that one view references with a single batch lookup. Collect the ids first,
+    /// for example while mapping content blocks, and resolve them together instead of calling
+    /// <see cref="IMediaLibraryService.GetFileAsync(Guid)"/> per block: relational storage then needs one
+    /// file query and one folder query for the whole view.
+    /// </summary>
+    /// <remarks>
+    /// Id lookups do not call the path-based <see cref="IAuthorizationModule"/>. Only resolve ids that
+    /// content the caller may already see refers to.
+    /// </remarks>
+    public async Task<ProjectMediaFileLookup> ResolveFilesAsync(IReadOnlyCollection<Guid> fileIds)
+    {
+        var files = await _mediaLibraryService.GetFilesAsync(fileIds);
+
+        var resolved = new List<ProjectMediaFileSummary>();
+        var missingIds = new List<Guid>();
+        foreach (var id in fileIds.Distinct())
+        {
+            if (files.TryGetValue(id, out var file))
+            {
+                resolved.Add(new ProjectMediaFileSummary(
+                    file.Id,
+                    file.Name,
+                    file.Folder.FullPath,
+                    file.Folder.Id,
+                    file.Title,
+                    file.AltText,
+                    file.Thumbnail));
+            }
+            else
+            {
+                missingIds.Add(id);
+            }
+        }
+
+        return new ProjectMediaFileLookup(resolved, missingIds);
+    }
+
     public static string ResolveContentType(string fileName)
     {
         var provider = new FileExtensionContentTypeProvider();
@@ -126,6 +164,19 @@ public sealed record ProjectMediaS3Diagnostics(
     string AccessKey,
     string SecretKey,
     IReadOnlyList<string> ValidationErrors);
+
+public sealed record ProjectMediaFileLookup(
+    IReadOnlyList<ProjectMediaFileSummary> Files,
+    IReadOnlyList<Guid> MissingIds);
+
+public sealed record ProjectMediaFileSummary(
+    Guid Id,
+    string Name,
+    string FolderPath,
+    Guid? FolderId,
+    string? Title,
+    string? AltText,
+    string? Thumbnail);
 
 public sealed record ProjectMediaDownload(
     Stream Stream,

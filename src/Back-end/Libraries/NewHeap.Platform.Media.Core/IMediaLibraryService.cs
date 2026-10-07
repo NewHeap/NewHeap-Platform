@@ -58,7 +58,34 @@ public interface IMediaLibraryService
     /// <param name="id"></param>
     /// <returns></returns>
     Task<TaskResult<FileReference>> GetFileAsync(Guid id);
-    
+
+    /// <summary>
+    /// Get file references for a set of ids, for example every image referenced by one page.
+    /// Prefer this over calling <see cref="GetFileAsync(Guid)"/> in a loop: relational storage resolves
+    /// the whole set with a fixed number of queries instead of two queries per file.
+    /// </summary>
+    /// <param name="ids">The file ids; duplicates are ignored.</param>
+    /// <returns>The found file references keyed by id. Ids without a file are omitted.</returns>
+    /// <remarks>
+    /// Like <see cref="GetFileAsync(Guid)"/>, this id lookup does not call the path-based
+    /// <see cref="IAuthorizationModule"/>; only resolve ids that content the caller may already see refers to.
+    /// The default implementation calls <see cref="GetFileAsync(Guid)"/> once per distinct id.
+    /// </remarks>
+    async Task<IReadOnlyDictionary<Guid, FileReference>> GetFilesAsync(IEnumerable<Guid> ids)
+    {
+        var references = new Dictionary<Guid, FileReference>();
+        foreach (var id in ids.Distinct())
+        {
+            var result = await GetFileAsync(id);
+            if (result.Success && result.Data != null)
+            {
+                references.Add(id, result.Data);
+            }
+        }
+
+        return references;
+    }
+
     /// <summary>
     /// Get a stream of a file by path and filename
     /// </summary>

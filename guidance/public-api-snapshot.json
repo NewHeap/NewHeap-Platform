@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.59",
   "backEnd": {
-    "hash": "e312b1f1d20f27aacefeeb86cf38c2c0107e719eae0d016a3e53a8bb5596b252",
-    "declarationCount": 6030,
+    "hash": "3cd914f70a3bb8e0f4067c1172fd635e4af3cc8e87ff7466838f0868742ef2e1",
+    "declarationCount": 6034,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -22939,6 +22939,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public async Task<IReadOnlyDictionary<Guid, FileReference>> GetByIdsAsync(IEnumerable<Guid> ids) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
         "declaration": "public async Task<FolderReference?> MoveFolderAsync(string? path, string folderName, string newPath, string newName) {"
       },
       {
@@ -22956,6 +22960,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
         "declaration": "protected virtual IQueryable<FolderEntity> WhereFolderPathAndName(IQueryable<FolderEntity> query, string? path, string? name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public int Position { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+        "declaration": "public Guid Id { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
@@ -23080,6 +23092,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/MediaLibraryService.cs",
         "declaration": "public virtual async Task<TaskResult<FileReference>> GetFileAsync(Guid id) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/MediaLibraryService.cs",
+        "declaration": "public virtual async Task<IReadOnlyDictionary<Guid, FileReference>> GetFilesAsync(IEnumerable<Guid> ids) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/MediaLibraryService.cs",
@@ -28038,7 +28054,9 @@
       "NhMediaServiceConfigurationContext",
       "IAuthorizationModule",
       "FileStructureDbContext",
-      "RelationalFileStructureStorage"
+      "RelationalFileStructureStorage",
+      "IMediaLibraryService",
+      "IFileStructureStorage"
     ],
     "nh-observability-logging": [
       "AddNewHeapObservability",

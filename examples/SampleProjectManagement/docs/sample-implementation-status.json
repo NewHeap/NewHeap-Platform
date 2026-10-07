@@ -262,7 +262,8 @@
     "SPM-263",
     "SPM-264",
     "SPM-265",
-    "SPM-266"
+    "SPM-266",
+    "SPM-267"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -1944,6 +1945,13 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Snapshots/NhAssistantConversationSnapshots.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpContextTests.cs"
+    ],
+    "SPM-267": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/FileStructureStorageProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/MediaLibraryFileLookupTests.cs"
     ]
   }
 }

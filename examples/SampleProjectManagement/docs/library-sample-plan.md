@@ -284,6 +284,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-186 | Thumbnails | thumbnail service/events | Upload generates a thumbnail and cleanup removes derivatives. |
 | SPM-187 | Media HTTP surface | endpoint mapper/filter | The route group injects context and validates upload requests. |
 | SPM-188 | Media events | folder/file event handlers | Create, update, and delete operations publish the expected events. |
+| SPM-267 | Batch media file lookup | `IMediaLibraryService.GetFilesAsync(IEnumerable<Guid>)`, `IFileStructureStorage.GetByIdsAsync`, `RelationalFileStructureStorage` file lookups | A view that references many media files collects their ids and resolves them with one call: SQL Server and PostgreSQL read the files with one primary-key query and their distinct folders with one lookup-index query, instead of two queries per file, and very large sets use fixed-size batches. Duplicate ids are ignored, missing ids are reported separately and thumbnails are filled. A lookup by path reads the file and its folder id in one round trip. Both providers keep every lookup on an index seek. Custom storage and media services without a batch implementation fall back to one lookup per id. |
 
 ## 14. Application services and unit of work
 

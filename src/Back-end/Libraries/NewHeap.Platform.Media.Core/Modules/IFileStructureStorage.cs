@@ -25,6 +25,29 @@ public interface IFileStructureStorage
 
     Task<TaskResult> UpdateTagsAsync(string path, string fileName, IEnumerable<string> tags);
     Task<FileReference?> GetByIdAsync(Guid id);
+
+    /// <summary>
+    /// Gets the file references for a set of ids. Ids without a file are omitted from the result.
+    /// </summary>
+    /// <remarks>
+    /// The default implementation calls <see cref="GetByIdAsync"/> once per distinct id. Relational storage
+    /// overrides it with a fixed number of indexed queries for the whole set.
+    /// </remarks>
+    async Task<IReadOnlyDictionary<Guid, FileReference>> GetByIdsAsync(IEnumerable<Guid> ids)
+    {
+        var references = new Dictionary<Guid, FileReference>();
+        foreach (var id in ids.Distinct())
+        {
+            var reference = await GetByIdAsync(id);
+            if (reference != null)
+            {
+                references.Add(id, reference);
+            }
+        }
+
+        return references;
+    }
+
     Task<FolderReference?> MoveFolderAsync(string? path, string folderName, string newPath, string newName);
 
     Task<FolderReference> GetFolderReferenceAsync(string? path);

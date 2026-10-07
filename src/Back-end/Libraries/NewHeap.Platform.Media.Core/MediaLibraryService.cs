@@ -301,6 +301,17 @@ public class MediaLibraryService : IMediaLibraryService
         return reference;
     }
 
+    public virtual async Task<IReadOnlyDictionary<Guid, FileReference>> GetFilesAsync(IEnumerable<Guid> ids)
+    {
+        var references = await _fileStructureStorage.GetByIdsAsync(ids);
+        foreach (var reference in references.Values)
+        {
+            reference.Thumbnail = await _thumbnailService.GetThumbnailAsync(reference.Id);
+        }
+
+        return references;
+    }
+
     public virtual async Task<DisposableTaskResult<Stream>> DownloadFileAsync(string? path, string fileName)
     {
         await EnsureAuthorized(path, fileName, null, ActionType.Read);

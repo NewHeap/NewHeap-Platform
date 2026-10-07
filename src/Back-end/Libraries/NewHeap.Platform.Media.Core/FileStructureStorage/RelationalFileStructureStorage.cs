@@ -27,6 +27,10 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
                 x => (Action<FileReference, object?>)x.SetValue,
                 StringComparer.OrdinalIgnoreCase);
 
+    // Both limits keep a single command well below the SQL Server parameter limit of 2100.
+    private const int MaxFileIdsPerQuery = 500;
+    private const int MaxFoldersPerQuery = 50;
+
     private readonly FileStructureDbContext _dbContext;
 
     protected RelationalFileStructureStorage(FileStructureDbContext dbContext)
@@ -253,13 +257,12 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
 
     public async Task<FolderReference> GetFolderReferenceAsync(string? path)
     {
-        path = NormalizePath(path);
-        MediaLibraryPath.Split(path, out var folderPath, out var folderName);
-        var id = await WhereFolderPathAndName(_dbContext.Folders, folderPath, folderName)
+        var reference = CreateFolderReference(NormalizePath(path));
+        reference.Id = await WhereFolderPathAndName(_dbContext.Folders, reference.Path, reference.Name)
             .Select(x => (Guid?)x.Id)
             .FirstOrDefaultAsync();
 
-        return new FolderReference { Id = id, Path = folderPath, Name = folderName, FullPath = path };
+        return reference;
     }
 
     public async Task<FolderContents> GetFolderAsync(string? path, string? language, FileGetOptions? sortOptions)
@@ -321,29 +324,24 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
     public async Task<FileReference?> GetFileAsync(string? path, string fileName, string? language)
     {
         path = NormalizePath(path);
+        var folder = CreateFolderReference(path);
+
+        // The folder id is a scalar subquery on the provider's folder lookup index, so the file and its
+        // folder are read in one round trip.
+        var folderIds = WhereFolderPathAndName(_dbContext.Folders.AsNoTracking(), folder.Path, folder.Name)
+            .Select(x => (Guid?)x.Id);
 
         var file = await WhereFilePathAndName(_dbContext.Files.AsNoTracking(), path, fileName)
+            .AsFileReferenceRow()
+            .Select(x => new { Row = x, FolderId = folderIds.FirstOrDefault() })
             .FirstOrDefaultAsync();
         if (file == null)
         {
             return null;
         }
 
-        var reference = new FileReference
-        {
-            Id = file.Id,
-            Name = file.Name,
-            Tags = file.Tags,
-            AltText = file.AltText,
-            Description = file.Description,
-            Creator = file.Creator,
-            Title = file.Title,
-            MetaData = string.IsNullOrEmpty(file.MetaData)
-                ? null
-                : JsonSerializer.Deserialize<Dictionary<string, object>>(file.MetaData),
-            Folder = await GetFolderReferenceAsync(path),
-            CreationDateTime = file.CreationDateTime
-        };
+        folder.Id = file.FolderId;
+        var reference = CreateFileReference(file.Row, folder);
 
         await ApplyLocalizations([reference], language);
         return reference;
@@ -409,18 +407,11 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
             .Take(options.PageSize);
 
         var files = await q.AsFileReferenceRow().ToListAsync();
+        var folderReferences = await GetFolderReferencesAsync(files.Select(x => x.Path));
         var result = new List<FileReference>();
-        var folderReferences = new Dictionary<string, FolderReference>(StringComparer.Ordinal);
         foreach (var file in files)
         {
-            var folderKey = file.Path ?? string.Empty;
-            if (!folderReferences.TryGetValue(folderKey, out var folderReference))
-            {
-                folderReference = await GetFolderReferenceAsync(file.Path);
-                folderReferences.Add(folderKey, folderReference);
-            }
-
-            result.Add(CreateFileReference(file, folderReference));
+            result.Add(CreateFileReference(file, folderReferences[NormalizePath(file.Path)]));
         }
 
         await ApplyLocalizations(result, options.Language);
@@ -486,27 +477,39 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
 
     public async Task<FileReference?> GetByIdAsync(Guid id)
     {
-        var entity = await _dbContext.Files.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-        if (entity == null)
+        var references = await GetByIdsAsync([id]);
+        return references.GetValueOrDefault(id);
+    }
+
+    /// <summary>
+    /// Gets the file references for a set of ids with one primary-key query for the files and one
+    /// lookup-index query for their distinct folders. Very large sets are split into fixed-size batches.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, FileReference>> GetByIdsAsync(IEnumerable<Guid> ids)
+    {
+        var requestedIds = ids.Distinct().ToArray();
+        if (requestedIds.Length == 0)
         {
-            return null;
+            return new Dictionary<Guid, FileReference>();
         }
 
-        return new FileReference
+        var files = new List<FileReferenceRow>(requestedIds.Length);
+        foreach (var batch in requestedIds.Chunk(MaxFileIdsPerQuery))
         {
-            Id = entity.Id,
-            Name = entity.Name,
-            Tags = entity.Tags,
-            AltText = entity.AltText,
-            Description = entity.Description,
-            Creator = entity.Creator,
-            Title = entity.Title,
-            MetaData = string.IsNullOrEmpty(entity.MetaData)
-                ? null
-                : JsonSerializer.Deserialize<Dictionary<string, object>>(entity.MetaData),
-            Folder = await GetFolderReferenceAsync(entity.Path),
-            CreationDateTime = entity.CreationDateTime
-        };
+            files.AddRange(await _dbContext.Files.AsNoTracking()
+                .Where(x => batch.Contains(x.Id))
+                .AsFileReferenceRow()
+                .ToArrayAsync());
+        }
+
+        var folderReferences = await GetFolderReferencesAsync(files.Select(x => x.Path));
+        var references = new Dictionary<Guid, FileReference>(files.Count);
+        foreach (var file in files)
+        {
+            references.Add(file.Id, CreateFileReference(file, folderReferences[NormalizePath(file.Path)]));
+        }
+
+        return references;
     }
 
     public async Task<FolderReference?> MoveFolderAsync(string? path, string folderName, string newPath, string newName)
@@ -528,7 +531,53 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
 
     [GeneratedRegex(@"\/\/+")]
     private static partial Regex DuplicatedSlashesRegex();
-    
+
+    /// <summary>
+    /// Resolves the folder references for a set of folder paths. Each distinct folder becomes one
+    /// <c>UNION ALL</c> branch with the same provider lookup predicate as <see cref="GetFolderReferenceAsync"/>,
+    /// so every branch stays an index seek and the folders of a page cost one round trip.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, FolderReference>> GetFolderReferencesAsync(
+        IEnumerable<string?> paths)
+    {
+        var references = new Dictionary<string, FolderReference>(StringComparer.Ordinal);
+        foreach (var path in paths)
+        {
+            var normalizedPath = NormalizePath(path);
+            if (!references.ContainsKey(normalizedPath))
+            {
+                references.Add(normalizedPath, CreateFolderReference(normalizedPath));
+            }
+        }
+
+        foreach (var batch in references.Values.Chunk(MaxFoldersPerQuery))
+        {
+            IQueryable<FolderIdRow>? query = null;
+            for (var index = 0; index < batch.Length; index++)
+            {
+                var position = index;
+                var folderIds = WhereFolderPathAndName(_dbContext.Folders.AsNoTracking(), batch[position].Path,
+                        batch[position].Name)
+                    .Select(x => new FolderIdRow { Position = position, Id = x.Id });
+
+                query = query == null ? folderIds : query.Concat(folderIds);
+            }
+
+            foreach (var row in await query!.ToArrayAsync())
+            {
+                batch[row.Position].Id ??= row.Id;
+            }
+        }
+
+        return references;
+    }
+
+    private static FolderReference CreateFolderReference(string path)
+    {
+        MediaLibraryPath.Split(path, out var folderPath, out var folderName);
+        return new FolderReference { Path = folderPath, Name = folderName, FullPath = path };
+    }
+
     private static FileReference CreateFileReference(FileReferenceRow file, FolderReference folder)
     {
         var metaData = string.IsNullOrEmpty(file.MetaData)
@@ -699,6 +748,12 @@ public abstract partial class RelationalFileStructureStorage : IFileStructureSto
             }
         }
     }
+}
+
+internal sealed class FolderIdRow
+{
+    public int Position { get; init; }
+    public Guid Id { get; init; }
 }
 
 internal sealed class FileReferenceRow

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Media;
 using NewHeap.Media.EventHandlers;
@@ -14,6 +15,7 @@ using NewHeap.Platform.Media.MediaStorage.S3Bucket;
 using SampleProjectManagement.Api.Events;
 using SampleProjectManagement.Api.Services;
 using System.Text;
+using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace SampleProjectManagement.Core.Tests;
@@ -85,6 +87,71 @@ public class MediaLibrarySamplesTests
             Assert.NotEmpty(invalidFolder.GetResultItems());
             Assert.False((await media.UpdateFolderAsync(path, "documents", path, " / ")).Success);
             Assert.Empty(scope.ServiceProvider.GetRequiredService<SampleMediaEventLog>().Events);
+        }
+        finally
+        {
+            Directory.Delete(storagePath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ReferencedFilesResolveWithOneBatchLookupOnPostgreSql()
+    {
+        await using var database = new PostgreSqlBuilder("postgres:16-alpine").Build();
+        await database.StartAsync(TestContext.Current.CancellationToken);
+        var storagePath = CreateTempDirectory();
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddHttpContextAccessor();
+            services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+            services.AddSingleton<SampleMediaEventLog>();
+            services.AddSingleton<SampleMediaThumbnailStore>();
+            services.AddSingleton<SampleMediaAuthorizationLog>();
+            services.AddNhMedia(media =>
+            {
+                media.UsePostgreSqlFileStructureStorage(database.GetConnectionString(), options =>
+                {
+                    options.Scheme = "project_media";
+                    options.RunMigrations = false;
+                });
+                media.UseFileSystemMediaStorage(storagePath, true);
+                media.AddAuthentication<ProjectMediaAuthorizationModule>();
+                media.AddThumbnailService<ProjectMediaThumbnailService>();
+                media.AddEventHandler<ProjectMediaEventHandler>();
+            });
+            services.AddScoped<ProjectMediaSampleService>();
+
+            await using var provider = services.BuildServiceProvider();
+            await using var scope = provider.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<FileStructureDbContext>().Database
+                .MigrateAsync(TestContext.Current.CancellationToken);
+
+            var divisionId = Guid.NewGuid();
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.Headers[NewHeap.Platform.AspNet.Common.Constants.HttpHeaderKeys.ActiveDivisionId] =
+                divisionId.ToString();
+            httpContext.Request.Headers[ProjectMediaAuthorizationModule.SamplePermissionsHeader] = "app.project.manage";
+            scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext = httpContext;
+
+            var media = scope.ServiceProvider.GetRequiredService<IMediaLibraryService>();
+            var projectRoot = $"/divisions/{divisionId:D}/projects";
+            var cover = await CreateFileAsync(media, $"{projectRoot}/launch", "cover.png");
+            var plan = await CreateFileAsync(media, $"{projectRoot}/planning", "plan.pdf");
+            var missingId = Guid.NewGuid();
+
+            var lookup = await scope.ServiceProvider.GetRequiredService<ProjectMediaSampleService>()
+                .ResolveFilesAsync([plan.Id, cover.Id, missingId, plan.Id]);
+
+            Assert.Equal([plan.Id, cover.Id], lookup.Files.Select(file => file.Id));
+            Assert.Equal([missingId], lookup.MissingIds);
+            var resolvedCover = lookup.Files[1];
+            Assert.Equal("cover.png", resolvedCover.Name);
+            Assert.Equal($"{projectRoot}/launch", resolvedCover.FolderPath);
+            Assert.NotNull(resolvedCover.FolderId);
+            Assert.Equal(cover.Folder.Id, resolvedCover.FolderId);
+            Assert.StartsWith("data:image/svg+xml,", resolvedCover.Thumbnail);
         }
         finally
         {
@@ -245,6 +312,14 @@ public class MediaLibrarySamplesTests
         typeof(MediaLibraryFileEvent).GetProperty(nameof(MediaLibraryFileEvent.NewFile))!.SetValue(@event, file);
         typeof(MediaLibraryFileEvent).GetProperty(nameof(MediaLibraryFileEvent.Type))!.SetValue(@event, type);
         return @event;
+    }
+
+    private static async Task<FileReference> CreateFileAsync(IMediaLibraryService media, string path, string name)
+    {
+        await using var content = new MemoryStream(Encoding.UTF8.GetBytes(name));
+        var created = await media.CreateFileAsync(new FileModel { Path = path, Name = name }, content);
+        Assert.True(created.Success);
+        return created.Data!;
     }
 
     private static string CreateTempDirectory()

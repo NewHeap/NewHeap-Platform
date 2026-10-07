@@ -22,6 +22,8 @@ Reference only the relational provider that the application uses. The PostgreSQL
 
 Test PostgreSQL and SQL Server for all relational metadata, migrations, lookup hashes, folder operations and file operations. Test the selected blob adapter separately with the same storage contract tests.
 
+Resolve the media files of one view together. Collect the referenced file ids first, for example while mapping content blocks, and call `IMediaLibraryService.GetFilesAsync` once instead of `GetFileAsync(Guid)` per block. Relational storage then reads the files with one primary-key query and their distinct folders with one lookup-index query, and splits very large sets into fixed-size batches. The result is keyed by id and omits missing files, so handle missing references explicitly. Id lookups, single or batched, do not call the path-based `IAuthorizationModule`; only resolve ids that content the caller may already see refers to. Custom `IFileStructureStorage` or `IMediaLibraryService` implementations inherit a fallback with one lookup per id and can override the batch method.
+
 Keep relational media pages deterministic. Unsorted folder and search results use `Id`; requested file sorting appends `Id` as its final tie-breaker. Preserve that ordering before every `Skip` or `Take`, including when a sort key is absent, invalid, or equal for multiple files.
 
 Configure the PostgreSQL media schema through `FileStructureDbContextOptions.Scheme`. The provider applies it to the model, migration history, historical migration operations and lookup-hash backfills. Upgrade existing media databases with the provider migrations before serving media requests; retain file and folder records and let the migration recompute lookup hashes from their original paths and names.
@@ -32,10 +34,13 @@ Configure the PostgreSQL media schema through `FileStructureDbContextOptions.Sch
 - Trusting only file extensions for content type or safety.
 - Creating a media record without handling the corresponding blob failure and rollback.
 - Leaking provider-specific metadata into a neutral media contract.
+- Calling `GetFileAsync(Guid)` in a loop for the files of one view, or replacing provider lookups with string-concatenated folder paths that cannot use an index.
 
 ## Verification
 
 Test the folder lifecycle, upload and download, search and sorting, metadata, thumbnails, authorization, and events. Seed files in reverse `Id` order, page unsorted and tied sorted results, and verify SQL Server and PostgreSQL return the same deterministic `Id` sequence. Check missing blobs, oversized uploads, forbidden access, and consistent cleanup after failures. For provider lookup indexes, use `EXPLAIN (ANALYZE, FORMAT JSON)` against a real provider and assert the expected index scan without a sequential scan.
+
+For file lookups, count the database round trips of one call with a command interceptor and replay the recorded commands against SQL Server and PostgreSQL to assert index seeks without table or sequential scans: a batch by id costs one file query and one folder query, and a lookup by path costs one query.
 
 For folder creation and renaming through `IMediaLibraryService`, verify that directory separators and surrounding whitespace are removed while internal spaces and the existing folder lookup remain intact. Names that normalize to empty must return a failed result without storage calls or folder events.
 
@@ -100,3 +105,8 @@ Exercise upgrades from the initial PostgreSQL media migration with populated fil
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs)
   - [src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/media-playground/media-playground.component.ts)
+- SPM-267 — Batch media file lookup
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaSampleService.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/MediaLibrarySamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/RelationalFileStructureStorage.cs)
+  - [../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/FileStructureStorageProviderTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.Media.Tests/FileStructureStorageProviderTests.cs)
