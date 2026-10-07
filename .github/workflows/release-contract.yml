@@ -137,6 +137,13 @@ jobs:
         run: npm run skills:validate
       - name: Validate sample repository structure
         run: npm run sample:structure
+      - name: Test field selection on SQL Server and PostgreSQL
+        if: inputs.component == '' || inputs.component == 'all' || inputs.component == 'nuget-common'
+        timeout-minutes: 15
+        run: >-
+          dotnet test src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NewHeap.Platform.AspNet.Common.Tests.csproj
+          --configuration Release --filter FieldSelectionTests
+          -p:RestoreConfigFile="$GITHUB_WORKSPACE/release/nuget.public.config"
       - name: Test media against minimum and current Common
         if: inputs.component == '' || inputs.component == 'all' || inputs.component == 'nuget-media'
         shell: bash

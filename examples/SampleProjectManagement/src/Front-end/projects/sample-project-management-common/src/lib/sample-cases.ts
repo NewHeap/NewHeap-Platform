@@ -392,12 +392,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Explicit projection",
     "category": "Collections, filtering, and projections",
     "surface": "projection extensions",
-    "outcome": "SQL selects only the list columns.",
+    "outcome": "SQL selects list columns, including opt-in scalar field selection with role and resource-policy checks and JSON/MessagePack response metadata.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
-      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Models/View/ProjectTableViewModel.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectFieldSelectionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/FieldSelectionTests.cs"
     ]
   },
   {
@@ -442,7 +445,12 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/CollectionProcessingDeadlockRetryTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/CollectionProcessingSettingsTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/HttpCollectionProcessingSettingsTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionProcessingProviderTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionProcessingProviderTests.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Models/View/ProjectTableViewModel.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectFieldSelectionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/FieldSelectionTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/ProjectCollectionOpenApiTransformer.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ControllerOpenApiMetadataTests.cs"
     ]
   },
   {

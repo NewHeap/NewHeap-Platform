@@ -106,6 +106,13 @@ jobs:
             --include-transitive \
             --no-restore \
             --configfile "$RUNNER_TEMP/nuget.public.config"
+      - name: Test field selection on SQL Server and PostgreSQL
+        if: inputs.component == 'nuget-common'
+        timeout-minutes: 15
+        run: >-
+          dotnet test src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NewHeap.Platform.AspNet.Common.Tests.csproj
+          --configuration Release --filter FieldSelectionTests
+          -p:RestoreConfigFile="$GITHUB_WORKSPACE/release/nuget.public.config"
       - name: Pack preview artifacts
         shell: bash
         run: |

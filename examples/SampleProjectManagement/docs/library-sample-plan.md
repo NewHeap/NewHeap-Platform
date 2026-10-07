@@ -54,7 +54,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-025 | Paging | collection request options | Page and page-size values match the metadata. |
 | SPM-026 | Simple collection | simple request/result | The dropdown loads a lightweight collection. |
 | SPM-027 | User collection | user collection request | My projects uses the current user context. |
-| SPM-028 | Explicit projection | projection extensions | SQL selects only the list columns. |
+| SPM-028 | Explicit projection | projection extensions | SQL selects list columns, including opt-in scalar field selection with role and resource-policy checks and JSON/MessagePack response metadata. |
 | SPM-029 | Short projection | short-projection extensions | The dropdown retrieves only ID and name. |
 | SPM-030 | NhProjection builder | builder/source/definition | Calculated fields work without IncludeAll. |
 | SPM-031 | HTTP processing | `IHttpCollectionProcessingService` | Filtering, ordering, configurable paging defaults, projection, and bounded SQL Server or PostgreSQL deadlock retries work together. |

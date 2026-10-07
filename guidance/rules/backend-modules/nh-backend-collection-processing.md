@@ -4,8 +4,8 @@ title: "Collection processing and bounded deadlock retries"
 area: backend
 reference: backend-collection-processing
 summary: "Keep filtering, ordering, paging, and projection server-side with validated paging defaults while retrying only recognized relational deadlock victims within the configured collection-processing bound."
-sample-cases: ["SPM-031", "SPM-032"]
-public-symbols: ["ICollectionProcessingService", "IHttpCollectionProcessingService", "CollectionProcessingService", "HttpCollectionProcessingService", "NewHeapCommonSettings"]
+sample-cases: ["SPM-028", "SPM-031", "SPM-032"]
+public-symbols: ["ICollectionProcessingService", "IHttpCollectionProcessingService", "CollectionProcessingService", "HttpCollectionProcessingService", "NewHeapCommonSettings", "SelectableAttribute", "FieldAccessAttribute", "NhFieldSelectionService", "NhSelectedCollectionResult", "NhSelectableField", "NhSelectableCollection", "NhCollectionSelection", "NhSelectedCollectionMessagePack"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -18,6 +18,12 @@ Configure `NewHeap:PlatformCommon:Settings:CollectionProcessingDeadlockMaxAttemp
 
 Let collection processing retry only provider-confirmed deadlock victims: SQL Server error `1205` and PostgreSQL SQLSTATE `40P01`. Keep the query read-only and idempotent. Other database errors, exhausted deadlocks, invalid configuration, and cancellation remain exceptions so callers and operators retain the original failure.
 
+For opt-in table field selection, branch only when `NhFieldSelectionService.HasSelection(Request)` is true. Keep the existing controller path when `fields` is absent, even if `format` is supplied. Use an explicit scalar member-initializer projection with `[Selectable]` fields. Apply row/division restrictions to the source first. Add `[FieldAccess(Roles = "role-a,role-b")]` for role OR checks or a named ASP.NET policy with an authorized resource context for custom checks. Roles and policy, and multiple attributes, must all succeed. Per-row access checks require a separate contract or row-scoped query; the field-selection service does not execute asynchronous per-row policies.
+
+Expose authorized descriptors through `DescribeAsync<TView>` on a protected discovery endpoint; fetch them when opening table settings. Do not cache descriptors or selected responses across users/divisions. Recheck access for every request, and reject unavailable fields and filter/order probes before querying. Search only authorized searchable fields. Selection metadata reports requested and canonical returned fields even for empty pages. Use `ToActionResult` for JSON or explicit `format=messagepack`, with JSON as the measured default. The compatibility MessagePack writer preserves names and scalar browser semantics; benchmark before claiming a speed improvement.
+
+`FieldAccess` only protects requests that opt in with `fields`. Removing `fields` deliberately retains legacy behavior. It is not a security boundary for an existing unrestricted endpoint; applying the policy everywhere requires a separate migration of that endpoint. See the executable project controller, `ProjectTableViewModel`, and the sample field-selection guide.
+
 ## Avoid
 
 - Matching localized provider message text to identify a deadlock.
@@ -27,7 +33,13 @@ Let collection processing retry only provider-confirmed deadlock victims: SQL Se
 - Repeating paging constants in controllers or HTTP request parsing instead of using the platform-common settings.
 - Configuring a default page size above the configured default maximum.
 - Using a value below one or treating the setting as additional retries after the initial attempt.
+- Treating `[Selectable]` as implicit authorization, or enforcing field visibility only in the browser.
+- Filtering, sorting or searching denied fields, or materializing full entities before selected projection.
+- Interpreting empty/invalid `fields` as permission to return the legacy full model.
+- Assuming MessagePack is faster without measuring allocations, encoding, decoding and end-to-end latency.
 
 ## Verification
 
 Verify the compatible paging defaults, configured paging values, invalid paging combinations, the default five-attempt retry bound, a configured lower retry bound, immediate propagation of non-deadlock failures, and retry of SQL Server `1205` and PostgreSQL `40P01` during both count and item materialization. Run the normal collection flow against SQL Server and PostgreSQL, and keep filtering, ordering, and paging server-side.
+
+Run `FieldSelectionTests` and `ProjectFieldSelectionSamplesTests` for the opt-in branch, alias/falsy/null values, resource policies, forbidden queries and JSON/MessagePack parity. The provider tests use isolated SQL Server and PostgreSQL Testcontainers. Translation-only tests do not replace actual execution evidence. Run the collection encoding benchmark in Release from its project directory and keep JSON the default unless representative end-to-end measurements justify a change.

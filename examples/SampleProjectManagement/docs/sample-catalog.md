@@ -25,6 +25,14 @@ when it:
 
 ## Library patterns
 
+Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
+through `ProjectController`, `ProjectTableViewModel` and
+`ProjectFieldSelectionSamplesTests`. The protected discovery endpoint reports
+authorized scalar fields; `fields` activates projection and field access while
+omitting it preserves the existing response. JSON and optional MessagePack share
+selection metadata. See [field selection](field-selection.md) for the compatibility
+boundary, custom policies, provider tests and encoding measurements.
+
 Media composition case SPM-177 consumes Common result contracts directly. Media's
 Common dependency has an independent minimum of 6.0.0; the media regression suite
 runs against that public package and current Common source, including both real

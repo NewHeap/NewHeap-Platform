@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
 using NewHeap.Platform.AspNet.Common.Controllers;
 using NewHeap.Platform.AspNet.Common.Models.ResponseTypes;
+using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Services;
 using NewHeap.Platform.Common.Models;
@@ -67,19 +68,44 @@ public class ProjectController : DbEntityProtectedNhBaseController<
     [HttpGet]
     [Authorize(Policy = "app.project.view")]
     [EndpointSummary("Get projects")]
-    [EndpointDescription("Returns a filtered, ordered and paged project collection using the NewHeap collection contract.")]
+    [EndpointDescription("Returns the existing project collection unless fields is supplied. With fields, returns authorized scalar fields and selection metadata scoped to the active division; format=messagepack opts into binary transport. Discover allowed fields at projects/fields.")]
     [ProducesResponseType<CollectionResultModel<ProjectViewModel>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ModelStateResponseType>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public Task<IActionResult> Get(
+    public async Task<IActionResult> Get(
         [FromQuery] ProjectCollectionRequestModel requestModel,
         CancellationToken cancellationToken = default)
     {
-        return DoGet(
+        if (NhFieldSelectionService.HasSelection(Request))
+        {
+            var fields = HttpContext.RequestServices.GetRequiredService<NhFieldSelectionService>();
+            var result = await fields.GetCollectionAsync(HttpContext, requestModel,
+                _projectService.GetCollectionQuery(requestModel).Where(project => project.DivisionId == ActiveDivisionId),
+                ProjectTableViewModel.Projection, ActiveDivisionId, cancellationToken,
+                (project => project.Name, ListSortDirection.Ascending),
+                (project => project.Id, ListSortDirection.Ascending));
+            return fields.ToActionResult(result);
+        }
+
+        return await DoGet(
             requestModel,
             _projectService.GetCollectionQuery(requestModel),
             cancellationToken);
+    }
+
+    [HttpGet("fields")]
+    [Authorize(Policy = "app.project.view")]
+    [EndpointSummary("Discover selectable project table fields")]
+    [EndpointDescription("Returns only scalar fields allowed for this user and active division. Request fields on the project collection to opt in; format=messagepack optionally changes the transport. Requests without fields retain the legacy contract and authorization.")]
+    [ProducesResponseType<NhSelectableCollection>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetFields(CancellationToken cancellationToken = default)
+    {
+        Response.Headers.CacheControl = "no-store";
+        var fields = HttpContext.RequestServices.GetRequiredService<NhFieldSelectionService>();
+        return Ok(await fields.DescribeAsync<ProjectTableViewModel>(User, ActiveDivisionId, cancellationToken));
     }
 
 

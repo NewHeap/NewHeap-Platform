@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.57",
   "backEnd": {
-    "hash": "45a2e966b72fc44a9acc50c66c4b0dbbf504856a1b14e0ec5ce1703448070fe9",
-    "declarationCount": 6012,
+    "hash": "e312b1f1d20f27aacefeeb86cf38c2c0107e719eae0d016a3e53a8bb5596b252",
+    "declarationCount": 6030,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -14046,6 +14046,26 @@
         "declaration": "public DateTimeOffset? LockoutStart { get; set; }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/NhSelectedCollection.cs",
+        "declaration": "public sealed record NhSelectableField(string Name, string Type, bool Filterable, bool Orderable, bool Searchable);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/NhSelectedCollection.cs",
+        "declaration": "public sealed record NhSelectableCollection(IReadOnlyList<NhSelectableField> Fields, IReadOnlyList<string> Formats);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/NhSelectedCollection.cs",
+        "declaration": "public sealed record NhCollectionSelection(IReadOnlyList<string> RequestedFields, IReadOnlyList<string> ReturnedFields, string Format);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/NhSelectedCollection.cs",
+        "declaration": "public sealed class NhSelectedCollectionResult : CollectionResultModel<Dictionary<string, object?>> {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/NhSelectedCollection.cs",
+        "declaration": "public required NhCollectionSelection Selection { get; init; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/Options/DbLogServiceSettings.cs",
         "declaration": "public class DbLogServiceSettings {"
       },
@@ -17210,6 +17230,42 @@
         "declaration": "public override async Task<TaskResult<TDivisionUser?>> UpdateAsync( Guid id, TDivisionUserMutateModel mutateModel, Guid? committedByUserId = default, Action<TDivisionUser>? beforeSave = null, CancellationToken cancellationToken = default, BaseDbEntityServiceOperationOptions? options = null ) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhFieldSelectionService.cs",
+        "declaration": "public sealed class NhFieldSelectionService( ICollectionProcessingService collections, IAuthorizationService authorization, IOptions<MvcNewtonsoftJsonOptions> jsonOptions) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhFieldSelectionService.cs",
+        "declaration": "public const int MaxFields = 64;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhFieldSelectionService.cs",
+        "declaration": "public static bool HasSelection(HttpRequest request) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhFieldSelectionService.cs",
+        "declaration": "public async Task<NhSelectableCollection> DescribeAsync<TView>( ClaimsPrincipal user, object? resource = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhFieldSelectionService.cs",
+        "declaration": "public async Task<TaskResult<NhSelectedCollectionResult>> GetCollectionAsync<TEntity, TView>( HttpContext context, ICollectionRequestModel request, IQueryable<TEntity> source, Expression<Func<TEntity, TView>> projection, object? resource = null, CancellationToken cancellationToken = default, params (Expression<Func<TView, object>> orderByKey, ListSortDirection sortDirection)[] defaultOrderBy) where TEntity : class where TView : class, new() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhFieldSelectionService.cs",
+        "declaration": "public IActionResult ToActionResult(TaskResult<NhSelectedCollectionResult> result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhFieldSelectionService.cs",
+        "declaration": "public bool Has<TAttribute>() where TAttribute : Attribute {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhSelectedCollectionMessagePack.cs",
+        "declaration": "public static class NhSelectedCollectionMessagePack {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhSelectedCollectionMessagePack.cs",
+        "declaration": "public static byte[] Serialize(NhSelectedCollectionResult result, JsonSerializerSettings settings) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhUserManager.cs",
         "declaration": "public interface INhUserManager {"
       },
@@ -19380,6 +19436,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Attributes/SearchableAttribute.cs",
         "declaration": "[AttributeUsage(AttributeTargets.Property)] public partial class SearchableAttribute : Attribute {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Attributes/SelectableAttribute.cs",
+        "declaration": "[AttributeUsage(AttributeTargets.Property)] public sealed class SelectableAttribute : Attribute {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Attributes/SelectableAttribute.cs",
+        "declaration": "[AttributeUsage(AttributeTargets.Property, AllowMultiple = true)] public sealed class FieldAccessAttribute : Attribute {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Attributes/SelectableAttribute.cs",
+        "declaration": "public string? Roles { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Attributes/SelectableAttribute.cs",
+        "declaration": "public string? Policy { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Constants.cs",
@@ -27801,7 +27873,15 @@
       "IHttpCollectionProcessingService",
       "CollectionProcessingService",
       "HttpCollectionProcessingService",
-      "NewHeapCommonSettings"
+      "NewHeapCommonSettings",
+      "SelectableAttribute",
+      "FieldAccessAttribute",
+      "NhFieldSelectionService",
+      "NhSelectedCollectionResult",
+      "NhSelectableField",
+      "NhSelectableCollection",
+      "NhCollectionSelection",
+      "NhSelectedCollectionMessagePack"
     ],
     "nh-backend-controller-contracts": [
       "ProtectedNhBaseController",

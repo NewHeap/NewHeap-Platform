@@ -147,6 +147,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
 
         _serviceCollection.AddScoped<RazorViewService>();
         _serviceCollection.AddSingleton<IHttpCollectionProcessingService, HttpCollectionProcessingService>();
+        _serviceCollection.AddScoped<NhFieldSelectionService>();
 
         #endregion
     }
