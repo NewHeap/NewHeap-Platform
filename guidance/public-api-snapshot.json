@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.60",
   "backEnd": {
-    "hash": "3cd914f70a3bb8e0f4067c1172fd635e4af3cc8e87ff7466838f0868742ef2e1",
-    "declarationCount": 6034,
+    "hash": "8ca550aab063033504a8dbfd30141bca2fcd56051a8bd042ddf404f610347d3e",
+    "declarationCount": 6041,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5463,7 +5463,27 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
-        "declaration": "public async ValueTask<NhAiConcurrencyDecision> TryAcquireAsync( NhAiToolDescriptor descriptor, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+        "declaration": "public enum NhAiToolConcurrencyPartition {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public sealed class NhAiInProcessConcurrencyOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public NhAiToolConcurrencyPartition Partition { get; set; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public NhAiInProcessToolConcurrencyLimiter() : this(new NhAiInProcessConcurrencyOptions()) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public NhAiInProcessToolConcurrencyLimiter(NhAiInProcessConcurrencyOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public ValueTask<NhAiConcurrencyDecision> TryAcquireAsync( NhAiToolDescriptor descriptor, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
@@ -5471,7 +5491,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
-        "declaration": "public SemaphoreSlim Semaphore { get; } = new(limit, limit);"
+        "declaration": "public bool TryEnter(string partition) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public void Exit(string partition) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
@@ -6712,6 +6736,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
         "declaration": "public NhAiBuilder UseInMemoryBudget(Action<NhAiInMemoryBudgetOptions>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder UseInProcessConcurrencyLimiter( Action<NhAiInProcessConcurrencyOptions>? configure = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
@@ -27810,8 +27838,10 @@
       "NhAiEffectDecisionKind",
       "NhAiIdempotencyRequest",
       "NhAiIdempotencySupport",
+      "NhAiInProcessConcurrencyOptions",
       "NhAiProposal",
       "NhAiProposalCreateRequest",
+      "NhAiToolConcurrencyPartition",
       "NhAiToolEffect",
       "NhAiToolFailureCodes",
       "NhAiVerificationResult"

@@ -1534,8 +1534,10 @@
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiApprovalTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiExecutionGuardTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiExecutionGuardTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolConcurrencyTests.cs"
     ],
     "SPM-225": [
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",

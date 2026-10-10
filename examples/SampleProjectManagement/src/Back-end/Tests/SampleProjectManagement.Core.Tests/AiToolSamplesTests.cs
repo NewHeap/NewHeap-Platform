@@ -521,6 +521,47 @@ public sealed class AiToolSamplesTests
     }
 
     [Fact]
+    public async Task Project_tool_concurrency_is_bounded_per_tenant()
+    {
+        var divisionId = Guid.NewGuid();
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readService = new RecordingProjectAiReadService { HoldNextSearch = release.Task };
+        var services = new ServiceCollection();
+        services.AddSingleton<IProjectAiReadService>(readService);
+        services.AddSingleton<IProjectAiMutationService>(readService);
+        services.AddScoped<ProjectAiTools>();
+        services.AddScoped<SampleTenantCaller>();
+        services.AddScoped<INhAiToolInvocationGate>(provider =>
+        {
+            // A multi-tenant host projects the tenant from the authenticated caller.
+            var caller = provider.GetRequiredService<SampleTenantCaller>();
+            return new NhAiTestInvocationGate((_, _) => ValueTask.FromResult(
+                TaskResult<NhAiInvocationContext>.Succeeded(
+                    CreateContext(divisionId) with { TenantId = caller.TenantId })));
+        });
+        services.AddSampleProjectManagementAi();
+        await using var provider = services.BuildServiceProvider();
+        var descriptor = Assert.Single(
+            new ProjectAiToolsNhAiCatalog().Descriptors,
+            item => item.Id == "projects.search");
+
+        var tenantA = SearchAsTenantAsync(provider, descriptor, "tenant-a");
+        await readService.SearchHeld.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        var tenantB = await SearchAsTenantAsync(provider, descriptor, "tenant-b");
+        var tenantAOverflow = await SearchAsTenantAsync(provider, descriptor, "tenant-a");
+        release.SetResult();
+
+        Assert.Equal(1, descriptor.MaxConcurrency);
+        Assert.True(tenantB.Success);
+        Assert.False(tenantAOverflow.Success);
+        Assert.Contains(
+            tenantAOverflow.GetResultItems(),
+            item => item.Name == NhAiToolFailureCodes.ConcurrencyLimited);
+        Assert.True((await tenantA).Success);
+        Assert.Equal(2, readService.SearchCount);
+    }
+
+    [Fact]
     public async Task Authorized_project_context_is_scope_filtered_and_marked_as_untrusted_data()
     {
         var divisionId = Guid.NewGuid();
@@ -839,6 +880,23 @@ public sealed class AiToolSamplesTests
             new ProjectAiStatusReceiptService(new ProjectAiStatusReceiptStore(), service));
     }
 
+    private static async Task<TaskResult<IReadOnlyList<ProjectAiSearchItem>>> SearchAsTenantAsync(
+        IServiceProvider provider,
+        NhAiToolDescriptor descriptor,
+        string tenantId)
+    {
+        await using var scope = provider.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<SampleTenantCaller>().TenantId = tenantId;
+        var tools = scope.ServiceProvider.GetRequiredService<ProjectAiTools>();
+        var invoker = scope.ServiceProvider.GetRequiredService<INhAiToolInvoker>();
+        var input = new ProjectAiSearchInput("roadmap", 5);
+
+        return await invoker.InvokeAsync(
+            descriptor,
+            input,
+            (context, cancellationToken) => tools.SearchAsync(input, context, cancellationToken));
+    }
+
     private static NhAiInvocationContext CreateContext(
         Guid divisionId,
         bool grantReadCapability = true)
@@ -941,6 +999,12 @@ public sealed class AiToolSamplesTests
         }
     }
 
+    /// <summary>The tenant of the current caller, as an authenticated multi-tenant host resolves it.</summary>
+    private sealed class SampleTenantCaller
+    {
+        public string? TenantId { get; set; }
+    }
+
     private sealed class RecordingProjectAiReadService :
         IProjectAiReadService,
         IProjectAiMutationService
@@ -951,8 +1015,15 @@ public sealed class AiToolSamplesTests
         public SampleProjectManagement.DAL.Entities.ProjectStatus? CurrentStatus { get; set; }
         public int MutationCount { get; private set; }
         public int VerificationReadCount { get; private set; }
+        public int SearchCount { get; private set; }
 
-        public Task<IReadOnlyList<ProjectAiSearchItem>> SearchForAiAsync(
+        /// <summary>Keeps the next search in flight until this task completes.</summary>
+        public Task? HoldNextSearch { get; set; }
+
+        public TaskCompletionSource SearchHeld { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<IReadOnlyList<ProjectAiSearchItem>> SearchForAiAsync(
             Guid divisionId,
             string? query,
             int limit,
@@ -961,7 +1032,17 @@ public sealed class AiToolSamplesTests
             DivisionId = divisionId;
             Query = query;
             Limit = limit;
-            return Task.FromResult<IReadOnlyList<ProjectAiSearchItem>>([]);
+            SearchCount++;
+
+            var hold = HoldNextSearch;
+            HoldNextSearch = null;
+            if (hold is not null)
+            {
+                SearchHeld.SetResult();
+                await hold.WaitAsync(cancellationToken);
+            }
+
+            return [];
         }
 
         public Task<NewHeap.Platform.Common.Models.TaskResult<ProjectAiStatusChangeReport>> ChangeStatusForAiAsync(

@@ -44,7 +44,8 @@ public static class NhAiServiceCollectionExtensions
             services.TryAddScoped<INhAiIngestionVersionManager, NhAiDenyIngestionVersionManager>();
             services.TryAddSingleton<INhAiDocumentChunker, NhAiDeterministicDocumentChunker>();
             services.TryAddScoped<INhAiCapabilityResolver, NhAiInvocationContextCapabilityResolver>();
-            services.TryAddSingleton<INhAiToolConcurrencyLimiter, NhAiInProcessToolConcurrencyLimiter>();
+            services.TryAddSingleton<INhAiToolConcurrencyLimiter>(
+                _ => new NhAiInProcessToolConcurrencyLimiter());
             services.TryAddScoped<INhAiEffectPolicy, NhAiDefaultEffectPolicy>();
             services.TryAddScoped<INhAiApprovalEvidenceProvider, NhAiDenyApprovalEvidenceProvider>();
             services.TryAddScoped<
@@ -336,6 +337,26 @@ public sealed class NhAiBuilder
         configure?.Invoke(options);
         _services.Replace(ServiceDescriptor.Singleton(options));
         _services.Replace(ServiceDescriptor.Singleton<INhAiBudgetManager, NhAiInMemoryBudgetManager>());
+        return this;
+    }
+
+    /// <summary>
+    /// Configures the default process-local tool concurrency limiter. By default every tenant
+    /// has its own <see cref="NhAiToolDescriptor.MaxConcurrency"/> bound per tool; select
+    /// <see cref="NhAiToolConcurrencyPartition.Tool"/> to share one bound across tenants. The
+    /// bounds are not shared between processes; use <see cref="UseConcurrencyLimiter{TLimiter}"/>
+    /// for a distributed limiter.
+    /// </summary>
+    public NhAiBuilder UseInProcessConcurrencyLimiter(
+        Action<NhAiInProcessConcurrencyOptions>? configure = null)
+    {
+        var options = new NhAiInProcessConcurrencyOptions();
+        configure?.Invoke(options);
+        NhAiInProcessToolConcurrencyLimiter.Validate(options);
+
+        _services.Replace(
+            ServiceDescriptor.Singleton<INhAiToolConcurrencyLimiter>(
+                _ => new NhAiInProcessToolConcurrencyLimiter(options)));
         return this;
     }
 

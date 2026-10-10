@@ -157,7 +157,13 @@ public sealed class NhAiToolAttribute(
 
     public string? VerifierId { get; set; }
     public int TimeoutSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// The maximum number of concurrent invocations. The default limiter applies it per process
+    /// and keeps a separate bound per tenant; see <see cref="NhAiToolConcurrencyPartition"/>.
+    /// </summary>
     public int MaxConcurrency { get; set; } = 1;
+
     public int MaxInputBytes { get; set; } = 65_536;
     public int MaxResultBytes { get; set; } = 65_536;
     public NhAiDataClassification DataClassification { get; set; } = NhAiDataClassification.Internal;
@@ -199,7 +205,13 @@ public sealed record NhAiToolDescriptor(
     public NhAiToolHint OpenWorldHint { get; init; } = NhAiToolHint.Inherit;
     public string? VerifierId { get; init; }
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// The maximum number of concurrent invocations. The default limiter applies it per process
+    /// and keeps a separate bound per tenant; see <see cref="NhAiToolConcurrencyPartition"/>.
+    /// </summary>
     public int MaxConcurrency { get; init; } = 1;
+
     public int MaxInputBytes { get; init; } = 65_536;
     public int MaxResultBytes { get; init; } = 65_536;
     public NhAiDataClassification DataClassification { get; init; } = NhAiDataClassification.Internal;

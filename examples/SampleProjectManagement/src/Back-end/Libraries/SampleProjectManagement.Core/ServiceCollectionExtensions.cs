@@ -63,6 +63,12 @@ public static class ServiceCollectionExtensions
                 ServiceLifetime.Singleton);
             ai.UseBudgetManager<ProjectAiInMemoryBudgetManager>(
                 ServiceLifetime.Singleton);
+            // Each tenant gets its own MaxConcurrency bound per tool in this process, so one
+            // tenant's in-flight calls never refuse another tenant's. Choose
+            // NhAiToolConcurrencyPartition.Tool only when the bound protects a resource that
+            // every tenant shares.
+            ai.UseInProcessConcurrencyLimiter(options =>
+                options.Partition = NhAiToolConcurrencyPartition.ToolAndTenant);
             ai.AddVerifier<ProjectAiStatusVerifier>();
             ai.UseAuthoritativeExecutionEvidenceValidator<ProjectAiStatusApprovalEvidenceValidator>();
             ai.AddContextSource<ProjectAiContextSource>();

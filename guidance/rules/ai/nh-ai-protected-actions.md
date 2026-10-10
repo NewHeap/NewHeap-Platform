@@ -5,7 +5,7 @@ area: backend
 reference: ai-protected-actions
 summary: "Route material AI actions through scoped capabilities, canonical proposals, bound approvals, budgets, concurrency, idempotency, and independent verification before reporting success."
 sample-cases: ["SPM-224", "SPM-240"]
-public-symbols: ["INhAiApprovalEvidenceProvider", "INhAiApprovalValidator", "INhAiAuthoritativeExecutionEvidenceValidator", "INhAiBudgetManager", "INhAiCapabilityResolver", "INhAiEffectPolicy", "INhAiIdempotencyManager", "INhAiProposalFactory", "INhAiToolConcurrencyLimiter", "INhAiToolVerifier", "NhAiActionBudget", "NhAiApproval", "NhAiApprovalEvidence", "NhAiApprovalRequirement", "NhAiApprovalRole", "NhAiAuditRecord", "NhAiAuthoritativeExecutionEvidence", "NhAiCapabilityGrant", "NhAiCapabilityResolution", "NhAiEffectDecisionKind", "NhAiIdempotencyRequest", "NhAiIdempotencySupport", "NhAiProposal", "NhAiProposalCreateRequest", "NhAiToolEffect", "NhAiToolFailureCodes", "NhAiVerificationResult"]
+public-symbols: ["INhAiApprovalEvidenceProvider", "INhAiApprovalValidator", "INhAiAuthoritativeExecutionEvidenceValidator", "INhAiBudgetManager", "INhAiCapabilityResolver", "INhAiEffectPolicy", "INhAiIdempotencyManager", "INhAiProposalFactory", "INhAiToolConcurrencyLimiter", "INhAiToolVerifier", "NhAiActionBudget", "NhAiApproval", "NhAiApprovalEvidence", "NhAiApprovalRequirement", "NhAiApprovalRole", "NhAiAuditRecord", "NhAiAuthoritativeExecutionEvidence", "NhAiCapabilityGrant", "NhAiCapabilityResolution", "NhAiEffectDecisionKind", "NhAiIdempotencyRequest", "NhAiIdempotencySupport", "NhAiInProcessConcurrencyOptions", "NhAiProposal", "NhAiProposalCreateRequest", "NhAiToolConcurrencyPartition", "NhAiToolEffect", "NhAiToolFailureCodes", "NhAiVerificationResult"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -82,6 +82,16 @@ idempotency lease. Use a durable application implementation of
 across retry boundaries. The in-memory sample manager is executable evidence,
 not durable production storage.
 
+The default `INhAiToolConcurrencyLimiter` admits at most `MaxConcurrency`
+concurrent invocations per tool ID and version, per process and per
+`NhAiInvocationContext.TenantId`. A tenant that fills a tool's bound never
+refuses another tenant's call; invocations without a tenant share one partition.
+A refusal is the expected `ai-tool-concurrency-limited` result, not an exception.
+State the partition with `UseInProcessConcurrencyLimiter` and select
+`NhAiToolConcurrencyPartition.Tool` only when the bound protects a resource that
+every tenant shares. Register a distributed limiter through
+`UseConcurrencyLimiter<TLimiter>()` when several instances must share a bound.
+
 Run the configured verifier after a successful application-service result. The
 verifier should re-read the actual resource or remote system within the same
 authorized scope. If verification disagrees, preserve the execution report as
@@ -96,6 +106,8 @@ and evidence references—never arguments, results, prompts, or credentials.
 - Retrying a side effect without a stable idempotency key and fencing contract.
 - Trusting the tool response as independent verification.
 - Using the in-process concurrency limiter or sample memory store as distributed durability.
+- Sharing one tool concurrency bound across tenants when it does not protect a resource that every
+  tenant shares; one tenant's load would then refuse every other tenant's calls.
 - Logging proposal arguments, execution results, provider bodies, or retrieved content.
 - Declaring `NotRequired` approval, attesting `ApprovalValidated = true` before validation, or
   registering an always-acquiring lease manager to bypass governance for a tool whose
@@ -110,10 +122,11 @@ and evidence references—never arguments, results, prompts, or credentials.
 
 Exercise changed arguments, targets, constraints, budgets, expiry, agent
 self-approval, revoked or expired capabilities, omitted/denied budget reservation,
-concurrency saturation, duplicate and conflicting idempotency keys, fencing,
-verifier disagreement, timeout, and bounded results. Prove the application
-service executes once across a retry and that a verification failure remains
-distinguishable from an execution failure. For a consumer-authoritative tool,
+concurrency saturation within one tenant while another tenant stays admitted,
+duplicate and conflicting idempotency keys, fencing, verifier disagreement,
+timeout, and bounded results. Prove the application service executes once across
+a retry and that a verification failure remains distinguishable from an
+execution failure. For a consumer-authoritative tool,
 prove that an invalid or burned grant returns the typed denial receipt as failed
 `TaskResult<T>.Data` without executing, that a replayed key reaches the engine
 and returns the reconciled receipt while the Platform idempotency manager is

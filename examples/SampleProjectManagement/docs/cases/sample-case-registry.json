@@ -3135,16 +3135,18 @@
       "id": "SPM-224",
       "categoryId": "18",
       "title": "Approved and verified AI mutation",
-      "surface": "`NhAiProposal`, `NhAiApproval`, `INhAiAuthoritativeExecutionEvidenceValidator`, `INhAiCapabilityResolver`, `INhAiBudgetManager`, `INhAiIdempotencyManager`, `INhAiToolVerifier`, and the shared invocation pipeline",
-      "outcome": "An agent can change one project status only inside its authorized division and narrow manage capability after authoritative approval and mandatory budget reservation; the same idempotency key cannot repeat or alter the side effect, and success is reported only after an independent status read verifies the result. Consumers may validate their existing authoritative approval and idempotency evidence into a bounded attestation without creating a second Platform proposal model, while all execution still passes through the shared invoker.",
+      "surface": "`NhAiProposal`, `NhAiApproval`, `INhAiAuthoritativeExecutionEvidenceValidator`, `INhAiCapabilityResolver`, `INhAiBudgetManager`, `INhAiIdempotencyManager`, `INhAiToolVerifier`, `INhAiToolConcurrencyLimiter` with `UseInProcessConcurrencyLimiter` and `NhAiToolConcurrencyPartition`, and the shared invocation pipeline",
+      "outcome": "An agent can change one project status only inside its authorized division and narrow manage capability after authoritative approval and mandatory budget reservation; the same idempotency key cannot repeat or alter the side effect, and success is reported only after an independent status read verifies the result. Consumers may validate their existing authoritative approval and idempotency evidence into a bounded attestation without creating a second Platform proposal model, while all execution still passes through the shared invoker. Tool concurrency is bounded per tenant: while one tenant's search fills its `MaxConcurrency`, another tenant's search runs, and a further search from the first tenant is refused with `ai-tool-concurrency-limited` before it reaches the read service.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs",
         "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs",
         "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
         "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/ServiceCollectionExtensions.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiApprovalTests.cs",
-        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiExecutionGuardTests.cs"
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiExecutionGuardTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolConcurrencyTests.cs"
       ]
     },
     {

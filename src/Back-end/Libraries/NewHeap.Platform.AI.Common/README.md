@@ -9,6 +9,13 @@ fails with a clear configuration error. Tool catalogs may be registered as
 singletons or, when their tools depend on the current run, as scoped services;
 startup validation resolves them in a scope of its own.
 
+A tool's `MaxConcurrency` bounds its concurrent invocations per process. The
+default limiter keeps a separate bound per tool and tenant, so one tenant's load
+never refuses another tenant's call; invocations without a tenant share one
+bound. Use `UseInProcessConcurrencyLimiter` with
+`NhAiToolConcurrencyPartition.Tool` to share one bound across tenants, or
+`UseConcurrencyLimiter<TLimiter>()` for a limiter shared between instances.
+
 Provider-backed `IChatClient` instances remain consumer-owned. Register them as
 keyed services, then map stable application intent to those keys with
 `AddNewHeapPlatformAI` and `AddChatProfile`. Profiles declare capabilities,

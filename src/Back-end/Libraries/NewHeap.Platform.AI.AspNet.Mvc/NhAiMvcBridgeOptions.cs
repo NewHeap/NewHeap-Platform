@@ -17,7 +17,10 @@ public sealed class NhAiMvcBridgeToolDefaults
 
     public int MaxInputBytes { get; set; } = 16_384;
 
-    /// <summary>The number of concurrent calls per tool in this process.</summary>
+    /// <summary>
+    /// The number of concurrent calls per tool in this process. The default limiter keeps a
+    /// separate bound per tenant; see <see cref="NhAiToolConcurrencyPartition"/>.
+    /// </summary>
     public int MaxConcurrency { get; set; } = 16;
 }
 
