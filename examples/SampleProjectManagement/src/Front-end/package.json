@@ -45,13 +45,13 @@
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
-    "@angular/build": "^20.3.34",
-    "@angular/cli": "^20.3.34",
+    "@angular/build": "^20.3.39",
+    "@angular/cli": "^20.3.39",
     "@angular/compiler-cli": "20.3.32",
     "typescript": "~5.9.2"
   },
   "overrides": {
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "@hono/node-server": "2.1.0",
     "piscina": "^5.3.2"
   }
