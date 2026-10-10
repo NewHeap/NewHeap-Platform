@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.61",
   "backEnd": {
-    "hash": "8ca550aab063033504a8dbfd30141bca2fcd56051a8bd042ddf404f610347d3e",
-    "declarationCount": 6041,
+    "hash": "635ea68b5cbac10d09554ff4f2897baad2814d82f36cacd61d6a709c3baf58ef",
+    "declarationCount": 6042,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -22898,6 +22898,10 @@
         "declaration": "public bool RunMigrations { get; set; } = true;"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/FileStructureModelCacheKeyFactory.cs",
+        "declaration": "public object Create(DbContext context, bool designTime) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Core/FileStructureStorage/HashHelper.cs",
         "declaration": "public static class HashHelper {"
       },
@@ -23646,10 +23650,6 @@
         "declaration": "public override IReadOnlyList<MigrationCommand> Generate( IReadOnlyList<MigrationOperation> operations, IModel? model = null, MigrationsSqlGenerationOptions options = MigrationsSqlGenerationOptions.Default)"
       },
       {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlMediaModelCacheKeyFactory.cs",
-        "declaration": "public object Create(DbContext context, bool designTime) {"
-      },
-      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.PostgreSql/PostgreSqlMigrateDatabaseHostedService.cs",
         "declaration": "public PostgreSqlMigrateDatabaseHostedService( IServiceProvider serviceProvider, ILogger<PostgreSqlMigrateDatabaseHostedService> logger) {"
       },
@@ -23687,7 +23687,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/MigrateDatabaseHostedService.cs",
-        "declaration": "public MigrateDatabaseHostedService( IServiceProvider serviceProvider, ILogger<MigrateDatabaseHostedService> logger, FileStructureDbContextOptions dbContextOptions ) {"
+        "declaration": "public MigrateDatabaseHostedService( IServiceProvider serviceProvider, ILogger<MigrateDatabaseHostedService> logger ) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/MigrateDatabaseHostedService.cs",
@@ -23811,7 +23811,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Migrations/20260902133212_IndexSeekLookup.cs",
-        "declaration": "public partial class IndexSeekLookup : Migration {"
+        "declaration": "public partial class IndexSeekLookup : BaseMigration {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Migrations/20260902133212_IndexSeekLookup.cs",
@@ -23827,7 +23827,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Migrations/BaseMigration.cs",
-        "declaration": "public static string DefaultScheme { get; internal set; } = \"nhmedia\";"
+        "declaration": "public static string DefaultScheme { get; } = \"nhmedia\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/Migrations/FileStructureDbContextModelSnapshot.cs",
@@ -23864,6 +23864,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerFileStructureStorage.cs",
         "declaration": "protected override IQueryable<FolderEntity> WhereFolderPathAndName(IQueryable<FolderEntity> query, string? path, string? name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Media.FileStructureStorage.SqlServer/SqlServerMediaMigrationsSqlGenerator.cs",
+        "declaration": "public override IReadOnlyList<MigrationCommand> Generate( IReadOnlyList<MigrationOperation> operations, IModel? model = null, MigrationsSqlGenerationOptions options = MigrationsSqlGenerationOptions.Default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Media.Http/HttpContextExtensions.cs",

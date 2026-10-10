@@ -1,15 +1,13 @@
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure.Internal;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Migrations;
+using Microsoft.EntityFrameworkCore.Update;
 
-namespace NewHeap.Media.FileStructureStorage.PostgreSql;
+namespace NewHeap.Media.FileStructureStorage.SqlServer;
 
-#pragma warning disable EF1001 // Npgsql's SQL generator constructor requires its provider options.
-internal sealed class PostgreSqlMediaMigrationsSqlGenerator(
+internal sealed class SqlServerMediaMigrationsSqlGenerator(
     MigrationsSqlGeneratorDependencies dependencies,
-    INpgsqlSingletonOptions options) : NpgsqlMigrationsSqlGenerator(dependencies, options)
+    ICommandBatchPreparer commandBatchPreparer) : SqlServerMigrationsSqlGenerator(dependencies, commandBatchPreparer)
 {
     public override IReadOnlyList<MigrationCommand> Generate(
         IReadOnlyList<MigrationOperation> operations,
@@ -18,9 +16,8 @@ internal sealed class PostgreSqlMediaMigrationsSqlGenerator(
     {
         var schema = FileStructureModelCacheKeyFactory.GetSchema(Dependencies.CurrentContext.Context);
 
-        FileStructureMigrationSchema.Route(operations, schema, "\"nhmedia\"", Dependencies.SqlGenerationHelper);
+        FileStructureMigrationSchema.Route(operations, schema, "[nhmedia]", Dependencies.SqlGenerationHelper);
 
         return base.Generate(operations, model, options);
     }
 }
-#pragma warning restore EF1001

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NewHeap.Media.FileStructureStorage;
 using NewHeap.Media.FileStructureStorage.PostgreSql;
 using NewHeap.Media.FileStructureStorage.SqlServer;
 using NewHeap.Media.Modules;
@@ -31,7 +32,7 @@ public static class PostgreSqlServiceCollectionExtensions
         services.AddSingleton(options);
         services.AddDbContextPool<FileStructureDbContext>(opt =>
         {
-            opt.ReplaceService<IModelCacheKeyFactory, PostgreSqlMediaModelCacheKeyFactory>();
+            opt.ReplaceService<IModelCacheKeyFactory, FileStructureModelCacheKeyFactory>();
             opt.ReplaceService<IMigrationsSqlGenerator, PostgreSqlMediaMigrationsSqlGenerator>();
             opt.AddInterceptors(lookupHashInterceptor);
 

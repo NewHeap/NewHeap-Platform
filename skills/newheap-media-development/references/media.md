@@ -26,7 +26,7 @@ Resolve the media files of one view together. Collect the referenced file ids fi
 
 Keep relational media pages deterministic. Unsorted folder and search results use `Id`; requested file sorting appends `Id` as its final tie-breaker. Preserve that ordering before every `Skip` or `Take`, including when a sort key is absent, invalid, or equal for multiple files.
 
-Configure the PostgreSQL media schema through `FileStructureDbContextOptions.Scheme`. The provider applies it to the model, migration history, historical migration operations and lookup-hash backfills. Upgrade existing media databases with the provider migrations before serving media requests; retain file and folder records and let the migration recompute lookup hashes from their original paths and names.
+Configure the media schema through `FileStructureDbContextOptions.Scheme` for either relational provider. Both providers apply it to the model, migration history and every historical migration operation, whether the startup migration (`RunMigrations`), a direct `MigrateAsync` or a generated migration script runs through the registered `FileStructureDbContext`; the PostgreSQL provider also applies it to its lookup-hash backfills. Each configured schema gets its own EF model. Upgrade existing media databases with the provider migrations before serving media requests; retain file and folder records and let the PostgreSQL migration recompute lookup hashes from their original paths and names.
 
 ## Avoid
 
@@ -45,6 +45,8 @@ For file lookups, count the database round trips of one call with a command inte
 For folder creation and renaming through `IMediaLibraryService`, verify that directory separators and surrounding whitespace are removed while internal spaces and the existing folder lookup remain intact. Names that normalize to empty must return a failed result without storage calls or folder events.
 
 Exercise upgrades from the initial PostgreSQL media migration with populated files and folders in both the default and a custom schema, including long paths. Verify folder listing, existing-file lookup, new uploads and renames after migration. Check forward and rollback scripts with quoted schema identifiers and verify that different configured schemas do not share an EF model.
+
+Exercise the SQL Server upgrade from the `IndexedMediaLibraryLookups` migration with populated files and folders in both the default and a custom schema, through both the startup migration and a direct `MigrateAsync`. Verify that no migration remains pending, a custom schema creates no `nhmedia` schema, existing folders and files resolve, and new uploads and renames succeed. Check forward and full rollback scripts with quoted schema identifiers.
 
 ## Optional source evidence
 

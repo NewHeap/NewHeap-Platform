@@ -1,8 +1,11 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NewHeap.Media.FileStructureStorage;
 using NewHeap.Media.FileStructureStorage.SqlServer;
 using NewHeap.Media.Modules;
 
@@ -28,7 +31,11 @@ public static class HostBuilderExtensions
         
         services.AddDbContextPool<FileStructureDbContext>(opt =>
         {
-            if (options.RunMigrations)
+            opt.ReplaceService<IModelCacheKeyFactory, FileStructureModelCacheKeyFactory>();
+            opt.ReplaceService<IMigrationsSqlGenerator, SqlServerMediaMigrationsSqlGenerator>();
+
+            // The checked-in snapshot uses the default schema; a custom schema is an intentional model difference.
+            if (options.RunMigrations || options.Scheme != FileStructureModelCacheKeyFactory.DefaultSchema)
             {
                 opt.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             }

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using NewHeap.Media;
 using NewHeap.Media.FileStructureStorage.SqlServer;
 using NewHeap.Media.FileStructureStorage.SqlServer.Entities;
@@ -106,6 +107,122 @@ public sealed class FileStructureStorageProviderTests
         var uploadedId = Guid.NewGuid();
         Assert.True((await storage.CreateFileAsync(new FileModel { Path = path, Name = "new.txt" }, uploadedId)).Success);
         Assert.Equal(uploadedId, (await storage.GetFileAsync(path, "new.txt", null))?.Id);
+        Assert.True((await storage.UpdateFileAsync(uploadedId, new FileModel { Path = path, Name = "renamed.txt" })).Success);
+        Assert.Equal(uploadedId, (await storage.GetFileAsync(path, "renamed.txt", null))?.Id);
+    }
+
+    [Theory]
+    [InlineData("nhmedia")]
+    [InlineData("media")]
+    [InlineData("media]archive")]
+    public async Task SqlServerMigrationScriptsUseTheConfiguredSchema(string schema)
+    {
+        const string indexedLookupsMigration = "20260606154446_IndexedMediaLibraryLookups";
+        const string indexSeekLookupMigration = "20260902133212_IndexSeekLookup";
+        var services = new ServiceCollection();
+        services.AddMediaSqlServerStorage("Server=localhost;Database=nh_media", options =>
+        {
+            options.Scheme = schema;
+            options.RunMigrations = false;
+        });
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<FileStructureDbContext>();
+        var migrator = context.GetService<IMigrator>();
+        var quotedSchema = context.GetService<ISqlGenerationHelper>().DelimitIdentifier(schema);
+
+        var script = migrator.GenerateScript();
+        var upgrade = migrator.GenerateScript(indexedLookupsMigration, indexSeekLookupMigration);
+        var rollback = migrator.GenerateScript(indexSeekLookupMigration, "0");
+
+        Assert.Equal(schema, context.Model.GetDefaultSchema());
+        Assert.Contains($"CREATE TABLE {quotedSchema}.[Files]", script);
+        Assert.Contains($"DROP INDEX [IX_Folders_PathLookupHash] ON {quotedSchema}.[Folders]", upgrade);
+        Assert.Contains($"ALTER TABLE {quotedSchema}.[Files] DROP COLUMN [PathNameLookupHash]", upgrade);
+        Assert.Contains($"ALTER TABLE {quotedSchema}.[Files] ADD [PathNameLookup] AS", upgrade);
+        Assert.Contains($"CREATE INDEX [IX_Folders_PathLookup] ON {quotedSchema}.[Folders]", upgrade);
+        Assert.Contains($"INSERT INTO {quotedSchema}.[_migrations]", upgrade);
+        Assert.Contains($"DROP INDEX [IX_Files_PathNameLookup] ON {quotedSchema}.[Files]", rollback);
+        Assert.Contains($"CREATE INDEX [IX_Folders_PathLookupHash] ON {quotedSchema}.[Folders]", rollback);
+        Assert.Contains($"DROP TABLE {quotedSchema}.[Files]", rollback);
+        if (schema != "nhmedia")
+        {
+            Assert.DoesNotContain("[nhmedia]", script);
+            Assert.DoesNotContain("[nhmedia]", rollback);
+        }
+    }
+
+    [Theory]
+    [InlineData("nhmedia", true)]
+    [InlineData("media", true)]
+    [InlineData("media", false)]
+    public async Task SqlServerUpgradesLookupColumnsInTheConfiguredSchema(string schema, bool migrateOnStartup)
+    {
+        const string indexedLookupsMigration = "20260606154446_IndexedMediaLibraryLookups";
+        await using var database = new MsSqlBuilder(
+            "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04").Build();
+        await database.StartAsync();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddMediaSqlServerStorage(database.GetConnectionString(), options =>
+        {
+            options.Scheme = schema;
+            options.RunMigrations = migrateOnStartup;
+        });
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<FileStructureDbContext>();
+        var qualifiedSchema = context.GetService<ISqlGenerationHelper>().DelimitIdentifier(schema);
+        var folderId = Guid.NewGuid();
+        var fileId = Guid.NewGuid();
+        const string path = "/Archive";
+
+        // Recreate a database that was last migrated before the lookup-column upgrade.
+        await context.Database.MigrateAsync(indexedLookupsMigration);
+        await context.Database.OpenConnectionAsync();
+        try
+        {
+            await using var command = context.Database.GetDbConnection().CreateCommand();
+            command.CommandText = $"""
+                INSERT INTO {qualifiedSchema}.[Folders] ([Id], [Path], [Name])
+                VALUES (@folderId, N'/', N'Archive');
+                INSERT INTO {qualifiedSchema}.[Files] ([Id], [Path], [Name], [CreationDateTime], [Tags])
+                VALUES (@fileId, @path, N'Existing.TXT', SYSDATETIMEOFFSET(), N'["archive"]');
+                """;
+            AddParameter(command, "folderId", folderId);
+            AddParameter(command, "fileId", fileId);
+            AddParameter(command, "path", path);
+            await command.ExecuteNonQueryAsync();
+        }
+        finally
+        {
+            await context.Database.CloseConnectionAsync();
+        }
+
+        if (migrateOnStartup)
+        {
+            var migration = Assert.IsAssignableFrom<BackgroundService>(
+                Assert.Single(provider.GetServices<IHostedService>()));
+            await migration.StartAsync(CancellationToken.None);
+            await migration.ExecuteTask!;
+        }
+        else
+        {
+            Assert.Empty(provider.GetServices<IHostedService>());
+            await context.Database.MigrateAsync();
+        }
+
+        Assert.Empty(await context.Database.GetPendingMigrationsAsync());
+        Assert.Contains("20260902133212_IndexSeekLookup", await context.Database.GetAppliedMigrationsAsync());
+        var defaultSchemaId = await context.Database
+            .SqlQuery<int?>($"SELECT SCHEMA_ID(N'nhmedia') AS [Value]")
+            .SingleAsync();
+        Assert.Equal(schema == "nhmedia", defaultSchemaId is not null);
+        var storage = scope.ServiceProvider.GetRequiredService<IFileStructureStorage>();
+        Assert.Equal(folderId, (await storage.GetFolderReferenceAsync(path)).Id);
+        Assert.Equal(fileId, (await storage.GetFileAsync(path, "Existing.TXT", null))?.Id);
+        var uploadedId = Guid.NewGuid();
+        Assert.True((await storage.CreateFileAsync(new FileModel { Path = path, Name = "new.txt" }, uploadedId)).Success);
         Assert.True((await storage.UpdateFileAsync(uploadedId, new FileModel { Path = path, Name = "renamed.txt" })).Success);
         Assert.Equal(uploadedId, (await storage.GetFileAsync(path, "renamed.txt", null))?.Id);
     }

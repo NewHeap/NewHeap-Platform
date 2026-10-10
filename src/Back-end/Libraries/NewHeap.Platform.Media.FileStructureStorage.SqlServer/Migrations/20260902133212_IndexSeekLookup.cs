@@ -5,54 +5,54 @@
 namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 {
     /// <inheritdoc />
-    public partial class IndexSeekLookup : Migration
+    public partial class IndexSeekLookup : BaseMigration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropIndex(
                 name: "IX_Folders_PathLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders");
 
             migrationBuilder.DropIndex(
                 name: "IX_Folders_PathNameLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders");
 
             migrationBuilder.DropIndex(
                 name: "IX_Files_PathLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files");
 
             migrationBuilder.DropIndex(
                 name: "IX_Files_PathNameLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files");
 
             migrationBuilder.DropColumn(
                 name: "PathLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders");
 
             migrationBuilder.DropColumn(
                 name: "PathNameLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders");
 
             migrationBuilder.DropColumn(
                 name: "PathLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files");
 
             migrationBuilder.DropColumn(
                 name: "PathNameLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files");
 
             migrationBuilder.AddColumn<string>(
                 name: "PathLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders",
                 type: "NVARCHAR(256)",
                 nullable: true,
@@ -61,7 +61,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 
             migrationBuilder.AddColumn<string>(
                 name: "PathNameLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders",
                 type: "NVARCHAR(256)",
                 nullable: true,
@@ -70,7 +70,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 
             migrationBuilder.AddColumn<string>(
                 name: "PathLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files",
                 type: "NVARCHAR(256)",
                 nullable: true,
@@ -79,7 +79,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 
             migrationBuilder.AddColumn<string>(
                 name: "PathNameLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files",
                 type: "NVARCHAR(256)",
                 nullable: true,
@@ -88,28 +88,28 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_Folders_PathLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders",
                 column: "PathLookup")
                 .Annotation("SqlServer:Include", new[] { "Id" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Folders_PathNameLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders",
                 column: "PathNameLookup")
                 .Annotation("SqlServer:Include", new[] { "Id" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Files_PathLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files",
                 column: "PathLookup")
                 .Annotation("SqlServer:Include", new[] { "Id" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Files_PathNameLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files",
                 column: "PathNameLookup")
                 .Annotation("SqlServer:Include", new[] { "Id" });
@@ -120,47 +120,47 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
         {
             migrationBuilder.DropIndex(
                 name: "IX_Folders_PathLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders");
 
             migrationBuilder.DropIndex(
                 name: "IX_Folders_PathNameLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders");
 
             migrationBuilder.DropIndex(
                 name: "IX_Files_PathLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files");
 
             migrationBuilder.DropIndex(
                 name: "IX_Files_PathNameLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files");
 
             migrationBuilder.DropColumn(
                 name: "PathLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders");
 
             migrationBuilder.DropColumn(
                 name: "PathNameLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders");
 
             migrationBuilder.DropColumn(
                 name: "PathLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files");
 
             migrationBuilder.DropColumn(
                 name: "PathNameLookup",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files");
 
             migrationBuilder.AddColumn<byte[]>(
                 name: "PathLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders",
                 type: "binary(32)",
                 nullable: true,
@@ -169,7 +169,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 
             migrationBuilder.AddColumn<byte[]>(
                 name: "PathNameLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders",
                 type: "binary(32)",
                 nullable: true,
@@ -178,7 +178,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 
             migrationBuilder.AddColumn<byte[]>(
                 name: "PathLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files",
                 type: "binary(32)",
                 nullable: true,
@@ -187,7 +187,7 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 
             migrationBuilder.AddColumn<byte[]>(
                 name: "PathNameLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files",
                 type: "binary(32)",
                 nullable: true,
@@ -196,28 +196,28 @@ namespace NewHeap.Media.FileStructureStorage.SqlServer.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_Folders_PathLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders",
                 column: "PathLookupHash")
                 .Annotation("SqlServer:Include", new[] { "Id" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Folders_PathNameLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Folders",
                 column: "PathNameLookupHash")
                 .Annotation("SqlServer:Include", new[] { "Id" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Files_PathLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files",
                 column: "PathLookupHash")
                 .Annotation("SqlServer:Include", new[] { "Id" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Files_PathNameLookupHash",
-                schema: "nhmedia",
+                schema: DefaultScheme,
                 table: "Files",
                 column: "PathNameLookupHash")
                 .Annotation("SqlServer:Include", new[] { "Id" });
