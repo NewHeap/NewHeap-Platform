@@ -1,3 +1,5 @@
+using NewHeap.Platform.AI.Chat.Collaboration;
+
 namespace NewHeap.Platform.AI.Chat.Runtime;
 
 /// <summary>
@@ -68,6 +70,11 @@ internal sealed record NhAssistantConversationView(
     public string Role { get; init; } = NhAssistantParticipantRoles.Owner;
 
     /// <summary>
+    /// One of the values in <see cref="NhAssistantConversationKinds"/>.
+    /// </summary>
+    public string Kind { get; init; } = NhAssistantConversationKinds.Chat;
+
+    /// <summary>
     /// The caller's read position; the latest sequence when read state was never tracked.
     /// </summary>
     public int LastReadSequence { get; init; }
@@ -111,6 +118,25 @@ internal sealed record NhAssistantMessageView(
     /// The writer of a user message; the owner for user messages from before sharing.
     /// </summary>
     public string? AuthorActorId { get; init; }
+
+    /// <summary>
+    /// One of the values in <see cref="NhAssistantMessageAuthorKinds"/> for a user message, or
+    /// <see langword="null"/> for the agent's messages.
+    /// </summary>
+    public string? AuthorKind
+    {
+        get
+        {
+            if (!string.Equals(Role, NhAssistantMessageRoles.User, StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            return AuthorActorId?.StartsWith(NhAssistantSpeakers.TriggerActorPrefix, StringComparison.Ordinal) == true
+                ? NhAssistantMessageAuthorKinds.Trigger
+                : NhAssistantMessageAuthorKinds.Person;
+        }
+    }
 }
 
 internal abstract record NhAssistantPartView;
@@ -125,7 +151,18 @@ internal sealed record NhAssistantToolCallPartView(
     string Status,
     string? ArgumentsPreview,
     string? ResultPreview,
-    string? ResultCode) : NhAssistantPartView;
+    string? ResultCode) : NhAssistantPartView
+{
+    /// <summary>
+    /// Whose rights the call used: the person's own, delegated from the initiator, or the agent's grant.
+    /// </summary>
+    public NhAiGrantSource GrantSource { get; init; }
+
+    /// <summary>
+    /// The result came from the agent's own grant and the viewer may not see it.
+    /// </summary>
+    public bool Restricted { get; init; }
+}
 
 internal sealed record NhAssistantApprovalView(
     Guid ApprovalId,

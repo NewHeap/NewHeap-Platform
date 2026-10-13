@@ -1,3 +1,4 @@
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
@@ -145,9 +146,69 @@ public sealed class NhAiChatExecutionTests
         Assert.Equal(NhAiOutcomeKind.DependencyUnavailable, usage.Outcome);
     }
 
+    [Fact]
+    public async Task Retry_eligible_profile_retries_a_rate_limited_model_call()
+    {
+        var client = new FlakyChatClient(HttpStatusCode.TooManyRequests, failures: 1);
+        var services = CreateServices(client, new NhAiCapturedUsageSink(), retryEligible: true);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var result = await scope.ServiceProvider
+            .GetRequiredService<INhAiChatExecutor>()
+            .GetResponseAsync(CreateRequest("retry-prompt"));
+
+        Assert.True(result.Success);
+        Assert.Equal(2, client.Calls);
+    }
+
+    [Theory]
+    [InlineData(true, HttpStatusCode.BadRequest)]
+    [InlineData(false, HttpStatusCode.ServiceUnavailable)]
+    public async Task Model_calls_are_not_retried_for_client_errors_or_ineligible_profiles(
+        bool retryEligible,
+        HttpStatusCode status)
+    {
+        var client = new FlakyChatClient(status, failures: 1);
+        var services = CreateServices(client, new NhAiCapturedUsageSink(), retryEligible);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var result = await scope.ServiceProvider
+            .GetRequiredService<INhAiChatExecutor>()
+            .GetResponseAsync(CreateRequest("retry-prompt"));
+
+        Assert.False(result.Success);
+        Assert.Equal(1, client.Calls);
+    }
+
+    [Fact]
+    public async Task Streaming_retries_a_server_error_before_the_first_update()
+    {
+        var client = new FlakyChatClient(HttpStatusCode.ServiceUnavailable, failures: 1);
+        var services = CreateServices(client, new NhAiCapturedUsageSink(), retryEligible: true);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var start = await scope.ServiceProvider
+            .GetRequiredService<INhAiChatExecutor>()
+            .StartStreamingAsync(CreateRequest("retry-stream"));
+
+        var text = string.Empty;
+        await foreach (var update in start.Data.Updates)
+        {
+            text += update.Text;
+        }
+        var completion = await start.Data.Completion;
+
+        Assert.True(completion.Success);
+        Assert.Equal("recovered", text);
+        Assert.Equal(2, client.Calls);
+    }
+
     private static ServiceCollection CreateServices(
         IChatClient client,
-        INhAiUsageSink usageSink)
+        INhAiUsageSink usageSink,
+        bool retryEligible = false)
     {
         var services = new ServiceCollection();
         services.AddKeyedSingleton("project-model", client);
@@ -159,9 +220,58 @@ public sealed class NhAiChatExecutionTests
                 .RequireCapabilities(NhAiModelCapability.Chat)
                 .PermitDataClassifications(NhAiDataClassification.Internal)
                 .WithStreaming(NhAiStreamingPolicy.Allowed)
-                .WithBudget(2_000, 1_000, 4, 1m))
+                .WithBudget(2_000, 1_000, 4, 1m)
+                .AllowSafeRetry(retryEligible))
             .UseBudgetManager<NhAiTestBudgetManager>());
         return services;
+    }
+
+    /// <summary>
+    /// Fails the first <c>failures</c> calls with an HTTP status, then answers "recovered".
+    /// </summary>
+    private sealed class FlakyChatClient(HttpStatusCode status, int failures) : IChatClient
+    {
+        public int Calls { get; private set; }
+
+        public Task<ChatResponse> GetResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            if (Calls <= failures)
+            {
+                throw new HttpRequestException("provider failure", null, status);
+            }
+
+            return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, "recovered")));
+        }
+
+        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            await Task.Yield();
+            if (Calls <= failures)
+            {
+                throw new HttpRequestException("provider failure", null, status);
+            }
+
+            yield return new ChatResponseUpdate(ChatRole.Assistant, "recovered");
+        }
+
+        public object? GetService(Type serviceType, object? serviceKey = null)
+        {
+            return serviceKey is null && serviceType.IsInstanceOfType(this)
+                ? this
+                : null;
+        }
+
+        public void Dispose()
+        {
+        }
     }
 
     private static NhAiChatRequest CreateRequest(string prompt)

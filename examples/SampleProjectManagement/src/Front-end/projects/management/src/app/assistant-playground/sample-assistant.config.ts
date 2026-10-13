@@ -63,6 +63,25 @@ export function sampleAssistantAccessToken(): string | null {
   return inject(SampleAuthService).getAuthorization()?.token || null;
 }
 
+/**
+ * The active division of the session, which the API's access policy and the project tools need,
+ * like the `X-NH-ActiveDivisionId` header that the NewHeap HTTP interceptor adds to other calls.
+ */
+export function sampleAssistantRequestHeaders(): Record<string, string> | null {
+  const divisionId = inject(SampleAuthService).getAuthorization()?.activeDivision?.id;
+  return divisionId ? { 'X-NH-ActiveDivisionId': divisionId } : null;
+}
+
+/**
+ * The active division for the live-update hub. Browsers send no custom headers with WebSockets, so
+ * the division travels as `divisionId`, which the NewHeap JWT handler copies to
+ * `X-NH-ActiveDivisionId` on `/hub` paths before the hub's access policy runs.
+ */
+export function sampleAssistantHubQueryParameters(): Record<string, string> | null {
+  const divisionId = inject(SampleAuthService).getAuthorization()?.activeDivision?.id;
+  return divisionId ? { divisionId } : null;
+}
+
 /** Separates the portal's browser UI pointers by account; no token or page hints are stored. */
 export function sampleAssistantStateScope(): string | null {
   const userId = inject(SampleAuthService).getAuthorization()?.user?.id;
@@ -114,15 +133,18 @@ export const SAMPLE_ASSISTANT_PUSH: NhAssistantPushConfig = {
 };
 
 /**
- * Registers the assistant for the management portal: the `/api/assistant` endpoints,
- * the NewHeap session token, the page context, the permission-based access policy, live
- * updates through the `/hub/assistant` hub the server reports, Web Push and the sample icons.
+ * Registers the assistant for the management portal: the `/api/assistant` endpoints, the
+ * NewHeap session token and active division, the page context, the permission-based access
+ * policy, live updates over WebSockets through the `/hub/assistant` hub the server reports, Web
+ * Push and the sample icons.
  */
 export function provideSampleAssistant(overrides: Partial<NhAssistantConfig> = {}): EnvironmentProviders {
   return makeEnvironmentProviders([
     provideNhAssistant({
       apiBaseUrl: '/api/assistant',
       getAccessToken: sampleAssistantAccessToken,
+      getRequestHeaders: sampleAssistantRequestHeaders,
+      getHubQueryParameters: sampleAssistantHubQueryParameters,
       getPageContext: sampleAssistantPageContext,
       getStateScope: sampleAssistantStateScope,
       accessPolicy: SampleAssistantAccessPolicy,

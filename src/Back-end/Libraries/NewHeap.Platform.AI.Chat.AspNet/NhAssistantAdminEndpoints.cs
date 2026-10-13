@@ -95,6 +95,13 @@ internal static class NhAssistantAdminEndpoints
             .Produces<NhAssistantAdminAgentDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapPost("agents/{id}/kill-switch", SetKillSwitchAsync)
+            .WithName("NhAssistantAdminSetAgentKillSwitch")
+            .WithSummary("Stop or resume the runs of an agent")
+            .WithDescription("Engaging the kill switch disables the agent, rejects its triggers, cancels its active runs and keeps its approved proposals from executing. Releasing it enables the agent again; proposals that waited are executed then.")
+            .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantKillSwitchDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         admin.MapDelete("agents/{id}", DeleteAgentAsync)
             .WithName("NhAssistantAdminDeleteAgent")
             .WithSummary("Delete an agent")
@@ -335,6 +342,29 @@ internal static class NhAssistantAdminEndpoints
         }
         var reset = await administration.ResetAsync(id, actor, httpContext.RequestAborted);
         return reset.Success ? Json(ToDto(reset.Data!), Context.NhAssistantAdminAgentDto) : Failure(reset);
+    }
+
+    private static async Task<IResult> SetKillSwitchAsync(string id, HttpContext httpContext)
+    {
+        var actor = await ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return ContextUnavailable();
+        }
+        var body = await ReadAsync(
+            httpContext,
+            AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantKillSwitchRequest);
+        if (body?.Engaged is not { } engaged)
+        {
+            return Validation();
+        }
+
+        // Resolved here: hosts without agent runs have no background operations to cancel.
+        var killSwitch = httpContext.RequestServices.GetRequiredService<AgentRuns.NhAssistantKillSwitch>();
+        var result = await killSwitch.SetAsync(id, engaged, actor, httpContext.RequestAborted);
+        return result.Success
+            ? Json(result.Data!, AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantKillSwitchDto)
+            : Failure(result);
     }
 
     private static async Task<IResult> DeleteAgentAsync(string id, HttpContext httpContext, NhAssistantAgentAdministration administration)

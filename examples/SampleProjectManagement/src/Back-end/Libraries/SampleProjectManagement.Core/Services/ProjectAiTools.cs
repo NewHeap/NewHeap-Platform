@@ -16,6 +16,24 @@ public sealed class ProjectAiTools(
     public const string DivisionScopeKey = "division-id";
     public const string ReadCapability = "projects-read";
     public const string ManageCapability = "projects-manage";
+    public const string ChangeStatusToolId = "projects.change-status";
+
+    /// <summary>
+    /// The stable code of a call whose authorized context has no active division. The model
+    /// receives it as <c>{"success":false,"code":"project-division-scope-missing","message":...}</c>.
+    /// </summary>
+    public const string DivisionScopeMissingCode = "project-division-scope-missing";
+
+    /// <summary>
+    /// The policy a person needs to change a project status, and so to approve an agent's status
+    /// proposal. The API registers it as active-division access with the manage permission.
+    /// </summary>
+    public const string ManagePolicy = "app.active-division.project.manage";
+
+    /// <summary>
+    /// The policy a person needs to see projects of the active division.
+    /// </summary>
+    public const string ViewPolicy = "app.active-division.project.view";
     public const string ApplyStatusReceiptToolId = "projects.apply-status-receipt";
     public const string IssueStatusApprovalToolId = "projects.issue-status-approval";
     public static readonly TimeSpan StatusApprovalLifetime = TimeSpan.FromMinutes(5);
@@ -36,6 +54,7 @@ public sealed class ProjectAiTools(
             || !Guid.TryParse(divisionValue, out var divisionId))
         {
             return TaskResult<IReadOnlyList<ProjectAiSearchItem>>.Failed(
+                DivisionScopeMissingCode,
                 "The authorized AI invocation context has no active division.");
         }
 
@@ -56,7 +75,12 @@ public sealed class ProjectAiTools(
         Approval = NhAiApprovalRequirement.Required,
         Idempotency = NhAiIdempotencySupport.Required,
         VerifierId = ProjectAiStatusVerifier.VerifierId,
+        // The intake reviewer may propose status changes for projects nobody asked it about.
+        // The agent registration grants the tool as well; every proposal still waits for a
+        // project approver who satisfies ManagePolicy.
+        AllowAgentGrant = true,
         RequiredCapabilities = new[] { ManageCapability })]
+    [Authorize(Policy = ManagePolicy)]
     [Description("Change one project status in the authorized active division after bound approval.")]
     public Task<TaskResult<ProjectAiStatusChangeReport>> ChangeStatusAsync(
         ProjectAiStatusChangeInput input,
@@ -68,6 +92,7 @@ public sealed class ProjectAiTools(
         {
             return Task.FromResult(
                 TaskResult<ProjectAiStatusChangeReport>.Failed(
+                    DivisionScopeMissingCode,
                     "The authorized AI invocation context has no active division."));
         }
 
@@ -102,7 +127,7 @@ public sealed class ProjectAiTools(
             || !Guid.TryParse(divisionValue, out var divisionId))
         {
             return Task.FromResult(TaskResult<ProjectAiStatusApprovalGrant>.Failed(
-                "project-division-scope-missing",
+                DivisionScopeMissingCode,
                 "The authorized AI invocation context has no active division."));
         }
 
@@ -142,6 +167,7 @@ public sealed class ProjectAiTools(
             || !Guid.TryParse(divisionValue, out var divisionId))
         {
             return TaskResult<ProjectAiStatusReceipt>.Failed(
+                DivisionScopeMissingCode,
                 "The authorized AI invocation context has no active division.");
         }
 

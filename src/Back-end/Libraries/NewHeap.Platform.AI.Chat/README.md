@@ -36,6 +36,24 @@ one storage package: `NewHeap.Platform.AI.Chat.SqlServer` or
   optional `DailyModelCallBudgetPerActor`) and idempotency leases with expiry takeover
   and fencing. Outside assistant turns, budget and evidence requests are delegated to
   the implementations registered before the assistant.
+- **Agent runs** — `ConfigureAgent` lets an agent run on its own: started by an
+  application event (`AddTrigger<TEvent>`) or by a person on a subject, executed as a
+  background operation by `NewHeap.Platform.AI.Chat.AspNet`, in one thread per agent
+  and subject whose access an `INhAiSubjectAccessResolver` (`AddSubjectType`) decides.
+  Agent actions that change state become proposals under a named approval policy
+  (`AddApprovalPolicy`): inline proposals pause the run, deferred proposals wait for
+  people in the thread and the approval inbox and execute later as their own operation.
+  Tools opt in to grants beyond the initiator's rights with `AllowAgentGrant`.
+- **Consultations** — `AllowConsultation(subjectType, ...)` in `ConfigureAgent` lets other
+  assistants consult the agent about a subject through the generated tools
+  `assistant.consult.{agentId}.{subjectType}` (an answer in the same turn) and, with
+  `AllowRequests()`, `assistant.request.{agentId}.{subjectType}` (a run with the asker as
+  initiator). The asking agent selects them like any tool. A consultation uses the asking
+  person's rights only, reads the agent's memory, summaries and recent thread, writes no
+  message into the thread and turns every change into a deferred proposal for the
+  subject's approvers. `NhAssistantLimits.MaxConsultationDepth` and
+  `MaxConsultationsPerActorPerDay` bound it; the consulted agent's daily budget includes
+  its consultations.
 - **Audit** — a content-free relay records governed outcomes and forwards
   `NhAssistantAuditEvent` values (identifiers, versions, codes, timestamps) to
   `INhAssistantBusinessAuditSink` implementations.
@@ -45,8 +63,11 @@ one storage package: `NewHeap.Platform.AI.Chat.SqlServer` or
 The library owns the `nhai` schema: `AssistantConversation`, `AssistantMessage`,
 `AssistantToolInvocation`, `AssistantApproval`, `AssistantBudgetLedger`,
 `AssistantIdempotencyLease`, `AssistantAgent`, `AssistantAgentMcpServer`,
-`AssistantApplicationContext`, `AssistantMcpServer`, `AssistantMcpTool` and
-`AssistantUserPreference`. User messages keep their bounded page context in
+`AssistantApplicationContext`, `AssistantMcpServer`, `AssistantMcpTool`,
+`AssistantUserPreference`, and for agent runs `AssistantThread`, `AssistantRun`,
+`AssistantQueuedInput` and `AssistantSubjectMember`. Conversations have a kind: `chat`
+for a person's conversations and `thread` for agent threads, which never appear in a
+person's conversation list. User messages keep their bounded page context in
 `AssistantMessage.ClientContextJson`. Optional approval presentation is stored in
 `AssistantApproval.PresentationJson`, so old rows remain valid and the selected culture
 survives pause, reload and resume. Message parts are versioned JSON; tool arguments and
@@ -102,6 +123,9 @@ model call answers from the results gathered so far; `turn.completed` keeps
 `assistant-tool-call-limit-reached`. Replayed assistant messages carry a bounded
 `<tool-call-summary>` of their tool calls (tool id, short argument preview, outcome;
 never results), so a follow-up question knows what was already checked.
-`POST cancel` reaches turns in the same process only; an abandoned running turn is
-taken over after its deadline. See the `nh-ai-assistant` guidance rule and sample
+Chat turns are bound to their HTTP request: `POST cancel` reaches turns in the same
+process only, and an abandoned running turn is taken over after its deadline. Work that
+must outlive a request belongs in an agent run, which a background operation carries
+across restarts and nodes. Model calls retry a transient provider failure twice with
+backoff; a streamed answer is retried only before its first update. See the `nh-ai-assistant` guidance rule and sample
 cases SPM-245, SPM-246, SPM-247, SPM-250, SPM-251 and SPM-252.

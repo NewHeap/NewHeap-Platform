@@ -5,7 +5,7 @@ area: backend
 reference: ai-mcp-imports
 summary: "Treat every remote MCP server as untrusted and import only locally classified, namespaced, bounded tools through the shared NewHeap invocation pipeline."
 sample-cases: ["SPM-228"]
-public-symbols: ["INhAiMcpClientToolImporter", "NhAiMcpImportOptions", "NhAiMcpImportedToolPolicy", "INhAiMcpInvocationBinder", "NhAiMcpInvocationBindingContext", "NhAiMcpInvocationIdentity", "NhAiMcpRequestMetadata", "NhAiMcpInvocationBinding", "NhAiMcpInvocationBindingCodes", "AddNewHeapPlatformAIMcpInvocationBinder"]
+public-symbols: ["INhAiMcpClientToolImporter", "NhAiMcpImportOptions", "NhAiMcpImportedToolPolicy", "INhAiMcpInvocationBinder", "NhAiMcpInvocationBindingContext", "NhAiMcpInvocationIdentity", "NhAiMcpRequestMetadata", "NhAiMcpInvocationBinding", "NhAiMcpInvocationBindingCodes", "NhAiMcpImportedToolCodes", "NhAiToolResult", "AddNewHeapPlatformAIMcpInvocationBinder"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -32,6 +32,17 @@ concurrency, deadline, idempotency, result bounds, verification and content-free
 audit behavior. Runtime arguments are also bounded before the remote call.
 Imported tools cannot be re-exported through MCP. MCP export accepts only
 descriptor-bound governed functions from a `SharedInvoker` catalog.
+
+An imported function gives the agent the shared `NhAiToolResult` shape, with the
+remote `CallToolResult` (`content`, `structuredContent`, `isError`) as `data`.
+A remote result with `isError` fails with
+`NhAiMcpImportedToolCodes.RemoteError` (`ai-mcp-remote-tool-error`) and keeps that
+result as `data`, so the model reads what the server said; the safe `message`
+never copies remote text. Pipeline outcomes and a failed binding keep their own
+codes. The return schema is the shared shape around that result, with
+`structuredContent` typed by the remote output schema. Verifiers and result
+bounds still receive the typed `CallToolResult`, and the schema and contract
+hashes are unchanged.
 
 When the imported servers depend on the agent or the person of a run, import
 them when the run starts and expose the result through a consumer-owned
@@ -60,6 +71,7 @@ remote server keeps its own credentials and scope checks.
 
 - Passing every tool returned by `ListToolsAsync` directly to a model.
 - Using a remote description, annotation, resource or result as an instruction or capability grant.
+- Copying remote error text into a result message or log; it stays in the result's `data`.
 - Reusing a remote name without a per-server local namespace.
 - Invoking `McpClientTool` directly from an agent and bypassing NewHeap governance.
 - Allowing imported mutations to opt out of approval or idempotent mutations to omit idempotency.
@@ -84,5 +96,8 @@ must list only the generated tools. For an invocation binder, read `_meta` in
 the server's call handler: assert that it arrives only for the opted-in tool,
 that denied authorization or a missing approval never runs the binder, that
 oversized metadata fails with `ai-tool-input-too-large` before the remote call
-and that a failed binding is audited with its code. SPM-228 is the executable
+and that a failed binding is audited with its code. Call one tool that succeeds
+and one whose server returns `isError`: the first returns `success` with the remote
+result as `data`, the second `ai-mcp-remote-tool-error` with the remote result as
+`data` and the same code in the audit record. SPM-228 is the executable
 reference.

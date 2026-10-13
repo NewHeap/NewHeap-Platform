@@ -117,6 +117,25 @@ public sealed record NhAiAuditRecord(
     /// </summary>
     public string? AnnotationOverrides { get; init; }
 
+    public NhAiActorKind ActorKind { get; init; } = NhAiActorKind.Human;
+
+    /// <summary>
+    /// The agent the invocation ran for, when it ran for an agent.
+    /// </summary>
+    public string? AgentId { get; init; }
+
+    /// <summary>
+    /// The person or agent accountable for the invocation.
+    /// </summary>
+    public string? AccountableOwnerId { get; init; }
+
+    public string? ProposalId { get; init; }
+
+    /// <summary>
+    /// Whether an agent grant or the initiator's own rights allowed the invocation.
+    /// </summary>
+    public NhAiGrantSource GrantSource { get; init; } = NhAiGrantSource.None;
+
     public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.ToolActionAudit;
 }
 

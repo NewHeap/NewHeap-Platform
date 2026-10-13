@@ -11,7 +11,12 @@ public sealed class NhBackgroundOperationMutateModel
     public string OperationType { get; set; } = string.Empty;
     public int PayloadSchemaVersion { get; set; } = 1;
     public string PayloadJson { get; set; } = "{}";
-    public Guid OwnerUserId
+    public NhBackgroundOperationOwnerKind OwnerKind { get; set; } = NhBackgroundOperationOwnerKind.User;
+    public Guid? OwnerUserId
+    {
+        get; set;
+    }
+    public string? OwnerKey
     {
         get; set;
     }

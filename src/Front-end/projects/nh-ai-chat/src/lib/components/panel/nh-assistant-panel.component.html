@@ -129,7 +129,8 @@
             [currentActorId]="conversation()?.currentActorId ?? null"
             [canDecide]="store.canDecide()"
             [decisionOwner]="activeMemberName()"
-            (approvalDecision)="decide($event)" />
+            [approvalRights]="store.approvalRights()"
+            (approvalChoice)="decideApproval($event)" />
         }
       }
     </div>

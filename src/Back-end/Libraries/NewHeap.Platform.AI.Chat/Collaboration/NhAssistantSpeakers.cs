@@ -81,10 +81,21 @@ internal sealed class NhAssistantSpeakers
     }
 
     /// <summary>
-    /// The name of a person; people who left the conversation get a neutral label.
+    /// The author id of a message a trigger wrote into an agent thread.
+    /// </summary>
+    public const string TriggerActorPrefix = "trigger:";
+
+    /// <summary>
+    /// The name of a person; people who left the conversation get a neutral label, and messages of a
+    /// trigger are marked as events.
     /// </summary>
     public string NameOf(string actorId)
     {
+        if (actorId.StartsWith(TriggerActorPrefix, StringComparison.Ordinal))
+        {
+            return _dutch ? "Gebeurtenis" : "Event";
+        }
+
         return _names.TryGetValue(actorId, out var name)
             ? name
             : _dutch ? "Voormalige deelnemer" : "Former participant";

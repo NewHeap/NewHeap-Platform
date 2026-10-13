@@ -1,6 +1,7 @@
 using NewHeap.Platform.Mapping;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using NewHeap.Platform.AI;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Services;
@@ -34,6 +35,7 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
             .Build();
 
     private readonly INhEventPublisher _eventPublisher;
+    private readonly INhAiSubjectRetention? _subjectRetention;
 
     public ProjectService(
         IRepository<Project> repository,
@@ -42,10 +44,12 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
         IMapper mapper,
         IStringLocalizer<ProjectService> localizer,
         ValidationService validationService,
-        INhEventPublisher eventPublisher)
+        INhEventPublisher eventPublisher,
+        INhAiSubjectRetention? subjectRetention = null)
         : base(repository, dbLogService, logHelperService, mapper, localizer, validationService)
     {
         _eventPublisher = eventPublisher;
+        _subjectRetention = subjectRetention;
     }
 
     public IQueryable<Project> GetCollectionQuery(
@@ -178,7 +182,8 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
             await _eventPublisher.PublishAsync(new ProjectCreatedEvent
             {
                 ProjectId = result.Data.Id,
-                ProjectKey = result.Data.Key
+                ProjectKey = result.Data.Key,
+                CreatedByUserId = committedByUserId
             });
         }
         catch
@@ -319,6 +324,13 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
             ProjectKey = projectKey ?? ""
         });
         await transaction.CommitAsync(cancellationToken);
+
+        // SPM-276: the agent threads of a deleted project, with their memory and files, go too,
+        // once the deletion committed; a caller that owns the transaction forgets them itself.
+        if (_subjectRetention is not null && transaction.IsMyTransaction)
+        {
+            await _subjectRetention.ForgetSubjectAsync(ProjectSubjects.For(id), cancellationToken);
+        }
         return result;
     }
 

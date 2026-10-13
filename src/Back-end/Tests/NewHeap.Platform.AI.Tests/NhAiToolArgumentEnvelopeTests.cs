@@ -164,13 +164,14 @@ public sealed class NhAiToolArgumentEnvelopeTests
                 ]));
         var function = Assert.Single(catalog.CreateFunctions(scope.ServiceProvider));
 
-        var result = Assert.IsType<TaskResult<CallToolResult>>(
+        var result = Assert.IsType<JsonElement>(
             await function.InvokeAsync(new AIFunctionArguments { ["query"] = "roadmap" }));
 
         // Imported tools publish the remote schema, which has no input envelope: flat is their native shape.
         Assert.False(function.JsonSchema.GetProperty("properties").TryGetProperty("input", out _));
-        Assert.True(result.Success);
-        Assert.Contains("remote:roadmap", Assert.IsType<TextContentBlock>(Assert.Single(result.Data!.Content)).Text);
+        Assert.True(result.GetProperty("success").GetBoolean());
+        var content = Assert.Single(result.GetProperty("data").GetProperty("content").EnumerateArray());
+        Assert.Contains("remote:roadmap", content.GetProperty("text").GetString(), StringComparison.Ordinal);
         Assert.Equal(1, calls);
     }
 

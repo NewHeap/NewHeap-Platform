@@ -134,6 +134,7 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
             pending)
         {
             Role = access.Role,
+            Kind = conversation.Kind,
             LastReadSequence = access.LastReadSequence ?? lastMessageSequence,
             LastMessageSequence = lastMessageSequence,
             ActiveActorId = access.ActiveActorId,
@@ -153,7 +154,10 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
             invocation.Status,
             NhAssistantContent.Preview(invocation.ArgumentsJson, invocation.DataClassification),
             NhAssistantContent.ResultPreview(invocation.ResultJson, invocation.DataClassification),
-            invocation.ResultCode);
+            invocation.ResultCode)
+        {
+            GrantSource = invocation.GrantSource
+        };
     }
 
     public static NhAssistantApprovalView ToView(AssistantApproval approval)

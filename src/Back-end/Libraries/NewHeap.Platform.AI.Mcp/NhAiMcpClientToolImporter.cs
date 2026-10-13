@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.AI;
 using ModelContextProtocol;
@@ -44,6 +45,18 @@ public sealed record NhAiMcpImportOptions(
 {
     public int MaxInputSchemaBytes { get; init; } = 65_536;
     public int MaxOutputSchemaBytes { get; init; } = 65_536;
+}
+
+/// <summary>
+/// Stable result codes of imported MCP tools.
+/// </summary>
+public static class NhAiMcpImportedToolCodes
+{
+    /// <summary>
+    /// The remote tool ran and reported an execution error (<c>isError</c>). The remote result is
+    /// the failure's <c>data</c>, so the model can read what the server said.
+    /// </summary>
+    public const string RemoteError = "ai-mcp-remote-tool-error";
 }
 
 public interface INhAiMcpClientToolImporter
@@ -379,15 +392,19 @@ internal sealed record NhAiImportedMcpTool(
     }
 }
 
+/// <summary>
+/// The governed function of one imported MCP tool. Arguments keep the remote schema; the result is
+/// the shared <see cref="NhAiToolResult"/> shape with the remote <see cref="CallToolResult"/> as
+/// <c>data</c>, so a remote error reaches the model as <see cref="NhAiMcpImportedToolCodes.RemoteError"/>
+/// next to what the server returned.
+/// </summary>
 internal sealed class NhAiGovernedMcpClientFunction(
     NhAiImportedMcpTool imported,
     INhAiToolInvoker invoker,
     INhAiMcpInvocationBinder? binder = null) : AIFunction, INhAiGovernedAIFunction
 {
     private readonly JsonElement _inputSchema = JsonDocument.Parse(imported.InputSchema).RootElement.Clone();
-    private readonly JsonElement? _outputSchema = imported.OutputSchema == "{}"
-        ? null
-        : JsonDocument.Parse(imported.OutputSchema).RootElement.Clone();
+    private readonly JsonElement _returnSchema = CreateReturnSchema(imported.OutputSchema);
 
     public override string Name => $"mcp_{imported.Namespace}_{imported.Policy.Id}".Replace('-', '_');
 
@@ -397,7 +414,7 @@ internal sealed class NhAiGovernedMcpClientFunction(
 
     public override JsonElement JsonSchema => _inputSchema;
 
-    public override JsonElement? ReturnJsonSchema => _outputSchema;
+    public override JsonElement? ReturnJsonSchema => _returnSchema;
 
     public override JsonSerializerOptions JsonSerializerOptions => imported.Remote.JsonSerializerOptions;
 
@@ -409,7 +426,7 @@ internal sealed class NhAiGovernedMcpClientFunction(
             item => item.Key,
             item => item.Value,
             StringComparer.Ordinal);
-        return await invoker.InvokeAsync(
+        var outcome = await invoker.InvokeAsync(
             imported.Descriptor,
             remoteArguments,
             async (context, invocationCancellationToken) =>
@@ -441,10 +458,40 @@ internal sealed class NhAiGovernedMcpClientFunction(
                     cancellationToken: invocationCancellationToken);
                 return result.IsError is true
                     ? TaskResult<CallToolResult>
-                        .Failed("The imported MCP tool reported an execution error.")
+                        .Failed(NhAiMcpImportedToolCodes.RemoteError, "The imported MCP tool reported an execution error.")
                         .WithData(result)
                     : TaskResult<CallToolResult>.Succeeded(result);
             },
             cancellationToken);
+
+        // The remote result is a protocol type; the SDK's options own its wire format.
+        return NhAiToolResult.Create(outcome, McpJsonUtilities.DefaultOptions);
+    }
+
+    /// <summary>
+    /// The shared result schema with the remote <see cref="CallToolResult"/> as <c>data</c>, whose
+    /// structured content follows the remote output schema.
+    /// </summary>
+    private static JsonElement CreateReturnSchema(string remoteOutputSchema)
+    {
+        var data = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["content"] = new JsonObject
+                {
+                    ["type"] = "array",
+                    ["description"] = "The content blocks the remote tool returned."
+                },
+                ["structuredContent"] = JsonNode.Parse(remoteOutputSchema),
+                ["isError"] = new JsonObject
+                {
+                    ["type"] = "boolean"
+                }
+            },
+            ["required"] = new JsonArray("content")
+        };
+        return NhAiToolResult.CreateJsonSchema(data.ToJsonString());
     }
 }

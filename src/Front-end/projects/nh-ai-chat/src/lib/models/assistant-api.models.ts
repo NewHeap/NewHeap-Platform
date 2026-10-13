@@ -6,6 +6,8 @@
  * GUID strings for ids).
  */
 
+import type { AgentSubjectRole } from './assistant-agent-run.models';
+
 export interface AssistantStatus {
   enabled: boolean;
   agents: AgentSummary[];
@@ -70,6 +72,46 @@ export interface Conversation extends ConversationSummary {
   shareToken?: string | null;
   /** The caller's actor id, to recognize the caller's own messages. */
   currentActorId?: string | null;
+  /** Default `chat` for servers without agent runs. */
+  kind?: ConversationKind;
+  /**
+   * The subject of an agent thread and the caller's standing in it, including who may decide its
+   * open proposals; `null` for a chat.
+   */
+  thread?: ConversationThread | null;
+}
+
+/** `chat` for a conversation people start; `thread` for the durable thread of an agent about one subject. */
+export type ConversationKind = 'chat' | 'thread';
+
+/**
+ * The subject of an agent thread as the caller sees it. In a thread the subject's approvers decide
+ * the agent's proposals, not the author of a turn. The server checks the role on every request.
+ */
+export interface ConversationThread {
+  subjectType: string;
+  subjectId: string;
+  subjectDisplayName: string | null;
+  /** The caller's live role on the subject. */
+  role: AgentSubjectRole;
+  /** Each open proposal of the thread and whether the caller may decide it now, oldest first. */
+  decisions: ConversationThreadDecision[];
+}
+
+/**
+ * The caller's right to decide one open proposal of an agent thread, checked like the decision
+ * itself: the approval policy, four-eyes and the tool's approve policy.
+ */
+export interface ConversationThreadDecision {
+  approvalId: string;
+  /**
+   * The run that proposed it; such a proposal is decided with `POST approvals/{id}/decisions`.
+   * `null` for a proposal of a person's turn in the thread, decided in the conversation.
+   */
+  runId: string | null;
+  canDecide: boolean;
+  /** Why the caller may not decide, for example `assistant-four-eyes-required`; `null` when they may. */
+  reasonCode: string | null;
 }
 
 export type ConversationStatus = 'idle' | 'running' | 'waiting-for-approval' | 'failed' | 'archived';
@@ -92,7 +134,12 @@ export interface Message {
   sequence?: number;
   /** The writer of a user message. */
   authorActorId?: string | null;
+  /** Who wrote a user message: a person or a trigger of an agent; missing on old servers. */
+  authorKind?: MessageAuthorKind | null;
 }
+
+/** `person` for a message a person wrote; `trigger` for one a trigger wrote into an agent thread. */
+export type MessageAuthorKind = 'person' | 'trigger';
 
 export type MessagePart = TextPart | ToolCallPart | ApprovalPart;
 
@@ -113,9 +160,30 @@ export interface ToolCallPart {
   argumentsPreview: string | null;
   resultPreview: string | null;
   resultCode: string | null;
+  /** `delegated` or `agent` when an agent used rights beyond the caller's own. */
+  grantSource?: 'delegated' | 'agent' | null;
+  /** The result came from the agent's own grant and is shielded from this viewer. */
+  restricted?: boolean;
 }
 
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'expired';
+/**
+ * Chat approvals are `pending`, `approved`, `rejected` or `expired`; proposals of agents that run on
+ * their own continue through execution (`executing`, `executed`, `execution-failed`,
+ * `execution-unknown`, `resolved`) or end as `withdrawn`, `stale` or `shadow`.
+ */
+export type ApprovalStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'expired'
+  | 'withdrawn'
+  | 'stale'
+  | 'executing'
+  | 'executed'
+  | 'execution-failed'
+  | 'execution-unknown'
+  | 'resolved'
+  | 'shadow';
 
 export interface ApprovalPresentationField {
   label: string;

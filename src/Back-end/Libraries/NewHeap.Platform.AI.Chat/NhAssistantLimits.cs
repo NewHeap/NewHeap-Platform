@@ -73,6 +73,16 @@ public sealed class NhAssistantLimits
     public int MaxHistoryMessages { get; set; } = 40;
 
     /// <summary>
+    /// How many summaries of earlier runs a new agent run starts with.
+    /// </summary>
+    public int MaxRunSummaries { get; set; } = 3;
+
+    /// <summary>
+    /// The largest artifact a tool may save, in bytes.
+    /// </summary>
+    public int MaxArtifactBytes { get; set; } = 1024 * 1024;
+
+    /// <summary>
     /// Lifetime of an in-progress durable idempotency lease before another caller may take it over.
     /// </summary>
     public TimeSpan IdempotencyLeaseDuration { get; set; } = TimeSpan.FromMinutes(5);
@@ -82,8 +92,34 @@ public sealed class NhAssistantLimits
     /// </summary>
     public int MaxParticipantsPerConversation { get; set; } = 20;
 
+    /// <summary>
+    /// The longest lifetime any approval policy may give a proposal.
+    /// </summary>
+    public static TimeSpan MaxApprovalLifetime { get; } = TimeSpan.FromDays(30);
+
+    /// <summary>
+    /// How often the maintenance job expires, reminds and escalates proposals.
+    /// </summary>
+    public TimeSpan MaintenanceInterval { get; set; } = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    /// How deep consultations may nest: 1 lets an assistant consult an agent, while the consulted
+    /// agent consults nobody. At most 3. An agent already in the chain is never consulted again.
+    /// </summary>
+    public int MaxConsultationDepth { get; set; } = 1;
+
+    /// <summary>
+    /// How many consultations one person may cause per UTC day, through any assistant.
+    /// </summary>
+    public int MaxConsultationsPerActorPerDay { get; set; } = 50;
+
     internal void Validate()
     {
+        if (MaintenanceInterval < TimeSpan.FromSeconds(1) || MaintenanceInterval > TimeSpan.FromHours(1))
+        {
+            throw new ArgumentOutOfRangeException(nameof(MaintenanceInterval), "The maintenance interval is between one second and one hour.");
+        }
+
         if (MaxToolCallsPerTurn < 1
             || MaxMessageChars < 1
             || MaxMessageChars > 64_000
@@ -94,8 +130,12 @@ public sealed class NhAssistantLimits
             || MaxToolsPerAgent < 1
             || MaxToolSelectorsPerAgent < 1
             || MaxHistoryMessages < 1
+            || MaxRunSummaries is < 0 or > 20
+            || MaxArtifactBytes is < 1 or > 16 * 1024 * 1024
             || IdempotencyLeaseDuration <= TimeSpan.Zero
-            || MaxParticipantsPerConversation is < 1 or > 100)
+            || MaxParticipantsPerConversation is < 1 or > 100
+            || MaxConsultationDepth is < 1 or > 3
+            || MaxConsultationsPerActorPerDay < 1)
         {
             throw new InvalidOperationException("Assistant limits must be positive and bounded.");
         }

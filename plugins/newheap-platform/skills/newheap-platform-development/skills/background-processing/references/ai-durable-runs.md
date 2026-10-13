@@ -38,6 +38,12 @@ authority. Protect publication or other side effects
 with background-operation idempotency and fencing, then expose only an
 application-owned result reference.
 
+For an assistant agent that starts from events and records proposals for people to
+decide later, prefer the agent runs of the assistant over a hand-written handler:
+they use this adapter, bind each approved proposal's execution to its own
+operation with `BindProposalExecution`, and keep the proposal, decision and
+execution state in the assistant's store.
+
 ## Avoid
 
 - Keeping a request, model stream or worker alive while awaiting approval.

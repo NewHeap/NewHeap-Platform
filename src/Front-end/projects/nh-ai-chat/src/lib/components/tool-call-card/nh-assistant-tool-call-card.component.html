@@ -4,6 +4,11 @@
       <nh-assistant-icon [name]="statusIcon()" />
     </span>
     <span class="title">{{ part().displayName }}</span>
+    @if (part().grantSource; as grantSource) {
+      <span class="grant" [attr.title]="'nh-assistant.tool-call.grant-source.' + grantSource + '-hint' | translate">
+        {{ 'nh-assistant.tool-call.grant-source.' + grantSource | translate }}
+      </span>
+    }
     <span class="status">{{ 'nh-assistant.tool-call.status.' + part().status | translate }}</span>
     @if (hasDetails()) {
       <button
@@ -36,6 +41,9 @@
       @if (part().resultPreview; as resultPreview) {
         <p class="label">{{ 'nh-assistant.tool-call.result' | translate }}</p>
         <pre>{{ resultPreview }}</pre>
+      } @else if (part().restricted) {
+        <p class="label">{{ 'nh-assistant.tool-call.result' | translate }}</p>
+        <p class="restricted">{{ 'nh-assistant.tool-call.restricted' | translate }}</p>
       }
     </div>
   }

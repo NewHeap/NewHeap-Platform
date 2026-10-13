@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Governance;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runs;
 
 namespace NewHeap.Platform.AI.Chat.Runtime;
 
@@ -25,9 +26,31 @@ internal sealed class NhAssistantTurnState
     public required NhAssistantAgent EffectiveAgent { get; init; }
 
     /// <summary>
+    /// The agent side of a turn in an agent thread; <see langword="null"/> in a chat.
+    /// </summary>
+    public NhAssistantAgentTurnContext? AgentTurn { get; init; }
+
+    /// <summary>
+    /// Proposals this turn recorded, inline or deferred.
+    /// </summary>
+    public int ProposalCount { get; set; }
+
+    /// <summary>
+    /// How the turn ended, set when it ends: one of <see cref="NhAssistantTurnStatuses"/>.
+    /// </summary>
+    public string? OutcomeStatus { get; set; }
+
+    public string? ErrorCode { get; set; }
+
+    /// <summary>
     /// Tools of the MCP servers assigned to the agent, loaded once per turn.
     /// </summary>
     public NhAssistantMcpToolSet? McpTools { get; set; }
+
+    /// <summary>
+    /// Assistant functions of an agent turn next to its tools, such as the working memory.
+    /// </summary>
+    public IReadOnlyList<AIFunction> ExtraFunctions { get; set; } = [];
 
     public required Guid UserMessageId { get; init; }
 
@@ -114,7 +137,14 @@ internal sealed class NhAssistantTurnState
 internal sealed record NhAssistantToolExecution(
     object? Result,
     NhAssistantToolOutcome Outcome,
-    NhAssistantToolCallScope Call);
+    NhAssistantToolCallScope Call)
+{
+    /// <summary>
+    /// The tool threw instead of returning a result, so a side effect may or may not have
+    /// happened.
+    /// </summary>
+    public bool Threw { get; init; }
+}
 
 /// <summary>
 /// Agent Framework function middleware that turns every governed tool call into persisted,
@@ -130,9 +160,11 @@ internal sealed class NhAssistantToolCallInterceptor(
     INhAiProposalFactory proposalFactory,
     NhAssistantToolPresentationResolver toolPresentation,
     IReadOnlyList<INhAssistantBusinessAuditSink> businessSinks,
-    ILogger? logger = null)
+    ILogger? logger = null,
+    NhAssistantApprovalPolicies? approvalPolicies = null)
 {
     public const string ToolsDisabledCode = "assistant-tools-disabled";
+    public const string ProposalRecordedCode = "assistant-proposal-recorded";
 
     private IReadOnlyDictionary<string, NhAiToolDescriptor> _offeredTools =
         new Dictionary<string, NhAiToolDescriptor>(StringComparer.Ordinal);
@@ -171,6 +203,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         ArgumentNullException.ThrowIfNull(next);
         var descriptor = FindGoverned(context.Function)?.Descriptor
             ?? FindOffered(context.Function.Name)
+            ?? FindMemory(context.Function)?.Descriptor
             ?? throw new InvalidOperationException(
                 "The assistant only executes governed NewHeap AI functions.");
 
@@ -178,6 +211,11 @@ internal sealed class NhAssistantToolCallInterceptor(
         {
             context.Terminate = true;
             return Refusal(ToolsDisabledCode);
+        }
+        if (state.Scope.Consultation is { MayPropose: false } && descriptor.Effect != NhAiToolEffect.ReadOnly)
+        {
+            // Such tools are not offered; a model that names one anyway changes nothing.
+            return Refusal(NhAssistantErrorCodes.ConsultReadOnly);
         }
         if (state.Scope.IncrementToolCalls() > state.Scope.Limits.MaxToolCallsPerTurn)
         {
@@ -206,16 +244,25 @@ internal sealed class NhAssistantToolCallInterceptor(
             token => next(context, token),
             cancellationToken,
             logger);
-        if (execution.Outcome.Kind == NhAssistantToolOutcomeKind.ApprovalMissing
-            && await RequestApprovalAsync(
+        if (execution.Outcome.Kind == NhAssistantToolOutcomeKind.ApprovalMissing)
+        {
+            var requested = await RequestApprovalAsync(
                 descriptor,
                 row,
                 execution.Call,
                 presentationCulture,
-                cancellationToken))
-        {
-            context.Terminate = true;
-            return execution.Result;
+                cancellationToken);
+            if (requested is { Mode: NhAiApprovalMode.Inline } inline && !inline.Shadow)
+            {
+                context.Terminate = true;
+                return execution.Result;
+            }
+
+            if (requested is { } recorded)
+            {
+                // A deferred or shadow proposal waits for people while the model continues.
+                return ProposalRecorded(recorded.ProposalId);
+            }
         }
 
         await CompleteToolCallAsync(row, execution, cancellationToken);
@@ -276,7 +323,10 @@ internal sealed class NhAssistantToolCallInterceptor(
                 return new NhAssistantToolExecution(
                     Refusal(code),
                     new NhAssistantToolOutcome(NhAssistantToolOutcomeKind.Failed, code),
-                    call);
+                    call)
+                {
+                    Threw = true
+                };
             }
         }
 
@@ -313,6 +363,14 @@ internal sealed class NhAssistantToolCallInterceptor(
             RetentionCategory = descriptor.RetentionCategory,
             StartedAt = DateTimeOffset.UtcNow
         };
+        if (state.Scope.Consultation is not null)
+        {
+            // A consultation writes nothing into the thread; a call it proposes is stored when the
+            // proposal is.
+            state.ToolCalls++;
+            return row;
+        }
+
         await store.AddToolInvocationAsync(row, cancellationToken);
         state.ToolCalls++;
         state.AddPart(new NhAssistantStoredPart(NhAssistantStoredPart.ToolCallType, InvocationId: row.Id));
@@ -336,16 +394,34 @@ internal sealed class NhAssistantToolCallInterceptor(
         row.ResultCode = succeeded ? null : NhAssistantContent.Bound(execution.Outcome.Code, 128);
         row.ResultJson = NhAssistantContent.SerializeResult(execution.Result);
         row.CompletedAt = DateTimeOffset.UtcNow;
+        if (execution.Call.AuditRecords.Count > 0 && execution.Call.AuditRecords[^1].GrantSource != NhAiGrantSource.None)
+        {
+            row.GrantSource = execution.Call.AuditRecords[^1].GrantSource;
+        }
+        if (state.Scope.Consultation is not null)
+        {
+            return;
+        }
+
         await store.UpdateToolInvocationAsync(row, cancellationToken);
+        // A result of the agent's own grant is shielded per viewer; live events carry none of it, and
+        // viewers read the thread again to see what they may.
+        var shielded = row.GrantSource == NhAiGrantSource.Agent;
         await state.EmitAsync(new NhAssistantToolCompletedEvent(
             row.Id,
             row.Status,
             row.ResultCode,
-            NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification)));
+            shielded ? null : NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification)));
     }
 
     public async Task FlushAsync(CancellationToken cancellationToken)
     {
+        if (state.Scope.Consultation is not null)
+        {
+            // A consultation has no message in the thread; its answer goes back to the asker.
+            return;
+        }
+
         await store.UpdateMessageAsync(
             state.AssistantMessageId,
             NhAssistantContent.SerializeParts(state.Parts),
@@ -357,13 +433,34 @@ internal sealed class NhAssistantToolCallInterceptor(
 
     public async Task RecordBusinessEventAsync(NhAssistantAuditEvent evt, CancellationToken cancellationToken)
     {
+        if (state.AgentTurn is { } agentTurn)
+        {
+            evt = evt with
+            {
+                RunId = agentTurn.RunId,
+                TriggerId = agentTurn.TriggerId,
+                SubjectType = agentTurn.Thread.SubjectType,
+                SubjectId = agentTurn.Thread.SubjectId,
+                InitiatorActorId = agentTurn.InitiatorActorId
+            };
+        }
+        if (state.Scope.Consultation is { } consultation)
+        {
+            evt = evt with
+            {
+                ConsultationId = consultation.ConsultationId,
+                ConsultationDepth = consultation.Depth,
+                AskingAgentId = consultation.AskingAgentId
+            };
+        }
+
         foreach (var sink in businessSinks)
         {
             await sink.RecordAsync(state.Scope.WithPromptIdentity(evt), cancellationToken);
         }
     }
 
-    private async Task<bool> RequestApprovalAsync(
+    private async Task<NhAssistantRecordedProposal?> RequestApprovalAsync(
         NhAiToolDescriptor descriptor,
         AssistantToolInvocation row,
         NhAssistantToolCallScope call,
@@ -374,11 +471,31 @@ internal sealed class NhAssistantToolCallInterceptor(
             || call.CapturedContext is not { RunId: not null, AccountableOwnerId: not null } context)
         {
             // Another evidence provider answered; the assistant cannot bind a proposal to this call.
-            return false;
+            return null;
         }
 
+        var agentTurn = state.AgentTurn;
+        var consultation = state.Scope.Consultation;
+        var policy = agentTurn is not null && approvalPolicies is not null
+            ? consultation is null
+                ? approvalPolicies.Resolve(agentTurn.Thread.AgentId, descriptor.Id, agentTurn.TriggerId, agentTurn.RunId is not null)
+                // A consultation answers now and cannot wait: its proposals always wait for the
+                // subject's approvers, under the agent's policy or the trigger default.
+                : approvalPolicies.Resolve(agentTurn.Thread.AgentId, descriptor.Id, null, isRun: true) with
+                {
+                    Mode = NhAiApprovalMode.Deferred
+                }
+            : null;
+        // A request turn cannot wait days for a decision: a person typing always decides inline.
+        var mode = policy is null || (agentTurn!.IsRequestTurn && consultation is null)
+            ? NhAiApprovalMode.Inline
+            : policy.Mode;
+        var shadow = agentTurn is { RunId: not null } && agentTurn.Options.Shadow;
+        var bindPrompt = policy is null || policy.BindTo == NhAiApprovalBinding.ToolContractAndPrompt;
+        var lifetime = policy?.Lifetime ?? state.Scope.Limits.ApprovalLifetime;
+
         var now = DateTimeOffset.UtcNow;
-        var expiresAt = now.Add(state.Scope.Limits.ApprovalLifetime);
+        var expiresAt = now.Add(lifetime);
         var targets = context.ExecutionScopes
             .Take(32)
             .Select(scope => new NhAiProposalTarget(scope.Type, scope.Id))
@@ -402,11 +519,12 @@ internal sealed class NhAssistantToolCallInterceptor(
             now,
             expiresAt)
         {
-            ModelProfileName = context.ModelProfileName,
-            PromptVersion = context.PromptVersion,
-            PromptHash = context.PromptHash,
-            CatalogHash = context.CatalogHash,
-            ContextHash = context.ContextHash
+            // A proposal bound to the tool contract only stays valid across prompt updates.
+            ModelProfileName = bindPrompt ? context.ModelProfileName : null,
+            PromptVersion = bindPrompt ? context.PromptVersion : null,
+            PromptHash = bindPrompt ? context.PromptHash : null,
+            CatalogHash = bindPrompt ? context.CatalogHash : null,
+            ContextHash = bindPrompt ? context.ContextHash : null
         });
         var targetLabels = proposal.Targets
             .Select(target => $"{target.Type}:{target.Id}")
@@ -435,17 +553,36 @@ internal sealed class NhAssistantToolCallInterceptor(
             PresentationJson = NhAssistantToolPresentationResolver.Serialize(presentation),
             ArgumentsPreview = NhAssistantContent.Preview(row.ArgumentsJson, row.DataClassification) ?? "{}",
             TargetsJson = JsonSerializer.Serialize(targetLabels, NhAssistantContent.JsonOptions),
-            Status = NhAssistantApprovalStatuses.Pending,
+            Status = shadow ? NhAssistantApprovalStatuses.Shadow : NhAssistantApprovalStatuses.Pending,
             CreatedAt = now,
             ExpiresAt = expiresAt,
+            RunId = agentTurn?.RunId,
+            PolicyId = policy?.Id,
+            Mode = NhAssistantApprovalModes.From(mode),
+            PolicyJson = policy is null ? null : NhAssistantApprovalPolicySnapshot.Serialize(policy),
+            InitiatorActorId = agentTurn is null ? state.Scope.OwnerActorId : agentTurn.InitiatorActorId,
+            SubjectVersion = agentTurn?.Subject.Version,
+            GrantSource = context.GrantSource,
+            ConsultationId = consultation?.ConsultationId,
+            NextReminderAt = policy is not null && mode == NhAiApprovalMode.Deferred && !shadow
+                ? NhAssistantApprovalReminders.Next(policy, now, 0, expiresAt)
+                : null,
             ConcurrencyStamp = Guid.NewGuid()
         };
+        if (consultation is not null)
+        {
+            // The execution of an approved proposal replays the stored invocation.
+            await store.AddToolInvocationAsync(row, cancellationToken);
+        }
+
         await store.AddApprovalAsync(approval, cancellationToken);
 
         row.Status = NhAssistantToolCallStatuses.AwaitingApproval;
         row.ProposalId = proposal.ProposalId;
         row.ApprovalId = approval.Id;
+        row.GrantSource = context.GrantSource;
         await store.UpdateToolInvocationAsync(row, cancellationToken);
+        state.ProposalCount++;
 
         var view = new NhAssistantApprovalView(
             approval.Id,
@@ -458,10 +595,16 @@ internal sealed class NhAssistantToolCallInterceptor(
             targetLabels,
             approval.ExpiresAt,
             approval.Status);
-        state.PendingApproval = view;
+        if (mode == NhAiApprovalMode.Inline && !shadow)
+        {
+            state.PendingApproval = view;
+        }
         state.AddPart(new NhAssistantStoredPart(NhAssistantStoredPart.ApprovalType, ApprovalId: approval.Id));
         await FlushAsync(cancellationToken);
-        await state.EmitAsync(new NhAssistantApprovalRequiredEvent(view));
+        if (!shadow)
+        {
+            await state.EmitAsync(new NhAssistantApprovalRequiredEvent(view));
+        }
         await RecordBusinessEventAsync(
             new NhAssistantAuditEvent(
                 NhAssistantAuditEventKind.ApprovalRequested,
@@ -481,7 +624,34 @@ internal sealed class NhAssistantToolCallInterceptor(
                 StartedAt = row.StartedAt
             },
             cancellationToken);
-        return true;
+        return new NhAssistantRecordedProposal(approval.Id, proposal.ProposalId, mode, shadow);
+    }
+
+    /// <summary>
+    /// The result the model receives for a proposal that waits for people: the action has not
+    /// happened yet, and the model must not retry it.
+    /// </summary>
+    private static JsonElement ProposalRecorded(Guid proposalId)
+    {
+        return JsonSerializer.SerializeToElement(
+            new Dictionary<string, object?>
+            {
+                ["success"] = false,
+                ["code"] = ProposalRecordedCode,
+                ["proposalId"] = proposalId,
+                ["message"] = "The proposal was recorded and waits for a person's approval. The action has not happened. Do not retry it; continue with other work and mention it in your answer."
+            },
+            NhAssistantContent.JsonOptions);
+    }
+
+    /// <summary>
+    /// Finds an offered memory function of this turn behind Agent Framework middleware wrappers.
+    /// </summary>
+    private NhAssistantMemoryFunction? FindMemory(AIFunction function)
+    {
+        var memory = function as NhAssistantMemoryFunction
+            ?? function.GetService(typeof(NhAssistantMemoryFunction)) as NhAssistantMemoryFunction;
+        return memory is not null && state.ExtraFunctions.Contains(memory) ? memory : null;
     }
 
     /// <summary>
@@ -518,13 +688,8 @@ internal sealed class NhAssistantToolCallInterceptor(
 
     private static JsonElement Refusal(string code)
     {
-        return JsonSerializer.SerializeToElement(
-            new Dictionary<string, object?>
-            {
-                ["success"] = false,
-                ["code"] = code
-            },
-            NhAssistantContent.JsonOptions);
+        // The call never reached the tool; the model still receives the shared tool result.
+        return NhAiToolResult.Failed(code, null);
     }
 
     private static readonly Action<ILogger, string, int, Guid?, string, Exception?> UnexpectedToolException =
@@ -556,3 +721,9 @@ internal sealed class NhAssistantToolCallInterceptor(
         };
     }
 }
+
+internal sealed record NhAssistantRecordedProposal(
+    Guid ApprovalId,
+    Guid ProposalId,
+    NhAiApprovalMode Mode,
+    bool Shadow);

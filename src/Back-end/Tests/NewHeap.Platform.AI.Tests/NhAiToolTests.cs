@@ -326,6 +326,14 @@ public sealed class NhAiToolTests
         "NhAiToolEffect.Destructive",
         "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required, VerifierId = \"verifier\", DestructiveHint = NhAiToolHint.False",
         "NHAI013")]
+    [InlineData(
+        "NhAiToolEffect.ReadOnly",
+        "AllowAgentGrant = true",
+        "NHAI014")]
+    [InlineData(
+        "NhAiToolEffect.ReadOnly",
+        "ApprovalPolicy = \"projects-approve\"",
+        "NHAI014")]
     public void Generator_rejects_unsafe_effects_bounds_and_verifier_ids(
         string effect,
         string namedArguments,
@@ -441,6 +449,75 @@ public sealed class NhAiToolTests
             "SerializerOptions = global::NewHeap.Platform.AI.NhAiToolJsonSerializerOptions.FlatExport",
             generated,
             StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generator_emits_agent_grant_and_approval_policy_into_the_contract()
+    {
+        var plain = GenerateAgentTool(string.Empty);
+        var granted = GenerateAgentTool(", AllowAgentGrant = true, ApprovalPolicy = \"projects.approve\"");
+
+        Assert.DoesNotContain("AllowAgentGrant", plain, StringComparison.Ordinal);
+        Assert.Contains("AllowAgentGrant = true,", granted, StringComparison.Ordinal);
+        Assert.Contains("ApprovalPolicy = \"projects.approve\",", granted, StringComparison.Ordinal);
+        Assert.NotEqual(ReadContractHash(plain), ReadContractHash(granted));
+    }
+
+    private static string GenerateAgentTool(string namedArguments)
+    {
+        var source = $$"""
+            using System;
+            using System.ComponentModel;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using Microsoft.AspNetCore.Authorization;
+            using NewHeap.Platform.AI;
+            using NewHeap.Platform.Common.Models;
+
+            [NhAiToolSet("projects")]
+            [Authorize(Policy = "projects.manage")]
+            public sealed class ProjectTools
+            {
+                [NhAiTool(
+                    "change-status",
+                    1,
+                    NhAiToolEffect.Mutation,
+                    NhAiToolExposure.Agent,
+                    Approval = NhAiApprovalRequirement.Required,
+                    Idempotency = NhAiIdempotencySupport.Required{{namedArguments}})]
+                [Description("Change a project status.")]
+                public Task<TaskResult<string>> ChangeAsync(
+                    string input,
+                    NhAiInvocationContext context,
+                    CancellationToken cancellationToken) => throw new NotImplementedException();
+            }
+            """;
+        var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+            .Split(Path.PathSeparator)
+            .Select(path => MetadataReference.CreateFromFile(path));
+        var references = trustedAssemblies
+            .Append(MetadataReference.CreateFromFile(typeof(NhAiToolAttribute).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(TaskResult<>).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute).Assembly.Location));
+        var compilation = CSharpCompilation.Create(
+            "GeneratorAgentGrant",
+            [CSharpSyntaxTree.ParseText(source)],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new NhAiToolGenerator());
+
+        driver = driver.RunGenerators(compilation);
+
+        var runResult = driver.GetRunResult();
+        Assert.DoesNotContain(runResult.Diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        return Assert.Single(runResult.GeneratedTrees).ToString();
+    }
+
+    private static string ReadContractHash(string generated)
+    {
+        const string marker = "ContractHash = \"";
+        var start = generated.IndexOf(marker, StringComparison.Ordinal) + marker.Length;
+        return generated[start..generated.IndexOf('"', start)];
     }
 
     [Theory]

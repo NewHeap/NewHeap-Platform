@@ -386,12 +386,19 @@ public abstract partial class NhIdentityDbContext<
             entity.HasIndex(x => x.ParentOperationId);
             entity.HasIndex(x => x.RootOperationId);
             entity.HasIndex(x => new { x.ParentOperationId, x.FanOutKey, x.FanOutItemKey }).IsUnique();
+            // Agent-owned operations are listed and coalesced by owner key and domain object.
+            entity.HasIndex(x => new { x.OwnerKind, x.OwnerKey, x.Status, x.LastModifiedDateTime });
+            entity.HasIndex(x => new { x.DomainObjectType, x.DomainObjectId, x.Status });
+            // Admission looks up active operations per concurrency key.
+            entity.HasIndex(x => new { x.ConcurrencyKey, x.Status });
 
+            // A user-owned operation is removed with its owner. Operations of other owner
+            // kinds have no user and follow their own retention.
             entity.HasOne<TUser>()
                 .WithMany()
                 .HasForeignKey(x => x.OwnerUserId)
                 .OnDelete(DeleteBehavior.Cascade)
-                .IsRequired();
+                .IsRequired(false);
 
             entity.HasOne<TDivision>()
                 .WithMany()

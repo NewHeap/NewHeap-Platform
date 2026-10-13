@@ -62,7 +62,8 @@
       "working": "The assistant is working",
       "loading": "Loading conversation",
       "elapsed": "{{seconds}}s",
-      "participant": "Participant"
+      "participant": "Participant",
+      "trigger": "Event"
     },
     "composer": {
       "label": "Message",
@@ -110,7 +111,14 @@
         "failed": "Failed",
         "awaiting-approval": "Awaiting approval",
         "rejected": "Rejected"
-      }
+      },
+      "grant-source": {
+        "delegated": "On behalf of the initiator",
+        "agent": "Agent rights",
+        "delegated-hint": "The agent used the rights of the person who started it.",
+        "agent-hint": "The agent used a right it was granted itself, beyond the rights of the people involved."
+      },
+      "restricted": "Shielded: the agent obtained this with its own rights, which you do not have."
     },
     "tool-group": {
       "running": "Calling {{name}}…",
@@ -140,10 +148,20 @@
         "pending": "Pending",
         "approved": "Approved",
         "rejected": "Rejected",
-        "expired": "Expired"
+        "expired": "Expired",
+        "withdrawn": "Withdrawn",
+        "stale": "Outdated",
+        "executing": "Running",
+        "executed": "Done",
+        "execution-failed": "Failed",
+        "execution-unknown": "Outcome unknown",
+        "resolved": "Resolved",
+        "shadow": "Shadow"
       },
       "waiting-for": "Waiting for {{name}} to decide. The action uses their permissions.",
-      "waiting-for-participant": "Waiting for the participant who started this task to decide."
+      "waiting-for-participant": "Waiting for the participant who started this task to decide.",
+      "waiting-for-approver": "Waiting for an approver to decide.",
+      "waiting-for-other-approver": "You started this work, so another approver decides."
     },
     "result-codes": {
       "api-bridge-validation": "The request was not valid.",
@@ -152,7 +170,8 @@
       "api-bridge-not-found": "The item was not found.",
       "api-bridge-conflict": "The item was changed in the meantime.",
       "api-bridge-upstream": "The service is not available.",
-      "api-bridge-timeout": "The request took too long."
+      "api-bridge-timeout": "The request took too long.",
+      "assistant-proposal-recorded": "Proposed; waits for a person's approval"
     },
     "errors": {
       "generic": "Something went wrong. Please try again.",
@@ -211,7 +230,36 @@
       "assistant-directory-unavailable": "Inviting colleagues directly is not available.",
       "assistant-push-unavailable": "Desktop notifications are not available.",
       "assistant-push-subscription-invalid": "This browser could not be registered for notifications.",
-      "assistant-conversation-removed": "This conversation is no longer available to you."
+      "assistant-conversation-removed": "This conversation is no longer available to you.",
+      "assistant-subject-not-found": "The subject no longer exists.",
+      "assistant-subject-type-unknown": "This kind of subject is not known to the assistant.",
+      "assistant-subject-access-denied": "Your role on this subject does not allow this.",
+      "assistant-no-accountable-owner": "Nobody answers for this agent on this subject.",
+      "assistant-agent-disabled": "This agent has been stopped.",
+      "assistant-agent-not-configured": "This agent cannot run on its own.",
+      "assistant-run-not-found": "The run was not found.",
+      "assistant-run-not-retryable": "This run cannot be retried.",
+      "assistant-approval-policy-denied": "You may not decide this proposal.",
+      "assistant-four-eyes-required": "Someone other than the person who started this must decide it.",
+      "assistant-execution-not-uncertain": "This execution is not waiting to be resolved.",
+      "assistant-proposal-stale": "The subject changed since this proposal; it was not executed.",
+      "assistant-trigger-not-found": "The trigger was not found.",
+      "assistant-webhook-signature-invalid": "The webhook call has no valid signature.",
+      "assistant-webhook-payload-invalid": "The webhook call could not be read.",
+      "assistant-memory-not-configured": "This agent keeps no working memory.",
+      "assistant-memory-invalid": "The working memory change does not fit its schema.",
+      "assistant-memory-conflict": "The working memory changed at the same time.",
+      "assistant-artifact-invalid": "The file is not valid or too large.",
+      "assistant-artifact-outside-turn": "Files can only be saved while the agent works.",
+      "assistant-artifact-not-found": "The file was not found.",
+      "assistant-consult-subject-unavailable": "The subject does not exist or you may not consult the agent about it.",
+      "assistant-consult-agent-unavailable": "The agent cannot be consulted right now.",
+      "assistant-consult-depth-exceeded": "This consultation would ask agents in a loop or nest too deeply.",
+      "assistant-consult-budget-exhausted": "The agent's daily budget is spent.",
+      "assistant-consult-limit-reached": "You reached the daily number of consultations.",
+      "assistant-consult-timeout": "The agent did not answer in time.",
+      "assistant-consult-failed": "The agent could not answer.",
+      "assistant-consult-read-only": "A consultation cannot change anything."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",
@@ -485,6 +533,135 @@
       "remove": "Remove {{name}}",
       "leave": "Leave conversation",
       "no-conversation": "Start or open a conversation to share it."
+    },
+    "agent-runs": {
+      "loading": "Loading…",
+      "load-failed": "This could not be loaded.",
+      "retry": "Try again",
+      "refresh": "Refresh",
+      "role": {
+        "none": "No role on this subject",
+        "reader": "Reader",
+        "participant": "Participant",
+        "approver": "Approver"
+      },
+      "thread": {
+        "title": "Agent",
+        "waiting-inputs": "{{count}} messages wait for the next run",
+        "open-conversation": "Open conversation",
+        "start-message": "Instruction for the agent (optional)",
+        "start": "Start the agent",
+        "starting": "Starting…",
+        "no-proposals": "The agent has proposed nothing here yet.",
+        "no-thread": "The agent has not worked on this yet.",
+        "tabs": {
+          "proposals": "Proposals",
+          "runs": "Runs",
+          "consultations": "Consultations",
+          "memory": "Working memory",
+          "artifacts": "Files"
+        },
+        "outcome": {
+          "started": "The agent starts shortly.",
+          "queued": "The agent starts after the current run.",
+          "coalesced": "Your request joins the run that is about to start.",
+          "superseded": "The current run stops and the agent starts again.",
+          "ignored": "The agent is busy; nothing was started.",
+          "deduplicated": "This was already started.",
+          "rejected": "The agent could not be started."
+        }
+      },
+      "inbox": {
+        "title": "Proposals to decide",
+        "description": "Proposals of agents that wait for your decision, the ones that expire first on top.",
+        "empty": "No proposals wait for you.",
+        "select": "Select this proposal",
+        "select-all": "Select all",
+        "approve-selected": "Approve selected",
+        "reject-selected": "Reject selected",
+        "previous": "Previous",
+        "next": "Next",
+        "page": "Page {{page}} of {{pages}}",
+        "pages": "Pages"
+      },
+      "proposal": {
+        "approve": "Approve",
+        "reject": "Reject",
+        "reason": "Reason (optional)",
+        "expires": "Expires {{date}}",
+        "decided-by": "Decided by {{actor}}",
+        "arguments": "Input",
+        "re-execute": "Run again",
+        "mark-resolved": "Mark as resolved",
+        "unknown-hint": "The execution stopped without a known outcome. Check whether it happened before you run it again.",
+        "mode": {
+          "inline": "The run waits",
+          "deferred": "Decide later"
+        },
+        "status": {
+          "pending": "Waiting",
+          "approved": "Approved",
+          "rejected": "Rejected",
+          "expired": "Expired",
+          "withdrawn": "Withdrawn",
+          "stale": "Outdated",
+          "executing": "Running",
+          "executed": "Done",
+          "execution-failed": "Failed",
+          "execution-unknown": "Outcome unknown",
+          "resolved": "Resolved",
+          "shadow": "Shadow"
+        },
+        "from-consultation": "From a consultation",
+        "from-consultation-hint": "Another assistant consulted the agent for this person; it runs with that person's rights only."
+      },
+      "run": {
+        "empty": "No runs yet.",
+        "status": {
+          "queued": "Queued",
+          "running": "Running",
+          "waiting-for-approval": "Waiting for approval",
+          "completed": "Completed",
+          "failed": "Failed",
+          "cancelled": "Cancelled"
+        },
+        "shadow": "Shadow",
+        "trigger": "Trigger: {{trigger}}",
+        "tool-calls": "{{count}} tool calls",
+        "tokens": "{{count}} tokens",
+        "proposals": "{{count}} proposals",
+        "attempt": "Attempt {{attempt}}",
+        "cancel": "Cancel",
+        "resume": "Resume",
+        "restart": "Start again"
+      },
+      "memory": {
+        "not-configured": "This agent keeps no working memory.",
+        "version": "Schema version {{version}}",
+        "updated": "Updated {{date}}",
+        "empty": "The agent has not noted anything yet."
+      },
+      "artifacts": {
+        "download-failed": "The file could not be downloaded.",
+        "empty": "No files yet.",
+        "version": "v{{version}}",
+        "restricted": "Shielded (agent rights)",
+        "size": "{{size}} bytes",
+        "download": "Download"
+      },
+      "consultation": {
+        "empty": "No assistant has consulted this agent about this subject yet.",
+        "private": "Only who asked and how it ended is shown here; the question and the answer stay in the asking conversation.",
+        "asked-by": "Asked by {{name}}",
+        "through": "through {{agent}}",
+        "depth": "Nested, level {{depth}}",
+        "more": "{{count}} older consultations are not shown.",
+        "status": {
+          "running": "Running",
+          "completed": "Answered",
+          "failed": "Not answered"
+        }
+      }
     }
   }
 }

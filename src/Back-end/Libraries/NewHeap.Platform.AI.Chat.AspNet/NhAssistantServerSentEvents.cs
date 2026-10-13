@@ -152,10 +152,12 @@ internal static class NhAssistantDtoMapper
 
     /// <param name="currentActorId">The caller.</param>
     /// <param name="shareToken">The unprotected invitation token for the owner, otherwise <see langword="null"/>.</param>
+    /// <param name="thread">The caller's standing in an agent thread, otherwise <see langword="null"/>.</param>
     public static NhAssistantConversationDto ToDto(
         NhAssistantConversationView view,
         string? currentActorId = null,
-        string? shareToken = null)
+        string? shareToken = null,
+        NhAssistantConversationThreadDto? thread = null)
     {
         return new NhAssistantConversationDto(
             view.Id,
@@ -179,7 +181,9 @@ internal static class NhAssistantDtoMapper
                     member.JoinedAt))
                 .ToArray(),
             shareToken,
-            currentActorId);
+            currentActorId,
+            view.Kind,
+            thread);
     }
 
     public static NhAssistantMessageDto ToDto(NhAssistantMessageView message)
@@ -190,7 +194,8 @@ internal static class NhAssistantDtoMapper
             message.CreatedAt,
             message.Parts.Select(ToDto).ToArray(),
             message.Sequence,
-            message.AuthorActorId);
+            message.AuthorActorId,
+            message.AuthorKind);
     }
 
     public static NhAssistantMessagePartDto ToDto(NhAssistantPartView part)
@@ -206,22 +211,18 @@ internal static class NhAssistantDtoMapper
                 tool.Status,
                 tool.ArgumentsPreview,
                 tool.ResultPreview,
-                tool.ResultCode),
+                tool.ResultCode)
+            {
+                GrantSource = tool.GrantSource == NhAiGrantSource.None ? null : tool.GrantSource.ToString().ToLowerInvariant(),
+                Restricted = tool.Restricted
+            },
             NhAssistantApprovalView approval => new NhAssistantApprovalPartDto(
                 approval.ApprovalId,
                 approval.ProposalId,
                 approval.ProposalHash,
                 approval.ToolId,
                 approval.Summary,
-                approval.Presentation is null
-                    ? null
-                    : new NhAssistantApprovalPresentationDto(
-                        approval.Presentation.ToolDisplayName,
-                        approval.Presentation.Summary,
-                        approval.Presentation.Fields
-                            .Select(field => new NhAssistantPresentationFieldDto(field.Label, field.Value))
-                            .ToArray(),
-                        approval.Presentation.Notice),
+                NhAssistantApprovalPresentationDto.From(approval.Presentation),
                 approval.ArgumentsPreview,
                 approval.Targets,
                 approval.ExpiresAt,

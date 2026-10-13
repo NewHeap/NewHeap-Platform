@@ -172,6 +172,7 @@
       },
       "references": [
         "references/ai-agent-framework.md",
+        "references/ai-agent-runs.md",
         "references/ai-api-bridge.md",
         "references/ai-assets.md",
         "references/ai-assistant.md",
@@ -220,6 +221,7 @@
       },
       "references": [
         "references/ai-agent-framework.md",
+        "references/ai-agent-runs.md",
         "references/ai-durable-runs.md",
         "references/ai-ingestion.md",
         "references/backend-unit-of-work.md",

@@ -26,6 +26,9 @@ public sealed class TestProjectToolRecorder
 
     /// <summary>When set, the search tool throws this exception inside the governed invocation.</summary>
     public Exception? SearchException { get; set; }
+
+    /// <summary>When set, the search tool saves its result as the artifact <c>search-notes</c>.</summary>
+    public bool SaveSearchArtifact { get; set; }
 }
 
 /// <summary>
@@ -50,7 +53,8 @@ public sealed class TestProjectToolCatalog : INhAiToolCatalog
         ExportName = "projects_search_v1",
         CatalogId = "projects",
         ContractHash = new string('1', 64),
-        SchemaHash = new string('1', 64)
+        SchemaHash = new string('1', 64),
+        AllowAgentGrant = true
     };
 
     public static readonly NhAiToolDescriptor ChangeStatus = new(
@@ -69,7 +73,8 @@ public sealed class TestProjectToolCatalog : INhAiToolCatalog
         ContractHash = new string('2', 64),
         SchemaHash = new string('2', 64),
         Approval = NhAiApprovalRequirement.Required,
-        Idempotency = NhAiIdempotencySupport.Required
+        Idempotency = NhAiIdempotencySupport.Required,
+        AllowAgentGrant = true
     };
 
     public NhAiToolCatalogGovernance Governance => NhAiToolCatalogGovernance.SharedInvoker;
@@ -94,7 +99,7 @@ public sealed class TestProjectToolCatalog : INhAiToolCatalog
             (input, cancellationToken) => invoker.InvokeAsync(
                 Search,
                 input,
-                (context, _) =>
+                async (context, token) =>
                 {
                     recorder.Contexts.Enqueue(context);
                     if (recorder.SearchException is { } exception)
@@ -102,7 +107,19 @@ public sealed class TestProjectToolCatalog : INhAiToolCatalog
                         throw exception;
                     }
                     IReadOnlyList<ProjectSearchItem> items = [new ProjectSearchItem(Guid.Empty, recorder.SearchResultName)];
-                    return Task.FromResult(TaskResult<IReadOnlyList<ProjectSearchItem>>.Succeeded(items));
+                    if (recorder.SaveSearchArtifact)
+                    {
+                        var saved = await services.GetRequiredService<INhAiArtifacts>().SaveAsync(
+                            "search-notes",
+                            "text/markdown",
+                            System.Text.Encoding.UTF8.GetBytes("# " + recorder.SearchResultName),
+                            token);
+                        if (!saved.Success)
+                        {
+                            return TaskResult<IReadOnlyList<ProjectSearchItem>>.Failed(saved);
+                        }
+                    }
+                    return TaskResult<IReadOnlyList<ProjectSearchItem>>.Succeeded(items);
                 },
                 cancellationToken);
         Func<ProjectStatusInput, CancellationToken, Task<TaskResult<ProjectStatusReport>>> changeStatus =

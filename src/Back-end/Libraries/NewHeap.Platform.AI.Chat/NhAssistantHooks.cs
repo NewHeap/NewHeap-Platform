@@ -49,7 +49,55 @@ public enum NhAssistantAuditEventKind
     /// <summary>
     /// A participant left a conversation.
     /// </summary>
-    ConversationParticipantLeft = 25
+    ConversationParticipantLeft = 25,
+
+    /// <summary>
+    /// A trigger started, queued or joined an agent run. <c>ResultCode</c> is the trigger outcome.
+    /// </summary>
+    AgentTriggerAccepted = 30,
+
+    /// <summary>
+    /// A trigger was rejected, ignored or deduplicated. <c>ResultCode</c> is the reason.
+    /// </summary>
+    AgentTriggerRejected = 31,
+
+    /// <summary>
+    /// An agent run ended. <c>ResultCode</c> is the run status, followed by the failure code.
+    /// </summary>
+    AgentRunEnded = 32,
+
+    /// <summary>
+    /// An approved agent proposal finished executing. <c>ResultCode</c> is the proposal status.
+    /// </summary>
+    AgentProposalExecuted = 33,
+
+    /// <summary>
+    /// A person resolved an execution with an unknown outcome.
+    /// </summary>
+    AgentProposalResolved = 34,
+
+    /// <summary>
+    /// An administrator engaged the kill switch of an agent.
+    /// </summary>
+    AdminAgentRunsStopped = 35,
+
+    /// <summary>
+    /// An administrator released the kill switch of an agent.
+    /// </summary>
+    AdminAgentRunsResumed = 36,
+
+    /// <summary>
+    /// An assistant consulted an agent. <c>ResultCode</c> is <c>completed</c> or the refusal or
+    /// failure code; <see cref="NhAssistantAuditEvent.ConsultationId"/> names the record when the
+    /// consultation started.
+    /// </summary>
+    AgentConsulted = 37,
+
+    /// <summary>
+    /// An assistant asked an agent to work on a subject. <c>ResultCode</c> is the trigger outcome or
+    /// the refusal code.
+    /// </summary>
+    AgentRequested = 38
 }
 
 /// <summary>
@@ -122,6 +170,57 @@ public sealed record NhAssistantAuditEvent(
     /// Whether the client sent a page context with the user message.
     /// </summary>
     public bool? HadPageContext { get; init; }
+
+    /// <summary>
+    /// The agent run the event belongs to, for events of an agent thread.
+    /// </summary>
+    public Guid? RunId { get; init; }
+
+    public string? TriggerId { get; init; }
+
+    public string? SubjectType { get; init; }
+
+    public string? SubjectId { get; init; }
+
+    /// <summary>
+    /// The person who caused the run or turn, when a person did.
+    /// </summary>
+    public string? InitiatorActorId { get; init; }
+
+    /// <summary>
+    /// Whether an agent grant or the initiator's own rights allowed the tool.
+    /// </summary>
+    public NhAiGrantSource GrantSource { get; init; }
+
+    public string? ApprovalPolicyId { get; init; }
+
+    /// <summary>
+    /// The consultation the event belongs to: the consultation itself, or a tool call or proposal of
+    /// the consulted agent.
+    /// </summary>
+    public Guid? ConsultationId { get; init; }
+
+    /// <summary>
+    /// How deep the consultation is nested; 1 for an assistant that consults an agent directly.
+    /// </summary>
+    public int? ConsultationDepth { get; init; }
+
+    /// <summary>
+    /// The agent whose turn consulted or requested another agent, when an agent turn did.
+    /// </summary>
+    public string? AskingAgentId { get; init; }
+
+    /// <summary>
+    /// Usage of a consultation: tool calls of the consulted agent, model tokens and the proposals it
+    /// left in its thread.
+    /// </summary>
+    public int? ToolCallCount { get; init; }
+
+    public long? InputTokens { get; init; }
+
+    public long? OutputTokens { get; init; }
+
+    public int? ProposalCount { get; init; }
 }
 
 /// <summary>

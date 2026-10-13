@@ -484,8 +484,12 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
             OperationType = descriptor.OperationType,
             PayloadSchemaVersion = descriptor.PayloadSchemaVersion,
             PayloadJson = item.PayloadJson,
+            OwnerKind = parent.OwnerKind,
             OwnerUserId = parent.OwnerUserId,
+            OwnerKey = parent.OwnerKey,
             DivisionId = parent.DivisionId,
+            DomainObjectType = parent.DomainObjectType,
+            DomainObjectId = parent.DomainObjectId,
             ParentOperationId = parent.Id,
             RootOperationId = rootOperationId,
             FanOutKey = fanOutKey,
@@ -645,15 +649,7 @@ internal sealed class NhBackgroundOperationFanOutCoordinator
 
         try
         {
-            await _liveUpdates.PublishChangedAsync(
-                operation.OwnerUserId,
-                new NhBackgroundOperationChangedMessage(
-                    operation.Id,
-                    operation.Version,
-                    operation.LatestEventSequence,
-                    operation.Status,
-                    operation.DivisionId),
-                cancellationToken);
+            await _liveUpdates.PublishToOwnerAsync(operation, cancellationToken);
         }
         catch (Exception exception)
         {

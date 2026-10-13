@@ -83,6 +83,7 @@
       "two-factor-description": "Beveilig je account met een authenticator-app, e-mailcodes of een passkey.",
       "two-factor-loading": "Tweestapsverificatie laden…"
     },
+    "login-project-lead-account": "Projectleider (assistent)",
     "login-two-factor-account": "Tweestapsverificatie",
     "login-security-officer-account": "Security officer (moet instellen)",
     "login-passkey-alternative": "Of meld je aan zonder wachtwoord",

@@ -63,7 +63,13 @@ public static class NhAiAspNetServiceCollectionExtensions
             services.AddHttpContextAccessor();
             services.AddNewHeapPlatformAI(ai =>
                 ai.AddContextContributor<NhAiAspNetInvocationContextContributor>());
-            services.TryAddScoped<INhAiToolInvocationGate, NhAiAspNetToolInvocationGate>();
+            services.TryAddScoped<NhAiAspNetToolInvocationGate>();
+            services.TryAddScoped<NhAiAgentInvocationGate>();
+            services.TryAddScoped<INhAiToolInvocationGate>(provider =>
+                provider.GetRequiredService<NhAiAgentInvocationGate>());
+            services.AddScoped<INhAiAgentToolAuthorizer>(provider =>
+                provider.GetRequiredService<NhAiAgentInvocationGate>());
+            services.TryAddScoped<INhAiPrincipalFactory, NhAiUserManagerPrincipalFactory>();
             services.TryAddScoped<
                 INhAiAuthenticatedInvocationContextResolver,
                 NhAiAuthenticatedInvocationContextResolver>();

@@ -101,7 +101,7 @@ public sealed class NhBackgroundOperationController : ProtectedNhBaseController
             return NotFound();
         }
 
-        var result = await _operations.RequestCancellationAsync(id, visible.OwnerUserId, cancellationToken);
+        var result = await _operations.RequestCancellationForUserAsync(id, HttpContext.GetUserId()!.Value, cancellationToken);
         return result.Success ? Accepted(result.Data) : BadRequest(result);
     }
 
@@ -120,7 +120,7 @@ public sealed class NhBackgroundOperationController : ProtectedNhBaseController
             return NotFound();
         }
 
-        var result = await _operations.RetryAsync(id, visible.OwnerUserId, cancellationToken);
+        var result = await _operations.RetryForUserAsync(id, HttpContext.GetUserId()!.Value, cancellationToken);
         return result.Success ? Accepted(result.Data) : BadRequest(result);
     }
 
@@ -144,7 +144,9 @@ public sealed class NhBackgroundOperationController : ProtectedNhBaseController
             return null;
         }
 
-        var operation = await _operations.GetAsync(operationId, userId.Value, eventsAfterSequence, cancellationToken);
+        // The owner sees the operation; others only when an access policy allows it, for
+        // example members of the domain object an agent-owned operation works on.
+        var operation = await _operations.GetForUserAsync(operationId, userId.Value, eventsAfterSequence, cancellationToken);
         if (operation?.DivisionId is not null && operation.DivisionId != activeDivisionId)
         {
             return null;

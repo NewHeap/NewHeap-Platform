@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.AspNet.Live;
 using NewHeap.Platform.AI.Chat.AspNet.Mcp;
 using NewHeap.Platform.AI.Chat.AspNet.Notifications;
@@ -64,6 +65,29 @@ public static class NhAssistantServiceCollectionExtensions
                     UseCookies = false
                 });
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantStartupValidator>());
+
+            // Agent runs: triggers, headless runs as background operations, approval decisions,
+            // subject access to the operations and the maintenance job.
+            services.TryAddScoped<NhAssistantAgentTurnFactory>();
+            services.TryAddScoped<NhAssistantAgentTriggers>();
+            services.TryAddScoped<INhAssistantAgentTriggers>(provider => provider.GetRequiredService<NhAssistantAgentTriggers>());
+            services.TryAddScoped<NhAssistantApproverCheck>();
+            services.TryAddScoped<NhAssistantProposalDecisions>();
+            services.TryAddScoped<NhAssistantProposalExecutor>();
+            services.TryAddScoped<INhAiProposalPrecondition, NhAssistantSubjectVersionPrecondition>();
+            services.TryAddScoped<NhAssistantRunCancellation>();
+            services.TryAddScoped<NhAssistantKillSwitch>();
+            services.TryAddScoped<INhAiSubjectRetention, NhAssistantSubjectRetention>();
+            services.TryAddScoped<NhAssistantScheduledTriggerJob>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantScheduleRegistration>());
+            services.TryAddEnumerable(ServiceDescriptor.Scoped<
+                NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.INhBackgroundOperationAccess,
+                NhAssistantBackgroundOperationAccess>());
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantRunMaintenance>());
+
+            // Consultations: the generated consult and request tools of every AllowConsultation.
+            services.TryAddScoped<NhAssistantConsultationToolHandler>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAiToolCatalog, NhAssistantConsultationToolCatalog>());
         }
 
         configure(new NhAssistantBuilder(services, state));
@@ -165,6 +189,66 @@ internal sealed class NhAssistantStartupValidator(
             profiles,
             async policy => await policyProvider.GetPolicyAsync(policy) is not null,
             cancellationToken);
+
+        state.ValidateAgentRuns();
+        if (state.AgentRuns.Count > 0)
+        {
+            var operations = provider.GetService<NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.NhBackgroundOperationRegistry>();
+            if (operations is null
+                || !operations.TryGetForOperationType(NhAssistantAgentRunOperationTypes.Run, out _)
+                || !operations.TryGetForOperationType(NhAssistantAgentRunOperationTypes.ExecuteProposal, out _)
+                || !operations.TryGetForOperationType(NhAssistantAgentRunOperationTypes.ExecuteProposalOnce, out _))
+            {
+                throw new InvalidOperationException(
+                    "Agents configured with ConfigureAgent need background operations. Call AddAssistantAgentRuns inside WithBackgroundOperations.");
+            }
+
+            var subjectTypes = provider.GetRequiredService<NewHeap.Platform.AI.Chat.Runs.NhAssistantSubjectAccessService>();
+            foreach (var trigger in state.Triggers.Values)
+            {
+                if (subjectTypes.SubjectTypes.Count == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Trigger '{trigger.Id}' needs a subject access resolver. Register one with AddSubjectType.");
+                }
+            }
+
+            await ValidateConsultationsAsync(provider, subjectTypes);
+        }
+    }
+
+    /// <summary>
+    /// Every consultation needs a resolver for its subject type and registered policies, and its
+    /// generated catalog must attest that every tool runs through the shared invoker.
+    /// </summary>
+    private async Task ValidateConsultationsAsync(
+        IServiceProvider provider,
+        NewHeap.Platform.AI.Chat.Runs.NhAssistantSubjectAccessService subjectTypes)
+    {
+        var catalog = provider.GetServices<INhAiToolCatalog>().OfType<NhAssistantConsultationToolCatalog>().SingleOrDefault();
+        if (catalog is null)
+        {
+            return;
+        }
+
+        foreach (var consultation in state.AgentRuns.Values.SelectMany(run => run.Consultations))
+        {
+            if (!subjectTypes.IsKnownType(consultation.SubjectType))
+            {
+                throw new InvalidOperationException(
+                    $"Agent '{consultation.AgentId}' allows consultation about '{consultation.SubjectType}', which has no subject access resolver. Register one with AddSubjectType.");
+            }
+        }
+
+        foreach (var policy in catalog.Descriptors.SelectMany(descriptor => descriptor.AuthorizationPolicies).Distinct(StringComparer.Ordinal))
+        {
+            if (await policyProvider.GetPolicyAsync(policy) is null)
+            {
+                throw new InvalidOperationException($"The consultation policy '{policy}' is not registered.");
+            }
+        }
+
+        NhAiToolCatalogAttestation.Validate(catalog, provider);
     }
 
     public Task StopAsync(CancellationToken cancellationToken)

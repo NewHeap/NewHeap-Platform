@@ -294,6 +294,13 @@
       "prompt": "Show the assistant panel in our Angular shell only for permitted users and give administrators a page to manage agents, MCP servers and the application context.",
       "expectedRules": ["nh-ai-assistant-ui"],
       "expectedOutcome": "The application calls provideNhAssistant once with the host token and access policy, places one launcher and one panel in the layout, lazily routes to the administration entry point behind the admin permission, loads the CDK overlay styles and tests against the scripted mock API."
+    },
+    {
+      "id": "consumer-ai-agent-runs",
+      "skill": "newheap-backend-development",
+      "prompt": "Start a project intake reviewer agent when a project is created and let a second project approver decide its proposed status change later, also from the assistant panel.",
+      "expectedRules": ["nh-ai-agent-runs"],
+      "expectedOutcome": "The agent starts from the committed event with a dedupe key, runs as an agent-owned background operation in one thread per project whose access follows the subject resolver, records a deferred proposal under a named four-eyes approval policy with an application presentation, and the thread conversation tells clients per proposal who may decide it, so the decision goes with the proposal hash through the agent-run endpoint."
     }
   ]
 }

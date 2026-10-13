@@ -127,6 +127,14 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         DiagnosticSeverity.Error,
         true);
 
+    private static readonly DiagnosticDescriptor InvalidAgentGrant = new(
+        "NHAI014",
+        "AI tool agent grant is invalid",
+        "AI tool '{0}' allows an agent grant or names an approval policy, which requires Agent exposure and an authorization policy",
+        "NewHeap.AI",
+        DiagnosticSeverity.Error,
+        true);
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var attributedMethods = context.SyntaxProvider.CreateSyntaxProvider(
@@ -247,6 +255,8 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             var requiredCapabilities = GetNamedStringArray(toolAttribute, "RequiredCapabilities")
                 .OrderBy(capability => capability, StringComparer.Ordinal)
                 .ToImmutableArray();
+            var allowAgentGrant = GetNamedBool(toolAttribute, "AllowAgentGrant");
+            var approvalPolicy = GetNamedString(toolAttribute, "ApprovalPolicy");
             if (version < 1)
             {
                 context.ReportDiagnostic(Diagnostic.Create(
@@ -270,6 +280,17 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             {
                 context.ReportDiagnostic(Diagnostic.Create(
                     RemoteExposureRequiresAuthorization,
+                    location,
+                    setId + "." + toolId));
+                continue;
+            }
+            // An agent grant bypasses the caller's own policies, so the tool must be exposed to
+            // agents and carry a policy that approvers and viewers are checked against.
+            if ((allowAgentGrant || approvalPolicy is not null)
+                && ((exposure & 4) == 0 || policies.Length == 0 || (approvalPolicy is not null && string.IsNullOrWhiteSpace(approvalPolicy))))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    InvalidAgentGrant,
                     location,
                     setId + "." + toolId));
                 continue;
@@ -403,6 +424,12 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                     + idempotentHint.ToString(CultureInfo.InvariantCulture) + ","
                     + openWorldHint.ToString(CultureInfo.InvariantCulture);
             }
+            if (allowAgentGrant || approvalPolicy is not null)
+            {
+                // Only declared agent-grant settings enter the contract hash, so existing
+                // contracts keep their published hashes.
+                contractMaterial += "\nagent-grant:" + allowAgentGrant.ToString() + "," + (approvalPolicy ?? string.Empty);
+            }
             var contractHash = ComputeHash(contractMaterial);
 
             tools.Add(new ToolModel(
@@ -438,7 +465,9 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 retentionCategory,
                 requiredCapabilities,
                 authorizationAttributes.Length > 0,
-                policies));
+                policies,
+                allowAgentGrant,
+                approvalPolicy));
         }
 
         var duplicateGroups = tools.GroupBy(tool => tool.LogicalId + "@" + tool.Version)
@@ -587,25 +616,30 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 .Append(index)
                 .Append(", global::Microsoft.Extensions.AI.AIFunctionFactory.Create(handler")
                 .Append(index).AppendLine(", new global::Microsoft.Extensions.AI.AIFunctionFactoryOptions");
-            builder.AppendLine("        {");
-            builder.Append("            Name = ").Append(Literal(tool.ExportName)).AppendLine(",");
-            builder.Append("            Description = ").Append(Literal(tool.Description));
+            string? serializerOptions = null;
             if (tool.JsonSerializerContextType is not null)
             {
-                builder.AppendLine(",");
-                builder.Append("            SerializerOptions = ")
-                    .Append(tool.JsonSerializerContextType)
-                    .AppendLine(".Default.Options");
+                serializerOptions = tool.JsonSerializerContextType + ".Default.Options";
             }
             else if (tool.UsesFlatExportDefaults)
             {
-                builder.AppendLine(",");
-                builder.AppendLine("            SerializerOptions = global::NewHeap.Platform.AI.NhAiToolJsonSerializerOptions.FlatExport");
+                serializerOptions = "global::NewHeap.Platform.AI.NhAiToolJsonSerializerOptions.FlatExport";
             }
-            else
+
+            builder.AppendLine("        {");
+            builder.Append("            Name = ").Append(Literal(tool.ExportName)).AppendLine(",");
+            builder.Append("            Description = ").Append(Literal(tool.Description)).AppendLine(",");
+            if (serializerOptions is not null)
             {
-                builder.AppendLine();
+                builder.Append("            SerializerOptions = ").Append(serializerOptions).AppendLine(",");
             }
+
+            // The function returns the shared NhAiToolResult shape, whose schema the governed
+            // function publishes; only the output type needs serializer metadata.
+            builder.AppendLine("            ExcludeResultSchema = true,");
+            builder.Append("            MarshalResult = global::NewHeap.Platform.AI.NhAiToolResult.CreateMarshaller<")
+                .Append(tool.OutputType).Append(">(")
+                .Append(serializerOptions ?? "null").AppendLine(")");
             builder.AppendLine("        }), services));");
             builder.AppendLine();
         }
@@ -675,6 +709,14 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             .Append(tool.DataClassification).AppendLine(",");
         builder.Append("        RetentionCategory = (global::NewHeap.Platform.AI.NhAiRetentionCategory)")
             .Append(tool.RetentionCategory).AppendLine(",");
+        if (tool.AllowAgentGrant)
+        {
+            builder.AppendLine("        AllowAgentGrant = true,");
+        }
+        if (tool.ApprovalPolicy is not null)
+        {
+            builder.Append("        ApprovalPolicy = ").Append(Literal(tool.ApprovalPolicy)).AppendLine(",");
+        }
         builder.AppendLine("        RequiredCapabilities = new global::System.String[]");
         builder.AppendLine("        {");
         foreach (var capability in tool.RequiredCapabilities)
@@ -1581,7 +1623,9 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             int retentionCategory,
             ImmutableArray<string> requiredCapabilities,
             bool requiresAuthorization,
-            ImmutableArray<string?> authorizationPolicies)
+            ImmutableArray<string?> authorizationPolicies,
+            bool allowAgentGrant,
+            string? approvalPolicy)
         {
             Method = method;
             SetId = setId;
@@ -1616,6 +1660,8 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             RequiredCapabilities = requiredCapabilities;
             RequiresAuthorization = requiresAuthorization;
             AuthorizationPolicies = authorizationPolicies;
+            AllowAgentGrant = allowAgentGrant;
+            ApprovalPolicy = approvalPolicy;
         }
 
         public IMethodSymbol Method { get; }
@@ -1652,5 +1698,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         public ImmutableArray<string> RequiredCapabilities { get; }
         public bool RequiresAuthorization { get; }
         public ImmutableArray<string?> AuthorizationPolicies { get; }
+        public bool AllowAgentGrant { get; }
+        public string? ApprovalPolicy { get; }
     }
 }

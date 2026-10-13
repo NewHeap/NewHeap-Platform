@@ -28,7 +28,17 @@ public class NhBackgroundOperationViewModel
         get; set;
     }
     [Filterable]
-    public Guid OwnerUserId
+    public NhBackgroundOperationOwnerKind OwnerKind
+    {
+        get; set;
+    }
+    [Filterable]
+    public Guid? OwnerUserId
+    {
+        get; set;
+    }
+    [Filterable]
+    public string? OwnerKey
     {
         get; set;
     }

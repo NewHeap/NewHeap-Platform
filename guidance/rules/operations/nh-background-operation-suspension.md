@@ -4,8 +4,8 @@ title: "Suspend a background operation for authorized external input"
 area: backend
 reference: background-operation-suspension
 summary: "Release the worker and persist a typed, expiring wait contract when a durable operation needs approval or other authorized external input."
-sample-cases: ["SPM-229", "SPM-230"]
-public-symbols: ["INhBackgroundOperationSuspensionContext", "INhBackgroundOperationSignalService", "NhBackgroundOperationSignalWaitResult", "NhBackgroundOperationSignalWriteResult"]
+sample-cases: ["SPM-229", "SPM-230", "SPM-268"]
+public-symbols: ["INhBackgroundOperationSuspensionContext", "INhBackgroundOperationSignalService", "NhBackgroundOperationSignalWaitResult", "NhBackgroundOperationSignalWriteResult", "NhBackgroundOperationAccessAction"]
 skills: ["newheap-background-processing"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -26,6 +26,12 @@ operation owner and the independently authenticated signaling actor. The
 persistence boundary matches the owner, wait key and schema, rejects expired or
 conflicting signals, treats an identical duplicate idempotently, and makes the
 operation dispatchable. Never put authorization claims inside the signal body.
+
+When someone other than the owner provides the input, for example an approver of an
+agent-owned operation, use `INhBackgroundOperationSignalService.SignalAsync`
+with the signaling user. The operation's `INhBackgroundOperationAccess`
+policies must allow `NhBackgroundOperationAccessAction.Signal` for that user;
+the same wait-key, schema and duplicate rules apply.
 
 Expiry is stored as `NextDispatchAt`; it wakes a new attempt that receives an
 `Expired` result. Cancellation advances a sleeping operation immediately for

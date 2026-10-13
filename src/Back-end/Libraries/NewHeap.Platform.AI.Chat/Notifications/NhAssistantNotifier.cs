@@ -25,6 +25,14 @@ internal interface INhAssistantNotifier
         string inviteeActorId,
         string inviterDisplayName,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Tells the recipients about an agent event in a thread.
+    /// </summary>
+    Task AgentNotificationAsync(
+        NhAssistantAgentNotificationContext context,
+        IReadOnlyList<string> recipientActorIds,
+        CancellationToken cancellationToken);
 }
 
 internal sealed class NhAssistantNoNotifier : INhAssistantNotifier
@@ -38,6 +46,14 @@ internal sealed class NhAssistantNoNotifier : INhAssistantNotifier
         Guid conversationId,
         string inviteeActorId,
         string inviterDisplayName,
+        CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
+
+    public Task AgentNotificationAsync(
+        NhAssistantAgentNotificationContext context,
+        IReadOnlyList<string> recipientActorIds,
         CancellationToken cancellationToken)
     {
         return Task.CompletedTask;

@@ -24,13 +24,30 @@ Reference `NewHeap.Platform.AI.Generators` as an analyzer. The supported method
 shape is `(input, NhAiInvocationContext, CancellationToken)` returning
 `Task<TaskResult<T>>`. The generated catalog adapts that method to a local
 `Microsoft.Extensions.AI.AIFunction`, emits canonical input/output schema and a
-SHA-256 contract hash, and preserves the `TaskResult` outcome. Treat changes to
-required fields, types, meaning, authorization, or effect as a new contract
-version; use the generated catalog manifest as compatibility evidence.
+SHA-256 contract hash, and returns the `TaskResult` outcome in the shared
+`NhAiToolResult` shape. Treat changes to required fields, types, meaning,
+authorization, or effect as a new contract version; use the generated catalog
+manifest as compatibility evidence.
+
+Every governed tool, generated or from the API bridge, gives the model the same
+result shape: `{"success":true,"data":...}` on success and
+`{"success":false,"code":"...","message":"..."}` on failure, with `data` only when
+the failed `TaskResult<T>` carries a typed payload. The code is the first result
+item named with a lowercase dash-case code, so name expected failures, for example
+`TaskResult<T>.Failed("project-division-scope-missing", "...")`: the model can then
+tell them apart, explain them and recover. Pipeline outcomes keep their
+`NhAiToolFailureCodes`. A failure without a code becomes `ai-tool-failed` with every
+message and its field name. `NhAiGovernedAIFunction` publishes the shape around the
+descriptor's output schema as its return schema. The shape is not part of the
+contract hash, so pinned manifests and bound proposals stay valid. A hand-written
+attested catalog creates its functions with `NhAiToolResult.CreateMarshaller<T>` and
+`ExcludeResultSchema`, and uses `NhAiToolResult.Failed` for a call it refuses before
+the invoker runs.
 
 For a trimmed Native AOT application, declare an application-owned
 `JsonSerializerContext` that source-generates metadata for every tool input and
-its `TaskResult<TOutput>`. Set that context through
+output type; `TaskResult<TOutput>` is no longer needed, and a context that still
+declares it keeps working. Set that context through
 `NhAiToolSet.JsonSerializerContextType`. This keeps function argument and result
 serialization reflection-free after trimming; omitting required metadata can
 make function creation or invocation fail only in the published executable.
@@ -112,6 +129,8 @@ the existing generated `<toolset>_<tool>_v<version>` name remains unchanged.
 - Logging prompts, arguments, model output, secrets, or full exception content.
 - Catching argument-binding exceptions in consumer code or returning argument values in failure messages; the governed function owns `ai-tool-input-invalid`.
 - Returning ad-hoc exceptions for expected business outcomes instead of `TaskResult`.
+- Failing an expected outcome without a result code, so the model only sees `ai-tool-failed`.
+- Returning a raw serialized `TaskResult` from a hand-written governed function; the model then receives no code or message.
 
 ## Verification
 
@@ -124,7 +143,9 @@ proposal binding, duplicate retries, and verifier disagreement. Exercise an
 oversized input, a denied budget reservation, and an ungoverned catalog; none may
 reach the application service. Invoke a governed function with flat arguments and
 with `input` mixed with another property: the first runs once with the enveloped
-result, the second returns `ai-tool-input-invalid` without execution. Build and
+result, the second returns `ai-tool-input-invalid` without execution. Assert that
+a successful call returns only `success` and `data`, and that an expected failure
+returns its own `code` and `message`. Build and
 start the host in the Development environment, where the container validates
 scopes and registrations on build; a run-scoped catalog must be validated at
 startup and released with its validation scope. SPM-228 registers such a catalog
@@ -141,7 +162,7 @@ project are the executable references.
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs)
-  - [../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolResult.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolResult.cs)
 - SPM-221 — Authorized AI tool discovery
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiToolSamplesTests.cs)

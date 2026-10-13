@@ -329,6 +329,7 @@
     "two-factor-disable": "Tweestapsverificatie uitzetten",
     "two-factor-qr-alt": "QR-code voor de authenticator-app",
     "two-factor-shared-key": "Sleutel om handmatig in te voeren",
+    "login-project-lead-account": "Projectleider (assistent)",
     "login-two-factor-account": "Tweestapsverificatie",
     "login-security-officer-account": "Security officer (moet instellen)",
     "login-passkey-alternative": "Of meld je aan zonder wachtwoord",
@@ -534,6 +535,14 @@
       "sample-catalog-guide": {
         "name": "Catalogusgids",
         "description": "Legt de samplecatalogus uit. Alleen lezen."
+      },
+      "sample-project-intake-reviewer": {
+        "name": "Intakebeoordelaar",
+        "description": "Beoordeelt nieuwe projecten zelfstandig en stelt de volgende status voor aan een goedkeurder."
+      },
+      "sample-project-status-advisor": {
+        "name": "Statusadviseur",
+        "description": "Stelt met jouw rechten een statuswijziging voor; je keurt die goed voordat ze wordt uitgevoerd."
       }
     }
   },
@@ -552,5 +561,41 @@
     "required-by-policy": "Je organisatie vereist tweestapsverificatie.",
     "not-allowed-while-impersonating": "Je kunt tweestapsverificatie niet wijzigen tijdens impersonatie.",
     "configuration-invalid": "Tweestapsverificatie is niet goed geconfigureerd."
+  },
+  "project-members": {
+    "navigation": "Projectleden",
+    "title": "Projectleden",
+    "description": "De mensen op een project en hun rol. De rol bepaalt wat zij met de agent-threads van het project mogen, zoals de voorstellen van de intake-reviewer.",
+    "project": "Project",
+    "loading": "Laden…",
+    "no-projects": "Geen projecten in je divisie",
+    "owner-hint": "De projecteigenaar beslist over voorstellen zonder ledenrij.",
+    "add-title": "Lid toevoegen",
+    "user-id": "Gebruikers-ID (iemand uit de divisie van het project)",
+    "role": "Rol",
+    "add": "Lid toevoegen",
+    "saving": "Opslaan…",
+    "list-title": "Leden",
+    "select-project": "Kies een project om de leden te zien.",
+    "empty": "Dit project heeft nog geen leden.",
+    "remove": "Verwijderen",
+    "role-reader": "Lezer",
+    "role-participant": "Deelnemer",
+    "role-approver": "Beslisser",
+    "role-reader-description": "Ziet de agent-threads van het project.",
+    "role-participant-description": "Typt ook in de threads en annuleert runs.",
+    "role-approver-description": "Beslist ook over voorstellen van de agent, behalve over projecten die diegene zelf aanmaakte.",
+    "error-validation": "Het lid is niet opgeslagen: de persoon moet bij de divisie van het project horen en kan één keer op een project staan.",
+    "error-forbidden": "Je hebt de permissie app.project.manage nodig om projectleden te wijzigen.",
+    "error-offline": "De API is niet bereikbaar. Start het sample via Aspire."
+  },
+  "intake-reviews": {
+    "navigation": "Intake-reviews",
+    "title": "Intake-reviews",
+    "description": "De intake-reviewer start vanzelf zodra een project wordt aangemaakt. Beslis hier over zijn voorstellen, of volg de runs, het werkgeheugen en de bestanden van één project.",
+    "project": "Project",
+    "loading": "Laden…",
+    "no-projects": "Geen projecten in je divisie",
+    "load-failed": "De projecten konden niet worden geladen. Start het sample via Aspire."
   }
 }

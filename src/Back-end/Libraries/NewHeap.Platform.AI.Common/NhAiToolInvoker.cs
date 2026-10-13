@@ -403,10 +403,12 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
             approvalEvidenceReference = SafeEvidenceReference(validatedEvidence.EvidenceReference);
         }
 
-        var effectDecision = await _effectPolicy.EvaluateAsync(
+        var effectDecision = RequireApprovalInScope(
             descriptor,
-            context,
-            cancellationToken);
+            await _effectPolicy.EvaluateAsync(
+                descriptor,
+                context,
+                cancellationToken));
         activity?.SetTag("newheap.ai.tool.effect_decision", effectDecision.Code);
         if (effectDecision.Kind == NhAiEffectDecisionKind.Deny)
         {
@@ -800,7 +802,12 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
             VerificationCode = verificationCode,
             VerificationEvidenceReference = verificationEvidenceReference,
             ResultCode = resultCode,
-            AnnotationOverrides = NhAiToolAnnotationHints.DescribeOverrides(descriptor)
+            AnnotationOverrides = NhAiToolAnnotationHints.DescribeOverrides(descriptor),
+            ActorKind = context?.ActorKind ?? NhAiActorKind.Human,
+            AgentId = context?.AgentId,
+            AccountableOwnerId = context?.AccountableOwnerId,
+            ProposalId = context?.ProposalId,
+            GrantSource = context?.GrantSource ?? NhAiGrantSource.None
         };
         foreach (var sink in _auditSinks)
         {
@@ -886,6 +893,25 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
     private static string? SafeCode(string? code)
     {
         return NhAiNames.IsSegment(code) ? code : null;
+    }
+
+    /// <summary>
+    /// Inside an agent scope that requires approval for effects, a tool other than a read never runs
+    /// without an approval, whatever the registered effect policy decided. Tools that issue or
+    /// authorize approvals themselves cannot run there at all.
+    /// </summary>
+    private static NhAiEffectDecision RequireApprovalInScope(NhAiToolDescriptor descriptor, NhAiEffectDecision decision)
+    {
+        if (NhAiAgentInvocationScopes.Current is not { RequireApprovalForEffects: true }
+            || descriptor.Effect == NhAiToolEffect.ReadOnly
+            || decision.Kind is NhAiEffectDecisionKind.Deny or NhAiEffectDecisionKind.RequireApproval)
+        {
+            return decision;
+        }
+
+        return descriptor.Approval is NhAiApprovalRequirement.Issuer or NhAiApprovalRequirement.ConsumerAuthoritative
+            ? new NhAiEffectDecision(NhAiEffectDecisionKind.Deny, "agent-scope-approval-issuer-denied")
+            : new NhAiEffectDecision(NhAiEffectDecisionKind.RequireApproval, "agent-scope-approval-required");
     }
 
     private static TaskResult<T> WithFallbackCode<T>(TaskResult<T> result, string code)

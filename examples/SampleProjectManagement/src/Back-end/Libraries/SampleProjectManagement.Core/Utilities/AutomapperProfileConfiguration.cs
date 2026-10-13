@@ -20,5 +20,10 @@ public class AutomapperProfileConfiguration : Profile
         CreateMap<ProjectTask, ProjectTaskViewModel>();
         CreateMap<ProjectTaskMutateModel, ProjectTask>().MapOnlyIfChanged();
         CreateMap<ProjectTask, ProjectTaskMutateModel>().MapOnlyIfChanged();
+
+        CreateMap<ProjectMember, ProjectMemberViewModel>()
+            .ForMember(destination => destination.UserName, options => options.MapFrom(source => source.User != null ? source.User.UserName ?? "" : ""));
+        CreateMap<ProjectMemberMutateModel, ProjectMember>().MapOnlyIfChanged();
+        CreateMap<ProjectMember, ProjectMemberMutateModel>().MapOnlyIfChanged();
     }
 }

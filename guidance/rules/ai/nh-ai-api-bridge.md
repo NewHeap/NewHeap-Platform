@@ -69,11 +69,13 @@ envelope mixed with other properties returns `ai-tool-input-invalid` before any
 HTTP call, and unknown flat properties still fail the bridge input schema as
 `api-bridge-validation`.
 
-Tool output is `TaskResult<NhAiBridgeResponse>` with `status`, `contentType`,
-`body`, `truncated` and `bodyBytes`. A body larger than `MaxResultBytes` is
-returned as a `bodyText` fragment with `truncated: true` and a paging hint. HTTP
-failures become `NhAiBridgeFailureCodes` such as `api-bridge-forbidden`; a `400`
-keeps the model state as data, and no failure message contains response text.
+Tool output is the shared `NhAiToolResult` shape with an `NhAiBridgeResponse` as
+`data`: `status`, `contentType`, `body`, `truncated` and `bodyBytes`. A body larger
+than `MaxResultBytes` is returned as a `bodyText` fragment with `truncated: true`
+and a paging hint. HTTP failures reach the model as
+`{"success":false,"code":"api-bridge-forbidden","message":"..."}` with
+`NhAiBridgeFailureCodes`; a `400` keeps the response with the model state as
+`data`, and no failure message contains response text.
 Body serialization is independent of conventions. System.Text.Json web defaults
 remain compatible through `INhAiBridgeConventions.SerializeBody`; use
 `UseBodySerializer<NhAiMvcNewtonsoftJsonBodySerializer>()` to use the application's
@@ -144,6 +146,10 @@ must be reshaped or redacted for a model, or is a high-volume workflow that
 benefits from a narrow contract. The bridge is the right choice for broad,
 policy-protected CRUD and query surfaces whose controller contract is already the
 product boundary.
+
+Bridge tools forward the caller's own HTTP credentials, so they are not offered in
+headless agent runs, which have no caller. Give an agent that must act on its own a
+curated generated tool that opts in with `AllowAgentGrant`.
 
 ## Avoid
 

@@ -75,6 +75,21 @@ public sealed class NhAiMvcBridgeExecutionTests
     }
 
     [Fact]
+    public async Task Failed_tool_call_gives_the_model_the_stable_bridge_code_and_message()
+    {
+        using var factory = new BridgeApiFactory();
+
+        var result = await factory.InvokeAsync(TestTokenHandler.Viewer, "test-api_order_get-by-id_v1", new { id = 404 });
+
+        Assert.False(result.Success);
+        Assert.Equal(
+            [NhAiToolResult.SuccessPropertyName, NhAiToolResult.CodePropertyName, NhAiToolResult.MessagePropertyName],
+            result.Envelope.EnumerateObject().Select(property => property.Name).ToArray());
+        Assert.Equal(NhAiBridgeFailureCodes.NotFound, result.Property(NhAiToolResult.CodePropertyName).GetString());
+        Assert.False(string.IsNullOrWhiteSpace(result.Property(NhAiToolResult.MessagePropertyName).GetString()));
+    }
+
+    [Fact]
     public async Task Validation_failure_returns_the_model_state_as_data()
     {
         using var factory = new BridgeApiFactory();

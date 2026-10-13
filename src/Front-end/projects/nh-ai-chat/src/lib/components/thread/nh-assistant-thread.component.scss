@@ -84,6 +84,17 @@ cdk-virtual-scroll-viewport.scroller {
   background: var(--nha-surface-strong);
 }
 
+.message[data-author='trigger'] {
+  align-items: stretch;
+}
+
+.message[data-author='trigger'] .bubble {
+  max-width: none;
+  color: var(--nha-text-muted);
+  background: transparent;
+  border: 1px dashed var(--nha-border);
+}
+
 .message[data-role='assistant'] .bubble,
 .message[data-role='tool'] .bubble {
   padding-inline: 0;

@@ -15,7 +15,7 @@ import { NhAssistantApprovalCardComponent, formatNhAssistantCountdown } from './
 import { NhAssistantComposerComponent } from './composer/nh-assistant-composer.component';
 import { NhAssistantLauncherComponent } from './launcher/nh-assistant-launcher.component';
 import { NhAssistantPanelComponent } from './panel/nh-assistant-panel.component';
-import { NhAssistantThreadComponent } from './thread/nh-assistant-thread.component';
+import { NhAssistantApprovalChoice, NhAssistantThreadComponent } from './thread/nh-assistant-thread.component';
 import { NhAssistantToolCallCardComponent } from './tool-call-card/nh-assistant-tool-call-card.component';
 import { NhAssistantToolCallGroupComponent } from './tool-call-group/nh-assistant-tool-call-group.component';
 
@@ -307,6 +307,25 @@ describe('NhAssistantApprovalCardComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('This approval has expired.');
   });
 
+  it('names who decides when the current user may not', () => {
+    const waiting = () => (fixture.nativeElement.querySelector('.waiting-for-other') as HTMLElement | null)?.textContent ?? '';
+    fixture.componentRef.setInput('canDecide', false);
+    fixture.componentRef.setInput('waitingFor', 'approver');
+    fixture.detectChanges();
+
+    expect(buttons().length).toBe(0);
+    expect(waiting()).toContain('Waiting for an approver to decide.');
+
+    fixture.componentRef.setInput('waitingFor', 'other-approver');
+    fixture.detectChanges();
+    expect(waiting()).toContain('You started this work, so another approver decides.');
+
+    fixture.componentRef.setInput('waitingFor', 'turn');
+    fixture.componentRef.setInput('decisionOwner', 'Sam');
+    fixture.detectChanges();
+    expect(waiting()).toContain('Waiting for Sam to decide.');
+  });
+
   it('formats the countdown', () => {
     expect(formatNhAssistantCountdown(65_000)).toBe('1:05');
     expect(formatNhAssistantCountdown(3_725_000)).toBe('1:02:05');
@@ -517,6 +536,45 @@ describe('NhAssistantThreadComponent', () => {
     expect(element.querySelector('.markdown strong')?.textContent).toBe('there');
     expect(element.querySelector('.plain')?.textContent).toBe('<b>user</b>');
     expect((window as unknown as Record<string, unknown>)['__nhThreadPwned']).toBeUndefined();
+  });
+
+  it('labels a trigger message as an event and lets each approval card follow its own right', () => {
+    const fixture = TestBed.createComponent(NhAssistantThreadComponent);
+    const second: ApprovalPart = { ...approval, approvalId: 'approval-2', proposalHash: 'hash-2' };
+    fixture.componentRef.setInput('currentActorId', 'lead');
+    fixture.componentRef.setInput('canDecide', false);
+    fixture.componentRef.setInput('messages', [
+      {
+        id: 'u1',
+        role: 'user',
+        createdAt: '',
+        authorActorId: 'trigger:project-created-intake',
+        authorKind: 'trigger',
+        parts: [{ type: 'text', text: 'New project PIETJE needs an intake review.' }]
+      },
+      { id: 'a1', role: 'assistant', createdAt: '', parts: [approval, { type: 'text', text: 'Proposed.' }, second] }
+    ] satisfies Message[]);
+    fixture.componentRef.setInput('approvalRights', new Map([
+      ['approval-1', { canDecide: true, waitingFor: 'approver', decisionOwner: null }],
+      ['approval-2', { canDecide: false, waitingFor: 'other-approver', decisionOwner: null }]
+    ]));
+    const choices: NhAssistantApprovalChoice[] = [];
+    fixture.componentInstance.approvalChoice.subscribe(choice => choices.push(choice));
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const trigger = element.querySelector('.message[data-author="trigger"]');
+    expect(trigger?.querySelector('.author')?.textContent?.trim()).toBe('Event');
+    expect(trigger?.getAttribute('data-others')).toBeNull();
+    expect(element.textContent).not.toContain('Participant');
+    const cards = element.querySelectorAll('nh-assistant-approval-card');
+    expect(cards[0].querySelectorAll('.actions button').length).toBe(2);
+    expect(cards[1].querySelector('.actions')).toBeNull();
+    expect(cards[1].querySelector('.waiting-for-other')?.textContent).toContain('another approver decides');
+
+    (cards[0].querySelector('.actions button.approve') as HTMLButtonElement).click();
+
+    expect(choices).toEqual([{ approvalId: 'approval-1', decision: 'approve' }]);
   });
 
   it('switches to CDK virtual scrolling above 200 messages', () => {

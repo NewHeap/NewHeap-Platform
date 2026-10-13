@@ -1,6 +1,7 @@
 # NewHeap consumer guidance
 
 - ai-agent-framework: ./ai-agent-framework.md
+- ai-agent-runs: ./ai-agent-runs.md
 - ai-api-bridge: ./ai-api-bridge.md
 - ai-aspnet-context: ./ai-aspnet-context.md
 - ai-assets: ./ai-assets.md

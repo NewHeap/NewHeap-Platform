@@ -220,6 +220,130 @@ public sealed class NhAssistantBuilder
         return this;
     }
 
+    /// <summary>
+    /// Configures how an agent runs on subjects: who answers for its runs, which tools it may use
+    /// beyond a person's rights, how its proposals are approved and how runs are retried. The agent
+    /// must be added with <see cref="AddAgent"/>.
+    /// </summary>
+    public NhAssistantBuilder ConfigureAgent(string agentId, Action<NhAssistantAgentRunBuilder> configure)
+    {
+        NhAssistantNames.ValidateSegment(agentId, nameof(agentId));
+        ArgumentNullException.ThrowIfNull(configure);
+        configure(new NhAssistantAgentRunBuilder(_state.GetOrAddAgentRun(agentId)));
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a named approval policy that agents, tools and triggers can reference.
+    /// </summary>
+    public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var builder = new NhAiApprovalPolicyBuilder(policyId);
+        configure(builder);
+        _state.AddApprovalPolicy(builder.Build());
+        return this;
+    }
+
+    /// <summary>
+    /// Registers the access resolver of one subject type. Agent threads of that type follow the
+    /// resolver: it decides who sees a thread, who types in it and who decides its proposals.
+    /// </summary>
+    public NhAssistantBuilder AddSubjectType<TResolver>()
+        where TResolver : class, INhAiSubjectAccessResolver
+    {
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAiSubjectAccessResolver, TResolver>());
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a trigger that starts an agent when the application publishes
+    /// <typeparamref name="TEvent"/> through <c>INhAssistantAgentTriggers.PublishAsync</c>.
+    /// </summary>
+    public NhAssistantBuilder AddTrigger<TEvent>(string triggerId, Action<NhAssistantTriggerBuilder<TEvent>> configure)
+        where TEvent : class
+    {
+        if (!NhAiSubjectRef.IsValidType(triggerId))
+        {
+            throw new ArgumentException("A trigger id is a dash-case identifier.", nameof(triggerId));
+        }
+
+        ArgumentNullException.ThrowIfNull(configure);
+        var builder = new NhAssistantTriggerBuilder<TEvent>();
+        configure(builder);
+        _state.AddTrigger(builder.Build(triggerId));
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a trigger that starts an agent on a schedule for every subject that
+    /// <c>Subjects</c> returns, at most <c>MaxSubjectsPerTick</c> per tick. The schedule runs as a
+    /// Hangfire recurring job, so the host needs <c>WithHangfire</c>.
+    /// </summary>
+    public NhAssistantBuilder AddScheduledTrigger(string triggerId, Action<NhAssistantScheduleBuilder> configure)
+    {
+        ValidateTriggerId(triggerId);
+        ArgumentNullException.ThrowIfNull(configure);
+        var builder = new NhAssistantScheduleBuilder();
+        configure(builder);
+        _state.AddTrigger(builder.Build(triggerId));
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a trigger that an external system fires with
+    /// <c>POST {prefix}/triggers/{triggerId}</c>, signed with a shared secret.
+    /// </summary>
+    public NhAssistantBuilder AddWebhookTrigger(string triggerId, Action<NhAssistantWebhookBuilder> configure)
+    {
+        ValidateTriggerId(triggerId);
+        ArgumentNullException.ThrowIfNull(configure);
+        var builder = new NhAssistantWebhookBuilder();
+        configure(builder);
+        _state.AddTrigger(builder.Build(triggerId));
+        return this;
+    }
+
+    /// <summary>
+    /// Replaces who is told about agent events. The default notifies the subject's approvers.
+    /// </summary>
+    public NhAssistantBuilder UseAgentNotificationPolicy<TPolicy>()
+        where TPolicy : class, INhAssistantAgentNotificationPolicy
+    {
+        Services.Replace(ServiceDescriptor.Scoped<INhAssistantAgentNotificationPolicy, TPolicy>());
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a channel, such as e-mail or an in-app inbox, that delivers agent notifications next to
+    /// Web Push.
+    /// </summary>
+    public NhAssistantBuilder AddAgentNotificationChannel<TChannel>()
+        where TChannel : class, INhAssistantAgentNotificationChannel
+    {
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAssistantAgentNotificationChannel, TChannel>());
+        return this;
+    }
+
+    /// <summary>
+    /// Converts stored working memory when an agent's memory schema version changes. Without a
+    /// migrator, memory that no longer fits the new schema is cleared.
+    /// </summary>
+    public NhAssistantBuilder UseAgentMemoryMigrator<TMigrator>()
+        where TMigrator : class, INhAssistantAgentMemoryMigrator
+    {
+        Services.Replace(ServiceDescriptor.Scoped<INhAssistantAgentMemoryMigrator, TMigrator>());
+        return this;
+    }
+
+    private static void ValidateTriggerId(string triggerId)
+    {
+        if (!NhAiSubjectRef.IsValidType(triggerId))
+        {
+            throw new ArgumentException("A trigger id is a dash-case identifier.", nameof(triggerId));
+        }
+    }
+
     internal NhAssistantBuilder UseStorage(NhAssistantStorageRegistration registration)
     {
         ArgumentNullException.ThrowIfNull(registration);
@@ -235,6 +359,9 @@ public sealed class NhAssistantBuilder
 internal sealed class NhAssistantRegistrationState
 {
     private readonly Dictionary<string, NhAssistantAgentDefinition> _agents = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAssistantAgentRunOptions> _agentRuns = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAiApprovalPolicy> _approvalPolicies = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAssistantTriggerDefinition> _triggers = new(StringComparer.Ordinal);
 
     public string? AccessPolicy { get; set; }
 
@@ -253,6 +380,104 @@ internal sealed class NhAssistantRegistrationState
     public TimeZoneInfo TimeZone { get; set; } = TimeZoneInfo.Utc;
 
     public IReadOnlyCollection<NhAssistantAgentDefinition> Agents => _agents.Values;
+
+    public IReadOnlyDictionary<string, NhAssistantAgentRunOptions> AgentRuns => _agentRuns;
+
+    public IReadOnlyDictionary<string, NhAiApprovalPolicy> ApprovalPolicies => _approvalPolicies;
+
+    public IReadOnlyDictionary<string, NhAssistantTriggerDefinition> Triggers => _triggers;
+
+    public NhAssistantAgentRunOptions GetOrAddAgentRun(string agentId)
+    {
+        if (!_agentRuns.TryGetValue(agentId, out var options))
+        {
+            options = new NhAssistantAgentRunOptions(agentId);
+            _agentRuns.Add(agentId, options);
+        }
+
+        return options;
+    }
+
+    public void AddApprovalPolicy(NhAiApprovalPolicy policy)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        var validation = policy.Validate(NhAssistantLimits.MaxApprovalLifetime);
+        if (!validation.Success)
+        {
+            throw new ArgumentException(
+                $"Approval policy '{policy.Id}' is invalid: {string.Join("; ", validation.AllErrorMessages)}",
+                nameof(policy));
+        }
+
+        if (!_approvalPolicies.TryAdd(policy.Id, policy))
+        {
+            throw new InvalidOperationException($"Approval policy '{policy.Id}' is already registered.");
+        }
+    }
+
+    public void AddTrigger(NhAssistantTriggerDefinition trigger)
+    {
+        ArgumentNullException.ThrowIfNull(trigger);
+        if (NhAssistantTriggerIds.IsReserved(trigger.Id))
+        {
+            throw new ArgumentException($"Trigger id '{trigger.Id}' is reserved.", nameof(trigger));
+        }
+
+        if (!_triggers.TryAdd(trigger.Id, trigger))
+        {
+            throw new InvalidOperationException($"Trigger '{trigger.Id}' is already registered.");
+        }
+    }
+
+    /// <summary>
+    /// Checks the agent run configuration once every registration has run: configured agents and
+    /// triggers reference known agents, and every referenced policy is registered.
+    /// </summary>
+    public void ValidateAgentRuns()
+    {
+        foreach (var (agentId, options) in _agentRuns)
+        {
+            if (!_agents.ContainsKey(agentId))
+            {
+                throw new InvalidOperationException(
+                    $"ConfigureAgent references agent '{agentId}', which is not added with AddAgent.");
+            }
+
+            var policies = options.ToolApprovalPolicies.Values.Append(options.ApprovalPolicyId);
+            foreach (var policyId in policies.OfType<string>())
+            {
+                ValidatePolicyReference(policyId, $"agent '{agentId}'");
+            }
+        }
+
+        foreach (var trigger in _triggers.Values)
+        {
+            if (!_agentRuns.ContainsKey(trigger.AgentId))
+            {
+                throw new InvalidOperationException(
+                    $"Trigger '{trigger.Id}' starts agent '{trigger.AgentId}', which is not configured with ConfigureAgent.");
+            }
+
+            if (trigger.ApprovalPolicyId is not null)
+            {
+                ValidatePolicyReference(trigger.ApprovalPolicyId, $"trigger '{trigger.Id}'");
+            }
+        }
+
+        foreach (var policy in _approvalPolicies.Values.Where(policy => policy.EscalationPolicyId is not null))
+        {
+            ValidatePolicyReference(policy.EscalationPolicyId!, $"approval policy '{policy.Id}'");
+        }
+    }
+
+    private void ValidatePolicyReference(string policyId, string owner)
+    {
+        if (!_approvalPolicies.ContainsKey(policyId))
+        {
+            throw new InvalidOperationException(
+                $"The {owner} references approval policy '{policyId}', which is not registered with AddApprovalPolicy.");
+        }
+    }
 
     public void AddAgent(NhAssistantAgentDefinition agent)
     {

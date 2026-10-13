@@ -61,7 +61,8 @@ internal sealed class NhAssistantApprovalEvidenceProvider(
             .SingleOrDefaultAsync(
                 approval => approval.Id == approvalId
                     && approval.ProposalId == proposalId
-                    && approval.Status == NhAssistantApprovalStatuses.Approved,
+                    && (approval.Status == NhAssistantApprovalStatuses.Approved
+                        || approval.Status == NhAssistantApprovalStatuses.Executing),
                 cancellationToken);
     }
 

@@ -38,6 +38,10 @@ public static class SampleDevelopmentIdentitySeeder
             roleManager,
             SampleAuthorizationDefaults.SecurityOfficerRole,
             ["app.project.view"]);
+        await EnsureApplicationRoleAsync(
+            roleManager,
+            SampleAuthorizationDefaults.ProjectLeadRole,
+            ["app.project.view", "app.project.manage", "app.assistant.access"]);
 
         var manager = await EnsureUserAsync(
             userManager,
@@ -61,6 +65,9 @@ public static class SampleDevelopmentIdentitySeeder
         var securityOfficer = await EnsureUserAsync(
             userManager,
             SampleAuthorizationDefaults.SecurityOfficerEmail);
+        var projectLead = await EnsureUserAsync(
+            userManager,
+            SampleAuthorizationDefaults.ProjectLeadEmail);
 
         await EnsureUserRoleAsync(
             userManager,
@@ -78,6 +85,10 @@ public static class SampleDevelopmentIdentitySeeder
             userManager,
             securityOfficer,
             SampleAuthorizationDefaults.SecurityOfficerRole);
+        await EnsureUserRoleAsync(
+            userManager,
+            projectLead,
+            SampleAuthorizationDefaults.ProjectLeadRole);
 
         await EnsureDivisionAsync(
             dbContext,
@@ -126,6 +137,11 @@ public static class SampleDevelopmentIdentitySeeder
             divisionEditorRole.Id);
         await EnsureDivisionAssignmentAsync(
             dbContext,
+            projectLead.Id,
+            SampleAuthorizationDefaults.NorthDivisionId,
+            divisionEditorRole.Id);
+        await EnsureDivisionAssignmentAsync(
+            dbContext,
             projectEditor.Id,
             SampleAuthorizationDefaults.NorthDivisionId,
             projectMemberRole.Id);
@@ -153,6 +169,10 @@ public static class SampleDevelopmentIdentitySeeder
             SampleAuthorizationDefaults.NorthDivisionId);
         await SetActiveDivisionAsync(
             userManager,
+            projectLead,
+            SampleAuthorizationDefaults.NorthDivisionId);
+        await SetActiveDivisionAsync(
+            userManager,
             twoFactorUser,
             SampleAuthorizationDefaults.NorthDivisionId);
 
@@ -170,6 +190,12 @@ public static class SampleDevelopmentIdentitySeeder
             manager.Id,
             "AUTH-BETA",
             "Authorization Beta");
+
+        await EnsureProjectMemberAsync(
+            dbContext,
+            SampleAuthorizationDefaults.AlphaProjectId,
+            projectLead.Id,
+            ProjectMemberRole.Approver);
 
         await EnsureUserClaimAsync(
             userManager,
@@ -424,6 +450,28 @@ public static class SampleDevelopmentIdentitySeeder
             Name = name,
             Description = "Seeded authorization sample project.",
             Status = ProjectStatus.Active
+        });
+        await dbContext.SaveChangesAsync();
+    }
+
+    private static async Task EnsureProjectMemberAsync(
+        SampleProjectManagementDbContext dbContext,
+        Guid projectId,
+        Guid userId,
+        ProjectMemberRole role)
+    {
+        if (await dbContext.ProjectMembers.AnyAsync(member =>
+                member.ProjectId == projectId && member.UserId == userId))
+        {
+            return;
+        }
+
+        dbContext.ProjectMembers.Add(new ProjectMember
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = projectId,
+            UserId = userId,
+            Role = role
         });
         await dbContext.SaveChangesAsync();
     }

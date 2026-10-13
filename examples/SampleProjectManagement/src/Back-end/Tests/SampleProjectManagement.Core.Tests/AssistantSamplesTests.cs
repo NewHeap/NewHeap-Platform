@@ -199,6 +199,7 @@ public class AssistantSampleHost : IAsyncLifetime
     public virtual async ValueTask InitializeAsync()
     {
         await _database.StartAsync();
+        await OnDatabaseStartedAsync();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         builder.Logging.ClearProviders();
@@ -239,6 +240,7 @@ public class AssistantSampleHost : IAsyncLifetime
             .AddCapabilityGrant(ProjectAiTools.ManageCapability, ManagePolicy));
         ConfigureServices(services);
         services.AddSampleAssistant(builder.Environment, builder.Configuration);
+        ConfigureAssistant(services);
         services.Configure<RequestLocalizationOptions>(options =>
         {
             var supportedCultures = new[]
@@ -258,6 +260,23 @@ public class AssistantSampleHost : IAsyncLifetime
         _app.MapSampleAssistant();
         await _app.StartAsync();
         _baseAddress = new Uri(_app.Urls.First());
+    }
+
+    /// <summary>
+    /// Runs after the database container started and before the host is built, for example to
+    /// apply migrations that hosted services need from their first run.
+    /// </summary>
+    protected virtual Task OnDatabaseStartedAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Adds services after <c>AddSampleAssistant</c>, the position of <c>AddSampleIntakeReviewer</c>
+    /// in Program.cs.
+    /// </summary>
+    protected virtual void ConfigureAssistant(IServiceCollection services)
+    {
     }
 
     /// <summary>Adds logging providers; the base host logs nothing.</summary>
@@ -295,6 +314,14 @@ public class AssistantSampleHost : IAsyncLifetime
             await _app.DisposeAsync();
         }
         await _database.DisposeAsync();
+    }
+
+    /// <summary>
+    /// A client without a signed-in user, such as an external system that calls a webhook.
+    /// </summary>
+    public HttpClient CreateAnonymousClient()
+    {
+        return new HttpClient { BaseAddress = _baseAddress, Timeout = TimeSpan.FromMinutes(2) };
     }
 
     public HttpClient CreateClient(string user, bool admin = false, params string[] permissions)

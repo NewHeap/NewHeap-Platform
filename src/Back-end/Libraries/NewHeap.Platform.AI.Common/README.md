@@ -9,6 +9,19 @@ fails with a clear configuration error. Tool catalogs may be registered as
 singletons or, when their tools depend on the current run, as scoped services;
 startup validation resolves them in a scope of its own.
 
+Every governed tool gives the model or protocol caller one result shape,
+`NhAiToolResult`: `{ "success": true, "data": ... }` on success and
+`{ "success": false, "code": "...", "message": "..." }` on failure, plus `data`
+when a failed `TaskResult<T>` carries a typed payload. The code is the first result
+item named with a lowercase dash-case code, such as the pipeline's
+`ai-tool-budget-denied` or an application's own `project-not-found`; a failure
+without one is `ai-tool-failed` and keeps every message with its field name.
+Generated and API bridge tools write it through `NhAiToolResult.CreateMarshaller<T>`,
+and `NhAiGovernedAIFunction` publishes the shape around the descriptor's output
+schema as its return schema. The shape is the same for every tool and is not part
+of a contract hash. A hand-written attested catalog creates its functions the same
+way, and uses `NhAiToolResult.Failed` for a call it refuses before the invoker runs.
+
 A tool's `MaxConcurrency` bounds its concurrent invocations per process. The
 default limiter keeps a separate bound per tool and tenant, so one tenant's load
 never refuses another tenant's call; invocations without a tenant share one

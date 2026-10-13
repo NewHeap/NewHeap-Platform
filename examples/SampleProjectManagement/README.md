@@ -52,7 +52,7 @@ The PostgreSQL container deliberately has no data volume. The API uses
 `MigrateAsync` to create the database and apply migrations. Only in Development
 may `Database:ResetOnStartup` remove the temporary database.
 
-The Development API creates four local accounts. They all use the password
+The Development API creates five local accounts. They all use the password
 `Sample123!`:
 
 | Account | Scope |
@@ -61,6 +61,7 @@ The Development API creates four local accounts. They all use the password
 | `viewer@example.test` | application-wide read-only access |
 | `division-editor@example.test` | project rights within the active division |
 | `project-editor@example.test` | confidential access to Authorization Alpha only |
+| `project-lead@example.test` | application-wide and Sample North project rights plus the assistant; approver of Authorization Alpha |
 
 ## Secrets
 
@@ -70,7 +71,10 @@ example `C:\NewHeapAppSecrets`. Then copy
 `C:\NewHeapAppSecrets\SampleProjectManagement\secrets.json`. Configure at least
 the RabbitMQ values and
 `NewHeap.PlatformAspNetCommon.Authorization.JWT.Token.Key`. Generate a unique
-64-byte Base64 JWT key for every installation.
+64-byte Base64 JWT key for every installation. Set
+`SampleProjectManagement.ReviewBoard.WebhookSecret` (at least 32 characters) to
+let the review board call the intake reviewer's webhook trigger; without it the
+webhook refuses every call.
 
 ## Read-only database diagnostics
 

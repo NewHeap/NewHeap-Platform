@@ -10,6 +10,7 @@ using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AspNet.Common.DAL;
+using NewHeap.Platform.Common.Localization;
 using SampleProjectManagement.Core.Models.AI;
 using SampleProjectManagement.Core.Services;
 
@@ -70,6 +71,15 @@ public static class SampleAssistantComposition
         services.TryAddKeyedSingleton<IChatClient, SampleAssistantChatClient>(ModelKey);
         services.TryAddSingleton<SampleAssistantAuditLog>();
         services.AddLocalization();
+        // The NewHeap localizer searches only registered assemblies; the texts of the sample's
+        // presenters live next to their composition in this assembly.
+        services.Configure<NhLocalizationOptions>(options =>
+            options.AssemblyNameLocalizationOptions.Add(new NhLocalizationOptions.Entry
+            {
+                AssemblyName = typeof(SampleAssistantToolPresenter).Assembly.GetName(),
+                Options = new LocalizationOptions(),
+                Order = 0
+            }));
         services.AddNewHeapPlatformAI(ai => ai
             .AddChatProfile(ProfileName, profile => profile
                 .UseKeyedClient(ModelKey)
@@ -115,7 +125,15 @@ public static class SampleAssistantComposition
                 DescriptionKey: "nh-assistant.agents.sample-project-assistant.description",
                 ProfileName: ProfileName,
                 Instructions: ProjectAiAssets.ProjectAgentInstructions,
-                ToolSelectors: ["projects.*", SampleAiBridgeComposition.ToolSetId + ".*"],
+                // SPM-278: the generated consultation tools of the intake reviewer, selected like any
+                // other tool. The reviewer has to allow consultation as well.
+                ToolSelectors:
+                [
+                    "projects.*",
+                    SampleAiBridgeComposition.ToolSetId + ".*",
+                    NhAssistantConsultationTools.ConsultToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type),
+                    NhAssistantConsultationTools.RequestToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type)
+                ],
                 Autonomy: NhAiAutonomyLevel.Execute,
                 RequiredPolicy: AccessPolicy))
             .AddBusinessAuditSink<SampleAssistantAuditSink>()
@@ -270,8 +288,11 @@ public sealed class SampleAssistantAuditSink(SampleAssistantAuditLog log) : INhA
 
 /// <summary>
 /// Deterministic local model for the runnable sample. A message that names a project id and a
-/// status proposes <c>projects.change-status</c>; any other message searches projects; a tool
-/// result is summarized. It demonstrates the governed flow, not language understanding.
+/// status proposes <c>projects.change-status</c>, which is also how the intake reviewer answers
+/// its event message; a message that names a project id and "the intake reviewer" consults it, or
+/// with "again" requests a new review (SPM-278), and the consulted reviewer answers from its
+/// working memory; any other message searches projects; a tool result is summarized. It
+/// demonstrates the governed flow, not language understanding.
 /// </summary>
 public sealed partial class SampleAssistantChatClient : IChatClient
 {
@@ -328,8 +349,42 @@ public sealed partial class SampleAssistantChatClient : IChatClient
     {
         var last = messages.LastOrDefault();
         var result = last?.Contents.OfType<FunctionResultContent>().LastOrDefault();
+        if (result is null && IsConsultation(messages))
+        {
+            // SPM-278: the consulted intake reviewer answers from its working memory.
+            return new ChatMessage(ChatRole.Assistant, AnswerFromMemory(messages));
+        }
+
+        if (result?.Result is JsonElement { ValueKind: JsonValueKind.Object } consulted
+            && consulted.TryGetProperty("data", out var data)
+            && data.ValueKind == JsonValueKind.Object)
+        {
+            if (data.TryGetProperty("answer", out var answer) && answer.ValueKind == JsonValueKind.String)
+            {
+                return new ChatMessage(ChatRole.Assistant, "The intake reviewer says: " + answer.GetString());
+            }
+
+            if (data.TryGetProperty("runId", out _))
+            {
+                return new ChatMessage(
+                    ChatRole.Assistant,
+                    "The intake reviewer will look at the project again and answer in the project's thread.");
+            }
+        }
+
         if (result is not null)
         {
+            // A deferred proposal returns a "recorded" result: nothing happened yet.
+            if (result.Result is JsonElement { ValueKind: JsonValueKind.Object } recorded
+                && recorded.TryGetProperty("code", out var code)
+                && code.ValueKind == JsonValueKind.String
+                && code.GetString() == "assistant-proposal-recorded")
+            {
+                return new ChatMessage(
+                    ChatRole.Assistant,
+                    "I proposed the change; it waits for a project approver.");
+            }
+
             var succeeded = result.Result is JsonElement { ValueKind: JsonValueKind.Object } json
                 && json.TryGetProperty("success", out var success)
                 && success.ValueKind == JsonValueKind.True;
@@ -341,13 +396,30 @@ public sealed partial class SampleAssistantChatClient : IChatClient
         }
 
         var text = last?.Text ?? string.Empty;
-        var projectId = ProjectIdPattern().Match(text);
+        var projectId = FindProjectId(text);
+        if (projectId is not null && text.Contains("intake reviewer", StringComparison.OrdinalIgnoreCase))
+        {
+            // SPM-278: ask the intake reviewer through its generated consultation tools.
+            var subjectId = Guid.Parse(projectId).ToString("D");
+            return text.Contains("again", StringComparison.OrdinalIgnoreCase)
+                ? Call("request_sample-project-intake-reviewer_project_v1", new { input = new { subjectId, message = text } })
+                : Call("consult_sample-project-intake-reviewer_project_v1", new { input = new { subjectId, question = text } });
+        }
+
         var status = StatusPattern().Match(text);
-        if (projectId.Success && status.Success)
+        if (projectId is not null && status.Success)
         {
             return Call("projects_change_status_v1", new
             {
-                input = new { projectId = Guid.Parse(projectId.Value), status = StatusValue(status.Value) }
+                input = new { projectId = Guid.Parse(projectId), status = StatusValue(status.Value) }
+            });
+        }
+
+        if (projectId is not null && text.Contains("request a review", StringComparison.OrdinalIgnoreCase))
+        {
+            return Call("projects_request_review_v1", new
+            {
+                input = new { projectId = Guid.Parse(projectId) }
             });
         }
 
@@ -368,6 +440,27 @@ public sealed partial class SampleAssistantChatClient : IChatClient
             [new FunctionCallContent("sample-call-" + Guid.NewGuid().ToString("N"), name, dictionary)]);
     }
 
+    /// <summary>
+    /// A consulted agent receives the platform's consultation instruction as a system message.
+    /// </summary>
+    private static bool IsConsultation(IReadOnlyList<ChatMessage> messages)
+    {
+        return messages.Any(message => message.Role == ChatRole.System
+            && message.Text.Contains("You are being consulted", StringComparison.Ordinal));
+    }
+
+    private static string AnswerFromMemory(IReadOnlyList<ChatMessage> messages)
+    {
+        var memory = messages
+            .Where(message => message.Role == ChatRole.System)
+            .Select(message => WorkingMemoryPattern().Match(message.Text))
+            .FirstOrDefault(match => match.Success)?
+            .Groups["memory"].Value;
+        return string.IsNullOrWhiteSpace(memory) || memory == "{}"
+            ? "I have not reviewed this project yet."
+            : "My last intake review of this project: " + memory;
+    }
+
     private static int StatusValue(string value)
     {
         return Enum.TryParse<SampleProjectManagement.DAL.Entities.ProjectStatus>(value, ignoreCase: true, out var status)
@@ -375,9 +468,31 @@ public sealed partial class SampleAssistantChatClient : IChatClient
             : 0;
     }
 
+    /// <summary>
+    /// In a shared thread a message starts with its writer's label, which can hold an id, so the
+    /// project is the id after the word "project" (as in "project KEY (id)"); otherwise the first id.
+    /// </summary>
+    private static string? FindProjectId(string text)
+    {
+        var reference = ProjectReferencePattern().Match(text);
+        if (reference.Success)
+        {
+            return reference.Groups["id"].Value;
+        }
+
+        var any = ProjectIdPattern().Match(text);
+        return any.Success ? any.Value : null;
+    }
+
     [GeneratedRegex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")]
     private static partial Regex ProjectIdPattern();
 
+    [GeneratedRegex(@"project\s+(?:[^\s(]+\s+\()?(?<id>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", RegexOptions.IgnoreCase)]
+    private static partial Regex ProjectReferencePattern();
+
     [GeneratedRegex("\\b(draft|active|onhold|completed|archived)\\b", RegexOptions.IgnoreCase)]
     private static partial Regex StatusPattern();
+
+    [GeneratedRegex("<working-memory[^>]*>(?<memory>.*?)</working-memory>", RegexOptions.Singleline)]
+    private static partial Regex WorkingMemoryPattern();
 }

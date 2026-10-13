@@ -58,7 +58,49 @@ public sealed class AiToolSamplesTests
         });
         var json = Assert.IsType<System.Text.Json.JsonElement>(output);
         Assert.True(json.GetProperty("success").GetBoolean());
+        Assert.Equal(
+            [NhAiToolResult.SuccessPropertyName, NhAiToolResult.DataPropertyName],
+            json.EnumerateObject().Select(property => property.Name).ToArray());
         Assert.Equal(divisionId, readService.DivisionId);
+    }
+
+    [Fact]
+    public async Task Project_tool_failure_reaches_the_model_with_its_stable_code()
+    {
+        var readService = new RecordingProjectAiReadService();
+        var contextWithoutDivision = new NhAiInvocationContext(
+            "actor-1",
+            "sample",
+            new Dictionary<string, string>())
+        {
+            CapabilityGrants = new HashSet<string>(StringComparer.Ordinal)
+            {
+                ProjectAiTools.ReadCapability
+            }
+        };
+        var provider = new TestServiceProvider(
+            CreateTools(readService),
+            new NhAiToolInvoker(
+                NhAiTestInvocationGate.Authorized(contextWithoutDivision),
+                new NhAiTestBudgetManager()));
+        var function = Assert.Single(
+            new ProjectAiToolsNhAiCatalog().CreateFunctions(provider),
+            item => item.Name == "projects_search_v1");
+
+        var output = await function.InvokeAsync(new AIFunctionArguments
+        {
+            ["input"] = new ProjectAiSearchInput("roadmap", 5)
+        });
+
+        // The model receives the shared NhAiToolResult shape: a stable code it can tell apart
+        // from every other failure, and a message it can explain to the person.
+        var json = Assert.IsType<JsonElement>(output);
+        Assert.Equal(
+            """{"success":false,"code":"project-division-scope-missing","message":"The authorized AI invocation context has no active division."}""",
+            json.GetRawText());
+        Assert.Null(readService.DivisionId);
+        var returnSchema = Assert.IsType<JsonElement>(function.ReturnJsonSchema);
+        Assert.True(returnSchema.GetProperty("properties").TryGetProperty(NhAiToolResult.CodePropertyName, out _));
     }
 
     [Fact]
@@ -281,16 +323,19 @@ public sealed class AiToolSamplesTests
                     ]));
         var descriptor = Assert.Single(catalog.Descriptors);
         var function = Assert.Single(catalog.CreateFunctions(scope.ServiceProvider));
-        var result = Assert.IsType<TaskResult<CallToolResult>>(
+        var result = Assert.IsType<JsonElement>(
             await function.InvokeAsync(new AIFunctionArguments { ["query"] = "roadmap" }));
 
         Assert.Equal("mcp.projects.lookup", descriptor.Id);
         Assert.Equal("mcp_projects_lookup", function.Name);
         Assert.Equal("Looks up projects through the approved provider.", function.Description);
         Assert.DoesNotContain("IGNORE", function.Description, StringComparison.Ordinal);
-        Assert.True(result.Success, string.Join("; ", result.AllErrorMessages));
-        Assert.NotNull(result.Data);
-        Assert.NotEqual(true, result.Data.IsError);
+        // The agent receives the shared tool result with the remote MCP result as data; a remote
+        // error would arrive as code ai-mcp-remote-tool-error next to what the server returned.
+        Assert.True(result.GetProperty(NhAiToolResult.SuccessPropertyName).GetBoolean(), result.GetRawText());
+        var remoteResult = result.GetProperty(NhAiToolResult.DataPropertyName);
+        Assert.NotEmpty(remoteResult.GetProperty("content").EnumerateArray());
+        Assert.False(remoteResult.TryGetProperty("isError", out var isError) && isError.GetBoolean());
         Assert.Equal(1, allowedCalls);
         Assert.Equal(0, unlistedCalls);
     }
@@ -389,12 +434,12 @@ public sealed class AiToolSamplesTests
             .OfType<AgentRunMcpCatalog>()
             .Single()
             .CreateFunctions(run.ServiceProvider));
-        var result = Assert.IsType<TaskResult<CallToolResult>>(
+        var result = Assert.IsType<JsonElement>(
             await agentFunction.InvokeAsync(new AIFunctionArguments { ["query"] = "roadmap" }));
 
         Assert.Equal(["projects_search_v1"], exported.Select(tool => tool.ProtocolTool.Name));
         Assert.Equal("mcp_projects_lookup", agentFunction.Name);
-        Assert.True(result.Success, string.Join("; ", result.AllErrorMessages));
+        Assert.True(result.GetProperty(NhAiToolResult.SuccessPropertyName).GetBoolean(), result.GetRawText());
         Assert.Equal(1, lookupCalls);
         await app.StopAsync(TestContext.Current.CancellationToken);
     }

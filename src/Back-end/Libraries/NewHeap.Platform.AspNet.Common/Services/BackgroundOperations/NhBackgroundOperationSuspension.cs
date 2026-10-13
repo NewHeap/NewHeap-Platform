@@ -157,9 +157,45 @@ internal sealed class NhBackgroundOperationSignalService(
             throw new ArgumentOutOfRangeException(nameof(signalSchemaVersion));
         }
 
-        return persistence.SignalForOwnerAsync(
+        return persistence.SignalAsync(
             operationId,
-            ownerUserId,
+            NhBackgroundOperationActor.ForUser(ownerUserId),
+            false,
+            signaledByUserId,
+            NhBackgroundOperationSignalKeys.CheckpointKey(waitKey),
+            waitKey,
+            signal,
+            signalSchemaVersion,
+            cancellationToken);
+    }
+
+    public Task<TaskResult<NhBackgroundOperationSignalWriteResult>> SignalAsync<TSignal>(
+        Guid operationId,
+        Guid signaledByUserId,
+        string waitKey,
+        TSignal signal,
+        int signalSchemaVersion = 1,
+        CancellationToken cancellationToken = default)
+    {
+        if (operationId == Guid.Empty)
+        {
+            throw new ArgumentException("An operation ID is required.", nameof(operationId));
+        }
+        if (signaledByUserId == Guid.Empty)
+        {
+            throw new ArgumentException("A signaling actor ID is required.", nameof(signaledByUserId));
+        }
+        ArgumentNullException.ThrowIfNull(signal);
+        NhBackgroundOperationKeys.ValidateStepKey(waitKey);
+        if (signalSchemaVersion < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(signalSchemaVersion));
+        }
+
+        return persistence.SignalAsync(
+            operationId,
+            NhBackgroundOperationActor.ForUser(signaledByUserId),
+            true,
             signaledByUserId,
             NhBackgroundOperationSignalKeys.CheckpointKey(waitKey),
             waitKey,
@@ -289,9 +325,14 @@ internal sealed partial class NhBackgroundOperationPersistence
         return true;
     }
 
-    internal async Task<TaskResult<NhBackgroundOperationSignalWriteResult>> SignalForOwnerAsync<TSignal>(
+    /// <summary>
+    /// Accepts a signal from <paramref name="actor"/>. The actor must own the operation; with
+    /// <paramref name="consultAccessPolicies"/>, a registered access policy may also allow it.
+    /// </summary>
+    internal async Task<TaskResult<NhBackgroundOperationSignalWriteResult>> SignalAsync<TSignal>(
         Guid operationId,
-        Guid ownerUserId,
+        NhBackgroundOperationActor actor,
+        bool consultAccessPolicies,
         Guid signaledByUserId,
         string checkpointKey,
         string waitKey,
@@ -310,8 +351,24 @@ internal sealed partial class NhBackgroundOperationPersistence
         }
 
         var operation = await repository.GetAll().SingleOrDefaultAsync(
-            item => item.Id == operationId && item.OwnerUserId == ownerUserId,
+            item => item.Id == operationId,
             cancellationToken);
+        if (operation is not null)
+        {
+            var policies = consultAccessPolicies
+                ? scope.ServiceProvider.GetServices<INhBackgroundOperationAccess>().ToArray()
+                : [];
+            if (!await NhBackgroundOperationAccessEvaluator.IsAllowedAsync(
+                    policies,
+                    operation,
+                    actor,
+                    NhBackgroundOperationAccessAction.Signal,
+                    cancellationToken))
+            {
+                operation = null;
+            }
+        }
+
         var checkpoint = await repository.GetDbSet<NhBackgroundOperationCheckpoint>()
             .SingleOrDefaultAsync(
                 item => item.OperationId == operationId

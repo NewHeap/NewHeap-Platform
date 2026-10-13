@@ -1,6 +1,6 @@
 <section class="card" [attr.aria-label]="'nh-assistant.approval.title' | translate">
   <header class="header">
-    <nh-assistant-icon [name]="actionable() ? 'warning' : effectiveStatus() === 'approved' ? 'check' : 'x'" />
+    <nh-assistant-icon [name]="actionable() ? 'warning' : succeeded() ? 'check' : 'x'" />
     <h3>{{ 'nh-assistant.approval.title' | translate }}</h3>
     <span class="status">{{ 'nh-assistant.approval.status.' + effectiveStatus() | translate }}</span>
   </header>
@@ -46,9 +46,7 @@
   @if (actionable() && !canDecide()) {
     <p class="waiting-for-other" role="status">
       <nh-assistant-icon name="users" />
-      {{ decisionOwner()
-        ? ('nh-assistant.approval.waiting-for' | translate: { name: decisionOwner() })
-        : ('nh-assistant.approval.waiting-for-participant' | translate) }}
+      {{ waitingKey() | translate: { name: decisionOwner() } }}
     </p>
   } @else if (actionable()) {
     <p class="expiry" aria-live="off">

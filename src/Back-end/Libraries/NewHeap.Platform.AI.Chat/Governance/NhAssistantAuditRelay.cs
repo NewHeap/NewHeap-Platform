@@ -48,7 +48,10 @@ internal sealed class NhAssistantAuditRelay(
             ResultCode = outcome.Code,
             ApprovalId = call.ApprovalId,
             ProposalId = call.ProposalId,
-            CompletedAt = record.Timestamp
+            CompletedAt = record.Timestamp,
+            ConsultationId = turn.Consultation?.ConsultationId,
+            ConsultationDepth = turn.Consultation?.Depth,
+            AskingAgentId = turn.Consultation?.AskingAgentId
         };
         foreach (var sink in _businessSinks)
         {

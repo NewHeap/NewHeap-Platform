@@ -11,7 +11,7 @@ internal sealed record NhBackgroundOperationDispatchClaim(
     Guid OperationId,
     int DispatchGeneration,
     string Queue,
-    Guid OwnerUserId);
+    Guid? OwnerUserId);
 
 internal sealed class NhBackgroundOperationDispatchService : BackgroundService
 {
@@ -165,15 +165,7 @@ internal sealed class NhBackgroundOperationDispatchService : BackgroundService
             }
             try
             {
-                await _liveUpdates.PublishChangedAsync(
-                    operation.OwnerUserId,
-                    new NhBackgroundOperationChangedMessage(
-                        operation.Id,
-                        operation.Version,
-                        operation.LatestEventSequence,
-                        operation.Status,
-                        operation.DivisionId),
-                    cancellationToken);
+                await _liveUpdates.PublishToOwnerAsync(operation, cancellationToken);
             }
             catch (Exception exception)
             {

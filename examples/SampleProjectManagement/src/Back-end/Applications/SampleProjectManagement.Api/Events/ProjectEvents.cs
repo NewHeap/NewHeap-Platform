@@ -1,3 +1,4 @@
+using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.Common.Events;
 using NewHeap.Platform.Events.Cap;
 using SampleProjectManagement.Core.Events;
@@ -12,16 +13,22 @@ namespace SampleProjectManagement.Api.Events;
 public sealed class ProjectEventConsumer : INhEventConsumer<ProjectCreatedEvent>
 {
     private readonly SampleEventLog _eventLog;
+    private readonly INhAssistantAgentTriggers _agentTriggers;
 
-    public ProjectEventConsumer(SampleEventLog eventLog)
+    public ProjectEventConsumer(SampleEventLog eventLog, INhAssistantAgentTriggers agentTriggers)
     {
         _eventLog = eventLog;
+        _agentTriggers = agentTriggers;
     }
 
-    public Task HandleAsync(ProjectCreatedEvent @event, CancellationToken cancellationToken)
+    public async Task HandleAsync(ProjectCreatedEvent @event, CancellationToken cancellationToken)
     {
         _eventLog.Add(@event);
-        return Task.CompletedTask;
+
+        // The consumer runs after the project transaction committed, so a rolled-back project
+        // never starts the intake reviewer. A redelivered event finds the run its event id
+        // already started.
+        await _agentTriggers.PublishAsync(@event, cancellationToken);
     }
 }
 

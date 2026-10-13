@@ -87,9 +87,11 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
         await using var context = contextFactory.CreateDbContext();
+        // Agent threads live on their subject's page, not in the chat list.
         var query = context.Conversations
             .AsNoTracking()
             .Where(conversation => conversation.Status != NhAssistantConversationStatuses.Archived
+                && conversation.Kind == NhAssistantConversationKinds.Chat
                 && (conversation.OwnerActorId == actorId
                     || (conversation.TenantId == tenantId
                         && conversation.Participants.Any(participant => participant.ActorId == actorId))));

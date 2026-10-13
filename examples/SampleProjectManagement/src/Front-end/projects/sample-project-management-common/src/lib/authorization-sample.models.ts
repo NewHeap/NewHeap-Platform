@@ -51,14 +51,26 @@ export const SECURITY_OFFICER_DEMO_ACCOUNT = {
   email: 'security-officer@example.test'
 } as const;
 
+/**
+ * Development account with application-wide and Sample North project rights and the assistant,
+ * which the agent-run pages need; approver of Authorization Alpha.
+ */
+export const PROJECT_LEAD_DEMO_ACCOUNT = {
+  email: 'project-lead@example.test'
+} as const;
+
 export interface LoginDemoAccount {
   labelKey: string;
   email: string;
 }
 
-/** Accounts offered on the login page: the authorization roles plus the two-factor accounts. */
+/**
+ * Accounts offered on the login page: the authorization roles, the project lead for the
+ * assistant and the two-factor accounts.
+ */
 export const LOGIN_DEMO_ACCOUNTS: readonly LoginDemoAccount[] = [
   ...AUTHORIZATION_DEMO_ACCOUNTS,
+  { labelKey: 'project.login-project-lead-account', email: PROJECT_LEAD_DEMO_ACCOUNT.email },
   { labelKey: 'project.login-two-factor-account', email: TWO_FACTOR_DEMO_ACCOUNT.email },
   { labelKey: 'project.login-security-officer-account', email: SECURITY_OFFICER_DEMO_ACCOUNT.email }
 ];

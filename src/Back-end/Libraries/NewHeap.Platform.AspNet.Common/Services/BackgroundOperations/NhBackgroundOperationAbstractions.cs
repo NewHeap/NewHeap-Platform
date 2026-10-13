@@ -109,6 +109,120 @@ public interface INhBackgroundOperationSignalService
         TSignal signal,
         int signalSchemaVersion = 1,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Persists a signal on behalf of <paramref name="signaledByUserId"/>, who must own the
+    /// operation or be allowed <see cref="NhBackgroundOperationAccessAction.Signal"/> by an
+    /// <see cref="INhBackgroundOperationAccess"/> policy. Use it for operations without a
+    /// user owner, or when someone other than the owner decides.
+    /// </summary>
+    Task<TaskResult<NhBackgroundOperationSignalWriteResult>> SignalAsync<TSignal>(
+        Guid operationId,
+        Guid signaledByUserId,
+        string waitKey,
+        TSignal signal,
+        int signalSchemaVersion = 1,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(TaskResult<NhBackgroundOperationSignalWriteResult>.Failed(
+            NhBackgroundOperationAccessCodes.SignalNotSupported,
+            "This signal service only accepts signals for a known owner."));
+    }
+}
+
+/// <summary>
+/// The actions an <see cref="INhBackgroundOperationAccess"/> policy can grant to someone
+/// other than the operation owner.
+/// </summary>
+public enum NhBackgroundOperationAccessAction
+{
+    View = 0,
+    Cancel = 10,
+    Retry = 20,
+    Signal = 30
+}
+
+/// <summary>
+/// The actor asking for access: a user, or the non-human owner of a new operation during
+/// admission.
+/// </summary>
+public sealed record NhBackgroundOperationActor(
+    NhBackgroundOperationOwnerKind Kind,
+    Guid? UserId,
+    string? Key)
+{
+    public static NhBackgroundOperationActor ForUser(Guid userId)
+    {
+        if (userId == Guid.Empty)
+        {
+            throw new ArgumentException("A user ID is required.", nameof(userId));
+        }
+
+        return new NhBackgroundOperationActor(NhBackgroundOperationOwnerKind.User, userId, null);
+    }
+
+    public static NhBackgroundOperationActor ForAgent(string key)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        return new NhBackgroundOperationActor(NhBackgroundOperationOwnerKind.Agent, null, key.Trim());
+    }
+
+    internal bool Owns(NhBackgroundOperation operation)
+    {
+        return operation.OwnerKind == Kind
+               && operation.OwnerUserId == UserId
+               && string.Equals(operation.OwnerKey, Key, StringComparison.Ordinal);
+    }
+}
+
+/// <summary>
+/// The operation facts an access decision may use.
+/// </summary>
+public sealed record NhBackgroundOperationAccessTarget(
+    Guid OperationId,
+    string OperationType,
+    NhBackgroundOperationOwnerKind OwnerKind,
+    Guid? OwnerUserId,
+    string? OwnerKey,
+    Guid? DivisionId,
+    string? DomainObjectType,
+    string? DomainObjectId)
+{
+    internal static NhBackgroundOperationAccessTarget From(NhBackgroundOperation operation)
+    {
+        return new NhBackgroundOperationAccessTarget(
+            operation.Id,
+            operation.OperationType,
+            operation.OwnerKind,
+            operation.OwnerUserId,
+            operation.OwnerKey,
+            operation.DivisionId,
+            operation.DomainObjectType,
+            operation.DomainObjectId);
+    }
+}
+
+/// <summary>
+/// Grants access to an operation for actors other than its owner, for example the members
+/// of the domain object an agent-owned operation works on. The owner always has access;
+/// a policy is consulted only for everyone else. Register policies through
+/// <see cref="NhBackgroundOperationBuilder.AddAccess{TAccess}"/>; an action is allowed
+/// when any registered policy allows it. Listing endpoints stay owner-only.
+/// </summary>
+public interface INhBackgroundOperationAccess
+{
+    ValueTask<bool> IsAllowedAsync(
+        NhBackgroundOperationAccessTarget operation,
+        NhBackgroundOperationActor actor,
+        NhBackgroundOperationAccessAction action,
+        CancellationToken cancellationToken = default);
+}
+
+public static class NhBackgroundOperationAccessCodes
+{
+    public const string OwnerRequired = "background-operation-owner-required";
+    public const string NotFound = "background-operation-not-found";
+    public const string SignalNotSupported = "background-operation-signal-not-supported";
 }
 
 public interface INhBackgroundOperationProgressContext
@@ -296,6 +410,63 @@ public interface INhBackgroundOperationService
         Guid operationId,
         Guid ownerUserId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the operation when <paramref name="userId"/> owns it or an
+    /// <see cref="INhBackgroundOperationAccess"/> policy allows
+    /// <see cref="NhBackgroundOperationAccessAction.View"/>.
+    /// </summary>
+    Task<NhBackgroundOperationViewModel?> GetForUserAsync(
+        Guid operationId,
+        Guid userId,
+        long? eventsAfterSequence = null,
+        CancellationToken cancellationToken = default)
+    {
+        return GetAsync(operationId, userId, eventsAfterSequence, cancellationToken);
+    }
+
+    /// <summary>
+    /// Requests cancellation when <paramref name="userId"/> owns the operation or an
+    /// <see cref="INhBackgroundOperationAccess"/> policy allows
+    /// <see cref="NhBackgroundOperationAccessAction.Cancel"/>.
+    /// </summary>
+    Task<TaskResult<NhBackgroundOperationViewModel>> RequestCancellationForUserAsync(
+        Guid operationId,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return RequestCancellationAsync(operationId, userId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Retries the operation when <paramref name="userId"/> owns it or an
+    /// <see cref="INhBackgroundOperationAccess"/> policy allows
+    /// <see cref="NhBackgroundOperationAccessAction.Retry"/>.
+    /// </summary>
+    Task<TaskResult<NhBackgroundOperationViewModel>> RetryForUserAsync(
+        Guid operationId,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return RetryAsync(operationId, userId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Requests cancellation on behalf of <paramref name="actor"/>, which must own the operation
+    /// or be allowed <see cref="NhBackgroundOperationAccessAction.Cancel"/> by an access policy.
+    /// Use it when the platform cancels an operation for its non-human owner.
+    /// </summary>
+    Task<TaskResult<NhBackgroundOperationViewModel>> RequestCancellationForActorAsync(
+        Guid operationId,
+        NhBackgroundOperationActor actor,
+        CancellationToken cancellationToken = default)
+    {
+        return actor.UserId is { } userId
+            ? RequestCancellationForUserAsync(operationId, userId, cancellationToken)
+            : Task.FromResult(TaskResult<NhBackgroundOperationViewModel>.Failed(
+                NhBackgroundOperationAccessCodes.NotFound,
+                "The operation was not found."));
+    }
 }
 
 /// <summary>

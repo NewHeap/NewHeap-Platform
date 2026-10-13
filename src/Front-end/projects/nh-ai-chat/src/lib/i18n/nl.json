@@ -62,7 +62,8 @@
       "working": "De assistent is bezig",
       "loading": "Gesprek laden",
       "elapsed": "{{seconds}} s",
-      "participant": "Deelnemer"
+      "participant": "Deelnemer",
+      "trigger": "Gebeurtenis"
     },
     "composer": {
       "label": "Bericht",
@@ -110,7 +111,14 @@
         "failed": "Mislukt",
         "awaiting-approval": "Wacht op goedkeuring",
         "rejected": "Afgewezen"
-      }
+      },
+      "grant-source": {
+        "delegated": "Namens de starter",
+        "agent": "Agentrechten",
+        "delegated-hint": "De agent gebruikte de rechten van de persoon die hem startte.",
+        "agent-hint": "De agent gebruikte een recht dat hij zelf heeft gekregen, boven de rechten van de betrokkenen uit."
+      },
+      "restricted": "Afgeschermd: de agent kreeg dit met eigen rechten, die jij niet hebt."
     },
     "tool-group": {
       "running": "Roept {{name}} aan…",
@@ -140,10 +148,20 @@
         "pending": "Open",
         "approved": "Goedgekeurd",
         "rejected": "Afgewezen",
-        "expired": "Verlopen"
+        "expired": "Verlopen",
+        "withdrawn": "Ingetrokken",
+        "stale": "Verouderd",
+        "executing": "Wordt uitgevoerd",
+        "executed": "Uitgevoerd",
+        "execution-failed": "Mislukt",
+        "execution-unknown": "Uitkomst onbekend",
+        "resolved": "Afgehandeld",
+        "shadow": "Schaduw"
       },
       "waiting-for": "Wacht op de beslissing van {{name}}. De actie gebruikt diens rechten.",
-      "waiting-for-participant": "Wacht op de beslissing van de deelnemer die deze taak startte."
+      "waiting-for-participant": "Wacht op de beslissing van de deelnemer die deze taak startte.",
+      "waiting-for-approver": "Wacht tot een beslisser hierover beslist.",
+      "waiting-for-other-approver": "Jij startte dit werk, dus een andere beslisser beslist hierover."
     },
     "result-codes": {
       "api-bridge-validation": "Het verzoek was niet geldig.",
@@ -152,7 +170,8 @@
       "api-bridge-not-found": "Het item is niet gevonden.",
       "api-bridge-conflict": "Het item is intussen gewijzigd.",
       "api-bridge-upstream": "De dienst is niet beschikbaar.",
-      "api-bridge-timeout": "Het verzoek duurde te lang."
+      "api-bridge-timeout": "Het verzoek duurde te lang.",
+      "assistant-proposal-recorded": "Voorgesteld; wacht op goedkeuring van een persoon"
     },
     "errors": {
       "generic": "Er ging iets mis. Probeer het opnieuw.",
@@ -211,7 +230,36 @@
       "assistant-directory-unavailable": "Collega’s direct uitnodigen is niet beschikbaar.",
       "assistant-push-unavailable": "Bureaubladmeldingen zijn niet beschikbaar.",
       "assistant-push-subscription-invalid": "Deze browser kon niet worden aangemeld voor meldingen.",
-      "assistant-conversation-removed": "Dit gesprek is niet meer voor je beschikbaar."
+      "assistant-conversation-removed": "Dit gesprek is niet meer voor je beschikbaar.",
+      "assistant-subject-not-found": "Het onderwerp bestaat niet meer.",
+      "assistant-subject-type-unknown": "Dit soort onderwerp kent de assistent niet.",
+      "assistant-subject-access-denied": "Je rol op dit onderwerp staat dit niet toe.",
+      "assistant-no-accountable-owner": "Niemand staat voor deze agent op dit onderwerp in.",
+      "assistant-agent-disabled": "Deze agent is stopgezet.",
+      "assistant-agent-not-configured": "Deze agent kan niet zelfstandig werken.",
+      "assistant-run-not-found": "De run is niet gevonden.",
+      "assistant-run-not-retryable": "Deze run kan niet opnieuw worden gestart.",
+      "assistant-approval-policy-denied": "Je mag over dit voorstel niet beslissen.",
+      "assistant-four-eyes-required": "Iemand anders dan de starter moet hierover beslissen.",
+      "assistant-execution-not-uncertain": "Deze uitvoering wacht niet op afhandeling.",
+      "assistant-proposal-stale": "Het onderwerp is sinds dit voorstel gewijzigd; het is niet uitgevoerd.",
+      "assistant-trigger-not-found": "De trigger is niet gevonden.",
+      "assistant-webhook-signature-invalid": "De webhook-aanroep heeft geen geldige handtekening.",
+      "assistant-webhook-payload-invalid": "De webhook-aanroep kon niet worden gelezen.",
+      "assistant-memory-not-configured": "Deze agent houdt geen werkgeheugen bij.",
+      "assistant-memory-invalid": "De wijziging van het werkgeheugen past niet bij het schema.",
+      "assistant-memory-conflict": "Het werkgeheugen is tegelijk gewijzigd.",
+      "assistant-artifact-invalid": "Het bestand is ongeldig of te groot.",
+      "assistant-artifact-outside-turn": "Bestanden kunnen alleen worden opgeslagen terwijl de agent werkt.",
+      "assistant-artifact-not-found": "Het bestand is niet gevonden.",
+      "assistant-consult-subject-unavailable": "Het onderwerp bestaat niet of je mag de agent er niet over raadplegen.",
+      "assistant-consult-agent-unavailable": "De agent kan nu niet worden geraadpleegd.",
+      "assistant-consult-depth-exceeded": "Deze raadpleging zou agents in een kring of te diep laten vragen.",
+      "assistant-consult-budget-exhausted": "Het dagbudget van de agent is op.",
+      "assistant-consult-limit-reached": "Je hebt het aantal raadplegingen voor vandaag bereikt.",
+      "assistant-consult-timeout": "De agent antwoordde niet op tijd.",
+      "assistant-consult-failed": "De agent kon niet antwoorden.",
+      "assistant-consult-read-only": "Een raadpleging kan niets wijzigen."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",
@@ -485,6 +533,135 @@
       "remove": "{{name}} verwijderen",
       "leave": "Gesprek verlaten",
       "no-conversation": "Start of open een gesprek om het te delen."
+    },
+    "agent-runs": {
+      "loading": "Laden…",
+      "load-failed": "Dit kon niet worden geladen.",
+      "retry": "Opnieuw proberen",
+      "refresh": "Vernieuwen",
+      "role": {
+        "none": "Geen rol op dit onderwerp",
+        "reader": "Lezer",
+        "participant": "Deelnemer",
+        "approver": "Beslisser"
+      },
+      "thread": {
+        "title": "Agent",
+        "waiting-inputs": "{{count}} berichten wachten op de volgende run",
+        "open-conversation": "Gesprek openen",
+        "start-message": "Instructie voor de agent (optioneel)",
+        "start": "Agent starten",
+        "starting": "Starten…",
+        "no-proposals": "De agent heeft hier nog niets voorgesteld.",
+        "no-thread": "De agent heeft hier nog niet aan gewerkt.",
+        "tabs": {
+          "proposals": "Voorstellen",
+          "runs": "Runs",
+          "consultations": "Raadplegingen",
+          "memory": "Werkgeheugen",
+          "artifacts": "Bestanden"
+        },
+        "outcome": {
+          "started": "De agent start zo.",
+          "queued": "De agent start na de huidige run.",
+          "coalesced": "Je verzoek sluit aan bij de run die zo start.",
+          "superseded": "De huidige run stopt en de agent start opnieuw.",
+          "ignored": "De agent is bezig; er is niets gestart.",
+          "deduplicated": "Dit was al gestart.",
+          "rejected": "De agent kon niet starten."
+        }
+      },
+      "inbox": {
+        "title": "Voorstellen om te beslissen",
+        "description": "Voorstellen van agents die op jouw besluit wachten, de eerst verlopende bovenaan.",
+        "empty": "Er wachten geen voorstellen op jou.",
+        "select": "Dit voorstel selecteren",
+        "select-all": "Alles selecteren",
+        "approve-selected": "Selectie goedkeuren",
+        "reject-selected": "Selectie afwijzen",
+        "previous": "Vorige",
+        "next": "Volgende",
+        "page": "Pagina {{page}} van {{pages}}",
+        "pages": "Pagina's"
+      },
+      "proposal": {
+        "approve": "Goedkeuren",
+        "reject": "Afwijzen",
+        "reason": "Reden (optioneel)",
+        "expires": "Verloopt {{date}}",
+        "decided-by": "Besloten door {{actor}}",
+        "arguments": "Invoer",
+        "re-execute": "Opnieuw uitvoeren",
+        "mark-resolved": "Als afgehandeld markeren",
+        "unknown-hint": "De uitvoering stopte zonder bekende uitkomst. Controleer of het gebeurd is voordat je het opnieuw uitvoert.",
+        "mode": {
+          "inline": "De run wacht",
+          "deferred": "Later beslissen"
+        },
+        "status": {
+          "pending": "Wacht",
+          "approved": "Goedgekeurd",
+          "rejected": "Afgewezen",
+          "expired": "Verlopen",
+          "withdrawn": "Ingetrokken",
+          "stale": "Verouderd",
+          "executing": "Wordt uitgevoerd",
+          "executed": "Uitgevoerd",
+          "execution-failed": "Mislukt",
+          "execution-unknown": "Uitkomst onbekend",
+          "resolved": "Afgehandeld",
+          "shadow": "Schaduw"
+        },
+        "from-consultation": "Uit een raadpleging",
+        "from-consultation-hint": "Een andere assistent raadpleegde de agent voor deze persoon; het voorstel draait alleen met de rechten van die persoon."
+      },
+      "run": {
+        "empty": "Nog geen runs.",
+        "status": {
+          "queued": "In de wachtrij",
+          "running": "Bezig",
+          "waiting-for-approval": "Wacht op goedkeuring",
+          "completed": "Klaar",
+          "failed": "Mislukt",
+          "cancelled": "Geannuleerd"
+        },
+        "shadow": "Schaduw",
+        "trigger": "Aanleiding: {{trigger}}",
+        "tool-calls": "{{count}} tool-aanroepen",
+        "tokens": "{{count}} tokens",
+        "proposals": "{{count}} voorstellen",
+        "attempt": "Poging {{attempt}}",
+        "cancel": "Annuleren",
+        "resume": "Hervatten",
+        "restart": "Opnieuw starten"
+      },
+      "memory": {
+        "not-configured": "Deze agent houdt geen werkgeheugen bij.",
+        "version": "Schemaversie {{version}}",
+        "updated": "Bijgewerkt {{date}}",
+        "empty": "De agent heeft nog niets genoteerd."
+      },
+      "artifacts": {
+        "download-failed": "Het bestand kon niet worden gedownload.",
+        "empty": "Nog geen bestanden.",
+        "version": "v{{version}}",
+        "restricted": "Afgeschermd (agentrechten)",
+        "size": "{{size}} bytes",
+        "download": "Downloaden"
+      },
+      "consultation": {
+        "empty": "Nog geen assistent heeft deze agent over dit onderwerp geraadpleegd.",
+        "private": "Hier staat alleen wie vroeg en hoe het afliep; de vraag en het antwoord blijven in het vragende gesprek.",
+        "asked-by": "Gevraagd door {{name}}",
+        "through": "via {{agent}}",
+        "depth": "Genest, niveau {{depth}}",
+        "more": "{{count}} oudere raadplegingen worden niet getoond.",
+        "status": {
+          "running": "Bezig",
+          "completed": "Beantwoord",
+          "failed": "Niet beantwoord"
+        }
+      }
     }
   }
 }

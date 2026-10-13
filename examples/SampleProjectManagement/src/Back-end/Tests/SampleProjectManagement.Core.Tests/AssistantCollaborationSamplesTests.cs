@@ -101,7 +101,7 @@ public sealed class AssistantCollaborationSamplesTests(AssistantCollaborationSam
 /// <summary>
 /// The assistant sample host plus the sample DAL, so the division directory finds real users.
 /// </summary>
-public sealed class AssistantCollaborationSampleHost : AssistantSampleHost
+public class AssistantCollaborationSampleHost : AssistantSampleHost
 {
     public Guid OwnerId { get; } = Guid.NewGuid();
 

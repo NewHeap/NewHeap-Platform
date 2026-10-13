@@ -83,6 +83,7 @@
       "two-factor-description": "Protect your account with an authenticator app, e-mail codes or a passkey.",
       "two-factor-loading": "Loading two-step verification…"
     },
+    "login-project-lead-account": "Project lead (assistant)",
     "login-two-factor-account": "Two-step verification",
     "login-security-officer-account": "Security officer (must enroll)",
     "login-passkey-alternative": "Or sign in without a password",

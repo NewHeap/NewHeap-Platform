@@ -1,0 +1,99 @@
+<section class="section" aria-labelledby="nh-assistant-agent-thread-title" [attr.aria-busy]="loading()">
+  <header class="section-header">
+    <div>
+      <h3 id="nh-assistant-agent-thread-title">{{ thread()?.subjectDisplayName ?? ('nh-assistant.agent-runs.thread.title' | translate) }}</h3>
+      <p class="muted">
+        {{ 'nh-assistant.agent-runs.role.' + role() | translate }}
+        @if (thread()?.activeRun; as activeRun) {
+          · {{ 'nh-assistant.agent-runs.run.status.' + activeRun.status | translate }}
+        }
+        @if (thread()?.waitingInputs) {
+          · {{ 'nh-assistant.agent-runs.thread.waiting-inputs' | translate: { count: thread()!.waitingInputs } }}
+        }
+      </p>
+    </div>
+    <div class="toolbar">
+      @if (thread(); as current) {
+        <button class="secondary" type="button" (click)="openConversation.emit(current.conversationId)">
+          <nh-assistant-icon name="link" />{{ 'nh-assistant.agent-runs.thread.open-conversation' | translate }}
+        </button>
+      }
+      <button class="secondary" type="button" [disabled]="loading()" (click)="load()">
+        <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.refresh' | translate }}
+      </button>
+    </div>
+  </header>
+
+  @if (error(); as failure) {
+    <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+  }
+  @if (receipt(); as started) {
+    <p class="message success" role="status">
+      <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.thread.outcome.' + started.outcome | translate }}
+    </p>
+  }
+
+  @if (loading() && !lookup()) {
+    <p class="state" role="status">{{ 'nh-assistant.agent-runs.loading' | translate }}</p>
+  } @else if (loadFailed()) {
+    <div class="state" role="alert">
+      <p>{{ 'nh-assistant.agent-runs.load-failed' | translate }}</p>
+      <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.agent-runs.retry' | translate }}</button>
+    </div>
+  } @else {
+    @if (lookup()?.canStart) {
+      <form class="toolbar" (submit)="$event.preventDefault(); start()">
+        <textarea
+          class="reason"
+          rows="2"
+          maxlength="4000"
+          [value]="message()"
+          [attr.aria-label]="'nh-assistant.agent-runs.thread.start-message' | translate"
+          [placeholder]="'nh-assistant.agent-runs.thread.start-message' | translate"
+          (input)="onMessage($event)"></textarea>
+        <button class="primary" type="submit" [disabled]="starting()">
+          <nh-assistant-icon name="send" />{{ (starting() ? 'nh-assistant.agent-runs.thread.starting' : 'nh-assistant.agent-runs.thread.start') | translate }}
+        </button>
+      </form>
+    }
+
+    @if (thread(); as current) {
+      <div class="tabs" role="tablist">
+        @for (item of tabs; track item) {
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="tab() === item"
+            (click)="tab.set(item)">
+            {{ 'nh-assistant.agent-runs.thread.tabs.' + item | translate }}
+          </button>
+        }
+      </div>
+      <div role="tabpanel">
+        @switch (tab()) {
+          @case ('proposals') {
+            @if (proposals().length === 0) {
+              <p class="state">{{ 'nh-assistant.agent-runs.thread.no-proposals' | translate }}</p>
+            } @else {
+              <nh-assistant-agent-proposals [proposals]="proposals()" [canDecide]="role() === 'approver'" (changed)="loadProposals()" />
+            }
+          }
+          @case ('runs') {
+            <nh-assistant-run-timeline [conversationId]="current.conversationId" [role]="role()" (changed)="load()" />
+          }
+          @case ('consultations') {
+            <nh-assistant-agent-consultations [conversationId]="current.conversationId" />
+          }
+          @case ('memory') {
+            <nh-assistant-agent-memory [conversationId]="current.conversationId" />
+          }
+          @case ('artifacts') {
+            <nh-assistant-agent-artifacts [conversationId]="current.conversationId" />
+          }
+        }
+      </div>
+    } @else {
+      <p class="state">{{ 'nh-assistant.agent-runs.thread.no-thread' | translate }}</p>
+    }
+  }
+</section>

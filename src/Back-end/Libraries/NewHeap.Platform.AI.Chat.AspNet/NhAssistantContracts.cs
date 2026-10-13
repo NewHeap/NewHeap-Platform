@@ -64,10 +64,21 @@ public sealed record NhAssistantConversationListDto(
 /// <param name="Role">The caller's relation: <c>owner</c> or <c>participant</c>.</param>
 /// <param name="LastReadSequence">The caller's read position.</param>
 /// <param name="LastMessageSequence">Sequence of the latest message.</param>
-/// <param name="ActiveActorId">The owner or participant whose turn runs or waits for approval. Only that person decides the approval.</param>
+/// <param name="ActiveActorId">
+/// The owner or participant whose turn runs or waits for approval. In a chat only that person decides
+/// the approval; in an agent thread <paramref name="Thread"/> says who may decide.
+/// </param>
 /// <param name="Members">The owner followed by the participants; empty while the conversation is not shared.</param>
 /// <param name="ShareToken">The current invitation-link token; only returned to the owner.</param>
 /// <param name="CurrentActorId">The caller's actor id, to recognize the caller's own messages.</param>
+/// <param name="Kind">
+/// <c>chat</c> for a conversation people start, <c>thread</c> for the durable thread of an agent about
+/// one subject (see <see cref="NhAssistantConversationKinds"/>).
+/// </param>
+/// <param name="Thread">
+/// The subject of an agent thread and the caller's standing in it, including who may decide its
+/// pending proposals; <see langword="null"/> for a chat.
+/// </param>
 public sealed record NhAssistantConversationDto(
     Guid Id,
     string AgentId,
@@ -84,17 +95,56 @@ public sealed record NhAssistantConversationDto(
     string? ActiveActorId = null,
     IReadOnlyList<NhAssistantMemberDto>? Members = null,
     string? ShareToken = null,
-    string? CurrentActorId = null);
+    string? CurrentActorId = null,
+    string Kind = NhAssistantConversationKinds.Chat,
+    NhAssistantConversationThreadDto? Thread = null);
+
+/// <summary>
+/// The subject of an agent thread as the caller sees it. Access follows the subject access
+/// resolver on every request, so the role and the decisions are live.
+/// </summary>
+/// <param name="Role">The caller's role on the subject: <c>reader</c>, <c>participant</c> or <c>approver</c>.</param>
+/// <param name="Decisions">Each pending proposal of the thread and whether the caller may decide it now, oldest first.</param>
+public sealed record NhAssistantConversationThreadDto(
+    string SubjectType,
+    string SubjectId,
+    string? SubjectDisplayName,
+    string Role,
+    IReadOnlyList<NhAssistantThreadDecisionDto> Decisions);
+
+/// <summary>
+/// The caller's right to decide one pending proposal of an agent thread, checked against the
+/// approval policy, four-eyes and the tool's approve policy like the decision itself.
+/// </summary>
+/// <param name="RunId">
+/// The run that proposed it: decide it with <c>POST approvals/{approvalId}/decisions</c>. Without a
+/// run the proposal belongs to a person's turn in the thread and is decided in the conversation.
+/// </param>
+/// <param name="CanDecide">Whether the caller may approve or reject the proposal now.</param>
+/// <param name="ReasonCode">
+/// Why the caller may not decide, for example <c>assistant-four-eyes-required</c> for the person who
+/// started the work or <c>assistant-approval-policy-denied</c>; <see langword="null"/> when they may.
+/// </param>
+public sealed record NhAssistantThreadDecisionDto(
+    Guid ApprovalId,
+    Guid? RunId,
+    bool CanDecide,
+    string? ReasonCode);
 
 /// <param name="Sequence">Position of the message in the conversation.</param>
 /// <param name="AuthorActorId">The writer of a user message; <see langword="null"/> for assistant messages.</param>
+/// <param name="AuthorKind">
+/// <c>person</c> for a user message a person wrote, <c>trigger</c> for one a trigger wrote into an agent
+/// thread (see <see cref="NhAssistantMessageAuthorKinds"/>); <see langword="null"/> for assistant messages.
+/// </param>
 public sealed record NhAssistantMessageDto(
     Guid Id,
     string Role,
     DateTimeOffset CreatedAt,
     IReadOnlyList<NhAssistantMessagePartDto> Parts,
     int Sequence = 0,
-    string? AuthorActorId = null);
+    string? AuthorActorId = null,
+    string? AuthorKind = null);
 
 /// <summary>
 /// The owner or a participant of a shared conversation. <paramref name="DisplayName"/> is
@@ -196,7 +246,19 @@ public sealed record NhAssistantToolCallPartDto(
     string Status,
     string? ArgumentsPreview,
     string? ResultPreview,
-    string? ResultCode) : NhAssistantMessagePartDto;
+    string? ResultCode) : NhAssistantMessagePartDto
+{
+    /// <summary>
+    /// <c>delegated</c> or <c>agent</c> when an agent used rights beyond the caller's own;
+    /// <see langword="null"/> otherwise.
+    /// </summary>
+    public string? GrantSource { get; init; }
+
+    /// <summary>
+    /// The result came from the agent's own grant and is shielded from this viewer.
+    /// </summary>
+    public bool Restricted { get; init; }
+}
 
 public sealed record NhAssistantPresentationFieldDto(string Label, string Value);
 
@@ -204,7 +266,21 @@ public sealed record NhAssistantApprovalPresentationDto(
     string ToolDisplayName,
     string Summary,
     IReadOnlyList<NhAssistantPresentationFieldDto> Fields,
-    string? Notice);
+    string? Notice)
+{
+    internal static NhAssistantApprovalPresentationDto? From(NhAssistantApprovalPresentation? presentation)
+    {
+        return presentation is null
+            ? null
+            : new NhAssistantApprovalPresentationDto(
+                presentation.ToolDisplayName,
+                presentation.Summary,
+                presentation.Fields
+                    .Select(field => new NhAssistantPresentationFieldDto(field.Label, field.Value))
+                    .ToArray(),
+                presentation.Notice);
+    }
+}
 
 public sealed record NhAssistantApprovalPartDto(
     Guid ApprovalId,

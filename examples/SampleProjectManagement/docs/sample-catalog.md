@@ -21,9 +21,57 @@ when it:
 | Platform playground | text, binary, download, modal, multi-select, custom control, head, and JSON-LD | HTTP options, modal, form, head, and configuration services |
 | Utility playground | strings, arrays, encoding, mutex, cookies, safe and date pipes | concrete utilities and components |
 | EF Core chunks | ordered project query in bounded asynchronous batches | `IQueryable.ChunkAsync` with cancellation |
+| Project members | members with reader, participant and approver roles that decide access to the project's agent threads | `ProjectMemberController`, `ProjectSubjectAccessResolver`, `INhAiSubjectAccess.RefreshAsync` |
+| Intake reviews | proposals waiting for the signed-in person, and one project's proposals, runs, working memory and files | `@newheap/platform-ai-chat/agent-runs`, `NhAssistantAgentRunApiService` |
 | Executable tests | collection expressions, projection, validation, SQL, and translation parity | library-only contracts without a UI abstraction |
 
 ## Library patterns
+
+The intake reviewer (SPM-268 to SPM-271) is an assistant agent that starts on its
+own. `ProjectService` publishes `ProjectCreatedEvent` inside the project
+transaction; the sample's CAP consumer receives it after the commit and fires the
+`project-created-intake` trigger, whose event id deduplicates repeated deliveries.
+The run is a background operation owned by the agent. The agent may propose a
+status change because both `ProjectAiTools.ChangeStatusAsync` (`AllowAgentGrant`)
+and `SampleIntakeReviewerComposition` grant it, for trigger runs only. Its
+proposal waits under the `project-intake` approval policy until a project approver
+other than the project's creator decides it; the approved change then executes as
+its own background operation, and an edit in between closes it as stale. Project
+members and their roles decide who sees the project's agent thread, through
+`ProjectSubjectAccessResolver`. A participant can also start the intake reviewer to
+request a review (`projects.request-review`, SPM-274), a call that may run only once:
+when it fails without a result, the proposal waits as `execution-unknown` until an
+approver resolves it. The status advisor (SPM-272, SPM-273) has no grants; a
+participant starts it, it acts with that participant's rights without a request, and
+its inline proposal suspends the run's background operation until the participant
+approves. The review board answers through a signed webhook trigger, a weekly
+schedule reviews projects whose deadline is near, and an administrator can stop the
+reviewer with the kill switch (SPM-275). The reviewer keeps its checks in a typed
+working memory, saves an intake note as a versioned file of the thread and starts
+each run from the memory, the files and the summaries of its last runs; results it
+obtained with its own grant are shown only to people who satisfy the tool's policy,
+and deleting a project deletes its agent thread (SPM-276).
+`AssistantAgentRunSamplesTests` runs every flow on PostgreSQL with Hangfire in
+memory. The intake reviews page in the management portal (SPM-277) shows the same
+work with the components of `@newheap/platform-ai-chat/agent-runs`; sign in as
+`project-lead@example.test`, the only Development account with both the
+application-wide and the Sample North project permissions that the assistant's
+access policy and the agent's tools require. Opened in the assistant panel, a project's
+thread offers each proposal to the approvers the server names: the lead, added as
+approver on the project members page, approves the proposal of a project the manager
+created, while the manager reads that another approver decides. The panel reaches the
+live hub over WebSockets because the portal passes its active division as `divisionId`
+through `NhAssistantConfig.getHubQueryParameters`.
+The project assistant can consult the intake reviewer (SPM-278): the reviewer allows
+consultation about projects with `AllowConsultation`, and the project assistant selects
+the generated `assistant.consult.*` and `assistant.request.*` tools, which the sample's
+discovery policy offers next to the project tools. Asked what is still missing for a
+project, the assistant gets the reviewer's answer in the same turn; the reviewer reads
+its working memory and earlier runs with the asking person's rights only and writes no
+message into its thread, while the intake reviews page lists who consulted it under
+Consultations. People outside the project get the same answer as for an unknown project.
+A participant can also ask the reviewer to review the project again in a run of its own
+and is notified when it ends.
 
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and
@@ -553,7 +601,9 @@ The shared profile page embeds `nh-two-factor-settings`, which manages the
 authenticator, e-mail codes, passkeys, recovery codes and remembered devices and
 asks for the password or a code before sensitive changes.
 
-The Development seeder adds two accounts, both with the password `Sample123!`:
+The Development seeder also adds `project-lead@example.test` for the assistant and
+the agent-run pages (see above), and two accounts for two-step verification, all
+with the password `Sample123!`:
 
 - `two-factor@example.test` is enrolled with the fixed key
   `JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP`. Add the key to an authenticator app to

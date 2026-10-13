@@ -1,0 +1,40 @@
+@if (downloadFailed()) {
+  <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ 'nh-assistant.agent-runs.artifacts.download-failed' | translate }}</p>
+}
+
+@if (loading()) {
+  <p class="state" role="status">{{ 'nh-assistant.agent-runs.loading' | translate }}</p>
+} @else if (loadFailed()) {
+  <div class="state" role="alert">
+    <p>{{ 'nh-assistant.agent-runs.load-failed' | translate }}</p>
+    <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.agent-runs.retry' | translate }}</button>
+  </div>
+} @else if (artifacts().length === 0) {
+  <p class="state">{{ 'nh-assistant.agent-runs.artifacts.empty' | translate }}</p>
+} @else {
+  <ul class="cards">
+    @for (artifact of artifacts(); track artifact.id) {
+      <li class="card">
+        <div class="card-header">
+          <strong>{{ artifact.name }}</strong>
+          <span class="badge">{{ 'nh-assistant.agent-runs.artifacts.version' | translate: { version: artifact.version } }}</span>
+          @if (artifact.restricted) {
+            <span class="badge warning">{{ 'nh-assistant.agent-runs.artifacts.restricted' | translate }}</span>
+          }
+        </div>
+        <div class="meta">
+          <span class="mono">{{ artifact.contentType }}</span>
+          <span>{{ 'nh-assistant.agent-runs.artifacts.size' | translate: { size: artifact.sizeBytes } }}</span>
+          <span>{{ artifact.createdAt | date: 'short' }}</span>
+        </div>
+        @if (!artifact.restricted) {
+          <div class="card-actions">
+            <button class="secondary" type="button" [disabled]="downloadingId() !== null" (click)="download(artifact)">
+              <nh-assistant-icon name="page" />{{ 'nh-assistant.agent-runs.artifacts.download' | translate }}
+            </button>
+          </div>
+        }
+      </li>
+    }
+  </ul>
+}

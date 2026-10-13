@@ -1,0 +1,134 @@
+@if (error(); as failure) {
+  <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+}
+
+@if (canDecide() && pending().length > 0) {
+  <div class="toolbar">
+    @if (selectable()) {
+      <label class="select">
+        <input type="checkbox" [checked]="allSelected()" [disabled]="busy()" (change)="toggleAll()" />
+        {{ 'nh-assistant.agent-runs.inbox.select-all' | translate }}
+      </label>
+    }
+    <input
+      class="reason"
+      type="text"
+      maxlength="500"
+      [value]="reason()"
+      [attr.aria-label]="'nh-assistant.agent-runs.proposal.reason' | translate"
+      [placeholder]="'nh-assistant.agent-runs.proposal.reason' | translate"
+      (input)="onReason($event)" />
+    @if (selectable()) {
+      <button class="primary" type="button" [disabled]="busy() || selected().size === 0" (click)="decideSelected('approve')">
+        <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.inbox.approve-selected' | translate }}
+      </button>
+      <button class="secondary" type="button" [disabled]="busy() || selected().size === 0" (click)="decideSelected('reject')">
+        <nh-assistant-icon name="x" />{{ 'nh-assistant.agent-runs.inbox.reject-selected' | translate }}
+      </button>
+    }
+  </div>
+}
+
+<ul class="cards" [attr.aria-busy]="busy()">
+  @for (proposal of proposals(); track proposal.approvalId) {
+    <li class="card" [class.selected]="selected().has(proposal.approvalId)">
+      <div class="card-header">
+        @if (selectable() && canDecide() && proposal.status === 'pending') {
+          <input
+            type="checkbox"
+            [checked]="selected().has(proposal.approvalId)"
+            [disabled]="busy()"
+            [attr.aria-label]="'nh-assistant.agent-runs.inbox.select' | translate"
+            (change)="toggle(proposal)" />
+        }
+        <strong>{{ proposal.subjectDisplayName ?? proposal.subjectId }}</strong>
+        <span class="muted">{{ proposal.presentation?.toolDisplayName ?? proposal.toolId }}</span>
+        <span
+          class="badge"
+          [class.success]="proposal.status === 'executed' || proposal.status === 'resolved'"
+          [class.warning]="proposal.status === 'pending' || proposal.status === 'execution-unknown' || proposal.status === 'stale'"
+          [class.danger]="proposal.status === 'execution-failed' || proposal.status === 'rejected'">
+          {{ 'nh-assistant.agent-runs.proposal.status.' + proposal.status | translate }}
+        </span>
+        <span class="badge">{{ 'nh-assistant.agent-runs.proposal.mode.' + proposal.mode | translate }}</span>
+        @if (proposal.grantSource !== 'none') {
+          <span class="badge" [attr.title]="'nh-assistant.tool-call.grant-source.' + proposal.grantSource + '-hint' | translate">
+            {{ 'nh-assistant.tool-call.grant-source.' + proposal.grantSource | translate }}
+          </span>
+        }
+        @if (proposal.consultationId) {
+          <span class="badge" [attr.title]="'nh-assistant.agent-runs.proposal.from-consultation-hint' | translate">
+            {{ 'nh-assistant.agent-runs.proposal.from-consultation' | translate }}
+          </span>
+        }
+      </div>
+      @if (proposal.presentation; as presentation) {
+        <p class="summary">{{ presentation.summary }}</p>
+        @if (presentation.fields.length > 0) {
+          <dl class="presentation-fields">
+            @for (field of presentation.fields; track $index) {
+              <div>
+                <dt>{{ field.label }}</dt>
+                <dd>{{ field.value }}</dd>
+              </div>
+            }
+          </dl>
+        }
+        @if (presentation.notice) {
+          <p class="message warning">{{ presentation.notice }}</p>
+        }
+      } @else {
+        <p class="summary">{{ 'nh-assistant.approval.fallback-summary' | translate }}</p>
+      }
+      <details class="technical-details">
+        <summary>{{ 'nh-assistant.approval.technical-details' | translate }}</summary>
+        <p class="label">{{ 'nh-assistant.approval.tool-id' | translate }}</p>
+        <code>{{ proposal.toolId }}</code>
+        @if (proposal.targets.length > 0) {
+          <p class="label">{{ 'nh-assistant.approval.targets' | translate }}</p>
+          <ul class="targets">
+            @for (target of proposal.targets; track $index) {
+              <li>{{ target }}</li>
+            }
+          </ul>
+        }
+        @if (proposal.argumentsPreview) {
+          <p class="label">{{ 'nh-assistant.approval.arguments' | translate }}</p>
+          <pre>{{ proposal.argumentsPreview }}</pre>
+        }
+      </details>
+      <div class="meta">
+        @if (proposal.status === 'pending') {
+          <span>{{ 'nh-assistant.agent-runs.proposal.expires' | translate: { date: (proposal.expiresAt | date: 'short') } }}</span>
+        }
+        @if (proposal.decidedByActorId) {
+          <span>{{ 'nh-assistant.agent-runs.proposal.decided-by' | translate: { actor: proposal.decidedByActorId } }}</span>
+        }
+        @if (proposal.executionResultCode; as code) {
+          <span class="mono">{{ code }}</span>
+        }
+      </div>
+      @if (canDecide() && proposal.status === 'pending') {
+        <div class="card-actions">
+          <button class="primary" type="button" [disabled]="busy()" (click)="decide(proposal, 'approve')">
+            <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.proposal.approve' | translate }}
+          </button>
+          <button class="secondary" type="button" [disabled]="busy()" (click)="decide(proposal, 'reject')">
+            <nh-assistant-icon name="x" />{{ 'nh-assistant.agent-runs.proposal.reject' | translate }}
+          </button>
+        </div>
+      }
+      @if (canDecide() && proposal.status === 'execution-unknown') {
+        <p class="message warning"><nh-assistant-icon name="warning" />{{ 'nh-assistant.agent-runs.proposal.unknown-hint' | translate }}</p>
+        <div class="card-actions">
+          <button class="secondary" type="button" [disabled]="busy()" (click)="resolve(proposal, 'mark-resolved')">
+            <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.proposal.mark-resolved' | translate }}
+          </button>
+          <button class="danger" type="button" [disabled]="busy()" (click)="resolve(proposal, 're-execute')">
+            <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.proposal.re-execute' | translate }}
+          </button>
+        </div>
+      }
+    </li>
+  }
+</ul>

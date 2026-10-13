@@ -53,6 +53,10 @@ host start, administrator input on save. The selector list must also fit
 `NhAssistantLimits.MaxStoredToolSelectorCharacters` (8,000 characters of JSON).
 Prefer prefix selectors over long lists of exact ids, and remember that
 `MaxToolsPerAgent` (64 by default) still bounds how many tools one turn offers.
+To let a chat agent consult another agent about a subject, select the generated
+`assistant.consult.{agentId}.{subjectType}` tool of an agent that allows consultation
+(`nh-ai-agent-runs`); the consultation answers in the same turn with the chatting
+person's rights. An agent is never offered its own consultation tool.
 
 The kill switch is `NewHeap:AI:Assistant:Enabled` (default `false`). When it is
 off, `GET status` reports `enabled: false` without agents and every other endpoint
@@ -230,6 +234,19 @@ carries the conversation id, a kind and short localized texts with the conversat
 title (`IncludeConversationTitle`); never messages or tool data. Delivery happens after
 the final event and never fails the turn; subscriptions reported as gone are removed.
 
+## Agent threads
+
+An agent that runs on its own (see the agent-runs rule) keeps one thread per agent and
+subject in the same `nhai` schema. A thread is a conversation of kind `thread`; it never
+appears in a person's conversation list, and nobody owns it: the subject's access
+resolver decides on every request who reads it, who types in it and who decides its
+proposals. A person who types in a thread starts a turn in which that person is the
+initiator; such a turn is bound to the request like a chat turn, its approvals are
+always inline, and a message that arrives while a run is active waits for the next
+run (`202 Accepted` with a receipt). Request-bound turns end with the request, and
+their cancellation reaches only the process that runs them; work that must outlive a
+request belongs in an agent run.
+
 ## Context for a reviewed MCP tool
 
 When a remote service needs the conversation to answer, keep its model-facing schema
@@ -383,3 +400,8 @@ reporting cut text as omitted bytes (SPM-266).
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpContextSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpContextSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Snapshots/NhAssistantConversationSnapshots.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Snapshots/NhAssistantConversationSnapshots.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs)
+- SPM-278 — The project assistant consults the intake reviewer about a project
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs)

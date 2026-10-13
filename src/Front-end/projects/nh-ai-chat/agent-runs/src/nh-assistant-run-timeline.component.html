@@ -1,0 +1,66 @@
+@if (error(); as failure) {
+  <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+}
+
+@if (loading() && runs().length === 0) {
+  <p class="state" role="status">{{ 'nh-assistant.agent-runs.loading' | translate }}</p>
+} @else if (loadFailed()) {
+  <div class="state" role="alert">
+    <p>{{ 'nh-assistant.agent-runs.load-failed' | translate }}</p>
+    <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.agent-runs.retry' | translate }}</button>
+  </div>
+} @else if (runs().length === 0) {
+  <p class="state">{{ 'nh-assistant.agent-runs.run.empty' | translate }}</p>
+} @else {
+  <ol class="cards" [attr.aria-label]="'nh-assistant.agent-runs.thread.tabs.runs' | translate">
+    @for (run of runs(); track run.id) {
+      <li class="card" [attr.aria-busy]="busyRunId() === run.id">
+        <div class="card-header">
+          <strong>{{ run.createdAt | date: 'short' }}</strong>
+          <span
+            class="badge"
+            [class.success]="run.status === 'completed'"
+            [class.warning]="run.status === 'waiting-for-approval' || run.status === 'queued' || run.status === 'running'"
+            [class.danger]="run.status === 'failed'">
+            {{ 'nh-assistant.agent-runs.run.status.' + run.status | translate }}
+          </span>
+          @if (run.shadow) {
+            <span class="badge">{{ 'nh-assistant.agent-runs.run.shadow' | translate }}</span>
+          }
+          <span class="mono muted">{{ 'nh-assistant.agent-runs.run.trigger' | translate: { trigger: run.triggerId } }}</span>
+        </div>
+        <div class="meta">
+          <span>{{ 'nh-assistant.agent-runs.run.tool-calls' | translate: { count: run.toolCalls } }}</span>
+          <span>{{ 'nh-assistant.agent-runs.run.tokens' | translate: { count: run.inputTokens + run.outputTokens } }}</span>
+          <span>{{ 'nh-assistant.agent-runs.run.proposals' | translate: { count: run.proposalCount } }}</span>
+          @if (run.attempt > 1) {
+            <span>{{ 'nh-assistant.agent-runs.run.attempt' | translate: { attempt: run.attempt } }}</span>
+          }
+          @if (run.failureCode; as code) {
+            <span>{{ ['nh-assistant.errors.' + code] | nhAssistantTranslate: code }}</span>
+          }
+        </div>
+        @if (run.summary) {
+          <p class="summary">{{ run.summary }}</p>
+        }
+        @if ((isOpen(run) && canCancel()) || canRetryRun(run)) {
+          <div class="card-actions">
+            @if (isOpen(run) && canCancel()) {
+              <button class="secondary" type="button" [disabled]="busyRunId() !== null" (click)="cancel(run)">
+                <nh-assistant-icon name="stop" />{{ 'nh-assistant.agent-runs.run.cancel' | translate }}
+              </button>
+            }
+            @if (canRetryRun(run)) {
+              <button class="secondary" type="button" [disabled]="busyRunId() !== null" (click)="retry(run, 'resume')">
+                <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.run.resume' | translate }}
+              </button>
+              <button class="secondary" type="button" [disabled]="busyRunId() !== null" (click)="retry(run, 'restart')">
+                <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.run.restart' | translate }}
+              </button>
+            }
+          </div>
+        }
+      </li>
+    }
+  </ol>
+}

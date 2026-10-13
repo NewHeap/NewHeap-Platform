@@ -1,10 +1,12 @@
 import { Injectable } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { BehaviorSubject, Observable, Subject, of, throwError } from 'rxjs';
-import { ApprovalPart, AssistantStatus, Conversation, ToolCallPart } from '../models/assistant-api.models';
+import { AgentProposal } from '../models/assistant-agent-run.models';
+import { ApprovalPart, AssistantStatus, Conversation, ConversationThreadDecision, ToolCallPart } from '../models/assistant-api.models';
 import { NhAssistantSseEvent } from '../models/assistant-sse.models';
 import { NhAssistantAccessPolicy } from '../nh-assistant.config';
 import { provideNhAssistant } from '../provide-nh-assistant';
+import { NhAssistantAgentRunApiService } from './nh-assistant-agent-run-api.service';
 import { NhAssistantApiError, NhAssistantApiService } from './nh-assistant-api.service';
 import { NhAssistantStore } from './nh-assistant.store';
 
@@ -62,6 +64,7 @@ class TestAccessPolicy implements NhAssistantAccessPolicy {
 
 describe('NhAssistantStore', () => {
   let api: jasmine.SpyObj<NhAssistantApiService>;
+  let agentRuns: jasmine.SpyObj<NhAssistantAgentRunApiService>;
   let stream: Subject<NhAssistantSseEvent>;
 
   function setup(getStateScope?: () => string | null, getPageContext?: () => { route: string }): NhAssistantStore {
@@ -75,7 +78,8 @@ describe('NhAssistantStore', () => {
           getStateScope,
           getPageContext
         }),
-        { provide: NhAssistantApiService, useValue: api }
+        { provide: NhAssistantApiService, useValue: api },
+        { provide: NhAssistantAgentRunApiService, useValue: agentRuns }
       ]
     });
 
@@ -111,6 +115,7 @@ describe('NhAssistantStore', () => {
     api.sendMessage.and.callFake(() => stream);
     api.decideApproval.and.callFake(() => stream);
     api.cancel.and.returnValue(of(undefined));
+    agentRuns = jasmine.createSpyObj<NhAssistantAgentRunApiService>('NhAssistantAgentRunApiService', ['decide']);
   });
 
   async function processQueue(): Promise<void> {
@@ -701,6 +706,133 @@ describe('NhAssistantStore', () => {
     expect(await sent).toBeFalse();
     expect(store.activeConversation()).toBeNull();
     expect(store.restoredDraft()).toBeNull();
+  });
+
+  describe('in an agent thread', () => {
+    const intake: ApprovalPart = { ...approval, approvalId: 'intake-1', proposalHash: 'intake-hash-1' };
+    const later: ApprovalPart = { ...approval, approvalId: 'intake-2', proposalHash: 'intake-hash-2' };
+
+    function thread(decisions: ConversationThreadDecision[], approvals: ApprovalPart[] = [intake, later]): Conversation {
+      return {
+        ...conversation(),
+        id: 't1',
+        kind: 'thread',
+        role: 'participant',
+        currentActorId: 'lead',
+        messages: [
+          {
+            id: 'u1',
+            role: 'user',
+            createdAt: '2026-10-13T10:00:00Z',
+            authorActorId: 'trigger:project-created-intake',
+            authorKind: 'trigger',
+            parts: [{ type: 'text', text: 'New project PIETJE needs an intake review.' }]
+          },
+          { id: 'a1', role: 'assistant', createdAt: '2026-10-13T10:00:01Z', parts: approvals }
+        ],
+        thread: { subjectType: 'project', subjectId: 'p1', subjectDisplayName: 'PIETJE', role: 'approver', decisions }
+      };
+    }
+
+    function decided(part: ApprovalPart, status: AgentProposal['status']): AgentProposal {
+      return {
+        approvalId: part.approvalId,
+        proposalId: part.proposalId,
+        proposalHash: part.proposalHash,
+        conversationId: 't1',
+        runId: 'run-1',
+        agentId: 'projects',
+        subjectType: 'project',
+        subjectId: 'p1',
+        subjectDisplayName: 'PIETJE',
+        toolId: part.toolId,
+        summary: part.summary,
+        presentation: null,
+        argumentsPreview: part.argumentsPreview,
+        targets: part.targets,
+        status,
+        mode: 'deferred',
+        policyId: 'project-intake',
+        grantSource: 'agent',
+        createdAt: '2026-10-13T10:00:01Z',
+        expiresAt: part.expiresAt,
+        initiatorActorId: 'manager',
+        decidedByActorId: 'lead',
+        decidedAt: '2026-10-13T10:05:00Z',
+        executionResultCode: null,
+        executedAt: null
+      };
+    }
+
+    it('offers each open proposal to the approvers the server names, not to the author of a turn', async () => {
+      api.getConversation.and.returnValue(of(thread([
+        { approvalId: 'intake-1', runId: 'run-1', canDecide: true, reasonCode: null },
+        { approvalId: 'intake-2', runId: 'run-2', canDecide: false, reasonCode: 'assistant-four-eyes-required' }
+      ])));
+      const store = setup();
+      await store.initialize();
+
+      await store.openConversation('t1');
+
+      expect(store.isAgentThread()).toBeTrue();
+      expect(store.approvalRights().get('intake-1')).toEqual({ canDecide: true, waitingFor: 'approver', decisionOwner: null });
+      expect(store.approvalRights().get('intake-2')).toEqual({ canDecide: false, waitingFor: 'other-approver', decisionOwner: null });
+      // Deferred proposals leave the thread idle, so there is no pending approval to resume.
+      expect(store.canDecide()).toBeFalse();
+    });
+
+    it('decides a run proposal with its hash through the agent-run endpoint and reloads the thread', async () => {
+      api.getConversation.and.returnValues(
+        of(thread([
+          { approvalId: 'intake-1', runId: 'run-1', canDecide: true, reasonCode: null },
+          { approvalId: 'intake-2', runId: 'run-2', canDecide: false, reasonCode: 'assistant-approval-policy-denied' }
+        ])),
+        of(thread(
+          [{ approvalId: 'intake-2', runId: 'run-2', canDecide: false, reasonCode: 'assistant-approval-policy-denied' }],
+          [{ ...intake, status: 'executing' }, later]
+        ))
+      );
+      const pending = new Subject<AgentProposal>();
+      agentRuns.decide.and.returnValue(pending);
+      const store = setup();
+      await store.initialize();
+      await store.openConversation('t1');
+
+      store.decide('approve', undefined, 'intake-2');
+      expect(agentRuns.decide).not.toHaveBeenCalled();
+
+      store.decide('approve', undefined, 'intake-1');
+      store.decide('approve', undefined, 'intake-1');
+      expect(store.deciding()).toBeTrue();
+      expect(agentRuns.decide).toHaveBeenCalledOnceWith(jasmine.objectContaining({ approvalId: 'intake-1', proposalHash: 'intake-hash-1' }), 'approve', undefined);
+      expect(api.decideApproval).not.toHaveBeenCalled();
+
+      pending.next(decided(intake, 'approved'));
+      pending.complete();
+      await flush();
+
+      expect(store.deciding()).toBeFalse();
+      expect(api.getConversation).toHaveBeenCalledTimes(2);
+      expect(store.approvalRights().has('intake-1')).toBeFalse();
+      expect(store.activeConversation()?.messages[1].parts[0]).toEqual(jasmine.objectContaining({ status: 'executing' }));
+      expect(store.error()).toBeNull();
+    });
+
+    it('shows a refused decision and reloads the thread', async () => {
+      api.getConversation.and.returnValue(of(thread([{ approvalId: 'intake-1', runId: 'run-1', canDecide: true, reasonCode: null }], [intake])));
+      agentRuns.decide.and.returnValue(throwError(() => new NhAssistantApiError(409, 'assistant-approval-not-pending', 'nh-assistant.errors.assistant-approval-not-pending')));
+      const store = setup();
+      await store.initialize();
+      await store.openConversation('t1');
+
+      store.decide('reject', 'Not ready', 'intake-1');
+      await flush();
+
+      expect(agentRuns.decide).toHaveBeenCalledOnceWith(jasmine.objectContaining({ approvalId: 'intake-1' }), 'reject', 'Not ready');
+      expect(store.error()?.code).toBe('assistant-approval-not-pending');
+      expect(store.deciding()).toBeFalse();
+      expect(api.getConversation).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('keeps the chosen agent while the assistant feature is temporarily disabled', async () => {

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
+using NewHeap.Platform.AI;
 using NewHeap.Platform.AspNet.Common.Controllers;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
@@ -298,7 +299,9 @@ public sealed class BackendLibraryPartialSamplesTests
             mapper,
             Substitute.For<IStringLocalizer<ProjectService>>(),
             new ValidationService(serviceProvider),
-            Substitute.For<INhEventPublisher>());
+            Substitute.For<INhEventPublisher>(),
+            // Castle proxies need every constructor argument, including the optional retention.
+            (INhAiSubjectRetention?)null);
         projectService.CreateAsync(
                 Arg.Any<ProjectMutateModel>(),
                 Arg.Any<Guid?>(),

@@ -8,6 +8,11 @@ public sealed class ProjectCreatedEvent : INhEvent
     public Guid EventId { get; init; } = Guid.NewGuid();
     public Guid ProjectId { get; init; }
     public string ProjectKey { get; init; } = "";
+
+    /// <summary>
+    /// The person who created the project, or <see langword="null"/> for an import or a job.
+    /// </summary>
+    public Guid? CreatedByUserId { get; init; }
     public DateTimeOffset OccurredAt { get; init; } = DateTimeOffset.UtcNow;
     public static string Topic => "sample-project-management.project-created";
 }
@@ -76,4 +81,16 @@ public sealed class ProjectTaskDeletedEvent : INhEvent
     public Guid ProjectId { get; init; }
     public DateTimeOffset OccurredAt { get; init; } = DateTimeOffset.UtcNow;
     public static string Topic => "sample-project-management.project-task-deleted";
+}
+
+/// <summary>
+/// A request to the review board to review a project.
+/// </summary>
+public sealed class ProjectReviewRequestedEvent : INhEvent
+{
+    public Guid EventId { get; init; } = Guid.NewGuid();
+    public Guid DivisionId { get; init; }
+    public Guid ProjectId { get; init; }
+    public DateTimeOffset OccurredAt { get; init; } = DateTimeOffset.UtcNow;
+    public static string Topic => "sample-project-management.project-review-requested";
 }

@@ -29,6 +29,25 @@ internal sealed class NhAssistantInvocationGate(INhAiToolInvocationGate inner) :
         }
 
         var context = authorized.Data;
+        var deadline = context.Deadline is { } existing && existing < turn.Deadline
+            ? existing
+            : turn.Deadline;
+        var remainingCalls = Math.Max(1, turn.Limits.MaxToolCallsPerTurn - turn.ToolCalls + 1);
+        if (NhAiAgentInvocationScopes.Current is not null)
+        {
+            // In an agent thread the agent gate already bound the agent actor, the accountable
+            // party, the run and the grant source; only the call's own identity is added here.
+            return TaskResult<NhAiInvocationContext>.Succeeded(context with
+            {
+                InvocationId = call.InvocationId,
+                Deadline = deadline,
+                RemainingBudget = new NhAiModelBudget(int.MaxValue, int.MaxValue, remainingCalls, null),
+                IdempotencyKey = call.IdempotencyKey,
+                ProposalId = call.ProposalId?.ToString(),
+                ApprovalId = call.ApprovalId?.ToString()
+            });
+        }
+
         if (!string.Equals(context.ActorId, turn.OwnerActorId, StringComparison.Ordinal))
         {
             // The request principal is not the owner of the running turn.
@@ -37,10 +56,6 @@ internal sealed class NhAssistantInvocationGate(INhAiToolInvocationGate inner) :
                 "The assistant tool call does not belong to the authenticated actor.");
         }
 
-        var deadline = context.Deadline is { } existing && existing < turn.Deadline
-            ? existing
-            : turn.Deadline;
-        var remainingCalls = Math.Max(1, turn.Limits.MaxToolCallsPerTurn - turn.ToolCalls + 1);
         return TaskResult<NhAiInvocationContext>.Succeeded(context with
         {
             InvocationId = call.InvocationId,

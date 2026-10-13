@@ -17,6 +17,29 @@ export interface NhAssistantConfig {
    */
   getAccessToken: () => string | null | Promise<string | null>;
   /**
+   * Returns extra headers for every assistant request, for example the NewHeap active division:
+   * `() => ({ 'X-NH-ActiveDivisionId': inject(MyAuthService).getAuthorization()?.activeDivision?.id ?? '' })`.
+   * Runs in the assistant's injection context before every request, like `getAccessToken`, and
+   * when the live-update connection starts. `Authorization`, `Accept`, `Accept-Language` and
+   * `Content-Type` stay under the library's control, and empty values are left out. Browsers send
+   * no custom headers with the WebSocket and server-sent event transports of the live connection;
+   * pass what the hub needs with `getHubQueryParameters`. Default: none.
+   */
+  getRequestHeaders?: () => Record<string, string> | null | Promise<Record<string, string> | null>;
+  /**
+   * Returns query parameters for the live-update hub URL: the values the hub needs that browsers
+   * cannot send as headers, because the WebSocket and server-sent event transports carry none.
+   * Without them a hub that requires such a value refuses those transports and the connection
+   * falls back to long polling. For example the NewHeap active division, which the platform's JWT
+   * handler copies from `divisionId` to `X-NH-ActiveDivisionId` on `/hub` paths:
+   * `() => ({ divisionId: inject(MyAuthService).getAuthorization()?.activeDivision?.id ?? '' })`.
+   * Runs in the assistant's injection context each time the connection starts. `access_token`,
+   * `id` and `negotiateVersion` stay under the control of the library and SignalR, empty values
+   * are left out and a failing getter only leaves the parameters out. Never return a secret: URLs
+   * appear in server and proxy logs. Default: none.
+   */
+  getHubQueryParameters?: () => Record<string, string> | null | Promise<Record<string, string> | null>;
+  /**
    * Returns what the user has open, sent with each message as untrusted page context.
    * Runs in the assistant's injection context when the panel opens and before every
    * message, like `getAccessToken`. The library validates and truncates the result; a

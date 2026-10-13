@@ -31,14 +31,16 @@ invocation gate: transport authorization does not replace application resource
 authorization.
 
 Expected `TaskResult` failures remain structured tool results and are marked as
-MCP tool errors rather than JSON-RPC protocol failures. Cancellation propagates.
+MCP tool errors rather than JSON-RPC protocol failures. An enveloped export
+publishes the shared `NhAiToolResult` shape as structured content and its schema,
+built from the descriptor's output schema, as the output schema. Cancellation propagates.
 Unexpected exceptions are handled once at the protocol boundary without
 returning internal exception detail.
 
 For a typed .NET client that intentionally calls a generated NewHeap tool, use
 `CallNewHeapToolAsync<TInput, TOutput>`. Pass the generated tool input directly;
 the helper creates the required `input` envelope and returns the deserialized
-`TaskResult<T>.data` value. A failed tool result becomes `NhAiMcpToolException`,
+`data` of the tool result. A failed tool result becomes `NhAiMcpToolException`,
 which preserves the original `CallToolResult` for structured handling. Use the
 official `CallToolAsync` API directly for independently registered MCP tools,
 including consumer-owned write tools that do not use the generated NewHeap

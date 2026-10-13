@@ -4,8 +4,8 @@ title: "Host the NewHeap assistant panel in an Angular application"
 area: frontend
 reference: ai-assistant-ui
 summary: "Register the assistant once with the host's token and access policy, place the launcher and one panel in the layout, let users run several conversations at once, share them and get desktop notifications, route to the lazily loaded administration page behind the admin permission, and test against the scripted mock API instead of a live model."
-sample-cases: ["SPM-248", "SPM-253", "SPM-264", "SPM-265"]
-public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantToolCallGroupComponent", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantAdminComponent", "NhAssistantClientContext", "normalizeNhAssistantClientContext", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend", "NhAssistantLiveService", "NhAssistantPushService", "NhAssistantPushConfig", "NhAssistantActivityComponent", "NhAssistantShareComponent", "nhAssistantIsUnread", "nhAssistantShareLink", "NH_ASSISTANT_JOIN_FRAGMENT", "NH_ASSISTANT_CONVERSATION_FRAGMENT", "NhAssistantMockLiveService"]
+sample-cases: ["SPM-248", "SPM-253", "SPM-264", "SPM-265", "SPM-277", "SPM-278"]
+public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantToolCallGroupComponent", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantAdminComponent", "NhAssistantClientContext", "normalizeNhAssistantClientContext", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend", "NhAssistantLiveService", "NhAssistantPushService", "NhAssistantPushConfig", "NhAssistantActivityComponent", "NhAssistantShareComponent", "nhAssistantIsUnread", "nhAssistantShareLink", "NH_ASSISTANT_JOIN_FRAGMENT", "NH_ASSISTANT_CONVERSATION_FRAGMENT", "NhAssistantMockLiveService", "getRequestHeaders", "NhAssistantAgentRunApiService", "NhAssistantAgentInboxComponent", "NhAssistantAgentThreadViewComponent", "NhAssistantAgentProposalsComponent", "NhAssistantRunTimelineComponent", "NhAssistantAgentMemoryComponent", "NhAssistantAgentArtifactsComponent", "NhAssistantAgentConsultationsComponent", "getHubQueryParameters", "NhAssistantApprovalRight", "NhAssistantApprovalChoice", "ConversationThread"]
 skills: ["newheap-frontend-development"]
 providers: ["frontend"]
 risk: high
@@ -23,6 +23,14 @@ the same permission the API enforces (for example `app.assistant.access`) and
 return an observable when the signed-in user can change, so the launcher follows
 sign-in and sign-out. Emit on account changes even when both accounts have the
 same access boolean, so the store discards the previous user's in-memory state.
+Pass `getRequestHeaders` when the API's access policy or tools need more than the
+token, for example the NewHeap active division
+(`{ 'X-NH-ActiveDivisionId': authorization.activeDivision.id }`). It runs like
+`getAccessToken` before every request; the library keeps `Authorization`, `Accept`,
+`Accept-Language` and `Content-Type` under its own control and drops empty values.
+Browsers send no custom headers with the WebSocket and server-sent event transports
+of the live connection, so pass what the hub needs with `getHubQueryParameters` as
+well (see live updates below).
 
 Pass `getPageContext` when pages can say what the user has open. It runs in the
 assistant's injection context when the panel opens and before every message and
@@ -136,11 +144,52 @@ must open a specific route. In a shared conversation the thread names other peop
 messages, the composer says who is working, and an approval of someone else's turn
 shows who decides instead of the buttons.
 
+Show the work of agents that run on their own with the components of
+`@newheap/platform-ai-chat/agent-runs`, a separate entry point that stays out of the
+initial bundle. `nh-assistant-agent-inbox` lists the proposals waiting for the
+signed-in person across subjects; `nh-assistant-agent-thread-view` shows one
+agent's thread on one subject with its proposals, run timeline, consultations by other
+assistants, working memory and files, lets participants start the agent and emits
+`openConversation` so the host can open the conversation through
+`NhAssistantPanelService.open`. Use the individual components
+(`nh-assistant-agent-proposals`, `nh-assistant-run-timeline`,
+`nh-assistant-agent-consultations`, `nh-assistant-agent-memory`,
+`nh-assistant-agent-artifacts`) in custom layouts. Consultations show who asked through
+which assistant and how it ended, never the question or the answer, and a proposal from
+a consultation carries a badge. The
+components call the server through `NhAssistantAgentRunApiService` and show only what
+the server returns for the caller's subject role: decision buttons appear only for
+people who may decide. Like the approval card, a proposal shows the application's
+`presentation` as its explanation and keeps the tool id, targets and input under
+collapsed technical details. In the conversation, the tool-call card marks results the agent
+obtained with its own grant with a badge and shows them as restricted, without content,
+to people without the tool's policy.
+
+The panel opens an agent thread like any conversation (`kind: 'thread'`), but there the
+subject's approvers decide the agent's proposals, not the author of a turn, and several
+deferred proposals can wait while the thread is idle. The server returns
+`thread.decisions` with each open proposal, whether the caller may decide it now and why
+not (`assistant-four-eyes-required` for the person who started the work). The store turns
+them into `approvalRights`, so every approval card gets its own right: an approver sees
+the buttons, the person who started the work reads that another approver decides, and
+everyone else waits for an approver. The panel decides a run's proposal with its proposal
+hash through `NhAssistantAgentRunApiService` (`POST approvals/{id}/decisions`) and reloads
+the thread; a proposal of a person's own turn in the thread still resumes that turn as a
+stream. A message a trigger wrote (`authorKind: 'trigger'`) reads as an event instead of
+a participant. A custom layout passes `[approvalRights]="store.approvalRights()"` to
+`nh-assistant-thread` and handles `(approvalChoice)` with
+`store.decide(choice.decision, reason, choice.approvalId)`.
+
 Live updates connect to the hub path the server reports in `status.collaboration`,
 using `@microsoft/signalr`, loaded on first use, and the same `getAccessToken`. When
 a proxy serves the API below a prefix, set `hubBaseUrl` to that prefix (for example
 `'/api'`), as for the NewHeap background operation hub. Set `liveUpdates: false` to
-reload snapshots instead.
+reload snapshots instead. When the hub's access policy needs the active division, return
+it from `getHubQueryParameters` (`() => ({ divisionId })`): the NewHeap JWT handler copies
+`divisionId` to `X-NH-ActiveDivisionId` on `/hub` paths, so WebSockets pass the policy
+instead of falling back to long polling after refused attempts. The getter runs in the
+assistant's injection context each time the connection starts; `access_token`, `id` and
+`negotiateVersion` stay under the control of the library and SignalR.
 
 For desktop notifications, copy `node_modules/@newheap/platform-ai-chat/push/nh-assistant-push-worker.js`
 into the application's assets (for example to `/nh-assistant/`) and pass
@@ -185,6 +234,9 @@ the administration route under the same parent to share that scope.
   turns use the blocking `error`.
 - Deciding approvals outside the approval card or without the proposal hash of
   the pending approval.
+- Offering an agent thread's proposals to the author of a turn, or to everyone with a role
+  on the subject, instead of following `thread.decisions`; deciding a run's proposal
+  through the conversation's `decide` stream.
 - Listing every tool call as its own card in a custom thread, or folding an approval
   card into a collapsed tool group.
 - Disabling the message editor while a turn runs, clearing a draft when blocked Enter
@@ -216,6 +268,13 @@ the administration route under the same parent to share that scope.
   while the user looks at the application.
 - Sharing the invitation token in logs, analytics or a URL query string; keep it in the
   fragment.
+- Overriding `Authorization` or other library headers through `getRequestHeaders`, or
+  sending secrets in extra headers.
+- Relying on `getRequestHeaders` alone for a hub whose policy needs a header value, or
+  returning a token or another secret from `getHubQueryParameters`; URLs appear in
+  server and proxy logs.
+- Hiding proposals or runs in the host based on its own role checks instead of the
+  subject role the server reports, or showing the content of a restricted result.
 
 ## Verification
 
@@ -247,4 +306,21 @@ decision about another participant's approval, create, revoke and join links, in
 from the directory and forget a conversation removed elsewhere (SPM-265). In the
 playground, start a second prompt while the first still answers, watch the chip row
 and the launcher badge, share the conversation and let the simulated colleague
-continue it. SPM-248, SPM-253 and SPM-265 are the executable references.
+continue it. The agent-run API tests call every agent-run endpoint with the documented
+method and path, bind a decision to the proposal hash and report a four-eyes refusal
+with its code; the transport tests send the extra headers without letting them replace
+the library's own, and the live tests put `getHubQueryParameters` on the hub URL without
+letting them replace `access_token`. The store tests offer each open proposal of an agent
+thread to the approvers the server names, decide a run's proposal once with its hash
+through the agent-run endpoint and reload the thread, and show a refused decision; the
+thread tests label a trigger message as an event and give each approval card its own
+right. The agent-run component tests offer decisions only to people who may
+decide, approve the proposal shown, resolve an unknown outcome without running it again,
+start the agent with the trimmed message and drop the start notice once the run ended.
+In the management portal, sign in as the project lead, open the
+intake reviews page, start the reviewer for a project and follow its run, memory and
+files, and decide a waiting proposal from the inbox. Let a manager create a project,
+add the lead as approver on the project members page, open the thread in the assistant
+panel as the lead and approve the proposal there; confirm that the hub connects over
+WebSockets (SPM-277). SPM-248, SPM-253,
+SPM-265 and SPM-277 are the executable references.

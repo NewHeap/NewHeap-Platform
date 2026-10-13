@@ -60,7 +60,7 @@ approvals and tools without a presenter.
 | `GET agents` | agents whose required policy the caller satisfies |
 | `GET conversations?page=&itemsPerPage=` | `{ items, total }` |
 | `POST conversations` `{ agentId, title? }` | `201` conversation |
-| `GET conversations/{id}` | conversation with messages and pending approval |
+| `GET conversations/{id}` | conversation with messages and pending approval; for an agent thread also `kind: "thread"` and `thread` with the subject, the caller's role and who may decide each open proposal |
 | `DELETE conversations/{id}` | `204`; the conversation is archived and hidden |
 | `POST conversations/{id}/messages` `{ text, clientMessageId, clientContext? }` | `text/event-stream`; `409` when the conversation is not idle |
 | `POST conversations/{id}/approvals/{approvalId}/decide` `{ decision, expectedProposalHash, reason? }` | `text/event-stream` of the resumed turn |
@@ -77,6 +77,64 @@ Administration endpoints additionally require the admin policy:
 | `GET` / `POST mcp-servers`, `PUT` / `DELETE mcp-servers/{id}` | MCP servers; secrets are write-only (`hasSecret`) |
 | `POST mcp-servers/{id}/test`, `POST mcp-servers/{id}/sync` | connection test and tool sync; sync returns `502` when the server is unreachable or rejects the credentials |
 | `GET mcp-servers/{id}/tools`, `PUT mcp-servers/{id}/tools/{remoteName}` | synced tools; activate them and set their effect |
+
+Agent threads and runs (see `ConfigureAgent`, `AddSubjectType` and `AddTrigger`) add
+these endpoints. Access follows the caller's role on the subject, which the subject's
+`INhAiSubjectAccessResolver` decides on every request; people without a role receive
+`404`.
+
+| Method and path | Response |
+|---|---|
+| `GET threads?agentId=&subjectType=&subjectId=` | the agent's thread about the subject, the caller's role and whether the caller may start the agent |
+| `POST threads/start` `{ agentId, subjectType, subjectId, message? }` | `202` trigger receipt; needs the participant role |
+| `GET threads/{id}/runs` | runs, newest first, with status, failure class, usage and proposal count |
+| `GET threads/{id}/consultations?page=&itemsPerPage=` | who consulted the agent through which assistant, newest first, with outcome, usage and proposal count; never the question or the answer |
+| `GET threads/{id}/proposals` | proposals with their decision and execution state and the application's `presentation` |
+| `GET threads/{id}/memory` | the thread's working memory, its schema version and last change |
+| `GET threads/{id}/artifacts` | the files the agent's tools saved, with name, version, size and `restricted` |
+| `GET threads/{id}/artifacts/{artifactId}/content` | the file's content; `404` when it is restricted for the caller |
+| `POST runs/{runId}/cancel` | `202`; needs the participant role |
+| `POST runs/{runId}/retry` `{ mode: resume or restart }` | `202` trigger receipt; needs the approver role |
+| `GET approvals/inbox?subjectType=&agentId=&divisionId=&runId=&page=&itemsPerPage=` | pending proposals the caller may decide, by expiry |
+| `POST approvals/{id}/decisions` `{ decision, expectedProposalHash?, reason? }` | the decided proposal; `403` with `assistant-four-eyes-required` or `assistant-approval-policy-denied` |
+| `POST approvals/decisions` `{ approvalIds, decision, reason? }` | one outcome per proposal |
+| `POST approvals/{id}/resolve` `{ action: re-execute or mark-resolved, reason? }` | the proposal after a person resolved an execution with an unknown outcome |
+
+`POST triggers/{triggerId}` fires a webhook trigger without a user. Sign
+`{timestamp}.{deliveryId}.{body}` with HMAC-SHA256 and the trigger's secret and send
+`X-NH-Timestamp` (Unix seconds), `X-NH-Delivery` and `X-NH-Signature` (`sha256=` plus the
+lowercase hex digest). It returns `202` with a receipt, `401` with
+`assistant-webhook-signature-invalid` for a missing, stale or wrong signature, `400` when
+the body names no subject and `413` above 64 KB. Administrators stop or resume an agent
+with `POST admin/agents/{id}/kill-switch` `{ engaged }`.
+
+The generated consultation tools of every `AllowConsultation` registration are an attested
+tool catalog of this package. They run through the shared invoker with the asking person's
+rights and return the shared `NhAiToolResult` shape to the model, `{ success, data }` or
+`{ success: false, code, message }`, with codes such as `assistant-consult-subject-unavailable`. The startup validator checks
+that each consulted subject type has a resolver and each consultation policy exists. An
+`INhAiToolDiscoveryPolicy` that allows tool prefixes must allow `assistant.consult.` and
+`assistant.request.`.
+
+A message to a thread while a run is active returns `202` with a receipt; the next run
+receives it. Turns that a person types in a thread are bound to the request like chat
+turns and their approvals are inline.
+
+`GET conversations/{id}` of a thread returns `kind: "thread"` and `thread`
+(`NhAssistantConversationThreadDto`): the subject, the caller's live role and, per open
+proposal (`NhAssistantThreadDecisionDto`), its `runId`, `canDecide` and a `reasonCode`
+such as `assistant-four-eyes-required`, checked like the decision itself. Clients decide a
+proposal with a run, and a deferred proposal of a consultation (`consultationId`), through
+`POST approvals/{id}/decisions`; an inline proposal without a run belongs to a person's
+turn and resumes it through `POST conversations/{id}/approvals/{approvalId}/decide`.
+User messages carry `authorKind`: `person`, or `trigger` for text a trigger wrote into the
+thread.
+
+The live hub requires the assistant access policy like the endpoints. Browsers send no
+custom headers with WebSockets and server-sent events, so a policy that needs the active
+division reads it from the `divisionId` query value: the NewHeap JWT handler copies it to
+`X-NH-ActiveDivisionId` on `/hub` paths. The Angular client sends it through
+`NhAssistantConfig.getHubQueryParameters`.
 
 Every error of `preferences` and `admin/*` has the body `{ code, messageKey, errors? }`.
 Validation errors return `400` with code `assistant-validation` and `errors` keyed by

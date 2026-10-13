@@ -329,6 +329,7 @@
     "two-factor-disable": "Disable two-factor",
     "two-factor-qr-alt": "QR code for the authenticator app",
     "two-factor-shared-key": "Key for manual entry",
+    "login-project-lead-account": "Project lead (assistant)",
     "login-two-factor-account": "Two-step verification",
     "login-security-officer-account": "Security officer (must enroll)",
     "login-passkey-alternative": "Or sign in without a password",
@@ -534,6 +535,14 @@
       "sample-catalog-guide": {
         "name": "Catalog guide",
         "description": "Explains the sample catalog. Read only."
+      },
+      "sample-project-intake-reviewer": {
+        "name": "Intake reviewer",
+        "description": "Reviews new projects on its own and proposes the next status for an approver."
+      },
+      "sample-project-status-advisor": {
+        "name": "Status advisor",
+        "description": "Proposes a status change with your rights; you approve it before it runs."
       }
     }
   },
@@ -552,5 +561,41 @@
     "required-by-policy": "Your organization requires two-factor authentication.",
     "not-allowed-while-impersonating": "You cannot change two-factor settings while impersonating a user.",
     "configuration-invalid": "Two-factor authentication is not configured correctly."
+  },
+  "project-members": {
+    "navigation": "Project members",
+    "title": "Project members",
+    "description": "The people on a project and their role. The role decides what they may do with the project's agent threads, such as the intake reviewer's proposals.",
+    "project": "Project",
+    "loading": "Loading…",
+    "no-projects": "No projects in your division",
+    "owner-hint": "The project owner decides proposals without a member row.",
+    "add-title": "Add a member",
+    "user-id": "User ID (a person of the project's division)",
+    "role": "Role",
+    "add": "Add member",
+    "saving": "Saving…",
+    "list-title": "Members",
+    "select-project": "Select a project to see its members.",
+    "empty": "This project has no members yet.",
+    "remove": "Remove",
+    "role-reader": "Reader",
+    "role-participant": "Participant",
+    "role-approver": "Approver",
+    "role-reader-description": "Sees the project's agent threads.",
+    "role-participant-description": "Also types in the threads and cancels runs.",
+    "role-approver-description": "Also decides the agent's proposals, except the ones for a project they created.",
+    "error-validation": "The member was not saved: the person must belong to the project's division and can be on a project once.",
+    "error-forbidden": "You need the app.project.manage permission to change project members.",
+    "error-offline": "The API is not reachable. Start the sample through Aspire."
+  },
+  "intake-reviews": {
+    "navigation": "Intake reviews",
+    "title": "Intake reviews",
+    "description": "The intake reviewer starts on its own when a project is created. Decide its proposals here, or follow one project's runs, working memory and files.",
+    "project": "Project",
+    "loading": "Loading…",
+    "no-projects": "No projects in your division",
+    "load-failed": "The projects could not be loaded. Start the sample through Aspire."
   }
 }

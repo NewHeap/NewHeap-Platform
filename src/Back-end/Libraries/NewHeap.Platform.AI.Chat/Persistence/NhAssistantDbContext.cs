@@ -53,6 +53,18 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantNotificationSetting> NotificationSettings => Set<AssistantNotificationSetting>();
 
+    public DbSet<AssistantThread> Threads => Set<AssistantThread>();
+
+    public DbSet<AssistantRun> Runs => Set<AssistantRun>();
+
+    public DbSet<AssistantQueuedInput> QueuedInputs => Set<AssistantQueuedInput>();
+
+    public DbSet<AssistantSubjectMember> SubjectMembers => Set<AssistantSubjectMember>();
+
+    public DbSet<AssistantArtifact> Artifacts => Set<AssistantArtifact>();
+
+    public DbSet<AssistantConsultation> Consultations => Set<AssistantConsultation>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(_storageOptions.Schema);
@@ -62,6 +74,10 @@ public sealed class NhAssistantDbContext : DbContext
             conversation.ToTable("AssistantConversation");
             conversation.HasKey(item => item.Id);
             conversation.Property(item => item.Id).ValueGeneratedNever();
+            conversation.Property(item => item.Kind)
+                .HasMaxLength(16)
+                .IsRequired()
+                .HasDefaultValue(NhAssistantConversationKinds.Chat);
             conversation.Property(item => item.OwnerActorId).HasMaxLength(256).IsRequired();
             conversation.Property(item => item.OwnerDisplayName).HasMaxLength(NhAssistantParticipantNames.MaxLength);
             conversation.Property(item => item.TenantId).HasMaxLength(256);
@@ -143,6 +159,10 @@ public sealed class NhAssistantDbContext : DbContext
             invocation.Property(item => item.DataClassification).HasConversion<string>().HasMaxLength(32);
             invocation.Property(item => item.RetentionCategory).HasConversion<string>().HasMaxLength(64);
             invocation.Property(item => item.IdempotencyKey).HasMaxLength(256);
+            invocation.Property(item => item.GrantSource)
+                .HasConversion<string>()
+                .HasMaxLength(16)
+                .HasDefaultValue(NhAiGrantSource.None);
             invocation.HasIndex(item => new { item.ConversationId, item.StartedAt });
             invocation.HasOne<AssistantConversation>()
                 .WithMany()
@@ -167,13 +187,149 @@ public sealed class NhAssistantDbContext : DbContext
             approval.Property(item => item.Status).HasMaxLength(32).IsRequired();
             approval.Property(item => item.DecidedByActorId).HasMaxLength(256);
             approval.Property(item => item.Reason).HasMaxLength(500);
+            approval.Property(item => item.PolicyId).HasMaxLength(128);
+            approval.Property(item => item.Mode)
+                .HasMaxLength(16)
+                .IsRequired()
+                .HasDefaultValue(NhAssistantApprovalModes.Inline);
+            approval.Property(item => item.PolicyJson).HasMaxLength(4_000);
+            approval.Property(item => item.InitiatorActorId).HasMaxLength(256);
+            approval.Property(item => item.SubjectVersion).HasMaxLength(128);
+            approval.Property(item => item.GrantSource)
+                .HasConversion<string>()
+                .HasMaxLength(16)
+                .HasDefaultValue(NhAiGrantSource.None);
+            approval.Property(item => item.ExecutionResultCode).HasMaxLength(128);
+            approval.HasIndex(item => item.ConsultationId);
             approval.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
             approval.HasIndex(item => item.ProposalHash);
             approval.HasIndex(item => item.ConversationId);
+            approval.HasIndex(item => item.RunId);
+            // Serves the maintenance job: pending and executing proposals by expiry.
+            approval.HasIndex(item => new { item.Status, item.ExpiresAt });
+            approval.HasIndex(item => new { item.Status, item.NextReminderAt });
             approval.HasOne<AssistantConversation>()
                 .WithMany()
                 .HasForeignKey(item => item.ConversationId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantThread>(thread =>
+        {
+            thread.ToTable("AssistantThread");
+            thread.HasKey(item => item.ConversationId);
+            thread.Property(item => item.ScopeKey).HasMaxLength(128).IsRequired();
+            thread.Property(item => item.AgentId).HasMaxLength(128).IsRequired();
+            thread.Property(item => item.SubjectType).HasMaxLength(NhAiSubjectRef.MaxTypeLength).IsRequired();
+            thread.Property(item => item.SubjectId).HasMaxLength(NhAiSubjectRef.MaxIdLength).IsRequired();
+            thread.Property(item => item.SubjectDisplayName).HasMaxLength(200);
+            thread.Property(item => item.TenantId).HasMaxLength(256);
+            thread.Property(item => item.SubjectVersion).HasMaxLength(128);
+            thread.Property(item => item.Accountability).HasMaxLength(32).IsRequired();
+            thread.Property(item => item.AccountableOwnerId).HasMaxLength(256).IsRequired();
+            thread.Property(item => item.MemoryJson).HasMaxLength(NhAssistantLimits.MaxStoredJsonCharacters);
+            thread.Property(item => item.MemoryConcurrencyStamp).IsConcurrencyToken();
+            thread.HasIndex(item => new { item.ScopeKey, item.AgentId, item.SubjectType, item.SubjectId }).IsUnique();
+            thread.HasIndex(item => new { item.SubjectType, item.SubjectId });
+            thread.HasOne<AssistantConversation>()
+                .WithOne()
+                .HasForeignKey<AssistantThread>(item => item.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantRun>(run =>
+        {
+            run.ToTable("AssistantRun");
+            run.HasKey(item => item.Id);
+            run.Property(item => item.Id).ValueGeneratedNever();
+            run.Property(item => item.TriggerId).HasMaxLength(128).IsRequired();
+            run.Property(item => item.TriggerEventKey).HasMaxLength(256);
+            run.Property(item => item.InitiatorActorId).HasMaxLength(256);
+            run.Property(item => item.AccountableOwnerId).HasMaxLength(256).IsRequired();
+            run.Property(item => item.Status).HasMaxLength(32).IsRequired();
+            run.Property(item => item.FailureClass).HasMaxLength(32);
+            run.Property(item => item.FailureCode).HasMaxLength(128);
+            run.Property(item => item.Summary).HasMaxLength(4_000);
+            run.Property(item => item.CancelledByActorId).HasMaxLength(256);
+            run.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
+            run.HasIndex(item => new { item.ConversationId, item.CreatedAt });
+            run.HasIndex(item => new { item.Status, item.CreatedAt });
+            run.HasIndex(item => item.BackgroundOperationId);
+            run.HasOne<AssistantConversation>()
+                .WithMany()
+                .HasForeignKey(item => item.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantQueuedInput>(input =>
+        {
+            input.ToTable("AssistantQueuedInput");
+            input.HasKey(item => item.Id);
+            input.Property(item => item.Id).ValueGeneratedNever();
+            input.Property(item => item.Kind).HasMaxLength(16).IsRequired();
+            input.Property(item => item.AuthorActorId).HasMaxLength(256);
+            input.Property(item => item.TriggerId).HasMaxLength(128);
+            input.Property(item => item.Text).HasMaxLength(8_000).IsRequired();
+            input.Property(item => item.ClientMessageId).HasMaxLength(128);
+            input.HasIndex(item => new { item.ConversationId, item.ConsumedAt, item.CreatedAt });
+            input.HasOne<AssistantConversation>()
+                .WithMany()
+                .HasForeignKey(item => item.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantArtifact>(artifact =>
+        {
+            artifact.ToTable("AssistantArtifact");
+            artifact.HasKey(item => item.Id);
+            artifact.Property(item => item.Id).ValueGeneratedNever();
+            artifact.Property(item => item.Name).HasMaxLength(200).IsRequired();
+            artifact.Property(item => item.ContentType).HasMaxLength(100).IsRequired();
+            artifact.Property(item => item.Sha256).HasMaxLength(64).IsRequired();
+            artifact.Property(item => item.Content).IsRequired();
+            artifact.HasIndex(item => new { item.ConversationId, item.Name, item.Version }).IsUnique();
+            artifact.HasOne<AssistantConversation>()
+                .WithMany()
+                .HasForeignKey(item => item.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantConsultation>(consultation =>
+        {
+            consultation.ToTable("AssistantConsultation");
+            consultation.HasKey(item => item.Id);
+            consultation.Property(item => item.Id).ValueGeneratedNever();
+            consultation.Property(item => item.ScopeKey).HasMaxLength(128).IsRequired();
+            consultation.Property(item => item.AgentId).HasMaxLength(128).IsRequired();
+            consultation.Property(item => item.SubjectType).HasMaxLength(NhAiSubjectRef.MaxTypeLength).IsRequired();
+            consultation.Property(item => item.SubjectId).HasMaxLength(NhAiSubjectRef.MaxIdLength).IsRequired();
+            consultation.Property(item => item.AskerActorId).HasMaxLength(256).IsRequired();
+            consultation.Property(item => item.AskingAgentId).HasMaxLength(128);
+            consultation.Property(item => item.Status).HasMaxLength(32).IsRequired();
+            consultation.Property(item => item.FailureCode).HasMaxLength(128);
+            // The thread timeline, the consulted agent's daily budget and the asker's daily limit.
+            consultation.HasIndex(item => new { item.ConversationId, item.CreatedAt });
+            consultation.HasIndex(item => new { item.AgentId, item.ScopeKey, item.CreatedAt });
+            consultation.HasIndex(item => new { item.AskerActorId, item.CreatedAt });
+            consultation.HasOne<AssistantConversation>()
+                .WithMany()
+                .HasForeignKey(item => item.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantSubjectMember>(member =>
+        {
+            member.ToTable("AssistantSubjectMember");
+            member.HasKey(item => new { item.ScopeKey, item.SubjectType, item.SubjectId, item.ActorId });
+            member.Property(item => item.ScopeKey).HasMaxLength(128);
+            member.Property(item => item.SubjectType).HasMaxLength(NhAiSubjectRef.MaxTypeLength);
+            member.Property(item => item.SubjectId).HasMaxLength(NhAiSubjectRef.MaxIdLength);
+            member.Property(item => item.ActorId).HasMaxLength(256);
+            member.Property(item => item.Role).HasConversion<int>();
+            member.Property(item => item.NamedRolesJson).HasMaxLength(1_000);
+            member.Property(item => item.DisplayName).HasMaxLength(200);
+            // Serves the inbox: the subjects an actor may decide.
+            member.HasIndex(item => new { item.ActorId, item.Role });
         });
 
         modelBuilder.Entity<AssistantBudgetLedger>(ledger =>

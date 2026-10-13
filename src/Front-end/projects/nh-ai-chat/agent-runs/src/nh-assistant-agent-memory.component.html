@@ -1,0 +1,22 @@
+@if (loading()) {
+  <p class="state" role="status">{{ 'nh-assistant.agent-runs.loading' | translate }}</p>
+} @else if (loadFailed()) {
+  <div class="state" role="alert">
+    <p>{{ 'nh-assistant.agent-runs.load-failed' | translate }}</p>
+    <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.agent-runs.retry' | translate }}</button>
+  </div>
+} @else if (!memory()?.configured) {
+  <p class="state">{{ 'nh-assistant.agent-runs.memory.not-configured' | translate }}</p>
+} @else if (formatted(); as json) {
+  <div class="section">
+    <div class="meta">
+      <span>{{ 'nh-assistant.agent-runs.memory.version' | translate: { version: memory()!.schemaVersion } }}</span>
+      @if (memory()!.updatedAt; as updatedAt) {
+        <span>{{ 'nh-assistant.agent-runs.memory.updated' | translate: { date: (updatedAt | date: 'short') } }}</span>
+      }
+    </div>
+    <pre [attr.aria-label]="'nh-assistant.agent-runs.thread.tabs.memory' | translate">{{ json }}</pre>
+  </div>
+} @else {
+  <p class="state">{{ 'nh-assistant.agent-runs.memory.empty' | translate }}</p>
+}

@@ -43,4 +43,6 @@ public class Project : IdDbEntity
     public DateTimeOffset? Deadline { get; set; }
 
     public ICollection<ProjectTask> Tasks { get; set; } = [];
+
+    public ICollection<ProjectMember> Members { get; set; } = [];
 }

@@ -4,8 +4,8 @@ title: "Protect AI mutations with exact approval and verification"
 area: backend
 reference: ai-protected-actions
 summary: "Route material AI actions through scoped capabilities, canonical proposals, bound approvals, budgets, concurrency, idempotency, and independent verification before reporting success."
-sample-cases: ["SPM-224", "SPM-240"]
-public-symbols: ["INhAiApprovalEvidenceProvider", "INhAiApprovalValidator", "INhAiAuthoritativeExecutionEvidenceValidator", "INhAiBudgetManager", "INhAiCapabilityResolver", "INhAiEffectPolicy", "INhAiIdempotencyManager", "INhAiProposalFactory", "INhAiToolConcurrencyLimiter", "INhAiToolVerifier", "NhAiActionBudget", "NhAiApproval", "NhAiApprovalEvidence", "NhAiApprovalRequirement", "NhAiApprovalRole", "NhAiAuditRecord", "NhAiAuthoritativeExecutionEvidence", "NhAiCapabilityGrant", "NhAiCapabilityResolution", "NhAiEffectDecisionKind", "NhAiIdempotencyRequest", "NhAiIdempotencySupport", "NhAiInProcessConcurrencyOptions", "NhAiProposal", "NhAiProposalCreateRequest", "NhAiToolConcurrencyPartition", "NhAiToolEffect", "NhAiToolFailureCodes", "NhAiVerificationResult"]
+sample-cases: ["SPM-224", "SPM-240", "SPM-268"]
+public-symbols: ["INhAiApprovalEvidenceProvider", "INhAiApprovalValidator", "INhAiAuthoritativeExecutionEvidenceValidator", "INhAiBudgetManager", "INhAiCapabilityResolver", "INhAiEffectPolicy", "INhAiIdempotencyManager", "INhAiProposalFactory", "INhAiToolConcurrencyLimiter", "INhAiToolVerifier", "NhAiActionBudget", "NhAiApproval", "NhAiApprovalEvidence", "NhAiApprovalRequirement", "NhAiApprovalRole", "NhAiAuditRecord", "NhAiAuthoritativeExecutionEvidence", "NhAiCapabilityGrant", "NhAiCapabilityResolution", "NhAiEffectDecisionKind", "NhAiIdempotencyRequest", "NhAiIdempotencySupport", "NhAiInProcessConcurrencyOptions", "NhAiProposal", "NhAiProposalCreateRequest", "NhAiToolConcurrencyPartition", "NhAiToolEffect", "NhAiToolFailureCodes", "NhAiVerificationResult", "AllowAgentGrant", "NhAiGrantSource"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -73,6 +73,19 @@ Let a replayed idempotency key pass the validator untouched so the engine can
 return the reconciled receipt. The failure code, message and evidence reference
 then reach the audit record and MCP callers.
 
+An agent that runs on its own may use a tool beyond the rights of the person it
+works for only when two keys agree: the tool declares
+`AllowAgentGrant = true`, which requires agent exposure and an `[Authorize]`
+policy (the generator reports `NHAI014` otherwise), and the agent registration
+grants the tool. Declare `ApprovalPolicy` on the tool when approvers must satisfy
+a different policy than callers. An agent that answers for itself never
+executes a non-read effect without approval: the default effect policy turns
+every such call into a proposal and denies issuer tools. The audit record names
+the grant source (`NhAiGrantSource.Delegated` or `Agent`), the agent, the
+accountable owner and the proposal, so reviewers can tell elevated calls from
+calls within a person's own rights. The contract hash of a tool changes when it
+opts in, so existing approvals for that tool expire.
+
 Resolve short-lived capabilities again at discovery and invocation. Bind grants
 to subject, purpose, tool selector, execution scope, issuer, expiry, optional
 budget, and revocation evidence. Always reserve a declared budget through
@@ -100,6 +113,8 @@ into verified success. Audit only bounded IDs, classifications, outcome codes,
 and evidence references—never arguments, results, prompts, or credentials.
 
 ## Avoid
+
+- Adding `AllowAgentGrant` to a tool merely so that an agent can call it, without a policy that approvers are checked against.
 
 - Treating a conversational confirmation as approval.
 - Letting an agent approve its own proposal or widening the proposal after approval.

@@ -3,6 +3,7 @@ using Hangfire.PostgreSql;
 using NewHeap.Platform.AspNet.Common.SqlServer;
 using NewHeap.Platform.AspNet.Common.PostgreSql;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using DotNetCore.CAP;
@@ -18,6 +19,7 @@ using NewHeap.Platform.AspNet.Common.OpenApiSchemaTransformers;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Mcp;
 using ModelContextProtocol.Server;
 using NewHeap.Platform.Common;
@@ -97,11 +99,16 @@ var platformOptions = NewHeapAspNetCommonOptions
                 context.User.HasClaim(NhPlatformClaimTypes.Permission, "app.project.manage") ||
                 context.User.IsInRole("administrator")));
 
+        // The assistant endpoints and hub use this policy as their access policy. Minimal APIs
+        // do not inherit the bearer scheme of NhBaseController, and WithIdentity makes the
+        // Identity cookie the default scheme, so the policy names the bearer scheme itself.
         options.AddPolicy(
             "app.active-division.project.view",
-            policy => policy.RequireActiveDivisionAccess(
-                null,
-                new Claim(NhPlatformClaimTypes.DivisionPermission, "project.view")));
+            policy => policy
+                .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+                .RequireActiveDivisionAccess(
+                    null,
+                    new Claim(NhPlatformClaimTypes.DivisionPermission, "project.view")));
 
         options.AddPolicy(
             "app.active-division.project.manage",
@@ -285,6 +292,9 @@ builder.Services
                         request.DivisionId),
                     NhBackgroundOperationConflictBehavior.ReturnExisting)
                 .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
+        // Headless agent runs and the execution of approved agent proposals; see
+        // SampleIntakeReviewerComposition.
+        operations.AddAssistantAgentRuns();
     })
     .WithNotifications(NotificationProcessingSample.Configure)
     .ConfigureEmailNotificationSettings(options =>
@@ -307,6 +317,8 @@ builder.Services.AddNewHeapPlatformAIAspNet(ai => ai
         "app.active-division.project.manage"));
 builder.Services.AddSampleAiBridge();
 builder.Services.AddSampleAssistant(builder.Environment, builder.Configuration);
+builder.Services.AddSampleIntakeReviewer();
+builder.Services.AddSampleStatusAdvisor();
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     .WithNewHeapPlatformAITools();

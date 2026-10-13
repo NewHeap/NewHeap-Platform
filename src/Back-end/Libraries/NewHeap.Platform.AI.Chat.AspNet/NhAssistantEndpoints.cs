@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -9,7 +10,9 @@ using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.Live;
 using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.Common.Models;
 
@@ -74,7 +77,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         enabled.MapGet("conversations/{id:guid}", GetConversationAsync)
             .WithName("NhAssistantGetConversation")
             .WithSummary("Get a conversation")
-            .WithDescription("Returns a conversation the caller owns or participates in, with its messages, members and pending approval.")
+            .WithDescription("Returns a conversation the caller owns or participates in, with its messages, members and pending approval. For an agent thread it also returns the subject, the caller's role and whether the caller may decide each open proposal.")
             .Produces<NhAssistantConversationDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
@@ -111,6 +114,13 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         NhAssistantCollaborationEndpoints.Map(enabled);
+        AgentRuns.NhAssistantAgentRunEndpoints.Map(enabled);
+
+        // Webhook triggers carry no user: they are authenticated by their signature.
+        var webhooks = endpoints.MapGroup(prefix)
+            .WithTags("Assistant")
+            .AddEndpointFilter(RequireEnabledAsync);
+        AgentRuns.NhAssistantWebhookEndpoints.Map(webhooks);
         NhAssistantAdminEndpoints.Map(enabled, NhAssistantEndpointOptions.ResolveAdminPolicy(state, options));
 
         if (!string.IsNullOrWhiteSpace(options.HubPath))
@@ -270,7 +280,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             return resolved.Error;
         }
         return Json(
-            await CreateConversationDtoAsync(resolved.Access!, reader, collaboration, httpContext.RequestAborted),
+            await CreateConversationDtoAsync(resolved.Access!, reader, collaboration, httpContext.RequestAborted, httpContext),
             NhAssistantJsonSerializerContext.Default.NhAssistantConversationDto);
     }
 
@@ -316,16 +326,67 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             await displayNames.GetDisplayNameAsync(httpContext.User, caller.Data, httpContext.RequestAborted),
             httpContext.RequestAborted);
 
+        var threadAccess = ThreadAccessOf(httpContext);
+        NhAssistantAgentTurnContext? agentTurn = null;
+        if (threadAccess is not null)
+        {
+            if (threadAccess.Role < NhAiSubjectRole.Participant)
+            {
+                return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
+            }
+
+            var created = await httpContext.RequestServices.GetRequiredService<NhAssistantAgentTurnFactory>().CreateAsync(
+                id,
+                null,
+                NhAssistantConversationKinds.Chat,
+                caller.Data.ActorId,
+                threadAccess.Thread.AccountableOwnerId,
+                httpContext.RequestAborted);
+            if (!created.Success)
+            {
+                return FromFailure(created);
+            }
+            agentTurn = created.Data! with { IsRequestTurn = true };
+        }
+
+        var text = request.Text ?? string.Empty;
         var started = await runner.StartMessageTurnAsync(
             new NhAssistantMessageTurnRequest(
                 id,
                 caller.Data,
-                request.Text ?? string.Empty,
+                text,
                 request.ClientMessageId,
                 httpContext.RequestAborted,
                 RequestLanguage(httpContext),
-                NhAssistantClientContext.From(request.ClientContext)),
+                NhAssistantClientContext.From(request.ClientContext))
+            {
+                AgentTurn = agentTurn
+            },
             httpContext.RequestAborted);
+        if (!started.Success
+            && agentTurn is not null
+            && started.GetResultItems().Any(item => item.Name == NhAssistantErrorCodes.ConversationBusy)
+            && !string.IsNullOrWhiteSpace(text))
+        {
+            // A run owns the thread; the message waits and the agent reads it in its next turn.
+            var triggers = httpContext.RequestServices.GetRequiredService<NhAssistantAgentTriggers>();
+            var receipt = await triggers.FireAsync(
+                new NhAssistantTriggerFire(
+                    NhAssistantTriggerIds.QueuedMessage,
+                    agentTurn.Thread.AgentId,
+                    agentTurn.Subject.Subject,
+                    caller.Data.ActorId,
+                    text.Trim(),
+                    null,
+                    NhAssistantTriggerConflict.Coalesce,
+                    TimeSpan.Zero),
+                httpContext.RequestAborted);
+            return TypedResults.Json(
+                new NhAssistantTriggerReceiptDto(receipt.TriggerId, receipt.Outcome, receipt.RunId, receipt.ConversationId, receipt.ReasonCode),
+                NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantTriggerReceiptDto,
+                statusCode: StatusCodes.Status202Accepted);
+        }
+
         return started.Success
             ? new NhAssistantServerSentEventsResult(started.Data)
             : FromFailure(started);
@@ -355,6 +416,46 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             return resolved.Error;
         }
 
+        var threadAccess = ThreadAccessOf(httpContext);
+        NhAssistantAgentTurnContext? agentTurn = null;
+        if (threadAccess is not null)
+        {
+            var services = httpContext.RequestServices;
+            var approval = await services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approvalId, httpContext.RequestAborted);
+            if (approval is null || approval.ConversationId != id)
+            {
+                return Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ApprovalNotFound);
+            }
+            if (approval.RunId is not null)
+            {
+                // A run's proposal is decided through approvals/{approvalId}/decisions.
+                return Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.ApprovalDecisionInvalid);
+            }
+            var check = await services.GetRequiredService<NhAssistantApproverCheck>().CheckAsync(
+                approval,
+                threadAccess.Thread,
+                caller.Data.ActorId,
+                httpContext.User,
+                httpContext.RequestAborted);
+            if (!check.Success)
+            {
+                return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.ApprovalPolicyDenied);
+            }
+
+            var created = await services.GetRequiredService<NhAssistantAgentTurnFactory>().CreateAsync(
+                id,
+                null,
+                NhAssistantConversationKinds.Chat,
+                approval.InitiatorActorId ?? caller.Data.ActorId,
+                threadAccess.Thread.AccountableOwnerId,
+                httpContext.RequestAborted);
+            if (!created.Success)
+            {
+                return FromFailure(created);
+            }
+            agentTurn = created.Data! with { IsRequestTurn = true };
+        }
+
         var started = await runner.StartDecisionTurnAsync(
             new NhAssistantDecisionTurnRequest(
                 id,
@@ -364,7 +465,11 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 request.ExpectedProposalHash,
                 string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim(),
                 httpContext.RequestAborted,
-                RequestLanguage(httpContext)),
+                RequestLanguage(httpContext))
+            {
+                AgentTurn = agentTurn,
+                PolicyAuthorized = agentTurn is not null
+            },
             httpContext.RequestAborted);
         return started.Success
             ? new NhAssistantServerSentEventsResult(started.Data)
@@ -381,7 +486,18 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         {
             return resolved.Error;
         }
-        var cancelled = await runner.CancelAsync(resolved.Access!, httpContext.RequestAborted);
+        var access = resolved.Access!;
+        if (ThreadAccessOf(httpContext) is { } threadAccess)
+        {
+            if (threadAccess.Role < NhAiSubjectRole.Participant)
+            {
+                return Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
+            }
+
+            // In an agent thread every participant of the subject may stop a turn.
+            access = access with { Participant = null };
+        }
+        var cancelled = await runner.CancelAsync(access, httpContext.RequestAborted);
         return cancelled.Success
             ? TypedResults.Accepted((string?)null)
             : FromFailure(cancelled);
@@ -391,13 +507,27 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         NhAssistantConversationAccess access,
         NhAssistantConversationReader reader,
         NhAssistantCollaboration collaboration,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        HttpContext? httpContext = null)
     {
         var view = await reader.CreateViewAsync(access, cancellationToken);
+        NhAssistantConversationThreadDto? thread = null;
+        if (httpContext is not null && ThreadAccessOf(httpContext) is { } threadAccess)
+        {
+            view = await AgentRuns.NhAssistantRestrictedResults.ApplyAsync(view, httpContext, threadAccess);
+            thread = await AgentRuns.NhAssistantThreadStanding.CreateAsync(
+                httpContext.RequestServices,
+                httpContext.User,
+                threadAccess,
+                access.ActorId,
+                cancellationToken);
+        }
+
         return NhAssistantDtoMapper.ToDto(
             view,
             access.ActorId,
-            access.IsOwner ? collaboration.GetShareToken(view.ProtectedShareToken) : null);
+            access.IsOwner ? collaboration.GetShareToken(view.ProtectedShareToken) : null,
+            thread);
     }
 
     /// <summary>
@@ -422,6 +552,22 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         }
 
         var services = httpContext.RequestServices;
+        var thread = await services.GetRequiredService<NhAssistantRunStore>()
+            .FindThreadByConversationAsync(conversationId, httpContext.RequestAborted);
+        if (thread is not null)
+        {
+            // Access to an agent thread follows the subject; the participant row holds read state.
+            var displayName = await services.GetRequiredService<INhAssistantDisplayNameResolver>()
+                .GetDisplayNameAsync(httpContext.User, caller, httpContext.RequestAborted);
+            var threadAccess = await services.GetRequiredService<NhAssistantThreadService>()
+                .ResolveAccessAsync(conversationId, caller.ActorId, displayName, httpContext.RequestAborted);
+            if (threadAccess is null || await IsHiddenShadowThreadAsync(httpContext, thread.AgentId))
+            {
+                return (null, Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ConversationNotFound));
+            }
+            httpContext.Items[ThreadAccessItemKey] = threadAccess;
+        }
+
         var store = services.GetRequiredService<INhAssistantStore>();
         var access = await store.FindAccessAsync(conversationId, caller.ActorId, caller.TenantId, httpContext.RequestAborted);
         if (access is null)
@@ -444,6 +590,40 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         return await agentAccess.CanUseAsync(httpContext.User, effective.Definition)
             ? (access, null)
             : (null, Error(StatusCodes.Status403Forbidden, NhAssistantErrorCodes.AgentForbidden));
+    }
+
+    private const string ThreadAccessItemKey = "NhAssistant.ThreadAccess";
+
+    /// <summary>
+    /// The threads of an agent in shadow mode are visible to administrators only: nobody else hears
+    /// about them, and they must not act on proposals that never execute.
+    /// </summary>
+    internal static async Task<bool> IsHiddenShadowThreadAsync(HttpContext httpContext, string agentId)
+    {
+        var services = httpContext.RequestServices;
+        var registration = services.GetRequiredService<NhAssistantRegistrationState>();
+        if (!registration.AgentRuns.TryGetValue(agentId, out var runOptions) || !runOptions.Shadow)
+        {
+            return false;
+        }
+
+        var adminPolicy = NhAssistantEndpointOptions.ResolveAdminPolicy(
+            registration,
+            services.GetRequiredService<IOptions<NhAssistantOptions>>().Value);
+        var authorization = await services.GetRequiredService<IAuthorizationService>()
+            .AuthorizeAsync(httpContext.User, adminPolicy);
+        return !authorization.Succeeded;
+    }
+
+    /// <summary>
+    /// The caller's live access to the agent thread resolved for this request, or
+    /// <see langword="null"/> for a chat conversation.
+    /// </summary>
+    internal static NhAssistantThreadAccess? ThreadAccessOf(HttpContext httpContext)
+    {
+        return httpContext.Items.TryGetValue(ThreadAccessItemKey, out var value)
+            ? value as NhAssistantThreadAccess
+            : null;
     }
 
     internal static async Task<TaskResult<NhAiInvocationContext>> ResolveCallerAsync(HttpContext httpContext)
@@ -483,6 +663,8 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         {
             NhAssistantErrorCodes.ConversationNotFound
                 or NhAssistantErrorCodes.ApprovalNotFound
+                or NhAssistantErrorCodes.SubjectNotFound
+                or NhAssistantErrorCodes.RunNotFound
                 or NhAssistantErrorCodes.AgentNotFound
                 or NhAssistantErrorCodes.ShareLinkInvalid
                 or NhAssistantErrorCodes.ParticipantNotFound
@@ -494,6 +676,9 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 or NhAssistantErrorCodes.ProposalHashMismatch
                 or NhAssistantErrorCodes.ParticipantLimitReached => StatusCodes.Status409Conflict,
             NhAssistantErrorCodes.ApprovalForbidden
+                or NhAssistantErrorCodes.SubjectAccessDenied
+                or NhAssistantErrorCodes.ApprovalPolicyDenied
+                or NhAssistantErrorCodes.FourEyesRequired
                 or NhAssistantErrorCodes.TurnForbidden
                 or NhAssistantErrorCodes.OwnerRequired
                 or NhAssistantErrorCodes.AgentForbidden => StatusCodes.Status403Forbidden,

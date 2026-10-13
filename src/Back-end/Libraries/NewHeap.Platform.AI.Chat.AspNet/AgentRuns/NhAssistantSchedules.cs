@@ -1,0 +1,102 @@
+using Hangfire;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using NewHeap.Platform.Common.Utilities;
+
+namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
+
+/// <summary>
+/// The Hangfire job of a scheduled trigger: it reads the subjects of the tick and fires the
+/// trigger for each of them, at most <c>MaxSubjectsPerTick</c>. A tick fires every subject once:
+/// a repeated job in the same minute finds the runs it already started.
+/// </summary>
+internal sealed class NhAssistantScheduledTriggerJob(
+    IServiceProvider services,
+    NhAssistantRegistrationState registration,
+    NhAssistantAgentTriggers triggers,
+    ILogger<NhAssistantScheduledTriggerJob> logger)
+{
+    [AutomaticRetry(Attempts = 0)]
+    public async Task RunAsync(string triggerId)
+    {
+        await RunAsync(triggerId, DateTimeOffset.UtcNow, CancellationToken.None);
+    }
+
+    internal async Task<IReadOnlyList<NhAssistantTriggerReceipt>> RunAsync(
+        string triggerId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        if (!registration.Triggers.TryGetValue(triggerId, out var trigger)
+            || trigger.Source != NhAssistantTriggerSource.Schedule
+            || trigger.ScheduledSubjects is null)
+        {
+            logger.LogWarning("Scheduled trigger {TriggerId} is not registered; the recurring job does nothing.", triggerId);
+            return [];
+        }
+
+        var tick = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, now.Offset).ToUniversalTime();
+        var receipts = new List<NhAssistantTriggerReceipt>();
+        await foreach (var subject in trigger.ScheduledSubjects(services, cancellationToken))
+        {
+            if (receipts.Count >= trigger.MaxSubjectsPerTick)
+            {
+                logger.LogInformation(
+                    "Scheduled trigger {TriggerId} reached its limit of {Limit} subjects; the rest wait for the next tick.",
+                    triggerId,
+                    trigger.MaxSubjectsPerTick);
+                break;
+            }
+
+            receipts.Add(await triggers.FireScheduledAsync(trigger, new NhAssistantScheduledTick(subject, tick), cancellationToken));
+        }
+
+        return receipts;
+    }
+}
+
+/// <summary>
+/// Registers a Hangfire recurring job for every scheduled trigger at startup.
+/// </summary>
+internal sealed class NhAssistantScheduleRegistration(
+    IServiceProvider services,
+    NhAssistantRegistrationState registration,
+    ILogger<NhAssistantScheduleRegistration> logger) : IHostedService
+{
+    internal const string RecurringJobPrefix = "nh-assistant-trigger-";
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        var schedules = registration.Triggers.Values
+            .Where(trigger => trigger.Source == NhAssistantTriggerSource.Schedule)
+            .ToArray();
+        if (schedules.Length == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var manager = services.GetService<IRecurringJobManager>()
+            ?? throw new InvalidOperationException(
+                "Scheduled assistant triggers need Hangfire. Configure WithHangfire in the host.");
+        var queue = services.GetService<INhHangfireQueueNameResolver>()?.GetQueueName() ?? "default";
+        foreach (var trigger in schedules)
+        {
+            var triggerId = trigger.Id;
+            manager.AddOrUpdate<NhAssistantScheduledTriggerJob>(
+                RecurringJobPrefix + triggerId,
+                queue,
+                job => job.RunAsync(triggerId),
+                trigger.Cron!,
+                new RecurringJobOptions { TimeZone = trigger.TimeZone });
+            logger.LogInformation("Scheduled assistant trigger {TriggerId} runs on '{Cron}'.", triggerId, trigger.Cron);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
+}

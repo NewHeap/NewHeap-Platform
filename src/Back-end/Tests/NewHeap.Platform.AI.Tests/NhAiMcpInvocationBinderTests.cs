@@ -35,7 +35,7 @@ public sealed class NhAiMcpInvocationBinderTests
 
         var result = await probe.InvokeAsync(new AIFunctionArguments { ["question"] = "Which risks block Alpha?" });
 
-        Assert.True(result.Success);
+        Assert.True(Succeeded(result));
         Assert.Equal(["question"], probe.Function.JsonSchema.GetProperty("properties").EnumerateObject().Select(item => item.Name));
         var call = Assert.Single(probe.Remote.Calls);
         Assert.Equal(["question"], call.Arguments.Keys);
@@ -61,7 +61,7 @@ public sealed class NhAiMcpInvocationBinderTests
 
         var result = await plain.InvokeAsync(new AIFunctionArguments { ["question"] = "Status?" });
 
-        Assert.True(result.Success);
+        Assert.True(Succeeded(result));
         var call = Assert.Single(plain.Remote.Calls);
         Assert.False(call.Meta?.ContainsKey(MetaKey) ?? false);
         Assert.Empty(plain.Binder.Contexts);
@@ -90,7 +90,7 @@ public sealed class NhAiMcpInvocationBinderTests
 
         var result = await probe.InvokeAsync(new AIFunctionArguments { ["question"] = "Status?" });
 
-        Assert.False(result.Success);
+        Assert.False(Succeeded(result));
         Assert.Empty(probe.Binder.Contexts);
         Assert.Empty(probe.Remote.Calls);
         Assert.Equal(NhAiOutcomeKind.AuthorizationDenied, Assert.Single(probe.Audit.Records).Outcome);
@@ -109,7 +109,7 @@ public sealed class NhAiMcpInvocationBinderTests
 
         var result = await probe.InvokeAsync(new AIFunctionArguments { ["question"] = "Start research." });
 
-        Assert.Equal(NhAiToolFailureCodes.ApprovalRequired, FirstCode(result));
+        Assert.Equal(NhAiToolFailureCodes.ApprovalRequired, Code(result));
         Assert.Empty(probe.Binder.Contexts);
         Assert.Empty(probe.Remote.Calls);
     }
@@ -126,7 +126,7 @@ public sealed class NhAiMcpInvocationBinderTests
 
         var result = await probe.InvokeAsync(new AIFunctionArguments { ["question"] = "Status?" });
 
-        Assert.Equal(NhAiToolFailureCodes.InputTooLarge, FirstCode(result));
+        Assert.Equal(NhAiToolFailureCodes.InputTooLarge, Code(result));
         Assert.Single(probe.Binder.Contexts);
         Assert.Empty(probe.Remote.Calls);
         var record = Assert.Single(probe.Audit.Records);
@@ -145,10 +145,10 @@ public sealed class NhAiMcpInvocationBinderTests
         var refusedResult = await refused.InvokeAsync(new AIFunctionArguments { ["question"] = "Status?" });
         var throwingResult = await throwing.InvokeAsync(new AIFunctionArguments { ["question"] = "Status?" });
 
-        Assert.Equal("example-turn-stale", FirstCode(refusedResult));
+        Assert.Equal("example-turn-stale", Code(refusedResult));
         Assert.Equal("example-turn-stale", Assert.Single(refused.Audit.Records).ResultCode);
-        Assert.Equal(NhAiMcpInvocationBindingCodes.BindingFailed, FirstCode(throwingResult));
-        Assert.DoesNotContain("secret", string.Join(' ', throwingResult.GetResultItems().SelectMany(item => item.ErrorMessages).Select(message => message.ToString())), StringComparison.Ordinal);
+        Assert.Equal(NhAiMcpInvocationBindingCodes.BindingFailed, Code(throwingResult));
+        Assert.DoesNotContain("secret", throwingResult.GetRawText(), StringComparison.Ordinal);
         Assert.Empty(refused.Remote.Calls);
         Assert.Empty(throwing.Remote.Calls);
     }
@@ -168,9 +168,14 @@ public sealed class NhAiMcpInvocationBinderTests
         Assert.Equal(valid, NhAiMcpRequestMetadata.IsValidKey(key));
     }
 
-    private static string? FirstCode(TaskResult result)
+    private static bool Succeeded(JsonElement result)
     {
-        return result.GetResultItems().Select(item => item.Name).FirstOrDefault(name => !string.IsNullOrEmpty(name));
+        return result.GetProperty(NhAiToolResult.SuccessPropertyName).GetBoolean();
+    }
+
+    private static string? Code(JsonElement result)
+    {
+        return result.TryGetProperty(NhAiToolResult.CodePropertyName, out var code) ? code.GetString() : null;
     }
 
     private sealed class ProbeBinder : INhAiMcpInvocationBinder
@@ -320,9 +325,9 @@ public sealed class NhAiMcpInvocationBinderTests
             }
         }
 
-        public async Task<TaskResult<CallToolResult>> InvokeAsync(AIFunctionArguments arguments)
+        public async Task<JsonElement> InvokeAsync(AIFunctionArguments arguments)
         {
-            return Assert.IsType<TaskResult<CallToolResult>>(await Function.InvokeAsync(arguments));
+            return Assert.IsType<JsonElement>(await Function.InvokeAsync(arguments));
         }
 
         public async ValueTask DisposeAsync()

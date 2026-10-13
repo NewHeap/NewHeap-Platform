@@ -43,6 +43,7 @@ public sealed class NhBackgroundOperationService :
     private readonly IMapper _mapper;
     private readonly ILogger<NhBackgroundOperationService> _logger;
     private readonly INhBackgroundOperationOwnerDirectory? _ownerDirectory;
+    private readonly IReadOnlyList<INhBackgroundOperationAccess> _accessPolicies;
 
     public NhBackgroundOperationService(
         IRepository<NhBackgroundOperation> repository,
@@ -79,6 +80,33 @@ public sealed class NhBackgroundOperationService :
         IMapper mapper,
         ILogger<NhBackgroundOperationService> logger,
         INhBackgroundOperationOwnerDirectory? ownerDirectory)
+        : this(
+            repository,
+            registry,
+            options,
+            queueNameResolver,
+            scheduler,
+            liveUpdates,
+            notificationProjector,
+            mapper,
+            logger,
+            ownerDirectory,
+            [])
+    {
+    }
+
+    public NhBackgroundOperationService(
+        IRepository<NhBackgroundOperation> repository,
+        NhBackgroundOperationRegistry registry,
+        NhBackgroundOperationsOptions options,
+        INhHangfireQueueNameResolver queueNameResolver,
+        INhBackgroundOperationScheduler scheduler,
+        INhBackgroundOperationLiveUpdatePublisher liveUpdates,
+        INhBackgroundOperationNotificationProjector notificationProjector,
+        IMapper mapper,
+        ILogger<NhBackgroundOperationService> logger,
+        INhBackgroundOperationOwnerDirectory? ownerDirectory,
+        IEnumerable<INhBackgroundOperationAccess> accessPolicies)
     {
         _repository = repository;
         _registry = registry;
@@ -90,6 +118,7 @@ public sealed class NhBackgroundOperationService :
         _mapper = mapper;
         _logger = logger;
         _ownerDirectory = ownerDirectory;
+        _accessPolicies = accessPolicies.ToArray();
     }
 
     public async Task<TaskResult<NhBackgroundOperationViewModel>> EnqueueAsync<TRequest>(
@@ -99,9 +128,12 @@ public sealed class NhBackgroundOperationService :
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(options);
-        if (options.OwnerUserId == Guid.Empty)
+        var owner = ResolveOwner(options);
+        if (owner is null)
         {
-            return TaskResult<NhBackgroundOperationViewModel>.Failed(nameof(options.OwnerUserId), "An operation owner is required.");
+            return TaskResult<NhBackgroundOperationViewModel>.Failed(
+                nameof(options.OwnerUserId),
+                "Exactly one operation owner is required: a user or an agent key.");
         }
 
         if (!_registry.TryGetForRequest(typeof(TRequest), out var descriptor))
@@ -129,9 +161,9 @@ public sealed class NhBackgroundOperationService :
             options.ConcurrencyKey ?? descriptor.ConcurrencyKeyFactory?.Invoke(request));
         var conflictBehavior = options.ConflictBehavior ?? descriptor.ConflictBehavior;
         // Admission deduplication must never let a caller discover an operation
-        // owned by another user or active division through a reused raw key.
+        // owned by another owner or active division through a reused raw key.
         var idempotencyScope = NormalizeScope(
-            $"{options.OwnerUserId:N}:{options.DivisionId?.ToString("N") ?? "global"}:{options.IdempotencyScope ?? descriptor.OperationType}");
+            $"{OwnerScope(owner)}:{options.DivisionId?.ToString("N") ?? "global"}:{options.IdempotencyScope ?? descriptor.OperationType}");
         var idempotencyHash = string.IsNullOrWhiteSpace(options.IdempotencyKey)
             ? null
             : NhBackgroundOperationKeys.HashIdempotencyKey(options.IdempotencyKey);
@@ -161,7 +193,7 @@ public sealed class NhBackgroundOperationService :
             if (record is not null)
             {
                 await transaction.CommitAsync(cancellationToken);
-                var existing = await GetAsync(record.OperationId, options.OwnerUserId, null, cancellationToken);
+                var existing = await GetForActorAsync(record.OperationId, owner, null, cancellationToken);
                 return existing is null
                     ? TaskResult<NhBackgroundOperationViewModel>.Failed("The idempotency record references an unavailable operation.")
                     : TaskResult<NhBackgroundOperationViewModel>.Succeeded(existing);
@@ -180,7 +212,7 @@ public sealed class NhBackgroundOperationService :
                 if (conflictBehavior == NhBackgroundOperationConflictBehavior.ReturnExisting)
                 {
                     await transaction.CommitAsync(cancellationToken);
-                    var existing = await GetAsync(conflicting.Id, options.OwnerUserId, null, cancellationToken);
+                    var existing = await GetForActorAsync(conflicting.Id, owner, null, cancellationToken);
                     return existing is null
                         ? TaskResult<NhBackgroundOperationViewModel>.Failed("A conflicting operation exists but is not visible to this owner.")
                         : TaskResult<NhBackgroundOperationViewModel>.Succeeded(existing);
@@ -202,14 +234,16 @@ public sealed class NhBackgroundOperationService :
             OperationType = descriptor.OperationType,
             PayloadSchemaVersion = descriptor.PayloadSchemaVersion,
             PayloadJson = payloadJson,
-            OwnerUserId = options.OwnerUserId,
+            OwnerKind = owner.Kind,
+            OwnerUserId = owner.UserId,
+            OwnerKey = owner.Key,
             DivisionId = options.DivisionId,
             ProcessorKey = _options.ProcessorKey,
             Queue = NhBackgroundOperationKeys.NormalizeQueueName(
                 _queueNameResolver.GetQueueName(descriptor.Queue)),
             Priority = options.Priority,
             Status = NhBackgroundOperationStatus.PendingDispatch,
-            NextDispatchAt = now,
+            NextDispatchAt = options.NotBefore is { } notBefore && notBefore > now ? notBefore : now,
             ConcurrencyKey = concurrencyKey,
             DomainObjectType = options.DomainObjectType,
             DomainObjectId = options.DomainObjectId,
@@ -250,7 +284,14 @@ public sealed class NhBackgroundOperationService :
         await transaction.CommitAsync(cancellationToken);
 
         NhBackgroundOperationMetrics.RecordEnqueued(operation.OperationType, operation.Queue);
-        await PublishChangedSafelyAsync(operation, cancellationToken);
+        if (transaction.IsMyTransaction)
+        {
+            await PublishChangedSafelyAsync(operation, cancellationToken);
+        }
+        // Otherwise the operation joined the caller's transaction and may still roll back.
+        // The dispatcher projects notifications and publishes the live update once it
+        // claims the committed row, so nothing announces an operation that never existed.
+
         return TaskResult<NhBackgroundOperationViewModel>.Succeeded(_mapper.Map<NhBackgroundOperationViewModel>(operation));
     }
 
@@ -310,6 +351,134 @@ public sealed class NhBackgroundOperationService :
             cancellationToken);
     }
 
+    public Task<NhBackgroundOperationViewModel?> GetForUserAsync(
+        Guid operationId,
+        Guid userId,
+        long? eventsAfterSequence = null,
+        CancellationToken cancellationToken = default)
+    {
+        return GetForActorAsync(
+            operationId,
+            NhBackgroundOperationActor.ForUser(userId),
+            eventsAfterSequence,
+            cancellationToken);
+    }
+
+    public Task<TaskResult<NhBackgroundOperationViewModel>> RequestCancellationForUserAsync(
+        Guid operationId,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return RequestCancellationForActorAsync(operationId, NhBackgroundOperationActor.ForUser(userId), cancellationToken);
+    }
+
+    public async Task<TaskResult<NhBackgroundOperationViewModel>> RequestCancellationForActorAsync(
+        Guid operationId,
+        NhBackgroundOperationActor actor,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(actor);
+        var visibility = await ResolveAccessAsync(
+            operationId,
+            actor,
+            NhBackgroundOperationAccessAction.Cancel,
+            cancellationToken);
+        if (visibility is null)
+        {
+            return TaskResult<NhBackgroundOperationViewModel>.Failed(
+                NhBackgroundOperationAccessCodes.NotFound,
+                "The operation was not found.");
+        }
+
+        return await RequestCancellationInternalAsync<NhBackgroundOperationViewModel>(
+            operationId,
+            visibility,
+            actor.UserId,
+            CancellationRequestedMessageKey,
+            false,
+            cancellationToken);
+    }
+
+    public async Task<TaskResult<NhBackgroundOperationViewModel>> RetryForUserAsync(
+        Guid operationId,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var visibility = await ResolveAccessAsync(
+            operationId,
+            NhBackgroundOperationActor.ForUser(userId),
+            NhBackgroundOperationAccessAction.Retry,
+            cancellationToken);
+        if (visibility is null)
+        {
+            return TaskResult<NhBackgroundOperationViewModel>.Failed(
+                NhBackgroundOperationAccessCodes.NotFound,
+                "The operation was not found.");
+        }
+
+        return await RetryInternalAsync<NhBackgroundOperationViewModel>(
+            operationId,
+            visibility,
+            RetryRequestedMessageKey,
+            false,
+            cancellationToken);
+    }
+
+    private async Task<NhBackgroundOperationViewModel?> GetForActorAsync(
+        Guid operationId,
+        NhBackgroundOperationActor actor,
+        long? eventsAfterSequence,
+        CancellationToken cancellationToken)
+    {
+        var visibility = await ResolveAccessAsync(
+            operationId,
+            actor,
+            NhBackgroundOperationAccessAction.View,
+            cancellationToken);
+        if (visibility is null)
+        {
+            return null;
+        }
+
+        return await GetInternalAsync<NhBackgroundOperationViewModel>(
+            operationId,
+            visibility,
+            eventsAfterSequence,
+            false,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Returns a filter that selects the operation when <paramref name="actor"/> owns it or an
+    /// access policy allows <paramref name="action"/>, and <see langword="null"/> otherwise.
+    /// </summary>
+    private async Task<Expression<Func<NhBackgroundOperation, bool>>?> ResolveAccessAsync(
+        Guid operationId,
+        NhBackgroundOperationActor actor,
+        NhBackgroundOperationAccessAction action,
+        CancellationToken cancellationToken)
+    {
+        var operation = await _repository.GetAll()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == operationId, cancellationToken);
+        if (operation is null)
+        {
+            return null;
+        }
+
+        if (!await NhBackgroundOperationAccessEvaluator.IsAllowedAsync(
+                _accessPolicies,
+                operation,
+                actor,
+                action,
+                cancellationToken))
+        {
+            return null;
+        }
+
+        return x => x.Id == operationId;
+    }
+
     public IQueryable<NhBackgroundOperation> QueryForAdministration(Guid? divisionId)
     {
         return _repository.GetAll()
@@ -328,13 +497,23 @@ public sealed class NhBackgroundOperationService :
         }
 
         var ownerIds = operations
-            .Select(x => x.OwnerUserId)
+            .Where(x => x.OwnerUserId.HasValue)
+            .Select(x => x.OwnerUserId!.Value)
             .Distinct()
             .ToList();
-        var owners = await _ownerDirectory.GetOwnersAsync(ownerIds, cancellationToken);
+        var owners = ownerIds.Count == 0
+            ? new Dictionary<Guid, NhBackgroundOperationOwner>()
+            : await _ownerDirectory.GetOwnersAsync(ownerIds, cancellationToken);
         foreach (var operation in operations)
         {
-            operation.OwnerDisplayName = owners.TryGetValue(operation.OwnerUserId, out var owner)
+            if (operation.OwnerUserId is not { } ownerUserId)
+            {
+                // A non-human owner is shown by its key, for example an agent actor id.
+                operation.OwnerDisplayName = operation.OwnerKey;
+                continue;
+            }
+
+            operation.OwnerDisplayName = owners.TryGetValue(ownerUserId, out var owner)
                 ? owner.DisplayName
                 : null;
         }
@@ -418,7 +597,7 @@ public sealed class NhBackgroundOperationService :
     private async Task<TaskResult<TView>> RequestCancellationInternalAsync<TView>(
         Guid operationId,
         Expression<Func<NhBackgroundOperation, bool>> visibility,
-        Guid requestedByUserId,
+        Guid? requestedByUserId,
         string messageKey,
         bool includeOperatorEvents,
         CancellationToken cancellationToken)
@@ -630,10 +809,9 @@ public sealed class NhBackgroundOperationService :
     {
         // Fan-out children inherit the owner, so the owner bounds the hierarchy for
         // owner and administrator requests alike.
-        var ownerUserId = operation.OwnerUserId;
         var rootOperationId = operation.RootOperationId ?? operation.Id;
         IQueryable<NhBackgroundOperation> query = _repository.GetAll()
-            .Where(x => x.OwnerUserId == ownerUserId)
+            .Where(SameOwnerAs(operation))
             .Where(x => x.Id == rootOperationId || x.RootOperationId == rootOperationId);
         if (includeSteps)
         {
@@ -743,11 +921,11 @@ public sealed class NhBackgroundOperationService :
             eventQuery = eventQuery.Where(x => x.Sequence > eventsAfterSequence.Value);
         }
         var events = await eventQuery.OrderBy(x => x.Sequence).ToListAsync(cancellationToken);
-        var ownerUserId = operation.OwnerUserId;
         var rootOperationId = operation.RootOperationId ?? operation.Id;
         var hierarchyCandidates = await _repository.GetAll()
             .AsNoTracking()
-            .Where(x => x.OwnerUserId == ownerUserId && x.RootOperationId == rootOperationId)
+            .Where(SameOwnerAs(operation))
+            .Where(x => x.RootOperationId == rootOperationId)
             .OrderBy(x => x.CreationDateTime)
             .ToListAsync(cancellationToken);
 
@@ -795,7 +973,54 @@ public sealed class NhBackgroundOperationService :
 
     private static Expression<Func<NhBackgroundOperation, bool>> OwnedBy(Guid ownerUserId)
     {
-        return x => x.OwnerUserId == ownerUserId;
+        return x => x.OwnerKind == NhBackgroundOperationOwnerKind.User && x.OwnerUserId == ownerUserId;
+    }
+
+    private static Expression<Func<NhBackgroundOperation, bool>> SameOwnerAs(NhBackgroundOperation operation)
+    {
+        var ownerKind = operation.OwnerKind;
+        var ownerUserId = operation.OwnerUserId;
+        var ownerKey = operation.OwnerKey;
+        return x => x.OwnerKind == ownerKind && x.OwnerUserId == ownerUserId && x.OwnerKey == ownerKey;
+    }
+
+    /// <summary>
+    /// Returns the owner the options name, or <see langword="null"/> unless exactly one valid
+    /// owner is given.
+    /// </summary>
+    private static NhBackgroundOperationActor? ResolveOwner(NhBackgroundOperationEnqueueOptions options)
+    {
+        var hasUser = options.OwnerUserId.HasValue && options.OwnerUserId.Value != Guid.Empty;
+        var hasAgent = !string.IsNullOrWhiteSpace(options.OwnerAgentKey);
+        if (hasUser == hasAgent)
+        {
+            return null;
+        }
+
+        if (hasUser)
+        {
+            return NhBackgroundOperationActor.ForUser(options.OwnerUserId!.Value);
+        }
+
+        var agentKey = options.OwnerAgentKey!.Trim();
+        if (agentKey.Length > 200)
+        {
+            return null;
+        }
+
+        return NhBackgroundOperationActor.ForAgent(agentKey);
+    }
+
+    private static string OwnerScope(NhBackgroundOperationActor owner)
+    {
+        if (owner.Kind == NhBackgroundOperationOwnerKind.User)
+        {
+            return owner.UserId!.Value.ToString("N");
+        }
+
+        // Agent keys are case-sensitive identifiers; hashing keeps them distinct after the
+        // scope is lower-cased.
+        return $"agent-{NhBackgroundOperationKeys.HashIdempotencyKey(owner.Key!)}";
     }
 
     private static Expression<Func<NhBackgroundOperation, bool>> VisibleInDivision(Guid? divisionId)
@@ -890,14 +1115,7 @@ public sealed class NhBackgroundOperationService :
         }
         try
         {
-            await _liveUpdates.PublishChangedAsync(operation.OwnerUserId,
-                new NhBackgroundOperationChangedMessage(
-                    operation.Id,
-                    operation.Version,
-                    operation.LatestEventSequence,
-                    operation.Status,
-                    operation.DivisionId),
-                cancellationToken);
+            await _liveUpdates.PublishToOwnerAsync(operation, cancellationToken);
         }
         catch (Exception exception)
         {
@@ -935,5 +1153,69 @@ internal sealed class NhNoOpBackgroundOperationLiveUpdatePublisher : INhBackgrou
         CancellationToken cancellationToken = default)
     {
         return Task.CompletedTask;
+    }
+}
+
+internal static class NhBackgroundOperationLiveUpdateExtensions
+{
+    /// <summary>
+    /// Publishes a change to the owning user's channel. An operation without a user owner
+    /// has no owner channel; the module that owns it publishes its own updates.
+    /// </summary>
+    internal static Task PublishToOwnerAsync(
+        this INhBackgroundOperationLiveUpdatePublisher publisher,
+        NhBackgroundOperation operation,
+        CancellationToken cancellationToken)
+    {
+        if (operation.OwnerUserId is not { } ownerUserId)
+        {
+            return Task.CompletedTask;
+        }
+
+        return publisher.PublishChangedAsync(
+            ownerUserId,
+            new NhBackgroundOperationChangedMessage(
+                operation.Id,
+                operation.Version,
+                operation.LatestEventSequence,
+                operation.Status,
+                operation.DivisionId),
+            cancellationToken);
+    }
+}
+
+internal static class NhBackgroundOperationAccessEvaluator
+{
+    /// <summary>
+    /// The owner always has access. Anyone else needs a registered policy that allows the
+    /// action; without policies, operations stay private to their owner.
+    /// </summary>
+    internal static async ValueTask<bool> IsAllowedAsync(
+        IReadOnlyList<INhBackgroundOperationAccess> policies,
+        NhBackgroundOperation operation,
+        NhBackgroundOperationActor actor,
+        NhBackgroundOperationAccessAction action,
+        CancellationToken cancellationToken)
+    {
+        if (actor.Owns(operation))
+        {
+            return true;
+        }
+
+        if (policies.Count == 0)
+        {
+            return false;
+        }
+
+        var target = NhBackgroundOperationAccessTarget.From(operation);
+        foreach (var policy in policies)
+        {
+            if (await policy.IsAllowedAsync(target, actor, action, cancellationToken))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

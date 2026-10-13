@@ -194,7 +194,19 @@ public sealed class NhBackgroundOperationsOptions
 
 public sealed class NhBackgroundOperationEnqueueOptions
 {
-    public required Guid OwnerUserId { get; init; }
+    /// <summary>
+    /// The owning user. Set exactly one of <see cref="OwnerUserId"/> and
+    /// <see cref="OwnerAgentKey"/>.
+    /// </summary>
+    public Guid? OwnerUserId { get; init; }
+
+    /// <summary>
+    /// The key of a non-human owner, such as an AI agent actor id. The operation then has
+    /// no owning user; <see cref="INhBackgroundOperationAccess"/> decides who else may see,
+    /// cancel, retry or signal it.
+    /// </summary>
+    public string? OwnerAgentKey { get; init; }
+
     public Guid? DivisionId { get; init; }
     public string? IdempotencyKey { get; init; }
     public string? IdempotencyScope { get; init; }
@@ -204,6 +216,12 @@ public sealed class NhBackgroundOperationEnqueueOptions
     public string? DomainObjectType { get; init; }
     public string? DomainObjectId { get; init; }
     public string? CorrelationId { get; init; }
+
+    /// <summary>
+    /// The earliest time the operation may be dispatched, for example to debounce a burst
+    /// of requests into one operation. <see langword="null"/> dispatches immediately.
+    /// </summary>
+    public DateTimeOffset? NotBefore { get; init; }
 }
 
 public sealed class NhBackgroundOperationLeaseOptions
@@ -431,6 +449,18 @@ public sealed class NhBackgroundOperationBuilder
     {
         _services.RemoveAll<INhBackgroundOperationOwnerDirectory>();
         _services.AddScoped<INhBackgroundOperationOwnerDirectory, TDirectory>();
+        return this;
+    }
+
+    /// <summary>
+    /// Adds an access policy that lets users other than the owner view, cancel, retry or
+    /// signal an operation, for example the members of the domain object an agent works
+    /// on. Several policies can be added; an action is allowed when any policy allows it.
+    /// </summary>
+    public NhBackgroundOperationBuilder AddAccess<TAccess>()
+        where TAccess : class, INhBackgroundOperationAccess
+    {
+        _services.TryAddEnumerable(ServiceDescriptor.Scoped<INhBackgroundOperationAccess, TAccess>());
         return this;
     }
 

@@ -46,6 +46,16 @@ internal sealed class NhAiDefaultEffectPolicy : INhAiEffectPolicy
                 NhAiEffectDecisionKind.ConsumerAuthoritativeApproval,
                 "consumer-authoritative-approval"));
         }
+        // Nobody personally answers for an agent that is accountable to itself, so every effect
+        // other than a read needs a person's approval.
+        var agentAccountable = NhAiAgentInvocationScopes.Current is { Accountability: NhAiAgentAccountability.Agent }
+            && context.ActorKind == NhAiActorKind.Agent;
+        if (agentAccountable && descriptor.Effect != NhAiToolEffect.ReadOnly)
+        {
+            return ValueTask.FromResult(descriptor.Approval == NhAiApprovalRequirement.Issuer
+                ? new NhAiEffectDecision(NhAiEffectDecisionKind.Deny, "agent-accountable-issuer-denied")
+                : new NhAiEffectDecision(NhAiEffectDecisionKind.RequireApproval, "agent-accountable-approval-required"));
+        }
         if (descriptor.Approval == NhAiApprovalRequirement.Issuer
             && descriptor.Effect is NhAiToolEffect.IdempotentMutation
                 or NhAiToolEffect.Mutation

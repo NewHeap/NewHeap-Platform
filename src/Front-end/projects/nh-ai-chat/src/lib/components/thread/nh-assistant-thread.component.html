@@ -23,8 +23,14 @@
 </div>
 
 <ng-template #messageTemplate let-message>
-  <article class="message" [attr.data-role]="message.role" [attr.data-others]="isOthers(message) ? 'true' : null">
-    @if (isOthers(message)) {
+  <article
+    class="message"
+    [attr.data-role]="message.role"
+    [attr.data-others]="isOthers(message) ? 'true' : null"
+    [attr.data-author]="isTrigger(message) ? 'trigger' : null">
+    @if (isTrigger(message)) {
+      <p class="author">{{ 'nh-assistant.thread.trigger' | translate }}</p>
+    } @else if (isOthers(message)) {
       <p class="author">{{ authorName(message) ?? ('nh-assistant.thread.participant' | translate) }}</p>
     } @else {
       <p class="author">{{ 'nh-assistant.thread.' + (message.role === 'user' ? 'you' : message.role) | translate }}</p>
@@ -46,9 +52,10 @@
             class="part"
             [approval]="group.part"
             [deciding]="deciding()"
-            [canDecide]="canDecide()"
-            [decisionOwner]="decisionOwner()"
-            (decide)="approvalDecision.emit($event)" />
+            [canDecide]="rightFor(group.part).canDecide"
+            [decisionOwner]="rightFor(group.part).decisionOwner"
+            [waitingFor]="rightFor(group.part).waitingFor"
+            (decide)="choose(group.part, $event)" />
         }
       }
     }

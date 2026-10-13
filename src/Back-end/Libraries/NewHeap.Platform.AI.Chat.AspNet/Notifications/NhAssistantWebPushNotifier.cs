@@ -117,6 +117,48 @@ internal sealed class NhAssistantWebPushNotifier(
         }
     }
 
+    public async Task AgentNotificationAsync(
+        NhAssistantAgentNotificationContext context,
+        IReadOnlyList<string> recipientActorIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var push = options.CurrentValue.Push;
+        if (!push.IsConfigured || recipientActorIds.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var conversation = await store.FindShareableConversationAsync(context.ConversationId, cancellationToken);
+            if (conversation is null)
+            {
+                return;
+            }
+
+            var kind = NhAssistantPushKinds.ForAgent(context.Kind);
+            await DeliverAsync(
+                push,
+                conversation,
+                recipientActorIds.Distinct(StringComparer.Ordinal).ToDictionary(actorId => actorId, _ => kind, StringComparer.Ordinal),
+                (_, language) => NhAssistantPushTexts.ForAgent(
+                    context.Kind,
+                    language,
+                    push.IncludeConversationTitle ? context.SubjectDisplayName : null,
+                    context.ProposalCount),
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            logger.LogWarning(
+                "Assistant push for agent event {Kind} in thread {ConversationId} was not sent ({ExceptionType}).",
+                context.Kind,
+                context.ConversationId,
+                exception.GetType().Name);
+        }
+    }
+
     /// <summary>
     /// The person who started the turn hears about an approval request, which needs them, and about a
     /// long turn; everyone else only about a long turn that finished or failed. Cancelled turns and
@@ -189,7 +231,9 @@ internal sealed class NhAssistantWebPushNotifier(
                     item.Endpoint,
                     authorizations[item.Endpoint.GetLeftPart(UriPartial.Authority)],
                     payload,
-                    kind == NhAssistantPushKinds.ApprovalRequired ? "high" : "normal",
+                    kind is NhAssistantPushKinds.ApprovalRequired
+                        or NhAssistantPushKinds.AgentProposals
+                        or NhAssistantPushKinds.AgentExecutionUnknown ? "high" : "normal",
                     conversation.Id,
                     token);
                 if (status is HttpStatusCode.NotFound or HttpStatusCode.Gone)
@@ -288,6 +332,26 @@ internal static class NhAssistantPushKinds
     public const string TurnFailedByOther = "turn-failed-by-other";
     public const string ApprovalRequired = "approval-required";
     public const string Invited = "invited";
+    public const string AgentProposals = "agent-proposals";
+    public const string AgentProposalExpiring = "agent-proposal-expiring";
+    public const string AgentProposalEscalated = "agent-proposal-escalated";
+    public const string AgentExecutionUnknown = "agent-execution-unknown";
+    public const string AgentRunFailed = "agent-run-failed";
+    public const string AgentRequestAnswered = "agent-request-answered";
+
+    public static string ForAgent(NhAssistantAgentNotificationKind kind)
+    {
+        return kind switch
+        {
+            NhAssistantAgentNotificationKind.RunEndedWithProposals => AgentProposals,
+            NhAssistantAgentNotificationKind.ProposalExpiring => AgentProposalExpiring,
+            NhAssistantAgentNotificationKind.ProposalEscalated => AgentProposalEscalated,
+            NhAssistantAgentNotificationKind.ExecutionUnknown => AgentExecutionUnknown,
+            NhAssistantAgentNotificationKind.RunFailed => AgentRunFailed,
+            NhAssistantAgentNotificationKind.RequestAnswered => AgentRequestAnswered,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind))
+        };
+    }
 }
 
 /// <summary>
@@ -348,6 +412,29 @@ internal static class NhAssistantPushTexts
         var body = string.IsNullOrWhiteSpace(conversationTitle)
             ? (dutch ? "Open de assistent om mee te doen." : "Open the assistant to join in.")
             : conversationTitle;
+        return (title, body);
+    }
+
+    public static (string Title, string Body) ForAgent(
+        NhAssistantAgentNotificationKind kind,
+        string language,
+        string? subjectDisplayName,
+        int proposalCount)
+    {
+        var dutch = IsDutch(language);
+        var title = string.IsNullOrWhiteSpace(subjectDisplayName) ? (dutch ? "Assistent" : "Assistant") : subjectDisplayName;
+        var body = kind switch
+        {
+            NhAssistantAgentNotificationKind.RunEndedWithProposals => proposalCount > 1
+                ? (dutch ? $"{proposalCount} voorstellen wachten op een besluit." : $"{proposalCount} proposals wait for a decision.")
+                : (dutch ? "Een voorstel wacht op een besluit." : "A proposal waits for a decision."),
+            NhAssistantAgentNotificationKind.ProposalExpiring => dutch ? "Een voorstel wacht nog op een besluit." : "A proposal still waits for a decision.",
+            NhAssistantAgentNotificationKind.ProposalEscalated => dutch ? "Een voorstel is doorgezet omdat niemand tijdig besliste." : "A proposal was escalated because nobody decided in time.",
+            NhAssistantAgentNotificationKind.ExecutionUnknown => dutch ? "Van een uitgevoerd voorstel is de uitkomst onbekend." : "The outcome of an executed proposal is unknown.",
+            NhAssistantAgentNotificationKind.RunFailed => dutch ? "De agent kon zijn taak niet afronden." : "The agent could not complete its task.",
+            NhAssistantAgentNotificationKind.RequestAnswered => dutch ? "De agent heeft je verzoek afgerond." : "The agent finished your request.",
+            _ => throw new ArgumentOutOfRangeException(nameof(kind))
+        };
         return (title, body);
     }
 

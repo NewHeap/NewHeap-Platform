@@ -4,6 +4,13 @@ const apiTarget =
 
 module.exports = [
   {
+    // The API maps the assistant below /api/assistant itself, so this path is kept as is.
+    context: ['/api/assistant'],
+    target: apiTarget,
+    secure: false,
+    changeOrigin: true
+  },
+  {
     context: ['/api'],
     target: apiTarget,
     secure: false,

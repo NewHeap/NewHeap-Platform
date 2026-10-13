@@ -79,6 +79,35 @@ describe('NhAssistantApiService', () => {
     expect(headers['Authorization']).toBe('Bearer injected-token');
   });
 
+  it('adds the host request headers without letting them replace the library headers', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: 'HOST_DIVISION', useValue: 'division-1' },
+        provideNhAssistant({
+          apiBaseUrl: '/api/assistant',
+          getAccessToken: () => 'token-1',
+          getRequestHeaders: () => ({
+            'X-NH-ActiveDivisionId': inject('HOST_DIVISION' as never) as string,
+            'X-Empty': '',
+            authorization: 'Bearer forged',
+            Accept: 'text/html'
+          })
+        }),
+        { provide: NH_ASSISTANT_FETCH, useFactory: () => fetchSpy }
+      ]
+    });
+    fetchSpy.and.returnValue(Promise.resolve(jsonResponse({ enabled: false, agents: [], limits: { maxMessageChars: 1, maxToolCallsPerTurn: 1 }, canAdminister: false })));
+
+    await firstValueFrom(TestBed.inject(NhAssistantApiService).status());
+
+    const headers = fetchSpy.calls.mostRecent().args[1].headers as Record<string, string>;
+    expect(headers['X-NH-ActiveDivisionId']).toBe('division-1');
+    expect(headers['X-Empty']).toBeUndefined();
+    expect(headers['authorization']).toBeUndefined();
+    expect(headers['Authorization']).toBe('Bearer token-1');
+    expect(headers['Accept']).toBe('application/json');
+  });
+
   it('omits the Authorization header when the host has no token', async () => {
     token = null;
     fetchSpy.and.returnValue(Promise.resolve(jsonResponse({ enabled: false, agents: [], limits: { maxMessageChars: 1, maxToolCallsPerTurn: 1 }, canAdminister: false })));

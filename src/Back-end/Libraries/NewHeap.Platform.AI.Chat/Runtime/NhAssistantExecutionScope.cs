@@ -50,6 +50,12 @@ internal sealed class NhAssistantTurnScope
     public NhAssistantComposedPrompt? Prompt { get; init; }
 
     /// <summary>
+    /// Set when the turn answers a consultation: the consulted agent then works with the asker's
+    /// rights, stores no messages and can only propose changes.
+    /// </summary>
+    public Runs.NhAssistantConsultationScope? Consultation { get; init; }
+
+    /// <summary>
     /// Adds the content-free prompt identity of this turn to an audit event.
     /// </summary>
     public NhAssistantAuditEvent WithPromptIdentity(NhAssistantAuditEvent evt)

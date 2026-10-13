@@ -147,11 +147,15 @@ Redaction applies to the gateway tools only.
 
 ## Result
 
-Tools return `TaskResult<NhAiBridgeResponse>`:
+Tools return the shared `NhAiToolResult` shape with an `NhAiBridgeResponse` as `data`:
 
 ```json
-{ "status": 200, "contentType": "application/json", "body": { }, "truncated": false, "bodyBytes": 1234 }
+{ "success": true, "data": { "status": 200, "contentType": "application/json", "body": { }, "truncated": false, "bodyBytes": 1234 } }
 ```
+
+A failure gives the model its stable code and message, for example
+`{ "success": false, "code": "api-bridge-not-found", "message": "..." }`;
+`api-bridge-validation` keeps the response with the model state as `data`.
 
 For bridge tools, a body over `MaxResultBytes` becomes a `bodyText` fragment with
 `truncated: true` and the hint "Use paging or filters to reduce the result."

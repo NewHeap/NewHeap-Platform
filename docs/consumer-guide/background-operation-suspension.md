@@ -29,6 +29,12 @@ persistence boundary matches the owner, wait key and schema, rejects expired or
 conflicting signals, treats an identical duplicate idempotently, and makes the
 operation dispatchable. Never put authorization claims inside the signal body.
 
+When someone other than the owner provides the input, for example an approver of an
+agent-owned operation, use `INhBackgroundOperationSignalService.SignalAsync`
+with the signaling user. The operation's `INhBackgroundOperationAccess`
+policies must allow `NhBackgroundOperationAccessAction.Signal` for that user;
+the same wait-key, schema and duplicate rules apply.
+
 Expiry is stored as `NextDispatchAt`; it wakes a new attempt that receives an
 `Expired` result. Cancellation advances a sleeping operation immediately for
 terminal handling. No worker polls and no public control-flow exception leaks
@@ -64,3 +70,8 @@ reference; SPM-230 shows the AI approval use case.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/OperationsSamplesController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/OperationsSamplesController.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAiPortfolioReportOperationTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAiPortfolioReportOperationTests.cs)
+- SPM-268 — Event-triggered agent run with deferred proposals
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs)

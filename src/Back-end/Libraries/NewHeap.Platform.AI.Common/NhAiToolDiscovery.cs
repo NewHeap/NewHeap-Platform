@@ -34,8 +34,11 @@ internal sealed class NhAiDenyAllToolDiscoveryPolicy : INhAiToolDiscoveryPolicy
 internal sealed class NhAiToolDiscoveryService(
     IEnumerable<INhAiToolCatalog> catalogs,
     INhAiToolDiscoveryPolicy policy,
-    INhAiCapabilityResolver capabilityResolver) : INhAiToolDiscoveryService
+    INhAiCapabilityResolver capabilityResolver,
+    IEnumerable<INhAiAgentToolAuthorizer> agentAuthorizers) : INhAiToolDiscoveryService
 {
+    private readonly INhAiAgentToolAuthorizer? _agentAuthorizer = agentAuthorizers.LastOrDefault();
+
     public async ValueTask<IReadOnlyList<NhAiToolDescriptor>> DiscoverAsync(
         NhAiToolDiscoveryRequest request,
         CancellationToken cancellationToken = default)
@@ -50,6 +53,16 @@ internal sealed class NhAiToolDiscoveryService(
             .OrderBy(descriptor => descriptor.Id, StringComparer.Ordinal)
             .ThenBy(descriptor => descriptor.Version)
             .ToArray();
+        var agentScope = NhAiAgentInvocationScopes.Current;
+        if (agentScope is not null
+            && request.Exposure == NhAiToolExposure.Agent
+            && _agentAuthorizer is not null)
+        {
+            // An agent turn sees the tools its grants and its initiator's rights allow. The
+            // invocation gate builds the capabilities when the tool is called.
+            return await DiscoverForAgentAsync(descriptors, agentScope, _agentAuthorizer, cancellationToken);
+        }
+
         var authorized = new List<NhAiToolDescriptor>(descriptors.Length);
         foreach (var descriptor in descriptors)
         {
@@ -68,6 +81,26 @@ internal sealed class NhAiToolDiscoveryService(
                 authorized.Add(descriptor);
             }
         }
+        return authorized;
+    }
+
+    private static async ValueTask<IReadOnlyList<NhAiToolDescriptor>> DiscoverForAgentAsync(
+        IReadOnlyList<NhAiToolDescriptor> descriptors,
+        NhAiAgentInvocationScope scope,
+        INhAiAgentToolAuthorizer authorizer,
+        CancellationToken cancellationToken)
+    {
+        var authorized = new List<NhAiToolDescriptor>(descriptors.Count);
+        foreach (var descriptor in descriptors)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var source = await authorizer.AuthorizeAsync(descriptor, scope, cancellationToken);
+            if (source != NhAiGrantSource.None)
+            {
+                authorized.Add(descriptor);
+            }
+        }
+
         return authorized;
     }
 

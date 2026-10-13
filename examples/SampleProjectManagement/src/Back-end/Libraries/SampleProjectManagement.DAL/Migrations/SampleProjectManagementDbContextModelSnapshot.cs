@@ -226,7 +226,14 @@ namespace SampleProjectManagement.DAL.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<Guid>("OwnerUserId")
+                    b.Property<string>("OwnerKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("OwnerKind")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("OwnerUserId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("ParentOperationId")
@@ -320,11 +327,15 @@ namespace SampleProjectManagement.DAL.Migrations
 
                     b.HasIndex("UserNotificationId");
 
+                    b.HasIndex("ConcurrencyKey", "Status");
+
                     b.HasIndex("Status", "CompletedAt");
 
                     b.HasIndex("Status", "HeartbeatAt");
 
                     b.HasIndex("DivisionId", "Status", "LastModifiedDateTime");
+
+                    b.HasIndex("DomainObjectType", "DomainObjectId", "Status");
 
                     b.HasIndex("OwnerUserId", "Status", "LastModifiedDateTime");
 
@@ -332,6 +343,8 @@ namespace SampleProjectManagement.DAL.Migrations
                         .IsUnique();
 
                     b.HasIndex("DivisionId", "ParentOperationId", "Status", "LastModifiedDateTime");
+
+                    b.HasIndex("OwnerKind", "OwnerKey", "Status", "LastModifiedDateTime");
 
                     b.HasIndex("ProcessorKey", "Status", "NextDispatchAt", "Priority", "CreationDateTime");
 
@@ -1331,6 +1344,37 @@ namespace SampleProjectManagement.DAL.Migrations
                     b.ToTable("Projects");
                 });
 
+            modelBuilder.Entity("SampleProjectManagement.DAL.Entities.ProjectMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreationDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("LastModifiedDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ProjectId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("ProjectMembers");
+                });
+
             modelBuilder.Entity("SampleProjectManagement.DAL.Entities.ProjectTask", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1473,8 +1517,7 @@ namespace SampleProjectManagement.DAL.Migrations
                     b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUser", null)
                         .WithMany()
                         .HasForeignKey("OwnerUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperation", "ParentOperation")
                         .WithMany("ChildOperations")
@@ -1728,6 +1771,25 @@ namespace SampleProjectManagement.DAL.Migrations
                     b.Navigation("OwnerUser");
                 });
 
+            modelBuilder.Entity("SampleProjectManagement.DAL.Entities.ProjectMember", b =>
+                {
+                    b.HasOne("SampleProjectManagement.DAL.Entities.Project", "Project")
+                        .WithMany("Members")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("SampleProjectManagement.DAL.Entities.ProjectTask", b =>
                 {
                     b.HasOne("SampleProjectManagement.DAL.Entities.Project", "Project")
@@ -1804,6 +1866,8 @@ namespace SampleProjectManagement.DAL.Migrations
 
             modelBuilder.Entity("SampleProjectManagement.DAL.Entities.Project", b =>
                 {
+                    b.Navigation("Members");
+
                     b.Navigation("Tasks");
                 });
 #pragma warning restore 612, 618

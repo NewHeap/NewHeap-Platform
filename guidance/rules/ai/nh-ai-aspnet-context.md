@@ -4,8 +4,8 @@ title: "Build authorized ASP.NET AI invocation context"
 area: authentication
 reference: ai-aspnet-context
 summary: "Contribute authenticated actor, active-division scope, and narrow capability grants only after existing ASP.NET authorization policies succeed."
-sample-cases: ["SPM-223"]
-public-symbols: ["INhAiAuthenticatedInvocationContextResolver", "NhAiAspNetBuilder", "NhAiAspNetFailureCodes", "NhAiAspNetIssuerClaimMapping", "NhAiAspNetScopeAuthorizationResource", "NhAiAspNetServiceCollectionExtensions"]
+sample-cases: ["SPM-223", "SPM-268"]
+public-symbols: ["INhAiAuthenticatedInvocationContextResolver", "NhAiAspNetBuilder", "NhAiAspNetFailureCodes", "NhAiAspNetIssuerClaimMapping", "NhAiAspNetScopeAuthorizationResource", "NhAiAspNetServiceCollectionExtensions", "NhAiSubjectAuthorizationResource", "INhAiPrincipalFactory", "INhDivisionScopedResource"]
 skills: ["newheap-authentication"]
 providers: ["provider-neutral"]
 risk: high
@@ -41,6 +41,18 @@ The contributor matches the authenticated name-identifier claim to the requested
 actor, calls `IAuthorizationService`, and only then copies the division ID into a
 bounded execution scope and grants a lowercase dash-case capability.
 
+Agent runs have no HTTP request. Inside an agent invocation scope the same gate
+first tries delegation: when the agent may act for its initiator, it builds the
+initiator's principal through `INhAiPrincipalFactory` (by default from the
+NewHeap user manager's current claims, so a removed or blocked user has no
+rights) and authorizes the tool policies against an
+`NhAiSubjectAuthorizationResource` for the subject's division. Otherwise it
+checks the agent's two-key grant. The active-division handler accepts any
+`INhDivisionScopedResource`: the resource's division wins over the request
+header, and without both a request and a resource the requirement does not
+succeed. Discovery inside an agent scope uses the same decision through
+`INhAiAgentToolAuthorizer`, so the model is offered exactly the tools it may call.
+
 Keep claim hydration, division membership, roles, resource permissions, and
 removed-user handling in the existing NewHeap authentication flow. The AI
 context contains opaque IDs and safe correlation metadata, not a
@@ -59,6 +71,7 @@ an ASP.NET dependency.
 - Storing an access token, cookie, user profile, prompt, or raw request in invocation context.
 - Granting a capability when its configured authorization policy fails or is missing.
 - Replacing the ASP.NET gate with an allow-all or browser-derived production gate.
+- Authorizing a headless agent call with a cached principal or with the request header of whoever triggered the run.
 
 ## Verification
 

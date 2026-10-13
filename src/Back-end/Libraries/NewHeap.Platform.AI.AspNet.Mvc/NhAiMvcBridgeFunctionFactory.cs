@@ -8,8 +8,9 @@ namespace NewHeap.Platform.AI.AspNet.Mvc;
 
 /// <summary>
 /// Creates the governed function of one bridge descriptor. The function has the same shape as
-/// a generated tool: arguments in the <c>input</c> envelope, a <c>TaskResult&lt;T&gt;</c>
-/// outcome and execution through <see cref="INhAiToolInvoker"/>.
+/// a generated tool: arguments in the <c>input</c> envelope, execution through
+/// <see cref="INhAiToolInvoker"/> and the shared <see cref="NhAiToolResult"/> shape, so a
+/// failure reaches the model with its stable <c>api-bridge-*</c> or pipeline code.
 /// </summary>
 internal static class NhAiMvcBridgeFunctionFactory
 {
@@ -40,7 +41,9 @@ internal static class NhAiMvcBridgeFunctionFactory
         var inner = AIFunctionFactory.Create(handler, new AIFunctionFactoryOptions
         {
             Name = descriptor.ExportName,
-            Description = descriptor.Description
+            Description = descriptor.Description,
+            ExcludeResultSchema = true,
+            MarshalResult = NhAiToolResult.CreateMarshaller<T>()
         });
         return NhAiGovernedAIFunction.Create(
             descriptor,

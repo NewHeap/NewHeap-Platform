@@ -12,9 +12,29 @@ public sealed record NhAiBackgroundApprovalSignal(
 
 public interface INhAiBackgroundOperationRunAdapter
 {
+    /// <summary>
+    /// Binds an agent invocation context to the running operation: the operation id becomes
+    /// the run id, and the attempt, idempotency key and fencing token come from the operation.
+    /// The context must belong to a non-human agent actor and name an accountable party; an
+    /// agent that answers for itself uses its own actor id as the accountable party.
+    /// </summary>
     NhAiInvocationContext BindInvocation(
         NhAiInvocationContext context,
         INhBackgroundOperationContext operation,
+        DateTimeOffset? deadline = null);
+
+    /// <summary>
+    /// Binds the execution of an approved proposal. The context keeps the proposal's origin
+    /// run id, so the approval stays valid, and records the executing operation as the
+    /// correlation id. <paramref name="fenced"/> passes the operation's fencing token to the
+    /// idempotency lease; leave it off for idempotent tools, whose retries must replay rather
+    /// than conflict.
+    /// </summary>
+    NhAiInvocationContext BindProposalExecution(
+        NhAiInvocationContext context,
+        INhBackgroundOperationContext operation,
+        string proposalRunId,
+        bool fenced,
         DateTimeOffset? deadline = null);
 
     Task<NhAiRunCheckpointReference?> GetCheckpointAsync(
@@ -72,6 +92,40 @@ internal sealed class NhAiBackgroundOperationRunAdapter : INhAiBackgroundOperati
             IdempotencyKey = operation.IdempotencyKey,
             FencingToken = operation.FencingToken.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
+            Deadline = MinDeadline(context.Deadline, deadline)
+        };
+    }
+
+    public NhAiInvocationContext BindProposalExecution(
+        NhAiInvocationContext context,
+        INhBackgroundOperationContext operation,
+        string proposalRunId,
+        bool fenced,
+        DateTimeOffset? deadline = null)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentException.ThrowIfNullOrWhiteSpace(proposalRunId);
+        if (context.ActorKind != NhAiActorKind.Agent
+            || string.IsNullOrWhiteSpace(context.AccountableOwnerId))
+        {
+            throw new InvalidOperationException(
+                "A proposal execution requires a non-human agent actor and an accountable owner.");
+        }
+        if (deadline.HasValue && deadline.Value <= DateTimeOffset.UtcNow)
+        {
+            throw new ArgumentOutOfRangeException(nameof(deadline));
+        }
+
+        return context with
+        {
+            RunId = proposalRunId,
+            RunAttemptNumber = operation.AttemptNumber,
+            CorrelationId = operation.OperationId.ToString("N"),
+            IdempotencyKey = operation.IdempotencyKey,
+            FencingToken = fenced
+                ? operation.FencingToken.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : null,
             Deadline = MinDeadline(context.Deadline, deadline)
         };
     }

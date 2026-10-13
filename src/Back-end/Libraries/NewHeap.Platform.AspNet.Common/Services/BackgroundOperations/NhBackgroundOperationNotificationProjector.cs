@@ -46,11 +46,13 @@ internal sealed class NhBackgroundOperationNotificationProjector : INhBackground
         {
             return TaskResult.Succeeded();
         }
-        if (operation.ParentOperationId.HasValue)
+        if (operation.ParentOperationId.HasValue || !operation.OwnerUserId.HasValue)
         {
             // Fan-out children are represented inside the parent's notification
             // thread and progress tree; projecting every child would create
-            // notification storms for large batches.
+            // notification storms for large batches. An operation without a user
+            // owner has nobody to notify here; the module that owns it notifies
+            // its own audience.
             operation.LastProjectedNotificationEventSequence = operation.LatestEventSequence;
             await repository.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -130,7 +132,7 @@ internal sealed class NhBackgroundOperationNotificationProjector : INhBackground
         var createResult = await notificationService.CreateOrAddMessageAsync(
             new NhUserNotificationMutateModel
             {
-                UserId = operation.OwnerUserId,
+                UserId = operation.OwnerUserId!.Value,
                 Title = content.Title,
                 Message = content.Message,
                 Url = url,

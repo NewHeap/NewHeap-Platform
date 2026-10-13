@@ -2,7 +2,7 @@ import { EnvironmentInjector, Injectable, inject, runInInjectionContext } from '
 import { TranslateService } from '@ngx-translate/core';
 import { Observable, Subscriber } from 'rxjs';
 import { NhAssistantClientErrorCodes } from '../models/assistant-sse.models';
-import { NH_ASSISTANT_CONFIG, NH_ASSISTANT_FETCH } from '../nh-assistant.config';
+import { NH_ASSISTANT_CONFIG, NH_ASSISTANT_FETCH, NhAssistantConfig } from '../nh-assistant.config';
 
 /** A failed JSON request of the assistant API. Carries a stable code, never response text. */
 export class NhAssistantApiError extends Error {
@@ -132,7 +132,8 @@ export class NhAssistantTransport {
   }
 
   private async createInit(method: string, accept: string, body: unknown, signal: AbortSignal): Promise<RequestInit> {
-    const headers: Record<string, string> = { Accept: accept };
+    const headers: Record<string, string> = await nhAssistantRequestHeaders(this.config, this.injector);
+    headers['Accept'] = accept;
 
     const token = await runInInjectionContext(this.injector, () => this.config.getAccessToken());
     if (token) {
@@ -165,4 +166,28 @@ export class NhAssistantTransport {
 
 function createApiError(status: number, code: string): NhAssistantApiError {
   return new NhAssistantApiError(status, code, nhAssistantErrorMessageKey(code));
+}
+
+const reservedRequestHeaders = new Set(['authorization', 'accept', 'accept-language', 'content-type']);
+
+/**
+ * The host's extra request headers from `NhAssistantConfig.getRequestHeaders`, without the
+ * headers the library sets itself and without empty values.
+ */
+export async function nhAssistantRequestHeaders(
+  config: NhAssistantConfig,
+  injector: EnvironmentInjector
+): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {};
+  if (!config.getRequestHeaders) {
+    return headers;
+  }
+
+  const extra = await runInInjectionContext(injector, () => config.getRequestHeaders!());
+  for (const [name, value] of Object.entries(extra ?? {})) {
+    if (typeof value === 'string' && value.length > 0 && !reservedRequestHeaders.has(name.toLowerCase())) {
+      headers[name] = value;
+    }
+  }
+  return headers;
 }

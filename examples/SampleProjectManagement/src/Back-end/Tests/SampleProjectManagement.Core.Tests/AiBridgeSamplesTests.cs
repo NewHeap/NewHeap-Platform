@@ -86,6 +86,8 @@ public sealed class AiBridgeSamplesTests
             new { body = new { name = "Bridge sample" } });
 
         Assert.False(result.GetProperty("success").GetBoolean());
+        // The model reads why the call failed from the stable code of the shared tool result.
+        Assert.Equal(NhAiToolFailureCodes.AuthorizationDenied, result.GetProperty(NhAiToolResult.CodePropertyName).GetString());
         Assert.Empty(sample.Requests);
     }
 

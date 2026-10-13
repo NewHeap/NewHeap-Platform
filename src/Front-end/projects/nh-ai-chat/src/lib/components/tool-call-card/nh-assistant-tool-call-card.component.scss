@@ -110,3 +110,18 @@ pre {
 @keyframes nha-pulse {
   50% { opacity: .35; }
 }
+
+.grant {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--nh-assistant-border, currentColor);
+  border-radius: 999px;
+  font-size: 0.75em;
+  opacity: 0.85;
+}
+
+.restricted {
+  margin: 0;
+  font-style: italic;
+  opacity: 0.8;
+}

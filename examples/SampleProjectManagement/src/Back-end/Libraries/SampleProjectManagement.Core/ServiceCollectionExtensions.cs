@@ -19,8 +19,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProjectAiMutationService>(provider => provider.GetRequiredService<ProjectService>());
         services.AddScoped<IProjectAiContextService>(provider => provider.GetRequiredService<ProjectService>());
         services.AddScoped<ProjectAiTools>();
+        services.AddScoped<IProjectReviewRequestService, ProjectReviewRequestService>();
         services.AddScopedNhDbRepository<ProjectTask>();
         services.AddScoped<ProjectTaskService>();
+        services.AddScopedNhDbRepository<ProjectMember>();
+        services.AddScoped<ProjectMemberService>();
         services.AddScoped<ProjectCompositeService>();
         services.AddScoped<ProjectCollectionSampleService>();
         services.AddScoped<ProjectSetupService>();

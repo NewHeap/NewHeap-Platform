@@ -16,6 +16,8 @@ import { Observable, Subscription, firstValueFrom, isObservable } from 'rxjs';
 import {
   AgentSummary,
   ApprovalDecision,
+  ApprovalPart,
+  ApprovalStatus,
   AssistantStatus,
   ClientContext,
   Conversation,
@@ -32,6 +34,7 @@ import {
 } from '../models/assistant-live.models';
 import { NhAssistantClientErrorCodes, NhAssistantSseEvent, TurnUsage } from '../models/assistant-sse.models';
 import { NH_ASSISTANT_ACCESS_POLICY, NH_ASSISTANT_CONFIG } from '../nh-assistant.config';
+import { NhAssistantAgentRunApiService } from './nh-assistant-agent-run-api.service';
 import { NhAssistantApiError, NhAssistantApiService, nhAssistantErrorMessageKey } from './nh-assistant-api.service';
 import { NhAssistantLiveService } from './nh-assistant-live.service';
 import { NhAssistantPushService } from './nh-assistant-push.service';
@@ -71,6 +74,24 @@ interface QueuedMessage extends NhAssistantQueuedMessage {
 
 /** Notice code for a completed turn that produced no answer text and no server code. */
 export const NH_ASSISTANT_NO_ANSWER_NOTICE_CODE = 'assistant-no-answer';
+
+/**
+ * Who decides an approval the current user cannot decide: `turn`, the person whose turn created
+ * it in a chat; `approver`, an approver of the agent thread's subject; `other-approver`, another
+ * approver, because the current user started the work and four-eyes applies.
+ */
+export type NhAssistantApprovalWaitingFor = 'turn' | 'approver' | 'other-approver';
+
+/** The current user's right to decide one pending approval of the open conversation. */
+export interface NhAssistantApprovalRight {
+  canDecide: boolean;
+  /** Who decides when the current user cannot. */
+  waitingFor: NhAssistantApprovalWaitingFor;
+  /** Name of the person who decides a `turn` approval; `null` when unknown. */
+  decisionOwner: string | null;
+}
+
+const fourEyesRequiredCode = 'assistant-four-eyes-required';
 
 
 /**
@@ -122,6 +143,7 @@ const newConversationKey = '';
 @Injectable()
 export class NhAssistantStore {
   private readonly api = inject(NhAssistantApiService);
+  private readonly agentRuns = inject(NhAssistantAgentRunApiService);
   private readonly config = inject(NH_ASSISTANT_CONFIG);
   private readonly injector = inject(EnvironmentInjector);
   private readonly accessPolicy = inject(NH_ASSISTANT_ACCESS_POLICY);
@@ -242,13 +264,51 @@ export class NhAssistantStore {
   readonly members = computed<ConversationMember[]>(() => this.activeConversation()?.members ?? []);
   /** True when the current user owns the open conversation (or it is new). */
   readonly isOwner = computed(() => (this.activeConversation()?.role ?? 'owner') === 'owner');
-  /** True when the current user may decide the pending approval: it belongs to their own turn. */
-  readonly canDecide = computed(() => {
+  /** True when the open conversation is the durable thread of an agent about a subject. */
+  readonly isAgentThread = computed(() => this.activeConversation()?.kind === 'thread');
+  /**
+   * The current user's right to decide each pending approval of the open conversation, by approval
+   * id. In a chat only the author of the waiting turn decides. In an agent thread the subject's
+   * approvers decide, as the server reports per proposal: the approval policy, four-eyes and the
+   * tool's approve policy, checked live.
+   */
+  readonly approvalRights = computed<ReadonlyMap<string, NhAssistantApprovalRight>>(() => {
     const conversation = this.activeConversation();
-    if (!conversation?.pendingApproval) {
-      return false;
+    const rights = new Map<string, NhAssistantApprovalRight>();
+    if (!conversation) {
+      return rights;
     }
-    return !conversation.activeActorId || !conversation.currentActorId || conversation.activeActorId === conversation.currentActorId;
+
+    if (conversation.kind === 'thread') {
+      const decisions = new Map((conversation.thread?.decisions ?? []).map(decision => [decision.approvalId, decision]));
+      for (const approval of pendingApprovalParts(conversation)) {
+        const decision = decisions.get(approval.approvalId);
+        rights.set(approval.approvalId, {
+          canDecide: decision?.canDecide === true,
+          waitingFor: decision?.reasonCode === fourEyesRequiredCode ? 'other-approver' : 'approver',
+          decisionOwner: null
+        });
+      }
+      return rights;
+    }
+
+    if (conversation.pendingApproval) {
+      rights.set(conversation.pendingApproval.approvalId, {
+        canDecide: !conversation.activeActorId || !conversation.currentActorId
+          || conversation.activeActorId === conversation.currentActorId,
+        waitingFor: 'turn',
+        decisionOwner: this.activeMember()?.displayName ?? null
+      });
+    }
+    return rights;
+  });
+  /**
+   * True when the current user may decide the pending approval: in a chat it belongs to their own
+   * turn, in an agent thread the server allows them as an approver.
+   */
+  readonly canDecide = computed(() => {
+    const approval = this.activeConversation()?.pendingApproval;
+    return approval ? this.approvalRights().get(approval.approvalId)?.canDecide === true : false;
   });
   /** The member whose turn runs or waits in the open conversation, when it is someone else. */
   readonly activeMember = computed<ConversationMember | null>(() => {
@@ -705,12 +765,32 @@ export class NhAssistantStore {
     });
   }
 
-  /** Approves or rejects the pending approval. Ignores repeated calls while a decision is in flight. */
-  decide(decision: ApprovalDecision, reason?: string): void {
+  /**
+   * Approves or rejects an approval of the open conversation: `approvalId`, or the pending approval
+   * when it is left out. A proposal of an agent's run is decided with its proposal hash through the
+   * agent-run endpoint; other approvals resume their turn as a stream. Ignores calls the current
+   * user may not make and repeated calls while a decision is in flight.
+   */
+  decide(decision: ApprovalDecision, reason?: string, approvalId?: string): void {
     const session = this.activeSession();
     const conversation = session?.conversation;
-    const approval = conversation?.pendingApproval ?? null;
-    if (!session || !conversation || !approval || session.deciding || session.streaming || !this.canDecide()) {
+    if (!session || !conversation || session.deciding || session.streaming) {
+      return;
+    }
+    const approval = approvalId
+      ? pendingApprovalParts(conversation).find(part => part.approvalId === approvalId) ?? null
+      : conversation.pendingApproval;
+    if (!approval || this.approvalRights().get(approval.approvalId)?.canDecide !== true) {
+      return;
+    }
+
+    const proposal = conversation.thread?.decisions.find(item => item.approvalId === approval.approvalId);
+    if (proposal?.runId) {
+      void this.decideProposal(conversation.id, approval, decision, reason);
+      return;
+    }
+    if (conversation.pendingApproval?.approvalId !== approval.approvalId) {
+      // Only the approval the conversation waits for resumes a turn.
       return;
     }
 
@@ -745,6 +825,39 @@ export class NhAssistantStore {
         this.afterTurn(conversationId, failed);
       }
     });
+  }
+
+  /**
+   * Decides a proposal of an agent's run with `POST approvals/{id}/decisions`. An approved deferred
+   * proposal executes later as a background operation; an inline one wakes the waiting run. The
+   * reloaded snapshot shows the outcome and the proposals that remain open.
+   */
+  private async decideProposal(
+    conversationId: string,
+    approval: ApprovalPart,
+    decision: ApprovalDecision,
+    reason?: string
+  ): Promise<void> {
+    const revision = this.accountRevision;
+    this.patchSession(conversationId, session => ({ ...session, deciding: true, error: null, notice: null }));
+    try {
+      const proposal = await firstValueFrom(this.agentRuns.decide(approval, decision, reason));
+      if (revision === this.accountRevision) {
+        this.patchSession(conversationId, session => ({
+          ...session,
+          conversation: applyProposalDecision(session.conversation, approval.approvalId, proposal.status)
+        }));
+      }
+    } catch (error) {
+      if (revision === this.accountRevision) {
+        this.setError(conversationId, error);
+      }
+    } finally {
+      if (revision === this.accountRevision) {
+        this.patchSession(conversationId, session => ({ ...session, deciding: false }));
+        await this.reloadSession(conversationId);
+      }
+    }
   }
 
   /** Asks the server to stop the running turn or to abandon a waiting approval of the open conversation. */
@@ -1478,6 +1591,38 @@ function completionNotice(conversation: Conversation, errorCode: string | null):
   }
 
   return null;
+}
+
+/** The approvals of a conversation that still wait for a decision, each once. */
+function pendingApprovalParts(conversation: Conversation): ApprovalPart[] {
+  const approvals = new Map<string, ApprovalPart>();
+  for (const message of conversation.messages) {
+    for (const part of message.parts) {
+      if (part.type === 'approval' && part.status === 'pending') {
+        approvals.set(part.approvalId, part);
+      }
+    }
+  }
+  if (conversation.pendingApproval?.status === 'pending') {
+    approvals.set(conversation.pendingApproval.approvalId, conversation.pendingApproval);
+  }
+  return [...approvals.values()];
+}
+
+/**
+ * Shows the decision of an agent's proposal until the reloaded snapshot arrives: the approval's new
+ * status, no open decision for it and, for the approval the conversation waited for, no pending one.
+ */
+function applyProposalDecision(conversation: Conversation, approvalId: string, status: ApprovalStatus): Conversation {
+  const messages = conversation.messages.map(message => ({
+    ...message,
+    parts: message.parts.map(part => part.type === 'approval' && part.approvalId === approvalId ? { ...part, status } : part)
+  }));
+  const thread = conversation.thread
+    ? { ...conversation.thread, decisions: conversation.thread.decisions.filter(item => item.approvalId !== approvalId) }
+    : conversation.thread;
+  const pendingApproval = conversation.pendingApproval?.approvalId === approvalId ? null : conversation.pendingApproval;
+  return { ...conversation, messages, thread, pendingApproval };
 }
 
 function toSummary(conversation: Conversation): ConversationSummary {

@@ -71,7 +71,7 @@ public static class NhAiMcpClientExtensions
         if (envelope is not { } successEnvelope)
         {
             throw new JsonException(
-                $"NewHeap tool '{toolName}' returned no structured TaskResult envelope.");
+                $"NewHeap tool '{toolName}' returned no structured tool result.");
         }
 
         if (!NhAiMcpResultMetadata.TryGetEnvelopeProperty(successEnvelope, "success", out var success)
@@ -83,7 +83,7 @@ public static class NhAiMcpClientExtensions
         if (!NhAiMcpResultMetadata.TryGetEnvelopeProperty(successEnvelope, "data", out var data))
         {
             throw new JsonException(
-                $"NewHeap tool '{toolName}' returned a successful TaskResult envelope without data.");
+                $"NewHeap tool '{toolName}' returned a successful tool result without data.");
         }
 
         return data.Deserialize<TOutput>(serializerOptions)!;

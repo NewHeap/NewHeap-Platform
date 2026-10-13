@@ -113,14 +113,7 @@ internal static class NhAiToolArguments
             }
         }
 
-        return JsonSerializer.SerializeToElement(
-            new Dictionary<string, object?>
-            {
-                ["success"] = false,
-                ["code"] = NhAiToolFailureCodes.InputInvalid,
-                ["message"] = message
-            },
-            AIJsonUtilities.DefaultOptions);
+        return NhAiToolResult.Failed(NhAiToolFailureCodes.InputInvalid, message);
     }
 
     private static string CreateMessage(IReadOnlyList<string> unexpectedNames)

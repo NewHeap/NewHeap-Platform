@@ -75,6 +75,17 @@ public enum NhBackgroundOperationMessageSeverity
     Error = 30
 }
 
+/// <summary>
+/// Who owns a background operation. A user owner is a row in the identity user table; an
+/// agent owner is a non-human actor, such as an AI agent, identified by
+/// <see cref="NhBackgroundOperation.OwnerKey"/>.
+/// </summary>
+public enum NhBackgroundOperationOwnerKind
+{
+    User = 0,
+    Agent = 10
+}
+
 public sealed class NhBackgroundOperation : IdDbEntity
 {
     [Key]
@@ -93,10 +104,27 @@ public sealed class NhBackgroundOperation : IdDbEntity
     [Required]
     public string PayloadJson { get; set; } = "{}";
 
-    public Guid OwnerUserId
+    public NhBackgroundOperationOwnerKind OwnerKind { get; set; } = NhBackgroundOperationOwnerKind.User;
+
+    /// <summary>
+    /// The owning user. Required for <see cref="NhBackgroundOperationOwnerKind.User"/> and
+    /// empty for every other owner kind.
+    /// </summary>
+    public Guid? OwnerUserId
     {
         get; set;
     }
+
+    /// <summary>
+    /// The owning actor key for <see cref="NhBackgroundOperationOwnerKind.Agent"/>, for
+    /// example <c>assistant-agent:project-intake</c>. Empty for user owners.
+    /// </summary>
+    [StringLength(200)]
+    public string? OwnerKey
+    {
+        get; set;
+    }
+
     public Guid? DivisionId
     {
         get; set;

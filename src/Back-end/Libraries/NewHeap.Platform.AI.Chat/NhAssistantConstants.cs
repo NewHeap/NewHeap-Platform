@@ -13,6 +13,103 @@ public static class NhAssistantConversationStatuses
 }
 
 /// <summary>
+/// Conversation kinds: an interactive chat, or the durable thread of one agent about one subject.
+/// </summary>
+public static class NhAssistantConversationKinds
+{
+    public const string Chat = "chat";
+    public const string Thread = "thread";
+}
+
+/// <summary>
+/// Who wrote a user message: a person, or a trigger that started an agent on its subject.
+/// </summary>
+public static class NhAssistantMessageAuthorKinds
+{
+    public const string Person = "person";
+    public const string Trigger = "trigger";
+}
+
+/// <summary>
+/// Who answers for the runs of a thread.
+/// </summary>
+public static class NhAssistantAccountabilities
+{
+    public const string Agent = "agent";
+    public const string SubjectResponsible = "subject-responsible";
+    public const string ServiceAccount = "service-account";
+
+    public static string From(NhAiAgentAccountability accountability)
+    {
+        return accountability switch
+        {
+            NhAiAgentAccountability.SubjectResponsible => SubjectResponsible,
+            NhAiAgentAccountability.ServiceAccount => ServiceAccount,
+            _ => Agent
+        };
+    }
+}
+
+/// <summary>
+/// Run status values exposed by the assistant HTTP contract.
+/// </summary>
+public static class NhAssistantRunStatuses
+{
+    public const string Queued = "queued";
+    public const string Running = "running";
+    public const string WaitingForApproval = "waiting-for-approval";
+    public const string Completed = "completed";
+    public const string Failed = "failed";
+    public const string Cancelled = "cancelled";
+
+    public static bool IsTerminal(string status)
+    {
+        return status is Completed or Failed or Cancelled;
+    }
+}
+
+/// <summary>
+/// How a run failed. Transient failures are retried; the others are permanent.
+/// </summary>
+public static class NhAssistantRunFailureClasses
+{
+    public const string Transient = "transient";
+    public const string Budget = "budget";
+    public const string Policy = "policy";
+    public const string Validation = "validation";
+    public const string Stale = "stale";
+    public const string Cancelled = "cancelled";
+    public const string Internal = "internal";
+}
+
+/// <summary>
+/// Status values of a consultation record.
+/// </summary>
+public static class NhAssistantConsultationStatuses
+{
+    public const string Running = "running";
+    public const string Completed = "completed";
+    public const string Failed = "failed";
+}
+
+public static class NhAssistantQueuedInputKinds
+{
+    public const string Message = "message";
+    public const string Event = "event";
+}
+
+public static class NhAssistantApprovalModes
+{
+    public const string Inline = "inline";
+    public const string Deferred = "deferred";
+
+    public static string From(NhAiApprovalMode mode)
+    {
+        return mode == NhAiApprovalMode.Deferred ? Deferred : Inline;
+    }
+}
+
+/// <summary>
 /// Message role values exposed by the assistant HTTP contract.
 /// </summary>
 public static class NhAssistantMessageRoles
@@ -45,6 +142,12 @@ public static class NhAssistantParticipantSources
     /// The owner invited the participant through the application's participant directory.
     /// </summary>
     public const string Invitation = "invitation";
+
+    /// <summary>
+    /// The person has a role on the subject of an agent thread. The row follows the subject access
+    /// resolver: it is created on first use and removed when the role ends.
+    /// </summary>
+    public const string Subject = "subject";
 }
 
 /// <summary>
@@ -68,6 +171,46 @@ public static class NhAssistantApprovalStatuses
     public const string Approved = "approved";
     public const string Rejected = "rejected";
     public const string Expired = "expired";
+
+    /// <summary>
+    /// The run was cancelled or the policy withdrew the proposal on expiry.
+    /// </summary>
+    public const string Withdrawn = "withdrawn";
+
+    /// <summary>
+    /// The subject changed after the proposal, so it was closed without executing.
+    /// </summary>
+    public const string Stale = "stale";
+
+    /// <summary>
+    /// An approved deferred proposal is executing.
+    /// </summary>
+    public const string Executing = "executing";
+
+    public const string Executed = "executed";
+
+    public const string ExecutionFailed = "execution-failed";
+
+    /// <summary>
+    /// The worker stopped during a non-idempotent call, so it is unknown whether the effect
+    /// happened. An approver re-executes or resolves it.
+    /// </summary>
+    public const string ExecutionUnknown = "execution-unknown";
+
+    /// <summary>
+    /// An approver confirmed the outcome of an uncertain execution.
+    /// </summary>
+    public const string Resolved = "resolved";
+
+    /// <summary>
+    /// Recorded by a shadow run; never notified or executed.
+    /// </summary>
+    public const string Shadow = "shadow";
+
+    public static bool IsClosed(string status)
+    {
+        return status is Rejected or Expired or Withdrawn or Stale or Executed or ExecutionFailed or Resolved or Shadow;
+    }
 }
 
 /// <summary>
@@ -156,6 +299,64 @@ public static class NhAssistantErrorCodes
     /// The push subscription has an invalid shape or an endpoint outside the allowed push services.
     /// </summary>
     public const string PushSubscriptionInvalid = "assistant-push-subscription-invalid";
+
+    public const string SubjectNotFound = "assistant-subject-not-found";
+    public const string SubjectTypeUnknown = "assistant-subject-type-unknown";
+    public const string SubjectAccessDenied = "assistant-subject-access-denied";
+    public const string NoAccountableOwner = "assistant-no-accountable-owner";
+    public const string AgentDisabled = "assistant-agent-disabled";
+    public const string AgentNotConfigured = "assistant-agent-not-configured";
+    public const string RunNotFound = "assistant-run-not-found";
+    public const string RunNotRetryable = "assistant-run-not-retryable";
+    public const string ApprovalPolicyDenied = "assistant-approval-policy-denied";
+    public const string FourEyesRequired = "assistant-four-eyes-required";
+    public const string ExecutionNotUncertain = "assistant-execution-not-uncertain";
+    public const string ProposalStale = "assistant-proposal-stale";
+    public const string WebhookSignatureInvalid = "assistant-webhook-signature-invalid";
+    public const string MemoryNotConfigured = "assistant-memory-not-configured";
+    public const string MemoryInvalid = "assistant-memory-invalid";
+    public const string MemoryConflict = "assistant-memory-conflict";
+    public const string ArtifactInvalid = "assistant-artifact-invalid";
+    public const string ArtifactOutsideTurn = "assistant-artifact-outside-turn";
+    public const string ArtifactNotFound = "assistant-artifact-not-found";
+    public const string WebhookPayloadInvalid = "assistant-webhook-payload-invalid";
+    public const string TriggerNotFound = "assistant-trigger-not-found";
+
+    /// <summary>
+    /// The subject of a consultation does not exist or the asking person has too little access to
+    /// it. Both cases share the code, so a consultation cannot probe for subjects.
+    /// </summary>
+    public const string ConsultSubjectUnavailable = "assistant-consult-subject-unavailable";
+
+    /// <summary>
+    /// The consulted agent is disabled, in shadow mode or cannot hold a thread for the subject.
+    /// </summary>
+    public const string ConsultAgentUnavailable = "assistant-consult-agent-unavailable";
+
+    /// <summary>
+    /// The consultation would go deeper than <see cref="NhAssistantLimits.MaxConsultationDepth"/> or
+    /// ask an agent that is already part of the chain.
+    /// </summary>
+    public const string ConsultDepthExceeded = "assistant-consult-depth-exceeded";
+
+    /// <summary>
+    /// The consulted agent's daily budget is spent.
+    /// </summary>
+    public const string ConsultBudgetExhausted = "assistant-consult-budget-exhausted";
+
+    /// <summary>
+    /// The asking person reached <see cref="NhAssistantLimits.MaxConsultationsPerActorPerDay"/>.
+    /// </summary>
+    public const string ConsultLimitReached = "assistant-consult-limit-reached";
+
+    public const string ConsultTimeout = "assistant-consult-timeout";
+
+    public const string ConsultFailed = "assistant-consult-failed";
+
+    /// <summary>
+    /// The consulted agent tried a tool that changes something while it may only read.
+    /// </summary>
+    public const string ConsultReadOnly = "assistant-consult-read-only";
 
     /// <summary>
     /// Creates the localization key for a code.

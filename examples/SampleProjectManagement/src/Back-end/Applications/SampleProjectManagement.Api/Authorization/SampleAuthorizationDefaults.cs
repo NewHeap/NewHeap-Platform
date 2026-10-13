@@ -11,6 +11,14 @@ public static class SampleAuthorizationDefaults
     public const string TwoFactorEmail = "two-factor@example.test";
 
     /// <summary>
+    /// Member of <see cref="ProjectLeadRole"/> and of <see cref="DivisionEditorRole"/> in Sample
+    /// North, and approver of Authorization Alpha. The assistant and the agent-run pages need
+    /// both the application-wide and the division project permissions, which the accounts above
+    /// deliberately keep apart.
+    /// </summary>
+    public const string ProjectLeadEmail = "project-lead@example.test";
+
+    /// <summary>
     /// Member of <see cref="SecurityOfficerRole"/>, which the two-factor policy requires to
     /// use a second factor. The account has none, so it enrolls at its first sign-in.
     /// </summary>
@@ -28,6 +36,7 @@ public static class SampleAuthorizationDefaults
     public const string DivisionEditorRole = "sample-division-editor";
     public const string ProjectMemberRole = "sample-project-member";
     public const string SecurityOfficerRole = "sample-security-officer";
+    public const string ProjectLeadRole = "sample-project-lead";
 
     public static readonly Guid NorthDivisionId =
         Guid.Parse("b14a1178-8bd7-4e87-845f-e0d89b63f099");

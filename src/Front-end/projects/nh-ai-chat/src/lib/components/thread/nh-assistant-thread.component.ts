@@ -16,11 +16,18 @@ import {
   viewChild
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
-import { ApprovalDecision, ConversationMember, Message } from '../../models/assistant-api.models';
+import { ApprovalDecision, ApprovalPart, ConversationMember, Message } from '../../models/assistant-api.models';
 import { NhAssistantMarkdownPipe } from '../../internal/nh-assistant-markdown.pipe';
 import { NhAssistantPartGroupsPipe } from '../../internal/nh-assistant-part-groups';
 import { NhAssistantApprovalCardComponent } from '../approval-card/nh-assistant-approval-card.component';
 import { NhAssistantToolCallGroupComponent } from '../tool-call-group/nh-assistant-tool-call-group.component';
+import type { NhAssistantApprovalRight } from '../../services/nh-assistant.store';
+
+/** A decision about one approval of the thread. */
+export interface NhAssistantApprovalChoice {
+  approvalId: string;
+  decision: ApprovalDecision;
+}
 
 /** Above this number of messages the thread renders through CDK virtual scrolling. */
 export const NH_ASSISTANT_VIRTUAL_SCROLL_THRESHOLD = 200;
@@ -31,8 +38,9 @@ const stickToBottomDistance = 120;
 /**
  * The messages of a conversation as a live log. Assistant text renders as sanitized
  * Markdown, consecutive tool calls as one collapsible group that counts along, and
- * approvals as cards. While a turn runs without visible progress, a working indicator
- * shows the elapsed time. The thread follows new content while the user is at the bottom.
+ * approvals as cards. Messages a trigger wrote into an agent thread read as events, not as
+ * a person. While a turn runs without visible progress, a working indicator shows the
+ * elapsed time. The thread follows new content while the user is at the bottom.
  */
 @Component({
   selector: 'nh-assistant-thread',
@@ -65,7 +73,16 @@ export class NhAssistantThreadComponent {
   readonly canDecide = input(true);
   /** Name of the participant who decides the pending approval, when it is someone else. */
   readonly decisionOwner = input<string | null>(null);
+  /**
+   * Who may decide each pending approval, by approval id, for example `NhAssistantStore.approvalRights`.
+   * An agent thread can hold several open proposals that the subject's approvers decide. Approvals
+   * without an entry use `canDecide` and `decisionOwner`.
+   */
+  readonly approvalRights = input<ReadonlyMap<string, NhAssistantApprovalRight> | null>(null);
+  /** The decision about an approval card, without the approval it belongs to. */
   readonly approvalDecision = output<ApprovalDecision>();
+  /** The decision about an approval card together with its approval id. */
+  readonly approvalChoice = output<NhAssistantApprovalChoice>();
 
   private readonly names = computed(() => new Map(this.members().map(member => [member.actorId, member.displayName])));
 
@@ -136,12 +153,32 @@ export class NhAssistantThreadComponent {
     return message.id;
   }
 
+  /** True for a user message a trigger wrote into an agent thread. */
+  isTrigger(message: Message): boolean {
+    return message.role === 'user' && message.authorKind === 'trigger';
+  }
+
   /** True for a user message written by another person in a shared conversation. */
   isOthers(message: Message): boolean {
     return message.role === 'user'
+      && !this.isTrigger(message)
       && !!message.authorActorId
       && !!this.currentActorId()
       && message.authorActorId !== this.currentActorId();
+  }
+
+  /** Whether and why the current user may decide an approval card. */
+  rightFor(approval: ApprovalPart): NhAssistantApprovalRight {
+    return this.approvalRights()?.get(approval.approvalId) ?? {
+      canDecide: this.canDecide(),
+      waitingFor: 'turn',
+      decisionOwner: this.decisionOwner()
+    };
+  }
+
+  choose(approval: ApprovalPart, decision: ApprovalDecision): void {
+    this.approvalDecision.emit(decision);
+    this.approvalChoice.emit({ approvalId: approval.approvalId, decision });
   }
 
   /** Display name of another person's message, or `null` when the application provides none. */

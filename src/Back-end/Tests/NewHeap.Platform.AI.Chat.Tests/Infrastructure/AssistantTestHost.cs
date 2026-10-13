@@ -138,14 +138,14 @@ internal sealed class AssistantTestHost : IAsyncDisposable
         return new AssistantTestHost(built, audit, usage, business, logs);
     }
 
-    public async Task<AssistantConversation> CreateConversationAsync(string owner = UserId)
+    public async Task<AssistantConversation> CreateConversationAsync(string owner = UserId, string? agentId = null)
     {
         var now = DateTimeOffset.UtcNow;
         var conversation = new AssistantConversation
         {
             Id = Guid.NewGuid(),
             OwnerActorId = owner,
-            AgentId = AssistantTestData.Agent().Id,
+            AgentId = agentId ?? AssistantTestData.Agent().Id,
             AgentVersion = 1,
             Status = NhAssistantConversationStatuses.Idle,
             CreatedAt = now,

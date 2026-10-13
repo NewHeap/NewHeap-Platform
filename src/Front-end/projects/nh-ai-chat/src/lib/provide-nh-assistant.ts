@@ -7,6 +7,7 @@ import {
   NhAssistantConfig
 } from './nh-assistant.config';
 import { NhAssistantAdminApiService } from './services/nh-assistant-admin-api.service';
+import { NhAssistantAgentRunApiService } from './services/nh-assistant-agent-run-api.service';
 import { NhAssistantApiService } from './services/nh-assistant-api.service';
 import { NhAssistantLiveService } from './services/nh-assistant-live.service';
 import { NhAssistantPushService } from './services/nh-assistant-push.service';
@@ -27,6 +28,7 @@ export function provideNhAssistant(config: NhAssistantConfig): EnvironmentProvid
     NhAssistantTransport,
     NhAssistantApiService,
     NhAssistantAdminApiService,
+    NhAssistantAgentRunApiService,
     NhAssistantLiveService,
     NhAssistantPushService,
     NhAssistantStore,

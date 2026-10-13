@@ -31,7 +31,7 @@ import { NhAssistantConversationListComponent } from '../conversation-list/nh-as
 import { NhAssistantPreferencesComponent } from '../preferences/nh-assistant-preferences.component';
 import { NhAssistantShareComponent } from '../share/nh-assistant-share.component';
 import { NH_ASSISTANT_CONVERSATION_FRAGMENT, NH_ASSISTANT_JOIN_FRAGMENT } from '../../services/nh-assistant-share-link';
-import { NhAssistantThreadComponent } from '../thread/nh-assistant-thread.component';
+import { NhAssistantApprovalChoice, NhAssistantThreadComponent } from '../thread/nh-assistant-thread.component';
 import { NhAssistantApiError, nhAssistantErrorMessageKey } from '../../services/nh-assistant-transport';
 
 let nextId = 0;
@@ -291,6 +291,11 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
 
   decide(decision: ApprovalDecision): void {
     this.store.decide(decision);
+  }
+
+  /** Decides the approval of a card; in an agent thread several proposals can be open. */
+  decideApproval(choice: NhAssistantApprovalChoice): void {
+    this.store.decide(choice.decision, undefined, choice.approvalId);
   }
 
   cancel(): void {

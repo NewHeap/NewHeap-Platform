@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Net;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
 using NewHeap.Platform.Common.Models;
@@ -85,6 +86,14 @@ internal sealed class NhAiChatExecutor(
         "ms");
     private readonly IReadOnlyList<INhAiUsageSink> _usageSinks = usageSinks.ToArray();
 
+    /// <summary>
+    /// Retries after the first attempt for a <see cref="NhAiModelProfile.RetryEligible"/>
+    /// profile. Each retry waits <see cref="RetryBaseDelay"/> times two to the attempt.
+    /// </summary>
+    internal const int MaxModelCallRetries = 2;
+
+    internal static TimeSpan RetryBaseDelay { get; set; } = TimeSpan.FromMilliseconds(500);
+
     public async Task<TaskResult<NhAiChatResult>> GetResponseAsync(
         NhAiChatRequest request,
         CancellationToken cancellationToken = default)
@@ -98,68 +107,85 @@ internal sealed class NhAiChatExecutor(
         var state = preparation.Data;
         using var activity = StartActivity(request, state.Profile, false);
         var startedAt = Stopwatch.GetTimestamp();
-        using var timeout = CreateTimeout(request.InvocationContext, state.Profile, cancellationToken);
-        try
+        for (var attempt = 0; ; attempt++)
         {
-            var response = await state.Client.GetResponseAsync(
-                request.Messages,
-                request.Options,
-                timeout.Token);
-            var elapsed = Stopwatch.GetElapsedTime(startedAt);
-            await RecordCompletionAsync(
-                request,
-                state.Profile,
-                response.Usage,
-                elapsed,
-                null,
-                response.Text.Length,
-                response.ModelId,
-                response.FinishReason?.ToString(),
-                NhAiOutcomeKind.Succeeded,
-                activity,
-                cancellationToken);
-            return TaskResult<NhAiChatResult>.Succeeded(new NhAiChatResult(
-                response,
-                state.Profile.Name,
-                state.Profile.Version,
-                state.DecisionTrace));
-        }
-        catch (OperationCanceledException)
-        {
-            var elapsed = Stopwatch.GetElapsedTime(startedAt);
-            await RecordCompletionAsync(
-                request,
-                state.Profile,
-                null,
-                elapsed,
-                null,
-                0,
-                null,
-                "cancelled",
-                NhAiOutcomeKind.TerminalFailure,
-                activity,
-                CancellationToken.None);
-            throw;
-        }
-        catch (Exception exception) when (exception is not OutOfMemoryException)
-        {
-            var elapsed = Stopwatch.GetElapsedTime(startedAt);
-            activity?.SetTag("error.type", exception.GetType().FullName);
-            await RecordCompletionAsync(
-                request,
-                state.Profile,
-                null,
-                elapsed,
-                null,
-                0,
-                null,
-                "dependency-failure",
-                NhAiOutcomeKind.DependencyUnavailable,
-                activity,
-                CancellationToken.None);
-            return TaskResult<NhAiChatResult>.Failed(
-                "ai-model-dependency-unavailable",
-                "The selected AI model dependency is unavailable.");
+            using var timeout = CreateTimeout(request.InvocationContext, state.Profile, cancellationToken);
+            try
+            {
+                var response = await state.Client.GetResponseAsync(
+                    request.Messages,
+                    request.Options,
+                    timeout.Token);
+                var elapsed = Stopwatch.GetElapsedTime(startedAt);
+                await RecordCompletionAsync(
+                    request,
+                    state.Profile,
+                    response.Usage,
+                    elapsed,
+                    null,
+                    response.Text.Length,
+                    response.ModelId,
+                    response.FinishReason?.ToString(),
+                    NhAiOutcomeKind.Succeeded,
+                    activity,
+                    cancellationToken);
+                return TaskResult<NhAiChatResult>.Succeeded(new NhAiChatResult(
+                    response,
+                    state.Profile.Name,
+                    state.Profile.Version,
+                    state.DecisionTrace));
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested
+                                                     && CanRetry(state.Profile, request.InvocationContext, attempt))
+            {
+                // The model call timed out while the caller is still waiting.
+                activity?.AddEvent(new ActivityEvent("nh.ai.model.retry"));
+                await Task.Delay(RetryDelay(attempt), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                var elapsed = Stopwatch.GetElapsedTime(startedAt);
+                await RecordCompletionAsync(
+                    request,
+                    state.Profile,
+                    null,
+                    elapsed,
+                    null,
+                    0,
+                    null,
+                    "cancelled",
+                    NhAiOutcomeKind.TerminalFailure,
+                    activity,
+                    CancellationToken.None);
+                throw;
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException
+                                              && IsTransient(exception)
+                                              && CanRetry(state.Profile, request.InvocationContext, attempt))
+            {
+                activity?.AddEvent(new ActivityEvent("nh.ai.model.retry"));
+                await Task.Delay(RetryDelay(attempt), cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException)
+            {
+                var elapsed = Stopwatch.GetElapsedTime(startedAt);
+                activity?.SetTag("error.type", exception.GetType().FullName);
+                await RecordCompletionAsync(
+                    request,
+                    state.Profile,
+                    null,
+                    elapsed,
+                    null,
+                    0,
+                    null,
+                    "dependency-failure",
+                    NhAiOutcomeKind.DependencyUnavailable,
+                    activity,
+                    CancellationToken.None);
+                return TaskResult<NhAiChatResult>.Failed(
+                    "ai-model-dependency-unavailable",
+                    "The selected AI model dependency is unavailable.");
+            }
         }
     }
 
@@ -200,15 +226,17 @@ internal sealed class NhAiChatExecutor(
         var reachedEnd = false;
         var dependencyFailure = false;
         using var timeout = CreateTimeout(request.InvocationContext, state.Profile, cancellationToken);
+        var enumerator = state.Client.GetStreamingResponseAsync(
+            request.Messages,
+            request.Options,
+            timeout.Token).GetAsyncEnumerator(timeout.Token);
+        var received = false;
+        var attempt = 0;
         try
         {
-            await using var enumerator = state.Client.GetStreamingResponseAsync(
-                request.Messages,
-                request.Options,
-                timeout.Token).GetAsyncEnumerator(timeout.Token);
             while (true)
             {
-                ChatResponseUpdate update;
+                ChatResponseUpdate? update = null;
                 try
                 {
                     if (!await enumerator.MoveNextAsync())
@@ -225,6 +253,14 @@ internal sealed class NhAiChatExecutor(
                     completion.TrySetCanceled(timeout.Token);
                     throw;
                 }
+                catch (Exception exception) when (exception is not OutOfMemoryException
+                                                  && !received
+                                                  && IsTransient(exception)
+                                                  && CanRetry(state.Profile, request.InvocationContext, attempt))
+                {
+                    // Nothing reached the caller yet, so the stream can start again.
+                    activity?.AddEvent(new ActivityEvent("nh.ai.model.retry"));
+                }
                 catch (Exception exception) when (exception is not OutOfMemoryException)
                 {
                     outcome = NhAiOutcomeKind.DependencyUnavailable;
@@ -233,6 +269,20 @@ internal sealed class NhAiChatExecutor(
                     activity?.SetTag("error.type", exception.GetType().FullName);
                     break;
                 }
+
+                if (update is null)
+                {
+                    await enumerator.DisposeAsync();
+                    await Task.Delay(RetryDelay(attempt), timeout.Token);
+                    attempt++;
+                    enumerator = state.Client.GetStreamingResponseAsync(
+                        request.Messages,
+                        request.Options,
+                        timeout.Token).GetAsyncEnumerator(timeout.Token);
+                    continue;
+                }
+
+                received = true;
                 modelId = update.ModelId ?? modelId;
                 finishReason = update.FinishReason?.ToString() ?? finishReason;
                 var textLength = update.Text.Length;
@@ -250,6 +300,7 @@ internal sealed class NhAiChatExecutor(
         }
         finally
         {
+            await enumerator.DisposeAsync();
             try
             {
                 await RecordCompletionAsync(
@@ -466,6 +517,47 @@ internal sealed class NhAiChatExecutor(
         activity?.SetTag("newheap.ai.prompt_hash", request.InvocationContext.PromptHash);
         activity?.SetTag("newheap.ai.context_hash", request.InvocationContext.ContextHash);
         return activity;
+    }
+
+    private static bool CanRetry(NhAiModelProfile profile, NhAiInvocationContext context, int attempt)
+    {
+        if (!profile.RetryEligible || attempt >= MaxModelCallRetries)
+        {
+            return false;
+        }
+
+        return context.Deadline is not { } deadline
+               || deadline - DateTimeOffset.UtcNow > RetryDelay(attempt);
+    }
+
+    private static TimeSpan RetryDelay(int attempt)
+    {
+        return TimeSpan.FromTicks(RetryBaseDelay.Ticks * (1L << attempt));
+    }
+
+    /// <summary>
+    /// Rate limiting, server errors, timeouts and broken connections are transient. Client
+    /// errors such as an invalid request or rejected credentials are not.
+    /// </summary>
+    internal static bool IsTransient(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            switch (current)
+            {
+                case HttpRequestException { StatusCode: null }:
+                    return true;
+                case HttpRequestException { StatusCode: { } status }:
+                    return status == HttpStatusCode.TooManyRequests
+                           || status == HttpStatusCode.RequestTimeout
+                           || (int)status >= 500;
+                case TimeoutException:
+                case IOException:
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private static CancellationTokenSource CreateTimeout(

@@ -275,14 +275,7 @@ internal sealed class NhBackgroundOperationReconciliationService : BackgroundSer
             projectedOperationIds.Add(operation.Id);
             try
             {
-                await _liveUpdates.PublishChangedAsync(operation.OwnerUserId,
-                    new NhBackgroundOperationChangedMessage(
-                        operation.Id,
-                        operation.Version,
-                        operation.LatestEventSequence,
-                        operation.Status,
-                        operation.DivisionId),
-                    cancellationToken);
+                await _liveUpdates.PublishToOwnerAsync(operation, cancellationToken);
             }
             catch (Exception exception)
             {

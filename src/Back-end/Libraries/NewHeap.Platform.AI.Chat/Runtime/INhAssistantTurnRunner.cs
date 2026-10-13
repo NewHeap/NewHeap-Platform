@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.Common.Models;
 
@@ -35,6 +36,38 @@ internal interface INhAssistantTurnRunner
     Task<TaskResult> CancelAsync(
         NhAssistantConversationAccess access,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Runs one headless turn of an agent in its thread, for a background run. The queued inputs
+    /// become the turn's messages. Returns <see cref="NhAssistantAgentTurnResult.Busy"/> when another
+    /// turn owns the thread.
+    /// </summary>
+    Task<NhAssistantAgentTurnResult> RunAgentTurnAsync(
+        NhAssistantAgentTurnRequest request,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Continues a headless turn that waited for an inline approval, after the decision was stored.
+    /// </summary>
+    Task<NhAssistantAgentTurnResult> ResumeAgentTurnAsync(
+        NhAssistantAgentResumeRequest request,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Executes the exact stored invocation of an approved deferred proposal as the agent.
+    /// </summary>
+    Task<NhAssistantProposalExecutionResult> ExecuteProposalAsync(
+        NhAssistantProposalExecutionRequest request,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Runs one bounded turn of a consulted agent beside its thread: it reads the thread's working
+    /// memory, run summaries and recent history, uses the asker's rights only, records changes as
+    /// deferred proposals and writes no messages. It never claims the thread.
+    /// </summary>
+    Task<Runs.NhAssistantConsultationTurnResult> RunConsultationTurnAsync(
+        Runs.NhAssistantConsultationTurnRequest request,
+        CancellationToken cancellationToken);
 }
 
 /// <param name="ConversationId">Conversation that receives the message.</param>
@@ -50,7 +83,13 @@ internal sealed record NhAssistantMessageTurnRequest(
     string? ClientMessageId,
     CancellationToken RequestAborted,
     string Language = "en",
-    NhAssistantClientContext? ClientContext = null);
+    NhAssistantClientContext? ClientContext = null)
+{
+    /// <summary>
+    /// The agent side of a turn in an agent thread; <see langword="null"/> in a chat.
+    /// </summary>
+    public NhAssistantAgentTurnContext? AgentTurn { get; init; }
+}
 
 internal sealed record NhAssistantDecisionTurnRequest(
     Guid ConversationId,
@@ -60,7 +99,88 @@ internal sealed record NhAssistantDecisionTurnRequest(
     string ExpectedProposalHash,
     string? Reason,
     CancellationToken RequestAborted,
+    string Language = "en")
+{
+    public NhAssistantAgentTurnContext? AgentTurn { get; init; }
+
+    /// <summary>
+    /// The caller already satisfied the proposal's approval policy, so the decision is not limited
+    /// to the person who started the turn.
+    /// </summary>
+    public bool PolicyAuthorized { get; init; }
+}
+
+/// <summary>
+/// The agent side of a turn in an agent thread: the subject, the run configuration and who the
+/// turn acts for.
+/// </summary>
+internal sealed record NhAssistantAgentTurnContext(
+    AssistantThread Thread,
+    NhAiSubjectInfo Subject,
+    NhAssistantAgentRunOptions Options,
+    Guid? RunId,
+    string TriggerId,
+    string? InitiatorActorId,
+    string AccountableOwnerId,
+    bool IsRequestTurn)
+{
+    public int? Attempt { get; init; }
+
+    public string? FencingToken { get; init; }
+
+    /// <summary>
+    /// The turn uses its initiator's rights only, never the agent's grants. Set when an approved
+    /// proposal of a consultation executes.
+    /// </summary>
+    public bool DelegatedOnly { get; init; }
+}
+
+/// <summary>
+/// A message or event the turn receives.
+/// </summary>
+internal sealed record NhAssistantAgentTurnInput(
+    Guid Id,
+    string? AuthorActorId,
+    string? TriggerId,
+    string Text);
+
+internal sealed record NhAssistantAgentTurnRequest(
+    NhAssistantAgentTurnContext AgentTurn,
+    IReadOnlyList<NhAssistantAgentTurnInput> Inputs,
     string Language = "en");
+
+internal sealed record NhAssistantAgentResumeRequest(
+    NhAssistantAgentTurnContext AgentTurn,
+    Guid ApprovalId,
+    string Language = "en");
+
+/// <param name="Outcome">One of <see cref="NhAssistantTurnStatuses"/>, or <see cref="Busy"/>.</param>
+internal sealed record NhAssistantAgentTurnResult(
+    string Outcome,
+    string? ErrorCode,
+    Guid? TurnId,
+    Guid? PendingApprovalId,
+    int ToolCalls,
+    int InputTokens,
+    int OutputTokens,
+    int ProposalCount)
+{
+    public const string Busy = "busy";
+
+    public static NhAssistantAgentTurnResult BusyResult { get; } = new(Busy, NhAssistantErrorCodes.ConversationBusy, null, null, 0, 0, 0, 0);
+
+    public static NhAssistantAgentTurnResult Failed(string code)
+    {
+        return new NhAssistantAgentTurnResult(NhAssistantTurnStatuses.Failed, code, null, null, 0, 0, 0, 0);
+    }
+}
+
+internal sealed record NhAssistantProposalExecutionRequest(
+    NhAssistantAgentTurnContext AgentTurn,
+    Guid ApprovalId);
+
+/// <param name="Threw">The tool threw, so the outcome of a side effect is unknown.</param>
+internal sealed record NhAssistantProposalExecutionResult(bool Succeeded, string? ResultCode, bool Threw = false);
 
 /// <summary>
 /// A started turn: its event stream and its completion.

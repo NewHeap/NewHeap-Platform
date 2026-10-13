@@ -4,7 +4,7 @@ title: "Add a governed assistant with durable conversations and in-chat approval
 area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
-sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266"]
+sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278"]
 public-symbols: ["AddNewHeapAssistant", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
@@ -51,6 +51,10 @@ host start, administrator input on save. The selector list must also fit
 `NhAssistantLimits.MaxStoredToolSelectorCharacters` (8,000 characters of JSON).
 Prefer prefix selectors over long lists of exact ids, and remember that
 `MaxToolsPerAgent` (64 by default) still bounds how many tools one turn offers.
+To let a chat agent consult another agent about a subject, select the generated
+`assistant.consult.{agentId}.{subjectType}` tool of an agent that allows consultation
+(`nh-ai-agent-runs`); the consultation answers in the same turn with the chatting
+person's rights. An agent is never offered its own consultation tool.
 
 The kill switch is `NewHeap:AI:Assistant:Enabled` (default `false`). When it is
 off, `GET status` reports `enabled: false` without agents and every other endpoint
@@ -227,6 +231,19 @@ notifies only the person who decides it, and cancelled turns stay silent. The pa
 carries the conversation id, a kind and short localized texts with the conversation
 title (`IncludeConversationTitle`); never messages or tool data. Delivery happens after
 the final event and never fails the turn; subscriptions reported as gone are removed.
+
+## Agent threads
+
+An agent that runs on its own (see the agent-runs rule) keeps one thread per agent and
+subject in the same `nhai` schema. A thread is a conversation of kind `thread`; it never
+appears in a person's conversation list, and nobody owns it: the subject's access
+resolver decides on every request who reads it, who types in it and who decides its
+proposals. A person who types in a thread starts a turn in which that person is the
+initiator; such a turn is bound to the request like a chat turn, its approvals are
+always inline, and a message that arrives while a run is active waits for the next
+run (`202 Accepted` with a receipt). Request-bound turns end with the request, and
+their cancellation reaches only the process that runs them; work that must outlive a
+request belongs in an agent run.
 
 ## Context for a reviewed MCP tool
 

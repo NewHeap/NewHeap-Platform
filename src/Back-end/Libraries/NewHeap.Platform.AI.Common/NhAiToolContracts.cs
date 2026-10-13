@@ -169,6 +169,20 @@ public sealed class NhAiToolAttribute(
     public NhAiDataClassification DataClassification { get; set; } = NhAiDataClassification.Internal;
     public NhAiRetentionCategory RetentionCategory { get; set; } = NhAiRetentionCategory.Operational;
     public string[] RequiredCapabilities { get; set; } = [];
+
+    /// <summary>
+    /// Allows an agent registration to grant this tool to an agent even when the person the
+    /// agent works for may not run it. This is the tool author's key of the two-key
+    /// elevation; the agent registration must grant the tool as well. Requires
+    /// <see cref="NhAiToolExposure.Agent"/> and an authorization policy.
+    /// </summary>
+    public bool AllowAgentGrant { get; set; }
+
+    /// <summary>
+    /// The authorization policy a person must satisfy to approve a proposal for this tool.
+    /// <see langword="null"/> uses the tool's own authorization policies.
+    /// </summary>
+    public string? ApprovalPolicy { get; set; }
 }
 
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
@@ -217,6 +231,24 @@ public sealed record NhAiToolDescriptor(
     public NhAiDataClassification DataClassification { get; init; } = NhAiDataClassification.Internal;
     public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.Operational;
     public IReadOnlyList<string> RequiredCapabilities { get; init; } = [];
+
+    /// <summary>
+    /// Whether an agent registration may grant this tool beyond the rights of the person the
+    /// agent works for. See <see cref="NhAiToolAttribute.AllowAgentGrant"/>.
+    /// </summary>
+    public bool AllowAgentGrant { get; init; }
+
+    /// <summary>
+    /// The policy an approver must satisfy, or <see langword="null"/> for the tool's own
+    /// <see cref="AuthorizationPolicies"/>.
+    /// </summary>
+    public string? ApprovalPolicy { get; init; }
+
+    /// <summary>
+    /// The policies an approver must satisfy: <see cref="ApprovalPolicy"/> when declared,
+    /// otherwise the tool's authorization policies.
+    /// </summary>
+    public IReadOnlyList<string> ApproverPolicies => ApprovalPolicy is null ? AuthorizationPolicies : [ApprovalPolicy];
 
     /// <summary>
     /// The approval role this tool declares: consuming approval, issuing approval, or neither.
@@ -274,6 +306,17 @@ public sealed record NhAiInvocationContext(
     public string? FencingToken { get; init; }
     public DateTimeOffset? Deadline { get; init; }
     public NhAiModelBudget? RemainingBudget { get; init; }
+
+    /// <summary>
+    /// The agent the invocation runs for, when it runs for an agent.
+    /// </summary>
+    public string? AgentId { get; init; }
+
+    /// <summary>
+    /// Why the invocation gate allowed the tool for an agent. Set by the gate; audit records,
+    /// tool invocation rows and proposals carry it.
+    /// </summary>
+    public NhAiGrantSource GrantSource { get; init; } = NhAiGrantSource.None;
 
     public bool TryGetScopeValue(string key, out string value)
     {
@@ -450,11 +493,18 @@ public interface INhAiGovernedAIFunction
 /// <see cref="NhAiToolFailureCodes.InputInvalid"/> without executing the tool. Normalized
 /// arguments still pass through the function's own binding and the shared invoker.
 /// </summary>
+/// <remarks>
+/// The wrapped function returns the shared <see cref="NhAiToolResult"/> shape; generated, bridge
+/// and other platform catalogs create it through <see cref="NhAiToolResult.CreateMarshaller{T}"/>.
+/// The return schema is that shape around the descriptor's output schema, so every protocol
+/// publishes the same result contract for the tool.
+/// </remarks>
 public sealed class NhAiGovernedAIFunction : AIFunction, INhAiGovernedAIFunction
 {
     private readonly AIFunction _inner;
     private readonly IServiceProvider? _services;
     private readonly bool _enveloped;
+    private readonly Lazy<JsonElement> _returnJsonSchema;
 
     private NhAiGovernedAIFunction(
         NhAiToolDescriptor descriptor,
@@ -467,6 +517,9 @@ public sealed class NhAiGovernedAIFunction : AIFunction, INhAiGovernedAIFunction
         _inner = inner;
         _services = services;
         _enveloped = NhAiToolArguments.HasInputEnvelope(inner.JsonSchema);
+        _returnJsonSchema = new Lazy<JsonElement>(
+            () => NhAiToolResult.CreateJsonSchema(descriptor.OutputSchemaJson),
+            LazyThreadSafetyMode.PublicationOnly);
     }
 
     public NhAiToolDescriptor Descriptor { get; }
@@ -477,7 +530,7 @@ public sealed class NhAiGovernedAIFunction : AIFunction, INhAiGovernedAIFunction
 
     public override JsonElement JsonSchema => _inner.JsonSchema;
 
-    public override JsonElement? ReturnJsonSchema => _inner.ReturnJsonSchema;
+    public override JsonElement? ReturnJsonSchema => _returnJsonSchema.Value;
 
     public override JsonSerializerOptions JsonSerializerOptions => _inner.JsonSerializerOptions;
 

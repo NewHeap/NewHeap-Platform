@@ -27,4 +27,7 @@ explicit policies for effects, approval, authorization, capabilities and
 execution bounds. Remote descriptions are never model-facing authority, schemas
 are bounded before import, unlisted tools remain absent, imported tools cannot
 be re-exported over MCP, and every imported call still runs through
-`INhAiToolInvoker`.
+`INhAiToolInvoker`. An imported function returns the shared `NhAiToolResult`
+shape with the remote `CallToolResult` as `data`; a remote `isError` result fails
+with `ai-mcp-remote-tool-error` (`NhAiMcpImportedToolCodes.RemoteError`) and keeps
+the remote result as `data`.

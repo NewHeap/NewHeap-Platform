@@ -20,7 +20,7 @@ internal sealed record NhBackgroundOperationAttemptClaim(
     string PayloadJson,
     string Queue,
     string? ConcurrencyKey,
-    Guid OwnerUserId);
+    Guid? OwnerUserId);
 
 internal enum NhBackgroundOperationHeartbeatResult
 {
@@ -979,14 +979,7 @@ internal sealed partial class NhBackgroundOperationPersistence
 
         try
         {
-            await _liveUpdates.PublishChangedAsync(operation.OwnerUserId,
-                new NhBackgroundOperationChangedMessage(
-                    operation.Id,
-                    operation.Version,
-                    operation.LatestEventSequence,
-                    operation.Status,
-                    operation.DivisionId),
-                cancellationToken);
+            await _liveUpdates.PublishToOwnerAsync(operation, cancellationToken);
         }
         catch (Exception exception)
         {

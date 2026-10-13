@@ -165,11 +165,16 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database)
         AssertNames(
             final,
             "id", "agentId", "title", "status", "createdAt", "updatedAt", "agentVersion", "messages", "pendingApproval",
-            "role", "lastReadSequence", "lastMessageSequence", "activeActorId", "members", "shareToken", "currentActorId");
+            "role", "lastReadSequence", "lastMessageSequence", "activeActorId", "members", "shareToken", "currentActorId",
+            "kind", "thread");
+        Assert.Equal("chat", final.GetProperty("kind").GetString());
+        Assert.Equal(JsonValueKind.Null, final.GetProperty("thread").ValueKind);
         var message = final.GetProperty("messages")[1];
-        AssertNames(message, "id", "role", "createdAt", "parts", "sequence", "authorActorId");
+        AssertNames(message, "id", "role", "createdAt", "parts", "sequence", "authorActorId", "authorKind");
+        Assert.Equal("person", final.GetProperty("messages")[0].GetProperty("authorKind").GetString());
+        Assert.Equal(JsonValueKind.Null, message.GetProperty("authorKind").ValueKind);
         var toolPart = message.GetProperty("parts").EnumerateArray().First(part => part.GetProperty("type").GetString() == "tool-call");
-        AssertNames(toolPart, "type", "invocationId", "toolId", "toolVersion", "displayName", "status", "argumentsPreview", "resultPreview", "resultCode");
+        AssertNames(toolPart, "type", "invocationId", "toolId", "toolVersion", "displayName", "status", "argumentsPreview", "resultPreview", "resultCode", "grantSource", "restricted");
         var textPart = final.GetProperty("messages")[0].GetProperty("parts")[0];
         AssertNames(textPart, "type", "text");
     }

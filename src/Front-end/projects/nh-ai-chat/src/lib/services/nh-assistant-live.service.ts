@@ -9,11 +9,14 @@ import {
   LiveConversationRemoved
 } from '../models/assistant-live.models';
 import { NH_ASSISTANT_CONFIG } from '../nh-assistant.config';
+import { nhAssistantRequestHeaders } from './nh-assistant-transport';
 
 export type NhAssistantLiveState = 'off' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
 
 const reconnectDelaysMs = [0, 2_000, 5_000, 10_000, 30_000];
 const restartDelayMs = 30_000;
+/** Query parameters the library and SignalR set themselves. */
+const reservedHubQueryParameters = new Set(['access_token', 'id', 'negotiateversion']);
 
 /**
  * Live updates of the assistant hub: conversation changes, read positions, removals and the
@@ -113,9 +116,12 @@ export class NhAssistantLiveService {
 
   private async build(url: string): Promise<HubConnection> {
     const signalR = await import('@microsoft/signalr');
+    const headers = await nhAssistantRequestHeaders(this.config, this.injector);
+    const hubUrl = await this.withQueryParameters(url);
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl(url, {
-        accessTokenFactory: async () => (await this.token()) ?? ''
+      .withUrl(hubUrl, {
+        accessTokenFactory: async () => (await this.token()) ?? '',
+        headers
       })
       .withAutomaticReconnect(reconnectDelaysMs)
       .configureLogging(signalR.LogLevel.None)
@@ -156,6 +162,32 @@ export class NhAssistantLiveService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * The hub URL with the host's `getHubQueryParameters`, which reach the hub on every transport,
+   * unlike headers on WebSockets and server-sent events.
+   */
+  private async withQueryParameters(url: string): Promise<string> {
+    const getter = this.config.getHubQueryParameters;
+    if (!getter) {
+      return url;
+    }
+
+    let parameters: Record<string, string> | null;
+    try {
+      parameters = await runInInjectionContext(this.injector, () => getter());
+    } catch {
+      return url;
+    }
+
+    const target = new URL(url);
+    for (const [name, value] of Object.entries(parameters ?? {})) {
+      if (typeof value === 'string' && value.length > 0 && !reservedHubQueryParameters.has(name.toLowerCase())) {
+        target.searchParams.set(name, value);
+      }
+    }
+    return target.toString();
   }
 
   /** `hubBaseUrl` + `hubPath`, or the hub path on the origin of `apiBaseUrl`. */

@@ -312,7 +312,7 @@ internal sealed class NhAiFlatSchemaMcpServerTool : McpServerTool
             || success.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
         {
             throw new InvalidOperationException(
-                $"AI tool '{_descriptor.Id}' did not return a TaskResult envelope.");
+                $"AI tool '{_descriptor.Id}' did not return the shared tool result.");
         }
 
         var hasData = NhAiMcpResultMetadata.TryGetEnvelopeProperty(envelope, "data", out var data)
@@ -441,7 +441,7 @@ internal sealed class NhAiOutcomeAwareMcpServerTool(
             return NhAiMcpResultMetadata.CreateDatalessFailure(code, message, evidenceReference);
         }
 
-        // A failed envelope with data keeps the TaskResult envelope as structured content.
+        // A failed result with data keeps the shared tool result as structured content.
         result.IsError = true;
         NhAiMcpResultMetadata.ApplyFailure(result, code, message, evidenceReference, typedPayload: true);
         return result;

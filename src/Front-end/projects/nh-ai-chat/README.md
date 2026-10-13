@@ -75,6 +75,8 @@ export const appConfig: ApplicationConfig = {
 | --- | --- | --- |
 | `apiBaseUrl` | required | Base URL of the assistant endpoints. |
 | `getAccessToken` | required | Returns the bearer token or `null`. Runs in the assistant's injection context before every request, so it may use `inject(...)`. |
+| `getRequestHeaders` | none | Returns extra headers for every request and the live connection, for example `{ 'X-NH-ActiveDivisionId': divisionId }`. The library keeps `Authorization`, `Accept`, `Accept-Language` and `Content-Type`. Browsers do not send these headers with WebSockets; see `getHubQueryParameters`. |
+| `getHubQueryParameters` | none | Returns query parameters for the live-update hub URL, for values the hub needs that WebSockets and server-sent events cannot carry as headers, for example `{ divisionId }`, which the NewHeap JWT handler copies to `X-NH-ActiveDivisionId` on `/hub` paths. Runs in the assistant's injection context when the connection starts; `access_token`, `id` and `negotiateVersion` are reserved. Never return a secret. |
 | `accessPolicy` | always allowed | Injectable class whose `canUse()` returns a boolean or an observable. |
 | `defaultAgentId` | first agent | Agent selected for new conversations. |
 | `translations` | `'bundled'` | `'bundled'` merges the library's `en` and `nl` texts into `TranslateService`; `'host'` leaves all texts to the host. |
@@ -134,9 +136,20 @@ show a localized generic explanation. Tool ids, scope targets and bounded, redac
 argument previews stay inside collapsed technical details and never become the
 authorization basis.
 
+In a chat only the person whose turn waits decides its approval. In an agent thread
+(`conversation.kind === 'thread'`) the subject's approvers decide, and several proposals
+can wait at once: the server reports in `conversation.thread.decisions` whether the
+caller may decide each one. `NhAssistantStore.approvalRights` turns that into a right per
+approval card, `decide(decision, reason, approvalId)` decides a run's proposal with its
+proposal hash through `POST approvals/{id}/decisions` and reloads the thread, and cards
+the caller may not decide say who does (`waitingFor`: an approver, or another approver
+under four-eyes). Messages a trigger wrote (`authorKind: 'trigger'`) read as an event.
+Custom layouts pass `[approvalRights]` to `nh-assistant-thread` and handle
+`(approvalChoice)`, which carries the approval id.
+
 `NhAssistantStore` exposes the state as signals (`enabled`, `agents`,
-`conversations`, `activeConversation`, `streaming`, `pendingApproval`, `error` and
-more) and the actions `send`, `submit`, `pauseQueue`, `resumeQueue`,
+`conversations`, `activeConversation`, `streaming`, `pendingApproval`, `approvalRights`,
+`error` and more) and the actions `send`, `submit`, `pauseQueue`, `resumeQueue`,
 `updateQueuedMessage`, `removeQueuedMessage`, `steerQueuedMessage`, `decide`, `cancel`, `openConversation`,
 `startNewConversation` and `selectAgent`. The building blocks
 `nh-assistant-thread`, `nh-assistant-composer`, `nh-assistant-conversation-list`,
@@ -236,6 +249,29 @@ bundle. Route to it lazily behind the host's admin permission and pass the route
 
 `NhAssistantAdminApiService` (main entry) is the typed client of the `admin/*`
 endpoints. A `409` becomes the code `assistant-version-conflict`.
+
+## Agent runs
+
+`@newheap/platform-ai-chat/agent-runs` shows the work of agents that run on their own.
+Load it on the routes that need it; it uses `NhAssistantAgentRunApiService` from the
+`provideNhAssistant` scope.
+
+```html
+<nh-assistant-agent-inbox agentId="intake-reviewer" subjectType="project" />
+<nh-assistant-agent-thread-view
+  agentId="intake-reviewer"
+  subjectType="project"
+  [subjectId]="projectId"
+  (openConversation)="panel.open($event)" />
+```
+
+The inbox lists the proposals waiting for the signed-in person. The thread view shows
+one agent's thread on one subject: the caller's role, a start action for participants,
+and tabs with proposals, runs, working memory and files. Proposals show the
+application's presentation and keep the tool input under technical details; approve,
+reject and resolve appear only for people who may decide. The proposals, run timeline,
+memory and files are also separate components for custom layouts. Opened in the panel,
+the thread offers its proposals to the same people.
 
 ## Theme
 

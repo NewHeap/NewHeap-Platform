@@ -8,6 +8,12 @@ public sealed class AssistantConversation
 {
     public Guid Id { get; set; }
 
+    /// <summary>
+    /// One of the values in <see cref="NhAssistantConversationKinds"/>. A thread belongs to an agent
+    /// working on a subject; see <see cref="AssistantThread"/>.
+    /// </summary>
+    public string Kind { get; set; } = NhAssistantConversationKinds.Chat;
+
     public string OwnerActorId { get; set; } = string.Empty;
 
     /// <summary>
@@ -164,6 +170,11 @@ public sealed class AssistantToolInvocation
 
     public string? IdempotencyKey { get; set; }
 
+    /// <summary>
+    /// Whether an agent grant or the initiator's own rights allowed the call.
+    /// </summary>
+    public NhAiGrantSource GrantSource { get; set; }
+
     public DateTimeOffset StartedAt { get; set; }
 
     public DateTimeOffset? CompletedAt { get; set; }
@@ -214,6 +225,56 @@ public sealed class AssistantApproval
     public DateTimeOffset? ApprovalExpiresAt { get; set; }
 
     public string? Reason { get; set; }
+
+    /// <summary>
+    /// The run that created the proposal; the proposals of one run form its proposal set.
+    /// </summary>
+    public Guid? RunId { get; set; }
+
+    public string? PolicyId { get; set; }
+
+    /// <summary>
+    /// One of the values in <see cref="NhAssistantApprovalModes"/>.
+    /// </summary>
+    public string Mode { get; set; } = NhAssistantApprovalModes.Inline;
+
+    /// <summary>
+    /// The approval policy as it applied when the proposal was created, so later policy changes
+    /// never alter a proposal that is waiting.
+    /// </summary>
+    public string? PolicyJson { get; set; }
+
+    /// <summary>
+    /// The person who caused the turn that created the proposal, for four-eyes and initiator rules.
+    /// </summary>
+    public string? InitiatorActorId { get; set; }
+
+    public string? SubjectVersion { get; set; }
+
+    public NhAiGrantSource GrantSource { get; set; }
+
+    /// <summary>
+    /// The consultation that proposed it. Such a proposal executes with the initiator's rights only,
+    /// never with the agent's grants.
+    /// </summary>
+    public Guid? ConsultationId { get; set; }
+
+    public Guid? ExecutionOperationId { get; set; }
+
+    public int ExecutionAttempts { get; set; }
+
+    public DateTimeOffset? ExecutedAt { get; set; }
+
+    public string? ExecutionResultCode { get; set; }
+
+    public int RemindersSent { get; set; }
+
+    /// <summary>
+    /// When the next reminder of a waiting deferred proposal is due, or <see langword="null"/>.
+    /// </summary>
+    public DateTimeOffset? NextReminderAt { get; set; }
+
+    public DateTimeOffset? EscalatedAt { get; set; }
 
     public Guid ConcurrencyStamp { get; set; }
 }

@@ -4,7 +4,7 @@ title: "Run approval-gated AI work inside durable background operations"
 area: backend
 reference: ai-durable-runs
 summary: "Use background operations as the outer durability boundary and persist application state plus versioned checkpoint references instead of treating chat history as authoritative state."
-sample-cases: ["SPM-230"]
+sample-cases: ["SPM-230", "SPM-268"]
 public-symbols: ["INhAiBackgroundOperationRunAdapter", "NhAiRunCheckpointReference", "NhAiRunCheckpointReferenceFactory", "NhAiBackgroundApprovalSignal"]
 skills: ["newheap-background-processing", "newheap-backend-development"]
 providers: ["provider-neutral"]
@@ -35,6 +35,12 @@ checkpoint plus the durable approver identity/time and validate it with
 authority. Protect publication or other side effects
 with background-operation idempotency and fencing, then expose only an
 application-owned result reference.
+
+For an assistant agent that starts from events and records proposals for people to
+decide later, prefer the agent runs of the assistant over a hand-written handler:
+they use this adapter, bind each approved proposal's execution to its own
+operation with `BindProposalExecution`, and keep the proposal, decision and
+execution state in the assistant's store.
 
 ## Avoid
 

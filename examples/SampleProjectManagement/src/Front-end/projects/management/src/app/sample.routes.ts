@@ -92,6 +92,22 @@ export const SAMPLE_ROUTES: Routes = [
           .then(module => module.ASSISTANT_PLAYGROUND_ROUTES)
       },
       {
+        path: 'project-members',
+        title: 'Project members',
+        canActivate: [NhIsOnePermissionGrantedGuard],
+        data: { oneMatchPermissions: ['app.project.view'] },
+        loadComponent: () => import('./project-members/project-members-page.component')
+          .then(module => module.ProjectMembersPageComponent)
+      },
+      {
+        path: 'intake-reviews',
+        title: 'Intake reviews',
+        canActivate: [NhIsOnePermissionGrantedGuard],
+        data: { oneMatchPermissions: ['app.project.view'] },
+        loadComponent: () => import('./intake-reviews/intake-reviews-page.component')
+          .then(module => module.IntakeReviewsPageComponent)
+      },
+      {
         path: 'platform',
         title: 'Platform',
         loadComponent: () => import('./platform-playground/platform-playground.component')

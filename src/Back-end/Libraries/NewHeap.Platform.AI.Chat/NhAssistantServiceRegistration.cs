@@ -6,6 +6,7 @@ using NewHeap.Platform.AI.Chat.Governance;
 using NewHeap.Platform.AI.Chat.Live;
 using NewHeap.Platform.AI.Chat.Notifications;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
 
 namespace NewHeap.Platform.AI.Chat;
@@ -76,6 +77,21 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantNotificationStore>();
         services.TryAddScoped<NhAssistantCollaboration>();
         services.TryAddScoped<INhAssistantDisplayNameResolver, NhAssistantClaimsDisplayNameResolver>();
+
+        // Agent runs: subject threads, member snapshots and approval policies.
+        services.TryAddScoped<NhAssistantRunStore>();
+        services.TryAddScoped<NhAssistantSubjectAccessService>();
+        services.TryAddScoped<INhAiSubjectAccess>(provider => provider.GetRequiredService<NhAssistantSubjectAccessService>());
+        services.TryAddScoped<NhAssistantThreadService>();
+        services.TryAddScoped<NhAssistantApprovalPolicies>();
+        services.TryAddScoped<INhAssistantAgentNotificationPolicy, NhAssistantDefaultAgentNotificationPolicy>();
+        services.TryAddScoped<NhAssistantAgentNotifier>();
+        services.TryAddScoped<NhAssistantAgentEvents>();
+        services.TryAddScoped<NhAssistantMemoryService>();
+        services.TryAddScoped<NhAssistantRunSummaries>();
+        services.TryAddScoped<NhAssistantArtifactStore>();
+        services.TryAddScoped<INhAiArtifacts, NhAssistantArtifacts>();
+        services.TryAddScoped<NhAssistantConsultationService>();
         return state;
     }
 

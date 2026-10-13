@@ -1,0 +1,90 @@
+<section class="members-lab" id="project-members" [class.busy]="saving()">
+  <header>
+    <div>
+      <h2>{{ 'project-members.title' | translate }}</h2>
+      <p>{{ 'project-members.description' | translate }}</p>
+    </div>
+    <span class="role-badge"><i class="ph ph-users-three" aria-hidden="true"></i> SPM-270</span>
+  </header>
+
+  @if (errorKey(); as key) {
+    <p class="error" role="alert">{{ key | translate }}</p>
+  }
+
+  <div class="members-grid">
+    <article class="project-card">
+      <label>
+        {{ 'project-members.project' | translate }}
+        <select (change)="onProjectChange($event)" [disabled]="loadingProjects()">
+          @if (loadingProjects()) {
+            <option value="">{{ 'project-members.loading' | translate }}</option>
+          } @else if (projects().length === 0) {
+            <option value="">{{ 'project-members.no-projects' | translate }}</option>
+          }
+          @for (project of projects(); track project.id) {
+            <option [value]="project.id" [selected]="project.id === projectId()">{{ project.key }} — {{ project.name }}</option>
+          }
+        </select>
+      </label>
+
+      @if (selectedProject(); as project) {
+        <p class="hint">{{ 'project-members.owner-hint' | translate }}</p>
+        <h3>{{ 'project-members.add-title' | translate }}</h3>
+        <label>
+          {{ 'project-members.user-id' | translate }}
+          <input [value]="newUserId()" (input)="onUserIdInput($event)" placeholder="00000000-0000-0000-0000-000000000000">
+        </label>
+        <label>
+          {{ 'project-members.role' | translate }}
+          <select (change)="onNewRoleChange($event)">
+            @for (role of roles; track role) {
+              <option [value]="role" [selected]="role === newRole()">{{ roleKey(role) | translate }}</option>
+            }
+          </select>
+        </label>
+        <button type="button" (click)="addMember()" [disabled]="!canAdd()">
+          {{ (saving() ? 'project-members.saving' : 'project-members.add') | translate }}
+        </button>
+      }
+    </article>
+
+    <article class="list-card">
+      <h3>{{ 'project-members.list-title' | translate }}</h3>
+      @if (loadingMembers()) {
+        <p role="status">{{ 'project-members.loading' | translate }}</p>
+      } @else if (!projectId()) {
+        <p>{{ 'project-members.select-project' | translate }}</p>
+      } @else if (members().length === 0) {
+        <p>{{ 'project-members.empty' | translate }}</p>
+      } @else {
+        <ul>
+          @for (member of members(); track member.id) {
+            <li>
+              <div>
+                <strong>{{ member.userName || member.userId }}</strong>
+                <small>{{ member.userId }}</small>
+              </div>
+              <select (change)="changeRole(member, $event)" [disabled]="saving()"
+                      [attr.aria-label]="'project-members.role' | translate">
+                @for (role of roles; track role) {
+                  <option [value]="role" [selected]="role === member.role">{{ roleKey(role) | translate }}</option>
+                }
+              </select>
+              <button type="button" class="secondary" (click)="removeMember(member)" [disabled]="saving()">
+                {{ 'project-members.remove' | translate }}
+              </button>
+            </li>
+          }
+        </ul>
+      }
+      <dl class="role-legend">
+        <dt>{{ 'project-members.role-reader' | translate }}</dt>
+        <dd>{{ 'project-members.role-reader-description' | translate }}</dd>
+        <dt>{{ 'project-members.role-participant' | translate }}</dt>
+        <dd>{{ 'project-members.role-participant-description' | translate }}</dd>
+        <dt>{{ 'project-members.role-approver' | translate }}</dt>
+        <dd>{{ 'project-members.role-approver-description' | translate }}</dd>
+      </dl>
+    </article>
+  </div>
+</section>

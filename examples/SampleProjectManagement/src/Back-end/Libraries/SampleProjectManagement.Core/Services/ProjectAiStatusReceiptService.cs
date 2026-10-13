@@ -125,7 +125,7 @@ public sealed class ProjectAiStatusApprovalEvidenceValidator(
         {
             return ValueTask.FromResult(
                 TaskResult<NhAiAuthoritativeExecutionEvidence>.Failed(
-                    "project-division-scope-missing",
+                    ProjectAiTools.DivisionScopeMissingCode,
                     "The authorized AI invocation context has no active division."));
         }
 

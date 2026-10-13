@@ -10,6 +10,7 @@ import {
 import { TranslatePipe } from '@ngx-translate/core';
 import { ApprovalDecision, ApprovalPart } from '../../models/assistant-api.models';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
+import type { NhAssistantApprovalWaitingFor } from '../../services/nh-assistant.store';
 
 /** Formats remaining milliseconds as `m:ss`, or `h:mm:ss` above one hour. */
 export function formatNhAssistantCountdown(milliseconds: number): string {
@@ -45,12 +46,18 @@ export class NhAssistantApprovalCardComponent {
   /** True while the host submits a decision; disables both buttons. */
   readonly deciding = input(false);
   /**
-   * False when the approval belongs to another participant's turn: only the person whose
-   * permissions the action would use may decide it.
+   * False when the current user may not decide: in a chat the approval belongs to another
+   * participant's turn, in an agent thread the user is no approver of the proposal.
    */
   readonly canDecide = input(true);
-  /** Name of the participant who decides, shown when the current user cannot. */
+  /** Name of the participant who decides a `turn` approval, shown when the current user cannot. */
   readonly decisionOwner = input<string | null>(null);
+  /**
+   * Who decides when the current user cannot: the author of the turn (`turn`, the default), an
+   * approver of the agent thread's subject (`approver`), or another approver because the current
+   * user started the work (`other-approver`).
+   */
+  readonly waitingFor = input<NhAssistantApprovalWaitingFor>('turn');
   readonly decide = output<ApprovalDecision>();
 
   private readonly now = signal(Date.now());
@@ -61,9 +68,22 @@ export class NhAssistantApprovalCardComponent {
     (this.approval().status === 'pending' && this.remainingMs() <= 0));
   readonly effectiveStatus = computed(() => this.expired() ? 'expired' : this.approval().status);
   readonly actionable = computed(() => this.effectiveStatus() === 'pending');
+  readonly succeeded = computed(() =>
+    ['approved', 'executing', 'executed', 'resolved'].includes(this.effectiveStatus()));
   readonly disabled = computed(() => !this.actionable() || !this.canDecide() || this.deciding() || this.submitted());
   readonly countdown = computed(() => formatNhAssistantCountdown(this.remainingMs()));
   readonly presentedSummary = computed(() => this.approval().presentation?.summary ?? null);
+  /** Translation key of the text shown instead of the buttons when the current user cannot decide. */
+  readonly waitingKey = computed(() => {
+    switch (this.waitingFor()) {
+      case 'approver':
+        return 'nh-assistant.approval.waiting-for-approver';
+      case 'other-approver':
+        return 'nh-assistant.approval.waiting-for-other-approver';
+      default:
+        return this.decisionOwner() ? 'nh-assistant.approval.waiting-for' : 'nh-assistant.approval.waiting-for-participant';
+    }
+  });
 
   constructor() {
     // Tick only while the approval is pending and not yet expired.

@@ -1,0 +1,41 @@
+<section class="reviews-lab" id="intake-reviews">
+  <header>
+    <div>
+      <h2>{{ 'intake-reviews.title' | translate }}</h2>
+      <p>{{ 'intake-reviews.description' | translate }}</p>
+    </div>
+    <span class="case-badge"><i class="ph ph-robot" aria-hidden="true"></i> SPM-268–278</span>
+  </header>
+
+  <div class="reviews-grid">
+    <article class="inbox-card">
+      <nh-assistant-agent-inbox [agentId]="agentId" subjectType="project" />
+    </article>
+
+    <article class="thread-card">
+      <label>
+        {{ 'intake-reviews.project' | translate }}
+        <select (change)="onProjectChange($event)" [disabled]="loading()">
+          @if (loading()) {
+            <option value="">{{ 'intake-reviews.loading' | translate }}</option>
+          } @else if (projects().length === 0) {
+            <option value="">{{ 'intake-reviews.no-projects' | translate }}</option>
+          }
+          @for (project of projects(); track project.id) {
+            <option [value]="project.id" [selected]="project.id === projectId()">{{ project.key }} — {{ project.name }}</option>
+          }
+        </select>
+      </label>
+
+      @if (loadFailed()) {
+        <p class="error" role="alert">{{ 'intake-reviews.load-failed' | translate }}</p>
+      } @else if (projectId(); as subjectId) {
+        <nh-assistant-agent-thread-view
+          [agentId]="agentId"
+          subjectType="project"
+          [subjectId]="subjectId"
+          (openConversation)="openConversation($event)" />
+      }
+    </article>
+  </div>
+</section>

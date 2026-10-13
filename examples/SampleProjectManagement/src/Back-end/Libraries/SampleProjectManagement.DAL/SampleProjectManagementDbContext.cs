@@ -31,6 +31,8 @@ public class SampleProjectManagementDbContext : NhIdentityDbContext<
 
     public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();
 
+    public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
+
     // Two-factor passkeys need the Identity passkey table. The migration adds only
     // AspNetUserPasskeys and leaves the existing Identity columns unchanged.
     protected override bool IncludeIdentityPasskeys => true;
@@ -64,6 +66,24 @@ public class SampleProjectManagementDbContext : NhIdentityDbContext<
                 .HasOne(x => x.Project)
                 .WithMany(x => x.Tasks)
                 .HasForeignKey(x => x.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ProjectMember>(entity =>
+        {
+            entity.HasIndex(x => new { x.ProjectId, x.UserId }).IsUnique();
+            entity.HasIndex(x => x.UserId);
+
+            entity
+                .HasOne(x => x.Project)
+                .WithMany(x => x.Members)
+                .HasForeignKey(x => x.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity
+                .HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

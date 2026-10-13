@@ -38,6 +38,12 @@ authority. Protect publication or other side effects
 with background-operation idempotency and fencing, then expose only an
 application-owned result reference.
 
+For an assistant agent that starts from events and records proposals for people to
+decide later, prefer the agent runs of the assistant over a hand-written handler:
+they use this adapter, bind each approved proposal's execution to its own
+operation with `BindProposalExecution`, and keep the proposal, decision and
+execution state in the assistant's store.
+
 ## Avoid
 
 - Keeping a request, model stream or worker alive while awaiting approval.
@@ -63,3 +69,8 @@ reference.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/OperationsSamplesController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/OperationsSamplesController.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/OperationsSampleService.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAiPortfolioReportOperationTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectAiPortfolioReportOperationTests.cs)
+- SPM-268 — Event-triggered agent run with deferred proposals
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiTools.cs)

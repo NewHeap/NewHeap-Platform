@@ -10,6 +10,10 @@ Source release: `newheap-platform-plugin-v1.13.61`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.61/docs/consumer-guide/ai-agent-framework.md)
 
+## Ai Agent Runs
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.61/docs/consumer-guide/ai-agent-runs.md)
+
 ## Ai Api Bridge
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.61/docs/consumer-guide/ai-api-bridge.md)

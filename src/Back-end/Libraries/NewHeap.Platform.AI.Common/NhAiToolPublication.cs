@@ -190,17 +190,9 @@ internal sealed class NhAiToolOutcomeCapture
             return;
         }
 
-        var items = result.GetResultItems();
-        var named = items.FirstOrDefault(item => NhAiNames.IsSegment(item.Name));
-        capture.Code = named?.Name ?? NhAiToolFailureCodes.Failed;
-        capture.Message = string.Join(
-            " ",
-            (named ?? items.FirstOrDefault())?.ErrorMessages.Select(message => message.ToString())
-                ?? []);
-        if (string.IsNullOrWhiteSpace(capture.Message))
-        {
-            capture.Message = null;
-        }
+        // The same code and message the caller receives in the shared tool result.
+        capture.Code = NhAiToolResult.GetCode(result);
+        capture.Message = NhAiToolResult.GetMessage(result);
         capture.EvidenceReference = evidenceReference;
     }
 }
