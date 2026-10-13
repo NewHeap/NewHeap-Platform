@@ -54,6 +54,12 @@ one storage package: `NewHeap.Platform.AI.Chat.SqlServer` or
   subject's approvers. `NhAssistantLimits.MaxConsultationDepth` and
   `MaxConsultationsPerActorPerDay` bound it; the consulted agent's daily budget includes
   its consultations.
+- **Proposal feedback** — after a rejection, the person who decided a proposal and the
+  subject's approvers may say what was wrong: a category from
+  `NhAssistantProposalFeedbackCategories` and an optional text, stored in
+  `AssistantProposalFeedback`. The next run on the subject starts from its recent
+  rejections and their feedback (`MaxRejectionsInContext`, `RejectionContextWindow`).
+  `AddProposalFeedbackSink` forwards each feedback to the application's analytics.
 - **Audit** — a content-free relay records governed outcomes and forwards
   `NhAssistantAuditEvent` values (identifiers, versions, codes, timestamps) to
   `INhAssistantBusinessAuditSink` implementations.

@@ -211,6 +211,109 @@ public static class NhAssistantApprovalStatuses
     {
         return status is Rejected or Expired or Withdrawn or Stale or Executed or ExecutionFailed or Resolved or Shadow;
     }
+
+    /// <summary>
+    /// Whether people may say what was wrong with a proposal in this status: it was rejected, or it
+    /// closed without anyone acting on it.
+    /// </summary>
+    public static bool AcceptsFeedback(string status)
+    {
+        return status is Rejected or Expired or Withdrawn or Stale;
+    }
+}
+
+/// <summary>
+/// What a feedback record is about. Only agent proposals take feedback today.
+/// </summary>
+public static class NhAssistantFeedbackTargetKinds
+{
+    public const string AgentProposal = "agent-proposal";
+}
+
+/// <summary>
+/// Why a person turned down an agent proposal. Each category belongs to one
+/// <see cref="NhAssistantProposalFeedbackGroups">group</see>; only the <c>wrong</c> group says the
+/// agent was wrong.
+/// </summary>
+public static class NhAssistantProposalFeedbackCategories
+{
+    /// <summary>
+    /// The proposal is factually wrong.
+    /// </summary>
+    public const string Incorrect = "incorrect";
+
+    /// <summary>
+    /// The right action with the wrong values.
+    /// </summary>
+    public const string WrongValue = "wrong-value";
+
+    /// <summary>
+    /// The change is unnecessary.
+    /// </summary>
+    public const string NotNeeded = "not-needed";
+
+    /// <summary>
+    /// Right, but not at this moment.
+    /// </summary>
+    public const string NotNow = "not-now";
+
+    /// <summary>
+    /// Already done or in progress elsewhere.
+    /// </summary>
+    public const string AlreadyDone = "already-done";
+
+    /// <summary>
+    /// Against policy, or beyond what the agent should do.
+    /// </summary>
+    public const string NotAllowed = "not-allowed";
+
+    /// <summary>
+    /// Only the text explains.
+    /// </summary>
+    public const string Other = "other";
+
+    public static IReadOnlyList<string> All { get; } =
+    [
+        Incorrect,
+        WrongValue,
+        NotNeeded,
+        NotNow,
+        AlreadyDone,
+        NotAllowed,
+        Other
+    ];
+
+    public static bool IsKnown(string? category)
+    {
+        return category is not null && All.Contains(category, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// The group of a known category.
+    /// </summary>
+    public static string GroupOf(string category)
+    {
+        return category switch
+        {
+            Incorrect or WrongValue or NotNeeded => NhAssistantProposalFeedbackGroups.Wrong,
+            NotNow or AlreadyDone => NhAssistantProposalFeedbackGroups.RightButNotNow,
+            NotAllowed => NhAssistantProposalFeedbackGroups.NotAllowed,
+            Other => NhAssistantProposalFeedbackGroups.Other,
+            _ => throw new ArgumentOutOfRangeException(nameof(category), category, "Unknown feedback category.")
+        };
+    }
+}
+
+/// <summary>
+/// The groups of <see cref="NhAssistantProposalFeedbackCategories"/>. Analysis never counts
+/// <see cref="RightButNotNow"/> as a mistake of the agent.
+/// </summary>
+public static class NhAssistantProposalFeedbackGroups
+{
+    public const string Wrong = "wrong";
+    public const string RightButNotNow = "right-but-not-now";
+    public const string NotAllowed = "not-allowed";
+    public const string Other = "other";
 }
 
 /// <summary>
@@ -357,6 +460,17 @@ public static class NhAssistantErrorCodes
     /// The consulted agent tried a tool that changes something while it may only read.
     /// </summary>
     public const string ConsultReadOnly = "assistant-consult-read-only";
+
+    /// <summary>
+    /// The feedback has an unknown category or a text longer than
+    /// <see cref="NhAssistantLimits.MaxFeedbackCharacters"/>.
+    /// </summary>
+    public const string FeedbackInvalid = "assistant-feedback-invalid";
+
+    /// <summary>
+    /// The proposal takes no feedback in its status: it is still pending, or it was approved.
+    /// </summary>
+    public const string FeedbackNotAccepted = "assistant-feedback-not-accepted";
 
     /// <summary>
     /// Creates the localization key for a code.

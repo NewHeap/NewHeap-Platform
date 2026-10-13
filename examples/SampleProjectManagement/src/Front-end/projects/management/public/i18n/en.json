@@ -592,10 +592,12 @@
   "intake-reviews": {
     "navigation": "Intake reviews",
     "title": "Intake reviews",
-    "description": "The intake reviewer starts on its own when a project is created. Decide its proposals here, or follow one project's runs, working memory and files.",
+    "description": "The intake reviewer starts on its own when a project is created. Decide its proposals here, or follow one project's runs, working memory and files. After a rejection you may say what was wrong.",
     "project": "Project",
     "loading": "Loading…",
     "no-projects": "No projects in your division",
-    "load-failed": "The projects could not be loaded. Start the sample through Aspire."
+    "load-failed": "The projects could not be loaded. Start the sample through Aspire.",
+    "report-label": "Intake reviewer feedback report",
+    "report-scope": "Assistant administrators only: what people said when they rejected the intake reviewer's proposals."
   }
 }

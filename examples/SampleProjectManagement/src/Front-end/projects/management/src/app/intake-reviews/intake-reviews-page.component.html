@@ -4,7 +4,7 @@
       <h2>{{ 'intake-reviews.title' | translate }}</h2>
       <p>{{ 'intake-reviews.description' | translate }}</p>
     </div>
-    <span class="case-badge"><i class="ph ph-robot" aria-hidden="true"></i> SPM-268–278</span>
+    <span class="case-badge"><i class="ph ph-robot" aria-hidden="true"></i> SPM-268–279</span>
   </header>
 
   <div class="reviews-grid">
@@ -38,4 +38,13 @@
       }
     </article>
   </div>
+
+  @if (canAdminister()) {
+    <section class="report-card" [attr.aria-label]="'intake-reviews.report-label' | translate">
+      <p class="report-scope">
+        <i class="ph ph-shield-check" aria-hidden="true"></i>{{ 'intake-reviews.report-scope' | translate }}
+      </p>
+      <nh-assistant-agent-feedback-report [agentId]="agentId" />
+    </section>
+  }
 </section>

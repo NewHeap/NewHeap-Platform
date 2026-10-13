@@ -102,6 +102,7 @@ internal static class NhAssistantAdminEndpoints
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantKillSwitchDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        AgentRuns.NhAssistantProposalFeedbackEndpoints.MapAdmin(admin);
         admin.MapDelete("agents/{id}", DeleteAgentAsync)
             .WithName("NhAssistantAdminDeleteAgent")
             .WithSummary("Delete an agent")

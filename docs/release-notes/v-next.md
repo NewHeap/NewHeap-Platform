@@ -133,6 +133,34 @@ decides.
 | The asking model types the subject id of a consultation. | Let `INhAiSubjectAccessResolver` accept only a subject's canonical id, so another spelling never opens a second thread. |
 | `NhAssistantAuditEventKind` gains `AgentConsulted` and `AgentRequested`, and `NhAssistantAuditEvent` gains consultation and usage fields. | Let business audit sinks accept the new kinds and fields; they carry identifiers, codes and counts only. |
 
+## NewHeap.Platform.AI.Chat: feedback on rejected agent proposals
+
+After a person rejected an agent proposal, they may say what was wrong with
+`PUT approvals/{approvalId}/feedback`: a category from
+`NhAssistantProposalFeedbackCategories` (`incorrect`, `wrong-value`, `not-needed`,
+`not-now`, `already-done`, `not-allowed` or `other`) and an optional text of at most
+1,000 characters. The person who decided the proposal and the subject's approvers may
+give feedback on rejected, expired, withdrawn and stale proposals, one record each that
+they may change; `POST approvals/feedback` stores the same feedback for proposals
+rejected together. `NhAssistantProposalDto` carries the caller's own `Feedback` and
+`CanGiveFeedback`. The next run on the same subject starts from the thread's recent
+rejections and their feedback (`NhAssistantLimits.MaxRejectionsInContext` and
+`RejectionContextWindow`), so it does not propose them again unchanged; consultations
+do not receive them. Administrators read rejection rates and categories per tool and
+agent version with `GET admin/agents/{id}/feedback/summary`, the feedback with
+`GET admin/agents/{id}/feedback` and an audited JSON Lines export with
+`GET admin/agents/{id}/feedback/export`. `AddProposalFeedbackSink` forwards every
+feedback, with its text, to the application's analytics; the business audit sink
+receives `AgentProposalFeedbackGiven` with the category only. Feedback is deleted with
+the subject's threads.
+
+| Adoption note | Required action |
+|---|---|
+| The `nhai` schema gains the `AgentProposalFeedback` migration: the `AssistantProposalFeedback` table. | Update the package and restart; the assistant applies the migration on startup when `RunMigrations` is on. Otherwise apply it with your own migration step for SQL Server or PostgreSQL. |
+| `NhAssistantAuditEventKind` gains `AgentProposalFeedbackGiven` and `AdminAgentFeedbackExported`. | Let business audit sinks accept the new kinds; they carry identifiers and the category only. |
+| A new agent run's continuity block lists the thread's rejected proposals of the last 30 days, at most five. | Set `MaxRejectionsInContext` to `0` to leave them out, or change `RejectionContextWindow`. |
+| Feedback texts are people's words about a subject. | Cover them in your processing agreements, and keep them out of logs in your `INhAssistantProposalFeedbackSink`. |
+
 ## @newheap/platform-ai-chat: agent work in the application
 
 The new entry point `@newheap/platform-ai-chat/agent-runs` shows the work of agents
@@ -174,6 +202,29 @@ on `/hub` paths.
 | Browsers send no custom headers with WebSocket and server-sent event connections. | Pass the values a hub's policy needs with `getHubQueryParameters`, for the active division `() => ({ divisionId })`; without it the connection falls back to long polling after refused attempts. |
 | A custom layout with `nh-assistant-thread` showed every proposal of an agent thread as decidable by the turn's author. | Pass `[approvalRights]="store.approvalRights()"` and handle `(approvalChoice)` with `store.decide(choice.decision, reason, choice.approvalId)`; `approvalDecision` alone decides only the conversation's pending approval. |
 | `ApprovalStatus` gains the execution states of agent proposals. | Handle unknown statuses in custom approval layouts. |
+
+## @newheap/platform-ai-chat: feedback on rejected agent proposals
+
+Rejecting an agent proposal stays one click; afterwards
+`nh-assistant-proposal-feedback` (`NhAssistantProposalFeedbackComponent`) asks, without
+blocking, what was wrong: a category from `NH_ASSISTANT_FEEDBACK_CATEGORIES` and an
+optional text, sent with `NhAssistantAgentRunApiService.giveFeedback` or, for proposals
+rejected together, `giveFeedbackMany`. `nh-assistant-agent-proposals` shows the question
+after a rejection, also in the inbox once the rejected proposal left it, offers "Give
+feedback" or "Change feedback" on closed proposals with `canGiveFeedback`, and shows the
+caller's own `feedback`. The panel's approval card asks the same question for proposals
+the user rejected in this session (`NhAssistantApprovalRight.canGiveFeedback`, the card's
+`canGiveFeedback` input). Administrators open `nh-assistant-agent-feedback-report`
+(`NhAssistantAgentFeedbackReportComponent` of `@newheap/platform-ai-chat/admin`) from an
+agent in the administration page, or place it in their own page: rejection rates and
+categories per tool and agent version, the feedback texts and a JSON Lines export through
+`NhAssistantAdminApiService.getAgentFeedbackSummary`, `getAgentFeedback` and
+`exportAgentFeedback`.
+
+| Adoption note | Required action |
+|---|---|
+| `nh-assistant-agent-proposals` no longer shows a shared reason field before approve and reject; the key `nh-assistant.agent-runs.proposal.reason` is gone. | Remove overrides of that key; collect why a proposal was rejected through the feedback question instead. |
+| A custom layout with `nh-assistant-thread` offers feedback only when it passes the store's `approvalRights`. | Keep `[approvalRights]="store.approvalRights()"`; the rights now also carry `canGiveFeedback`. |
 
 ## NewHeap.Platform.AspNet.Common: operations owned by agents, and access for others
 

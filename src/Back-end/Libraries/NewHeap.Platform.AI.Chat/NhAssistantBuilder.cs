@@ -326,6 +326,17 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Adds a sink that receives every feedback people give on closed agent proposals, for example
+    /// to forward it to the application's analytics. Several sinks may be added.
+    /// </summary>
+    public NhAssistantBuilder AddProposalFeedbackSink<TSink>()
+        where TSink : class, INhAssistantProposalFeedbackSink
+    {
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAssistantProposalFeedbackSink, TSink>());
+        return this;
+    }
+
+    /// <summary>
     /// Converts stored working memory when an agent's memory schema version changes. Without a
     /// migrator, memory that no longer fits the new schema is cleared.
     /// </summary>

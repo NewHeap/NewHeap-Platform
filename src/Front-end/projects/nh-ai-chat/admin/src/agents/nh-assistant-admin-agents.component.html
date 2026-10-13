@@ -5,6 +5,16 @@
     [servers]="servers()"
     (saved)="onSaved($event)"
     (cancelled)="editing.set(undefined)" />
+} @else if (reporting(); as agent) {
+  <div class="stack">
+    <div>
+      <button #back class="secondary" type="button" (click)="closeReport()">
+        {{ 'nh-assistant.admin.feedback.back' | translate }}
+      </button>
+    </div>
+    <p class="muted">{{ 'nh-assistant.admin.feedback.agent' | translate: { name: agent.displayName, id: agent.id } }}</p>
+    <nh-assistant-agent-feedback-report [agentId]="agent.id" />
+  </div>
 } @else {
   <section class="section" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()">
     <header class="section-header">
@@ -61,6 +71,9 @@
               </button>
               <button class="secondary" type="button" [disabled]="busyAgentId() !== null" (click)="setEnabled(agent, !agent.isEnabled)">
                 {{ (agent.isEnabled ? 'nh-assistant.admin.disable' : 'nh-assistant.admin.enable') | translate }}
+              </button>
+              <button class="secondary" type="button" [attr.data-feedback-agent]="agent.id" (click)="openReport(agent)">
+                <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.agents.feedback' | translate }}
               </button>
               @if (agent.source === 'code' && agent.isOverridden) {
                 @if (isConfirming(agent.id, 'reset')) {

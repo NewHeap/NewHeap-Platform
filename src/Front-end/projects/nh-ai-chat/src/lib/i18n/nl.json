@@ -161,7 +161,45 @@
       "waiting-for": "Wacht op de beslissing van {{name}}. De actie gebruikt diens rechten.",
       "waiting-for-participant": "Wacht op de beslissing van de deelnemer die deze taak startte.",
       "waiting-for-approver": "Wacht tot een beslisser hierover beslist.",
-      "waiting-for-other-approver": "Jij startte dit werk, dus een andere beslisser beslist hierover."
+      "waiting-for-other-approver": "Jij startte dit werk, dus een andere beslisser beslist hierover.",
+      "give-feedback": "Wat klopte er niet?"
+    },
+    "proposal-feedback": {
+      "legend": "Wat klopte er niet? (optioneel)",
+      "bulk": "Geldt voor de {{count}} voorstellen die je hebt afgewezen.",
+      "categories": {
+        "incorrect": "Onjuist",
+        "wrong-value": "Verkeerde waarde",
+        "not-needed": "Niet nodig",
+        "not-now": "Niet nu",
+        "already-done": "Al gedaan",
+        "not-allowed": "Niet toegestaan",
+        "other": "Anders"
+      },
+      "hints": {
+        "incorrect": "Het voorstel klopt inhoudelijk niet.",
+        "wrong-value": "De juiste actie, met de verkeerde waarden.",
+        "not-needed": "De wijziging is overbodig.",
+        "not-now": "Juist, maar niet op dit moment.",
+        "already-done": "Al gedaan of elders in behandeling.",
+        "not-allowed": "In strijd met beleid, of meer dan de agent mag doen.",
+        "other": "Licht het toe in de tekst hieronder."
+      },
+      "groups": {
+        "wrong": "De agent zat ernaast",
+        "right-but-not-now": "Juist, maar niet nu",
+        "not-allowed": "Niet toegestaan",
+        "other": "Anders"
+      },
+      "text-label": "Nog iets toe te voegen? (optioneel)",
+      "text-hint": "De beheerders van de agent lezen dit om hem te verbeteren.",
+      "characters": "{{count}}/{{max}}",
+      "send": "Versturen",
+      "sending": "Versturen…",
+      "skip": "Overslaan",
+      "cancel": "Annuleren",
+      "thanks": "Bedankt voor je feedback",
+      "partial": "Opgeslagen voor {{stored}} van {{total}} voorstellen; de andere zijn intussen gewijzigd."
     },
     "result-codes": {
       "api-bridge-validation": "Het verzoek was niet geldig.",
@@ -252,6 +290,8 @@
       "assistant-artifact-invalid": "Het bestand is ongeldig of te groot.",
       "assistant-artifact-outside-turn": "Bestanden kunnen alleen worden opgeslagen terwijl de agent werkt.",
       "assistant-artifact-not-found": "Het bestand is niet gevonden.",
+      "assistant-feedback-invalid": "Kies een van de genoemde redenen en houd de toelichting onder de 1.000 tekens.",
+      "assistant-feedback-not-accepted": "Feedback kan pas nadat een voorstel is afgewezen of gesloten.",
       "assistant-consult-subject-unavailable": "Het onderwerp bestaat niet of je mag de agent er niet over raadplegen.",
       "assistant-consult-agent-unavailable": "De agent kan nu niet worden geraadpleegd.",
       "assistant-consult-depth-exceeded": "Deze raadpleging zou agents in een kring of te diep laten vragen.",
@@ -373,7 +413,8 @@
           "propose": "Voorstellen",
           "simulate": "Simuleren",
           "execute": "Uitvoeren"
-        }
+        },
+        "feedback": "Feedback"
       },
       "agent-editor": {
         "new-title": "Nieuwe agent",
@@ -487,6 +528,57 @@
         "missing-warning": "De server biedt deze tool niet meer aan.",
         "save": "Tool opslaan",
         "back": "Terug naar de servers"
+      },
+      "feedback": {
+        "title": "Feedback op voorstellen",
+        "description": "Wat mensen zeiden toen ze voorstellen van deze agent afwezen. Vergelijk agentversies om te zien of een wijziging van de prompt, tools of het beleid hielp.",
+        "agent": "{{name}} ({{id}})",
+        "back": "Terug naar agents",
+        "refresh": "Vernieuwen",
+        "export": "Exporteren (JSON Lines)",
+        "exporting": "Exporteren…",
+        "export-hint": "De export bevat gegevens van onderwerpen en de voorgestelde toolinvoer, en wordt vastgelegd in de auditlog.",
+        "period": "Periode",
+        "periods": {
+          "last-7-days": "Afgelopen 7 dagen",
+          "last-30-days": "Afgelopen 30 dagen",
+          "last-90-days": "Afgelopen 90 dagen"
+        },
+        "tool": "Tool",
+        "all-tools": "Alle tools",
+        "category": "Categorie",
+        "all-categories": "Alle categorieën",
+        "category-hint": "De categorie beperkt de feedback en de export.",
+        "summary-title": "Per tool en agentversie",
+        "summary-empty": "De agent deed in deze periode geen voorstellen.",
+        "columns": {
+          "tool": "Tool",
+          "version": "Agentversie",
+          "approved": "Goedgekeurd",
+          "rejected": "Afgewezen",
+          "expired": "Verlopen",
+          "rejection-rate": "Afwijzingspercentage",
+          "with-feedback": "Afgewezen met feedback",
+          "people": "Personen",
+          "categories": "Meest gekozen"
+        },
+        "version": "v{{version}}",
+        "consultations": "Raadplegingen",
+        "no-decisions": "Nog niet beslist",
+        "no-categories": "Geen",
+        "list-title": "Feedback",
+        "list-count": "{{count}} in totaal",
+        "list-empty": "Niemand gaf in deze periode feedback.",
+        "list-empty-filtered": "Geen feedback past bij deze filters.",
+        "no-text": "Geen toelichting gegeven.",
+        "proposal": "Voorstel:",
+        "author": "Door {{actor}}",
+        "bulk": "In bulk",
+        "bulk-hint": "Eén keer gegeven voor meerdere voorstellen die samen zijn afgewezen; weeg dit lager.",
+        "previous": "Vorige",
+        "next": "Volgende",
+        "page": "Pagina {{page}} van {{pages}}",
+        "pages": "Pagina's"
       }
     },
     "page-context": {
@@ -587,7 +679,6 @@
       "proposal": {
         "approve": "Goedkeuren",
         "reject": "Afwijzen",
-        "reason": "Reden (optioneel)",
         "expires": "Verloopt {{date}}",
         "decided-by": "Besloten door {{actor}}",
         "arguments": "Invoer",
@@ -613,7 +704,11 @@
           "shadow": "Schaduw"
         },
         "from-consultation": "Uit een raadpleging",
-        "from-consultation-hint": "Een andere assistent raadpleegde de agent voor deze persoon; het voorstel draait alleen met de rechten van die persoon."
+        "from-consultation-hint": "Een andere assistent raadpleegde de agent voor deze persoon; het voorstel draait alleen met de rechten van die persoon.",
+        "give-feedback": "Feedback geven",
+        "change-feedback": "Feedback wijzigen",
+        "your-feedback": "Jouw feedback: {{category}}",
+        "rejected-one": "Je hebt afgewezen: {{summary}}"
       },
       "run": {
         "empty": "Nog geen runs.",

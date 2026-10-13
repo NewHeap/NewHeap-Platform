@@ -72,6 +72,13 @@ message into its thread, while the intake reviews page lists who consulted it un
 Consultations. People outside the project get the same answer as for an unknown project.
 A participant can also ask the reviewer to review the project again in a run of its own
 and is notified when it ends.
+After rejecting a proposal, an approver may say what was wrong (SPM-279): a category such
+as `not-now` and a short text, never required and never asked before the decision. The
+next run of the reviewer on that project starts from the rejection and the approver's
+words, so it does not propose the same change again unchanged. Administrators read the
+rejection rate and the categories per tool and agent version and export the feedback as
+JSON Lines; the sample's `SampleProposalFeedbackLog` forwards each feedback to the
+application's analytics without its text.
 
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and

@@ -79,7 +79,9 @@ describe('NhAssistantAgentRunApiService', () => {
       [() => firstValueFrom(api.getInbox({ subjectType: 'project', page: 2, itemsPerPage: 10 })), 'GET', 'approvals/inbox?subjectType=project&page=2&itemsPerPage=10'],
       [() => firstValueFrom(api.decide(proposal, 'approve')), 'POST', 'approvals/approval%201/decisions'],
       [() => firstValueFrom(api.decideMany(['a', 'b'], 'reject')), 'POST', 'approvals/decisions'],
-      [() => firstValueFrom(api.resolve('approval-1', 'mark-resolved')), 'POST', 'approvals/approval-1/resolve']
+      [() => firstValueFrom(api.resolve('approval-1', 'mark-resolved')), 'POST', 'approvals/approval-1/resolve'],
+      [() => firstValueFrom(api.giveFeedback('approval 1', 'not-now')), 'PUT', 'approvals/approval%201/feedback'],
+      [() => firstValueFrom(api.giveFeedbackMany(['a', 'b'], 'incorrect')), 'POST', 'approvals/feedback']
     ];
 
     for (const [call, method, path] of calls) {
@@ -97,6 +99,30 @@ describe('NhAssistantAgentRunApiService', () => {
     await firstValueFrom(api.decide(proposal, 'reject', '  not now  '));
 
     expect(lastCall().body).toEqual({ decision: 'reject', expectedProposalHash: 'hash-1', reason: 'not now' });
+  });
+
+  it('sends feedback with a category and a trimmed text, and null for an empty text', async () => {
+    fetchSpy.and.callFake(() => Promise.resolve(jsonResponse({})));
+
+    await firstValueFrom(api.giveFeedback('approval-1', 'wrong-value', '  The deadline is wrong.  '));
+    expect(lastCall().body).toEqual({ category: 'wrong-value', text: 'The deadline is wrong.' });
+
+    await firstValueFrom(api.giveFeedback('approval-1', 'not-now', '   '));
+    expect(lastCall().body).toEqual({ category: 'not-now', text: null });
+
+    await firstValueFrom(api.giveFeedbackMany(['approval-1', 'approval-2'], 'already-done'));
+    expect(lastCall().body).toEqual({ approvalIds: ['approval-1', 'approval-2'], category: 'already-done', text: null });
+  });
+
+  it('reports refused feedback with its stable code', async () => {
+    fetchSpy.and.callFake(() => Promise.resolve(jsonResponse(
+      { code: 'assistant-feedback-not-accepted', messageKey: 'nh-assistant.errors.assistant-feedback-not-accepted' },
+      409)));
+
+    const failure = await firstValueFrom(api.giveFeedback('approval-1', 'other', 'x')).catch((error: unknown) => error);
+
+    expect((failure as NhAssistantApiError).code).toBe('assistant-feedback-not-accepted');
+    expect((failure as NhAssistantApiError).status).toBe(409);
   });
 
   it('reports a four-eyes refusal with its stable code', async () => {

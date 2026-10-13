@@ -3,6 +3,11 @@ import { Observable } from 'rxjs';
 import {
   AdminAgent,
   AdminAgentInput,
+  AgentFeedbackExportFilter,
+  AgentFeedbackFilter,
+  AgentFeedbackList,
+  AgentFeedbackListFilter,
+  AgentFeedbackSummary,
   ApplicationContext,
   ApplicationContextVersion,
   McpServer,
@@ -15,7 +20,13 @@ import {
   UpdateMcpToolRequest
 } from '../models/assistant-admin.models';
 import { NhAssistantClientErrorCodes } from '../models/assistant-sse.models';
-import { NhAssistantStatusCodes, NhAssistantTransport } from './nh-assistant-transport';
+import {
+  NhAssistantApiError,
+  NhAssistantStatusCodes,
+  NhAssistantTransport,
+  nhAssistantCodeForStatus,
+  nhAssistantErrorMessageKey
+} from './nh-assistant-transport';
 
 /** In the admin endpoints a 409 means a stale `expectedVersion` or a forbidden state change. */
 const adminStatusCodes: NhAssistantStatusCodes = {
@@ -107,7 +118,58 @@ export class NhAssistantAdminApiService {
     return this.request<McpTool>('PUT', path, request);
   }
 
+  /**
+   * The agent's proposals per tool and agent version in the period: decisions, the rejection rate,
+   * feedback per category and the number of different people who gave it.
+   */
+  getAgentFeedbackSummary(agentId: string, filter: AgentFeedbackFilter = {}): Observable<AgentFeedbackSummary> {
+    return this.request<AgentFeedbackSummary>('GET', withQuery(`${feedbackPath(agentId)}/summary`, filter));
+  }
+
+  /** The feedback on the agent's proposals with the proposal as approvers read it, newest change first. */
+  getAgentFeedback(agentId: string, filter: AgentFeedbackListFilter = {}): Observable<AgentFeedbackList> {
+    return this.request<AgentFeedbackList>('GET', withQuery(feedbackPath(agentId), filter));
+  }
+
+  /**
+   * Downloads the feedback as JSON Lines with the tool input of each proposal. The file holds
+   * subject data and the server audits the export. Rejects with `NhAssistantApiError`.
+   */
+  async exportAgentFeedback(agentId: string, filter: AgentFeedbackExportFilter = {}): Promise<Blob> {
+    const path = withQuery(`${feedbackPath(agentId)}/export`, filter);
+    let response: Response;
+    try {
+      response = await this.transport.fetch('GET', path, 'application/x-ndjson', undefined, new AbortController().signal);
+    } catch {
+      const code = nhAssistantCodeForStatus(0);
+      throw new NhAssistantApiError(0, code, nhAssistantErrorMessageKey(code));
+    }
+
+    if (!response.ok) {
+      const code = await this.transport.failureCode(response, adminStatusCodes);
+      throw new NhAssistantApiError(response.status, code, nhAssistantErrorMessageKey(code));
+    }
+    return response.blob();
+  }
+
   private request<T>(method: string, path: string, body?: unknown): Observable<T> {
     return this.transport.json<T>(method, path, body, adminStatusCodes);
   }
+}
+
+function feedbackPath(agentId: string): string {
+  return `admin/agents/${encodeURIComponent(agentId)}/feedback`;
+}
+
+/** Appends the filter values that are set as query parameters. */
+function withQuery(path: string, filter: object): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(filter)) {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, String(value));
+    }
+  }
+
+  const suffix = query.toString();
+  return suffix ? `${path}?${suffix}` : path;
 }

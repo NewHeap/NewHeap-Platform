@@ -1,15 +1,25 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideTranslateService } from '@ngx-translate/core';
 import {
   NhAssistantAgentConsultationsComponent,
+  NhAssistantAgentInboxComponent,
   NhAssistantAgentProposalsComponent,
   NhAssistantAgentThreadViewComponent
 } from '@newheap/platform-ai-chat/agent-runs';
-import { of } from 'rxjs';
-import { AgentConsultation, AgentProposal, AgentThread, AgentThreadLookup } from '../models/assistant-agent-run.models';
+import { Subject, of } from 'rxjs';
+import {
+  AgentConsultation,
+  AgentInbox,
+  AgentProposal,
+  AgentProposalFeedback,
+  AgentThread,
+  AgentThreadLookup
+} from '../models/assistant-agent-run.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAgentRunApiService } from '../services/nh-assistant-agent-run-api.service';
+import { NhAssistantProposalFeedbackComponent } from './proposal-feedback/nh-assistant-proposal-feedback.component';
 
 function proposal(status: AgentProposal['status'], id = 'approval-1'): AgentProposal {
   return {
@@ -59,13 +69,30 @@ function thread(activeRun: AgentThread['activeRun']): AgentThread {
 @Component({
   standalone: true,
   imports: [NhAssistantAgentProposalsComponent],
-  template: `<nh-assistant-agent-proposals [proposals]="proposals()" [canDecide]="canDecide()" (changed)="changes = changes + 1" />`
+  template: `
+    <nh-assistant-agent-proposals
+      [proposals]="proposals()"
+      [canDecide]="canDecide()"
+      [selectable]="selectable()"
+      (changed)="changes = changes + 1" />
+  `
 })
 class ProposalsHostComponent {
   readonly proposals = signal<AgentProposal[]>([]);
   readonly canDecide = signal(false);
+  readonly selectable = signal(false);
   changes = 0;
 }
+
+const ownFeedback: AgentProposalFeedback = {
+  approvalId: 'approval-1',
+  category: 'not-now',
+  group: 'right-but-not-now',
+  text: 'After the review',
+  bulk: false,
+  createdAt: '2026-10-13T11:00:00Z',
+  updatedAt: '2026-10-13T11:00:00Z'
+};
 
 @Component({
   standalone: true,
@@ -115,12 +142,15 @@ describe('agent-run components', () => {
   beforeEach(() => {
     api = jasmine.createSpyObj<NhAssistantAgentRunApiService>('NhAssistantAgentRunApiService', [
       'getThread',
+      'getInbox',
       'getProposals',
       'getConsultations',
       'startAgent',
       'decide',
       'decideMany',
-      'resolve'
+      'resolve',
+      'giveFeedback',
+      'giveFeedbackMany'
     ]);
     TestBed.configureTestingModule({
       providers: [
@@ -190,7 +220,7 @@ describe('agent-run components', () => {
       button(fixture, 'proposal.approve')!.click();
       fixture.detectChanges();
 
-      expect(api.decide).toHaveBeenCalledOnceWith(pending, 'approve', '');
+      expect(api.decide).toHaveBeenCalledOnceWith(pending, 'approve');
       expect(fixture.componentInstance.changes).toBe(1);
     });
 
@@ -204,7 +234,136 @@ describe('agent-run components', () => {
       expect(button(fixture, 'proposal.approve')).toBeUndefined();
       button(fixture, 'proposal.mark-resolved')!.click();
 
-      expect(api.resolve).toHaveBeenCalledOnceWith('approval-1', 'mark-resolved', '');
+      expect(api.resolve).toHaveBeenCalledOnceWith('approval-1', 'mark-resolved');
+    });
+
+    function feedbackPanels(): NhAssistantProposalFeedbackComponent[] {
+      return fixture.debugElement
+        .queryAll(By.directive(NhAssistantProposalFeedbackComponent))
+        .map(debug => debug.componentInstance as NhAssistantProposalFeedbackComponent);
+    }
+
+    it('decides in one action and asks what was wrong after a rejection, also once the list drops it', () => {
+      const pending = proposal('pending');
+      api.decide.and.returnValue(of({ ...pending, status: 'rejected', canGiveFeedback: true }));
+      fixture.componentInstance.proposals.set([pending]);
+      fixture.componentInstance.canDecide.set(true);
+      fixture.detectChanges();
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.querySelector('input[type="text"]')).toBeNull();
+      expect(feedbackPanels().length).toBe(0);
+
+      button(fixture, 'proposal.reject')!.click();
+      fixture.detectChanges();
+
+      expect(api.decide).toHaveBeenCalledOnceWith(pending, 'reject');
+      expect(feedbackPanels().map(panel => panel.approvalIds())).toEqual([['approval-1']]);
+      expect(element.querySelector('.feedback-prompt nh-assistant-proposal-feedback')).not.toBeNull();
+
+      // The inbox reloads without the rejected proposal; the question stays.
+      fixture.componentInstance.proposals.set([]);
+      fixture.detectChanges();
+      expect(feedbackPanels().length).toBe(1);
+
+      Array.from(element.querySelectorAll('button')).find(item => item.textContent?.includes('proposal-feedback.skip'))!.click();
+      fixture.detectChanges();
+      expect(feedbackPanels().length).toBe(0);
+    });
+
+    it('does not ask after an approval', () => {
+      const pending = proposal('pending');
+      api.decide.and.returnValue(of({ ...pending, status: 'approved', canGiveFeedback: false }));
+      fixture.componentInstance.proposals.set([pending]);
+      fixture.componentInstance.canDecide.set(true);
+      fixture.detectChanges();
+
+      button(fixture, 'proposal.approve')!.click();
+      fixture.detectChanges();
+
+      expect(feedbackPanels().length).toBe(0);
+    });
+
+    it('asks once for proposals rejected together', () => {
+      api.decideMany.and.returnValue(of({
+        results: [
+          { approvalId: 'approval-1', succeeded: true, code: null, status: 'rejected' },
+          { approvalId: 'approval-2', succeeded: true, code: null, status: 'rejected' },
+          { approvalId: 'approval-3', succeeded: false, code: 'assistant-approval-not-pending', status: null }
+        ]
+      }));
+      fixture.componentInstance.proposals.set([proposal('pending', 'approval-1'), proposal('pending', 'approval-2'), proposal('pending', 'approval-3')]);
+      fixture.componentInstance.canDecide.set(true);
+      fixture.componentInstance.selectable.set(true);
+      fixture.detectChanges();
+
+      ((fixture.nativeElement as HTMLElement).querySelector('.toolbar input[type="checkbox"]') as HTMLInputElement).click();
+      fixture.detectChanges();
+      button(fixture, 'inbox.reject-selected')!.click();
+      fixture.detectChanges();
+
+      expect(api.decideMany).toHaveBeenCalledOnceWith(['approval-1', 'approval-2', 'approval-3'], 'reject');
+      expect(feedbackPanels().map(panel => panel.approvalIds())).toEqual([['approval-1', 'approval-2']]);
+    });
+
+    it('offers to change the caller\'s own feedback on a closed proposal and reports the change', () => {
+      api.giveFeedback.and.returnValue(of({ ...ownFeedback, category: 'already-done' }));
+      fixture.componentInstance.proposals.set([{ ...proposal('rejected'), canGiveFeedback: true, feedback: ownFeedback }]);
+      fixture.detectChanges();
+      const card = (fixture.nativeElement as HTMLElement).querySelector('li.card') as HTMLElement;
+      expect(card.querySelector('.meta')!.textContent).toContain('proposal.your-feedback');
+      expect(button(fixture, 'proposal.give-feedback')).toBeUndefined();
+
+      button(fixture, 'proposal.change-feedback')!.click();
+      fixture.detectChanges();
+
+      expect(card.querySelector('nh-assistant-proposal-feedback')).not.toBeNull();
+      expect(feedbackPanels()[0].initial()).toEqual(ownFeedback);
+      expect(button(fixture, 'proposal.change-feedback')).toBeUndefined();
+
+      (card.querySelector('input[value="already-done"]') as HTMLInputElement).click();
+      fixture.detectChanges();
+      (card.querySelector('button[type="submit"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(api.giveFeedback).toHaveBeenCalledOnceWith('approval-1', 'already-done', 'After the review');
+      expect(fixture.componentInstance.changes).toBe(1);
+      expect(card.querySelector('[role="status"]')!.textContent).toContain('proposal-feedback.thanks');
+    });
+
+    it('offers feedback on closed proposals only when the server allows it', () => {
+      fixture.componentInstance.proposals.set([proposal('rejected'), { ...proposal('expired', 'approval-2'), canGiveFeedback: true }]);
+      fixture.detectChanges();
+
+      const cards = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li.card'));
+      expect(cards[0].textContent).not.toContain('proposal.give-feedback');
+      expect(cards[1].textContent).toContain('proposal.give-feedback');
+    });
+  });
+
+  describe('nh-assistant-agent-inbox', () => {
+    it('keeps the feedback question after the rejected proposal left the inbox', () => {
+      const pending = proposal('pending');
+      const refreshing = new Subject<AgentInbox>();
+      api.getInbox.and.returnValues(of({ items: [pending], total: 1 }), of({ items: [], total: 0 }), refreshing);
+      api.decide.and.returnValue(of({ ...pending, status: 'rejected', canGiveFeedback: true }));
+      const fixture = TestBed.createComponent(NhAssistantAgentInboxComponent);
+      fixture.detectChanges();
+
+      button(fixture, 'proposal.reject')!.click();
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      expect(api.getInbox).toHaveBeenCalledTimes(2);
+      expect(element.querySelector('li.card')).toBeNull();
+      expect(element.textContent).toContain('inbox.empty');
+      expect(element.querySelector('.feedback-prompt nh-assistant-proposal-feedback')).not.toBeNull();
+
+      button(fixture, 'agent-runs.refresh')!.click();
+      fixture.detectChanges();
+      // While the inbox reloads, the open question stays in place instead of a loading state.
+      expect(api.getInbox).toHaveBeenCalledTimes(3);
+      expect(element.querySelector('.feedback-prompt nh-assistant-proposal-feedback')).not.toBeNull();
+      expect(element.querySelector('[role="status"].state')).toBeNull();
     });
   });
 

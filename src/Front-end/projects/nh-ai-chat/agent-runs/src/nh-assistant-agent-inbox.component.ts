@@ -11,7 +11,8 @@ import { NhAssistantAgentProposalsComponent } from './nh-assistant-agent-proposa
 /**
  * The approval inbox: pending agent proposals across subjects that the signed-in person may
  * decide, earliest expiry first. Proposals are decided in place, one by one or together; the
- * server checks each decision against the proposal's approval policy again.
+ * server checks each decision against the proposal's approval policy again. After a rejection the
+ * inbox asks, optionally, what was wrong, also when the rejected proposals have left the list.
  */
 @Component({
   selector: 'nh-assistant-agent-inbox',
@@ -33,6 +34,8 @@ export class NhAssistantAgentInboxComponent {
 
   readonly page = signal(1);
   readonly loading = signal(true);
+  /** True after the first successful load; later loads keep the list, and an open feedback question, in place. */
+  readonly loaded = signal(false);
   readonly loadFailed = signal(false);
   readonly items = signal<AgentProposal[]>([]);
   readonly total = signal(0);
@@ -66,6 +69,7 @@ export class NhAssistantAgentInboxComponent {
           this.items.set(inbox.items);
           this.total.set(inbox.total);
           this.loading.set(false);
+          this.loaded.set(true);
         },
         error: () => {
           this.loading.set(false);

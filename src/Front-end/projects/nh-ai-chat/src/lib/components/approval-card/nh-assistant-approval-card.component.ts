@@ -1,16 +1,21 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   computed,
   effect,
   input,
   output,
-  signal
+  signal,
+  viewChild
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ApprovalDecision, ApprovalPart } from '../../models/assistant-api.models';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import type { NhAssistantApprovalWaitingFor } from '../../services/nh-assistant.store';
+import { NhAssistantProposalFeedbackComponent } from '../proposal-feedback/nh-assistant-proposal-feedback.component';
+
+let nextId = 0;
 
 /** Formats remaining milliseconds as `m:ss`, or `h:mm:ss` above one hour. */
 export function formatNhAssistantCountdown(milliseconds: number): string {
@@ -28,12 +33,13 @@ export function formatNhAssistantCountdown(milliseconds: number): string {
 /**
  * Asks the user to approve or reject a proposed mutation. Shows the summary, targets,
  * proposed arguments and a countdown to expiry. A decision is emitted at most once until
- * the host reports that it is no longer deciding.
+ * the host reports that it is no longer deciding. After the user rejected an agent's proposal
+ * (`canGiveFeedback`), a low-key action asks what was wrong.
  */
 @Component({
   selector: 'nh-assistant-approval-card',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantIconComponent],
+  imports: [TranslatePipe, NhAssistantIconComponent, NhAssistantProposalFeedbackComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-approval-card.component.html',
   styleUrl: './nh-assistant-approval-card.component.scss',
@@ -58,10 +64,20 @@ export class NhAssistantApprovalCardComponent {
    * user started the work (`other-approver`).
    */
   readonly waitingFor = input<NhAssistantApprovalWaitingFor>('turn');
+  /**
+   * True when the current user rejected this agent proposal and may say what was wrong, for example
+   * from `NhAssistantStore.approvalRights`. Chat approvals never offer feedback.
+   */
+  readonly canGiveFeedback = input(false);
   readonly decide = output<ApprovalDecision>();
 
   private readonly now = signal(Date.now());
   private readonly submitted = signal(false);
+  /** The feedback question is expanded. */
+  readonly feedbackOpen = signal(false);
+  /** The feedback was stored; the question thanks the person and the action disappears. */
+  readonly feedbackSaved = signal(false);
+  private readonly feedbackToggle = viewChild<ElementRef<HTMLButtonElement>>('feedbackToggle');
 
   readonly remainingMs = computed(() => Date.parse(this.approval().expiresAt) - this.now());
   readonly expired = computed(() => this.approval().status === 'expired' ||
@@ -73,6 +89,9 @@ export class NhAssistantApprovalCardComponent {
   readonly disabled = computed(() => !this.actionable() || !this.canDecide() || this.deciding() || this.submitted());
   readonly countdown = computed(() => formatNhAssistantCountdown(this.remainingMs()));
   readonly presentedSummary = computed(() => this.approval().presentation?.summary ?? null);
+  readonly feedbackAvailable = computed(() => this.canGiveFeedback() && this.effectiveStatus() === 'rejected');
+  readonly feedbackIds = computed(() => [this.approval().approvalId]);
+  readonly feedbackPanelId = `nh-assistant-approval-feedback-${nextId++}`;
   /** Translation key of the text shown instead of the buttons when the current user cannot decide. */
   readonly waitingKey = computed(() => {
     switch (this.waitingFor()) {
@@ -117,5 +136,19 @@ export class NhAssistantApprovalCardComponent {
 
     this.submitted.set(true);
     this.decide.emit(decision);
+  }
+
+  toggleFeedback(): void {
+    this.feedbackOpen.update(open => !open);
+  }
+
+  onFeedbackSaved(): void {
+    this.feedbackSaved.set(true);
+  }
+
+  /** Collapses the question and returns focus to the action that opened it. */
+  onFeedbackDismissed(): void {
+    this.feedbackOpen.set(false);
+    this.feedbackToggle()?.nativeElement.focus();
   }
 }

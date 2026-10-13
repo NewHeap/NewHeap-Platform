@@ -64,6 +64,9 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-artifact-invalid',
   'assistant-artifact-outside-turn',
   'assistant-artifact-not-found',
+  // Feedback on proposals
+  'assistant-feedback-invalid',
+  'assistant-feedback-not-accepted',
   // Consultations of other agents
   'assistant-consult-subject-unavailable',
   'assistant-consult-agent-unavailable',

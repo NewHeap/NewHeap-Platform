@@ -1,0 +1,71 @@
+@if (done()) {
+  <div class="feedback done" role="status" tabindex="-1" #thanks>
+    <p class="thanks"><nh-assistant-icon name="check" />{{ 'nh-assistant.proposal-feedback.thanks' | translate }}</p>
+    @if (partial(); as stored) {
+      <p class="scope">{{ 'nh-assistant.proposal-feedback.partial' | translate: { stored: stored.stored, total: stored.total } }}</p>
+    }
+  </div>
+} @else {
+  <form class="feedback" [attr.aria-busy]="busy()" (submit)="$event.preventDefault(); send()">
+    <fieldset class="categories" [disabled]="busy()">
+      <legend>{{ 'nh-assistant.proposal-feedback.legend' | translate }}</legend>
+      @if (count() > 1) {
+        <p class="scope">{{ 'nh-assistant.proposal-feedback.bulk' | translate: { count: count() } }}</p>
+      }
+      <div class="chips">
+        @for (option of categories; track option) {
+          <label class="chip" [class.selected]="category() === option">
+            <input
+              type="radio"
+              [name]="id + '-category'"
+              [value]="option"
+              [checked]="category() === option"
+              [attr.aria-describedby]="id + '-hint-' + option"
+              (change)="choose(option)" />
+            @if (category() === option) {
+              <nh-assistant-icon name="check" />
+            }
+            <span>{{ 'nh-assistant.proposal-feedback.categories.' + option | translate }}</span>
+          </label>
+        }
+      </div>
+      @for (option of categories; track option) {
+        <span class="visually-hidden" [id]="id + '-hint-' + option">{{ 'nh-assistant.proposal-feedback.hints.' + option | translate }}</span>
+      }
+      @if (category(); as selected) {
+        <p class="selected-hint" aria-hidden="true">{{ 'nh-assistant.proposal-feedback.hints.' + selected | translate }}</p>
+      }
+
+      <div class="field">
+        <label [for]="id + '-text'">{{ 'nh-assistant.proposal-feedback.text-label' | translate }}</label>
+        <textarea
+          rows="2"
+          [id]="id + '-text'"
+          [attr.maxlength]="maxText"
+          [value]="text()"
+          [attr.aria-describedby]="id + '-text-hint'"
+          [attr.aria-invalid]="tooLong() ? true : null"
+          (input)="onText($event)"></textarea>
+        <p class="hint" [id]="id + '-text-hint'">
+          <span>{{ 'nh-assistant.proposal-feedback.text-hint' | translate }}</span>
+          <span class="counter" [class.error-text]="tooLong()">
+            {{ 'nh-assistant.proposal-feedback.characters' | translate: { count: textLength(), max: maxText } }}
+          </span>
+        </p>
+      </div>
+    </fieldset>
+
+    @if (error(); as failure) {
+      <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+    }
+
+    <div class="actions">
+      <button class="text-button" type="button" (click)="dismiss()">
+        {{ (initial() ? 'nh-assistant.proposal-feedback.cancel' : 'nh-assistant.proposal-feedback.skip') | translate }}
+      </button>
+      <button class="primary" type="submit" [disabled]="!canSend()">
+        {{ (busy() ? 'nh-assistant.proposal-feedback.sending' : 'nh-assistant.proposal-feedback.send') | translate }}
+      </button>
+    </div>
+  </form>
+}

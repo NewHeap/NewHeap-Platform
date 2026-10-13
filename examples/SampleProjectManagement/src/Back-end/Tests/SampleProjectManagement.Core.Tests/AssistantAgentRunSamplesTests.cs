@@ -511,6 +511,105 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         }
     }
 
+    [Fact]
+    public async Task An_approver_explains_a_rejection_that_the_next_run_and_the_administrators_report_see()
+    {
+        // SPM-279
+        var project = await host.CreateProjectAsync("FEEDBACK", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        using var outsider = host.CreateClient(host.OutsiderId.ToString());
+        using var administrator = host.CreateClient(host.OwnerId.ToString(), admin: true);
+        var created = Assert.Single(await host.PublishProjectCreatedAsync(project, createdBy: host.OwnerId));
+        var conversationId = created.ConversationId!.Value;
+        var proposal = await WaitForProposalAsync(owner, conversationId, NhAssistantApprovalStatuses.Pending);
+        await WaitForRunCountAsync(owner, conversationId, 1);
+
+        // Rejecting stays one decision; afterwards the approver may say what was wrong.
+        var rejection = await DecideAsync(colleague, proposal, "reject");
+        Assert.Equal(HttpStatusCode.OK, rejection.StatusCode);
+        var rejected = (await rejection.Content.ReadFromJsonAsync<NhAssistantProposalDto>(Json))!;
+        Assert.Equal(NhAssistantApprovalStatuses.Rejected, rejected.Status);
+        Assert.True(rejected.CanGiveFeedback);
+
+        var feedbackPath = $"/api/assistant/approvals/{proposal.ApprovalId}/feedback";
+        var request = new NhAssistantProposalFeedbackRequest(
+            NhAssistantProposalFeedbackCategories.NotNow,
+            "Wait for the budget review before activating.");
+        Assert.Equal(HttpStatusCode.NotFound, (await outsider.PutAsJsonAsync(feedbackPath, request, Json)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await participant.PutAsJsonAsync(feedbackPath, request, Json)).StatusCode);
+        var given = await colleague.PutAsJsonAsync(feedbackPath, request, Json);
+        Assert.Equal(HttpStatusCode.OK, given.StatusCode);
+        var feedback = (await given.Content.ReadFromJsonAsync<NhAssistantProposalFeedbackDto>(Json))!;
+        Assert.Equal(NhAssistantProposalFeedbackGroups.RightButNotNow, feedback.Group);
+
+        // Each person sees their own feedback on the proposal; others see none.
+        var colleagueView = Assert.Single(
+            (await colleague.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{conversationId}/proposals", Json))!,
+            item => item.ApprovalId == proposal.ApprovalId);
+        Assert.Equal(NhAssistantProposalFeedbackCategories.NotNow, colleagueView.Feedback!.Category);
+        var participantView = Assert.Single(
+            (await participant.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{conversationId}/proposals", Json))!,
+            item => item.ApprovalId == proposal.ApprovalId);
+        Assert.Null(participantView.Feedback);
+        Assert.False(participantView.CanGiveFeedback);
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            Assert.Contains(
+                scope.ServiceProvider.GetServices<INhAssistantProposalFeedbackSink>(),
+                sink => sink is SampleProposalFeedbackLog);
+        }
+
+        // The next run on the project starts from the rejection and the approver's words.
+        var model = new NhAiScriptedChatClient().RespondWithText("The budget review is still open, so I propose nothing yet.");
+        host.Model.Use(model);
+        try
+        {
+            var restart = await participant.PostAsJsonAsync(
+                "/api/assistant/threads/start",
+                new NhAssistantStartAgentRequest(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type, project.ToString("D"), "Check the project again."),
+                Json);
+            Assert.Equal(HttpStatusCode.Accepted, restart.StatusCode);
+            await WaitForRunCountAsync(owner, conversationId, 2);
+            var continuity = model.Requests[^1].Messages
+                .Select(message => message.Text)
+                .Single(text => text.Contains("<agent-continuity>", StringComparison.Ordinal));
+            Assert.Contains("<rejected-proposals>", continuity);
+            Assert.Contains("not-now (right-but-not-now): \"Wait for the budget review before activating.\"", continuity);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+        }
+
+        // Administrators read the rejection rate and the feedback per tool and agent version.
+        var reportPath = $"/api/assistant/admin/agents/{SampleIntakeReviewerComposition.AgentId}/feedback";
+        Assert.Equal(HttpStatusCode.Forbidden, (await colleague.GetAsync(reportPath + "/summary")).StatusCode);
+        var summary = (await administrator.GetFromJsonAsync<NhAssistantFeedbackSummaryDto>(reportPath + "/summary", Json))!;
+        Assert.Contains(summary.Rows, row => row.ToolId == ProjectAiTools.ChangeStatusToolId
+            && row.Rejected > 0
+            && row.RejectionRate is > 0
+            && row.RejectedWithFeedback >= 1
+            && row.Categories.Any(category => category.Category == NhAssistantProposalFeedbackCategories.NotNow));
+        var list = (await administrator.GetFromJsonAsync<NhAssistantFeedbackListDto>(reportPath + "?category=not-now", Json))!;
+        var listed = Assert.Single(list.Items, entry => entry.ApprovalId == proposal.ApprovalId);
+        Assert.Equal("Wait for the budget review before activating.", listed.Text);
+        Assert.Equal(host.ColleagueId.ToString(), listed.AuthorActorId);
+        Assert.NotNull(listed.Presentation);
+
+        using var export = await administrator.GetAsync(reportPath + "/export");
+        Assert.Equal(HttpStatusCode.OK, export.StatusCode);
+        Assert.Equal("application/x-ndjson", export.Content.Headers.ContentType?.MediaType);
+        var exported = (await export.Content.ReadAsStringAsync())
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => JsonSerializer.Deserialize<NhAssistantFeedbackExportRecord>(line, Json)!)
+            .Single(record => record.Feedback.ApprovalId == proposal.ApprovalId);
+        Assert.Contains(project.ToString("D"), exported.Arguments.GetRawText(), StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
     /// Waits until the thread has at least <paramref name="count"/> runs and every run has ended.
     /// </summary>

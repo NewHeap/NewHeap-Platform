@@ -77,4 +77,26 @@
   } @else if (expired()) {
     <p class="expiry">{{ 'nh-assistant.approval.expired' | translate }}</p>
   }
+
+  @if (feedbackAvailable()) {
+    @if (!feedbackSaved()) {
+      <button
+        #feedbackToggle
+        class="feedback-toggle"
+        type="button"
+        [attr.aria-expanded]="feedbackOpen()"
+        [attr.aria-controls]="feedbackOpen() ? feedbackPanelId : null"
+        (click)="toggleFeedback()">
+        {{ 'nh-assistant.approval.give-feedback' | translate }}
+      </button>
+    }
+    @if (feedbackOpen()) {
+      <nh-assistant-proposal-feedback
+        class="feedback"
+        [attr.id]="feedbackPanelId"
+        [approvalIds]="feedbackIds()"
+        (saved)="onFeedbackSaved()"
+        (dismissed)="onFeedbackDismissed()" />
+    }
+  }
 </section>

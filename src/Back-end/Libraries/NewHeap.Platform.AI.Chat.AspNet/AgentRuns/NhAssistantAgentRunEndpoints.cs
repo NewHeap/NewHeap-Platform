@@ -283,7 +283,8 @@ internal static class NhAssistantAgentRunEndpoints
         Guid id,
         HttpContext httpContext,
         NhAssistantThreadService threads,
-        NhAssistantRunStore runs)
+        NhAssistantRunStore runs,
+        NhAssistantProposalFeedbackStore feedback)
     {
         var access = await ResolveThreadAsync(httpContext, id, threads, NhAiSubjectRole.Reader);
         if (access.Error is not null)
@@ -293,10 +294,23 @@ internal static class NhAssistantAgentRunEndpoints
 
         var approvals = await runs.GetThreadApprovalsAsync(id, 200, httpContext.RequestAborted);
         var thread = access.Access!.Thread;
+        var actorId = access.ActorId!;
+        var role = access.Access.Role;
+        // Each person sees their own feedback; administrators read everyone's in the report.
+        var ownFeedback = await feedback.FindByAuthorAsync(
+            approvals.Select(approval => approval.Id).ToArray(),
+            actorId,
+            httpContext.RequestAborted);
         return TypedResults.Json(
             approvals
                 .OrderByDescending(approval => approval.CreatedAt)
-                .Select(approval => NhAssistantAgentRunDtoMapper.ToDto(approval, thread))
+                .Select(approval => NhAssistantAgentRunDtoMapper.ToDto(approval, thread) with
+                {
+                    Feedback = ownFeedback.TryGetValue(approval.Id, out var given)
+                        ? NhAssistantAgentRunDtoMapper.ToDto(given)
+                        : null,
+                    CanGiveFeedback = NhAssistantProposalFeedbackService.MayGiveFeedback(approval, role, actorId)
+                })
                 .ToArray(),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalDtoArray);
     }
@@ -565,7 +579,7 @@ internal static class NhAssistantAgentRunEndpoints
             request.ExpectedProposalHash,
             request.Reason,
             httpContext.RequestAborted);
-        return await ProposalResultAsync(decided, runs, httpContext.RequestAborted);
+        return await ProposalResultAsync(decided, caller.Data.ActorId, runs, httpContext.RequestAborted);
     }
 
     private static async Task<IResult> DecideManyAsync(
@@ -636,7 +650,7 @@ internal static class NhAssistantAgentRunEndpoints
             request.Action == "re-execute",
             request.Reason,
             httpContext.RequestAborted);
-        return await ProposalResultAsync(resolved, runs, httpContext.RequestAborted);
+        return await ProposalResultAsync(resolved, caller.Data.ActorId, runs, httpContext.RequestAborted);
     }
 
     /// <summary>
@@ -702,8 +716,12 @@ internal static class NhAssistantAgentRunEndpoints
         return true;
     }
 
+    /// <summary>
+    /// The decided proposal as its decider sees it: after a rejection they may say what was wrong.
+    /// </summary>
     private static async Task<IResult> ProposalResultAsync(
         NewHeap.Platform.Common.Models.TaskResult<Entities.AssistantApproval> result,
+        string actorId,
         NhAssistantRunStore runs,
         CancellationToken cancellationToken)
     {
@@ -726,7 +744,11 @@ internal static class NhAssistantAgentRunEndpoints
         var approval = result.Data!;
         var thread = await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
         return TypedResults.Json(
-            NhAssistantAgentRunDtoMapper.ToDto(approval, thread!),
+            NhAssistantAgentRunDtoMapper.ToDto(approval, thread!) with
+            {
+                CanGiveFeedback = NhAssistantApprovalStatuses.AcceptsFeedback(approval.Status)
+                    && string.Equals(approval.DecidedByActorId, actorId, StringComparison.Ordinal)
+            },
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalDto);
     }
 

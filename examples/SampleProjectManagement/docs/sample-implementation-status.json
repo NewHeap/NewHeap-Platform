@@ -274,7 +274,8 @@
     "SPM-275",
     "SPM-276",
     "SPM-277",
-    "SPM-278"
+    "SPM-278",
+    "SPM-279"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2110,6 +2111,29 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts",
       "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html",
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-consultations.component.html"
+    ],
+    "SPM-279": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantProposalFeedbackStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjectMemory.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalFeedbackService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalFeedbackEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261013185935_AgentProposalFeedback.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261013185944_AgentProposalFeedback.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantProposalFeedbackTests.cs",
+      "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts",
+      "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/proposal-feedback/nh-assistant-proposal-feedback.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/proposal-feedback/nh-assistant-proposal-feedback.component.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-proposals.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-feedback-report.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-feedback-report.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-agent-run-api.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts"
     ]
   }
 }

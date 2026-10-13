@@ -68,6 +68,10 @@ public static class SampleIntakeReviewerComposition
                 // An edit after the proposal closes it as stale instead of executing it.
                 .RequireUnchangedSubject()
                 .BindTo(NhAiApprovalBinding.ToolContract))
+            // SPM-279: approvers may say why they rejected a proposal. The next run on the project
+            // starts from those rejections, administrators read the report, and this sink forwards
+            // each feedback to the application's own analytics.
+            .AddProposalFeedbackSink<SampleProposalFeedbackLog>()
             .ConfigureAgent(AgentId, agent => agent
                 .Grant(ProjectAiTools.ChangeStatusToolId, ProjectAiReviewTools.RequestReviewToolId, ProjectAiReviewTools.DraftIntakeNoteToolId)
                 .TriggerOnly()

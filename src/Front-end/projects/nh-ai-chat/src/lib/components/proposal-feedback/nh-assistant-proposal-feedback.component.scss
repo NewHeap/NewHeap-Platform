@@ -1,0 +1,134 @@
+@use '../../styles/tokens';
+@use '../../styles/forms';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  min-width: 0;
+  color: var(--nha-text);
+  font-family: var(--nha-font);
+  font-size: 13px;
+  @include forms.controls;
+}
+
+// A calm inline panel: it follows a decision and must never look like a second decision.
+.feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 10px 12px;
+  background: var(--nha-surface);
+}
+
+.feedback.done {
+  gap: 4px;
+  @include tokens.focus-ring;
+}
+
+.categories {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  max-width: 100%;
+  border: 1px solid var(--nha-border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  color: var(--nha-text);
+  background: var(--nha-background);
+  font-size: 12px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--nha-surface-strong);
+  }
+
+  &.selected {
+    border-color: var(--nha-highlight);
+    box-shadow: inset 0 0 0 1px var(--nha-highlight);
+  }
+
+  &:has(input:focus-visible) {
+    outline: 3px solid color-mix(in srgb, var(--nha-focus) 80%, transparent);
+    outline-offset: 2px;
+  }
+
+  input {
+    @include tokens.visually-hidden;
+  }
+
+  nh-assistant-icon {
+    color: var(--nha-highlight);
+  }
+}
+
+fieldset:disabled .chip {
+  cursor: not-allowed;
+  opacity: .6;
+}
+
+.scope,
+.selected-hint {
+  margin: 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+}
+
+.thanks {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+
+  nh-assistant-icon {
+    color: var(--nha-success);
+  }
+}
+
+textarea {
+  min-height: 56px;
+}
+
+.text-button {
+  min-height: 36px;
+  border: 0;
+  border-radius: var(--nha-radius-control);
+  padding: 6px 10px;
+  color: var(--nha-text-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  @include tokens.focus-ring;
+
+  &:hover:not(:disabled) {
+    color: var(--nha-text);
+    background: var(--nha-surface-strong);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+  }
+}

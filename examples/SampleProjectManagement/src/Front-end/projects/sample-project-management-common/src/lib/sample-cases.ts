@@ -4072,5 +4072,36 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html",
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-consultations.component.html"
     ]
+  },
+  {
+    "id": "SPM-279",
+    "title": "Approvers explain rejected agent proposals and administrators review the feedback",
+    "category": "AI tools and generated catalogs",
+    "surface": "PUT approvals/{approvalId}/feedback and POST approvals/feedback with NhAssistantProposalFeedbackRequest, NhAssistantBulkProposalFeedbackRequest, NhAssistantProposalFeedbackDto and NhAssistantBulkProposalFeedbackDto; NhAssistantProposalDto.Feedback and CanGiveFeedback; NhAssistantProposalFeedbackCategories, NhAssistantProposalFeedbackGroups and NhAssistantFeedbackTargetKinds; NhAssistantLimits.MaxRejectionsInContext, RejectionContextWindow and MaxFeedbackCharacters; the <rejected-proposals> part of the agent continuity block; GET admin/agents/{id}/feedback/summary, GET admin/agents/{id}/feedback and GET admin/agents/{id}/feedback/export with NhAssistantFeedbackSummaryDto, NhAssistantFeedbackListDto and NhAssistantFeedbackExportRecord; INhAssistantProposalFeedbackSink, NhAssistantProposalFeedback and NhAssistantBuilder.AddProposalFeedbackSink; NhAssistantAuditEventKind.AgentProposalFeedbackGiven and AdminAgentFeedbackExported; the assistant-feedback-invalid and assistant-feedback-not-accepted codes; the AgentProposalFeedback migrations for SQL Server and PostgreSQL; NhAssistantProposalFeedbackComponent (nh-assistant-proposal-feedback) with NH_ASSISTANT_FEEDBACK_CATEGORIES, NhAssistantAgentRunApiService.giveFeedback and giveFeedbackMany, the feedback question of NhAssistantAgentProposalsComponent and of the approval card through NhAssistantApprovalRight.canGiveFeedback, and NhAssistantAgentFeedbackReportComponent of @newheap/platform-ai-chat/admin with NhAssistantAdminApiService.getAgentFeedbackSummary, getAgentFeedback and exportAgentFeedback",
+    "outcome": "A project approver rejects the intake reviewer's proposal with one decision and then, optionally, says what was wrong: the category not-now and a short text. Only the person who decided the proposal and the project's approvers may give feedback, each keeps one record per proposal, a participant is refused and someone outside the project gets the answer of an unknown proposal. Each person sees only their own feedback on the proposal. The next run of the reviewer on that project starts from the rejection and the approver's words in its continuity block, as notes of people rather than instructions. Administrators read the rejection rate and the categories per tool and agent version, the feedback texts, and export them as JSON Lines with the tool input of each proposal; other people get 403. The sample forwards each feedback to its analytics through a sink that logs the category without the text. On the intake reviews page, rejecting a proposal in the inbox or the thread view is one click, after which the question appears above the list and can be skipped; closed proposals offer to give or change feedback. Rejected in the assistant panel, the approval card asks the same question behind a low-key button. Administrators see the feedback report for the intake reviewer on the same page and in the assistant administration.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantProposalFeedbackStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjectMemory.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalFeedbackService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalFeedbackEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261013185935_AgentProposalFeedback.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261013185944_AgentProposalFeedback.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantProposalFeedbackTests.cs",
+      "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts",
+      "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/proposal-feedback/nh-assistant-proposal-feedback.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/proposal-feedback/nh-assistant-proposal-feedback.component.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-proposals.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-agent-feedback-report.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-feedback-report.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-agent-run-api.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts"
+    ]
   }
 ] as const;

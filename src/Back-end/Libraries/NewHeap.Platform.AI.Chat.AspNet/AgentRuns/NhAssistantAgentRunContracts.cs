@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runtime;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
@@ -124,7 +125,133 @@ public sealed record NhAssistantProposalDto(
     /// <see cref="InitiatorActorId"/>. It executes with that person's rights only.
     /// </summary>
     public Guid? ConsultationId { get; init; }
+
+    /// <summary>
+    /// The caller's own feedback on the proposal, or <see langword="null"/> when they gave none.
+    /// Other people's feedback is shown to administrators only.
+    /// </summary>
+    public NhAssistantProposalFeedbackDto? Feedback { get; init; }
+
+    /// <summary>
+    /// Whether the caller may give or change feedback with <c>PUT approvals/{approvalId}/feedback</c>:
+    /// the proposal was rejected, expired, withdrawn or closed as stale, and the caller decided it or
+    /// is an approver of the subject.
+    /// </summary>
+    public bool CanGiveFeedback { get; init; }
 }
+
+/// <param name="Category">One of <c>incorrect</c>, <c>wrong-value</c>, <c>not-needed</c>, <c>not-now</c>, <c>already-done</c>, <c>not-allowed</c> or <c>other</c>.</param>
+/// <param name="Text">Optional explanation of at most 1,000 characters.</param>
+public sealed record NhAssistantProposalFeedbackRequest(
+    string? Category,
+    string? Text);
+
+/// <param name="ApprovalIds">At most 50 proposals that were rejected together.</param>
+public sealed record NhAssistantBulkProposalFeedbackRequest(
+    IReadOnlyList<Guid>? ApprovalIds,
+    string? Category,
+    string? Text);
+
+/// <param name="Group"><c>wrong</c>, <c>right-but-not-now</c>, <c>not-allowed</c> or <c>other</c>.</param>
+/// <param name="Bulk">The feedback was given once for several proposals rejected together.</param>
+public sealed record NhAssistantProposalFeedbackDto(
+    Guid ApprovalId,
+    string Category,
+    string Group,
+    string? Text,
+    bool Bulk,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
+public sealed record NhAssistantFeedbackOutcomeDto(
+    Guid ApprovalId,
+    bool Succeeded,
+    string? Code);
+
+public sealed record NhAssistantBulkProposalFeedbackDto(IReadOnlyList<NhAssistantFeedbackOutcomeDto> Results);
+
+public sealed record NhAssistantFeedbackCategoryCountDto(
+    string Category,
+    string Group,
+    int Count);
+
+/// <summary>
+/// The proposals of one tool and agent version within the report's period and what people said
+/// about them.
+/// </summary>
+/// <param name="AgentVersion">The agent row version of the runs that proposed them; <see langword="null"/> for proposals of consultations.</param>
+/// <param name="Approved">Approved proposals, including those that executed, failed, closed as stale or were resolved.</param>
+/// <param name="ExecutionFailed">Approved proposals whose execution failed; part of <paramref name="Approved"/>.</param>
+/// <param name="Stale">Approved proposals closed because the subject changed; part of <paramref name="Approved"/>.</param>
+/// <param name="RejectionRate">Rejected divided by approved plus rejected, or <see langword="null"/> before anyone decided.</param>
+/// <param name="RejectedWithFeedback">Rejected proposals with at least one feedback.</param>
+/// <param name="FeedbackProposals">Proposals of any status with at least one feedback.</param>
+/// <param name="FeedbackAuthors">Different people who gave feedback, so one critical approver is visible as one.</param>
+public sealed record NhAssistantFeedbackSummaryRowDto(
+    string ToolId,
+    int? AgentVersion,
+    int Pending,
+    int Approved,
+    int Rejected,
+    int Expired,
+    int Withdrawn,
+    int Stale,
+    int ExecutionFailed,
+    double? RejectionRate,
+    int RejectedWithFeedback,
+    int FeedbackProposals,
+    int FeedbackAuthors,
+    IReadOnlyList<NhAssistantFeedbackCategoryCountDto> Categories);
+
+/// <param name="From">Start of the period; proposals are selected by when they were made.</param>
+/// <param name="To">End of the period, exclusive.</param>
+public sealed record NhAssistantFeedbackSummaryDto(
+    string AgentId,
+    DateTimeOffset From,
+    DateTimeOffset To,
+    IReadOnlyList<NhAssistantFeedbackSummaryRowDto> Rows);
+
+/// <param name="ApprovalStatus">The proposal's status when the feedback was given.</param>
+/// <param name="Summary">The proposal's summary as the agent recorded it.</param>
+/// <param name="Presentation">The application's explanation of the proposal, as approvers read it.</param>
+public sealed record NhAssistantFeedbackItemDto(
+    Guid Id,
+    Guid ApprovalId,
+    Guid ProposalId,
+    Guid ConversationId,
+    Guid? RunId,
+    string ScopeKey,
+    string SubjectType,
+    string SubjectId,
+    string? SubjectDisplayName,
+    string ToolId,
+    int? AgentVersion,
+    string ApprovalStatus,
+    string Summary,
+    NhAssistantApprovalPresentationDto? Presentation,
+    string Category,
+    string Group,
+    string? Text,
+    string AuthorActorId,
+    bool Bulk,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
+public sealed record NhAssistantFeedbackListDto(
+    IReadOnlyList<NhAssistantFeedbackItemDto> Items,
+    int Total);
+
+/// <summary>
+/// One line of the JSON Lines export: the feedback, the proposal as approvers read it and the tool
+/// input the agent proposed, with the versions it came from. It holds subject data; treat the file
+/// like the subjects themselves.
+/// </summary>
+/// <param name="Arguments">The tool input of the proposal.</param>
+public sealed record NhAssistantFeedbackExportRecord(
+    NhAssistantFeedbackItemDto Feedback,
+    string ToolContractHash,
+    string? PromptHash,
+    JsonElement Arguments);
 
 /// <summary>
 /// One consultation of the thread's agent: who asked through which assistant, how it ended and what
@@ -201,6 +328,13 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantBulkDecisionDto))]
 [JsonSerializable(typeof(NhAssistantResolveExecutionRequest))]
 [JsonSerializable(typeof(NhAssistantConsultationListDto))]
+[JsonSerializable(typeof(NhAssistantProposalFeedbackRequest))]
+[JsonSerializable(typeof(NhAssistantBulkProposalFeedbackRequest))]
+[JsonSerializable(typeof(NhAssistantProposalFeedbackDto))]
+[JsonSerializable(typeof(NhAssistantBulkProposalFeedbackDto))]
+[JsonSerializable(typeof(NhAssistantFeedbackSummaryDto))]
+[JsonSerializable(typeof(NhAssistantFeedbackListDto))]
+[JsonSerializable(typeof(NhAssistantFeedbackExportRecord))]
 [JsonSerializable(typeof(string[]))]
 public sealed partial class NhAssistantAgentRunJsonSerializerContext : JsonSerializerContext;
 
@@ -263,6 +397,56 @@ internal static class NhAssistantAgentRunDtoMapper
         {
             ConsultationId = approval.ConsultationId
         };
+    }
+
+    public static NhAssistantProposalFeedbackDto ToDto(AssistantProposalFeedback feedback)
+    {
+        return new NhAssistantProposalFeedbackDto(
+            feedback.ApprovalId,
+            feedback.Category,
+            GroupOf(feedback.Category),
+            feedback.Text,
+            feedback.Bulk,
+            feedback.CreatedAt,
+            feedback.UpdatedAt);
+    }
+
+    public static NhAssistantFeedbackItemDto ToDto(NhAssistantFeedbackRow row)
+    {
+        var feedback = row.Feedback;
+        return new NhAssistantFeedbackItemDto(
+            feedback.Id,
+            feedback.ApprovalId,
+            row.ProposalId,
+            feedback.ConversationId,
+            row.RunId,
+            feedback.ScopeKey,
+            feedback.SubjectType,
+            feedback.SubjectId,
+            row.SubjectDisplayName,
+            feedback.ToolId,
+            feedback.AgentVersion,
+            feedback.ApprovalStatus,
+            row.Summary,
+            NhAssistantApprovalPresentationDto.From(NhAssistantToolPresentationResolver.Deserialize(row.PresentationJson)),
+            feedback.Category,
+            GroupOf(feedback.Category),
+            feedback.Text,
+            feedback.AuthorActorId,
+            feedback.Bulk,
+            feedback.CreatedAt,
+            feedback.UpdatedAt);
+    }
+
+    /// <summary>
+    /// The group of a stored category; a category that a later version no longer knows counts as
+    /// <c>other</c>.
+    /// </summary>
+    public static string GroupOf(string category)
+    {
+        return NhAssistantProposalFeedbackCategories.IsKnown(category)
+            ? NhAssistantProposalFeedbackCategories.GroupOf(category)
+            : NhAssistantProposalFeedbackGroups.Other;
     }
 
     public static NhAssistantConsultationDto ToDto(AssistantConsultation consultation, string? askerDisplayName)

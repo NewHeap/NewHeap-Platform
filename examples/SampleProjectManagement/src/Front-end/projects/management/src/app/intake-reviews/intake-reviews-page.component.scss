@@ -4,12 +4,15 @@
 @include pg.shell('.reviews-lab');
 @include pg.controls('.reviews-lab');
 @include pg.panel('.reviews-grid article');
+@include pg.panel('.report-card');
 @include pg.badge('.case-badge');
 .case-badge { white-space: nowrap; }
 
 .reviews-grid { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.2fr); gap: 14px; margin-top: 18px; align-items: start; }
 label { display: grid; gap: 5px; margin-bottom: 14px; }
 select { width: 100%; }
+.report-card { display: block; margin-top: 14px; }
+.report-scope { display: flex; align-items: center; gap: 6px; margin: 0 0 12px; color: var(--muted); font-size: 12px; font-weight: 700; }
 .error { padding: 10px; border: 1px solid var(--danger); border-radius: var(--radius-control); color: var(--danger); background: var(--danger-soft); }
 
 @media (max-width: 960px) { .reviews-grid { grid-template-columns: 1fr; } }

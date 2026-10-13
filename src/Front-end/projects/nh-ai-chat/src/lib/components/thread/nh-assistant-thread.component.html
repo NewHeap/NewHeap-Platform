@@ -55,6 +55,7 @@
             [canDecide]="rightFor(group.part).canDecide"
             [decisionOwner]="rightFor(group.part).decisionOwner"
             [waitingFor]="rightFor(group.part).waitingFor"
+            [canGiveFeedback]="rightFor(group.part).canGiveFeedback === true"
             (decide)="choose(group.part, $event)" />
         }
       }

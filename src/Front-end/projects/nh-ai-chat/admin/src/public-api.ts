@@ -8,6 +8,7 @@ export * from './nh-assistant-admin.component';
 export * from './context/nh-assistant-admin-context.component';
 export * from './agents/nh-assistant-admin-agents.component';
 export * from './agents/nh-assistant-admin-agent-editor.component';
+export * from './agents/nh-assistant-agent-feedback-report.component';
 export * from './mcp/nh-assistant-admin-mcp-servers.component';
 export * from './mcp/nh-assistant-admin-mcp-server-editor.component';
 export * from './mcp/nh-assistant-admin-mcp-tools.component';

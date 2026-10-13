@@ -99,6 +99,8 @@ these endpoints. Access follows the caller's role on the subject, which the subj
 | `POST approvals/{id}/decisions` `{ decision, expectedProposalHash?, reason? }` | the decided proposal; `403` with `assistant-four-eyes-required` or `assistant-approval-policy-denied` |
 | `POST approvals/decisions` `{ approvalIds, decision, reason? }` | one outcome per proposal |
 | `POST approvals/{id}/resolve` `{ action: re-execute or mark-resolved, reason? }` | the proposal after a person resolved an execution with an unknown outcome |
+| `PUT approvals/{id}/feedback` `{ category, text? }` | the caller's feedback on a rejected, expired, withdrawn or stale proposal; `403` for people who neither decided it nor approve on the subject, `409` with `assistant-feedback-not-accepted` for a pending or approved proposal |
+| `POST approvals/feedback` `{ approvalIds, category, text? }` | one outcome per proposal; the records are marked as bulk feedback |
 
 `POST triggers/{triggerId}` fires a webhook trigger without a user. Sign
 `{timestamp}.{deliveryId}.{body}` with HMAC-SHA256 and the trigger's secret and send
@@ -107,6 +109,16 @@ lowercase hex digest). It returns `202` with a receipt, `401` with
 `assistant-webhook-signature-invalid` for a missing, stale or wrong signature, `400` when
 the body names no subject and `413` above 64 KB. Administrators stop or resume an agent
 with `POST admin/agents/{id}/kill-switch` `{ engaged }`.
+
+Administrators review why people reject an agent's proposals. For proposals made in a
+period (`from`, `to`; the last 30 days by default, at most 366 days),
+`GET admin/agents/{id}/feedback/summary` counts approved, rejected, expired and withdrawn
+proposals per tool and agent version, with the rejection rate, the feedback categories and
+the number of different people who gave feedback. `GET admin/agents/{id}/feedback` lists
+the feedback with the proposal's presentation, filtered by `scopeKey`, `toolId`,
+`category` and `agentVersion`, and `GET admin/agents/{id}/feedback/export` streams it as
+JSON Lines with each proposal's tool input (`limit`, at most 50,000). The export holds
+subject data and is audited as `AdminAgentFeedbackExported`.
 
 The generated consultation tools of every `AllowConsultation` registration are an attested
 tool catalog of this package. They run through the shared invoker with the asking person's

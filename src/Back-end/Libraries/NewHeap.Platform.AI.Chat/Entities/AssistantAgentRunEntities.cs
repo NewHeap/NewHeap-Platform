@@ -209,10 +209,6 @@ public sealed class AssistantQueuedInput
 }
 
 /// <summary>
-/// One person with a role on a subject, as the subject access resolver last listed it. Listings,
-/// notifications and live updates use the snapshot; authorization always asks the resolver.
-/// </summary>
-/// <summary>
 /// One version of a file a tool produced in an agent thread.
 /// </summary>
 public sealed class AssistantArtifact
@@ -243,6 +239,70 @@ public sealed class AssistantArtifact
     public DateTimeOffset CreatedAt { get; set; }
 }
 
+/// <summary>
+/// One person's feedback on a closed agent proposal: why it was wrong, or right at the wrong
+/// moment. It carries the agent version and tool contract the proposal came from, so operators
+/// can compare rejection patterns across versions. Deleting the proposal deletes its feedback.
+/// </summary>
+public sealed class AssistantProposalFeedback
+{
+    public Guid Id { get; set; }
+
+    public Guid ApprovalId { get; set; }
+
+    /// <summary>
+    /// One of the values in <see cref="NhAssistantFeedbackTargetKinds"/>.
+    /// </summary>
+    public string TargetKind { get; set; } = NhAssistantFeedbackTargetKinds.AgentProposal;
+
+    public Guid ConversationId { get; set; }
+
+    public string ScopeKey { get; set; } = string.Empty;
+
+    public string AgentId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The agent row version of the run that proposed it, or <see langword="null"/> for a proposal
+    /// of a consultation.
+    /// </summary>
+    public int? AgentVersion { get; set; }
+
+    public string ToolId { get; set; } = string.Empty;
+
+    public string ToolContractHash { get; set; } = string.Empty;
+
+    public string SubjectType { get; set; } = string.Empty;
+
+    public string SubjectId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The proposal's status when the feedback was given, such as <c>rejected</c> or <c>expired</c>.
+    /// </summary>
+    public string ApprovalStatus { get; set; } = string.Empty;
+
+    /// <summary>
+    /// One of the values in <see cref="NhAssistantProposalFeedbackCategories"/>.
+    /// </summary>
+    public string Category { get; set; } = string.Empty;
+
+    public string? Text { get; set; }
+
+    public string AuthorActorId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The feedback was given once for several proposals that were rejected together.
+    /// </summary>
+    public bool Bulk { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// One person with a role on a subject, as the subject access resolver last listed it. Listings,
+/// notifications and live updates use the snapshot; authorization always asks the resolver.
+/// </summary>
 public sealed class AssistantSubjectMember
 {
     public string ScopeKey { get; set; } = string.Empty;

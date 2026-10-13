@@ -82,13 +82,18 @@ export const NH_ASSISTANT_NO_ANSWER_NOTICE_CODE = 'assistant-no-answer';
  */
 export type NhAssistantApprovalWaitingFor = 'turn' | 'approver' | 'other-approver';
 
-/** The current user's right to decide one pending approval of the open conversation. */
+/** The current user's right to decide, or to give feedback on, one approval of the open conversation. */
 export interface NhAssistantApprovalRight {
   canDecide: boolean;
   /** Who decides when the current user cannot. */
   waitingFor: NhAssistantApprovalWaitingFor;
   /** Name of the person who decides a `turn` approval; `null` when unknown. */
   decisionOwner: string | null;
+  /**
+   * True for an agent's proposal the current user rejected in this session, so the approval card
+   * offers the optional feedback question. Chat approvals never offer feedback.
+   */
+  canGiveFeedback?: boolean;
 }
 
 const fourEyesRequiredCode = 'assistant-four-eyes-required';
@@ -177,6 +182,8 @@ export class NhAssistantStore {
   private readonly queueDispatchState = signal<string | null>(null);
   private readonly steeringState = signal<string | null>(null);
   private readonly submittingState = signal(false);
+  /** Agent proposals the current user rejected in this session and may give feedback on. */
+  private readonly feedbackApprovalsState = signal<ReadonlySet<string>>(new Set());
   private destroyed = false;
 
   private readonly streams = new Map<string, Subscription>();
@@ -270,7 +277,8 @@ export class NhAssistantStore {
    * The current user's right to decide each pending approval of the open conversation, by approval
    * id. In a chat only the author of the waiting turn decides. In an agent thread the subject's
    * approvers decide, as the server reports per proposal: the approval policy, four-eyes and the
-   * tool's approve policy, checked live.
+   * tool's approve policy, checked live. Proposals the user rejected in this session carry
+   * `canGiveFeedback`.
    */
   readonly approvalRights = computed<ReadonlyMap<string, NhAssistantApprovalRight>>(() => {
     const conversation = this.activeConversation();
@@ -288,6 +296,18 @@ export class NhAssistantStore {
           waitingFor: decision?.reasonCode === fourEyesRequiredCode ? 'other-approver' : 'approver',
           decisionOwner: null
         });
+      }
+
+      const feedbackApprovals = this.feedbackApprovalsState();
+      for (const approval of approvalParts(conversation)) {
+        if (approval.status === 'rejected' && feedbackApprovals.has(approval.approvalId)) {
+          rights.set(approval.approvalId, {
+            canDecide: false,
+            waitingFor: 'approver',
+            decisionOwner: null,
+            canGiveFeedback: true
+          });
+        }
       }
       return rights;
     }
@@ -843,6 +863,9 @@ export class NhAssistantStore {
     try {
       const proposal = await firstValueFrom(this.agentRuns.decide(approval, decision, reason));
       if (revision === this.accountRevision) {
+        if (decision === 'reject' && proposal.status === 'rejected' && proposal.canGiveFeedback === true) {
+          this.feedbackApprovalsState.update(approvals => new Set(approvals).add(approval.approvalId));
+        }
         this.patchSession(conversationId, session => ({
           ...session,
           conversation: applyProposalDecision(session.conversation, approval.approvalId, proposal.status)
@@ -1210,6 +1233,7 @@ export class NhAssistantStore {
     this.queueDispatchState.set(null);
     this.steeringState.set(null);
     this.submittingState.set(false);
+    this.feedbackApprovalsState.set(new Set());
     void this.live.stop();
     void this.push.deactivate().catch(() => undefined);
   }
@@ -1594,6 +1618,19 @@ function completionNotice(conversation: Conversation, errorCode: string | null):
 }
 
 /** The approvals of a conversation that still wait for a decision, each once. */
+/** Every approval of the conversation once, by approval id; later parts win. */
+function approvalParts(conversation: Conversation): ApprovalPart[] {
+  const approvals = new Map<string, ApprovalPart>();
+  for (const message of conversation.messages) {
+    for (const part of message.parts) {
+      if (part.type === 'approval') {
+        approvals.set(part.approvalId, part);
+      }
+    }
+  }
+  return [...approvals.values()];
+}
+
 function pendingApprovalParts(conversation: Conversation): ApprovalPart[] {
   const approvals = new Map<string, ApprovalPart>();
   for (const message of conversation.messages) {

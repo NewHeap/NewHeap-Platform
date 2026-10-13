@@ -592,10 +592,12 @@
   "intake-reviews": {
     "navigation": "Intake-reviews",
     "title": "Intake-reviews",
-    "description": "De intake-reviewer start vanzelf zodra een project wordt aangemaakt. Beslis hier over zijn voorstellen, of volg de runs, het werkgeheugen en de bestanden van één project.",
+    "description": "De intake-reviewer start vanzelf zodra een project wordt aangemaakt. Beslis hier over zijn voorstellen, of volg de runs, het werkgeheugen en de bestanden van één project. Na een afwijzing kun je aangeven wat er niet klopte.",
     "project": "Project",
     "loading": "Laden…",
     "no-projects": "Geen projecten in je divisie",
-    "load-failed": "De projecten konden niet worden geladen. Start het sample via Aspire."
+    "load-failed": "De projecten konden niet worden geladen. Start het sample via Aspire.",
+    "report-label": "Feedbackrapport van de intake-reviewer",
+    "report-scope": "Alleen voor assistentbeheerders: wat mensen zeiden toen ze voorstellen van de intake-reviewer afwezen."
   }
 }

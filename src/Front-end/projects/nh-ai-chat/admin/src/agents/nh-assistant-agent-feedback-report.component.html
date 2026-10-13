@@ -1,0 +1,196 @@
+<section class="section report" [attr.aria-labelledby]="id + '-title'">
+  <header class="section-header">
+    <div>
+      <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.feedback.title' | translate }}</h3>
+      <p class="muted">{{ 'nh-assistant.admin.feedback.description' | translate }}</p>
+      <p class="muted export-hint" [id]="id + '-export-hint'">{{ 'nh-assistant.admin.feedback.export-hint' | translate }}</p>
+    </div>
+    <div class="header-actions">
+      <button class="secondary" type="button" [disabled]="summaryLoading() || listLoading()" (click)="load()">
+        <nh-assistant-icon name="refresh" />{{ 'nh-assistant.admin.feedback.refresh' | translate }}
+      </button>
+      <button
+        class="secondary"
+        type="button"
+        [disabled]="!canExport()"
+        [attr.aria-describedby]="id + '-export-hint'"
+        (click)="export()">
+        <nh-assistant-icon name="page" />{{ (exporting() ? 'nh-assistant.admin.feedback.exporting' : 'nh-assistant.admin.feedback.export') | translate }}
+      </button>
+    </div>
+  </header>
+
+  <div class="filters">
+    <div class="field">
+      <label [for]="id + '-period'">{{ 'nh-assistant.admin.feedback.period' | translate }}</label>
+      <select [id]="id + '-period'" (change)="onPeriod($event)">
+        @for (days of periods; track days) {
+          <option [value]="days" [selected]="period() === days">{{ 'nh-assistant.admin.feedback.periods.last-' + days + '-days' | translate }}</option>
+        }
+      </select>
+    </div>
+    <div class="field">
+      <label [for]="id + '-tool'">{{ 'nh-assistant.admin.feedback.tool' | translate }}</label>
+      <select [id]="id + '-tool'" [disabled]="summaryLoading() && tools().length === 0" (change)="onTool($event)">
+        <option value="" [selected]="toolId() === ''">{{ 'nh-assistant.admin.feedback.all-tools' | translate }}</option>
+        @for (tool of tools(); track tool) {
+          <option [value]="tool" [selected]="toolId() === tool">{{ tool }}</option>
+        }
+      </select>
+    </div>
+    <div class="field">
+      <label [for]="id + '-category'">{{ 'nh-assistant.admin.feedback.category' | translate }}</label>
+      <select [id]="id + '-category'" [attr.aria-describedby]="id + '-category-hint'" (change)="onCategory($event)">
+        <option value="" [selected]="category() === ''">{{ 'nh-assistant.admin.feedback.all-categories' | translate }}</option>
+        @for (option of categories; track option) {
+          <option [value]="option" [selected]="category() === option">{{ 'nh-assistant.proposal-feedback.categories.' + option | translate }}</option>
+        }
+      </select>
+      <p class="hint" [id]="id + '-category-hint'"><span>{{ 'nh-assistant.admin.feedback.category-hint' | translate }}</span></p>
+    </div>
+  </div>
+
+  @if (exportError(); as failure) {
+    <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ exportErrorKeys() | nhAssistantTranslate: failure.code }}</p>
+  }
+
+  <section class="subsection" [attr.aria-labelledby]="id + '-summary-title'" [attr.aria-busy]="summaryLoading()">
+    <h4 [id]="id + '-summary-title'">{{ 'nh-assistant.admin.feedback.summary-title' | translate }}</h4>
+    @if (summaryLoading() && rows().length === 0) {
+      <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+    } @else if (summaryError(); as failure) {
+      <div class="state" role="alert">
+        <p>{{ summaryErrorKeys() | nhAssistantTranslate: failure.code }}</p>
+        <button class="secondary" type="button" (click)="loadSummary()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+      </div>
+    } @else if (visibleRows().length === 0) {
+      <p class="state">{{ 'nh-assistant.admin.feedback.summary-empty' | translate }}</p>
+    } @else {
+      <div class="table-container">
+        <table class="summary-table" [attr.aria-labelledby]="id + '-summary-title'">
+          <thead>
+            <tr>
+              <th scope="col">{{ 'nh-assistant.admin.feedback.columns.tool' | translate }}</th>
+              <th scope="col">{{ 'nh-assistant.admin.feedback.columns.version' | translate }}</th>
+              <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.approved' | translate }}</th>
+              <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.rejected' | translate }}</th>
+              <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.expired' | translate }}</th>
+              <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.rejection-rate' | translate }}</th>
+              <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.with-feedback' | translate }}</th>
+              <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.people' | translate }}</th>
+              <th scope="col">{{ 'nh-assistant.admin.feedback.columns.categories' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of visibleRows(); track row.toolId + '|' + row.agentVersion) {
+              <tr>
+                <th scope="row" class="tool" [attr.data-label]="'nh-assistant.admin.feedback.columns.tool' | translate">
+                  <span class="mono">{{ row.toolId }}</span>
+                </th>
+                <td [attr.data-label]="'nh-assistant.admin.feedback.columns.version' | translate">
+                  @if (row.agentVersion === null) {
+                    {{ 'nh-assistant.admin.feedback.consultations' | translate }}
+                  } @else {
+                    {{ 'nh-assistant.admin.feedback.version' | translate: { version: row.agentVersion } }}
+                  }
+                </td>
+                <td class="number" [attr.data-label]="'nh-assistant.admin.feedback.columns.approved' | translate">{{ row.approved }}</td>
+                <td class="number" [attr.data-label]="'nh-assistant.admin.feedback.columns.rejected' | translate">{{ row.rejected }}</td>
+                <td class="number" [attr.data-label]="'nh-assistant.admin.feedback.columns.expired' | translate">{{ row.expired }}</td>
+                <td class="number" [attr.data-label]="'nh-assistant.admin.feedback.columns.rejection-rate' | translate">
+                  @if (row.rejectionRate === null) {
+                    <span class="muted">{{ 'nh-assistant.admin.feedback.no-decisions' | translate }}</span>
+                  } @else {
+                    {{ row.rejectionRate | percent: '1.0-0' }}
+                  }
+                </td>
+                <td class="number" [attr.data-label]="'nh-assistant.admin.feedback.columns.with-feedback' | translate">{{ row.rejectedWithFeedback }}</td>
+                <td class="number" [attr.data-label]="'nh-assistant.admin.feedback.columns.people' | translate">{{ row.feedbackAuthors }}</td>
+                <td [attr.data-label]="'nh-assistant.admin.feedback.columns.categories' | translate">
+                  @if (row.topCategories.length === 0) {
+                    <span class="muted">{{ 'nh-assistant.admin.feedback.no-categories' | translate }}</span>
+                  } @else {
+                    <ul class="badges">
+                      @for (item of row.topCategories; track item.category) {
+                        <li>
+                          <span [class]="'badge ' + groupClass(item.group)" [attr.title]="'nh-assistant.proposal-feedback.groups.' + item.group | translate">
+                            {{ 'nh-assistant.proposal-feedback.categories.' + item.category | nhAssistantTranslate: item.category }}
+                            <span class="count">{{ item.count }}</span>
+                          </span>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+
+  <section class="subsection" [attr.aria-labelledby]="id + '-list-title'" [attr.aria-busy]="listLoading()">
+    <div class="list-header">
+      <h4 [id]="id + '-list-title'">{{ 'nh-assistant.admin.feedback.list-title' | translate }}</h4>
+      @if (!listLoading() && listError() === null) {
+        <span class="muted">{{ 'nh-assistant.admin.feedback.list-count' | translate: { count: total() } }}</span>
+      }
+    </div>
+    @if (listLoading() && items().length === 0) {
+      <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+    } @else if (listError(); as failure) {
+      <div class="state" role="alert">
+        <p>{{ listErrorKeys() | nhAssistantTranslate: failure.code }}</p>
+        <button class="secondary" type="button" (click)="loadList()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+      </div>
+    } @else if (items().length === 0) {
+      <p class="state">{{ (filtered() ? 'nh-assistant.admin.feedback.list-empty-filtered' : 'nh-assistant.admin.feedback.list-empty') | translate }}</p>
+    } @else {
+      <ul class="cards">
+        @for (item of items(); track item.id) {
+          <li class="card">
+            <div class="card-header">
+              <strong>{{ item.subjectDisplayName ?? item.subjectId }}</strong>
+              <span class="muted">{{ item.presentation?.toolDisplayName ?? item.toolId }}</span>
+              @if (item.agentVersion !== null) {
+                <span class="badge">{{ 'nh-assistant.admin.feedback.version' | translate: { version: item.agentVersion } }}</span>
+              }
+              <span [class]="'badge ' + groupClass(item.group)" [attr.title]="'nh-assistant.proposal-feedback.groups.' + item.group | translate">
+                {{ 'nh-assistant.proposal-feedback.categories.' + item.category | nhAssistantTranslate: item.category }}
+              </span>
+              @if (item.bulk) {
+                <span class="badge" [attr.title]="'nh-assistant.admin.feedback.bulk-hint' | translate">{{ 'nh-assistant.admin.feedback.bulk' | translate }}</span>
+              }
+            </div>
+            @if (item.text) {
+              <blockquote class="feedback-text">{{ item.text }}</blockquote>
+            } @else {
+              <p class="muted">{{ 'nh-assistant.admin.feedback.no-text' | translate }}</p>
+            }
+            <p class="proposal">
+              <span class="proposal-label">{{ 'nh-assistant.admin.feedback.proposal' | translate }}</span>
+              {{ item.presentation?.summary ?? item.summary }}
+            </p>
+            <div class="meta">
+              <span>{{ 'nh-assistant.agent-runs.proposal.status.' + item.approvalStatus | nhAssistantTranslate: item.approvalStatus }}</span>
+              <span>{{ 'nh-assistant.admin.feedback.author' | translate: { actor: item.authorActorId } }}</span>
+              <span>{{ item.updatedAt | date: 'short' }}</span>
+            </div>
+          </li>
+        }
+      </ul>
+      @if (pages() > 1) {
+        <nav class="pager" [attr.aria-label]="'nh-assistant.admin.feedback.pages' | translate">
+          <button class="secondary" type="button" [disabled]="page() <= 1 || listLoading()" (click)="goTo(page() - 1)">
+            {{ 'nh-assistant.admin.feedback.previous' | translate }}
+          </button>
+          <span class="muted">{{ 'nh-assistant.admin.feedback.page' | translate: { page: page(), pages: pages() } }}</span>
+          <button class="secondary" type="button" [disabled]="page() >= pages() || listLoading()" (click)="goTo(page() + 1)">
+            {{ 'nh-assistant.admin.feedback.next' | translate }}
+          </button>
+        </nav>
+      }
+    }
+  </section>
+</section>

@@ -97,7 +97,18 @@ public enum NhAssistantAuditEventKind
     /// An assistant asked an agent to work on a subject. <c>ResultCode</c> is the trigger outcome or
     /// the refusal code.
     /// </summary>
-    AgentRequested = 38
+    AgentRequested = 38,
+
+    /// <summary>
+    /// A person said what was wrong with a closed agent proposal. <c>ResultCode</c> is the feedback
+    /// category; the text never reaches the audit sink.
+    /// </summary>
+    AgentProposalFeedbackGiven = 39,
+
+    /// <summary>
+    /// An administrator exported the proposal feedback of an agent. <c>ObjectId</c> is the agent.
+    /// </summary>
+    AdminAgentFeedbackExported = 40
 }
 
 /// <summary>
@@ -230,6 +241,47 @@ public sealed record NhAssistantAuditEvent(
 public interface INhAssistantBusinessAuditSink
 {
     ValueTask RecordAsync(NhAssistantAuditEvent evt, CancellationToken ct);
+}
+
+/// <summary>
+/// One person's feedback on a closed agent proposal, as <see cref="INhAssistantProposalFeedbackSink"/>
+/// receives it. Unlike audit events it carries the person's text, because the sink exists to
+/// analyse it; it never carries the tool input.
+/// </summary>
+/// <param name="AgentVersion">The agent row version of the run that proposed it, or <see langword="null"/> for a consultation.</param>
+/// <param name="ApprovalStatus">The proposal's status when the feedback was given, such as <c>rejected</c>.</param>
+/// <param name="Category">One of <see cref="NhAssistantProposalFeedbackCategories"/>.</param>
+/// <param name="Group">One of <see cref="NhAssistantProposalFeedbackGroups"/>.</param>
+/// <param name="Bulk">The feedback was given once for several proposals rejected together.</param>
+public sealed record NhAssistantProposalFeedback(
+    Guid Id,
+    Guid ApprovalId,
+    Guid ProposalId,
+    Guid? RunId,
+    string ScopeKey,
+    string AgentId,
+    int? AgentVersion,
+    string ToolId,
+    string ToolContractHash,
+    NhAiSubjectRef Subject,
+    string ApprovalStatus,
+    string Category,
+    string Group,
+    string? Text,
+    string AuthorActorId,
+    bool Bulk,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
+/// <summary>
+/// Consumer hook that receives every proposal feedback after it was stored, for example to forward
+/// it to the application's own analytics. Register it with
+/// <c>NhAssistantBuilder.AddProposalFeedbackSink</c>. A failing sink is logged and never undoes the
+/// feedback.
+/// </summary>
+public interface INhAssistantProposalFeedbackSink
+{
+    ValueTask RecordAsync(NhAssistantProposalFeedback feedback, CancellationToken cancellationToken);
 }
 
 /// <summary>

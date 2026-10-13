@@ -73,6 +73,7 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<INhAssistantAgentTriggers>(provider => provider.GetRequiredService<NhAssistantAgentTriggers>());
             services.TryAddScoped<NhAssistantApproverCheck>();
             services.TryAddScoped<NhAssistantProposalDecisions>();
+            services.TryAddScoped<NhAssistantProposalFeedbackService>();
             services.TryAddScoped<NhAssistantProposalExecutor>();
             services.TryAddScoped<INhAiProposalPrecondition, NhAssistantSubjectVersionPrecondition>();
             services.TryAddScoped<NhAssistantRunCancellation>();

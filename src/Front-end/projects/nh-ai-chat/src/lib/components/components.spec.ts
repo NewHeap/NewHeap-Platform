@@ -7,6 +7,7 @@ import { ApprovalDecision, ApprovalPart, AssistantStatus, Message, ToolCallPart 
 import { NhAssistantSseEvent } from '../models/assistant-sse.models';
 import { NhAssistantAccessPolicy } from '../nh-assistant.config';
 import { provideNhAssistant } from '../provide-nh-assistant';
+import { NhAssistantAgentRunApiService } from '../services/nh-assistant-agent-run-api.service';
 import { NhAssistantApiService } from '../services/nh-assistant-api.service';
 import { NhAssistantPanelService } from '../services/nh-assistant-panel.service';
 import { NhAssistantStore } from '../services/nh-assistant.store';
@@ -324,6 +325,71 @@ describe('NhAssistantApprovalCardComponent', () => {
     fixture.componentRef.setInput('decisionOwner', 'Sam');
     fixture.detectChanges();
     expect(waiting()).toContain('Waiting for Sam to decide.');
+  });
+
+  it('asks what was wrong only on a rejected proposal the user may give feedback on', () => {
+    const toggle = () => fixture.nativeElement.querySelector('.feedback-toggle') as HTMLButtonElement | null;
+    fixture.componentRef.setInput('canGiveFeedback', true);
+    fixture.detectChanges();
+    expect(toggle()).toBeNull();
+
+    fixture.componentRef.setInput('approval', { ...approval, status: 'rejected' });
+    fixture.componentRef.setInput('canGiveFeedback', false);
+    fixture.detectChanges();
+    expect(toggle()).toBeNull();
+
+    fixture.componentRef.setInput('approval', { ...approval, status: 'approved' });
+    fixture.componentRef.setInput('canGiveFeedback', true);
+    fixture.detectChanges();
+    expect(toggle()).toBeNull();
+
+    fixture.componentRef.setInput('approval', { ...approval, status: 'rejected' });
+    fixture.detectChanges();
+    expect(toggle()!.textContent).toContain('What was wrong?');
+    expect(toggle()!.getAttribute('aria-expanded')).toBe('false');
+    expect(fixture.nativeElement.querySelector('nh-assistant-proposal-feedback')).toBeNull();
+  });
+
+  it('saves the feedback inline and thanks the user instead of asking again', () => {
+    const runs = TestBed.inject(NhAssistantAgentRunApiService);
+    const give = spyOn(runs, 'giveFeedback').and.returnValue(of({
+      approvalId: 'approval-1', category: 'not-now', group: 'right-but-not-now', text: null, bulk: false,
+      createdAt: '2026-10-13T10:00:00Z', updatedAt: '2026-10-13T10:00:00Z'
+    }));
+    fixture.componentRef.setInput('approval', { ...approval, status: 'rejected' });
+    fixture.componentRef.setInput('canGiveFeedback', true);
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('.feedback-toggle') as HTMLButtonElement;
+    toggle.click();
+    fixture.detectChanges();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(fixture.nativeElement.textContent).toContain('What was wrong? (optional)');
+
+    (fixture.nativeElement.querySelector('input[value="not-now"]') as HTMLInputElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('nh-assistant-proposal-feedback button[type="submit"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(give).toHaveBeenCalledOnceWith('approval-1', 'not-now', null);
+    expect(fixture.nativeElement.textContent).toContain('Thanks for your feedback');
+    expect(fixture.nativeElement.querySelector('.feedback-toggle')).toBeNull();
+  });
+
+  it('collapses the question on Skip and returns focus to its action', () => {
+    fixture.componentRef.setInput('approval', { ...approval, status: 'rejected' });
+    fixture.componentRef.setInput('canGiveFeedback', true);
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.feedback-toggle') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const skip = Array.from(fixture.nativeElement.querySelectorAll('nh-assistant-proposal-feedback button') as NodeListOf<HTMLButtonElement>)
+      .find(item => item.textContent?.trim() === 'Skip')!;
+    skip.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('nh-assistant-proposal-feedback')).toBeNull();
+    expect(document.activeElement).toBe(fixture.nativeElement.querySelector('.feedback-toggle'));
   });
 
   it('formats the countdown', () => {

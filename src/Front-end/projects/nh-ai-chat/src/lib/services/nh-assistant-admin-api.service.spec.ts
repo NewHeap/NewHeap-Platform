@@ -76,6 +76,56 @@ describe('NhAssistantAdminApiService', () => {
     }
   });
 
+  it('reads the feedback report of an agent with the filters as query parameters', async () => {
+    fetchSpy.and.callFake(() => Promise.resolve(jsonResponse({})));
+    const period = { from: '2026-09-13T00:00:00.000Z', to: '2026-10-13T00:00:00.000Z' };
+
+    await firstValueFrom(admin.getAgentFeedbackSummary('intake reviewer'));
+    expect(lastCall().url).toBe('/api/assistant/admin/agents/intake%20reviewer/feedback/summary');
+
+    await firstValueFrom(admin.getAgentFeedbackSummary('intake', { ...period, toolId: 'projects.change-status', agentVersion: 0 }));
+    expect(lastCall().method).toBe('GET');
+    expect(lastCall().url).toBe('/api/assistant/admin/agents/intake/feedback/summary'
+      + '?from=2026-09-13T00%3A00%3A00.000Z&to=2026-10-13T00%3A00%3A00.000Z&toolId=projects.change-status&agentVersion=0');
+
+    await firstValueFrom(admin.getAgentFeedback('intake', {
+      ...period, scopeKey: 'division:1', toolId: undefined, category: 'not-now', page: 2, itemsPerPage: 50
+    }));
+    expect(lastCall().url).toBe('/api/assistant/admin/agents/intake/feedback'
+      + '?from=2026-09-13T00%3A00%3A00.000Z&to=2026-10-13T00%3A00%3A00.000Z&scopeKey=division%3A1&category=not-now&page=2&itemsPerPage=50');
+    expect(lastCall().headers['Authorization']).toBe('Bearer admin-token');
+  });
+
+  it('downloads the feedback export as JSON Lines', async () => {
+    fetchSpy.and.returnValue(Promise.resolve(new Response('{"feedback":{}}\n', {
+      status: 200,
+      headers: { 'content-type': 'application/x-ndjson' }
+    })));
+
+    const blob = await admin.exportAgentFeedback('intake', { category: 'wrong-value', limit: 500 });
+
+    expect(lastCall().method).toBe('GET');
+    expect(lastCall().url).toBe('/api/assistant/admin/agents/intake/feedback/export?category=wrong-value&limit=500');
+    expect(lastCall().headers['Accept']).toBe('application/x-ndjson');
+    expect(lastCall().headers['Authorization']).toBe('Bearer admin-token');
+    expect(await blob.text()).toBe('{"feedback":{}}\n');
+  });
+
+  it('rejects a refused export with a stable code instead of response text', async () => {
+    let calls = 0;
+    fetchSpy.and.callFake(() => ++calls === 1
+      ? Promise.resolve(jsonResponse({ code: 'assistant-forbidden', messageKey: 'nh-assistant.errors.assistant-forbidden' }, 403))
+      : Promise.reject(new TypeError('Failed to fetch')));
+
+    const refused = await admin.exportAgentFeedback('intake').catch((error: unknown) => error);
+    const offline = await admin.exportAgentFeedback('intake').catch((error: unknown) => error);
+
+    expect(refused).toEqual(jasmine.any(NhAssistantApiError));
+    expect((refused as NhAssistantApiError).code).toBe('assistant-forbidden');
+    expect((offline as NhAssistantApiError).status).toBe(0);
+    expect((offline as NhAssistantApiError).messageKey).toBe(`nh-assistant.errors.${(offline as NhAssistantApiError).code}`);
+  });
+
   it('omits an unchanged secret and sends an empty string to clear it', async () => {
     fetchSpy.and.callFake(() => Promise.resolve(jsonResponse({})));
     const server = { id: 'files', displayName: 'Files', url: 'https://mcp.example', authMode: 'bearer' as const, headerName: null, requiredPolicy: null, isEnabled: true };

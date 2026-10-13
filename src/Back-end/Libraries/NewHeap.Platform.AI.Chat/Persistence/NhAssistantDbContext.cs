@@ -65,6 +65,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantConsultation> Consultations => Set<AssistantConsultation>();
 
+    public DbSet<AssistantProposalFeedback> ProposalFeedback => Set<AssistantProposalFeedback>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(_storageOptions.Schema);
@@ -314,6 +316,33 @@ public sealed class NhAssistantDbContext : DbContext
             consultation.HasOne<AssistantConversation>()
                 .WithMany()
                 .HasForeignKey(item => item.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantProposalFeedback>(feedback =>
+        {
+            feedback.ToTable("AssistantProposalFeedback");
+            feedback.HasKey(item => item.Id);
+            feedback.Property(item => item.Id).ValueGeneratedNever();
+            feedback.Property(item => item.TargetKind).HasMaxLength(32).IsRequired();
+            feedback.Property(item => item.ScopeKey).HasMaxLength(128).IsRequired();
+            feedback.Property(item => item.AgentId).HasMaxLength(128).IsRequired();
+            feedback.Property(item => item.ToolId).HasMaxLength(256).IsRequired();
+            feedback.Property(item => item.ToolContractHash).HasMaxLength(128).IsRequired();
+            feedback.Property(item => item.SubjectType).HasMaxLength(NhAiSubjectRef.MaxTypeLength).IsRequired();
+            feedback.Property(item => item.SubjectId).HasMaxLength(NhAiSubjectRef.MaxIdLength).IsRequired();
+            feedback.Property(item => item.ApprovalStatus).HasMaxLength(32).IsRequired();
+            feedback.Property(item => item.Category).HasMaxLength(32).IsRequired();
+            feedback.Property(item => item.Text).HasMaxLength(NhAssistantLimits.MaxFeedbackCharacters);
+            feedback.Property(item => item.AuthorActorId).HasMaxLength(256).IsRequired();
+            // One record per person and proposal; the report reads by agent, period and tool.
+            feedback.HasIndex(item => new { item.ApprovalId, item.AuthorActorId }).IsUnique();
+            feedback.HasIndex(item => new { item.ScopeKey, item.AgentId, item.CreatedAt });
+            feedback.HasIndex(item => new { item.AgentId, item.ToolId });
+            // The proposal cascades from its conversation, so the feedback leaves with the thread.
+            feedback.HasOne<AssistantApproval>()
+                .WithMany()
+                .HasForeignKey(item => item.ApprovalId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

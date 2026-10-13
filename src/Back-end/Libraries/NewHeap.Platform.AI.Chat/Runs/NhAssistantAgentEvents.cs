@@ -107,7 +107,8 @@ internal sealed class NhAssistantAgentNotifier(
 
 /// <summary>
 /// Records content-free business audit events of agent runs: accepted and rejected triggers,
-/// ended runs, executed and resolved proposals and kill-switch use.
+/// ended runs, executed and resolved proposals, proposal feedback and its export, and kill-switch
+/// use.
 /// </summary>
 internal sealed class NhAssistantAgentEvents(
     IEnumerable<INhAssistantBusinessAuditSink> businessSinks,
@@ -277,6 +278,24 @@ internal sealed class NhAssistantAgentEvents(
                 DateTimeOffset.UtcNow)
             {
                 ResultCode = engaged ? "cancelled-" + cancelledRuns.ToString(System.Globalization.CultureInfo.InvariantCulture) : "enabled"
+            },
+            cancellationToken);
+    }
+
+    public Task FeedbackExportedAsync(string agentId, string actorId, CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.AdminAgentFeedbackExported,
+                Guid.Empty,
+                Guid.Empty,
+                actorId,
+                agentId,
+                0,
+                DateTimeOffset.UtcNow)
+            {
+                ObjectId = agentId,
+                ResultCode = "exported"
             },
             cancellationToken);
     }

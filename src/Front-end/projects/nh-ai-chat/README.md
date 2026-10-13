@@ -247,6 +247,8 @@ bundle. Route to it lazily behind the host's admin permission and pass the route
   `readOnlyHint` appear as hints only, and a changed remote input schema disables the
   tool and shows a warning.
 
+Each agent card also opens the agent's feedback report (see [Proposal feedback](#proposal-feedback)).
+
 `NhAssistantAdminApiService` (main entry) is the typed client of the `admin/*`
 endpoints. A `409` becomes the code `assistant-version-conflict`.
 
@@ -269,9 +271,50 @@ The inbox lists the proposals waiting for the signed-in person. The thread view 
 one agent's thread on one subject: the caller's role, a start action for participants,
 and tabs with proposals, runs, working memory and files. Proposals show the
 application's presentation and keep the tool input under technical details; approve,
-reject and resolve appear only for people who may decide. The proposals, run timeline,
-memory and files are also separate components for custom layouts. Opened in the panel,
-the thread offers its proposals to the same people.
+reject and resolve appear only for people who may decide, and each decision takes one
+action. The proposals, run timeline, memory and files are also separate components for
+custom layouts. Opened in the panel, the thread offers its proposals to the same people.
+
+## Proposal feedback
+
+People who reject an agent proposal may say what was wrong. The question is optional,
+comes after the rejection and never blocks it:
+
+- After a reject, single or bulk, `nh-assistant-agent-proposals` shows
+  `nh-assistant-proposal-feedback` above the list, also when the inbox drops the rejected
+  proposals. Skip removes it; a saved answer thanks the person and emits `changed`.
+- Closed proposals with `canGiveFeedback` keep a low-key **Give feedback** action
+  (**Change feedback** once `feedback` holds the caller's own answer), and the card shows
+  that answer.
+- In the panel, the approval card of a proposal the user rejected in this session offers
+  **What was wrong?** (`NhAssistantApprovalRight.canGiveFeedback`). Chat approvals never ask.
+
+The answer is a category from `NH_ASSISTANT_FEEDBACK_CATEGORIES` (`incorrect`,
+`wrong-value`, `not-needed`, `not-now`, `already-done`, `not-allowed`, `other`) plus an
+optional text of at most 1,000 characters. `not-now` and `already-done` mean "right, but
+not now" and never count as the agent being wrong. One proposal is sent with
+`NhAssistantAgentRunApiService.giveFeedback` (`PUT approvals/{id}/feedback`), proposals
+rejected together once with `giveFeedbackMany` (`POST approvals/feedback`), stored per
+proposal as bulk feedback. Custom layouts use the component directly:
+
+```html
+<nh-assistant-proposal-feedback [approvalIds]="[approvalId]" [initial]="proposal.feedback" (saved)="reload()" (dismissed)="close()" />
+```
+
+Administrators read the answers per agent in `nh-assistant-agent-feedback-report` from
+`@newheap/platform-ai-chat/admin`, also on its own:
+
+```html
+<nh-assistant-agent-feedback-report agentId="intake-reviewer" />
+```
+
+It shows, per tool and agent version, the approved, rejected and expired proposals, the
+rejection rate, the rejections with feedback, the number of different people and the most
+frequent categories, followed by the feedback itself, filtered by period, tool and category,
+and an export as JSON Lines. Comparing agent versions shows whether a change to the prompt,
+tools or policy helped. `NhAssistantAdminApiService.getAgentFeedbackSummary`,
+`getAgentFeedback` and `exportAgentFeedback` are the typed client; the server requires the
+admin policy, reports only the caller's scopes and audits the export, which holds subject data.
 
 ## Theme
 
@@ -361,7 +404,8 @@ providers: [
 Steps are `text`, `tool`, `approval`, `error` and `fail`. The optional `preferences`
 and `admin` parts of the scenario seed the preference and administration endpoints:
 context, tool catalog, agents, MCP servers with simulated remote tools, known
-policies and hosts that may receive the user's token. The mock answers every
+policies and hosts that may receive the user's token. Agents of the mock never run
+on their own, so their feedback report is empty. The mock answers every
 endpoint in memory and sends each turn as contract events over a chunked
 `text/event-stream` response, so the real client, parser and store run unchanged.
 Inject `NhAssistantMockBackend` to switch the simulated feature flag with

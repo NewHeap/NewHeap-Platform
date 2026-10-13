@@ -90,6 +90,7 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantMemoryService>();
         services.TryAddScoped<NhAssistantRunSummaries>();
         services.TryAddScoped<NhAssistantArtifactStore>();
+        services.TryAddScoped<NhAssistantProposalFeedbackStore>();
         services.TryAddScoped<INhAiArtifacts, NhAssistantArtifacts>();
         services.TryAddScoped<NhAssistantConsultationService>();
         return state;

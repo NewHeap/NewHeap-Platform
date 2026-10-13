@@ -123,6 +123,81 @@ export interface AgentProposal {
    * `initiatorActorId`; it executes with that person's rights only.
    */
   consultationId?: string | null;
+  /** The caller's own feedback on the proposal; `null` when they gave none. Missing on older servers. */
+  feedback?: AgentProposalFeedback | null;
+  /**
+   * Whether the caller may give or change feedback: the proposal was rejected, expired, withdrawn or
+   * closed as stale, and the caller decided it or is an approver of the subject. Missing on older servers.
+   */
+  canGiveFeedback?: boolean;
+}
+
+/**
+ * Why a person rejected a proposal. `incorrect`, `wrong-value` and `not-needed` say the agent was
+ * wrong; `not-now` and `already-done` say it was right but not at this moment; `not-allowed` says
+ * it went beyond what the agent should do; `other` leaves the explanation to the text.
+ */
+export type AgentProposalFeedbackCategory =
+  | 'incorrect'
+  | 'wrong-value'
+  | 'not-needed'
+  | 'not-now'
+  | 'already-done'
+  | 'not-allowed'
+  | 'other';
+
+/** The group of a feedback category. `right-but-not-now` never counts as "the agent was wrong". */
+export type AgentProposalFeedbackGroup = 'wrong' | 'right-but-not-now' | 'not-allowed' | 'other';
+
+/** The feedback categories in the order people choose them. */
+export const NH_ASSISTANT_FEEDBACK_CATEGORIES: readonly AgentProposalFeedbackCategory[] = [
+  'incorrect',
+  'wrong-value',
+  'not-needed',
+  'not-now',
+  'already-done',
+  'not-allowed',
+  'other'
+];
+
+/** The group of each feedback category, as the server reports it. */
+export const NH_ASSISTANT_FEEDBACK_GROUPS: Readonly<Record<AgentProposalFeedbackCategory, AgentProposalFeedbackGroup>> = {
+  incorrect: 'wrong',
+  'wrong-value': 'wrong',
+  'not-needed': 'wrong',
+  'not-now': 'right-but-not-now',
+  'already-done': 'right-but-not-now',
+  'not-allowed': 'not-allowed',
+  other: 'other'
+};
+
+/** Maximum length of the text of a feedback. */
+export const NH_ASSISTANT_MAX_FEEDBACK_TEXT = 1_000;
+
+/** Maximum number of proposals one `POST approvals/feedback` request accepts. */
+export const NH_ASSISTANT_MAX_BULK_FEEDBACK = 50;
+
+/**
+ * One person's feedback on a rejected or otherwise closed proposal. It is separate from the
+ * decision's reason, arrives after the decision and can be changed by its author.
+ */
+export interface AgentProposalFeedback {
+  approvalId: string;
+  category: AgentProposalFeedbackCategory;
+  group: AgentProposalFeedbackGroup;
+  text: string | null;
+  /** Given once for several proposals that were rejected together. */
+  bulk: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** The outcome of the feedback on one proposal of `POST approvals/feedback`. */
+export interface AgentFeedbackOutcome {
+  approvalId: string;
+  succeeded: boolean;
+  /** For example `assistant-feedback-not-accepted`; `null` when it succeeded. */
+  code: string | null;
 }
 
 export type AgentConsultationStatus = 'running' | 'completed' | 'failed';

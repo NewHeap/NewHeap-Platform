@@ -186,3 +186,28 @@ button {
     filter: brightness(1.12);
   }
 }
+
+// Low-key on purpose: the question follows the decision and must not compete with it.
+.feedback-toggle {
+  display: inline-flex;
+  min-height: 0;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 6px;
+  padding: 2px 0;
+  color: var(--nha-text-muted);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+
+  &:hover:not(:disabled) {
+    color: var(--nha-text);
+  }
+}
+
+.feedback {
+  display: block;
+  margin-top: 10px;
+}

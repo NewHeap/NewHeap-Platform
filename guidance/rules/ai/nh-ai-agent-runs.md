@@ -1,11 +1,11 @@
 ---
 id: nh-ai-agent-runs
-title: "Run assistant agents on their own from events, with subject threads, deferred proposals and consultations"
+title: "Run assistant agents on their own from events, with subject threads, deferred proposals, consultations and proposal feedback"
 area: backend
 reference: ai-agent-runs
-summary: "Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, and let other assistants consult an agent with the asking person's rights."
-sample-cases: ["SPM-268", "SPM-269", "SPM-270", "SPM-271", "SPM-272", "SPM-273", "SPM-274", "SPM-275", "SPM-276", "SPM-277", "SPM-278"]
-public-symbols: ["ConfigureAgent", "NhAssistantAgentRunBuilder", "NhAssistantAgentRunOptions", "NhAssistantAgentBudget", "AddApprovalPolicy", "NhAiApprovalPolicyBuilder", "NhAiApprovalPolicy", "NhAiApprovalMode", "NhAiApprovalExpiryAction", "NhAiApprovalBinding", "NhAiApprovers", "NhAiApproverRule", "AddSubjectType", "INhAiSubjectAccessResolver", "INhAiSubjectAccess", "NhAiSubjectRef", "NhAiSubjectInfo", "NhAiSubjectAccess", "NhAiSubjectMember", "NhAiSubjectRole", "AddTrigger", "NhAssistantTriggerBuilder", "NhAssistantTriggerConflict", "NhAssistantTriggerIds", "INhAssistantAgentTriggers", "NhAssistantTriggerReceipt", "NhAssistantTriggerOutcomes", "NhAssistantTriggerReasons", "AddAssistantAgentRuns", "NhAiAgentAccountability", "NhAiGrantSource", "NhAiAgentGrant", "NhAiElevatedReads", "NhAiAgentInvocationScope", "NhAiAgentInvocationScopes", "NhAiAgentFailureCodes", "INhAiAgentToolAuthorizer", "INhAiProposalPrecondition", "NhAiProposalPreconditionContext", "NhAiPreconditionResult", "INhAiPrincipalFactory", "NhAiSubjectAuthorizationResource", "NhAssistantRunStatuses", "NhAssistantApprovalModes", "AddScheduledTrigger", "NhAssistantScheduleBuilder", "NhAssistantScheduledTick", "AddWebhookTrigger", "NhAssistantWebhookBuilder", "NhAssistantWebhookDelivery", "NhAssistantKillSwitchDto", "NhAssistantKillSwitchRequest", "INhAssistantAgentNotificationPolicy", "INhAssistantAgentNotificationChannel", "NhAssistantAgentNotificationContext", "NhAssistantAgentNotificationKind", "NhAssistantDefaultAgentNotificationPolicy", "UseAgentNotificationPolicy", "AddAgentNotificationChannel", "INhAssistantAgentMemoryMigrator", "UseAgentMemoryMigrator", "MaxRunSummaries", "MaxArtifactBytes", "INhAiArtifacts", "NhAiArtifact", "NhAiArtifactInfo", "INhAiSubjectRetention", "ForgetSubjectAsync", "NhAssistantThreadMemoryDto", "NhAssistantArtifactDto", "NhAssistantProposalDto", "INhAssistantToolPresenter", "NhAssistantConversationThreadDto", "NhAssistantThreadDecisionDto", "NhAssistantConversationKinds", "NhAssistantMessageAuthorKinds", "AllowConsultation", "NhAssistantConsultationBuilder", "NhAssistantConsultationOptions", "NhAssistantConsultationTools", "NhAssistantConsultationAnswer", "NhAssistantAgentRequestReceipt", "NhAssistantConsultationStatuses", "NhAssistantConsultationDto", "NhAssistantConsultationListDto", "MaxConsultationDepth", "MaxConsultationsPerActorPerDay", "RequireApprovalForEffects"]
+summary: "Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, and learn from why people reject its proposals."
+sample-cases: ["SPM-268", "SPM-269", "SPM-270", "SPM-271", "SPM-272", "SPM-273", "SPM-274", "SPM-275", "SPM-276", "SPM-277", "SPM-278", "SPM-279"]
+public-symbols: ["ConfigureAgent", "NhAssistantAgentRunBuilder", "NhAssistantAgentRunOptions", "NhAssistantAgentBudget", "AddApprovalPolicy", "NhAiApprovalPolicyBuilder", "NhAiApprovalPolicy", "NhAiApprovalMode", "NhAiApprovalExpiryAction", "NhAiApprovalBinding", "NhAiApprovers", "NhAiApproverRule", "AddSubjectType", "INhAiSubjectAccessResolver", "INhAiSubjectAccess", "NhAiSubjectRef", "NhAiSubjectInfo", "NhAiSubjectAccess", "NhAiSubjectMember", "NhAiSubjectRole", "AddTrigger", "NhAssistantTriggerBuilder", "NhAssistantTriggerConflict", "NhAssistantTriggerIds", "INhAssistantAgentTriggers", "NhAssistantTriggerReceipt", "NhAssistantTriggerOutcomes", "NhAssistantTriggerReasons", "AddAssistantAgentRuns", "NhAiAgentAccountability", "NhAiGrantSource", "NhAiAgentGrant", "NhAiElevatedReads", "NhAiAgentInvocationScope", "NhAiAgentInvocationScopes", "NhAiAgentFailureCodes", "INhAiAgentToolAuthorizer", "INhAiProposalPrecondition", "NhAiProposalPreconditionContext", "NhAiPreconditionResult", "INhAiPrincipalFactory", "NhAiSubjectAuthorizationResource", "NhAssistantRunStatuses", "NhAssistantApprovalModes", "AddScheduledTrigger", "NhAssistantScheduleBuilder", "NhAssistantScheduledTick", "AddWebhookTrigger", "NhAssistantWebhookBuilder", "NhAssistantWebhookDelivery", "NhAssistantKillSwitchDto", "NhAssistantKillSwitchRequest", "INhAssistantAgentNotificationPolicy", "INhAssistantAgentNotificationChannel", "NhAssistantAgentNotificationContext", "NhAssistantAgentNotificationKind", "NhAssistantDefaultAgentNotificationPolicy", "UseAgentNotificationPolicy", "AddAgentNotificationChannel", "INhAssistantAgentMemoryMigrator", "UseAgentMemoryMigrator", "MaxRunSummaries", "MaxArtifactBytes", "INhAiArtifacts", "NhAiArtifact", "NhAiArtifactInfo", "INhAiSubjectRetention", "ForgetSubjectAsync", "NhAssistantThreadMemoryDto", "NhAssistantArtifactDto", "NhAssistantProposalDto", "INhAssistantToolPresenter", "NhAssistantConversationThreadDto", "NhAssistantThreadDecisionDto", "NhAssistantConversationKinds", "NhAssistantMessageAuthorKinds", "AllowConsultation", "NhAssistantConsultationBuilder", "NhAssistantConsultationOptions", "NhAssistantConsultationTools", "NhAssistantConsultationAnswer", "NhAssistantAgentRequestReceipt", "NhAssistantConsultationStatuses", "NhAssistantConsultationDto", "NhAssistantConsultationListDto", "MaxConsultationDepth", "MaxConsultationsPerActorPerDay", "RequireApprovalForEffects", "NhAssistantProposalFeedbackCategories", "NhAssistantProposalFeedbackGroups", "NhAssistantFeedbackTargetKinds", "INhAssistantProposalFeedbackSink", "NhAssistantProposalFeedback", "AddProposalFeedbackSink", "MaxRejectionsInContext", "RejectionContextWindow", "MaxFeedbackCharacters", "NhAssistantProposalFeedbackRequest", "NhAssistantBulkProposalFeedbackRequest", "NhAssistantProposalFeedbackDto", "NhAssistantBulkProposalFeedbackDto", "NhAssistantFeedbackOutcomeDto", "NhAssistantFeedbackSummaryDto", "NhAssistantFeedbackSummaryRowDto", "NhAssistantFeedbackCategoryCountDto", "NhAssistantFeedbackListDto", "NhAssistantFeedbackItemDto", "NhAssistantFeedbackExportRecord"]
 skills: ["newheap-backend-development", "newheap-background-processing"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -134,6 +134,27 @@ agent's daily `Budget`. Make `INhAiSubjectAccessResolver` accept only the canoni
 subject, because the asking model types the id. Unknown subjects and subjects the asker
 may not read both return `assistant-consult-subject-unavailable`.
 
+Learn from rejected proposals before letting an agent learn by itself. After a person
+rejects a proposal, offer the optional feedback of `PUT approvals/{approvalId}/feedback`:
+a category from `NhAssistantProposalFeedbackCategories` and at most
+`MaxFeedbackCharacters` of text, never a required step and never a question before the
+decision. The categories fall into `NhAssistantProposalFeedbackGroups`; count only the
+`wrong` group as a mistake of the agent, because `not-now` and `already-done` say the
+proposal was right at the wrong moment. The person who decided the proposal and the
+subject's approvers may give feedback on rejected, expired, withdrawn and stale proposals,
+one record each that they may change; `POST approvals/feedback` marks feedback for
+proposals rejected together as bulk. `NhAssistantProposalDto` returns only the caller's own
+`feedback` and `canGiveFeedback`. The next run on the same subject starts with the thread's
+last `MaxRejectionsInContext` rejections of `RejectionContextWindow` and their feedback
+inside its `<agent-continuity>` block, as people's notes rather than instructions, so it
+does not propose them again unchanged; consultations never receive them. Administrators
+compare rejection rates and categories per tool and agent version with
+`GET admin/agents/{id}/feedback/summary`, read the texts with `GET admin/agents/{id}/feedback`
+and export JSON Lines for their own analysis with `.../feedback/export`, which is audited.
+Forward feedback to the application's analytics with `AddProposalFeedbackSink`; the sink
+receives the text, the business audit sink only the category
+(`AgentProposalFeedbackGiven`). Feedback is deleted with the subject's threads.
+
 ## Avoid
 
 - Granting a tool to an agent without `AllowAgentGrant` on the tool, or adding
@@ -164,6 +185,12 @@ may not read both return `assistant-consult-subject-unavailable`.
 - Building agent-to-agent calls by hand (for example a tool that calls
   `INhAssistantAgentTriggers` and waits) instead of `AllowConsultation`, or raising
   `MaxConsultationDepth` without a reason.
+- Requiring a reason before a person may reject a proposal, or counting `not-now` and
+  `already-done` feedback as the agent's mistakes.
+- Feeding one subject's feedback text into runs on other subjects or scope keys, or
+  changing an agent's instructions automatically from feedback without a person's review.
+- Writing feedback text to logs or business audit sinks; it is a person's words about a
+  subject.
 
 ## Verification
 
@@ -188,4 +215,9 @@ thread message; consult as someone without a role and as a reader and assert the
 refusal code and that no tool that changes anything was offered; assert that a
 consultation's proposal waits deferred and executes with the asker's rights only, that a
 loop or a deeper chain is refused and that consultations count in the agent's daily
-usage on both providers. SPM-268 to SPM-278 are the executable references.
+usage on both providers. Reject a proposal and assert that only its decider and the
+subject's approvers may give feedback, that a pending or approved proposal refuses it,
+that a second feedback replaces the first, that the next run's continuity lists the
+rejection with the feedback on one line, that the report counts statuses, categories and
+distinct authors per tool and agent version on both providers, and that forgetting the
+subject deletes the feedback. SPM-268 to SPM-279 are the executable references.

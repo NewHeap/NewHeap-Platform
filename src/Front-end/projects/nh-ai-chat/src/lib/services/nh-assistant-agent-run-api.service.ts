@@ -5,10 +5,13 @@ import {
   AgentConsultationList,
   AgentDecisionOutcome,
   AgentExecutionResolution,
+  AgentFeedbackOutcome,
   AgentInbox,
   AgentInboxFilter,
   AgentProposal,
   AgentProposalDecision,
+  AgentProposalFeedback,
+  AgentProposalFeedbackCategory,
   AgentRunList,
   AgentRunRetryMode,
   AgentThreadLookup,
@@ -127,6 +130,38 @@ export class NhAssistantAgentRunApiService {
     return this.transport.json<AgentProposal>('POST', `approvals/${encodeURIComponent(approvalId)}/resolve`, {
       action,
       reason: reason?.trim() || null
+    });
+  }
+
+  /**
+   * Gives or changes the caller's feedback on a closed proposal (`canGiveFeedback`). Feedback is
+   * optional and separate from the decision; an empty text is sent as `null`. Fails with
+   * `assistant-feedback-not-accepted` while the proposal is pending or after it was approved.
+   */
+  giveFeedback(
+    approvalId: string,
+    category: AgentProposalFeedbackCategory,
+    text?: string | null
+  ): Observable<AgentProposalFeedback> {
+    return this.transport.json<AgentProposalFeedback>('PUT', `approvals/${encodeURIComponent(approvalId)}/feedback`, {
+      category,
+      text: text?.trim() || null
+    });
+  }
+
+  /**
+   * Gives the same feedback on at most `NH_ASSISTANT_MAX_BULK_FEEDBACK` proposals that were
+   * rejected together. Each proposal is checked on its own and stored as bulk feedback.
+   */
+  giveFeedbackMany(
+    approvalIds: readonly string[],
+    category: AgentProposalFeedbackCategory,
+    text?: string | null
+  ): Observable<{ results: AgentFeedbackOutcome[] }> {
+    return this.transport.json<{ results: AgentFeedbackOutcome[] }>('POST', 'approvals/feedback', {
+      approvalIds,
+      category,
+      text: text?.trim() || null
     });
   }
 }

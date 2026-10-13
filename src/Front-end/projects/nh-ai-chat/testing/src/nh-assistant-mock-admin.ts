@@ -163,6 +163,9 @@ export class NhAssistantMockAdmin {
       case 'tools':
         return method === 'GET' && segments.length === 2 ? { status: 200, body: this.toolCatalog() } : failure(404, 'assistant-not-found');
       case 'agents':
+        if (id !== undefined && action === 'feedback') {
+          return this.agentFeedback(method, id, child, segments.length);
+        }
         return this.agentsEndpoint(method, id, action, body, segments.length);
       case 'mcp-servers':
         return this.serversEndpoint(method, id, action, child, body, segments.length);
@@ -276,6 +279,33 @@ export class NhAssistantMockAdmin {
     }
 
     return { status: 405 };
+  }
+
+  /**
+   * The feedback report of an agent. The mock runs no agents on their own and records no proposals,
+   * so the summary, the list and the JSON Lines export are empty.
+   */
+  private agentFeedback(method: string, agentId: string, child: string | undefined, length: number): NhAssistantMockResult {
+    if (!this.agents.has(agentId)) {
+      return failure(404, 'assistant-agent-not-found');
+    }
+    if (method !== 'GET') {
+      return { status: 405 };
+    }
+
+    if (length === 4) {
+      return { status: 200, body: { items: [], total: 0 } };
+    }
+    if (length === 5 && child === 'summary') {
+      const to = Date.parse(this.now());
+      const from = to - 30 * 24 * 60 * 60 * 1000;
+      return { status: 200, body: { agentId, from: new Date(from).toISOString(), to: new Date(to).toISOString(), rows: [] } };
+    }
+    if (length === 5 && child === 'export') {
+      return { status: 200 };
+    }
+
+    return failure(404, 'assistant-not-found');
   }
 
   private serversEndpoint(

@@ -301,6 +301,13 @@
       "prompt": "Start a project intake reviewer agent when a project is created and let a second project approver decide its proposed status change later, also from the assistant panel.",
       "expectedRules": ["nh-ai-agent-runs"],
       "expectedOutcome": "The agent starts from the committed event with a dedupe key, runs as an agent-owned background operation in one thread per project whose access follows the subject resolver, records a deferred proposal under a named four-eyes approval policy with an application presentation, and the thread conversation tells clients per proposal who may decide it, so the decision goes with the proposal hash through the agent-run endpoint."
+    },
+    {
+      "id": "consumer-ai-agent-proposal-feedback",
+      "skill": "newheap-backend-development",
+      "prompt": "When an approver turns down our project agent's proposal, let them optionally say why, make the agent stop suggesting the same thing for that project, and give us a way to see which tools get rejected most.",
+      "expectedRules": ["nh-ai-agent-runs"],
+      "expectedOutcome": "After the rejection the client offers the optional feedback of PUT approvals/{approvalId}/feedback with a category and text instead of requiring a reason before the decision; the next run on the same project receives the rejection and its feedback in its continuity block as notes of people, never other subjects' feedback; administrators compare rejection rates and categories per tool and agent version through the feedback summary, list and audited export, an AddProposalFeedbackSink forwards feedback to analytics without logging its text, and not-now feedback is not counted as the agent's mistake."
     }
   ]
 }

@@ -836,6 +836,95 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.ToTable("AssistantNotificationSetting", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantProposalFeedback", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AgentId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int?>("AgentVersion")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ApprovalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ApprovalStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("AuthorActorId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("Bulk")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ScopeKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("SubjectId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SubjectType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TargetKind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ToolContractHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("ToolId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId", "ToolId");
+
+                    b.HasIndex("ApprovalId", "AuthorActorId")
+                        .IsUnique();
+
+                    b.HasIndex("ScopeKey", "AgentId", "CreatedAt");
+
+                    b.ToTable("AssistantProposalFeedback", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantPushSubscription", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1349,6 +1438,15 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .IsRequired();
 
                     b.Navigation("Conversation");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantProposalFeedback", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantApproval", null)
+                        .WithMany()
+                        .HasForeignKey("ApprovalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantQueuedInput", b =>

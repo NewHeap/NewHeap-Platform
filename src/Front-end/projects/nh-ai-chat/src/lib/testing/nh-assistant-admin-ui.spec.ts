@@ -194,6 +194,30 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(buttons(card, 'Delete').length).toBe(0);
   });
 
+  it('opens the feedback report of an agent from its card and returns to the list', async () => {
+    await configure();
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+
+    button(element.querySelector('.card') as HTMLElement, 'Feedback').click();
+    await settle(fixture);
+
+    const report = element.querySelector('nh-assistant-agent-feedback-report') as HTMLElement;
+    expect(report).not.toBeNull();
+    expect(report.textContent).toContain('Feedback on proposals');
+    expect(report.textContent).toContain('The agent made no proposals in this period.');
+    expect(report.textContent).toContain('Nobody gave feedback in this period.');
+    expect(button(report, 'Export (JSON Lines)').disabled).toBeTrue();
+    expect(document.activeElement).toBe(button(element, 'Back to agents'));
+    const summary = TestBed.inject(NhAssistantMockBackend).requests.find(item => item.path === 'admin/agents/projects/feedback/summary');
+    expect(summary?.method).toBe('GET');
+
+    button(element, 'Back to agents').click();
+    await settle(fixture);
+
+    expect(element.querySelector('nh-assistant-agent-feedback-report')).toBeNull();
+    expect(document.activeElement).toBe(button(element.querySelector('.card') as HTMLElement, 'Feedback'));
+  });
+
   it('creates an agent with catalog selectors and an MCP server', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);

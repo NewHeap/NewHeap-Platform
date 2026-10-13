@@ -47,6 +47,8 @@ Open follow-ups: deciding agent proposals from the chat panel (the panel still a
 chat rule that the turn's author decides), presenting proposals in each viewer's language,
 and passing the active division to the hub so live updates do not fall back to long polling.
 
+Phase 5, [proposal feedback](#10-proposal-feedback), is implemented with sample case SPM-279.
+
 ## Goals
 
 - **Triggers start agents.** An application registers an agent once and starts it from domain
@@ -683,6 +685,135 @@ and in-app channels plug in through the hook.
   anonymizing a subject clears its threads. This is the first enforced retention in the AI
   packages, so it gets its own design review in phase 3.
 
+## 10. Proposal feedback
+
+People who reject an agent proposal can say what was wrong, without being forced to and
+without the question getting in their way. The feedback is for **people first**: it shows the
+application's operators (and NewHeap, through them) what to change in prompts, tools and
+approval policies, and whether a change helped. The agent learns from it automatically only in
+a later phase, from the same records.
+
+### Baseline
+
+| Exists today | Gap |
+|---|---|
+| `AssistantApproval.Reason`: optional free text stored with the decision | Nothing reads it after the decision; it is the decision's audit note, not structured feedback |
+| The proposals component asks for that reason **before** the decision, in one field shared by every selected proposal | Feedback belongs after a rejection and per proposal |
+| A follow-up run after a rejection receives "Proposal … was rejected" (`NhAssistantAgentTriggers.StartFollowUpAsync`) | The reason never reaches the agent |
+| Expired, stale and failed executions are approval statuses | Nobody aggregates them per agent, tool or agent version |
+
+### Decisions
+
+| # | Decision | Status | Rationale |
+|---|---|---|---|
+| F1 | People learn first; automatic learning by the agent is a later phase on the same records | Decided 2026-10-13 | Operators must understand the failure patterns before an agent changes its own behavior |
+| F2 | Feedback is optional and asked **after** a rejection, inline and dismissible; rejecting stays one action | Decided 2026-10-13 | A mandatory or prominent question makes people stop deciding or answer carelessly |
+| F3 | Feedback is a category code from a fixed set plus optional text | Decided 2026-10-13 | Codes aggregate without a model; text adds nuance. The groups separate "wrong" from "right but not now" |
+| F4 | Feedback is its own record, separate from the decision's `Reason` | Decided 2026-10-13 | It arrives after the audited decision, can come from several people, and can be edited by its author |
+| F5 | A rejection and its feedback reach the next run on the **same** subject as context | Decided 2026-10-13 | Otherwise the agent repeats a rejected proposal and people stop giving feedback |
+| F6 | Feedback never leaves its scope key, and raw text never crosses subjects | Decided 2026-10-13 | Feedback text contains subject data and is untrusted input |
+
+### Capture
+
+- **After a rejection** the proposal shows one dismissible line, "What was wrong? (optional)",
+  with the category choices and an optional text of at most 1,000 characters. It is not a modal
+  and does not return for that proposal once dismissed.
+- **Later:** a closed proposal keeps a low-key "Give feedback" action. Any person who may decide
+  the subject's proposals may leave one record per proposal and edit their own.
+- **Bulk rejection** asks once for the set and stores a record per proposal with a bulk flag, so
+  analysis can weigh it lower.
+- **Surfaces:** the agent-runs proposals component and the panel's approval card for thread
+  proposals. The decision's `Reason` field stays available as the decision note.
+
+| Code | Group | Meaning |
+|---|---|---|
+| `incorrect` | wrong | The proposal is factually wrong |
+| `wrong-value` | wrong | The right action with the wrong values |
+| `not-needed` | wrong | The change is unnecessary |
+| `not-now` | right-but-not-now | Right, but not at this moment |
+| `already-done` | right-but-not-now | Already done or in progress elsewhere |
+| `not-allowed` | not-allowed | Against policy, or beyond what the agent should do |
+| `other` | other | Only the text explains |
+
+`not-now` and `already-done` never count as "the agent was wrong".
+
+### Storage
+
+`AssistantProposalFeedback` in `nhai`, with migrations for SQL Server and PostgreSQL:
+
+- approval id; `TargetKind` (`agent-proposal` now; room for chat approvals and answers later);
+  conversation, scope key, agent id and agent row version; tool id and tool contract hash;
+  subject type and id; the approval status when the feedback was given;
+- category code, text, author actor id, bulk flag, created and updated at;
+- unique on `(ApprovalId, AuthorActorId)`; indexes on `(ScopeKey, AgentId, CreatedAt)` and
+  `(AgentId, ToolId)` for the report.
+
+`INhAiSubjectRetention.ForgetSubjectAsync` deletes the records with the subject's threads.
+
+### Report and export
+
+- **Endpoints** under the assistant admin prefix and policy, with an optional `scopeKey` filter:
+
+  | Endpoint | Returns |
+  |---|---|
+  | `GET admin/agents/{id}/feedback/summary` | Per tool and agent row version: approved, rejected, expired, stale and failed executions, the rejection rate, counts per category and distinct authors |
+  | `GET admin/agents/{id}/feedback` | Feedback with the proposal's presentation and a link to its thread, paged server-side and filtered by tool, category, agent version, period and scope key |
+  | `GET admin/agents/{id}/feedback/export` | JSONL with presentation, tool input, category, text and versions; the export is audited |
+
+- **Hook:** `INhAssistantProposalFeedbackSink`, registered with `AddProposalFeedbackSink`,
+  receives each record after it was stored, so an application can forward it to its own
+  analytics. No sink is registered by default; a failing sink is logged and never undoes the
+  feedback.
+- **Angular:** `nh-assistant-proposal-feedback` in the main entry, used by the proposals
+  component and the panel's approval card, and `nh-assistant-agent-feedback-report` in the
+  `admin` entry point, also opened from each agent in the administration page. Their texts
+  live in the main entry's language files like every other assistant text; moving language
+  files out of the main entry is a separate change for all keys.
+- **The loop:** operators read the feedback and change the prompt, tools or policy. The agent
+  row version changes, and the summary shows whether the rejection rate per tool dropped for the
+  new version.
+
+### Same subject (F5)
+
+- The continuity block (§6) gains the thread's most recent rejected proposals with category and
+  text, at most `MaxRejectionsInContext` (5) from the last 30 days, with truncated text. They are
+  labelled as earlier decisions of people, not as instructions.
+- The follow-up run of a rejection reads the feedback from the continuity block, which is built
+  when the run starts; the trigger message itself stays content-free, because the decision's
+  reason is not shown to the thread's readers.
+- Only the same thread receives them; other subjects and consultations never do.
+
+### Later: automatic learning
+
+Out of scope for phase 5. The records are designed so it can build on them:
+
+- A scheduled job distils candidate guidelines per agent and tool from the feedback within one
+  scope key.
+- A candidate guideline is itself a proposal that an agent owner decides. Only approved
+  guidelines enter the agent's instructions, versioned with the agent row version.
+- The export doubles as the evaluation set for the trigger replay (§9): "for this input the agent
+  must not propose this".
+
+### Risks
+
+- **Poisoning and prompt injection.** On the same subject, feedback text is as trusted as a
+  message typed in the thread. Text that crosses subjects goes through review (later phase).
+- **Leakage.** Feedback text contains subject data; the report and export respect scope keys.
+- **Skew.** One critical approver can dominate. The summary shows distinct authors, and bulk
+  feedback is flagged.
+- **Response rate.** Too prominent and people decide less; too hidden and nobody answers. Measure
+  the share of rejections with feedback.
+- **Personal data.** Free text by identifiable people. Retention follows the subject, and the
+  release note asks consumers to cover it in their processing agreements.
+
+### Open questions
+
+- Feedback on chat approvals and a thumbs-down on chat answers: the same record through
+  `TargetKind`, but when?
+- Approve with modification is the strongest learning signal (the difference between the
+  proposal and what the person wanted), but hash binding makes every change a new proposal. It
+  needs its own design.
+
 ## Package placement
 
 | Package | Gains |
@@ -706,6 +837,7 @@ numbers are reserved in the registry at the start of phase 1 with status `planne
 | **2. Triggers and guardrails** | Trigger registry with coalesce, queue, supersede and ignore; cron, webhook and follow-up triggers; durable agent budget with settlement; concurrency and rate limits; kill switch; shadow mode; reminders and escalation; notification policy | A burst of 10 events in 1 minute results in 1 run. The kill switch stops active runs. Shadow runs never notify. |
 | **3. Continuity and UI** | Subject memory tools and schema migration; run summaries; artifacts; restricted redaction; subject retention; Angular inbox, thread view and run timeline | A second trigger on the same subject continues from memory and summaries without the full history. A viewer without rights sees redacted results. |
 | **4. Consumer adoption** | The first consumer upgrades, registers its own agent, curated `Exposure.Agent` tools and triggers in its own repository, runs a week in shadow mode, then goes live | The consumer's users receive proposal sets for their subjects and decide them per proposal. |
+| **5. Proposal feedback** | Optional feedback after a rejection; `AssistantProposalFeedback` for both providers; same-subject context (F5); admin summary, list and export; `INhAiAgentFeedbackSink`; Angular prompt and report (§10) | An approver rejects a proposal with `not-now` and a text; the next run on that subject receives it as context; the summary shows the rejection rate per tool and agent version, and the export contains the record. |
 
 ### Sample cases
 
@@ -726,6 +858,7 @@ reads it, and `ProjectService` calls `RefreshAsync` when members change.
 | SPM-275 | Webhook, schedule and kill switch for an agent | 2 |
 | SPM-276 | Working memory, run summaries, files and redaction of an agent thread | 3 |
 | SPM-277 | Agent inbox, thread view and run timeline in the management portal | 3 |
+| SPM-279 | Approvers explain rejected agent proposals and administrators review the feedback (number to be reserved) | 5 |
 
 ### Guidance and release notes
 

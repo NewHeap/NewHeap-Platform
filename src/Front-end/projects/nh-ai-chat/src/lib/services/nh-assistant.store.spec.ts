@@ -833,6 +833,61 @@ describe('NhAssistantStore', () => {
       expect(store.deciding()).toBeFalse();
       expect(api.getConversation).toHaveBeenCalledTimes(2);
     });
+
+    it('offers feedback on a proposal the user rejected in this session, and only on that one', async () => {
+      api.getConversation.and.returnValues(
+        of(thread([
+          { approvalId: 'intake-1', runId: 'run-1', canDecide: true, reasonCode: null },
+          { approvalId: 'intake-2', runId: 'run-2', canDecide: true, reasonCode: null }
+        ])),
+        of(thread(
+          [{ approvalId: 'intake-2', runId: 'run-2', canDecide: true, reasonCode: null }],
+          [{ ...intake, status: 'rejected' }, later]
+        ))
+      );
+      agentRuns.decide.and.returnValue(of({ ...decided(intake, 'rejected'), canGiveFeedback: true }));
+      const store = setup();
+      await store.initialize();
+      await store.openConversation('t1');
+      expect(store.approvalRights().get('intake-1')?.canGiveFeedback).toBeUndefined();
+
+      store.decide('reject', undefined, 'intake-1');
+      await flush();
+
+      expect(store.approvalRights().get('intake-1')).toEqual({
+        canDecide: false,
+        waitingFor: 'approver',
+        decisionOwner: null,
+        canGiveFeedback: true
+      });
+      expect(store.approvalRights().get('intake-2')?.canGiveFeedback).toBeUndefined();
+    });
+
+    it('offers no feedback after an approval or when the server does not allow it', async () => {
+      api.getConversation.and.returnValues(
+        of(thread([
+          { approvalId: 'intake-1', runId: 'run-1', canDecide: true, reasonCode: null },
+          { approvalId: 'intake-2', runId: 'run-2', canDecide: true, reasonCode: null }
+        ])),
+        of(thread([{ approvalId: 'intake-2', runId: 'run-2', canDecide: true, reasonCode: null }], [{ ...intake, status: 'approved' }, later])),
+        of(thread([], [{ ...intake, status: 'approved' }, { ...later, status: 'rejected' }]))
+      );
+      agentRuns.decide.and.returnValues(
+        of({ ...decided(intake, 'approved'), canGiveFeedback: false }),
+        of(decided(later, 'rejected'))
+      );
+      const store = setup();
+      await store.initialize();
+      await store.openConversation('t1');
+
+      store.decide('approve', undefined, 'intake-1');
+      await flush();
+      store.decide('reject', undefined, 'intake-2');
+      await flush();
+
+      expect(store.approvalRights().has('intake-1')).toBeFalse();
+      expect(store.approvalRights().has('intake-2')).toBeFalse();
+    });
   });
 
   it('keeps the chosen agent while the assistant feature is temporarily disabled', async () => {

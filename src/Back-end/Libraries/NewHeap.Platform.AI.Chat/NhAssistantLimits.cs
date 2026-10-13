@@ -23,6 +23,11 @@ public sealed class NhAssistantLimits
     public const int MaxStoredToolSelectorCharacters = 8_000;
 
     /// <summary>
+    /// Maximum characters of the text of one proposal feedback.
+    /// </summary>
+    public const int MaxFeedbackCharacters = 1_000;
+
+    /// <summary>
     /// Maximum governed tool calls in one turn. Further calls end the turn gracefully.
     /// </summary>
     public int MaxToolCallsPerTurn { get; set; } = 8;
@@ -113,6 +118,17 @@ public sealed class NhAssistantLimits
     /// </summary>
     public int MaxConsultationsPerActorPerDay { get; set; } = 50;
 
+    /// <summary>
+    /// How many rejected proposals of its thread, with the feedback people gave, a new agent run
+    /// starts with, so it does not propose them again unchanged. 0 leaves them out. At most 20.
+    /// </summary>
+    public int MaxRejectionsInContext { get; set; } = 5;
+
+    /// <summary>
+    /// How far back a new agent run sees rejected proposals of its thread.
+    /// </summary>
+    public TimeSpan RejectionContextWindow { get; set; } = TimeSpan.FromDays(30);
+
     internal void Validate()
     {
         if (MaintenanceInterval < TimeSpan.FromSeconds(1) || MaintenanceInterval > TimeSpan.FromHours(1))
@@ -135,7 +151,10 @@ public sealed class NhAssistantLimits
             || IdempotencyLeaseDuration <= TimeSpan.Zero
             || MaxParticipantsPerConversation is < 1 or > 100
             || MaxConsultationDepth is < 1 or > 3
-            || MaxConsultationsPerActorPerDay < 1)
+            || MaxConsultationsPerActorPerDay < 1
+            || MaxRejectionsInContext is < 0 or > 20
+            || RejectionContextWindow < TimeSpan.FromDays(1)
+            || RejectionContextWindow > TimeSpan.FromDays(365))
         {
             throw new InvalidOperationException("Assistant limits must be positive and bounded.");
         }

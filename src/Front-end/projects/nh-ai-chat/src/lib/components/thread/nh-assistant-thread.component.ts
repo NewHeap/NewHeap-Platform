@@ -76,7 +76,8 @@ export class NhAssistantThreadComponent {
   /**
    * Who may decide each pending approval, by approval id, for example `NhAssistantStore.approvalRights`.
    * An agent thread can hold several open proposals that the subject's approvers decide. Approvals
-   * without an entry use `canDecide` and `decisionOwner`.
+   * without an entry use `canDecide` and `decisionOwner`. An entry with `canGiveFeedback` lets the
+   * card of a rejected proposal ask what was wrong.
    */
   readonly approvalRights = input<ReadonlyMap<string, NhAssistantApprovalRight> | null>(null);
   /** The decision about an approval card, without the approval it belongs to. */

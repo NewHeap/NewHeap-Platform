@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+  viewChild
+} from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Observable, Subscription, forkJoin } from 'rxjs';
 import {
@@ -14,17 +25,25 @@ import {
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAdminAgentEditorComponent } from './nh-assistant-admin-agent-editor.component';
+import { NhAssistantAgentFeedbackReportComponent } from './nh-assistant-agent-feedback-report.component';
 
 let nextId = 0;
 
 /**
  * Agent administration: code agents (override, disable, reset) and agents created here
- * (edit, disable, delete). Editing opens `nh-assistant-admin-agent-editor`.
+ * (edit, disable, delete). Editing opens `nh-assistant-admin-agent-editor`; the feedback action
+ * opens `nh-assistant-agent-feedback-report` for the agent.
  */
 @Component({
   selector: 'nh-assistant-admin-agents',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAdminAgentEditorComponent],
+  imports: [
+    TranslatePipe,
+    NhAssistantTranslatePipe,
+    NhAssistantIconComponent,
+    NhAssistantAdminAgentEditorComponent,
+    NhAssistantAgentFeedbackReportComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-agents.component.html',
   styleUrl: '../nh-assistant-admin-shared.scss'
@@ -32,6 +51,9 @@ let nextId = 0;
 export class NhAssistantAdminAgentsComponent {
   private readonly admin = inject(NhAssistantAdminApiService);
   private readonly store = inject(NhAssistantStore);
+  private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly backButton = viewChild<ElementRef<HTMLButtonElement>>('back');
   private subscription?: Subscription;
   private actionSubscription?: Subscription;
 
@@ -43,6 +65,8 @@ export class NhAssistantAdminAgentsComponent {
   readonly servers = signal<McpServer[]>([]);
   /** `undefined`: list; `null`: new agent; an agent: editing that agent. */
   readonly editing = signal<AdminAgent | null | undefined>(undefined);
+  /** The agent whose feedback report is shown instead of the list. */
+  readonly reporting = signal<AdminAgent | null>(null);
   readonly confirming = signal<{ agentId: string; action: 'delete' | 'reset' } | null>(null);
   readonly busyAgentId = signal<string | null>(null);
   readonly error = signal<NhAssistantError | null>(null);
@@ -82,6 +106,28 @@ export class NhAssistantAdminAgentsComponent {
   edit(agent: AdminAgent): void {
     this.error.set(null);
     this.editing.set(agent);
+  }
+
+  /** Shows what people said when they rejected the agent's proposals. */
+  openReport(agent: AdminAgent): void {
+    this.error.set(null);
+    this.confirming.set(null);
+    this.reporting.set(agent);
+    afterNextRender(() => this.backButton()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /** Returns to the list and to the feedback action of the agent whose report was open. */
+  closeReport(): void {
+    const agentId = this.reporting()?.id;
+    this.reporting.set(null);
+    if (agentId !== undefined) {
+      afterNextRender(() => {
+        const host = this.host.nativeElement;
+        const action = Array.from(host.querySelectorAll<HTMLButtonElement>('[data-feedback-agent]'))
+          .find(item => item.dataset['feedbackAgent'] === agentId);
+        action?.focus();
+      }, { injector: this.injector });
+    }
   }
 
   onSaved(agent: AdminAgent): void {

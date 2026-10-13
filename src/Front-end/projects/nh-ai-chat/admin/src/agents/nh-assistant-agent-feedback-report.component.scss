@@ -1,0 +1,154 @@
+// Styles of the feedback report on top of the shared administration styles.
+@use '../../../src/lib/styles/tokens';
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.export-hint {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.subsection h4,
+.list-header h4 {
+  margin: 0;
+}
+
+.list-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+// The table stacks into labelled rows when its container is narrow, so the page never scrolls sideways.
+.table-container {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th,
+  td {
+    border-bottom: 1px solid var(--nha-border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  thead th {
+    color: var(--nha-text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  tbody th {
+    font-weight: 600;
+  }
+
+  .number {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mono {
+    overflow-wrap: anywhere;
+  }
+}
+
+@container (max-width: 820px) {
+  .summary-table thead {
+    @include tokens.visually-hidden;
+  }
+
+  .summary-table,
+  .summary-table tbody,
+  .summary-table tr {
+    display: block;
+  }
+
+  .summary-table tr {
+    margin-bottom: 8px;
+    border: 1px solid var(--nha-border);
+    border-radius: var(--nha-radius-control);
+    padding: 6px 12px;
+    background: var(--nha-background);
+  }
+
+  .summary-table tbody th,
+  .summary-table td {
+    display: grid;
+    grid-template-columns: minmax(110px, 40%) minmax(0, 1fr);
+    gap: 8px;
+    border: 0;
+    padding: 4px 0;
+    text-align: left;
+
+    &::before {
+      content: attr(data-label);
+      color: var(--nha-text-muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+  }
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.badge .count {
+  font-variant-numeric: tabular-nums;
+  opacity: .85;
+}
+
+.feedback-text {
+  margin: 0;
+  border-left: 3px solid var(--nha-border);
+  padding: 2px 0 2px 10px;
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.proposal {
+  margin: 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.proposal-label {
+  margin-right: 4px;
+  color: var(--nha-text);
+  font-weight: 700;
+}
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}

@@ -182,6 +182,22 @@ a participant. A custom layout passes `[approvalRights]="store.approvalRights()"
 `nh-assistant-thread` and handles `(approvalChoice)` with
 `store.decide(choice.decision, reason, choice.approvalId)`.
 
+Rejecting an agent proposal stays one click; only afterwards may the person say what was
+wrong. `nh-assistant-proposal-feedback` asks for a category from
+`NH_ASSISTANT_FEEDBACK_CATEGORIES` and an optional text, sends one proposal with
+`NhAssistantAgentRunApiService.giveFeedback` and proposals rejected together with
+`giveFeedbackMany`, and can always be skipped. `nh-assistant-agent-proposals` shows it
+above the list after a rejection, also when the inbox drops the rejected proposal, and
+offers "Give feedback" or "Change feedback" on closed proposals whose `canGiveFeedback`
+the server set; each person sees only their own `feedback`. In the panel, the store
+remembers the proposals the user rejected in this session, `approvalRights` gives their
+cards `canGiveFeedback`, and the approval card offers the same question behind a
+low-key "What was wrong?" button; plain chat approvals never ask. Administrators review
+the feedback per agent with `nh-assistant-agent-feedback-report` of
+`@newheap/platform-ai-chat/admin`, also reachable from each agent in the administration
+page: rejection rates and categories per tool and agent version, the texts and a JSON
+Lines export through `NhAssistantAdminApiService`.
+
 Live updates connect to the hub path the server reports in `status.collaboration`,
 using `@microsoft/signalr`, loaded on first use, and the same `getAccessToken`. When
 a proxy serves the API below a prefix, set `hubBaseUrl` to that prefix (for example
@@ -277,6 +293,9 @@ the administration route under the same parent to share that scope.
   server and proxy logs.
 - Hiding proposals or runs in the host based on its own role checks instead of the
   subject role the server reports, or showing the content of a restricted result.
+- Asking for a reason before an approver may reject a proposal, making the feedback
+  question required, or showing other people's feedback texts outside the administrators'
+  report.
 
 ## Verification
 
@@ -324,8 +343,13 @@ intake reviews page, start the reviewer for a project and follow its run, memory
 files, and decide a waiting proposal from the inbox. Let a manager create a project,
 add the lead as approver on the project members page, open the thread in the assistant
 panel as the lead and approve the proposal there; confirm that the hub connects over
-WebSockets (SPM-277). SPM-248, SPM-253,
-SPM-265 and SPM-277 are the executable references.
+WebSockets (SPM-277). The feedback tests keep sending disabled until a category is chosen,
+send one proposal through `PUT` and several through the bulk endpoint, offer the question
+after a rejection and on closed proposals the caller may comment on, and give the panel's
+approval card the question only for proposals the user rejected; the report tests load
+the summary, list and export with the chosen period and filters. Reject a proposal on the
+intake reviews page, answer the question, and open the report as an administrator
+(SPM-279). SPM-248, SPM-253, SPM-265, SPM-277 and SPM-279 are the executable references.
 
 ## Executable evidence
 
@@ -359,3 +383,8 @@ SPM-265 and SPM-277 are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs)
+- SPM-279 — Approvers explain rejected agent proposals and administrators review the feedback
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantProposalFeedbackStore.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantProposalFeedbackStore.cs)
