@@ -7,6 +7,8 @@ using System.Text.Json;
 using Hangfire;
 using Hangfire.InMemory;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -534,6 +536,37 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         var rejected = (await rejection.Content.ReadFromJsonAsync<NhAssistantProposalDto>(Json))!;
         Assert.Equal(NhAssistantApprovalStatuses.Rejected, rejected.Status);
         Assert.True(rejected.CanGiveFeedback);
+        // People read who decided by name, and the proposal in their own language, whichever
+        // culture the headless run worked in.
+        Assert.Equal("colleague@sample.localhost", rejected.DecidedByDisplayName);
+        var resources = new ResourceManager(typeof(SampleAssistantToolPresenter));
+        Assert.Equal(
+            resources.GetString("ToolProjectStatusChange", CultureInfo.GetCultureInfo("en-US")),
+            rejected.Presentation!.ToolDisplayName);
+        // The Angular client names only the language; the assistant picks the supported culture of
+        // that language instead of the application's default.
+        using (var englishColleague = host.CreateClient(host.ColleagueId.ToString()))
+        {
+            englishColleague.DefaultRequestHeaders.AcceptLanguage.Clear();
+            englishColleague.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en");
+            var english = Assert.Single(
+                (await englishColleague.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{conversationId}/proposals", Json))!,
+                item => item.ApprovalId == proposal.ApprovalId);
+            Assert.Equal(
+                resources.GetString("ToolProjectStatusChange", CultureInfo.GetCultureInfo("en-US")),
+                english.Presentation!.ToolDisplayName);
+        }
+        using (var dutchColleague = host.CreateClient(host.ColleagueId.ToString()))
+        {
+            dutchColleague.DefaultRequestHeaders.AcceptLanguage.Clear();
+            dutchColleague.DefaultRequestHeaders.AcceptLanguage.ParseAdd("nl-NL");
+            var dutch = Assert.Single(
+                (await dutchColleague.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{conversationId}/proposals", Json))!,
+                item => item.ApprovalId == proposal.ApprovalId);
+            Assert.Equal(
+                resources.GetString("ToolProjectStatusChange", CultureInfo.GetCultureInfo("nl-NL")),
+                dutch.Presentation!.ToolDisplayName);
+        }
 
         var feedbackPath = $"/api/assistant/approvals/{proposal.ApprovalId}/feedback";
         var request = new NhAssistantProposalFeedbackRequest(
@@ -598,6 +631,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         var listed = Assert.Single(list.Items, entry => entry.ApprovalId == proposal.ApprovalId);
         Assert.Equal("Wait for the budget review before activating.", listed.Text);
         Assert.Equal(host.ColleagueId.ToString(), listed.AuthorActorId);
+        Assert.Equal("colleague@sample.localhost", listed.AuthorDisplayName);
         Assert.NotNull(listed.Presentation);
 
         using var export = await administrator.GetAsync(reportPath + "/export");
@@ -799,6 +833,10 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
 
     protected override void ConfigureServices(IServiceCollection services)
     {
+        // As in the sample's appsettings, the application defaults to Dutch, so headless runs make
+        // their proposals in Dutch and English readers depend on the per-culture presentations.
+        services.PostConfigure<RequestLocalizationOptions>(options =>
+            options.DefaultRequestCulture = new RequestCulture(CultureInfo.GetCultureInfo("nl-NL")));
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {

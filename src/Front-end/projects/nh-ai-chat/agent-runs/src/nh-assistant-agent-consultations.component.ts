@@ -6,13 +6,15 @@ import {
   AgentConsultation,
   NhAssistantAgentRunApiService,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
 
 /**
  * Who consulted the thread's agent through another assistant, newest first: the person whose rights
  * were used, the asking assistant, the outcome, the usage and the proposals left for approvers. The
- * question and the answer stay in the asking conversation and are never shown here.
+ * question and the answer stay in the asking conversation and are never shown here. With live
+ * updates the list reloads by itself when a run or proposal of the thread changes.
  */
 @Component({
   selector: 'nh-assistant-agent-consultations',
@@ -39,19 +41,36 @@ export class NhAssistantAgentConsultationsComponent {
       this.conversationId();
       untracked(() => this.load());
     });
+    nhAssistantReloadOnAgentWork(
+      change => change.conversationId === this.conversationId() && change.reason !== 'feedback',
+      () => this.fetch(!this.loading() && !this.loadFailed())
+    );
   }
 
   load(): void {
-    this.loading.set(true);
-    this.loadFailed.set(false);
+    this.fetch(false);
+  }
+
+  /** A quiet load, after a live update, shows no loading state and keeps the list when it fails. */
+  private fetch(quiet: boolean): void {
+    if (!quiet) {
+      this.loading.set(true);
+      this.loadFailed.set(false);
+    }
+
     this.subscription?.unsubscribe();
     this.subscription = this.api.getConsultations(this.conversationId()).subscribe({
       next: list => {
         this.consultations.set(list.items);
         this.total.set(list.total);
         this.loading.set(false);
+        this.loadFailed.set(false);
       },
       error: () => {
+        if (quiet) {
+          return;
+        }
+
         this.loading.set(false);
         this.loadFailed.set(true);
       }

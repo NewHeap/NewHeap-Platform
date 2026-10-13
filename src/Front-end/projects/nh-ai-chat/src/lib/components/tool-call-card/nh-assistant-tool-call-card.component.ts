@@ -11,7 +11,9 @@ const statusIcons: Record<ToolCallPart['status'], NhAssistantIconName> = {
   succeeded: 'check',
   failed: 'warning',
   'awaiting-approval': 'clock',
-  rejected: 'x'
+  rejected: 'x',
+  // Ended without running: its proposal expired, was withdrawn or became stale.
+  'not-executed': 'stop'
 };
 
 /** Shows one tool invocation with its status and expandable input and result previews. */

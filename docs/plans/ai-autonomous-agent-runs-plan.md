@@ -43,9 +43,12 @@ below where it turned out simpler or safer:
 - **The Angular client** sends host headers such as the active division through
   `NhAssistantConfig.getRequestHeaders`.
 
-Open follow-ups: deciding agent proposals from the chat panel (the panel still applies the
-chat rule that the turn's author decides), presenting proposals in each viewer's language,
-and passing the active division to the hub so live updates do not fall back to long polling.
+The earlier follow-ups are implemented as well: the chat panel decides agent proposals by the
+thread's own decision rules (`thread.decisions`), the active division reaches the hub through
+`getHubQueryParameters`, and proposals are presented in every supported UI culture so each
+viewer reads their own language. Agent-run clients refresh through the hub's
+`AgentWorkChanged` message, which also reaches the subject's members, and the tool call of a
+deferred proposal that closed without running reads `rejected` or `not-executed`.
 
 Phase 5, [proposal feedback](#10-proposal-feedback), is implemented with sample case SPM-279.
 

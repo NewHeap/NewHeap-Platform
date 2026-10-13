@@ -27,6 +27,7 @@ import {
   DirectoryEntry
 } from '../models/assistant-api.models';
 import {
+  LiveAgentWorkChanged,
   LiveConversationChanged,
   LiveConversationEvent,
   LiveConversationRead,
@@ -188,6 +189,8 @@ export class NhAssistantStore {
 
   private readonly streams = new Map<string, Subscription>();
   private readonly cancelTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Pending reloads of agent threads after live agent-work updates, per conversation. */
+  private readonly agentWorkTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly pendingSendResolves = new Map<string, (accepted: boolean) => void>();
   private readonly markingRead = new Set<string>();
   private readonly liveSubscription = new Subscription();
@@ -371,6 +374,7 @@ export class NhAssistantStore {
       this.accessSubscription?.unsubscribe();
       this.liveSubscription.unsubscribe();
       this.stopAllTurns();
+      this.clearAgentWorkTimers();
       clearTimeout(this.refreshTimer);
     });
 
@@ -403,6 +407,7 @@ export class NhAssistantStore {
     this.liveSubscription.add(this.live.read$.subscribe(read => this.onLiveRead(read)));
     this.liveSubscription.add(this.live.removed$.subscribe(removed => this.onLiveRemoved(removed)));
     this.liveSubscription.add(this.live.events$.subscribe(event => this.onLiveEvent(event)));
+    this.liveSubscription.add(this.live.agentWork$.subscribe(change => this.onLiveAgentWork(change)));
     this.liveSubscription.add(this.live.resync$.subscribe(() => this.resync()));
 
     if (this.browser) {
@@ -1234,6 +1239,7 @@ export class NhAssistantStore {
     this.steeringState.set(null);
     this.submittingState.set(false);
     this.feedbackApprovalsState.set(new Set());
+    this.clearAgentWorkTimers();
     void this.live.stop();
     void this.push.deactivate().catch(() => undefined);
   }
@@ -1452,6 +1458,36 @@ export class NhAssistantStore {
       ...current,
       conversation: applyNhAssistantLiveEvent(current.conversation, event)
     }));
+  }
+
+  /**
+   * A run or proposal of an agent thread changed, for example a colleague decided a proposal in the
+   * inbox: reload the thread when this tab has it open, so its approval cards show the decision.
+   * A burst of updates reloads once. Feedback does not change the thread.
+   */
+  private onLiveAgentWork(change: LiveAgentWorkChanged): void {
+    const conversationId = change.conversationId;
+    const session = this.sessionsState().get(conversationId);
+    if (change.reason === 'feedback' || !session || session.streaming) {
+      return;
+    }
+
+    clearTimeout(this.agentWorkTimers.get(conversationId));
+    this.agentWorkTimers.set(conversationId, setTimeout(() => {
+      this.agentWorkTimers.delete(conversationId);
+      const current = this.sessionsState().get(conversationId);
+      // A decision of this tab reloads the thread itself when it ends.
+      if (current && !current.streaming && !current.deciding) {
+        void this.reloadSession(conversationId);
+      }
+    }, refreshDelayMs));
+  }
+
+  private clearAgentWorkTimers(): void {
+    for (const timer of this.agentWorkTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.agentWorkTimers.clear();
   }
 
   /** After a reconnect: updates sent while disconnected are lost, so reload what is shown. */

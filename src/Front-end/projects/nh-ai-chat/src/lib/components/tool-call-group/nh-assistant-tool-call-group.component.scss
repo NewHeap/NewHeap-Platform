@@ -11,6 +11,8 @@
 :host([data-status='succeeded']) { --nha-status-color: var(--nha-success); }
 :host([data-status='failed']) { --nha-status-color: var(--nha-danger); }
 :host([data-status='awaiting-approval']) { --nha-status-color: var(--nha-warning); }
+:host([data-status='not-executed']) { --nha-status-color: var(--nha-text-muted); }
+:host([data-status='not-executed']) .group { border-left-style: dashed; }
 
 .group {
   border: 1px solid var(--nha-border);
@@ -65,13 +67,22 @@
   font-variant-numeric: tabular-nums;
 }
 
-.count.failed {
+.count.failed,
+.count.not-executed {
   border-radius: 999px;
   padding: 2px 8px;
-  color: var(--nha-danger);
-  background: var(--nha-danger-soft);
   font-size: 11px;
   font-weight: 700;
+}
+
+.count.failed {
+  color: var(--nha-danger);
+  background: var(--nha-danger-soft);
+}
+
+.count.not-executed {
+  color: var(--nha-text-muted);
+  background: var(--nha-surface-strong);
 }
 
 .chevron {

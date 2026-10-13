@@ -148,6 +148,13 @@ division reads it from the `divisionId` query value: the NewHeap JWT handler cop
 `X-NH-ActiveDivisionId` on `/hub` paths. The Angular client sends it through
 `NhAssistantConfig.getHubQueryParameters`.
 
+For agent threads the hub also sends `AgentWorkChanged` (`NhAssistantLiveAgentWorkDto`):
+a run, a proposal or its feedback changed. It goes to the thread's participants and to
+everyone in the subject's member snapshot, carries only identifiers and a reason (`run`,
+`proposal` or `feedback`), and lets clients reload the agent-run endpoints they show.
+Proposals are presented in every supported UI culture of `RequestLocalizationOptions`;
+each endpoint returns the presentation of the request's culture.
+
 Every error of `preferences` and `admin/*` has the body `{ code, messageKey, errors? }`.
 Validation errors return `400` with code `assistant-validation` and `errors` keyed by
 camelCase field name (values `required`, `invalid`, `too-long`, `not-found`); blocked

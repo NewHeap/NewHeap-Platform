@@ -107,7 +107,7 @@
               <span>{{ 'nh-assistant.agent-runs.proposal.expires' | translate: { date: (proposal.expiresAt | date: 'short') } }}</span>
             }
             @if (proposal.decidedByActorId) {
-              <span>{{ 'nh-assistant.agent-runs.proposal.decided-by' | translate: { actor: proposal.decidedByActorId } }}</span>
+              <span>{{ 'nh-assistant.agent-runs.proposal.decided-by' | translate: { actor: proposal.decidedByDisplayName || proposal.decidedByActorId } }}</span>
             }
             @if (proposal.executionResultCode; as code) {
               <span class="mono">{{ code }}</span>

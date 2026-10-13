@@ -441,6 +441,19 @@ describe('NhAssistantToolCallCardComponent', () => {
     expect(fixture.nativeElement.querySelector('.result-code').textContent.trim()).toBe('You rejected this action, so nothing was changed.');
   });
 
+  it('shows a call whose proposal closed without running as not run, never as waiting', () => {
+    const fixture = TestBed.createComponent(NhAssistantToolCallCardComponent);
+    fixture.componentRef.setInput('part', { ...part, status: 'not-executed', resultCode: 'assistant-proposal-expired' });
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.getAttribute('data-status')).toBe('not-executed');
+    expect(element.querySelector('.status')?.textContent?.trim()).toBe('Not run');
+    expect(element.querySelector('.result-code')?.textContent?.trim()).toBe('Not run: nobody decided before the proposal expired.');
+    expect(element.textContent).not.toContain('Awaiting approval');
+    expect(element.querySelector('.spinning')).toBeNull();
+  });
+
   it('falls back to the raw code for an unknown result code', () => {
     const fixture = TestBed.createComponent(NhAssistantToolCallCardComponent);
     fixture.componentRef.setInput('part', { ...part, resultCode: 'custom-failure' });
@@ -518,6 +531,31 @@ describe('NhAssistantToolCallGroupComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     expect(element.getAttribute('data-status')).toBe('awaiting-approval');
     expect(element.querySelector('.title')?.textContent?.trim()).toBe('Waiting for approval: Change status');
+  });
+
+  it('stops waiting once the proposal closed without running and counts the calls that did not run', () => {
+    const fixture = TestBed.createComponent(NhAssistantToolCallGroupComponent);
+    fixture.componentRef.setInput('calls', [call('search', 'succeeded'), call('update', 'awaiting-approval', 'Change status')]);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.title')?.textContent?.trim()).toBe('Waiting for approval: Change status');
+
+    fixture.componentRef.setInput('calls', [call('search', 'succeeded'), call('update', 'not-executed', 'Change status')]);
+    fixture.detectChanges();
+
+    expect(element.getAttribute('data-status')).toBe('not-executed');
+    expect(element.querySelector('.title')?.textContent?.trim()).toBe('Used 2 tools');
+    expect(element.textContent).not.toContain('Waiting for approval');
+    expect(element.textContent).not.toContain('done');
+    expect(element.querySelector('.count.not-executed')?.textContent?.trim()).toBe('1 not run');
+    expect(element.querySelector('.spinning')).toBeNull();
+
+    fixture.componentRef.setInput('calls', [call('search', 'failed'), call('update', 'not-executed', 'Change status')]);
+    fixture.detectChanges();
+
+    expect(element.getAttribute('data-status')).toBe('failed');
+    expect(element.querySelector('.count.failed')?.textContent?.trim()).toBe('1 failed');
+    expect(element.querySelector('.count.not-executed')?.textContent?.trim()).toBe('1 not run');
   });
 });
 

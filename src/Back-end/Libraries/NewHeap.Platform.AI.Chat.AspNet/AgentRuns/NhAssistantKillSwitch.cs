@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Live;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
@@ -11,7 +12,10 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// Cancels one run: open proposals are withdrawn, a queued or waiting run ends at once and a
 /// running run ends at its next safe point through its background operation.
 /// </summary>
-internal sealed class NhAssistantRunCancellation(NhAssistantRunStore runs, IServiceProvider services)
+internal sealed class NhAssistantRunCancellation(
+    NhAssistantRunStore runs,
+    NhAssistantAgentWorkUpdates workUpdates,
+    IServiceProvider services)
 {
     private INhBackgroundOperationService Operations => services.GetRequiredService<INhBackgroundOperationService>();
 
@@ -53,6 +57,8 @@ internal sealed class NhAssistantRunCancellation(NhAssistantRunStore runs, IServ
                 cancellationToken,
                 NhAssistantRunFailureClasses.Cancelled);
         }
+
+        await workUpdates.PublishAsync(run.ConversationId, NhAssistantAgentWorkReasons.Run, runId: run.Id, cancellationToken: cancellationToken);
     }
 }
 

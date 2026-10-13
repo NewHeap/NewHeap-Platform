@@ -241,6 +241,7 @@ internal sealed class NhAssistantProposalFeedbackStore(NhAssistantDbContextFacto
                 row.Approval.RunId,
                 row.Approval.Summary,
                 row.Approval.PresentationJson,
+                row.Approval.PresentationsJson,
                 row.Thread.SubjectDisplayName,
                 null))
             .ToListAsync(cancellationToken);
@@ -273,6 +274,7 @@ internal sealed class NhAssistantProposalFeedbackStore(NhAssistantDbContextFacto
                     row.Approval.RunId,
                     row.Approval.Summary,
                     row.Approval.PresentationJson,
+                    row.Approval.PresentationsJson,
                     row.Thread.SubjectDisplayName,
                     row.Approval.ProposalJson))
                 .ToListAsync(cancellationToken);
@@ -405,5 +407,6 @@ internal sealed record NhAssistantFeedbackRow(
     Guid? RunId,
     string Summary,
     string? PresentationJson,
+    string? PresentationsJson,
     string? SubjectDisplayName,
     string? ProposalJson);

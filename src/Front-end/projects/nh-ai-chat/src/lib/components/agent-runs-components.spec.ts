@@ -1,14 +1,14 @@
 import { Component, signal } from '@angular/core';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { provideTranslateService } from '@ngx-translate/core';
+import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import {
   NhAssistantAgentConsultationsComponent,
   NhAssistantAgentInboxComponent,
   NhAssistantAgentProposalsComponent,
   NhAssistantAgentThreadViewComponent
 } from '@newheap/platform-ai-chat/agent-runs';
-import { Subject, of } from 'rxjs';
+import { NEVER, Subject, of, throwError } from 'rxjs';
 import {
   AgentConsultation,
   AgentInbox,
@@ -17,8 +17,10 @@ import {
   AgentThread,
   AgentThreadLookup
 } from '../models/assistant-agent-run.models';
+import { LiveAgentWorkChanged } from '../models/assistant-live.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAgentRunApiService } from '../services/nh-assistant-agent-run-api.service';
+import { NhAssistantLiveService, NhAssistantLiveState } from '../services/nh-assistant-live.service';
 import { NhAssistantProposalFeedbackComponent } from './proposal-feedback/nh-assistant-proposal-feedback.component';
 
 function proposal(status: AgentProposal['status'], id = 'approval-1'): AgentProposal {
@@ -128,6 +130,31 @@ class ThreadHostComponent {
   opened: string | null = null;
 }
 
+/** A connected hub whose agent-work updates and reconnects the test sends. */
+class FakeLiveService {
+  readonly agentWork = new Subject<LiveAgentWorkChanged>();
+  readonly resync = new Subject<void>();
+  readonly changed$ = NEVER;
+  readonly read$ = NEVER;
+  readonly removed$ = NEVER;
+  readonly events$ = NEVER;
+  readonly agentWork$ = this.agentWork.asObservable();
+  readonly resync$ = this.resync.asObservable();
+  readonly state = signal<NhAssistantLiveState>('connected').asReadonly();
+
+  connect(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  stop(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
+function work(conversationId: string, reason: LiveAgentWorkChanged['reason']): LiveAgentWorkChanged {
+  return { conversationId, reason, approvalId: reason === 'run' ? null : 'approval-1', runId: reason === 'run' ? 'run-1' : null };
+}
+
 function buttons(fixture: ComponentFixture<unknown>): HTMLButtonElement[] {
   return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
 }
@@ -138,8 +165,10 @@ function button(fixture: ComponentFixture<unknown>, key: string): HTMLButtonElem
 
 describe('agent-run components', () => {
   let api: jasmine.SpyObj<NhAssistantAgentRunApiService>;
+  let live: FakeLiveService;
 
   beforeEach(() => {
+    live = new FakeLiveService();
     api = jasmine.createSpyObj<NhAssistantAgentRunApiService>('NhAssistantAgentRunApiService', [
       'getThread',
       'getInbox',
@@ -156,7 +185,8 @@ describe('agent-run components', () => {
       providers: [
         provideTranslateService(),
         provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => 'token', translations: 'host' }),
-        { provide: NhAssistantAgentRunApiService, useValue: api }
+        { provide: NhAssistantAgentRunApiService, useValue: api },
+        { provide: NhAssistantLiveService, useValue: live }
       ]
     });
   });
@@ -330,6 +360,25 @@ describe('agent-run components', () => {
       expect(card.querySelector('[role="status"]')!.textContent).toContain('proposal-feedback.thanks');
     });
 
+    it('names who decided from the member snapshot and falls back to the id', () => {
+      const translate = TestBed.inject(TranslateService);
+      translate.setTranslation('en', { 'nh-assistant': { 'agent-runs': { proposal: { 'decided-by': 'Decided by {{actor}}' } } } });
+      translate.use('en');
+      fixture.componentInstance.proposals.set([
+        { ...proposal('approved'), decidedByActorId: 'user-7', decidedByDisplayName: 'Pat Planner' },
+        { ...proposal('rejected', 'approval-2'), decidedByActorId: 'user-8', decidedByDisplayName: null },
+        { ...proposal('rejected', 'approval-3'), decidedByActorId: 'user-9' }
+      ]);
+      fixture.detectChanges();
+
+      const meta = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li.card .meta'))
+        .map(item => item.textContent ?? '');
+      expect(meta[0]).toContain('Decided by Pat Planner');
+      expect(meta[0]).not.toContain('user-7');
+      expect(meta[1]).toContain('Decided by user-8');
+      expect(meta[2]).toContain('Decided by user-9');
+    });
+
     it('offers feedback on closed proposals only when the server allows it', () => {
       fixture.componentInstance.proposals.set([proposal('rejected'), { ...proposal('expired', 'approval-2'), canGiveFeedback: true }]);
       fixture.detectChanges();
@@ -365,6 +414,68 @@ describe('agent-run components', () => {
       expect(element.querySelector('.feedback-prompt nh-assistant-proposal-feedback')).not.toBeNull();
       expect(element.querySelector('[role="status"].state')).toBeNull();
     });
+
+    it('reloads once a burst of agent work settled and after a reconnect', fakeAsync(() => {
+      api.getInbox.and.returnValue(of({ items: [proposal('pending')], total: 1 }));
+      const fixture = TestBed.createComponent(NhAssistantAgentInboxComponent);
+      fixture.detectChanges();
+      expect(api.getInbox).toHaveBeenCalledTimes(1);
+
+      // Work on any thread may change the inbox.
+      live.agentWork.next(work('conversation-1', 'proposal'));
+      tick(200);
+      live.agentWork.next(work('conversation-9', 'run'));
+      tick(299);
+      expect(api.getInbox).toHaveBeenCalledTimes(1);
+
+      tick(1);
+      expect(api.getInbox).toHaveBeenCalledTimes(2);
+
+      live.resync.next();
+      tick(300);
+      expect(api.getInbox).toHaveBeenCalledTimes(3);
+    }));
+
+    it('keeps the list in place, without an error, when a live reload fails', fakeAsync(() => {
+      api.getInbox.and.returnValues(of({ items: [proposal('pending')], total: 1 }), throwError(() => new Error('offline')));
+      const fixture = TestBed.createComponent(NhAssistantAgentInboxComponent);
+      fixture.detectChanges();
+
+      live.agentWork.next(work('conversation-1', 'proposal'));
+      tick(300);
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      expect(api.getInbox).toHaveBeenCalledTimes(2);
+      expect(element.querySelectorAll('li.card').length).toBe(1);
+      expect(element.querySelector('[role="alert"]')).toBeNull();
+    }));
+
+    it('leaves the reload to its own decision in flight and keeps the feedback question afterwards', fakeAsync(() => {
+      const pending = proposal('pending');
+      const deciding = new Subject<AgentProposal>();
+      api.getInbox.and.returnValues(of({ items: [pending], total: 1 }), of({ items: [], total: 0 }), of({ items: [], total: 0 }));
+      api.decide.and.returnValue(deciding);
+      const fixture = TestBed.createComponent(NhAssistantAgentInboxComponent);
+      fixture.detectChanges();
+
+      button(fixture, 'proposal.reject')!.click();
+      live.agentWork.next(work('conversation-1', 'proposal'));
+      tick(300);
+      expect(api.getInbox).toHaveBeenCalledTimes(1);
+
+      deciding.next({ ...pending, status: 'rejected', canGiveFeedback: true });
+      deciding.complete();
+      fixture.detectChanges();
+      expect(api.getInbox).toHaveBeenCalledTimes(2);
+
+      live.agentWork.next(work('conversation-1', 'run'));
+      tick(300);
+      fixture.detectChanges();
+
+      expect(api.getInbox).toHaveBeenCalledTimes(3);
+      expect((fixture.nativeElement as HTMLElement).querySelector('.feedback-prompt nh-assistant-proposal-feedback')).not.toBeNull();
+    }));
   });
 
   describe('nh-assistant-agent-consultations', () => {
@@ -470,5 +581,101 @@ describe('agent-run components', () => {
       fixture.detectChanges();
       expect((fixture.nativeElement as HTMLElement).querySelector('[role="status"].success')).toBeNull();
     });
+
+    it('reloads its own thread after live agent work, not after work on other threads', fakeAsync(() => {
+      api.getThread.and.returnValue(of(lookup(null)));
+      api.getProposals.and.returnValue(of([proposal('pending')]));
+      const fixture = TestBed.createComponent(ThreadHostComponent);
+      fixture.detectChanges();
+      expect(api.getThread).toHaveBeenCalledTimes(1);
+      expect(api.getProposals).toHaveBeenCalledTimes(1);
+
+      live.agentWork.next(work('conversation-2', 'proposal'));
+      tick(300);
+      expect(api.getThread).toHaveBeenCalledTimes(1);
+
+      live.agentWork.next(work('conversation-1', 'run'));
+      tick(100);
+      live.agentWork.next(work('conversation-1', 'feedback'));
+      tick(300);
+      fixture.detectChanges();
+
+      expect(api.getThread).toHaveBeenCalledTimes(2);
+      expect(api.getProposals).toHaveBeenCalledTimes(2);
+      expect((fixture.nativeElement as HTMLElement).querySelector('[role="status"].state')).toBeNull();
+      expect(button(fixture, 'agent-runs.refresh')!.disabled).toBeFalse();
+
+      live.resync.next();
+      tick(300);
+      expect(api.getThread).toHaveBeenCalledTimes(3);
+    }));
+
+    it('finds the thread that a run started on its subject', fakeAsync(() => {
+      api.getThread.and.returnValues(of({ thread: null, canStart: true, role: 'approver' }), of(lookup(null)));
+      api.getProposals.and.returnValue(of([]));
+      const fixture = TestBed.createComponent(ThreadHostComponent);
+      fixture.detectChanges();
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.textContent).toContain('thread.no-thread');
+
+      live.agentWork.next(work('conversation-1', 'proposal'));
+      tick(300);
+      expect(api.getThread).toHaveBeenCalledTimes(1);
+
+      live.agentWork.next(work('conversation-1', 'run'));
+      tick(300);
+      fixture.detectChanges();
+
+      expect(api.getThread).toHaveBeenCalledTimes(2);
+      expect(element.textContent).not.toContain('thread.no-thread');
+    }));
+
+    it('reloads only the thread while its own decision is in flight', fakeAsync(() => {
+      const pending = proposal('pending');
+      const rejected: AgentProposal = { ...pending, status: 'rejected', canGiveFeedback: true };
+      const deciding = new Subject<AgentProposal>();
+      api.getThread.and.returnValue(of(lookup(null)));
+      api.getProposals.and.returnValues(of([pending]), of([rejected]));
+      api.decide.and.returnValue(deciding);
+      const fixture = TestBed.createComponent(ThreadHostComponent);
+      fixture.detectChanges();
+
+      button(fixture, 'proposal.reject')!.click();
+      live.agentWork.next(work('conversation-1', 'proposal'));
+      tick(300);
+      expect(api.getThread).toHaveBeenCalledTimes(2);
+      expect(api.getProposals).toHaveBeenCalledTimes(1);
+
+      deciding.next(rejected);
+      deciding.complete();
+      fixture.detectChanges();
+
+      expect(api.getProposals).toHaveBeenCalledTimes(2);
+      expect((fixture.nativeElement as HTMLElement).querySelector('.feedback-prompt nh-assistant-proposal-feedback')).not.toBeNull();
+    }));
+
+    it('keeps the feedback question and the proposals when a live reload fails', fakeAsync(() => {
+      const pending = proposal('pending');
+      const rejected: AgentProposal = { ...pending, status: 'rejected', canGiveFeedback: true };
+      api.getThread.and.returnValue(of(lookup(null)));
+      api.getProposals.and.returnValues(of([pending]), of([rejected]), throwError(() => new Error('offline')));
+      api.decide.and.returnValue(of(rejected));
+      const fixture = TestBed.createComponent(ThreadHostComponent);
+      fixture.detectChanges();
+      const element = fixture.nativeElement as HTMLElement;
+
+      button(fixture, 'proposal.reject')!.click();
+      fixture.detectChanges();
+      expect(element.querySelector('.feedback-prompt nh-assistant-proposal-feedback')).not.toBeNull();
+
+      live.agentWork.next(work('conversation-1', 'proposal'));
+      tick(300);
+      fixture.detectChanges();
+
+      expect(api.getProposals).toHaveBeenCalledTimes(3);
+      expect(element.querySelector('.feedback-prompt nh-assistant-proposal-feedback')).not.toBeNull();
+      expect(element.querySelectorAll('li.card').length).toBe(1);
+      expect(element.querySelector('[role="alert"]')).toBeNull();
+    }));
   });
 });

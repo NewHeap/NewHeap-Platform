@@ -1,5 +1,7 @@
 import { inject } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import type { HubConnection } from '@microsoft/signalr';
+import { LiveAgentWorkChanged } from '../models/assistant-live.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantLiveService } from './nh-assistant-live.service';
 
@@ -70,5 +72,41 @@ describe('NhAssistantLiveService', () => {
     const negotiate = new URL(requests[0]);
     expect(negotiate.pathname).toBe('/api/hub/assistant/negotiate');
     expect(negotiate.search).toBe('?negotiateVersion=1');
+  });
+});
+
+describe('NhAssistantLiveService hub messages', () => {
+  it('emits agent work from the AgentWorkChanged hub method and completes it on destroy', async () => {
+    const handlers = new Map<string, (message: unknown) => void>();
+    const connection = {
+      on: (name: string, handler: (message: unknown) => void) => handlers.set(name, handler),
+      onreconnecting: () => undefined,
+      onreconnected: () => undefined,
+      onclose: () => undefined,
+      start: () => Promise.resolve(),
+      stop: () => Promise.resolve()
+    };
+    const signalR = await import('@microsoft/signalr');
+    spyOn(signalR.HubConnectionBuilder.prototype, 'build').and.returnValue(connection as unknown as HubConnection);
+    TestBed.configureTestingModule({
+      providers: [provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => 'token', translations: 'host' })]
+    });
+    const live = TestBed.inject(NhAssistantLiveService);
+    const received: LiveAgentWorkChanged[] = [];
+    let resyncs = 0;
+    let completed = false;
+    live.agentWork$.subscribe({ next: change => received.push(change), complete: () => (completed = true) });
+    live.resync$.subscribe(() => resyncs++);
+
+    await live.connect('/hub/assistant');
+    const change: LiveAgentWorkChanged = { conversationId: 'thread-1', reason: 'proposal', approvalId: 'approval-1', runId: null };
+    handlers.get('AgentWorkChanged')!(change);
+
+    expect(live.state()).toBe('connected');
+    expect(resyncs).toBe(1);
+    expect(received).toEqual([change]);
+
+    TestBed.resetTestingModule();
+    expect(completed).toBeTrue();
   });
 });

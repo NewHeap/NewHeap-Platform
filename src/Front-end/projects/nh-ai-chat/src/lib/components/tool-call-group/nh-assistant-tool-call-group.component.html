@@ -24,8 +24,13 @@
     </span>
     @if (state() === 'running' || state() === 'awaiting-approval') {
       <span class="count">{{ 'nh-assistant.tool-group.progress' | translate: { finished: finished(), total: total() } }}</span>
-    } @else if (failed() > 0) {
-      <span class="count failed">{{ 'nh-assistant.tool-group.failed' | translate: { count: failed() } }}</span>
+    } @else {
+      @if (failed() > 0) {
+        <span class="count failed">{{ 'nh-assistant.tool-group.failed' | translate: { count: failed() } }}</span>
+      }
+      @if (notExecuted() > 0) {
+        <span class="count not-executed">{{ 'nh-assistant.tool-group.not-executed' | translate: { count: notExecuted() } }}</span>
+      }
     }
     <nh-assistant-icon class="chevron" name="chevron-down" [class.rotated]="expanded()" />
   </button>

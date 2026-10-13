@@ -5,12 +5,14 @@ import { Subscription } from 'rxjs';
 import {
   AgentArtifact,
   NhAssistantAgentRunApiService,
-  ɵNhAssistantIconComponent as NhAssistantIconComponent
+  ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork
 } from '@newheap/platform-ai-chat';
 
 /**
  * The files the agent's tools saved in a thread, every version newest first. Files of the
  * agent's own grant that the viewer may not read are listed as shielded and cannot be downloaded.
+ * With live updates the list reloads by itself when a run or proposal of the thread changes.
  */
 @Component({
   selector: 'nh-assistant-agent-artifacts',
@@ -39,22 +41,14 @@ export class NhAssistantAgentArtifactsComponent {
       this.conversationId();
       untracked(() => this.load());
     });
+    nhAssistantReloadOnAgentWork(
+      change => change.conversationId === this.conversationId() && change.reason !== 'feedback',
+      () => this.fetch(!this.loading() && !this.loadFailed())
+    );
   }
 
   load(): void {
-    this.loading.set(true);
-    this.loadFailed.set(false);
-    this.subscription?.unsubscribe();
-    this.subscription = this.api.getArtifacts(this.conversationId()).subscribe({
-      next: artifacts => {
-        this.artifacts.set(artifacts);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.loading.set(false);
-        this.loadFailed.set(true);
-      }
-    });
+    this.fetch(false);
   }
 
   async download(artifact: AgentArtifact): Promise<void> {
@@ -73,5 +67,30 @@ export class NhAssistantAgentArtifactsComponent {
     } finally {
       this.downloadingId.set(null);
     }
+  }
+
+  /** A quiet load, after a live update, shows no loading state and keeps the files when it fails. */
+  private fetch(quiet: boolean): void {
+    if (!quiet) {
+      this.loading.set(true);
+      this.loadFailed.set(false);
+    }
+
+    this.subscription?.unsubscribe();
+    this.subscription = this.api.getArtifacts(this.conversationId()).subscribe({
+      next: artifacts => {
+        this.artifacts.set(artifacts);
+        this.loading.set(false);
+        this.loadFailed.set(false);
+      },
+      error: () => {
+        if (quiet) {
+          return;
+        }
+
+        this.loading.set(false);
+        this.loadFailed.set(true);
+      }
+    });
   }
 }

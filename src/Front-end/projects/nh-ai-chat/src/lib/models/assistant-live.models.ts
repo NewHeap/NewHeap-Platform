@@ -27,6 +27,22 @@ export interface LiveConversationRemoved {
   conversationId: string;
 }
 
+/** What changed in an agent thread: a run, a proposal or the feedback on a proposal. */
+export type LiveAgentWorkReason = 'run' | 'proposal' | 'feedback';
+
+/**
+ * `AgentWorkChanged`: a run of an agent thread started, waits, ended or was cancelled, a proposal
+ * was decided, resolved, executed, closed, escalated or expired, or feedback was given. Sent to the
+ * thread's participants and everyone on its subject. It carries no content: reload the agent-run
+ * endpoints that show the thread, which check access again.
+ */
+export interface LiveAgentWorkChanged {
+  conversationId: string;
+  reason: LiveAgentWorkReason;
+  approvalId: string | null;
+  runId: string | null;
+}
+
 /**
  * `ConversationEvent`: one turn event with the same `type` and `data` as the server-sent events
  * of the starting request, or `message.created` with a `Message` when a participant's message

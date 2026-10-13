@@ -220,6 +220,18 @@ public sealed record NhAssistantLiveReadDto(
 public sealed record NhAssistantLiveRemovedDto(Guid ConversationId);
 
 /// <summary>
+/// Live update for the people on an agent thread's subject: a run, a proposal or its feedback
+/// changed. It carries no content; clients reload the agent-run endpoints they show.
+/// </summary>
+/// <param name="ConversationId">The agent thread.</param>
+/// <param name="Reason"><c>run</c>, <c>proposal</c> or <c>feedback</c>.</param>
+public sealed record NhAssistantLiveAgentWorkDto(
+    Guid ConversationId,
+    string Reason,
+    Guid? ApprovalId,
+    Guid? RunId);
+
+/// <summary>
 /// Live update: one event of a turn, with the same <paramref name="Type"/> and <paramref name="Data"/>
 /// as the server-sent events of the starting request, or <c>message.created</c> with a
 /// <see cref="NhAssistantMessageDto"/> when a participant's message was stored.
@@ -402,6 +414,7 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantLiveConversationDto))]
 [JsonSerializable(typeof(NhAssistantLiveReadDto))]
 [JsonSerializable(typeof(NhAssistantLiveRemovedDto))]
+[JsonSerializable(typeof(NhAssistantLiveAgentWorkDto))]
 [JsonSerializable(typeof(NhAssistantLiveEventDto))]
 [JsonSerializable(typeof(NhAssistantPreferencesDto))]
 [JsonSerializable(typeof(NhAssistantApplicationContextDto))]

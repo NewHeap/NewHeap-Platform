@@ -301,6 +301,9 @@ internal static class NhAssistantAgentRunEndpoints
             approvals.Select(approval => approval.Id).ToArray(),
             actorId,
             httpContext.RequestAborted);
+        var names = await runs.GetDisplayNamesAsync(
+            approvals.Select(approval => approval.DecidedByActorId),
+            httpContext.RequestAborted);
         return TypedResults.Json(
             approvals
                 .OrderByDescending(approval => approval.CreatedAt)
@@ -309,7 +312,10 @@ internal static class NhAssistantAgentRunEndpoints
                     Feedback = ownFeedback.TryGetValue(approval.Id, out var given)
                         ? NhAssistantAgentRunDtoMapper.ToDto(given)
                         : null,
-                    CanGiveFeedback = NhAssistantProposalFeedbackService.MayGiveFeedback(approval, role, actorId)
+                    CanGiveFeedback = NhAssistantProposalFeedbackService.MayGiveFeedback(approval, role, actorId),
+                    DecidedByDisplayName = approval.DecidedByActorId is { } decidedBy
+                        ? names.GetValueOrDefault(decidedBy)
+                        : null
                 })
                 .ToArray(),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalDtoArray);
@@ -743,11 +749,15 @@ internal static class NhAssistantAgentRunEndpoints
 
         var approval = result.Data!;
         var thread = await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
+        var names = await runs.GetDisplayNamesAsync([approval.DecidedByActorId], cancellationToken);
         return TypedResults.Json(
             NhAssistantAgentRunDtoMapper.ToDto(approval, thread!) with
             {
                 CanGiveFeedback = NhAssistantApprovalStatuses.AcceptsFeedback(approval.Status)
-                    && string.Equals(approval.DecidedByActorId, actorId, StringComparison.Ordinal)
+                    && string.Equals(approval.DecidedByActorId, actorId, StringComparison.Ordinal),
+                DecidedByDisplayName = approval.DecidedByActorId is { } decidedBy
+                    ? names.GetValueOrDefault(decidedBy)
+                    : null
             },
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalDto);
     }

@@ -72,9 +72,16 @@ open runs and deletes its threads with their memory, summaries and files.
 
 Proposals in `GET threads/{id}/proposals` and the approval inbox carry the
 application's `presentation`, the same localized explanation the chat approval card
-shows, so approvers read what changes instead of the tool input. Headless runs and
-executions use the application's default request culture, so the texts they store no
-longer depend on the thread that started them.
+shows, so approvers read what changes instead of the tool input. The assistant
+presents each proposal in every supported UI culture of `RequestLocalizationOptions`
+when it is made, and each reader gets their own request culture's presentation, also
+for proposals of headless runs, which run in the default request culture. When a
+deferred proposal closes without running, its tool call in the thread reads `rejected`
+or the new status `not-executed` instead of waiting. The live hub's new
+`AgentWorkChanged` message (`NhAssistantLiveAgentWorkDto`) tells the thread's
+participants and everyone on the subject that a run, a proposal or its feedback changed,
+so inboxes and thread views refresh without polling. Proposals carry
+`DecidedByDisplayName` from the subject's member snapshot.
 
 `GET conversations/{id}` of a thread says who decides, so a chat client does not apply
 the chat rule that only a turn's author decides: it returns `kind: "thread"` and
@@ -101,7 +108,10 @@ streamed answer is retried only before its first update.
 | Webhook triggers are anonymous endpoints authenticated by their signature. | Keep each trigger's secret at least 32 characters, store it outside source control and rotate it through configuration. |
 | `NhAssistantAuditEventKind` gains agent trigger, run, execution and kill-switch kinds. | Let business audit sinks accept the new kinds; they carry identifiers and codes only. |
 | The `AgentRuns` migration also adds the `AssistantArtifact` table and approval reminders (`NextReminderAt`). | Nothing beyond applying the migration. |
-| Agent presenters and other texts of headless runs use `RequestLocalizationOptions.DefaultRequestCulture`. | Configure the default request culture to the language approvers should read; it was the culture of the starting thread before. |
+| Agent presenters and other texts of headless runs use `RequestLocalizationOptions.DefaultRequestCulture`; approval presentations are also made in every supported UI culture. | Make your `INhAssistantToolPresenter` answer in every supported UI culture; the model's own text stays in the default request culture. |
+| The `AgentProposalPresentations` migration adds `AssistantApproval.PresentationsJson`. | Apply it with the other `nhai` migrations; proposals made before keep their one presentation. |
+| `INhAssistantHubClient` gains `AgentWorkChanged`, and tool calls gain the status `not-executed`. | Handle unknown hub messages and tool statuses in custom clients. |
+| An assistant request whose `Accept-Language` names only a language, such as `en` from the Angular client, now uses the supported culture of that language when request localization matched no culture; it used the default culture before. | Nothing; configure `SupportedUICultures` with the cultures your users read. |
 | Deleting a subject leaves its agent threads behind unless the application tells the assistant. | Call `INhAiSubjectRetention.ForgetSubjectAsync` after the delete commits. |
 | `NhAssistantConversationDto` gains the optional `Kind` and `Thread` parameters and `NhAssistantMessageDto` the optional `AuthorKind`. | Recompile code that constructs these records; JSON clients ignore or read the new fields. |
 
@@ -225,6 +235,21 @@ categories per tool and agent version, the feedback texts and a JSON Lines expor
 |---|---|
 | `nh-assistant-agent-proposals` no longer shows a shared reason field before approve and reject; the key `nh-assistant.agent-runs.proposal.reason` is gone. | Remove overrides of that key; collect why a proposal was rejected through the feedback question instead. |
 | A custom layout with `nh-assistant-thread` offers feedback only when it passes the store's `approvalRights`. | Keep `[approvalRights]="store.approvalRights()"`; the rights now also carry `canGiveFeedback`. |
+
+The agent-run components and the panel now follow agent work live:
+`NhAssistantLiveService.agentWork$` emits the hub's `AgentWorkChanged`
+(`LiveAgentWorkChanged`), the inbox and the thread view with its tabs reload after a
+short pause, and the store reloads an open agent thread, so a decision made in the
+panel, the inbox or by a colleague shows everywhere without Refresh. Tool calls of
+proposals that closed without running show the new status `not-executed` ("Not run"),
+and the tool group stops saying "Waiting for approval" once no call waits. Proposals show
+who decided by `decidedByDisplayName`, and the feedback report its `authorDisplayName`,
+with the id as fallback.
+
+| Adoption note | Required action |
+|---|---|
+| `ToolCallStatus` and `NhAssistantToolCallGroupState` gain `'not-executed'`. | Extend exhaustive switches or `Record` types over them. |
+| `NhAssistantLiveService` gains `agentWork$`. | Add it to custom stand-ins of the live service. |
 
 ## NewHeap.Platform.AspNet.Common: operations owned by agents, and access for others
 

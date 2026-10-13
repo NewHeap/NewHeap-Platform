@@ -178,6 +178,35 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// The names the subject member snapshots know for these actors. Someone who left every subject
+    /// keeps no name, so callers show the id instead.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, string>> GetDisplayNamesAsync(
+        IEnumerable<string?> actorIds,
+        CancellationToken cancellationToken)
+    {
+        var distinct = actorIds
+            .Where(actorId => !string.IsNullOrWhiteSpace(actorId))
+            .Select(actorId => actorId!)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (distinct.Count == 0)
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+
+        // A person has the same name on every subject; one per actor is enough.
+        await using var context = contextFactory.CreateDbContext();
+        var rows = await context.SubjectMembers
+            .AsNoTracking()
+            .Where(member => distinct.Contains(member.ActorId) && member.DisplayName != null)
+            .GroupBy(member => member.ActorId)
+            .Select(group => new { ActorId = group.Key, DisplayName = group.Max(member => member.DisplayName) })
+            .ToListAsync(cancellationToken);
+        return rows.ToDictionary(row => row.ActorId, row => row.DisplayName!, StringComparer.Ordinal);
+    }
+
     public async Task AddRunAsync(AssistantRun run, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(run);
@@ -810,7 +839,58 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                         approval => decision.ResetReminders ? 0 : approval.RemindersSent)
                     .SetProperty(approval => approval.ConcurrencyStamp, Guid.NewGuid()),
                 cancellationToken);
-        return updated == 1;
+        if (updated != 1)
+        {
+            return false;
+        }
+
+        if (ClosedCallStatus(status) is { } callStatus)
+        {
+            await CloseWaitingToolCallAsync(context, approvalId, callStatus, status, cancellationToken);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The status a tool call still waiting for its proposal gets when the proposal closes without
+    /// running it, or <see langword="null"/> when the proposal stays open or its execution sets it.
+    /// </summary>
+    private static string? ClosedCallStatus(string approvalStatus)
+    {
+        return approvalStatus switch
+        {
+            NhAssistantApprovalStatuses.Rejected => NhAssistantToolCallStatuses.Rejected,
+            NhAssistantApprovalStatuses.Expired
+                or NhAssistantApprovalStatuses.Withdrawn
+                or NhAssistantApprovalStatuses.Stale => NhAssistantToolCallStatuses.NotExecuted,
+            NhAssistantApprovalStatuses.ExecutionFailed => NhAssistantToolCallStatuses.Failed,
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Ends the tool call of a closed proposal that still waits for approval, so the thread no longer
+    /// shows it as waiting. A call that a person's turn or an execution already ended keeps its status.
+    /// </summary>
+    private static async Task CloseWaitingToolCallAsync(
+        NhAssistantDbContext context,
+        Guid approvalId,
+        string callStatus,
+        string approvalStatus,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var resultCode = "assistant-proposal-" + approvalStatus;
+        await context.ToolInvocations
+            .Where(invocation => invocation.Status == NhAssistantToolCallStatuses.AwaitingApproval
+                && context.Approvals.Any(approval => approval.Id == approvalId && approval.ToolInvocationId == invocation.Id))
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(invocation => invocation.Status, callStatus)
+                    .SetProperty(invocation => invocation.ResultCode, resultCode)
+                    .SetProperty(invocation => invocation.CompletedAt, now),
+                cancellationToken);
     }
 
     /// <summary>

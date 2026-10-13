@@ -1,5 +1,6 @@
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import {
+  LiveAgentWorkChanged,
   LiveConversationChanged,
   LiveConversationEvent,
   LiveConversationRead,
@@ -7,12 +8,12 @@ import {
   NhAssistantLiveService,
   NhAssistantLiveState
 } from '@newheap/platform-ai-chat';
-import { Observable, Subject, Subscription } from 'rxjs';
+import { NEVER, Observable, Subject, Subscription } from 'rxjs';
 import { NhAssistantMockBackend } from './nh-assistant-mock-backend';
 
 type NhAssistantLiveSurface = Pick<
   NhAssistantLiveService,
-  'changed$' | 'read$' | 'removed$' | 'events$' | 'resync$' | 'state' | 'connect' | 'stop'
+  'changed$' | 'read$' | 'removed$' | 'events$' | 'agentWork$' | 'resync$' | 'state' | 'connect' | 'stop'
 >;
 
 /**
@@ -34,6 +35,8 @@ export class NhAssistantMockLiveService implements NhAssistantLiveSurface {
   readonly read$: Observable<LiveConversationRead> = this.readSubject.asObservable();
   readonly removed$: Observable<LiveConversationRemoved> = this.removedSubject.asObservable();
   readonly events$: Observable<LiveConversationEvent> = this.eventSubject.asObservable();
+  /** Agents of the mock never run on their own, so their work never changes. */
+  readonly agentWork$: Observable<LiveAgentWorkChanged> = NEVER;
   readonly resync$: Observable<void> = this.resyncSubject.asObservable();
   readonly state = this.stateSignal.asReadonly();
 

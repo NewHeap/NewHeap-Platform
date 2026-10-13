@@ -239,6 +239,10 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
+                    b.Property<string>("PresentationsJson")
+                        .HasMaxLength(32512)
+                        .HasColumnType("character varying(32512)");
+
                     b.Property<string>("ProposalHash")
                         .IsRequired()
                         .HasMaxLength(128)

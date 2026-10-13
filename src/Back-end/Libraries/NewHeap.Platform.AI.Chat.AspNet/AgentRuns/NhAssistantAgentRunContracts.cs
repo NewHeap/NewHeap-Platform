@@ -133,6 +133,12 @@ public sealed record NhAssistantProposalDto(
     public NhAssistantProposalFeedbackDto? Feedback { get; init; }
 
     /// <summary>
+    /// The name of <see cref="DecidedByActorId"/> from the subject's member snapshot, or
+    /// <see langword="null"/> when the snapshot does not know the person; show the id then.
+    /// </summary>
+    public string? DecidedByDisplayName { get; init; }
+
+    /// <summary>
     /// Whether the caller may give or change feedback with <c>PUT approvals/{approvalId}/feedback</c>:
     /// the proposal was rejected, expired, withdrawn or closed as stale, and the caller decided it or
     /// is an approver of the subject.
@@ -235,7 +241,14 @@ public sealed record NhAssistantFeedbackItemDto(
     string AuthorActorId,
     bool Bulk,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt)
+{
+    /// <summary>
+    /// The name of <see cref="AuthorActorId"/> from the member snapshots, or <see langword="null"/>
+    /// when no snapshot knows the person.
+    /// </summary>
+    public string? AuthorDisplayName { get; init; }
+}
 
 public sealed record NhAssistantFeedbackListDto(
     IReadOnlyList<NhAssistantFeedbackItemDto> Items,
@@ -380,7 +393,10 @@ internal static class NhAssistantAgentRunDtoMapper
             approval.ToolId,
             approval.Summary,
             NhAssistantApprovalPresentationDto.From(
-                NhAssistantToolPresentationResolver.Deserialize(approval.PresentationJson)),
+                NhAssistantToolPresentationResolver.Pick(
+                    approval.PresentationJson,
+                    approval.PresentationsJson,
+                    System.Globalization.CultureInfo.CurrentUICulture)),
             approval.ArgumentsPreview,
             ReadTargets(approval.TargetsJson),
             approval.Status,
@@ -428,7 +444,11 @@ internal static class NhAssistantAgentRunDtoMapper
             feedback.AgentVersion,
             feedback.ApprovalStatus,
             row.Summary,
-            NhAssistantApprovalPresentationDto.From(NhAssistantToolPresentationResolver.Deserialize(row.PresentationJson)),
+            NhAssistantApprovalPresentationDto.From(
+                NhAssistantToolPresentationResolver.Pick(
+                    row.PresentationJson,
+                    row.PresentationsJson,
+                    System.Globalization.CultureInfo.CurrentUICulture)),
             feedback.Category,
             GroupOf(feedback.Category),
             feedback.Text,

@@ -2133,7 +2133,17 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-feedback-report.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-agent-run-api.service.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Live/NhAssistantAgentWorkUpdates.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261013200050_AgentProposalPresentations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261013200054_AgentProposalPresentations.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentWorkTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-live.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-agent-work.ts",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-inbox.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-thread-view.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-live.service.spec.ts"
     ]
   }
 }

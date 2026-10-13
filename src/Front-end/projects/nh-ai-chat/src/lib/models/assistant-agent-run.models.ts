@@ -115,6 +115,11 @@ export interface AgentProposal {
   expiresAt: string;
   initiatorActorId: string | null;
   decidedByActorId: string | null;
+  /**
+   * The name of `decidedByActorId` from the subject's member snapshot; `null` when the snapshot
+   * does not know the person. Show `decidedByActorId` then. Missing on older servers.
+   */
+  decidedByDisplayName?: string | null;
   decidedAt: string | null;
   executionResultCode: string | null;
   executedAt: string | null;

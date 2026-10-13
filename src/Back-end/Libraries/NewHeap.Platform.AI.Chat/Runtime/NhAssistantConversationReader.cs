@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
@@ -80,7 +81,7 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
                         break;
                     case NhAssistantStoredPart.ToolCallType
                         when part.InvocationId is { } invocationId && invocations.TryGetValue(invocationId, out var invocation):
-                        parts.Add(ToView(invocation));
+                        parts.Add(ToView(invocation, LocalizedToolName(invocation, approvals)));
                         break;
                     case NhAssistantStoredPart.ApprovalType
                         when part.ApprovalId is { } approvalId && approvals.TryGetValue(approvalId, out var approval):
@@ -143,14 +144,14 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
         };
     }
 
-    public static NhAssistantToolCallPartView ToView(AssistantToolInvocation invocation)
+    public static NhAssistantToolCallPartView ToView(AssistantToolInvocation invocation, string? displayName = null)
     {
         ArgumentNullException.ThrowIfNull(invocation);
         return new NhAssistantToolCallPartView(
             invocation.Id,
             invocation.ToolId,
             invocation.ToolVersion,
-            invocation.DisplayName,
+            displayName ?? invocation.DisplayName,
             invocation.Status,
             NhAssistantContent.Preview(invocation.ArgumentsJson, invocation.DataClassification),
             NhAssistantContent.ResultPreview(invocation.ResultJson, invocation.DataClassification),
@@ -158,6 +159,22 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
         {
             GrantSource = invocation.GrantSource
         };
+    }
+
+    /// <summary>
+    /// The tool name of a call that waits for or waited for a proposal, in the viewer's culture; the
+    /// stored name of other calls is the one their turn used.
+    /// </summary>
+    private static string? LocalizedToolName(
+        AssistantToolInvocation invocation,
+        IReadOnlyDictionary<Guid, AssistantApproval> approvals)
+    {
+        return invocation.ApprovalId is { } approvalId && approvals.TryGetValue(approvalId, out var approval)
+            ? NhAssistantToolPresentationResolver.Pick(
+                approval.PresentationJson,
+                approval.PresentationsJson,
+                CultureInfo.CurrentUICulture)?.ToolDisplayName
+            : null;
     }
 
     public static NhAssistantApprovalView ToView(AssistantApproval approval)
@@ -173,7 +190,7 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
             approval.ProposalHash,
             approval.ToolId,
             approval.Summary,
-            NhAssistantToolPresentationResolver.Deserialize(approval.PresentationJson),
+            NhAssistantToolPresentationResolver.Pick(approval.PresentationJson, approval.PresentationsJson, CultureInfo.CurrentUICulture),
             approval.ArgumentsPreview,
             targets,
             approval.ExpiresAt,

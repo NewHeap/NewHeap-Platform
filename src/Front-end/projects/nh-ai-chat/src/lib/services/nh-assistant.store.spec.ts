@@ -1,13 +1,15 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Provider, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { BehaviorSubject, Observable, Subject, of, throwError } from 'rxjs';
+import { BehaviorSubject, NEVER, Observable, Subject, of, throwError } from 'rxjs';
 import { AgentProposal } from '../models/assistant-agent-run.models';
 import { ApprovalPart, AssistantStatus, Conversation, ConversationThreadDecision, ToolCallPart } from '../models/assistant-api.models';
+import { LiveAgentWorkChanged } from '../models/assistant-live.models';
 import { NhAssistantSseEvent } from '../models/assistant-sse.models';
 import { NhAssistantAccessPolicy } from '../nh-assistant.config';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAgentRunApiService } from './nh-assistant-agent-run-api.service';
 import { NhAssistantApiError, NhAssistantApiService } from './nh-assistant-api.service';
+import { NhAssistantLiveService, NhAssistantLiveState } from './nh-assistant-live.service';
 import { NhAssistantStore } from './nh-assistant.store';
 
 const status: AssistantStatus = {
@@ -55,6 +57,30 @@ function flush(): Promise<void> {
   return new Promise(resolve => setTimeout(resolve));
 }
 
+function wait(milliseconds: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+/** A connected hub whose agent-work updates the test sends. */
+class FakeLiveService {
+  readonly agentWork = new Subject<LiveAgentWorkChanged>();
+  readonly changed$ = NEVER;
+  readonly read$ = NEVER;
+  readonly removed$ = NEVER;
+  readonly events$ = NEVER;
+  readonly resync$ = NEVER;
+  readonly agentWork$ = this.agentWork.asObservable();
+  readonly state = signal<NhAssistantLiveState>('connected').asReadonly();
+
+  connect(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  stop(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
 @Injectable()
 class TestAccessPolicy implements NhAssistantAccessPolicy {
   canUse(): Observable<boolean> {
@@ -67,7 +93,11 @@ describe('NhAssistantStore', () => {
   let agentRuns: jasmine.SpyObj<NhAssistantAgentRunApiService>;
   let stream: Subject<NhAssistantSseEvent>;
 
-  function setup(getStateScope?: () => string | null, getPageContext?: () => { route: string }): NhAssistantStore {
+  function setup(
+    getStateScope?: () => string | null,
+    getPageContext?: () => { route: string },
+    providers: Provider[] = []
+  ): NhAssistantStore {
     TestBed.configureTestingModule({
       providers: [
         provideNhAssistant({
@@ -79,7 +109,8 @@ describe('NhAssistantStore', () => {
           getPageContext
         }),
         { provide: NhAssistantApiService, useValue: api },
-        { provide: NhAssistantAgentRunApiService, useValue: agentRuns }
+        { provide: NhAssistantAgentRunApiService, useValue: agentRuns },
+        ...providers
       ]
     });
 
@@ -861,6 +892,33 @@ describe('NhAssistantStore', () => {
         canGiveFeedback: true
       });
       expect(store.approvalRights().get('intake-2')?.canGiveFeedback).toBeUndefined();
+    });
+
+    it('reloads an open thread once per burst when its agent work changed elsewhere', async () => {
+      const live = new FakeLiveService();
+      api.getConversation.and.returnValues(
+        of(thread([{ approvalId: 'intake-1', runId: 'run-1', canDecide: true, reasonCode: null }], [intake])),
+        of(thread([], [{ ...intake, status: 'approved' }]))
+      );
+      const store = setup(undefined, undefined, [{ provide: NhAssistantLiveService, useValue: live }]);
+      await store.initialize();
+      await store.openConversation('t1');
+      expect(store.approvalRights().get('intake-1')?.canDecide).toBeTrue();
+
+      // Another thread, and feedback that leaves the thread unchanged, reload nothing.
+      live.agentWork.next({ conversationId: 'other', reason: 'proposal', approvalId: 'other-1', runId: null });
+      live.agentWork.next({ conversationId: 't1', reason: 'feedback', approvalId: 'intake-1', runId: null });
+      await wait(350);
+      expect(api.getConversation).toHaveBeenCalledTimes(1);
+
+      // A colleague approved in the inbox; the run continues.
+      live.agentWork.next({ conversationId: 't1', reason: 'proposal', approvalId: 'intake-1', runId: null });
+      live.agentWork.next({ conversationId: 't1', reason: 'run', approvalId: null, runId: 'run-1' });
+      await wait(350);
+
+      expect(api.getConversation).toHaveBeenCalledTimes(2);
+      expect(store.approvalRights().has('intake-1')).toBeFalse();
+      expect(store.activeConversation()?.messages[1].parts[0]).toEqual(jasmine.objectContaining({ status: 'approved' }));
     });
 
     it('offers no feedback after an approval or when the server does not allow it', async () => {

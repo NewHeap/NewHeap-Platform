@@ -148,7 +148,13 @@ export interface TextPart {
   text: string;
 }
 
-export type ToolCallStatus = 'running' | 'succeeded' | 'failed' | 'awaiting-approval' | 'rejected';
+/**
+ * `awaiting-approval` waits for a person. A call whose agent proposal closed without running ends
+ * as `rejected`, as `not-executed` when the proposal expired, was withdrawn or became stale, or as
+ * `failed` when its execution failed before it started; its `resultCode` is then
+ * `assistant-proposal-<approval status>`, for example `assistant-proposal-expired`.
+ */
+export type ToolCallStatus = 'running' | 'succeeded' | 'failed' | 'awaiting-approval' | 'rejected' | 'not-executed';
 
 export interface ToolCallPart {
   type: 'tool-call';

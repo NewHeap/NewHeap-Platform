@@ -110,7 +110,8 @@
         "succeeded": "Voltooid",
         "failed": "Mislukt",
         "awaiting-approval": "Wacht op goedkeuring",
-        "rejected": "Afgewezen"
+        "rejected": "Afgewezen",
+        "not-executed": "Niet uitgevoerd"
       },
       "grant-source": {
         "delegated": "Namens de starter",
@@ -127,6 +128,7 @@
       "used-many": "{{count}} tools gebruikt",
       "progress": "{{finished}} van {{total}} klaar",
       "failed": "{{count}} mislukt",
+      "not-executed": "{{count}} niet uitgevoerd",
       "show-calls": "Tool-aanroepen tonen",
       "hide-calls": "Tool-aanroepen verbergen"
     },
@@ -209,7 +211,12 @@
       "api-bridge-conflict": "Het item is intussen gewijzigd.",
       "api-bridge-upstream": "De dienst is niet beschikbaar.",
       "api-bridge-timeout": "Het verzoek duurde te lang.",
-      "assistant-proposal-recorded": "Voorgesteld; wacht op goedkeuring van een persoon"
+      "assistant-proposal-recorded": "Voorgesteld; wacht op goedkeuring van een persoon",
+      "assistant-proposal-rejected": "Niet uitgevoerd: het voorstel is afgewezen.",
+      "assistant-proposal-expired": "Niet uitgevoerd: niemand besliste voordat het voorstel verliep.",
+      "assistant-proposal-withdrawn": "Niet uitgevoerd: het voorstel is ingetrokken.",
+      "assistant-proposal-stale": "Niet uitgevoerd: het onderwerp is sinds het voorstel gewijzigd.",
+      "assistant-proposal-execution-failed": "Het goedgekeurde voorstel kon niet worden uitgevoerd."
     },
     "errors": {
       "generic": "Er ging iets mis. Probeer het opnieuw.",

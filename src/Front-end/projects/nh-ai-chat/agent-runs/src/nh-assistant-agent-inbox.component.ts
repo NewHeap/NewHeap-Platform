@@ -1,10 +1,22 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+  viewChild
+} from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import {
   AgentProposal,
   NhAssistantAgentRunApiService,
-  ɵNhAssistantIconComponent as NhAssistantIconComponent
+  ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAgentProposalsComponent } from './nh-assistant-agent-proposals.component';
 
@@ -13,6 +25,8 @@ import { NhAssistantAgentProposalsComponent } from './nh-assistant-agent-proposa
  * decide, earliest expiry first. Proposals are decided in place, one by one or together; the
  * server checks each decision against the proposal's approval policy again. After a rejection the
  * inbox asks, optionally, what was wrong, also when the rejected proposals have left the list.
+ * With live updates the inbox reloads by itself when agent work changes, for example when a
+ * colleague decided a proposal or a run proposed a new one.
  */
 @Component({
   selector: 'nh-assistant-agent-inbox',
@@ -24,6 +38,7 @@ import { NhAssistantAgentProposalsComponent } from './nh-assistant-agent-proposa
 })
 export class NhAssistantAgentInboxComponent {
   private readonly api = inject(NhAssistantAgentRunApiService);
+  private readonly proposalList = viewChild(NhAssistantAgentProposalsComponent);
   private subscription?: Subscription;
 
   /** Limits the inbox to one agent. */
@@ -51,11 +66,38 @@ export class NhAssistantAgentInboxComponent {
         this.load();
       });
     });
+    // Any agent's work may add, decide or close a proposal of this inbox.
+    nhAssistantReloadOnAgentWork(() => true, () => this.refresh());
   }
 
   load(): void {
-    this.loading.set(true);
-    this.loadFailed.set(false);
+    this.fetch(false);
+  }
+
+  goTo(page: number): void {
+    this.page.set(Math.min(Math.max(1, page), this.pages()));
+    this.load();
+  }
+
+  /**
+   * Reloads after a live update. Once the inbox is shown it reloads quietly: no loading state, and
+   * a failure keeps the list and an open feedback question in place. While a decision of the list
+   * is in flight it waits, because the decision reloads the inbox when it ends.
+   */
+  private refresh(): void {
+    if (this.proposalList()?.busy()) {
+      return;
+    }
+
+    this.fetch(this.loaded() && !this.loading() && !this.loadFailed());
+  }
+
+  private fetch(quiet: boolean): void {
+    if (!quiet) {
+      this.loading.set(true);
+      this.loadFailed.set(false);
+    }
+
     this.subscription?.unsubscribe();
     this.subscription = this.api
       .getInbox({
@@ -66,20 +108,28 @@ export class NhAssistantAgentInboxComponent {
       })
       .subscribe({
         next: inbox => {
+          const lastPage = Math.max(1, Math.ceil(inbox.total / this.itemsPerPage()));
+          if (inbox.items.length === 0 && this.page() > lastPage) {
+            // Proposals were decided elsewhere and this page no longer exists.
+            this.page.set(lastPage);
+            this.fetch(quiet);
+            return;
+          }
+
           this.items.set(inbox.items);
           this.total.set(inbox.total);
           this.loading.set(false);
+          this.loadFailed.set(false);
           this.loaded.set(true);
         },
         error: () => {
+          if (quiet) {
+            return;
+          }
+
           this.loading.set(false);
           this.loadFailed.set(true);
         }
       });
-  }
-
-  goTo(page: number): void {
-    this.page.set(Math.min(Math.max(1, page), this.pages()));
-    this.load();
   }
 }

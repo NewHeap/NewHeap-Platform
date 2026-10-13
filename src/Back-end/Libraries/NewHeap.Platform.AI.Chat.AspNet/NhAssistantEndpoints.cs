@@ -42,7 +42,8 @@ public static class NhAssistantEndpointRouteBuilderExtensions
 
         var group = endpoints.MapGroup(prefix)
             .RequireAuthorization(accessPolicy)
-            .WithTags("Assistant");
+            .WithTags("Assistant")
+            .AddEndpointFilter(NhAssistantRequestCulture.MatchLanguageAsync);
 
         group.MapGet("status", GetStatusAsync)
             .WithName("NhAssistantGetStatus")

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Live;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AspNet.Common.DAL;
@@ -101,12 +102,13 @@ internal sealed class NhAssistantRunMaintenance(
 
         var notifier = services.GetRequiredService<NhAssistantAgentNotifier>();
         var events = services.GetRequiredService<NhAssistantAgentEvents>();
-        await ExpireAsync(runs, policies, notifier, cancellationToken);
+        var workUpdates = services.GetRequiredService<NhAssistantAgentWorkUpdates>();
+        await ExpireAsync(runs, policies, notifier, workUpdates, cancellationToken);
         await RemindAsync(runs, notifier, cancellationToken);
         await QueueMissingExecutionsAsync(runs, decisions, cancellationToken);
         if (operations is not null)
         {
-            await DetectInterruptedExecutionsAsync(runs, operations, notifier, events, cancellationToken);
+            await DetectInterruptedExecutionsAsync(runs, operations, notifier, events, workUpdates, cancellationToken);
             await CancelOrphanedRunsAsync(runs, operations, cancellationToken);
         }
     }
@@ -115,6 +117,7 @@ internal sealed class NhAssistantRunMaintenance(
         NhAssistantRunStore runs,
         NhAssistantApprovalPolicies policies,
         NhAssistantAgentNotifier notifier,
+        NhAssistantAgentWorkUpdates workUpdates,
         CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
@@ -144,6 +147,12 @@ internal sealed class NhAssistantRunMaintenance(
                     cancellationToken);
                 if (escalated && await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken) is { } escalatedThread)
                 {
+                    await workUpdates.PublishAsync(
+                        approval.ConversationId,
+                        NhAssistantAgentWorkReasons.Proposal,
+                        approval.Id,
+                        approval.RunId,
+                        cancellationToken);
                     await notifier.NotifyAsync(
                         NhAssistantAgentNotificationKind.ProposalEscalated,
                         escalatedThread,
@@ -162,6 +171,15 @@ internal sealed class NhAssistantRunMaintenance(
                 NhAssistantApprovalStatuses.Expired,
                 NhAssistantApprovalTransition.None,
                 cancellationToken);
+            if (expired)
+            {
+                await workUpdates.PublishAsync(
+                    approval.ConversationId,
+                    NhAssistantAgentWorkReasons.Proposal,
+                    approval.Id,
+                    approval.RunId,
+                    cancellationToken);
+            }
             if (expired && policy?.OnExpiry == NhAiApprovalExpiryAction.FailRun && approval.RunId is { } runId)
             {
                 await runs.TrySetRunStatusAsync(
@@ -238,6 +256,7 @@ internal sealed class NhAssistantRunMaintenance(
         IRepository<NhBackgroundOperation> operations,
         NhAssistantAgentNotifier notifier,
         NhAssistantAgentEvents events,
+        NhAssistantAgentWorkUpdates workUpdates,
         CancellationToken cancellationToken)
     {
         var executing = await runs.GetApprovalsInStatusAsync(NhAssistantApprovalStatuses.Executing, BatchSize, cancellationToken);
@@ -284,6 +303,13 @@ internal sealed class NhAssistantRunMaintenance(
             {
                 continue;
             }
+
+            await workUpdates.PublishAsync(
+                approval.ConversationId,
+                NhAssistantAgentWorkReasons.Proposal,
+                approval.Id,
+                approval.RunId,
+                cancellationToken);
 
             await events.ProposalAsync(
                 NhAssistantAuditEventKind.AgentProposalExecuted,

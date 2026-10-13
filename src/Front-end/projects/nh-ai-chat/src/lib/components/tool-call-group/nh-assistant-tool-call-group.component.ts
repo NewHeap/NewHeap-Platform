@@ -6,13 +6,18 @@ import { NhAssistantToolCallCardComponent } from '../tool-call-card/nh-assistant
 
 let nextId = 0;
 
-/** Overall state of a run of tool calls, from most to least urgent. */
-export type NhAssistantToolCallGroupState = 'awaiting-approval' | 'running' | 'failed' | 'succeeded';
+/**
+ * Overall state of a run of tool calls, from most to least urgent. `not-executed` means that every
+ * call finished and at least one ended without running, because its proposal expired, was
+ * withdrawn or became stale.
+ */
+export type NhAssistantToolCallGroupState = 'awaiting-approval' | 'running' | 'failed' | 'not-executed' | 'succeeded';
 
 const stateIcons: Record<NhAssistantToolCallGroupState, NhAssistantIconName> = {
   'awaiting-approval': 'clock',
   running: 'tool',
   failed: 'warning',
+  'not-executed': 'stop',
   succeeded: 'check'
 };
 
@@ -48,13 +53,19 @@ export class NhAssistantToolCallGroupComponent {
   readonly total = computed(() => this.calls().length);
   readonly finished = computed(() => this.calls().filter(call => !isActive(call)).length);
   readonly failed = computed(() => this.calls().filter(call => call.status === 'failed').length);
+  /** Calls that finished without running; they never wait. */
+  readonly notExecuted = computed(() => this.calls().filter(call => call.status === 'not-executed').length);
   readonly state = computed<NhAssistantToolCallGroupState>(() => {
     const current = this.current();
     if (current) {
       return current.status === 'awaiting-approval' ? 'awaiting-approval' : 'running';
     }
 
-    return this.failed() > 0 ? 'failed' : 'succeeded';
+    if (this.failed() > 0) {
+      return 'failed';
+    }
+
+    return this.notExecuted() > 0 ? 'not-executed' : 'succeeded';
   });
   readonly stateIcon = computed(() => stateIcons[this.state()]);
 

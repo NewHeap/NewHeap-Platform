@@ -110,7 +110,8 @@
         "succeeded": "Completed",
         "failed": "Failed",
         "awaiting-approval": "Awaiting approval",
-        "rejected": "Rejected"
+        "rejected": "Rejected",
+        "not-executed": "Not run"
       },
       "grant-source": {
         "delegated": "On behalf of the initiator",
@@ -127,6 +128,7 @@
       "used-many": "Used {{count}} tools",
       "progress": "{{finished}} of {{total}} done",
       "failed": "{{count}} failed",
+      "not-executed": "{{count}} not run",
       "show-calls": "Show tool calls",
       "hide-calls": "Hide tool calls"
     },
@@ -209,7 +211,12 @@
       "api-bridge-conflict": "The item was changed in the meantime.",
       "api-bridge-upstream": "The service is not available.",
       "api-bridge-timeout": "The request took too long.",
-      "assistant-proposal-recorded": "Proposed; waits for a person's approval"
+      "assistant-proposal-recorded": "Proposed; waits for a person's approval",
+      "assistant-proposal-rejected": "Not run: the proposal was rejected.",
+      "assistant-proposal-expired": "Not run: nobody decided before the proposal expired.",
+      "assistant-proposal-withdrawn": "Not run: the proposal was withdrawn.",
+      "assistant-proposal-stale": "Not run: the subject changed since the proposal.",
+      "assistant-proposal-execution-failed": "The approved proposal could not be run."
     },
     "errors": {
       "generic": "Something went wrong. Please try again.",

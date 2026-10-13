@@ -42,6 +42,23 @@ internal sealed record NhAssistantLiveTurnEvent(Guid ConversationId, string Acto
     : NhAssistantLiveEvent(ConversationId);
 
 /// <summary>
+/// A run, a proposal or its feedback of an agent thread changed. It names what changed and carries
+/// no content, so it may reach everyone on the subject, also people who never opened the thread.
+/// </summary>
+internal sealed record NhAssistantLiveAgentWorkChanged(Guid ConversationId, string Reason, Guid? ApprovalId, Guid? RunId)
+    : NhAssistantLiveEvent(ConversationId);
+
+/// <summary>
+/// The <c>Reason</c> values of <see cref="NhAssistantLiveAgentWorkChanged"/>.
+/// </summary>
+internal static class NhAssistantAgentWorkReasons
+{
+    public const string Run = "run";
+    public const string Proposal = "proposal";
+    public const string Feedback = "feedback";
+}
+
+/// <summary>
 /// Delivers live updates to the open connections of actors. The ASP.NET package sends them through
 /// a SignalR hub; without it, live updates are off and clients rely on snapshots.
 /// </summary>
@@ -155,6 +172,25 @@ internal sealed class NhAssistantLivePublisher(
         try
         {
             await transport.SendAsync([actorId], evt, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            LogFailure(evt.ConversationId, exception);
+        }
+    }
+
+    /// <summary>
+    /// Sends an event to the conversation's audience and to <paramref name="actorIds"/>.
+    /// </summary>
+    public async ValueTask PublishWithAsync(
+        IReadOnlyCollection<string> actorIds,
+        NhAssistantLiveEvent evt,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var audienceIds = await audience.GetAsync(evt.ConversationId, cancellationToken);
+            await transport.SendAsync([.. audienceIds, .. actorIds], evt, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {

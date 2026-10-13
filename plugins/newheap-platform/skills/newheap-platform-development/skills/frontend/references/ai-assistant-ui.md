@@ -198,6 +198,13 @@ the feedback per agent with `nh-assistant-agent-feedback-report` of
 page: rejection rates and categories per tool and agent version, the texts and a JSON
 Lines export through `NhAssistantAdminApiService`.
 
+The agent-run components refresh themselves: `NhAssistantLiveService.agentWork$` emits the
+hub's `AgentWorkChanged` for every run, proposal or feedback change on a subject the user
+belongs to, and the inbox, the thread view and the open panel session reload after a short
+pause. Tool calls of proposals that closed without running read `not-executed`, and
+proposals and the report show names (`decidedByDisplayName`, `authorDisplayName`) with the
+id as fallback.
+
 Live updates connect to the hub path the server reports in `status.collaboration`,
 using `@microsoft/signalr`, loaded on first use, and the same `getAccessToken`. When
 a proxy serves the API below a prefix, set `hubBaseUrl` to that prefix (for example

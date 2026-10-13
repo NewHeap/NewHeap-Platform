@@ -174,7 +174,7 @@
             </p>
             <div class="meta">
               <span>{{ 'nh-assistant.agent-runs.proposal.status.' + item.approvalStatus | nhAssistantTranslate: item.approvalStatus }}</span>
-              <span>{{ 'nh-assistant.admin.feedback.author' | translate: { actor: item.authorActorId } }}</span>
+              <span>{{ 'nh-assistant.admin.feedback.author' | translate: { actor: item.authorDisplayName || item.authorActorId } }}</span>
               <span>{{ item.updatedAt | date: 'short' }}</span>
             </div>
           </li>

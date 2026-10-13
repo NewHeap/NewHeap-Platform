@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Live;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.Common.Models;
@@ -18,6 +19,7 @@ internal sealed class NhAssistantProposalFeedbackService(
     NhAssistantProposalFeedbackStore feedbackStore,
     NhAssistantSubjectAccessService subjects,
     NhAssistantAgentEvents events,
+    NhAssistantAgentWorkUpdates workUpdates,
     IEnumerable<INhAssistantProposalFeedbackSink> feedbackSinks,
     ILogger<NhAssistantProposalFeedbackService> logger)
 {
@@ -120,6 +122,12 @@ internal sealed class NhAssistantProposalFeedbackService(
             saved.Category,
             cancellationToken);
         await PublishAsync(saved, approval, cancellationToken);
+        await workUpdates.PublishAsync(
+            approval.ConversationId,
+            NhAssistantAgentWorkReasons.Feedback,
+            approval.Id,
+            approval.RunId,
+            cancellationToken);
         return TaskResult<AssistantProposalFeedback>.Succeeded(saved);
     }
 

@@ -3,6 +3,7 @@ import { isPlatformBrowser } from '@angular/common';
 import type { HubConnection } from '@microsoft/signalr';
 import { Observable, Subject } from 'rxjs';
 import {
+  LiveAgentWorkChanged,
   LiveConversationChanged,
   LiveConversationEvent,
   LiveConversationRead,
@@ -19,9 +20,10 @@ const restartDelayMs = 30_000;
 const reservedHubQueryParameters = new Set(['access_token', 'id', 'negotiateversion']);
 
 /**
- * Live updates of the assistant hub: conversation changes, read positions, removals and the
- * turn events of other sessions. Connects only while the store asks for it, reconnects on its
- * own and emits `resync` after every (re)connect, because updates sent while disconnected are lost.
+ * Live updates of the assistant hub: conversation changes, read positions, removals, the turn
+ * events of other sessions and changes to the work of agents that run on their own. Connects only
+ * while the store asks for it, reconnects on its own and emits `resync` after every (re)connect,
+ * because updates sent while disconnected are lost.
  */
 @Injectable()
 export class NhAssistantLiveService {
@@ -33,6 +35,7 @@ export class NhAssistantLiveService {
   private readonly readSubject = new Subject<LiveConversationRead>();
   private readonly removedSubject = new Subject<LiveConversationRemoved>();
   private readonly eventSubject = new Subject<LiveConversationEvent>();
+  private readonly agentWorkSubject = new Subject<LiveAgentWorkChanged>();
   private readonly resyncSubject = new Subject<void>();
   private readonly stateSignal = signal<NhAssistantLiveState>('off');
 
@@ -46,6 +49,11 @@ export class NhAssistantLiveService {
   readonly read$: Observable<LiveConversationRead> = this.readSubject.asObservable();
   readonly removed$: Observable<LiveConversationRemoved> = this.removedSubject.asObservable();
   readonly events$: Observable<LiveConversationEvent> = this.eventSubject.asObservable();
+  /**
+   * A run, proposal or feedback of an agent thread changed. It carries no content; components
+   * that show the thread reload it.
+   */
+  readonly agentWork$: Observable<LiveAgentWorkChanged> = this.agentWorkSubject.asObservable();
   /** Reload snapshots: emitted after every (re)connect. */
   readonly resync$: Observable<void> = this.resyncSubject.asObservable();
   readonly state = this.stateSignal.asReadonly();
@@ -57,6 +65,7 @@ export class NhAssistantLiveService {
       this.readSubject.complete();
       this.removedSubject.complete();
       this.eventSubject.complete();
+      this.agentWorkSubject.complete();
       this.resyncSubject.complete();
     });
   }
@@ -131,6 +140,7 @@ export class NhAssistantLiveService {
     connection.on('ConversationRead', (message: LiveConversationRead) => this.readSubject.next(message));
     connection.on('ConversationRemoved', (message: LiveConversationRemoved) => this.removedSubject.next(message));
     connection.on('ConversationEvent', (message: LiveConversationEvent) => this.eventSubject.next(message));
+    connection.on('AgentWorkChanged', (message: LiveAgentWorkChanged) => this.agentWorkSubject.next(message));
     connection.onreconnecting(() => this.stateSignal.set('reconnecting'));
     connection.onreconnected(() => {
       this.stateSignal.set('connected');

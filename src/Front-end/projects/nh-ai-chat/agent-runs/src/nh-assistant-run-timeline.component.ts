@@ -10,6 +10,7 @@ import {
   NhAssistantError,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -19,7 +20,8 @@ const endedStatuses = new Set(['completed', 'failed', 'cancelled']);
 /**
  * The runs of an agent thread, newest first: trigger, status, failure, usage, proposals and the
  * summary the next run starts from. Participants cancel an open run; approvers resume or restart
- * a failed or cancelled one.
+ * a failed or cancelled one. With live updates it reloads by itself when a run or proposal of the
+ * thread changes.
  */
 @Component({
   selector: 'nh-assistant-run-timeline',
@@ -57,22 +59,14 @@ export class NhAssistantRunTimelineComponent {
       this.conversationId();
       untracked(() => this.load());
     });
+    nhAssistantReloadOnAgentWork(
+      change => change.conversationId === this.conversationId() && change.reason !== 'feedback',
+      () => this.fetch(!this.loading() && !this.loadFailed())
+    );
   }
 
   load(): void {
-    this.loading.set(true);
-    this.loadFailed.set(false);
-    this.subscription?.unsubscribe();
-    this.subscription = this.api.getRuns(this.conversationId()).subscribe({
-      next: list => {
-        this.runs.set(list.items);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.loading.set(false);
-        this.loadFailed.set(true);
-      }
-    });
+    this.fetch(false);
   }
 
   isOpen(run: AgentRun): boolean {
@@ -104,6 +98,31 @@ export class NhAssistantRunTimelineComponent {
       error: failure => {
         this.busyRunId.set(null);
         this.error.set(toNhAssistantError(failure));
+      }
+    });
+  }
+
+  /** A quiet load, after a live update, shows no loading state and keeps the runs when it fails. */
+  private fetch(quiet: boolean): void {
+    if (!quiet) {
+      this.loading.set(true);
+      this.loadFailed.set(false);
+    }
+
+    this.subscription?.unsubscribe();
+    this.subscription = this.api.getRuns(this.conversationId()).subscribe({
+      next: list => {
+        this.runs.set(list.items);
+        this.loading.set(false);
+        this.loadFailed.set(false);
+      },
+      error: () => {
+        if (quiet) {
+          return;
+        }
+
+        this.loading.set(false);
+        this.loadFailed.set(true);
       }
     });
   }

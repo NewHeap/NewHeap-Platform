@@ -203,7 +203,16 @@ public sealed class AssistantApproval
 
     public string Summary { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The presentation in the culture the proposal was made in; the fallback for every viewer.
+    /// </summary>
     public string? PresentationJson { get; set; }
+
+    /// <summary>
+    /// The presentation in every supported UI culture, keyed by culture name, so each viewer reads
+    /// the proposal in their own language. <see langword="null"/> when only one culture is supported.
+    /// </summary>
+    public string? PresentationsJson { get; set; }
 
     public string ArgumentsPreview { get; set; } = string.Empty;
 

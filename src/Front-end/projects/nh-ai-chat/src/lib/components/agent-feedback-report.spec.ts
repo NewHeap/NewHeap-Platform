@@ -139,6 +139,22 @@ describe('NhAssistantAgentFeedbackReportComponent', () => {
     expect(card.querySelector('.badge.danger')?.textContent).toContain('Wrong value');
   });
 
+  it('names the author from the member snapshots and falls back to the id', () => {
+    admin.getAgentFeedback.and.returnValue(of({
+      items: [
+        { ...item, id: 'feedback-2', authorActorId: 'user-8', authorDisplayName: 'Pat Planner' },
+        { ...item, id: 'feedback-3', authorActorId: 'user-9', authorDisplayName: null }
+      ],
+      total: 2
+    }));
+    select('category', 'wrong-value');
+
+    const cards = Array.from(element().querySelectorAll('.cards .card')).map(card => card.textContent ?? '');
+    expect(cards[0]).toContain('By Pat Planner');
+    expect(cards[0]).not.toContain('user-8');
+    expect(cards[1]).toContain('By user-9');
+  });
+
   it('narrows the summary by tool and the feedback by tool and category', () => {
     select('tool', 'projects.request-review');
 

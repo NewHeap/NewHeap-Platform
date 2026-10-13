@@ -179,6 +179,7 @@ internal static class NhAssistantProposalFeedbackEndpoints
         HttpContext httpContext,
         NhAssistantAgentCatalog agents,
         NhAssistantProposalFeedbackStore store,
+        NhAssistantRunStore runs,
         DateTimeOffset? from,
         DateTimeOffset? to,
         string? scopeKey,
@@ -201,8 +202,18 @@ internal static class NhAssistantProposalFeedbackEndpoints
         }
 
         var (items, total) = await store.ListAsync(id, filter, pageNumber, size, httpContext.RequestAborted);
+        var names = await runs.GetDisplayNamesAsync(
+            items.Select(item => item.Feedback.AuthorActorId),
+            httpContext.RequestAborted);
         return TypedResults.Json(
-            new NhAssistantFeedbackListDto(items.Select(NhAssistantAgentRunDtoMapper.ToDto).ToArray(), total),
+            new NhAssistantFeedbackListDto(
+                items
+                    .Select(item => NhAssistantAgentRunDtoMapper.ToDto(item) with
+                    {
+                        AuthorDisplayName = names.GetValueOrDefault(item.Feedback.AuthorActorId)
+                    })
+                    .ToArray(),
+                total),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantFeedbackListDto);
     }
 

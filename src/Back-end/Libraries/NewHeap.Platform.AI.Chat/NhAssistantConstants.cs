@@ -160,6 +160,12 @@ public static class NhAssistantToolCallStatuses
     public const string Failed = "failed";
     public const string AwaitingApproval = "awaiting-approval";
     public const string Rejected = "rejected";
+
+    /// <summary>
+    /// The deferred proposal of the call closed without running it: it expired, was withdrawn or
+    /// became stale. Its approval names the reason.
+    /// </summary>
+    public const string NotExecuted = "not-executed";
 }
 
 /// <summary>

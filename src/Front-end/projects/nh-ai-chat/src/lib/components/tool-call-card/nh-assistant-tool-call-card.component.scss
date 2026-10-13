@@ -13,6 +13,9 @@
 :host([data-status='failed']) { --nha-status-color: var(--nha-danger); --nha-status-background: var(--nha-danger-soft); }
 :host([data-status='awaiting-approval']) { --nha-status-color: var(--nha-warning); --nha-status-background: var(--nha-warning-soft); }
 :host([data-status='rejected']) { --nha-status-color: var(--nha-text-muted); }
+// Finished without running; the dashed edge sets it apart from a call that ran.
+:host([data-status='not-executed']) { --nha-status-color: var(--nha-text-muted); }
+:host([data-status='not-executed']) .card { border-left-style: dashed; }
 
 .card {
   border: 1px solid var(--nha-border);

@@ -239,6 +239,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
 
+                    b.Property<string>("PresentationsJson")
+                        .HasMaxLength(32512)
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("ProposalHash")
                         .IsRequired()
                         .HasMaxLength(128)

@@ -147,6 +147,12 @@ under four-eyes). Messages a trigger wrote (`authorKind: 'trigger'`) read as an 
 Custom layouts pass `[approvalRights]` to `nh-assistant-thread` and handle
 `(approvalChoice)`, which carries the approval id.
 
+A tool call whose agent proposal closed without running no longer waits: it ends as
+`rejected`, as `not-executed` when the proposal expired, was withdrawn or became stale, or as
+`failed` when its execution failed before it started, with the result code
+`assistant-proposal-<status>`, for example `assistant-proposal-expired`. The tool-call card and
+group show `not-executed` as a finished call that did not run, never as waiting.
+
 `NhAssistantStore` exposes the state as signals (`enabled`, `agents`,
 `conversations`, `activeConversation`, `streaming`, `pendingApproval`, `approvalRights`,
 `error` and more) and the actions `send`, `submit`, `pauseQueue`, `resumeQueue`,
@@ -274,6 +280,17 @@ application's presentation and keep the tool input under technical details; appr
 reject and resolve appear only for people who may decide, and each decision takes one
 action. The proposals, run timeline, memory and files are also separate components for
 custom layouts. Opened in the panel, the thread offers its proposals to the same people.
+**Decided by** shows the name from the subject's member snapshot (`decidedByDisplayName`)
+and falls back to the actor id.
+
+With live updates the inbox, the thread view and its tabs reload by themselves when the hub
+reports `AgentWorkChanged` for work they show, debounced, and after every reconnect. The
+update names the thread and whether a run, a proposal or feedback changed, and carries no
+content; `NhAssistantLiveService.agentWork$` exposes it as `LiveAgentWorkChanged`. These
+reloads show no loading state, keep what is shown when they fail, wait for a decision of the
+same list that is still in flight and never drop an open feedback question. The panel reloads
+an open agent thread too, so its approval cards show decisions made in the inbox or by a
+colleague. Without a connected hub nothing changes: the Refresh buttons stay.
 
 ## Proposal feedback
 
@@ -310,7 +327,8 @@ Administrators read the answers per agent in `nh-assistant-agent-feedback-report
 
 It shows, per tool and agent version, the approved, rejected and expired proposals, the
 rejection rate, the rejections with feedback, the number of different people and the most
-frequent categories, followed by the feedback itself, filtered by period, tool and category,
+frequent categories, followed by the feedback itself with its author's name
+(`authorDisplayName`, falling back to the actor id), filtered by period, tool and category,
 and an export as JSON Lines. Comparing agent versions shows whether a change to the prompt,
 tools or policy helped. `NhAssistantAdminApiService.getAgentFeedbackSummary`,
 `getAgentFeedback` and `exportAgentFeedback` are the typed client; the server requires the

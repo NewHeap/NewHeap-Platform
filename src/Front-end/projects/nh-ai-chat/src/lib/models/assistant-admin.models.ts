@@ -227,6 +227,11 @@ export interface AgentFeedbackItem {
   group: AgentProposalFeedbackGroup;
   text: string | null;
   authorActorId: string;
+  /**
+   * The name of `authorActorId` from the member snapshots; `null` when no snapshot knows the
+   * person. Show `authorActorId` then. Missing on older servers.
+   */
+  authorDisplayName?: string | null;
   bulk: boolean;
   createdAt: string;
   updatedAt: string;

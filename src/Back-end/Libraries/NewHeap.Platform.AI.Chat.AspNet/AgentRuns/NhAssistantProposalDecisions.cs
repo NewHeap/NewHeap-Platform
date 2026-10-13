@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Live;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
@@ -102,6 +103,7 @@ internal sealed class NhAssistantProposalDecisions(
     NhAssistantRegistrationState registration,
     NhAssistantAgentCatalog agents,
     NhAssistantAgentEvents events,
+    NhAssistantAgentWorkUpdates workUpdates,
     IServiceProvider services,
     IEnumerable<INhAssistantBusinessAuditSink> businessSinks,
     ILogger<NhAssistantProposalDecisions> logger)
@@ -205,6 +207,12 @@ internal sealed class NhAssistantProposalDecisions(
             await triggers.StartFollowUpAsync(thread, approval, actorId, cancellationToken);
         }
 
+        await workUpdates.PublishAsync(
+            approval.ConversationId,
+            NhAssistantAgentWorkReasons.Proposal,
+            approval.Id,
+            approval.RunId,
+            cancellationToken);
         return TaskResult<AssistantApproval>.Succeeded(approval);
     }
 
@@ -271,6 +279,12 @@ internal sealed class NhAssistantProposalDecisions(
             await EnqueueExecutionAsync(approval, thread, cancellationToken);
         }
 
+        await workUpdates.PublishAsync(
+            approval.ConversationId,
+            NhAssistantAgentWorkReasons.Proposal,
+            approval.Id,
+            approval.RunId,
+            cancellationToken);
         return TaskResult<AssistantApproval>.Succeeded(approval);
     }
 

@@ -21,6 +21,12 @@ public interface INhAssistantHubClient
     Task ConversationRemoved(NhAssistantLiveRemovedDto message);
 
     Task ConversationEvent(NhAssistantLiveEventDto message);
+
+    /// <summary>
+    /// A run, proposal or feedback of an agent thread changed; sent to the thread's participants and
+    /// the people on its subject.
+    /// </summary>
+    Task AgentWorkChanged(NhAssistantLiveAgentWorkDto message);
 }
 
 /// <summary>
@@ -105,6 +111,11 @@ internal sealed class NhAssistantSignalRLiveUpdateTransport(
                     NhAssistantDtoMapper.ToDto(created.Message),
                     NhAssistantJsonSerializerContext.Default.NhAssistantMessageDto))),
             NhAssistantLiveTurnEvent turn => SendTurnEventAsync(clients, turn),
+            NhAssistantLiveAgentWorkChanged work => clients.AgentWorkChanged(new NhAssistantLiveAgentWorkDto(
+                work.ConversationId,
+                work.Reason,
+                work.ApprovalId,
+                work.RunId)),
             _ => throw new InvalidOperationException($"Unknown assistant live event '{evt.GetType().Name}'.")
         };
         return send.WaitAsync(cancellationToken);

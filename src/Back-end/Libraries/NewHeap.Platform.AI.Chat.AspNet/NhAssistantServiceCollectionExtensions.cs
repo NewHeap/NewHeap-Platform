@@ -65,6 +65,8 @@ public static class NhAssistantServiceCollectionExtensions
                     UseCookies = false
                 });
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantStartupValidator>());
+            // Approvals are presented in every supported UI culture of the application.
+            services.Replace(ServiceDescriptor.Singleton<Runtime.INhAssistantPresentationCultures, NhAssistantRequestPresentationCultures>());
 
             // Agent runs: triggers, headless runs as background operations, approval decisions,
             // subject access to the operations and the maintenance job.

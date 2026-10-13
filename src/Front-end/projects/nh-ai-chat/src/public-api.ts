@@ -42,6 +42,7 @@ export * from './lib/components/activity/nh-assistant-activity.component';
  */
 export { NhAssistantIconComponent as ɵNhAssistantIconComponent } from './lib/internal/nh-assistant-icon.component';
 export { NhAssistantTranslatePipe as ɵNhAssistantTranslatePipe } from './lib/internal/nh-assistant-translate.pipe';
+export { nhAssistantReloadOnAgentWork as ɵnhAssistantReloadOnAgentWork } from './lib/internal/nh-assistant-agent-work';
 export {
   NH_ASSISTANT_DASH_CASE as ɵNH_ASSISTANT_DASH_CASE,
   nhAssistantErrorKeys as ɵnhAssistantErrorKeys,

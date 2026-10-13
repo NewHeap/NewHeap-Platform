@@ -529,12 +529,13 @@ internal sealed class NhAssistantToolCallInterceptor(
         var targetLabels = proposal.Targets
             .Select(target => $"{target.Type}:{target.Id}")
             .ToArray();
-        var presentation = await toolPresentation.ResolveApprovalAsync(
+        var presentations = await toolPresentation.ResolveApprovalInCulturesAsync(
             descriptor,
             call.CapturedArguments,
             context,
             culture,
             cancellationToken);
+        var presentation = presentations.Presentation;
         if (presentation is not null)
         {
             row.DisplayName = presentation.ToolDisplayName;
@@ -551,6 +552,7 @@ internal sealed class NhAssistantToolCallInterceptor(
             ToolId = descriptor.Id,
             Summary = "Approval is required before this tool can run.",
             PresentationJson = NhAssistantToolPresentationResolver.Serialize(presentation),
+            PresentationsJson = presentations.LocalizedJson,
             ArgumentsPreview = NhAssistantContent.Preview(row.ArgumentsJson, row.DataClassification) ?? "{}",
             TargetsJson = JsonSerializer.Serialize(targetLabels, NhAssistantContent.JsonOptions),
             Status = shadow ? NhAssistantApprovalStatuses.Shadow : NhAssistantApprovalStatuses.Pending,

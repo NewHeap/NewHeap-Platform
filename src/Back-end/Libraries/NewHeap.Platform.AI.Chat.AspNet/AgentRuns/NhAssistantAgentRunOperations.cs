@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Live;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
@@ -171,6 +172,7 @@ internal sealed class NhAssistantAgentRunOperation(
     NhAssistantAgentEvents events,
     NhAssistantAgentNotifier notifier,
     NhAssistantRunSummaries summaries,
+    NhAssistantAgentWorkUpdates workUpdates,
     IOptions<RequestLocalizationOptions> localization,
     ILogger<NhAssistantAgentRunOperation> logger) : INhBackgroundOperationHandler<NhAssistantAgentRunRequest>
 {
@@ -260,6 +262,7 @@ internal sealed class NhAssistantAgentRunOperation(
 
         await runs.SetRunAttemptAsync(run.Id, context.AttemptNumber, context.OperationId, cancellationToken);
         await runs.TrySetRunStatusAsync(run.Id, StartableStatuses, NhAssistantRunStatuses.Running, cancellationToken);
+        await workUpdates.PublishAsync(run.ConversationId, NhAssistantAgentWorkReasons.Run, runId: run.Id, cancellationToken: CancellationToken.None);
 
         var result = await ContinueWaitingTurnAsync(agentTurn, context, cancellationToken)
             ?? await RunTurnAsync(run, agentTurn, cancellationToken);
@@ -364,6 +367,12 @@ internal sealed class NhAssistantAgentRunOperation(
                     return saved;
                 }
 
+                await workUpdates.PublishAsync(
+                    run.ConversationId,
+                    NhAssistantAgentWorkReasons.Run,
+                    approvalId,
+                    run.Id,
+                    CancellationToken.None);
                 if (approval is not null)
                 {
                     await notifier.NotifyAsync(
@@ -471,6 +480,7 @@ internal sealed class NhAssistantAgentRunOperation(
             // The next runs of the thread start from this summary instead of the full history.
             await summaries.WriteAsync(run, failureCode is null ? status : status + " (" + failureCode + ")", turnId, CancellationToken.None);
             await events.RunEndedAsync(thread, run, status, failureCode, CancellationToken.None);
+            await workUpdates.PublishAsync(run.ConversationId, NhAssistantAgentWorkReasons.Run, runId: run.Id, cancellationToken: CancellationToken.None);
             if (status == NhAssistantRunStatuses.Completed
                 && string.Equals(run.TriggerId, NhAssistantTriggerIds.AgentRequest, StringComparison.Ordinal))
             {
@@ -555,6 +565,7 @@ internal sealed class NhAssistantProposalExecutor(
     NhAssistantAgentEvents events,
     NhAssistantAgentNotifier notifier,
     NhAssistantAgentTriggers triggers,
+    NhAssistantAgentWorkUpdates workUpdates,
     IOptions<RequestLocalizationOptions> localization)
 {
     private static readonly string[] ExecutableStatuses =
@@ -682,6 +693,12 @@ internal sealed class NhAssistantProposalExecutor(
             return;
         }
 
+        await workUpdates.PublishAsync(
+            approval.ConversationId,
+            NhAssistantAgentWorkReasons.Proposal,
+            approval.Id,
+            approval.RunId,
+            CancellationToken.None);
         var current = await store.FindApprovalAsync(approval.Id, CancellationToken.None) ?? approval;
         await events.ProposalAsync(
             NhAssistantAuditEventKind.AgentProposalExecuted,
