@@ -17,5 +17,7 @@ export * from './lib/sample-login.component';
 export * from './lib/sample-profile.component';
 export * from './lib/sample-project-management.providers';
 export * from './lib/sample-user-menu.component';
-export * from './lib/sample-cases';
 export * from './lib/background-operations-page.component';
+
+// The generated case catalog is imported from 'sample-project-management-common/sample-cases'
+// by the lazy catalog page. Re-exporting it here would put it in both initial bundles.

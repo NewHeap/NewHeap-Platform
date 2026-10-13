@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, signal } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
-import { SAMPLE_CASES, SampleCase } from 'sample-project-management-common';
+import { SAMPLE_CASES, SampleCase } from 'sample-project-management-common/sample-cases';
 
 @Component({
   selector: 'app-sample-case-catalog',

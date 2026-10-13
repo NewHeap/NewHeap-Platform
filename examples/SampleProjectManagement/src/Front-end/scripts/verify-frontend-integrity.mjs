@@ -23,6 +23,8 @@ const pageLifecycleSample = read('projects/management/src/app/dirty-route-sample
 const notificationPlayground = read('projects/management/src/app/notification-playground/notification-playground.component.ts');
 const managementHost = read('projects/management/src/app/app-host.component.ts');
 const workspaceHost = read('projects/workspace/src/app/app-host.component.ts');
+const commonPublicApi = read('projects/sample-project-management-common/src/public-api.ts');
+const sampleCaseCatalog = read('projects/management/src/app/sample-case-catalog/sample-case-catalog.component.ts');
 
 const flattenTranslations = (value, prefix = '', result = new Map()) => {
   for (const [key, item] of Object.entries(value)) {
@@ -88,6 +90,11 @@ for (const [name, host] of [['management', managementHost], ['workspace', worksp
   assert.match(host, /<nh-toastr-container \/>/,
     `The ${name} application root must render one NewHeap toast container.`);
 }
+
+assert.doesNotMatch(commonPublicApi, /^export[^;]*'\.\/lib\/sample-cases'/m,
+  'The generated case catalog must stay out of the shared barrel, which both initial bundles load.');
+assert.match(sampleCaseCatalog, /from 'sample-project-management-common\/sample-cases'/,
+  'The lazy case catalog page must import the generated cases from their own path.');
 
 const detachedLoad = pageLifecycleSample.indexOf(
   'void this.loadProjectSummary().catch(error => this.handleProjectSummaryLoadError(error))'

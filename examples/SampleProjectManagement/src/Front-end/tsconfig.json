@@ -12,6 +12,9 @@
     "paths": {
       "sample-project-management-common": [
         "./projects/sample-project-management-common/src/public-api"
+      ],
+      "sample-project-management-common/sample-cases": [
+        "./projects/sample-project-management-common/src/lib/sample-cases"
       ]
     },
     "esModuleInterop": true,
