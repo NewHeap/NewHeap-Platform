@@ -82,6 +82,7 @@ public sealed class AssistantAgentWorkTests(AssistantDatabaseFixture database)
         Assert.Equal(run.Thread.ConversationId, work.ConversationId);
         Assert.Equal(NhAssistantAgentWorkReasons.Proposal, work.Reason);
         Assert.Equal(rejected.Id, work.ApprovalId);
+        Assert.Equal(("project", projectId.ToString()), (work.SubjectType, work.SubjectId));
         Assert.Contains(Approver, update.ActorIds);
         Assert.Contains(Member, update.ActorIds);
 

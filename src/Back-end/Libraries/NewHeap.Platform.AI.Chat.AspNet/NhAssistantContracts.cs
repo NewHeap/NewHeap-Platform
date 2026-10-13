@@ -225,11 +225,14 @@ public sealed record NhAssistantLiveRemovedDto(Guid ConversationId);
 /// </summary>
 /// <param name="ConversationId">The agent thread.</param>
 /// <param name="Reason"><c>run</c>, <c>proposal</c> or <c>feedback</c>.</param>
+/// <param name="SubjectType">The thread's subject, so lists and detail pages refresh the right entry.</param>
 public sealed record NhAssistantLiveAgentWorkDto(
     Guid ConversationId,
     string Reason,
     Guid? ApprovalId,
-    Guid? RunId);
+    Guid? RunId,
+    string SubjectType,
+    string SubjectId);
 
 /// <summary>
 /// Live update: one event of a turn, with the same <paramref name="Type"/> and <paramref name="Data"/>

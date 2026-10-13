@@ -644,6 +644,70 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Contains(project.ToString("D"), exported.Arguments.GetRawText(), StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task A_project_shows_its_agent_work_and_a_project_list_counts_it_in_one_request()
+    {
+        // SPM-280
+        var busy = await host.CreateProjectAsync("SUBJECT-BUSY", ownerId: host.OwnerId);
+        var quiet = await host.CreateProjectAsync("SUBJECT-QUIET", ownerId: host.OwnerId);
+        await host.AddMemberAsync(busy, host.ColleagueId, ProjectMemberRole.Approver);
+        await host.AddMemberAsync(quiet, host.ParticipantId, ProjectMemberRole.Participant);
+        await host.AddMemberAsync(quiet, host.ReaderId, ProjectMemberRole.Reader);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        using var reader = host.CreateClient(host.ReaderId.ToString());
+        using var outsider = host.CreateClient(host.OutsiderId.ToString());
+        var created = Assert.Single(await host.PublishProjectCreatedAsync(busy, createdBy: host.OwnerId));
+        var proposal = await WaitForProposalAsync(owner, created.ConversationId!.Value, NhAssistantApprovalStatuses.Pending);
+
+        // The project page reads all agent work on the project in one request, with live rights:
+        // the approver decides, the creator is kept out by four eyes.
+        var work = (await colleague.GetFromJsonAsync<NhAssistantSubjectWorkDto>($"/api/assistant/subjects/project/{busy:D}/work", Json))!;
+        Assert.Equal("approver", work.Role);
+        var reviewer = Assert.Single(work.Agents);
+        Assert.Equal(SampleIntakeReviewerComposition.AgentId, reviewer.AgentId);
+        Assert.Equal(created.ConversationId, reviewer.Thread!.ConversationId);
+        var open = Assert.Single(work.OpenProposals);
+        Assert.Equal(proposal.ApprovalId, open.Proposal.ApprovalId);
+        Assert.True(open.CanDecide);
+        var ownerWork = (await owner.GetFromJsonAsync<NhAssistantSubjectWorkDto>($"/api/assistant/subjects/project/{busy:D}/work", Json))!;
+        Assert.Equal(NhAssistantErrorCodes.FourEyesRequired, Assert.Single(ownerWork.OpenProposals).ReasonCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await outsider.GetAsync($"/api/assistant/subjects/project/{busy:D}/work")).StatusCode);
+
+        // A project list asks for every visible project at once.
+        var summary = await colleague.PostAsJsonAsync(
+            "/api/assistant/subjects/project/summary",
+            new NhAssistantSubjectSummaryRequest([quiet.ToString("D"), busy.ToString("D")]),
+            Json);
+        Assert.Equal(HttpStatusCode.OK, summary.StatusCode);
+        var counts = (await summary.Content.ReadFromJsonAsync<NhAssistantSubjectSummaryListDto>(Json))!.Items;
+        Assert.Equal(0, counts[0].OpenProposals);
+        Assert.Equal(1, counts[1].OpenProposals);
+        Assert.Equal(1, counts[1].ProposalsToDecide);
+        var outsiderCounts = (await (await outsider.PostAsJsonAsync(
+                "/api/assistant/subjects/project/summary",
+                new NhAssistantSubjectSummaryRequest([busy.ToString("D")]),
+                Json))
+            .Content.ReadFromJsonAsync<NhAssistantSubjectSummaryListDto>(Json))!.Items;
+        Assert.Equal(0, Assert.Single(outsiderCounts).OpenProposals);
+
+        // Opening the conversation about a project the reviewer never worked on creates its thread
+        // without a run; a reader may not create it.
+        var openRequest = new NhAssistantOpenThreadRequest(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type, quiet.ToString("D"));
+        Assert.Equal(HttpStatusCode.Forbidden, (await reader.PostAsJsonAsync("/api/assistant/threads/open", openRequest, Json)).StatusCode);
+        var opened = await participant.PostAsJsonAsync("/api/assistant/threads/open", openRequest, Json);
+        Assert.Equal(HttpStatusCode.OK, opened.StatusCode);
+        var lookup = (await opened.Content.ReadFromJsonAsync<NhAssistantThreadLookupDto>(Json))!;
+        Assert.NotNull(lookup.Thread);
+        Assert.Null(lookup.Thread!.ActiveRun);
+        var runs = (await participant.GetFromJsonAsync<NhAssistantRunListDto>($"/api/assistant/threads/{lookup.Thread.ConversationId}/runs", Json))!;
+        Assert.Empty(runs.Items);
+        var again = (await (await reader.PostAsJsonAsync("/api/assistant/threads/open", openRequest, Json))
+            .Content.ReadFromJsonAsync<NhAssistantThreadLookupDto>(Json))!;
+        Assert.Equal(lookup.Thread.ConversationId, again.Thread!.ConversationId);
+    }
+
     /// <summary>
     /// Waits until the thread has at least <paramref name="count"/> runs and every run has ended.
     /// </summary>

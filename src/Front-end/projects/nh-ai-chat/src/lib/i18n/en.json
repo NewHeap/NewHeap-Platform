@@ -7,6 +7,11 @@
       "unread": "{{count}} unread conversations",
       "running": "{{count}} conversations working"
     },
+    "subject-badge": {
+      "to-decide": "Proposals to decide: {{toDecide}} of {{open}} open.",
+      "open": "Open proposals: {{open}}.",
+      "working": "An agent is working on this."
+    },
     "panel": {
       "title": "Assistant",
       "region-label": "Assistant panel",
@@ -669,6 +674,18 @@
           "deduplicated": "This was already started.",
           "rejected": "The agent could not be started."
         }
+      },
+      "subject": {
+        "title": "Agent suggestions",
+        "description": "Proposals that agents made here and that wait for a decision, the first to expire on top.",
+        "empty": "No open suggestions from agents.",
+        "unavailable": "You cannot see agent work on this item.",
+        "agents": "Agents",
+        "idle": "Not working now",
+        "opening": "Opening…",
+        "open-conversation-label": "Open conversation with {{agent}}",
+        "start-label": "Start the agent: {{agent}}",
+        "assistant-unavailable": "The assistant is not available."
       },
       "inbox": {
         "title": "Proposals to decide",

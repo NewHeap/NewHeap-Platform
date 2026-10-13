@@ -22,9 +22,10 @@ internal sealed class NhAssistantAgentWorkUpdates(
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<string> members;
+        Entities.AssistantThread? thread;
         try
         {
-            var thread = await runs.FindThreadByConversationAsync(conversationId, cancellationToken);
+            thread = await runs.FindThreadByConversationAsync(conversationId, cancellationToken);
             if (thread is null)
             {
                 return;
@@ -48,7 +49,7 @@ internal sealed class NhAssistantAgentWorkUpdates(
 
         await live.PublishWithAsync(
             members,
-            new NhAssistantLiveAgentWorkChanged(conversationId, reason, approvalId, runId),
+            new NhAssistantLiveAgentWorkChanged(conversationId, reason, approvalId, runId, thread.SubjectType, thread.SubjectId),
             cancellationToken);
     }
 }

@@ -906,14 +906,14 @@ describe('NhAssistantStore', () => {
       expect(store.approvalRights().get('intake-1')?.canDecide).toBeTrue();
 
       // Another thread, and feedback that leaves the thread unchanged, reload nothing.
-      live.agentWork.next({ conversationId: 'other', reason: 'proposal', approvalId: 'other-1', runId: null });
-      live.agentWork.next({ conversationId: 't1', reason: 'feedback', approvalId: 'intake-1', runId: null });
+      live.agentWork.next({ conversationId: 'other', reason: 'proposal', approvalId: 'other-1', runId: null, subjectType: 'project', subjectId: 'other' });
+      live.agentWork.next({ conversationId: 't1', reason: 'feedback', approvalId: 'intake-1', runId: null, subjectType: 'project', subjectId: 'p-1' });
       await wait(350);
       expect(api.getConversation).toHaveBeenCalledTimes(1);
 
       // A colleague approved in the inbox; the run continues.
-      live.agentWork.next({ conversationId: 't1', reason: 'proposal', approvalId: 'intake-1', runId: null });
-      live.agentWork.next({ conversationId: 't1', reason: 'run', approvalId: null, runId: 'run-1' });
+      live.agentWork.next({ conversationId: 't1', reason: 'proposal', approvalId: 'intake-1', runId: null, subjectType: 'project', subjectId: 'p-1' });
+      live.agentWork.next({ conversationId: 't1', reason: 'run', approvalId: null, runId: 'run-1', subjectType: 'project', subjectId: 'p-1' });
       await wait(350);
 
       expect(api.getConversation).toHaveBeenCalledTimes(2);

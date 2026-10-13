@@ -250,6 +250,64 @@ public sealed record NhAssistantFeedbackItemDto(
     public string? AuthorDisplayName { get; init; }
 }
 
+/// <summary>
+/// One agent on a subject: its thread when it worked on the subject, and whether the caller may
+/// start it.
+/// </summary>
+/// <param name="Thread">The agent's thread about the subject, or <see langword="null"/> before it worked on it.</param>
+public sealed record NhAssistantSubjectAgentDto(
+    string AgentId,
+    NhAssistantThreadDto? Thread,
+    bool CanStart);
+
+/// <summary>
+/// An open proposal on the subject with the caller's live decision right.
+/// </summary>
+/// <param name="ReasonCode">Why the caller may not decide, such as <c>assistant-four-eyes-required</c>.</param>
+public sealed record NhAssistantSubjectProposalDto(
+    NhAssistantProposalDto Proposal,
+    bool CanDecide,
+    string? ReasonCode);
+
+/// <summary>
+/// All agent work on one subject as the caller may see it: the agents with a thread on it and
+/// their open proposals, oldest expiry first.
+/// </summary>
+/// <param name="Role">The caller's live role on the subject: reader, participant or approver.</param>
+public sealed record NhAssistantSubjectWorkDto(
+    string SubjectType,
+    string SubjectId,
+    string? SubjectDisplayName,
+    string Role,
+    IReadOnlyList<NhAssistantSubjectAgentDto> Agents,
+    IReadOnlyList<NhAssistantSubjectProposalDto> OpenProposals);
+
+/// <param name="SubjectIds">At most 200 subjects of the route's subject type.</param>
+public sealed record NhAssistantSubjectSummaryRequest(IReadOnlyList<string>? SubjectIds);
+
+/// <summary>
+/// The agent work on one subject for a list view.
+/// </summary>
+/// <param name="OpenProposals">Proposals that wait for a decision on the subject.</param>
+/// <param name="ProposalsToDecide">The open proposals the caller may decide, counted like the approval inbox; each decision is checked again.</param>
+/// <param name="RunActive">An agent works on the subject now.</param>
+public sealed record NhAssistantSubjectSummaryDto(
+    string SubjectId,
+    int OpenProposals,
+    int ProposalsToDecide,
+    bool RunActive);
+
+/// <param name="Items">One entry per requested subject, in request order; subjects without visible work count zero.</param>
+public sealed record NhAssistantSubjectSummaryListDto(
+    string SubjectType,
+    IReadOnlyList<NhAssistantSubjectSummaryDto> Items);
+
+/// <param name="AgentId">The agent whose conversation about the subject opens.</param>
+public sealed record NhAssistantOpenThreadRequest(
+    string? AgentId,
+    string? SubjectType,
+    string? SubjectId);
+
 public sealed record NhAssistantFeedbackListDto(
     IReadOnlyList<NhAssistantFeedbackItemDto> Items,
     int Total);
@@ -348,6 +406,10 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantFeedbackSummaryDto))]
 [JsonSerializable(typeof(NhAssistantFeedbackListDto))]
 [JsonSerializable(typeof(NhAssistantFeedbackExportRecord))]
+[JsonSerializable(typeof(NhAssistantSubjectWorkDto))]
+[JsonSerializable(typeof(NhAssistantSubjectSummaryRequest))]
+[JsonSerializable(typeof(NhAssistantSubjectSummaryListDto))]
+[JsonSerializable(typeof(NhAssistantOpenThreadRequest))]
 [JsonSerializable(typeof(string[]))]
 public sealed partial class NhAssistantAgentRunJsonSerializerContext : JsonSerializerContext;
 

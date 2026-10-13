@@ -3,7 +3,11 @@ import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { DOCUMENT } from '@angular/common';
 import { DestroyRef, Injectable, Injector, Signal, afterNextRender, effect, inject, signal, untracked } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
+import { AgentThreadLookup } from '../models/assistant-agent-run.models';
+import { NhAssistantClientErrorCodes } from '../models/assistant-sse.models';
+import { NhAssistantAgentRunApiService } from './nh-assistant-agent-run-api.service';
+import { NhAssistantApiError, nhAssistantErrorMessageKey } from './nh-assistant-transport';
 import { NhAssistantStore } from './nh-assistant.store';
 
 /** Drawer width on wider screens; below the mobile breakpoint the panel fills the screen. */
@@ -20,6 +24,7 @@ export const NH_ASSISTANT_PANEL_MOBILE_QUERY = '(max-width: 599.98px)';
 export class NhAssistantPanelService {
   private readonly overlay = inject(Overlay);
   private readonly store = inject(NhAssistantStore);
+  private readonly agentRuns = inject(NhAssistantAgentRunApiService);
   private readonly injector = inject(Injector);
   private readonly document = inject(DOCUMENT);
   private readonly breakpoints = inject(BreakpointObserver);
@@ -59,6 +64,28 @@ export class NhAssistantPanelService {
         void this.store.openConversation(conversationId);
       }
     });
+  }
+
+  /**
+   * Opens the panel on the conversation with an agent about a subject, for example the intake
+   * reviewer about one project. The server returns the agent's thread about the subject and creates
+   * it without starting a run when it is missing; people then type in the conversation, which runs
+   * a turn. Creating needs the participant role, readers may open an existing thread.
+   *
+   * Resolves with the lookup once the panel opens the conversation. A failure, such as
+   * `assistant-subject-access-denied`, rejects with `NhAssistantApiError` and leaves the panel as
+   * it is, so the caller shows the localized `messageKey` where the person asked.
+   */
+  async openSubject(agentId: string, subject: { type: string; id: string }): Promise<AgentThreadLookup> {
+    const lookup = await firstValueFrom(this.agentRuns.openThread(agentId, subject.type, subject.id));
+    const conversationId = lookup.thread?.conversationId;
+    if (!conversationId) {
+      const code = NhAssistantClientErrorCodes.invalidResponse;
+      throw new NhAssistantApiError(200, code, nhAssistantErrorMessageKey(code));
+    }
+
+    this.open(conversationId);
+    return lookup;
   }
 
   private showPanel(): void {

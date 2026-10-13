@@ -956,6 +956,67 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// Counts, per subject, the open proposals and active runs of the agent threads
+    /// <paramref name="actorId"/> may see according to the member snapshot, and the proposals they
+    /// may decide as the inbox counts them. Subjects without visible work are left out.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantSubjectSummaryRow>> SummarizeSubjectsAsync(
+        string actorId,
+        string subjectType,
+        IReadOnlyCollection<string> subjectIds,
+        IReadOnlyCollection<string> hiddenAgentIds,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        var memberships = context.SubjectMembers
+            .Where(member => member.ActorId == actorId
+                && member.SubjectType == subjectType
+                && subjectIds.Contains(member.SubjectId));
+        var threads = context.Threads
+            .AsNoTracking()
+            .Where(thread => thread.SubjectType == subjectType
+                && subjectIds.Contains(thread.SubjectId)
+                && !hiddenAgentIds.Contains(thread.AgentId)
+                && memberships.Any(member => member.ScopeKey == thread.ScopeKey && member.SubjectId == thread.SubjectId));
+        var pending =
+            from approval in context.Approvals.AsNoTracking()
+            join thread in threads on approval.ConversationId equals thread.ConversationId
+            where approval.Status == NhAssistantApprovalStatuses.Pending && approval.ExpiresAt > now
+            select new { approval, thread };
+
+        var open = await pending
+            .GroupBy(row => row.thread.SubjectId)
+            .Select(group => new { SubjectId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(row => row.SubjectId, row => row.Count, cancellationToken);
+        var toDecide = await pending
+            .Where(row => row.approval.InitiatorActorId == actorId
+                || memberships.Any(member => member.ScopeKey == row.thread.ScopeKey
+                    && member.SubjectId == row.thread.SubjectId
+                    && member.Role >= NhAiSubjectRole.Approver))
+            .GroupBy(row => row.thread.SubjectId)
+            .Select(group => new { SubjectId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(row => row.SubjectId, row => row.Count, cancellationToken);
+        var running = await (
+                from run in context.Runs.AsNoTracking()
+                join thread in threads on run.ConversationId equals thread.ConversationId
+                where ActiveRunStatuses.Contains(run.Status)
+                select thread.SubjectId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return open.Keys
+            .Concat(running)
+            .Distinct(StringComparer.Ordinal)
+            .Select(subjectId => new NhAssistantSubjectSummaryRow(
+                subjectId,
+                open.GetValueOrDefault(subjectId),
+                toDecide.GetValueOrDefault(subjectId),
+                running.Contains(subjectId, StringComparer.Ordinal)))
+            .ToList();
+    }
+
+    /// <summary>
     /// The pending proposals <paramref name="actorId"/> may decide according to the member
     /// snapshot: as an approver of the subject, or as the initiator of the run. Each decision is
     /// checked live again.
@@ -1049,3 +1110,5 @@ internal sealed record NhAssistantInboxFilter(
     Guid? RunId);
 
 internal sealed record NhAssistantInboxRow(AssistantApproval Approval, AssistantThread Thread);
+
+internal sealed record NhAssistantSubjectSummaryRow(string SubjectId, int OpenProposals, int ProposalsToDecide, bool RunActive);

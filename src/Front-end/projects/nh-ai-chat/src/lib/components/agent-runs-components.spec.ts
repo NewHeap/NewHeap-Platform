@@ -1,12 +1,13 @@
 import { Component, signal } from '@angular/core';
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import {
   NhAssistantAgentConsultationsComponent,
   NhAssistantAgentInboxComponent,
   NhAssistantAgentProposalsComponent,
-  NhAssistantAgentThreadViewComponent
+  NhAssistantAgentThreadViewComponent,
+  NhAssistantSubjectSuggestionsComponent
 } from '@newheap/platform-ai-chat/agent-runs';
 import { NEVER, Subject, of, throwError } from 'rxjs';
 import {
@@ -14,13 +15,17 @@ import {
   AgentInbox,
   AgentProposal,
   AgentProposalFeedback,
+  AgentSubjectWork,
   AgentThread,
   AgentThreadLookup
 } from '../models/assistant-agent-run.models';
 import { LiveAgentWorkChanged } from '../models/assistant-live.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAgentRunApiService } from '../services/nh-assistant-agent-run-api.service';
+import { NhAssistantApiError } from '../services/nh-assistant-api.service';
 import { NhAssistantLiveService, NhAssistantLiveState } from '../services/nh-assistant-live.service';
+import { NhAssistantPanelService } from '../services/nh-assistant-panel.service';
+import { NhAssistantStore } from '../services/nh-assistant.store';
 import { NhAssistantProposalFeedbackComponent } from './proposal-feedback/nh-assistant-proposal-feedback.component';
 
 function proposal(status: AgentProposal['status'], id = 'approval-1'): AgentProposal {
@@ -130,6 +135,21 @@ class ThreadHostComponent {
   opened: string | null = null;
 }
 
+@Component({
+  standalone: true,
+  imports: [NhAssistantSubjectSuggestionsComponent],
+  template: `
+    <nh-assistant-subject-suggestions
+      subjectType="project"
+      subjectId="project-1"
+      agentId="intake"
+      (conversationOpened)="opened = $event" />
+  `
+})
+class SuggestionsHostComponent {
+  opened: AgentThreadLookup | null = null;
+}
+
 /** A connected hub whose agent-work updates and reconnects the test sends. */
 class FakeLiveService {
   readonly agentWork = new Subject<LiveAgentWorkChanged>();
@@ -152,7 +172,14 @@ class FakeLiveService {
 }
 
 function work(conversationId: string, reason: LiveAgentWorkChanged['reason']): LiveAgentWorkChanged {
-  return { conversationId, reason, approvalId: reason === 'run' ? null : 'approval-1', runId: reason === 'run' ? 'run-1' : null };
+  return {
+    conversationId,
+    reason,
+    approvalId: reason === 'run' ? null : 'approval-1',
+    runId: reason === 'run' ? 'run-1' : null,
+    subjectType: 'project',
+    subjectId: 'project-1'
+  };
 }
 
 function buttons(fixture: ComponentFixture<unknown>): HTMLButtonElement[] {
@@ -171,6 +198,7 @@ describe('agent-run components', () => {
     live = new FakeLiveService();
     api = jasmine.createSpyObj<NhAssistantAgentRunApiService>('NhAssistantAgentRunApiService', [
       'getThread',
+      'getSubjectWork',
       'getInbox',
       'getProposals',
       'getConsultations',
@@ -677,5 +705,178 @@ describe('agent-run components', () => {
       expect(element.querySelectorAll('li.card').length).toBe(1);
       expect(element.querySelector('[role="alert"]')).toBeNull();
     }));
+  });
+
+  describe('nh-assistant-subject-suggestions', () => {
+    let panel: jasmine.SpyObj<NhAssistantPanelService>;
+
+    function subjectWork(overrides: Partial<AgentSubjectWork> = {}): AgentSubjectWork {
+      return {
+        subjectType: 'project',
+        subjectId: 'project-1',
+        subjectDisplayName: 'Project One',
+        role: 'approver',
+        agents: [
+          { agentId: 'intake', thread: thread(null), canStart: true },
+          { agentId: 'advisor', thread: null, canStart: false }
+        ],
+        openProposals: [
+          { proposal: proposal('pending', 'approval-1'), canDecide: true, reasonCode: null },
+          { proposal: proposal('pending', 'approval-2'), canDecide: false, reasonCode: 'assistant-four-eyes-required' },
+          { proposal: proposal('pending', 'approval-3'), canDecide: false, reasonCode: 'assistant-approval-policy-denied' }
+        ],
+        ...overrides
+      };
+    }
+
+    function cards(fixture: ComponentFixture<unknown>): HTMLElement[] {
+      return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('li.card'));
+    }
+
+    beforeEach(() => {
+      panel = jasmine.createSpyObj<NhAssistantPanelService>('NhAssistantPanelService', ['openSubject', 'open']);
+      TestBed.overrideProvider(NhAssistantPanelService, { useValue: panel });
+      TestBed.overrideProvider(NhAssistantStore, {
+        useValue: { enabled: signal(true), agents: signal([]), initialize: () => Promise.resolve() }
+      });
+    });
+
+    it('shows the open proposals of every agent with the viewer\'s own right and says who decides otherwise', () => {
+      api.getSubjectWork.and.returnValue(of(subjectWork()));
+      const fixture = TestBed.createComponent(SuggestionsHostComponent);
+      fixture.detectChanges();
+
+      expect(api.getSubjectWork).toHaveBeenCalledOnceWith('project', 'project-1', 'intake');
+      const [mine, fourEyes, policy] = cards(fixture);
+      expect(mine.textContent).toContain('proposal.approve');
+      expect(mine.querySelector('.waiting-for')).toBeNull();
+      expect(fourEyes.textContent).not.toContain('proposal.approve');
+      expect(fourEyes.querySelector('.waiting-for')?.textContent).toContain('approval.waiting-for-other-approver');
+      expect(policy.textContent).not.toContain('proposal.approve');
+      expect(policy.querySelector('.waiting-for')?.textContent).toContain('approval.waiting-for-approver');
+
+      const agents = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li.subject-agent'));
+      expect(agents.map(agent => agent.querySelector('strong')?.textContent?.trim())).toEqual(['intake', 'advisor']);
+      expect(agents[1].textContent).toContain('thread.no-thread');
+    });
+
+    it('opens the conversation with an agent about the subject and reports it', fakeAsync(() => {
+      const opened: AgentThreadLookup = { thread: thread(null), canStart: true, role: 'approver' };
+      api.getSubjectWork.and.returnValue(of(subjectWork()));
+      panel.openSubject.and.resolveTo(opened);
+      const fixture = TestBed.createComponent(SuggestionsHostComponent);
+      fixture.detectChanges();
+
+      button(fixture, 'thread.open-conversation')!.click();
+      flushMicrotasks();
+      fixture.detectChanges();
+
+      expect(panel.openSubject).toHaveBeenCalledOnceWith('intake', { type: 'project', id: 'project-1' });
+      expect(fixture.componentInstance.opened).toBe(opened);
+      expect((fixture.nativeElement as HTMLElement).querySelector('[role="alert"]')).toBeNull();
+    }));
+
+    it('shows a refused conversation where the person asked', fakeAsync(() => {
+      api.getSubjectWork.and.returnValue(of(subjectWork()));
+      panel.openSubject.and.rejectWith(new NhAssistantApiError(
+        403,
+        'assistant-subject-access-denied',
+        'nh-assistant.errors.assistant-subject-access-denied'));
+      const fixture = TestBed.createComponent(SuggestionsHostComponent);
+      fixture.detectChanges();
+
+      button(fixture, 'thread.open-conversation')!.click();
+      flushMicrotasks();
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.opened).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('[role="alert"]')?.textContent)
+        .toContain('assistant-subject-access-denied');
+    }));
+
+    it('lets a reader open only an existing conversation and a participant start the agent', () => {
+      api.getSubjectWork.and.returnValue(of(subjectWork({
+        role: 'reader',
+        agents: [{ agentId: 'intake', thread: null, canStart: false }],
+        openProposals: []
+      })));
+      const fixture = TestBed.createComponent(SuggestionsHostComponent);
+      fixture.detectChanges();
+      expect(button(fixture, 'thread.open-conversation')).toBeUndefined();
+      expect(button(fixture, 'thread.start')).toBeUndefined();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('subject.empty');
+
+      api.getSubjectWork.and.returnValue(of(subjectWork({
+        role: 'participant',
+        agents: [{ agentId: 'intake', thread: null, canStart: true }]
+      })));
+      api.startAgent.and.returnValue(of({
+        triggerId: 'trigger-1',
+        outcome: 'started',
+        runId: 'run-1',
+        conversationId: 'conversation-1',
+        reasonCode: null
+      }));
+      button(fixture, 'agent-runs.refresh')!.click();
+      fixture.detectChanges();
+      button(fixture, 'thread.start')!.click();
+      fixture.detectChanges();
+
+      expect(api.startAgent).toHaveBeenCalledOnceWith({ agentId: 'intake', subjectType: 'project', subjectId: 'project-1' });
+      expect(button(fixture, 'thread.open-conversation')).toBeDefined();
+    });
+
+    it('asks what was wrong after a rejection, also once the proposal left the list', () => {
+      const pending = proposal('pending', 'approval-1');
+      api.getSubjectWork.and.returnValues(
+        of(subjectWork({ openProposals: [{ proposal: pending, canDecide: true, reasonCode: null }] })),
+        of(subjectWork({ openProposals: [] })));
+      api.decide.and.returnValue(of({ ...pending, status: 'rejected', canGiveFeedback: true }));
+      const fixture = TestBed.createComponent(SuggestionsHostComponent);
+      fixture.detectChanges();
+
+      button(fixture, 'proposal.reject')!.click();
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      expect(api.getSubjectWork).toHaveBeenCalledTimes(2);
+      expect(cards(fixture).length).toBe(0);
+      expect(element.textContent).toContain('subject.empty');
+      expect(element.querySelector('.feedback-prompt nh-assistant-proposal-feedback')).not.toBeNull();
+    });
+
+    it('reloads after live agent work on its own subject only', fakeAsync(() => {
+      api.getSubjectWork.and.returnValue(of(subjectWork()));
+      const fixture = TestBed.createComponent(SuggestionsHostComponent);
+      fixture.detectChanges();
+
+      live.agentWork.next({ ...work('conversation-9', 'proposal'), subjectId: 'project-2' });
+      live.agentWork.next({ ...work('conversation-8', 'proposal'), subjectType: 'task' });
+      tick(300);
+      expect(api.getSubjectWork).toHaveBeenCalledTimes(1);
+
+      live.agentWork.next(work('conversation-7', 'run'));
+      tick(300);
+      fixture.detectChanges();
+      expect(api.getSubjectWork).toHaveBeenCalledTimes(2);
+      expect(cards(fixture).length).toBe(3);
+    }));
+
+    it('explains when the work on the subject is not available and offers a retry for other failures', () => {
+      api.getSubjectWork.and.returnValues(
+        throwError(() => new NhAssistantApiError(404, 'assistant-subject-not-found', 'nh-assistant.errors.assistant-subject-not-found')),
+        throwError(() => new Error('offline')));
+      const fixture = TestBed.createComponent(SuggestionsHostComponent);
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.textContent).toContain('subject.unavailable');
+      expect(button(fixture, 'agent-runs.retry')).toBeUndefined();
+
+      button(fixture, 'agent-runs.refresh')!.click();
+      fixture.detectChanges();
+      expect(element.textContent).toContain('agent-runs.load-failed');
+      expect(button(fixture, 'agent-runs.retry')).toBeDefined();
+    });
   });
 });

@@ -45,7 +45,13 @@ internal sealed record NhAssistantLiveTurnEvent(Guid ConversationId, string Acto
 /// A run, a proposal or its feedback of an agent thread changed. It names what changed and carries
 /// no content, so it may reach everyone on the subject, also people who never opened the thread.
 /// </summary>
-internal sealed record NhAssistantLiveAgentWorkChanged(Guid ConversationId, string Reason, Guid? ApprovalId, Guid? RunId)
+internal sealed record NhAssistantLiveAgentWorkChanged(
+    Guid ConversationId,
+    string Reason,
+    Guid? ApprovalId,
+    Guid? RunId,
+    string SubjectType,
+    string SubjectId)
     : NhAssistantLiveEvent(ConversationId);
 
 /// <summary>

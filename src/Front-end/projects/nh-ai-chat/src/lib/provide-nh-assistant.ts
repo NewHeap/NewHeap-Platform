@@ -13,6 +13,7 @@ import { NhAssistantLiveService } from './services/nh-assistant-live.service';
 import { NhAssistantPushService } from './services/nh-assistant-push.service';
 import { NhAssistantPanelService } from './services/nh-assistant-panel.service';
 import { NhAssistantStore } from './services/nh-assistant.store';
+import { NhAssistantSubjectSummaryService } from './services/nh-assistant-subject-summary.service';
 import { NhAssistantUiState } from './services/nh-assistant-ui-state';
 import { NhAssistantTransport } from './services/nh-assistant-transport';
 
@@ -34,6 +35,7 @@ export function provideNhAssistant(config: NhAssistantConfig): EnvironmentProvid
     NhAssistantStore,
     NhAssistantUiState,
     NhAssistantPanelService,
+    NhAssistantSubjectSummaryService,
     ...(config.translations === 'host'
       ? []
       : [provideEnvironmentInitializer(() => inject(NhAssistantTranslationMerger).start())])

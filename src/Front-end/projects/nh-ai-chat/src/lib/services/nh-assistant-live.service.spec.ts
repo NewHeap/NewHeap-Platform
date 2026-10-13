@@ -99,7 +99,14 @@ describe('NhAssistantLiveService hub messages', () => {
     live.resync$.subscribe(() => resyncs++);
 
     await live.connect('/hub/assistant');
-    const change: LiveAgentWorkChanged = { conversationId: 'thread-1', reason: 'proposal', approvalId: 'approval-1', runId: null };
+    const change: LiveAgentWorkChanged = {
+      conversationId: 'thread-1',
+      reason: 'proposal',
+      approvalId: 'approval-1',
+      runId: null,
+      subjectType: 'project',
+      subjectId: 'project-1'
+    };
     handlers.get('AgentWorkChanged')!(change);
 
     expect(live.state()).toBe('connected');

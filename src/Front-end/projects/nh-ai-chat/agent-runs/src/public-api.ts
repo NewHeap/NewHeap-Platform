@@ -13,3 +13,4 @@ export * from './nh-assistant-run-timeline.component';
 export * from './nh-assistant-agent-memory.component';
 export * from './nh-assistant-agent-artifacts.component';
 export * from './nh-assistant-agent-consultations.component';
+export * from './nh-assistant-subject-suggestions.component';

@@ -73,6 +73,63 @@ export interface AgentThreadLookup {
   role: AgentSubjectRole;
 }
 
+/** The caller's live right to decide one open proposal; the server checks every decision again. */
+export interface AgentProposalDecisionRight {
+  canDecide: boolean;
+  /**
+   * Why the caller may not decide, for example `assistant-four-eyes-required` or
+   * `assistant-approval-policy-denied`; `null` when they may.
+   */
+  reasonCode: string | null;
+}
+
+/** One agent on a subject: its thread, `null` before it worked on the subject, and whether the caller may start it. */
+export interface AgentSubjectWorkAgent {
+  agentId: string;
+  thread: AgentThread | null;
+  canStart: boolean;
+}
+
+/** An open proposal on a subject with the caller's live decision right. */
+export interface AgentSubjectWorkProposal extends AgentProposalDecisionRight {
+  proposal: AgentProposal;
+}
+
+/**
+ * All agent work on one subject as the caller may see it (`GET subjects/{type}/{id}/work`): every
+ * agent with a thread on the subject plus the requested agent, and the pending proposals of all
+ * those threads, the earliest expiry first.
+ */
+export interface AgentSubjectWork {
+  subjectType: string;
+  subjectId: string;
+  subjectDisplayName: string | null;
+  /** The caller's live role. Without a role the server answers `404 assistant-subject-not-found`. */
+  role: Exclude<AgentSubjectRole, 'none'>;
+  agents: AgentSubjectWorkAgent[];
+  openProposals: AgentSubjectWorkProposal[];
+}
+
+/** The agent work on one subject for a list view (`POST subjects/{type}/summary`). */
+export interface AgentSubjectSummary {
+  subjectId: string;
+  /** Proposals that wait for a decision on the subject. */
+  openProposals: number;
+  /** The open proposals the caller may decide, counted like the approval inbox. */
+  proposalsToDecide: number;
+  /** An agent works on the subject now. */
+  runActive: boolean;
+}
+
+/** One summary per requested subject, in request order; subjects without visible work count zero. */
+export interface AgentSubjectSummaryList {
+  subjectType: string;
+  items: AgentSubjectSummary[];
+}
+
+/** Maximum number of subjects one `POST subjects/{type}/summary` request accepts. */
+export const NH_ASSISTANT_MAX_SUBJECT_SUMMARY = 200;
+
 export interface StartAgentRequest {
   agentId: string;
   subjectType: string;

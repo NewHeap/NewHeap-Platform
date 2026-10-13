@@ -7,6 +7,11 @@
       "unread": "{{count}} ongelezen gesprekken",
       "running": "{{count}} gesprekken bezig"
     },
+    "subject-badge": {
+      "to-decide": "Voorstellen om te beslissen: {{toDecide}} van {{open}} open.",
+      "open": "Openstaande voorstellen: {{open}}.",
+      "working": "Een agent werkt hieraan."
+    },
     "panel": {
       "title": "Assistent",
       "region-label": "Assistentpaneel",
@@ -669,6 +674,18 @@
           "deduplicated": "Dit was al gestart.",
           "rejected": "De agent kon niet starten."
         }
+      },
+      "subject": {
+        "title": "Voorstellen van agents",
+        "description": "Voorstellen die agents hier deden en die op een besluit wachten, de eerste die verloopt bovenaan.",
+        "empty": "Geen openstaande voorstellen van agents.",
+        "unavailable": "Je kunt het werk van agents hieraan niet zien.",
+        "agents": "Agents",
+        "idle": "Werkt nu niet",
+        "opening": "Openen…",
+        "open-conversation-label": "Gesprek openen met {{agent}}",
+        "start-label": "Agent starten: {{agent}}",
+        "assistant-unavailable": "De assistent is niet beschikbaar."
       },
       "inbox": {
         "title": "Voorstellen om te beslissen",

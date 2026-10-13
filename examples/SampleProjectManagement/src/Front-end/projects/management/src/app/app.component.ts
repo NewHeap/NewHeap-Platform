@@ -16,6 +16,7 @@ import {
   NhModalService,
   NhStringUtil
 } from '@newheap/platform-common';
+import { NhAssistantSubjectBadgeComponent } from '@newheap/platform-ai-chat';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import {
   PROJECT_DEMO_DATA,
@@ -36,7 +37,7 @@ type ActionKind = 'success' | 'error' | 'simulated' | 'warning';
 @Component({
   selector: 'app-management-overview',
   standalone: true,
-  imports: [CommonModule, NhCommonModule, TranslateModule],
+  imports: [CommonModule, NhCommonModule, TranslateModule, NhAssistantSubjectBadgeComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })

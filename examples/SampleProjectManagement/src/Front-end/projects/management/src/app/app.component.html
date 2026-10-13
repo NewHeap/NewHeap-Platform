@@ -97,7 +97,14 @@
             <input type="checkbox" [disabled]="!canManage()" [checked]="selectedIds().has(project.id)" (change)="toggleProject(project.id, $any($event.target).checked)" [attr.aria-label]="'Select ' + project.name">
             <div class="project-cell">
               <span class="project-key">{{ project.key }}</span>
-              <div><h3>{{ project.name }}</h3><p>{{ project.description }}</p></div>
+              <div>
+                <div class="project-title">
+                  <h3>{{ project.name }}</h3>
+                  <!-- SPM-280: one summary request for every badge on the page; renders nothing without agent work or assistant access. -->
+                  <nh-assistant-subject-badge subjectType="project" [subjectId]="project.id" />
+                </div>
+                <p>{{ project.description }}</p>
+              </div>
             </div>
             <span class="status" [attr.data-status]="statusKey(project.status)">{{ ('project.status-' + statusKey(project.status)) | translate }}</span>
             @if (canManage()) {

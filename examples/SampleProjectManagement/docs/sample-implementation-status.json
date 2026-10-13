@@ -275,7 +275,8 @@
     "SPM-276",
     "SPM-277",
     "SPM-278",
-    "SPM-279"
+    "SPM-279",
+    "SPM-280"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2144,6 +2145,22 @@
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-inbox.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-thread-view.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-live.service.spec.ts"
+    ],
+    "SPM-280": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectWork.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSubjectWorkTests.cs",
+      "src/Front-end/projects/management/src/app/app.component.html",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-subject-summary.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-subject-summary.service.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/subject-badge/nh-assistant-subject-badge.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-subject-suggestions.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts"
     ]
   }
 }

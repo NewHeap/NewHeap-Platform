@@ -171,6 +171,24 @@ the subject's threads.
 | A new agent run's continuity block lists the thread's rejected proposals of the last 30 days, at most five. | Set `MaxRejectionsInContext` to `0` to leave them out, or change `RejectionContextWindow`. |
 | Feedback texts are people's words about a subject. | Cover them in your processing agreements, and keep them out of logs in your `INhAssistantProposalFeedbackSink`. |
 
+## NewHeap.Platform.AI.Chat: agent work on the application's own subjects
+
+Applications show agent work where people look, such as on a project, instead of only in the
+approval inbox. `GET subjects/{type}/{id}/work` returns the caller's role, every agent with a
+thread on the subject (and the requested `agentId`) and the open proposals of all of them with
+the caller's live decision right (`NhAssistantSubjectWorkDto`).
+`POST subjects/{type}/summary` counts open proposals, proposals the caller may decide and
+active runs for up to 200 subjects in one query, for badges in lists
+(`NhAssistantSubjectSummaryListDto`). `POST threads/open` returns the agent's thread about a
+subject and creates it without starting a run, so a page can open the conversation with the
+agent about its subject. `INhAssistantSubjectWork` offers the same reads to the application's
+own back-end with the same access checks (`GetForRequestAsync`, `SummarizeForRequestAsync`
+for the current request), and `AgentWorkChanged` now names the subject.
+
+| Adoption note | Required action |
+|---|---|
+| `NhAssistantLiveAgentWorkDto` gains `SubjectType` and `SubjectId`. | Recompile code that constructs it; clients may refresh by subject now. |
+
 ## @newheap/platform-ai-chat: agent work in the application
 
 The new entry point `@newheap/platform-ai-chat/agent-runs` shows the work of agents
@@ -250,6 +268,22 @@ with the id as fallback.
 |---|---|
 | `ToolCallStatus` and `NhAssistantToolCallGroupState` gain `'not-executed'`. | Extend exhaustive switches or `Record` types over them. |
 | `NhAssistantLiveService` gains `agentWork$`. | Add it to custom stand-ins of the live service. |
+
+Agent work also appears on the host's own pages. `nh-assistant-subject-badge` shows, per
+subject, the proposals the viewer may decide or the open ones and whether an agent works on
+it; badges on one page share one summary request through `NhAssistantSubjectSummaryService`.
+`nh-assistant-subject-suggestions` of `@newheap/platform-ai-chat/agent-runs` shows the open
+proposals of every agent on one subject with the viewer's decision rights and opens the
+conversation through `NhAssistantPanelService.openSubject(agentId, subject)`, which creates the
+agent's thread without a run. `NhAssistantAgentRunApiService` gains `getSubjectWork`,
+`summarizeSubjects` and `openThread`, and `nh-assistant-agent-proposals` a `decisionRights`
+input that overrides `canDecide` per proposal.
+
+| Adoption note | Required action |
+|---|---|
+| `LiveAgentWorkChanged` gains `subjectType` and `subjectId`. | Add them to test stand-ins that build the event. |
+| `NhAssistantPanelService` uses `NhAssistantAgentRunApiService`. | Nothing with `provideNhAssistant`; provide the service yourself in custom setups without it. |
+| `NhAssistantAgentProposalsComponent.pending` lists the pending proposals the caller may decide. | Read `proposals()` for every pending proposal. |
 
 ## NewHeap.Platform.AspNet.Common: operations owned by agents, and access for others
 

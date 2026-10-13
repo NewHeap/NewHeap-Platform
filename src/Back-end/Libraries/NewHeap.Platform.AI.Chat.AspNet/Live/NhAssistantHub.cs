@@ -115,7 +115,9 @@ internal sealed class NhAssistantSignalRLiveUpdateTransport(
                 work.ConversationId,
                 work.Reason,
                 work.ApprovalId,
-                work.RunId)),
+                work.RunId,
+                work.SubjectType,
+                work.SubjectId)),
             _ => throw new InvalidOperationException($"Unknown assistant live event '{evt.GetType().Name}'.")
         };
         return send.WaitAsync(cancellationToken);

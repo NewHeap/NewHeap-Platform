@@ -79,6 +79,10 @@ words, so it does not propose the same change again unchanged. Administrators re
 rejection rate and the categories per tool and agent version and export the feedback as
 JSON Lines; the sample's `SampleProposalFeedbackLog` forwards each feedback to the
 application's analytics without its text.
+The agent's work also appears on the project itself (SPM-280): the project directory shows a
+badge per project from one summary request, the project dialog shows the open proposals of
+every agent on the project with the viewer's decision rights, and opening the conversation with
+the reviewer about a project creates its thread without starting a run.
 
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and

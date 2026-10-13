@@ -101,6 +101,9 @@ these endpoints. Access follows the caller's role on the subject, which the subj
 | `POST approvals/{id}/resolve` `{ action: re-execute or mark-resolved, reason? }` | the proposal after a person resolved an execution with an unknown outcome |
 | `PUT approvals/{id}/feedback` `{ category, text? }` | the caller's feedback on a rejected, expired, withdrawn or stale proposal; `403` for people who neither decided it nor approve on the subject, `409` with `assistant-feedback-not-accepted` for a pending or approved proposal |
 | `POST approvals/feedback` `{ approvalIds, category, text? }` | one outcome per proposal; the records are marked as bulk feedback |
+| `GET subjects/{type}/{id}/work?agentId=` | the caller's role, every agent with a thread on the subject (and the requested agent) and their open proposals with the caller's live decision right |
+| `POST subjects/{type}/summary` `{ subjectIds }` | per subject (at most 200): open proposals, proposals the caller may decide and whether a run is active, in one query |
+| `POST threads/open` `{ agentId, subjectType, subjectId }` | the agent's thread about the subject, created without a run; creating needs the participant role |
 
 `POST triggers/{triggerId}` fires a webhook trigger without a user. Sign
 `{timestamp}.{deliveryId}.{body}` with HMAC-SHA256 and the trigger's secret and send
@@ -154,6 +157,12 @@ everyone in the subject's member snapshot, carries only identifiers and a reason
 `proposal` or `feedback`), and lets clients reload the agent-run endpoints they show.
 Proposals are presented in every supported UI culture of `RequestLocalizationOptions`;
 each endpoint returns the presentation of the request's culture.
+
+An application's own back-end reads the same agent work through `INhAssistantSubjectWork`:
+`GetAsync` (one subject) and `SummarizeAsync` (badges for a list) take the caller's actor id and
+principal, and `GetForRequestAsync` and `SummarizeForRequestAsync` resolve both from the current
+request. They apply the endpoints' access checks, so a project endpoint can include the
+project's suggestions without calling the assistant over HTTP.
 
 Every error of `preferences` and `admin/*` has the body `{ code, messageKey, errors? }`.
 Validation errors return `400` with code `assistant-validation` and `errors` keyed by

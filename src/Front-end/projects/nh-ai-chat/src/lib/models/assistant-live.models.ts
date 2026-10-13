@@ -34,13 +34,16 @@ export type LiveAgentWorkReason = 'run' | 'proposal' | 'feedback';
  * `AgentWorkChanged`: a run of an agent thread started, waits, ended or was cancelled, a proposal
  * was decided, resolved, executed, closed, escalated or expired, or feedback was given. Sent to the
  * thread's participants and everyone on its subject. It carries no content: reload the agent-run
- * endpoints that show the thread, which check access again.
+ * endpoints that show the thread, which check access again. It names the thread's subject, so
+ * lists and pages of the application refresh by subject without knowing conversation ids.
  */
 export interface LiveAgentWorkChanged {
   conversationId: string;
   reason: LiveAgentWorkReason;
   approvalId: string | null;
   runId: string | null;
+  subjectType: string;
+  subjectId: string;
 }
 
 /**

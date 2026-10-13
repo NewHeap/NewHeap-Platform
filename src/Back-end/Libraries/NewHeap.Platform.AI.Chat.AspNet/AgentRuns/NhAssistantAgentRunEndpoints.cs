@@ -160,18 +160,7 @@ internal static class NhAssistantAgentRunEndpoints
         if (thread is not null)
         {
             await threads.ResolveAccessAsync(thread.ConversationId, caller.Data!.ActorId, null, cancellationToken);
-            var active = await runs.FindActiveRunAsync(thread.ConversationId, cancellationToken);
-            threadDto = new NhAssistantThreadDto(
-                thread.ConversationId,
-                thread.AgentId,
-                thread.SubjectType,
-                thread.SubjectId,
-                thread.SubjectDisplayName,
-                thread.Accountability,
-                thread.AccountableOwnerId,
-                NhAssistantAgentRunDtoMapper.RoleName(access.Role),
-                active is null ? null : NhAssistantAgentRunDtoMapper.ToDto(active),
-                await runs.CountWaitingInputsAsync(thread.ConversationId, cancellationToken));
+            threadDto = await ToThreadDtoAsync(thread, access.Role, runs, cancellationToken);
         }
 
         return TypedResults.Json(
@@ -688,7 +677,30 @@ internal static class NhAssistantAgentRunEndpoints
         return (access, caller.Data.ActorId, null);
     }
 
-    private static bool TryReadSubject(
+    /// <summary>
+    /// The thread as the caller sees it, with its active run and waiting messages.
+    /// </summary>
+    internal static async Task<NhAssistantThreadDto> ToThreadDtoAsync(
+        Entities.AssistantThread thread,
+        NhAiSubjectRole role,
+        NhAssistantRunStore runs,
+        CancellationToken cancellationToken)
+    {
+        var active = await runs.FindActiveRunAsync(thread.ConversationId, cancellationToken);
+        return new NhAssistantThreadDto(
+            thread.ConversationId,
+            thread.AgentId,
+            thread.SubjectType,
+            thread.SubjectId,
+            thread.SubjectDisplayName,
+            thread.Accountability,
+            thread.AccountableOwnerId,
+            NhAssistantAgentRunDtoMapper.RoleName(role),
+            active is null ? null : NhAssistantAgentRunDtoMapper.ToDto(active),
+            await runs.CountWaitingInputsAsync(thread.ConversationId, cancellationToken));
+    }
+
+    internal static bool TryReadSubject(
         string? agentId,
         string? subjectType,
         string? subjectId,

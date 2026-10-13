@@ -76,6 +76,7 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantApproverCheck>();
             services.TryAddScoped<NhAssistantProposalDecisions>();
             services.TryAddScoped<NhAssistantProposalFeedbackService>();
+            services.TryAddScoped<INhAssistantSubjectWork, NhAssistantSubjectWork>();
             services.TryAddScoped<NhAssistantProposalExecutor>();
             services.TryAddScoped<INhAiProposalPrecondition, NhAssistantSubjectVersionPrecondition>();
             services.TryAddScoped<NhAssistantRunCancellation>();

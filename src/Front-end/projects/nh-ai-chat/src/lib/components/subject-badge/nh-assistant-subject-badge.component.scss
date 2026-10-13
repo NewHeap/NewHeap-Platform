@@ -1,0 +1,81 @@
+@use '../../styles/tokens';
+
+@include tokens.tokens;
+
+:host {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.subject-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  border: 1px solid var(--nha-border);
+  border-radius: 999px;
+  padding: 1px 8px 1px 6px;
+  color: var(--nha-text-muted);
+  background: var(--nha-surface-strong);
+  font-family: var(--nha-font);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+
+  nh-assistant-icon {
+    font-size: 13px;
+  }
+}
+
+// The viewer has proposals to decide: the count leads in the accent color.
+.subject-badge[data-state='decide'] {
+  border-color: var(--nha-accent);
+  color: var(--nha-accent-contrast);
+  background: var(--nha-accent);
+}
+
+// Only an agent at work: the icon and the indicator, no count.
+.subject-badge[data-state='working'] {
+  padding-right: 6px;
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+}
+
+.working {
+  width: 8px;
+  height: 8px;
+  border: 2px solid color-mix(in srgb, var(--nha-highlight) 30%, transparent);
+  border-top-color: var(--nha-highlight);
+  border-radius: 50%;
+  animation: nh-assistant-subject-spin 900ms linear infinite;
+}
+
+.subject-badge[data-state='decide'] .working {
+  border-color: color-mix(in srgb, var(--nha-accent-contrast) 35%, transparent);
+  border-top-color: var(--nha-accent-contrast);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .working {
+    border-color: var(--nha-highlight);
+    animation: none;
+  }
+
+  .subject-badge[data-state='decide'] .working {
+    border-color: var(--nha-accent-contrast);
+  }
+}
+
+@keyframes nh-assistant-subject-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.visually-hidden {
+  @include tokens.visually-hidden;
+}

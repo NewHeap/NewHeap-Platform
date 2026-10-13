@@ -4,8 +4,8 @@ title: "Host the NewHeap assistant panel in an Angular application"
 area: frontend
 reference: ai-assistant-ui
 summary: "Register the assistant once with the host's token and access policy, place the launcher and one panel in the layout, let users run several conversations at once, share them and get desktop notifications, route to the lazily loaded administration page behind the admin permission, and test against the scripted mock API instead of a live model."
-sample-cases: ["SPM-248", "SPM-253", "SPM-264", "SPM-265", "SPM-277", "SPM-278", "SPM-279"]
-public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantToolCallGroupComponent", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantAdminComponent", "NhAssistantClientContext", "normalizeNhAssistantClientContext", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend", "NhAssistantLiveService", "NhAssistantPushService", "NhAssistantPushConfig", "NhAssistantActivityComponent", "NhAssistantShareComponent", "nhAssistantIsUnread", "nhAssistantShareLink", "NH_ASSISTANT_JOIN_FRAGMENT", "NH_ASSISTANT_CONVERSATION_FRAGMENT", "NhAssistantMockLiveService", "getRequestHeaders", "NhAssistantAgentRunApiService", "NhAssistantAgentInboxComponent", "NhAssistantAgentThreadViewComponent", "NhAssistantAgentProposalsComponent", "NhAssistantRunTimelineComponent", "NhAssistantAgentMemoryComponent", "NhAssistantAgentArtifactsComponent", "NhAssistantAgentConsultationsComponent", "getHubQueryParameters", "NhAssistantApprovalRight", "NhAssistantApprovalChoice", "ConversationThread", "NhAssistantProposalFeedbackComponent", "NhAssistantProposalFeedbackSaved", "NhAssistantAgentFeedbackReportComponent", "NhAssistantFeedbackPeriod", "AgentProposalFeedback", "AgentProposalFeedbackCategory", "AgentProposalFeedbackGroup", "AgentFeedbackOutcome", "AgentFeedbackSummary", "AgentFeedbackSummaryRow", "AgentFeedbackItem", "AgentFeedbackList", "AgentFeedbackFilter", "NH_ASSISTANT_FEEDBACK_CATEGORIES", "NH_ASSISTANT_FEEDBACK_GROUPS", "NH_ASSISTANT_MAX_FEEDBACK_TEXT", "NH_ASSISTANT_MAX_BULK_FEEDBACK", "LiveAgentWorkChanged", "LiveAgentWorkReason"]
+sample-cases: ["SPM-248", "SPM-253", "SPM-264", "SPM-265", "SPM-277", "SPM-278", "SPM-279", "SPM-280"]
+public-symbols: ["provideNhAssistant", "NhAssistantConfig", "NhAssistantToolCallGroupComponent", "NhAssistantAccessPolicy", "NhAssistantApiService", "NhAssistantAdminApiService", "NhAssistantStore", "NhAssistantPanelService", "NhAssistantLauncherComponent", "NhAssistantPanelComponent", "NhAssistantPreferencesComponent", "NhAssistantAdminComponent", "NhAssistantClientContext", "normalizeNhAssistantClientContext", "NH_ASSISTANT_ICONS", "NH_ASSISTANT_TRANSLATIONS", "provideNhAssistantMockApi", "NhAssistantMockBackend", "NhAssistantLiveService", "NhAssistantPushService", "NhAssistantPushConfig", "NhAssistantActivityComponent", "NhAssistantShareComponent", "nhAssistantIsUnread", "nhAssistantShareLink", "NH_ASSISTANT_JOIN_FRAGMENT", "NH_ASSISTANT_CONVERSATION_FRAGMENT", "NhAssistantMockLiveService", "getRequestHeaders", "NhAssistantAgentRunApiService", "NhAssistantAgentInboxComponent", "NhAssistantAgentThreadViewComponent", "NhAssistantAgentProposalsComponent", "NhAssistantRunTimelineComponent", "NhAssistantAgentMemoryComponent", "NhAssistantAgentArtifactsComponent", "NhAssistantAgentConsultationsComponent", "getHubQueryParameters", "NhAssistantApprovalRight", "NhAssistantApprovalChoice", "ConversationThread", "NhAssistantProposalFeedbackComponent", "NhAssistantProposalFeedbackSaved", "NhAssistantAgentFeedbackReportComponent", "NhAssistantFeedbackPeriod", "AgentProposalFeedback", "AgentProposalFeedbackCategory", "AgentProposalFeedbackGroup", "AgentFeedbackOutcome", "AgentFeedbackSummary", "AgentFeedbackSummaryRow", "AgentFeedbackItem", "AgentFeedbackList", "AgentFeedbackFilter", "NH_ASSISTANT_FEEDBACK_CATEGORIES", "NH_ASSISTANT_FEEDBACK_GROUPS", "NH_ASSISTANT_MAX_FEEDBACK_TEXT", "NH_ASSISTANT_MAX_BULK_FEEDBACK", "LiveAgentWorkChanged", "LiveAgentWorkReason", "NhAssistantSubjectBadgeComponent", "NhAssistantSubjectSummaryService", "NhAssistantSubjectSuggestionsComponent", "AgentSubjectWork", "AgentSubjectSummary", "AgentProposalDecisionRight", "NH_ASSISTANT_MAX_SUBJECT_SUMMARY"]
 skills: ["newheap-frontend-development"]
 providers: ["frontend"]
 risk: high
@@ -203,6 +203,15 @@ pause. Tool calls of proposals that closed without running read `not-executed`, 
 proposals and the report show names (`decidedByDisplayName`, `authorDisplayName`) with the
 id as fallback.
 
+Show agent work on the application's own pages. Put `nh-assistant-subject-badge` on every row
+of a list: badges on one page share one `POST subjects/{type}/summary` per tick through
+`NhAssistantSubjectSummaryService` and refresh on agent-work updates of their subject. On a
+detail page, load `nh-assistant-subject-suggestions` from `@newheap/platform-ai-chat/agent-runs`
+lazily (for example in an `@defer` block) with the subject and the agent whose conversation the
+page offers: it shows the open proposals of every agent with the viewer's own decision rights,
+the feedback question after a rejection, and opens the conversation through
+`NhAssistantPanelService.openSubject`, which creates the agent's thread without starting a run.
+
 Live updates connect to the hub path the server reports in `status.collaboration`,
 using `@microsoft/signalr`, loaded on first use, and the same `getAccessToken`. When
 a proxy serves the API below a prefix, set `hubBaseUrl` to that prefix (for example
@@ -301,6 +310,8 @@ the administration route under the same parent to share that scope.
 - Asking for a reason before an approver may reject a proposal, making the feedback
   question required, or showing other people's feedback texts outside the administrators'
   report.
+- Requesting agent work once per list row, or importing the `agent-runs` entry point into an
+  eagerly loaded page.
 
 ## Verification
 
@@ -354,4 +365,7 @@ after a rejection and on closed proposals the caller may comment on, and give th
 approval card the question only for proposals the user rejected; the report tests load
 the summary, list and export with the chosen period and filters. Reject a proposal on the
 intake reviews page, answer the question, and open the report as an administrator
-(SPM-279). SPM-248, SPM-253, SPM-265, SPM-277 and SPM-279 are the executable references.
+(SPM-279). Open the project directory and assert one summary request for all badges, open a
+project's dialog and decide or reject its suggestions there, and open the reviewer's
+conversation from it (SPM-280). SPM-248, SPM-253, SPM-265, SPM-277, SPM-279 and SPM-280 are the
+executable references.

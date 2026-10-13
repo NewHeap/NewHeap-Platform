@@ -66,6 +66,16 @@ its feedback changed, without content, so an approval inbox updates before its o
 opened the thread. `decidedByDisplayName` and the report's `authorDisplayName` come from
 the member snapshot; show the id when they are missing.
 
+Show agent work on the application's own pages, not only in the inbox. A detail page reads
+everything on its subject with `GET subjects/{type}/{id}/work` (every agent's thread and the
+open proposals of all of them with the caller's live decision right); a list reads badges for
+up to 200 subjects with one `POST subjects/{type}/summary`; `POST threads/open` creates the
+agent's thread about a subject without a run, so the page can open the conversation and the
+first message runs the first turn. The application's own back-end uses
+`INhAssistantSubjectWork` (`GetForRequestAsync`, `SummarizeForRequestAsync`) to include the same
+data in its endpoints with the same access checks. Refresh such pages on `AgentWorkChanged`,
+which names the subject.
+
 Describe each kind of subject with one `INhAiSubjectAccessResolver` registered
 through `AddSubjectType`. `DescribeAsync` returns the scope key, division,
 version and responsible person; `ResolveAsync` returns the live role of one
@@ -206,6 +216,9 @@ receives the text, the business audit sink only the category
   presentation text from the request culture of whoever happened to start the run.
 - Polling agent-run endpoints for changes instead of reloading on `AgentWorkChanged`, or
   putting content in a live update.
+- Calling the thread lookup once per agent or the subject work once per list row; use the
+  subject work for one subject and the summary for lists.
+- Starting a run just to open the conversation about a subject; use `threads/open`.
 
 ## Verification
 
@@ -238,7 +251,10 @@ distinct authors per tool and agent version on both providers, and that forgetti
 subject deletes the feedback. Make a proposal in a headless run in one culture and read it
 in each supported culture; close a deferred proposal by rejection and by expiry and assert
 that its tool call reads `rejected` and `not-executed`; decide a proposal and assert that
-`AgentWorkChanged` reaches the subject's members. SPM-268 to SPM-279 are the executable references.
+`AgentWorkChanged` reaches the subject's members. Read a subject's work as an approver, the
+initiator, a participant and an outsider and assert the decision rights and the refusal;
+summarize several subjects in one request and assert the counts per role; open a thread for a
+subject without work and assert that no run started. SPM-268 to SPM-280 are the executable references.
 
 ## Executable evidence
 
@@ -302,3 +318,8 @@ that its tool call reads `rejected` and `not-executed`; decide a proposal and as
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantProposalFeedbackStore.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantProposalFeedbackStore.cs)
+- SPM-280 — Agent suggestions and the conversation on the project itself
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectWork.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectWork.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectEndpoints.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectEndpoints.cs)
+  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs)

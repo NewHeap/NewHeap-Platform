@@ -14,6 +14,8 @@ import {
   AgentProposalFeedbackCategory,
   AgentRunList,
   AgentRunRetryMode,
+  AgentSubjectSummaryList,
+  AgentSubjectWork,
   AgentThreadLookup,
   AgentThreadMemory,
   AgentTriggerReceipt,
@@ -36,9 +38,40 @@ export class NhAssistantAgentRunApiService {
     return this.transport.json<AgentThreadLookup>('GET', `threads?${query.toString()}`);
   }
 
+  /**
+   * The agent's thread about the subject, created without starting a run when it is missing, so
+   * the caller can open the conversation and type there. Creating a thread needs the participant
+   * role; readers may open an existing one. Errors with `assistant-subject-access-denied` otherwise.
+   */
+  openThread(agentId: string, subjectType: string, subjectId: string): Observable<AgentThreadLookup> {
+    return this.transport.json<AgentThreadLookup>('POST', 'threads/open', { agentId, subjectType, subjectId });
+  }
+
   /** Starts the agent on the subject with the caller as initiator; needs the participant role. */
   startAgent(request: StartAgentRequest): Observable<AgentTriggerReceipt> {
     return this.transport.json<AgentTriggerReceipt>('POST', 'threads/start', request);
+  }
+
+  /**
+   * All agent work on one subject: the caller's role, every agent with a thread on it plus
+   * `agentId`, and the open proposals of all of them with the caller's live decision right. Errors
+   * with `assistant-subject-not-found` when the caller has no role on the subject.
+   */
+  getSubjectWork(subjectType: string, subjectId: string, agentId?: string): Observable<AgentSubjectWork> {
+    const path = `subjects/${encodeURIComponent(subjectType)}/${encodeURIComponent(subjectId)}/work`;
+    const query = agentId ? `?${new URLSearchParams({ agentId }).toString()}` : '';
+    return this.transport.json<AgentSubjectWork>('GET', path + query);
+  }
+
+  /**
+   * Counts the agent work on at most `NH_ASSISTANT_MAX_SUBJECT_SUMMARY` subjects of one type in one
+   * request, for badges in a list; one item per id in request order. `NhAssistantSubjectSummaryService`
+   * batches and caches these requests for many badges.
+   */
+  summarizeSubjects(subjectType: string, subjectIds: readonly string[]): Observable<AgentSubjectSummaryList> {
+    return this.transport.json<AgentSubjectSummaryList>('POST', `subjects/${encodeURIComponent(subjectType)}/summary`, {
+      subjectIds
+    });
   }
 
   getRuns(conversationId: string): Observable<AgentRunList> {

@@ -285,12 +285,96 @@ and falls back to the actor id.
 
 With live updates the inbox, the thread view and its tabs reload by themselves when the hub
 reports `AgentWorkChanged` for work they show, debounced, and after every reconnect. The
-update names the thread and whether a run, a proposal or feedback changed, and carries no
-content; `NhAssistantLiveService.agentWork$` exposes it as `LiveAgentWorkChanged`. These
+update names the thread, its subject (`subjectType`, `subjectId`) and whether a run, a
+proposal or feedback changed, and carries no content;
+`NhAssistantLiveService.agentWork$` exposes it as `LiveAgentWorkChanged`. These
 reloads show no loading state, keep what is shown when they fail, wait for a decision of the
 same list that is still in flight and never drop an open feedback question. The panel reloads
 an open agent thread too, so its approval cards show decisions made in the inbox or by a
 colleague. Without a connected hub nothing changes: the Refresh buttons stay.
+
+## Agent work on your own pages
+
+Show agent work where people already look, on the application's own subjects, instead of
+only in the inbox. A list shows a badge per subject; a detail page or dialog shows the
+subject's suggestions and opens the conversation with an agent about it.
+
+```html
+<!-- A list (main entry, small): every badge on the page shares one request. -->
+@for (project of projects(); track project.id) {
+  <h3>{{ project.name }}</h3>
+  <nh-assistant-subject-badge subjectType="project" [subjectId]="project.id" />
+}
+
+<!-- A detail page or dialog: load the agent-runs entry point lazily. -->
+@defer (on viewport) {
+  <nh-assistant-subject-suggestions
+    agentId="intake-reviewer"
+    subjectType="project"
+    [subjectId]="project.id"
+    (conversationOpened)="closeDialog()" />
+} @placeholder {
+  <div class="suggestions-placeholder"></div>
+}
+```
+
+`nh-assistant-subject-badge` shows nothing while the subject has no agent work, the assistant
+is disabled or the access policy denies the user. Otherwise it shows the number of proposals
+the viewer may decide in the accent color or, when they may decide none, a neutral count of
+the open proposals, plus a small indicator while an agent works on the subject. Its tooltip
+and accessible name say both counts, for example "Proposals to decide: 2 of 3 open."
+`NhAssistantSubjectSummaryService` (main entry, provided by `provideNhAssistant`) does the
+work: every `summary(subjectType, subjectId)` asked for in the same tick becomes one
+`POST subjects/{type}/summary` per subject type, in chunks of
+`NH_ASSISTANT_MAX_SUBJECT_SUMMARY` (200). Results are cached per subject and shared by everyone
+who shows it. A live `AgentWorkChanged` refetches only the subjects it names that are shown,
+batched after a short pause, and a reconnect refetches every shown subject. Call
+`refresh(subjectType, subjectIds?)` after the application changed subjects itself.
+
+`nh-assistant-subject-suggestions` (`@newheap/platform-ai-chat/agent-runs`) loads
+`GET subjects/{type}/{id}/work` and shows the open proposals of every agent on the subject in
+`nh-assistant-agent-proposals`, each with the viewer's own live decision right. A proposal the
+viewer may not decide says who does: an approver, or another approver when four-eyes keeps out
+the person who started the work. Rejecting asks the optional feedback question, also after the
+proposal left the list. Each agent with a thread on the subject, and `agentId` also before it
+worked on the subject, gets **Open conversation** and, for participants who may start it,
+**Start the agent**. Readers open only an existing conversation. The component has loading,
+empty, unavailable (no role on the subject), error and disabled states, and reloads by itself,
+debounced, when live agent work names its subject and after every reconnect.
+
+Custom layouts pass per-proposal rights to the proposals list themselves. A right overrides
+`canDecide` for its proposal:
+
+```typescript
+const work = await firstValueFrom(agentRuns.getSubjectWork('project', projectId, 'intake-reviewer'));
+const rights = new Map(work.openProposals.map(item => [item.proposal.approvalId, item]));
+```
+
+```html
+<nh-assistant-agent-proposals [proposals]="proposals" [decisionRights]="rights" (changed)="reload()" />
+```
+
+Open the conversation about a subject from your own code with
+`NhAssistantPanelService.openSubject(agentId, { type, id })`. It calls `POST threads/open`,
+which returns the agent's thread about the subject and creates it without starting a run, so
+nothing costs model time until someone types. Creating needs the participant role. The promise
+resolves with the `AgentThreadLookup` once the panel opens the conversation, and rejects with
+`NhAssistantApiError` (for example `assistant-subject-access-denied`) without opening the panel,
+so show its `messageKey` where the person asked:
+
+```typescript
+try {
+  await this.panel.openSubject('intake-reviewer', { type: 'project', id: projectId });
+} catch (error) {
+  this.error.set(error instanceof NhAssistantApiError ? error.messageKey : 'nh-assistant.errors.generic');
+}
+```
+
+The panel is a CDK overlay drawer. A host dialog on a higher layer closes when the conversation
+opens, as the suggestions' `conversationOpened` output allows, or raises the overlay container.
+`NhAssistantAgentRunApiService` offers the endpoints as `getSubjectWork`, `summarizeSubjects` and
+`openThread`. The SampleProjectManagement management portal shows badges in its project
+directory and the suggestions in its project dialog (sample case SPM-280).
 
 ## Proposal feedback
 

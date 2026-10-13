@@ -18,7 +18,7 @@
     }
   }
 
-  @if (canDecide() && selectable() && pending().length > 0) {
+  @if (selectable() && pending().length > 0) {
     <div class="toolbar">
       <label class="select">
         <input type="checkbox" [checked]="allSelected()" [disabled]="busy()" (change)="toggleAll()" />
@@ -38,7 +38,7 @@
       @for (proposal of proposals(); track proposal.approvalId) {
         <li class="card" [class.selected]="selected().has(proposal.approvalId)">
           <div class="card-header">
-            @if (selectable() && canDecide() && proposal.status === 'pending') {
+            @if (selectable() && proposal.status === 'pending' && mayDecide(proposal)) {
               <input
                 type="checkbox"
                 [checked]="selected().has(proposal.approvalId)"
@@ -135,7 +135,10 @@
               (saved)="onFeedbackSaved()"
               (dismissed)="onFeedbackDismissed()" />
           }
-          @if (canDecide() && proposal.status === 'pending') {
+          @if (waitingForKey(proposal); as waitingFor) {
+            <p class="waiting-for"><nh-assistant-icon name="users" />{{ waitingFor | translate }}</p>
+          }
+          @if (proposal.status === 'pending' && mayDecide(proposal)) {
             <div class="card-actions">
               <button class="primary" type="button" [disabled]="busy()" (click)="decide(proposal, 'approve')">
                 <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.proposal.approve' | translate }}
@@ -145,7 +148,7 @@
               </button>
             </div>
           }
-          @if (canDecide() && proposal.status === 'execution-unknown') {
+          @if (proposal.status === 'execution-unknown' && mayDecide(proposal)) {
             <p class="message warning"><nh-assistant-icon name="warning" />{{ 'nh-assistant.agent-runs.proposal.unknown-hint' | translate }}</p>
             <div class="card-actions">
               <button class="secondary" type="button" [disabled]="busy()" (click)="resolve(proposal, 'mark-resolved')">

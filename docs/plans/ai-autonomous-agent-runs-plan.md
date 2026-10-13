@@ -50,7 +50,8 @@ viewer reads their own language. Agent-run clients refresh through the hub's
 `AgentWorkChanged` message, which also reaches the subject's members, and the tool call of a
 deferred proposal that closed without running reads `rejected` or `not-executed`.
 
-Phase 5, [proposal feedback](#10-proposal-feedback), is implemented with sample case SPM-279.
+Phase 5, [proposal feedback](#10-proposal-feedback), is implemented with sample case SPM-279; phase 6,
+[agent work on the subject itself](#11-agent-work-on-the-subject-itself), with SPM-280.
 
 ## Goals
 
@@ -817,6 +818,51 @@ Out of scope for phase 5. The records are designed so it can build on them:
   proposal and what the person wanted), but hash binding makes every change a new proposal. It
   needs its own design.
 
+## 11. Agent work on the subject itself
+
+Applications show agent work where people already look: on the project, not only in a general
+inbox. Everything in this section is available per subject, across agents, for lists and for
+detail pages, from the browser and from the application's own back-end.
+
+### Decisions
+
+| # | Decision | Status | Rationale |
+|---|---|---|---|
+| S1 | One call returns all agent work on one subject, across agents | Decided 2026-10-13 | A detail page should not call once per agent |
+| S2 | One call summarizes up to 200 subjects of one type for list views | Decided 2026-10-13 | A list with badges must not call once per row |
+| S3 | A public C# service offers the same reads with the same access checks | Decided 2026-10-13 | Applications compose agent work into their own endpoints and DTOs |
+| S4 | A badge counts both open proposals and the ones the viewer may decide | Decided 2026-10-13 | The viewer's actions come first; readers still see that work waits |
+| S5 | Opening the conversation about a subject creates the thread without starting a run | Decided 2026-10-13 | No model cost or proposals until someone asks something |
+| S6 | Live agent-work updates name the subject | Decided 2026-10-13 | Lists and detail pages refresh without knowing conversation ids |
+
+### API
+
+| Endpoint | Returns |
+|---|---|
+| `GET subjects/{type}/{id}/work?agentId=` | The caller's live role; per agent with a thread on the subject (and the requested agent) its thread, active run, whether the caller may start it; the open proposals of all those threads with the caller's live decision right |
+| `POST subjects/{type}/summary` `{ subjectIds }` | Per subject: open proposals, proposals the caller may decide (as the inbox counts them) and whether a run is active; one query, filtered by the member snapshot |
+| `POST threads/open` `{ agentId, subjectType, subjectId }` | The agent's thread about the subject, created without a run when the caller is a participant |
+
+- `INhAssistantSubjectWork` in `AI.Chat.AspNet` offers `GetAsync` and `SummarizeAsync` for a
+  caller's principal and actor id, with the endpoints' access checks; extensions resolve the
+  caller of the current request.
+- `AgentWorkChanged` carries `subjectType` and `subjectId`.
+
+### Angular
+
+- `nh-assistant-subject-badge` (main entry, small): the count for one subject; badges on one page
+  share one summary request per tick and refresh on agent-work updates of their subject.
+- `nh-assistant-subject-suggestions` (`agent-runs`): the open proposals of all agents on one
+  subject with decide and feedback, and a button that opens the conversation through
+  `NhAssistantPanelService.openSubject(agentId, subject)`.
+- Hosts load the suggestions lazily (for example with `@defer`), so the entry point stays out of
+  the initial bundle.
+
+### Sample
+
+SPM-280: the project directory shows a badge per project, and the project dialog shows the
+project's suggestions and opens the conversation with the intake reviewer about the project.
+
 ## Package placement
 
 | Package | Gains |
@@ -841,6 +887,7 @@ numbers are reserved in the registry at the start of phase 1 with status `planne
 | **3. Continuity and UI** | Subject memory tools and schema migration; run summaries; artifacts; restricted redaction; subject retention; Angular inbox, thread view and run timeline | A second trigger on the same subject continues from memory and summaries without the full history. A viewer without rights sees redacted results. |
 | **4. Consumer adoption** | The first consumer upgrades, registers its own agent, curated `Exposure.Agent` tools and triggers in its own repository, runs a week in shadow mode, then goes live | The consumer's users receive proposal sets for their subjects and decide them per proposal. |
 | **5. Proposal feedback** | Optional feedback after a rejection; `AssistantProposalFeedback` for both providers; same-subject context (F5); admin summary, list and export; `INhAiAgentFeedbackSink`; Angular prompt and report (§10) | An approver rejects a proposal with `not-now` and a text; the next run on that subject receives it as context; the summary shows the rejection rate per tool and agent version, and the export contains the record. |
+| **6. Agent work on the subject** | Subject work and summary endpoints, `INhAssistantSubjectWork`, `threads/open`, subject in `AgentWorkChanged`, badge and suggestions components, `openSubject` (§11) | A project list shows badges from one request; a project dialog shows and decides the project's proposals of every agent and opens the conversation without starting a run. |
 
 ### Sample cases
 
@@ -862,6 +909,7 @@ reads it, and `ProjectService` calls `RefreshAsync` when members change.
 | SPM-276 | Working memory, run summaries, files and redaction of an agent thread | 3 |
 | SPM-277 | Agent inbox, thread view and run timeline in the management portal | 3 |
 | SPM-279 | Approvers explain rejected agent proposals and administrators review the feedback (number to be reserved) | 5 |
+| SPM-280 | Agent suggestions and the conversation on the project itself | 6 |
 
 ### Guidance and release notes
 

@@ -308,6 +308,13 @@
       "prompt": "When an approver turns down our project agent's proposal, let them optionally say why, make the agent stop suggesting the same thing for that project, and give us a way to see which tools get rejected most.",
       "expectedRules": ["nh-ai-agent-runs"],
       "expectedOutcome": "After the rejection the client offers the optional feedback of PUT approvals/{approvalId}/feedback with a category and text instead of requiring a reason before the decision; the next run on the same project receives the rejection and its feedback in its continuity block as notes of people, never other subjects' feedback; administrators compare rejection rates and categories per tool and agent version through the feedback summary, list and audited export, an AddProposalFeedbackSink forwards feedback to analytics without logging its text, and not-now feedback is not counted as the agent's mistake."
+    },
+    {
+      "id": "consumer-ai-agent-work-on-subject",
+      "skill": "newheap-backend-development",
+      "prompt": "Show how many agent suggestions wait for me on every row of our project list, list a project's suggestions on its own page, and let people open the agent conversation about that project from there.",
+      "expectedRules": ["nh-ai-agent-runs"],
+      "expectedOutcome": "The list asks POST subjects/{type}/summary once for all visible projects instead of once per row, the project page reads GET subjects/{type}/{id}/work for every agent's open proposals with live decision rights, the back-end can include the same data through INhAssistantSubjectWork, the conversation opens through threads/open without starting a run, and the pages refresh on AgentWorkChanged by subject."
     }
   ]
 }

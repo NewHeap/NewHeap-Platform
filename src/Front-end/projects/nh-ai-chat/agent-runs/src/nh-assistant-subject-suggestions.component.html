@@ -1,0 +1,82 @@
+<section class="section" [attr.aria-labelledby]="headingId" [attr.aria-busy]="loading()">
+  <header class="section-header">
+    <div>
+      <h3 [id]="headingId">{{ 'nh-assistant.agent-runs.subject.title' | translate }}</h3>
+      <p class="muted">{{ 'nh-assistant.agent-runs.subject.description' | translate }}</p>
+    </div>
+    <button class="secondary" type="button" [disabled]="loading()" (click)="load()">
+      <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.refresh' | translate }}
+    </button>
+  </header>
+
+  @if (error(); as failure) {
+    <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+  }
+  @if (started(); as start) {
+    <p class="message success" role="status">
+      <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.thread.outcome.' + start.receipt.outcome | translate }}
+    </p>
+  }
+
+  @if (loading() && !loaded()) {
+    <p class="state" role="status">{{ 'nh-assistant.agent-runs.loading' | translate }}</p>
+  } @else if (unavailable()) {
+    <p class="state">{{ 'nh-assistant.agent-runs.subject.unavailable' | translate }}</p>
+  } @else if (loadFailed()) {
+    <div class="state" role="alert">
+      <p>{{ 'nh-assistant.agent-runs.load-failed' | translate }}</p>
+      <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.agent-runs.retry' | translate }}</button>
+    </div>
+  } @else {
+    @if (agents().length > 0) {
+      <ul class="subject-agents" [attr.aria-label]="'nh-assistant.agent-runs.subject.agents' | translate">
+        @for (agent of agents(); track agent.agentId) {
+          @let name = agentNameKeys(agent.agentId) | nhAssistantTranslate: agent.agentId;
+          <li class="subject-agent">
+            <div class="subject-agent-text">
+              <strong>{{ name }}</strong>
+              <span class="muted">
+                @if (agent.thread?.activeRun; as activeRun) {
+                  {{ 'nh-assistant.agent-runs.run.status.' + activeRun.status | translate }}
+                } @else if (!agent.thread) {
+                  {{ 'nh-assistant.agent-runs.thread.no-thread' | translate }}
+                } @else {
+                  {{ 'nh-assistant.agent-runs.subject.idle' | translate }}
+                }
+              </span>
+            </div>
+            <div class="card-actions">
+              @if (canOpen(agent)) {
+                <button
+                  class="secondary"
+                  type="button"
+                  [disabled]="opening() !== null || !assistantEnabled()"
+                  [attr.aria-label]="'nh-assistant.agent-runs.subject.open-conversation-label' | translate: { agent: name }"
+                  [attr.title]="assistantEnabled() ? null : ('nh-assistant.agent-runs.subject.assistant-unavailable' | translate)"
+                  (click)="open(agent)">
+                  <nh-assistant-icon name="assistant" />{{ (opening() === agent.agentId ? 'nh-assistant.agent-runs.subject.opening' : 'nh-assistant.agent-runs.thread.open-conversation') | translate }}
+                </button>
+              }
+              @if (agent.canStart) {
+                <button
+                  class="secondary"
+                  type="button"
+                  [disabled]="starting() !== null"
+                  [attr.aria-label]="'nh-assistant.agent-runs.subject.start-label' | translate: { agent: name }"
+                  (click)="start(agent)">
+                  <nh-assistant-icon name="send" />{{ (starting() === agent.agentId ? 'nh-assistant.agent-runs.thread.starting' : 'nh-assistant.agent-runs.thread.start') | translate }}
+                </button>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    }
+
+    <!-- Stays rendered when the list empties, so the optional feedback after a rejection remains. -->
+    <nh-assistant-agent-proposals [proposals]="proposals()" [decisionRights]="decisionRights()" (changed)="load()" />
+    @if (proposals().length === 0) {
+      <p class="state">{{ 'nh-assistant.agent-runs.subject.empty' | translate }}</p>
+    }
+  }
+</section>

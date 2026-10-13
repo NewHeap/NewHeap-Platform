@@ -18,6 +18,7 @@ import {
   AgentExecutionResolution,
   AgentProposal,
   AgentProposalDecision,
+  AgentProposalDecisionRight,
   AgentProposalFeedback,
   NhAssistantAgentRunApiService,
   NhAssistantError,
@@ -45,7 +46,8 @@ interface NhAssistantFeedbackRequest {
  * outcome; the server checks every decision again. With `selectable`, pending proposals can be
  * approved or rejected together. Deciding takes one action. After a rejection the list asks,
  * optionally and above the list, what was wrong; closed proposals keep a low-key action to give or
- * change that feedback later.
+ * change that feedback later. With `decisionRights` each proposal has its own right, for example
+ * from the agent work on a subject, and a pending proposal the viewer may not decide says who does.
  */
 @Component({
   selector: 'nh-assistant-agent-proposals',
@@ -64,6 +66,11 @@ export class NhAssistantAgentProposalsComponent {
   readonly proposals = input.required<AgentProposal[]>();
   /** Whether the caller may decide: an approver of the subjects or the inbox owner. */
   readonly canDecide = input(false);
+  /**
+   * The caller's live right per proposal, by approval id, for example from
+   * `AgentSubjectWork.openProposals`. A proposal with a right uses it instead of `canDecide`.
+   */
+  readonly decisionRights = input<ReadonlyMap<string, AgentProposalDecisionRight> | null>(null);
   readonly selectable = input(false);
   /** Emits after a proposal or its feedback changed, so the host reloads its list. */
   readonly changed = output<void>();
@@ -72,7 +79,9 @@ export class NhAssistantAgentProposalsComponent {
   readonly selected = signal<ReadonlySet<string>>(new Set());
   readonly error = signal<NhAssistantError | null>(null);
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
-  readonly pending = computed(() => this.proposals().filter(proposal => proposal.status === 'pending'));
+  /** Pending proposals the caller may decide. */
+  readonly pending = computed(() =>
+    this.proposals().filter(proposal => proposal.status === 'pending' && this.mayDecide(proposal)));
   readonly allSelected = computed(() =>
     this.pending().length > 0 && this.pending().every(proposal => this.selected().has(proposal.approvalId)));
   /** The feedback question. It does not depend on `proposals`, which drop rejected proposals in the inbox. */
@@ -80,6 +89,27 @@ export class NhAssistantAgentProposalsComponent {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
+  }
+
+  /** Whether the caller may decide this proposal: its own right when one was given, otherwise `canDecide`. */
+  mayDecide(proposal: AgentProposal): boolean {
+    const right = this.decisionRights()?.get(proposal.approvalId);
+    return right ? right.canDecide : this.canDecide();
+  }
+
+  /**
+   * Who decides a pending proposal that has a right the caller lacks: another approver when
+   * four-eyes keeps out the person who started the work, otherwise an approver.
+   */
+  waitingForKey(proposal: AgentProposal): string | null {
+    const right = this.decisionRights()?.get(proposal.approvalId);
+    if (!right || right.canDecide || proposal.status !== 'pending') {
+      return null;
+    }
+
+    return right.reasonCode === 'assistant-four-eyes-required'
+      ? 'nh-assistant.approval.waiting-for-other-approver'
+      : 'nh-assistant.approval.waiting-for-approver';
   }
 
   toggle(proposal: AgentProposal): void {

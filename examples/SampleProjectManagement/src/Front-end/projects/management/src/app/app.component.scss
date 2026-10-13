@@ -42,7 +42,8 @@ kbd { padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; color
 .project-cell { min-width: 0; display: flex; align-items: center; gap: 13px; }
 .project-cell > div { min-width: 0; }
 .project-key { flex: 0 0 48px; display: grid; place-items: center; height: 48px; border-radius: 12px; color: var(--brand); background: var(--brand-soft); font: 800 9px/1 var(--font-mono); }
-.project-cell h3 { margin: 0 0 4px; font-size: 13px; }
+.project-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; margin: 0 0 4px; }
+.project-cell h3 { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
 .project-cell p { max-width: 500px; margin: 0; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .status { justify-self: start; padding: 6px 9px; border-radius: 999px; color: var(--warning); background: var(--warning-soft); font-size: 8px; font-weight: 800; text-transform: uppercase; }
 .status[data-status='active'] { color: var(--success); background: var(--success-soft); }

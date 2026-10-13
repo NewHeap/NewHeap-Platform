@@ -68,6 +68,10 @@ describe('NhAssistantAgentRunApiService', () => {
     const calls: [() => Promise<unknown>, string, string][] = [
       [() => firstValueFrom(api.getThread('intake', 'project', 'p 1')), 'GET', 'threads?agentId=intake&subjectType=project&subjectId=p+1'],
       [() => firstValueFrom(api.startAgent({ agentId: 'intake', subjectType: 'project', subjectId: 'p-1' })), 'POST', 'threads/start'],
+      [() => firstValueFrom(api.openThread('intake', 'project', 'p-1')), 'POST', 'threads/open'],
+      [() => firstValueFrom(api.getSubjectWork('project', 'p 1')), 'GET', 'subjects/project/p%201/work'],
+      [() => firstValueFrom(api.getSubjectWork('project', 'p-1', 'intake')), 'GET', 'subjects/project/p-1/work?agentId=intake'],
+      [() => firstValueFrom(api.summarizeSubjects('project', ['p-1', 'p-2'])), 'POST', 'subjects/project/summary'],
       [() => firstValueFrom(api.getRuns('thread-1')), 'GET', 'threads/thread-1/runs'],
       [() => firstValueFrom(api.getProposals('thread-1')), 'GET', 'threads/thread-1/proposals'],
       [() => firstValueFrom(api.getConsultations('thread-1')), 'GET', 'threads/thread-1/consultations?page=1&itemsPerPage=20'],
@@ -91,6 +95,28 @@ describe('NhAssistantAgentRunApiService', () => {
       expect(request.url).withContext(path).toBe(`/api/assistant/${path}`);
       expect(request.headers['Authorization']).withContext(path).toBe('Bearer run-token');
     }
+  });
+
+  it('sends the subjects to summarize and the subject whose thread opens', async () => {
+    fetchSpy.and.callFake(() => Promise.resolve(jsonResponse({})));
+
+    await firstValueFrom(api.summarizeSubjects('project', ['p-1', 'p-2']));
+    expect(lastCall().body).toEqual({ subjectIds: ['p-1', 'p-2'] });
+
+    await firstValueFrom(api.openThread('intake', 'project', 'p-1'));
+    expect(lastCall().body).toEqual({ agentId: 'intake', subjectType: 'project', subjectId: 'p-1' });
+  });
+
+  it('reports a subject without a role for the caller with its stable code', async () => {
+    fetchSpy.and.callFake(() => Promise.resolve(jsonResponse(
+      { code: 'assistant-subject-not-found', messageKey: 'nh-assistant.errors.assistant-subject-not-found' },
+      404)));
+
+    const failure = await firstValueFrom(api.getSubjectWork('project', 'p-1')).catch((error: unknown) => error);
+
+    expect(failure).toEqual(jasmine.any(NhAssistantApiError));
+    expect((failure as NhAssistantApiError).status).toBe(404);
+    expect((failure as NhAssistantApiError).code).toBe('assistant-subject-not-found');
   });
 
   it('binds a decision to the proposal hash and sends a trimmed reason', async () => {

@@ -20,6 +20,7 @@ export * from './lib/services/nh-assistant.store';
 export { NhAssistantLiveService, NhAssistantLiveState } from './lib/services/nh-assistant-live.service';
 export { NhAssistantPushService, NhAssistantPushState } from './lib/services/nh-assistant-push.service';
 export * from './lib/services/nh-assistant-panel.service';
+export * from './lib/services/nh-assistant-subject-summary.service';
 export * from './lib/services/nh-assistant-share-link';
 export { NH_ASSISTANT_ICONS, NhAssistantIconName } from './lib/internal/nh-assistant-icon.component';
 export * from './lib/components/launcher/nh-assistant-launcher.component';
@@ -35,6 +36,7 @@ export * from './lib/components/agent-picker/nh-assistant-agent-picker.component
 export * from './lib/components/preferences/nh-assistant-preferences.component';
 export * from './lib/components/share/nh-assistant-share.component';
 export * from './lib/components/activity/nh-assistant-activity.component';
+export * from './lib/components/subject-badge/nh-assistant-subject-badge.component';
 
 /*
  * Internal building blocks shared with the secondary entry points. Not part of the public
