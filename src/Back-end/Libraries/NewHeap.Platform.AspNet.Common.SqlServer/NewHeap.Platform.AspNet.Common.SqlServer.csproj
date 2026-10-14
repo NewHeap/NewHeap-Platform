@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="../NewHeap.Platform.AspNet.Common/NewHeap.Platform.AspNet.Common.csproj" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
     <PackageReference Include="Hangfire.SqlServer" />
   </ItemGroup>
 </Project>
