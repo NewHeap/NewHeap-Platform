@@ -207,6 +207,11 @@ public sealed class NhAssistantDbContext : DbContext
             approval.Property(item => item.ExecutionResultCode).HasMaxLength(128);
             approval.Property(item => item.StaleKind).HasMaxLength(32);
             approval.Property(item => item.StaleExplanationsJson).HasMaxLength(NhAssistantLimits.MaxStaleExplanationsSerializedLength);
+            approval.Property(item => item.StaleByActorId).HasMaxLength(256);
+            approval.Property(item => item.ArgumentsHash).HasMaxLength(64);
+            approval.Property(item => item.RationalesJson).HasMaxLength(NhAssistantLimits.MaxStaleExplanationsSerializedLength);
+            // Finds an open or recently rejected proposal with the same identity.
+            approval.HasIndex(item => new { item.ToolId, item.ArgumentsHash });
             approval.HasIndex(item => item.ConsultationId);
             approval.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
             approval.HasIndex(item => item.ProposalHash);
@@ -272,6 +277,10 @@ public sealed class NhAssistantDbContext : DbContext
             run.Property(item => item.FailureClass).HasMaxLength(32);
             run.Property(item => item.FailureCode).HasMaxLength(128);
             run.Property(item => item.Summary).HasMaxLength(4_000);
+            run.Property(item => item.Kind)
+                .HasMaxLength(24)
+                .IsRequired()
+                .HasDefaultValue(NhAssistantRunKinds.Model);
             run.Property(item => item.CancelledByActorId).HasMaxLength(256);
             run.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
             run.HasIndex(item => new { item.ConversationId, item.CreatedAt });
@@ -292,6 +301,7 @@ public sealed class NhAssistantDbContext : DbContext
             input.Property(item => item.AuthorActorId).HasMaxLength(256);
             input.Property(item => item.TriggerId).HasMaxLength(128);
             input.Property(item => item.Text).HasMaxLength(8_000).IsRequired();
+            input.Property(item => item.PayloadJson).HasMaxLength(NhAssistantLimits.MaxInputPayloadCharacters);
             input.Property(item => item.ClientMessageId).HasMaxLength(128);
             input.HasIndex(item => new { item.ConversationId, item.ConsumedAt, item.CreatedAt });
             input.HasOne<AssistantConversation>()

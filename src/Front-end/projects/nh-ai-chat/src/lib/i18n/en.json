@@ -68,7 +68,8 @@
       "loading": "Loading conversation",
       "elapsed": "{{seconds}}s",
       "participant": "Participant",
-      "trigger": "Event"
+      "trigger": "Event",
+      "rule": "Automatic rule"
     },
     "composer": {
       "label": "Message",
@@ -174,7 +175,9 @@
         "already-done": "Already done",
         "changed": "Changed",
         "not-applicable": "No longer needed"
-      }
+      },
+      "rationale": "Why: {{rationale}}",
+      "superseded": "Replaced by a newer proposal"
     },
     "proposal-feedback": {
       "legend": "What was wrong? (optional)",
@@ -226,7 +229,9 @@
       "assistant-proposal-expired": "Not run: nobody decided before the proposal expired.",
       "assistant-proposal-withdrawn": "Not run: the proposal was withdrawn.",
       "assistant-proposal-stale": "Not run: the proposal no longer applied.",
-      "assistant-proposal-execution-failed": "The approved proposal could not be run."
+      "assistant-proposal-execution-failed": "The approved proposal could not be run.",
+      "assistant-proposal-already-open": "Not proposed again: the same proposal already waits.",
+      "assistant-proposal-recently-rejected": "Not proposed again: people rejected it recently."
     },
     "errors": {
       "generic": "Something went wrong. Please try again.",
@@ -299,6 +304,10 @@
       "assistant-execution-not-uncertain": "This execution is not waiting to be resolved.",
       "assistant-proposal-stale": "This proposal no longer applies, for example because the work was already done. Nothing was changed.",
       "assistant-proposal-check-failed": "Whether this proposal still applies could not be checked, so nothing was changed. Try again later.",
+      "assistant-proposal-already-open": "The same proposal already waits for a decision.",
+      "assistant-proposal-recently-rejected": "People rejected the same proposal recently.",
+      "assistant-proposal-superseded": "A newer proposal replaced this one.",
+      "assistant-proposal-refused": "This action cannot be proposed by an automatic rule.",
       "assistant-trigger-not-found": "The trigger was not found.",
       "assistant-webhook-signature-invalid": "The webhook call has no valid signature.",
       "assistant-webhook-payload-invalid": "The webhook call could not be read.",
@@ -743,7 +752,9 @@
         "rejected-one": "You rejected: {{summary}}",
         "closed": "Closed in the meantime",
         "dismiss": "Dismiss",
-        "dismiss-label": "Dismiss the closed proposal: {{summary}}"
+        "dismiss-label": "Dismiss the closed proposal: {{summary}}",
+        "show-successor": "Show the newer proposal",
+        "stale-by": "Overtaken by {{actor}}"
       },
       "run": {
         "empty": "No runs yet.",
@@ -756,6 +767,10 @@
           "cancelled": "Cancelled"
         },
         "shadow": "Shadow",
+        "kind": {
+          "rule": "Automatic rule",
+          "rule-then-model": "Rule, then the model"
+        },
         "trigger": "Trigger: {{trigger}}",
         "tool-calls": "{{count}} tool calls",
         "tokens": "{{count}} tokens",

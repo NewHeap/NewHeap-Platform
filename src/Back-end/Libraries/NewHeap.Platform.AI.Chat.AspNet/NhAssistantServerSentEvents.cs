@@ -194,7 +194,8 @@ internal static class NhAssistantDtoMapper
             message.CreatedAt,
             message.Parts.Select(ToDto).ToArray(),
             message.Sequence,
-            message.AuthorActorId,
+            // An agent message names no person; a rule message says so through its author kind.
+            message.Role == NhAssistantMessageRoles.User ? message.AuthorActorId : null,
             message.AuthorKind);
     }
 
@@ -229,7 +230,9 @@ internal static class NhAssistantDtoMapper
                 approval.Status)
             {
                 StaleKind = approval.StaleKind,
-                StaleExplanation = approval.StaleExplanation
+                StaleExplanation = approval.StaleExplanation,
+                Rationale = approval.Rationale,
+                SupersededByApprovalId = approval.SupersededByApprovalId
             },
             _ => throw new InvalidOperationException($"Unknown assistant message part '{part.GetType().Name}'.")
         };

@@ -162,6 +162,10 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<DateTimeOffset?>("ApprovalExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("ArgumentsHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("ArgumentsPreview")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -255,6 +259,10 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("RationalesJson")
+                        .HasMaxLength(6000)
+                        .HasColumnType("character varying(6000)");
+
                     b.Property<string>("Reason")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -264,6 +272,10 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
 
                     b.Property<Guid?>("RunId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("StaleByActorId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("StaleExplanationsJson")
                         .HasMaxLength(6000)
@@ -286,6 +298,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
+
+                    b.Property<Guid?>("SupersededByApprovalId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("TargetsJson")
                         .IsRequired()
@@ -316,6 +331,8 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.HasIndex("Status", "ExpiresAt");
 
                     b.HasIndex("Status", "NextReminderAt");
+
+                    b.HasIndex("ToolId", "ArgumentsHash");
 
                     b.ToTable("AssistantApproval", "nhai");
                 });
@@ -1043,6 +1060,10 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<string>("PayloadJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
                     b.Property<string>("Text")
                         .IsRequired()
                         .HasMaxLength(8000)
@@ -1109,6 +1130,13 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
 
                     b.Property<long>("InputTokens")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasDefaultValue("model");
 
                     b.Property<long>("OutputTokens")
                         .HasColumnType("bigint");

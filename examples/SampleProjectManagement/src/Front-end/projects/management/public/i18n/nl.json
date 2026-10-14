@@ -547,6 +547,10 @@
       "sample-project-status-advisor": {
         "name": "Statusadviseur",
         "description": "Stelt met jouw rechten een statuswijziging voor; je keurt die goed voordat ze wordt uitgevoerd."
+      },
+      "sample-project-closer": {
+        "name": "Projectafsluiter",
+        "description": "Stelt volgens vaste regels voor een actief project te voltooien zodra alle taken zijn afgerond."
       }
     }
   },

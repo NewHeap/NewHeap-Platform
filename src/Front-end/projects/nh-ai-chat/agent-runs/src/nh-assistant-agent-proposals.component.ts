@@ -111,11 +111,32 @@ export class NhAssistantAgentProposalsComponent {
     });
   }
 
-  /** The translation key of a proposal's status: the kind of a stale proposal, otherwise its status. */
+  /**
+   * The translation key of a proposal's status: the kind of a stale proposal, "replaced" for a
+   * superseded one, otherwise its status.
+   */
   statusKey(proposal: AgentProposal): string {
-    return proposal.status === 'stale' && proposal.staleKind
-      ? `nh-assistant.approval.stale-kind.${proposal.staleKind}`
+    if (proposal.status === 'stale' && proposal.staleKind) {
+      return `nh-assistant.approval.stale-kind.${proposal.staleKind}`;
+    }
+
+    return isSuperseded(proposal)
+      ? 'nh-assistant.approval.superseded'
       : `nh-assistant.agent-runs.proposal.status.${proposal.status}`;
+  }
+
+  /** True when the newer proposal that replaced this one is in the list. */
+  hasSuccessor(proposal: AgentProposal): boolean {
+    const successor = proposal.supersededByApprovalId;
+    return !!successor && this.shown().some(item => item.approvalId === successor);
+  }
+
+  /** Moves focus to the newer proposal that replaced this one. */
+  showSuccessor(proposal: AgentProposal): void {
+    const card = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('[data-approval-id]'))
+      .find(element => element.dataset['approvalId'] === proposal.supersededByApprovalId);
+    card?.scrollIntoView({ block: 'nearest' });
+    card?.focus();
   }
 
   /** True for a closed card the list keeps until it is dismissed. */
@@ -280,7 +301,7 @@ export class NhAssistantAgentProposalsComponent {
       next: threads => {
         const closed = threads
           .flat()
-          .filter(proposal => wanted.has(proposal.approvalId) && proposal.status === 'stale');
+          .filter(proposal => wanted.has(proposal.approvalId) && (proposal.status === 'stale' || isSuperseded(proposal)));
         if (closed.length === 0) {
           return;
         }
@@ -326,4 +347,9 @@ const staleCode = 'assistant-proposal-stale';
 function summaryOf(proposal: AgentProposal): string {
   return proposal.presentation?.summary
     ?? `${proposal.subjectDisplayName ?? proposal.subjectId} · ${proposal.presentation?.toolDisplayName ?? proposal.toolId}`;
+}
+
+/** True for a proposal a newer proposal for the same objects replaced. */
+function isSuperseded(proposal: AgentProposal): boolean {
+  return proposal.status === 'withdrawn' && !!proposal.supersededByApprovalId;
 }

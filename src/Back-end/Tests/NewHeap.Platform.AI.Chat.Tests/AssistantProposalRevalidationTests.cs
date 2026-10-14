@@ -110,10 +110,17 @@ public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture 
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("nl-NL");
         try
         {
-            var dto = NhAssistantAgentRunDtoMapper.ToDto(stale, run.Thread);
+            var dto = Assert.Single(await NhAssistantAgentRunDtoMapper.CompleteAsync(
+                [NhAssistantAgentRunDtoMapper.ToDto(stale, run.Thread)],
+                RunStore(host),
+                CancellationToken.None));
             Assert.Equal(NhAssistantStaleKinds.AlreadyDone, dto.StaleKind);
             Assert.Equal("Al op Active gezet door Henk.", dto.StaleExplanation);
             Assert.Equal(ProjectStatusGuard.ReasonCode, dto.ExecutionResultCode);
+            // The guard named who did the work, and the member snapshot knows their name.
+            Assert.Equal(ProjectStatusGuard.ByActorId, dto.StaleByActorId);
+            Assert.Equal(ProjectStatusGuard.ByActorId, dto.StaleByDisplayName);
+            Assert.Equal(new NhAssistantProposalObjectDto(ProjectStatusGuard.KeyType, projectId.ToString()), Assert.Single(dto.Objects));
         }
         finally
         {
@@ -691,6 +698,7 @@ public sealed class ProjectStatusGuard(TestProjectStates states) : INhAiProposal
 {
     public const string KeyType = "project-status";
     public const string ReasonCode = "status-already-set";
+    public const string ByActorId = "member-1";
 
     public ValueTask<IReadOnlyList<NhAiProposalKey>> GetKeysAsync(
         NhAiProposalGuardContext context,
@@ -716,7 +724,7 @@ public sealed class ProjectStatusGuard(TestProjectStates states) : INhAiProposal
                     ReasonCode,
                     culture => culture.TwoLetterISOLanguageName == "nl"
                         ? $"Al op {status} gezet door Henk."
-                        : $"Already set to {status} by Henk.")
+                        : $"Already set to {status} by Henk.") with { ByActorId = ByActorId }
                 : NhAiPreconditionResult.Satisfied);
     }
 

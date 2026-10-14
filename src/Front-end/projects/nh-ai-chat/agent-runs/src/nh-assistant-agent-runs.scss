@@ -84,6 +84,11 @@ h3 {
   border-color: var(--nha-accent, currentColor);
 }
 
+// "Show the newer proposal" moves focus to the replacing card.
+.card[tabindex] {
+  @include tokens.focus-ring;
+}
+
 // A proposal that closed while shown stays until dismissed, visibly no longer actionable.
 .card.closed {
   border-style: dashed;
@@ -102,6 +107,14 @@ h3 {
   overflow-wrap: anywhere;
   color: var(--nha-text);
   background: var(--nha-surface-strong);
+}
+
+// The rule's reason sits with the proposal it explains.
+.rationale {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--nha-text-muted);
+  font-size: 13px;
 }
 
 .card-header {

@@ -92,9 +92,10 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
             messageViews.Add(new NhAssistantMessageView(message.Id, message.Role, message.CreatedAt, parts)
             {
                 Sequence = message.Sequence,
+                // An agent message keeps its author only to tell a rule's message from the model's.
                 AuthorActorId = message.Role == NhAssistantMessageRoles.User
                     ? message.AuthorActorId ?? conversation.OwnerActorId
-                    : null
+                    : message.AuthorActorId
             });
         }
 
@@ -197,7 +198,9 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
             status)
         {
             StaleKind = StaleKindOf(approval),
-            StaleExplanation = Runs.NhAssistantStaleExplanations.Pick(approval.StaleExplanationsJson, CultureInfo.CurrentUICulture)
+            StaleExplanation = Runs.NhAssistantStaleExplanations.Pick(approval.StaleExplanationsJson, CultureInfo.CurrentUICulture),
+            Rationale = Runs.NhAssistantStaleExplanations.Pick(approval.RationalesJson, CultureInfo.CurrentUICulture),
+            SupersededByApprovalId = approval.SupersededByApprovalId
         };
     }
 

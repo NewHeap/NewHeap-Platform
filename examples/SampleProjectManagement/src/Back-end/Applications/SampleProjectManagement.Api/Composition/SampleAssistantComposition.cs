@@ -437,6 +437,13 @@ public sealed partial class SampleAssistantChatClient : IChatClient
         }
 
         var text = last?.Text ?? string.Empty;
+        if (text.Contains("why", StringComparison.OrdinalIgnoreCase) && RuleReasons(messages) is { } reasons)
+        {
+            // SPM-283: asked about a proposal, the project closer answers from the reasons its
+            // rules wrote into the thread.
+            return new ChatMessage(ChatRole.Assistant, "My rules proposed it because: " + reasons);
+        }
+
         var projectId = FindProjectId(text);
         if (projectId is not null && text.Contains("intake reviewer", StringComparison.OrdinalIgnoreCase))
         {
@@ -512,6 +519,23 @@ public sealed partial class SampleAssistantChatClient : IChatClient
             : "My last intake review of this project: " + memory;
     }
 
+    /// <summary>
+    /// The reasons of the latest message an agent's rules wrote: the lines that start with "- ",
+    /// outside the platform's summary of the message's tool calls.
+    /// </summary>
+    private static string? RuleReasons(IReadOnlyList<ChatMessage> messages)
+    {
+        var reasons = messages
+            .Where(message => message.Role == ChatRole.Assistant)
+            .Select(message => ToolCallSummaryPattern().Replace(message.Text, string.Empty)
+                .Split('\n')
+                .Where(line => line.StartsWith("- ", StringComparison.Ordinal))
+                .Select(line => line[2..].Trim())
+                .ToArray())
+            .LastOrDefault(lines => lines.Length > 0);
+        return reasons is null ? null : string.Join(" ", reasons);
+    }
+
     private static int StatusValue(string value)
     {
         return Enum.TryParse<SampleProjectManagement.DAL.Entities.ProjectStatus>(value, ignoreCase: true, out var status)
@@ -549,4 +573,7 @@ public sealed partial class SampleAssistantChatClient : IChatClient
 
     [GeneratedRegex("<working-memory[^>]*>(?<memory>.*?)</working-memory>", RegexOptions.Singleline)]
     private static partial Regex WorkingMemoryPattern();
+
+    [GeneratedRegex("<tool-call-summary>.*?</tool-call-summary>", RegexOptions.Singleline)]
+    private static partial Regex ToolCallSummaryPattern();
 }

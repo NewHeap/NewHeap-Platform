@@ -29,6 +29,10 @@
     <p class="summary">{{ 'nh-assistant.approval.fallback-summary' | translate }}</p>
   }
 
+  @if (rationale(); as why) {
+    <p class="rationale">{{ 'nh-assistant.approval.rationale' | translate: { rationale: why } }}</p>
+  }
+
   <details class="technical-details">
     <summary>{{ 'nh-assistant.approval.technical-details' | translate }}</summary>
     <p class="label">{{ 'nh-assistant.approval.tool-id' | translate }}</p>

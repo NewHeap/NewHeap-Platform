@@ -27,6 +27,9 @@
           @if (run.shadow) {
             <span class="badge">{{ 'nh-assistant.agent-runs.run.shadow' | translate }}</span>
           }
+          @if (run.kind && run.kind !== 'model') {
+            <span class="badge" [attr.data-kind]="run.kind">{{ 'nh-assistant.agent-runs.run.kind.' + run.kind | translate }}</span>
+          }
           <span class="mono muted">{{ 'nh-assistant.agent-runs.run.trigger' | translate: { trigger: run.triggerId } }}</span>
         </div>
         <div class="meta">

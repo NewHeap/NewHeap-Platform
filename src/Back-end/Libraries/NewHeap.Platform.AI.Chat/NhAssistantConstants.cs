@@ -28,6 +28,26 @@ public static class NhAssistantMessageAuthorKinds
 {
     public const string Person = "person";
     public const string Trigger = "trigger";
+
+    /// <summary>
+    /// The agent's message about what its rules did, written by a rule run without a model.
+    /// </summary>
+    public const string Rule = "rule";
+}
+
+/// <summary>
+/// How an agent run worked.
+/// </summary>
+public static class NhAssistantRunKinds
+{
+    /// <summary>The agent's model ran the turn.</summary>
+    public const string Model = "model";
+
+    /// <summary>The agent's rule handler ran the turn without a model.</summary>
+    public const string Rule = "rule";
+
+    /// <summary>The rule handler handed the run over to the model.</summary>
+    public const string RuleThenModel = "rule-then-model";
 }
 
 /// <summary>
@@ -461,6 +481,28 @@ public static class NhAssistantErrorCodes
     /// open; deciding it again later runs the check again.
     /// </summary>
     public const string ProposalCheckFailed = "assistant-proposal-check-failed";
+
+    /// <summary>
+    /// The same proposal, or a newer one for the same objects, already waits for a decision or its
+    /// execution; nothing new was recorded.
+    /// </summary>
+    public const string ProposalAlreadyOpen = "assistant-proposal-already-open";
+
+    /// <summary>
+    /// People rejected the same proposal within the policy's rejection cooldown; nothing was recorded.
+    /// </summary>
+    public const string ProposalRecentlyRejected = "assistant-proposal-recently-rejected";
+
+    /// <summary>
+    /// The result code of a proposal a newer proposal for the same objects replaced.
+    /// </summary>
+    public const string ProposalSuperseded = "assistant-proposal-superseded";
+
+    /// <summary>
+    /// A rule asked to propose with a tool the agent may not use, that does not need approval or
+    /// with arguments the tool does not accept.
+    /// </summary>
+    public const string ProposalRefused = "assistant-proposal-refused";
     public const string WebhookSignatureInvalid = "assistant-webhook-signature-invalid";
     public const string MemoryNotConfigured = "assistant-memory-not-configured";
     public const string MemoryInvalid = "assistant-memory-invalid";

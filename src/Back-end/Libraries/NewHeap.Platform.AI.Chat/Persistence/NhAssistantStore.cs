@@ -373,6 +373,18 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
             .ToListAsync(cancellationToken);
     }
 
+    public async Task SetMessageAuthorAsync(
+        Guid messageId,
+        string authorActorId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(authorActorId);
+        await using var context = contextFactory.CreateDbContext();
+        await context.Messages
+            .Where(message => message.Id == messageId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(message => message.AuthorActorId, authorActorId), cancellationToken);
+    }
+
     public Task AddApprovalAsync(
         AssistantApproval approval,
         CancellationToken cancellationToken)

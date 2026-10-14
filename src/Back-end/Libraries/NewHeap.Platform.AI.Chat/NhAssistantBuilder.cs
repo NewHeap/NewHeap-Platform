@@ -229,7 +229,13 @@ public sealed class NhAssistantBuilder
     {
         NhAssistantNames.ValidateSegment(agentId, nameof(agentId));
         ArgumentNullException.ThrowIfNull(configure);
-        configure(new NhAssistantAgentRunBuilder(_state.GetOrAddAgentRun(agentId)));
+        var options = _state.GetOrAddAgentRun(agentId);
+        configure(new NhAssistantAgentRunBuilder(options));
+        if (options.RuleHandlerType is { } ruleHandler)
+        {
+            Services.TryAddScoped(ruleHandler);
+        }
+
         return this;
     }
 

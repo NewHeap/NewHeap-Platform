@@ -321,6 +321,7 @@ builder.Services.AddSampleAiBridge();
 builder.Services.AddSampleAssistant(builder.Environment, builder.Configuration);
 builder.Services.AddSampleIntakeReviewer();
 builder.Services.AddSampleStatusAdvisor();
+builder.Services.AddSampleProjectCloser();
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     .WithNewHeapPlatformAITools();

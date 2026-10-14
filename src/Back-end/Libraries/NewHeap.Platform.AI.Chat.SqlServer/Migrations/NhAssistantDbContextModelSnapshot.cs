@@ -162,6 +162,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<DateTimeOffset?>("ApprovalExpiresAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("ArgumentsHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<string>("ArgumentsPreview")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -255,6 +259,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("RationalesJson")
+                        .HasMaxLength(6000)
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Reason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -264,6 +272,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
 
                     b.Property<Guid?>("RunId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StaleByActorId")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("StaleExplanationsJson")
                         .HasMaxLength(6000)
@@ -286,6 +298,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
+
+                    b.Property<Guid?>("SupersededByApprovalId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TargetsJson")
                         .IsRequired()
@@ -316,6 +331,8 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.HasIndex("Status", "ExpiresAt");
 
                     b.HasIndex("Status", "NextReminderAt");
+
+                    b.HasIndex("ToolId", "ArgumentsHash");
 
                     b.ToTable("AssistantApproval", "nhai");
                 });
@@ -1043,6 +1060,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
 
+                    b.Property<string>("PayloadJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<string>("Text")
                         .IsRequired()
                         .HasMaxLength(8000)
@@ -1109,6 +1130,13 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
 
                     b.Property<long>("InputTokens")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)")
+                        .HasDefaultValue("model");
 
                     b.Property<long>("OutputTokens")
                         .HasColumnType("bigint");

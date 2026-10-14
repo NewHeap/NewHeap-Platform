@@ -85,6 +85,28 @@ internal sealed class NhAssistantTurnState
     /// </summary>
     public bool ToolsDisabled { get; set; }
 
+    /// <summary>
+    /// The agent's rule handler runs the turn without a model; its proposals always wait deferred.
+    /// </summary>
+    public bool RuleTurn { get; set; }
+
+    /// <summary>
+    /// The agent's rules handed the turn over to the model.
+    /// </summary>
+    public bool HandedOver { get; set; }
+
+    /// <summary>
+    /// Why the agent's rules made each proposal of the turn, in the run's culture.
+    /// </summary>
+    public List<string> RuleRationales { get; } = [];
+
+    /// <summary>
+    /// How the turn worked: one of the values in <see cref="NhAssistantRunKinds"/>.
+    /// </summary>
+    public string Kind => HandedOver
+        ? NhAssistantRunKinds.RuleThenModel
+        : RuleTurn ? NhAssistantRunKinds.Rule : NhAssistantRunKinds.Model;
+
     public int InputTokens { get; set; }
 
     public int OutputTokens { get; set; }
@@ -162,13 +184,22 @@ internal sealed class NhAssistantToolCallInterceptor(
     IReadOnlyList<INhAssistantBusinessAuditSink> businessSinks,
     ILogger? logger = null,
     NhAssistantApprovalPolicies? approvalPolicies = null,
-    NhAssistantProposalGuards? proposalGuards = null)
+    NhAssistantProposalGuards? proposalGuards = null,
+    NhAssistantProposalDuplicates? duplicates = null,
+    NhAssistantProposalInvalidation? invalidation = null,
+    NhAssistantStaleExplanations? texts = null)
 {
     public const string ToolsDisabledCode = "assistant-tools-disabled";
     public const string ProposalRecordedCode = "assistant-proposal-recorded";
 
     private IReadOnlyDictionary<string, NhAiToolDescriptor> _offeredTools =
         new Dictionary<string, NhAiToolDescriptor>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The rationale of the rule proposal being recorded, and the outcome of the last proposal.
+    /// </summary>
+    private Func<CultureInfo, string?>? _rationale;
+    private NhAssistantRecordedProposal? _lastProposal;
 
     /// <summary>
     /// Registers the governed descriptors the adapter offered to the agent, keyed by function name.
@@ -253,6 +284,12 @@ internal sealed class NhAssistantToolCallInterceptor(
                 execution.Call,
                 presentationCulture,
                 cancellationToken);
+            _lastProposal = requested;
+            if (requested is { Outcome: not NhAssistantProposeOutcome.Created } skipped)
+            {
+                // The same proposal is open or was rejected recently; nothing new waits for people.
+                return Duplicate(skipped);
+            }
             if (requested is { Mode: NhAiApprovalMode.Inline } inline && !inline.Shadow)
             {
                 context.Terminate = true;
@@ -415,6 +452,62 @@ internal sealed class NhAssistantToolCallInterceptor(
             shielded ? null : NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification)));
     }
 
+    /// <summary>
+    /// Records a proposal for the agent's rules through the same governed call as a model's tool
+    /// call. The agent scope requires approval for every effect in a rule turn, so the tool never
+    /// executes here.
+    /// </summary>
+    public async Task<NhAssistantRuleProposal> ProposeAsync(
+        AIFunction function,
+        AIFunctionArguments arguments,
+        Func<CultureInfo, string?>? rationale,
+        CancellationToken cancellationToken)
+    {
+        _rationale = rationale;
+        _lastProposal = null;
+        try
+        {
+            var callContent = new FunctionCallContent("rule-" + Guid.NewGuid().ToString("N"), function.Name, arguments);
+            var context = new FunctionInvocationContext
+            {
+                Function = function,
+                Arguments = arguments,
+                CallContent = callContent
+            };
+            var result = await InvokeAsync(
+                null!,
+                context,
+                (invocation, token) => invocation.Function.InvokeAsync(invocation.Arguments, token),
+                cancellationToken);
+            if (_lastProposal is not { } recorded)
+            {
+                // The call failed before it became a proposal, for example on its arguments or rights.
+                return NhAssistantRuleProposal.Refused(CodeOf(result) ?? NhAssistantErrorCodes.ProposalRefused);
+            }
+
+            return new NhAssistantRuleProposal(
+                recorded.Outcome,
+                recorded.ApprovalId,
+                recorded.Superseded,
+                recorded.Outcome == NhAssistantProposeOutcome.RecentlyRejected ? recorded.Existing?.DecidedAt : null,
+                null);
+        }
+        finally
+        {
+            _rationale = null;
+            _lastProposal = null;
+        }
+    }
+
+    private static string? CodeOf(object? result)
+    {
+        return result is JsonElement { ValueKind: JsonValueKind.Object } json
+               && json.TryGetProperty("code", out var code)
+               && code.ValueKind == JsonValueKind.String
+            ? code.GetString()
+            : null;
+    }
+
     public async Task FlushAsync(CancellationToken cancellationToken)
     {
         if (state.Scope.Consultation is not null)
@@ -487,10 +580,13 @@ internal sealed class NhAssistantToolCallInterceptor(
                     Mode = NhAiApprovalMode.Deferred
                 }
             : null;
-        // A request turn cannot wait days for a decision: a person typing always decides inline.
+        // A request turn cannot wait days for a decision: a person typing always decides inline. A
+        // rule turn has no model to continue with a decision, so its proposals always wait deferred.
         var mode = policy is null || (agentTurn!.IsRequestTurn && consultation is null)
             ? NhAiApprovalMode.Inline
-            : policy.Mode;
+            : state.RuleTurn
+                ? NhAiApprovalMode.Deferred
+                : policy.Mode;
         var shadow = agentTurn is { RunId: not null } && agentTurn.Options.Shadow;
         var bindPrompt = policy is null || policy.BindTo == NhAiApprovalBinding.ToolContractAndPrompt;
         var lifetime = policy?.Lifetime ?? state.Scope.Limits.ApprovalLifetime;
@@ -530,6 +626,22 @@ internal sealed class NhAssistantToolCallInterceptor(
         var targetLabels = proposal.Targets
             .Select(target => $"{target.Type}:{target.Id}")
             .ToArray();
+        var approvalId = Guid.NewGuid();
+        var argumentsHash = NhAssistantProposalDuplicates.IdentityOf(descriptor.Id, proposal.Arguments);
+        // Proposals of a person's own turn wait in the conversation; only agent proposals can be
+        // revalidated or deduplicated.
+        var agentProposal = agentTurn is not null && !shadow && !(mode == NhAiApprovalMode.Inline && agentTurn.RunId is null);
+        var keys = agentProposal
+            ? await GuardKeysAsync(approvalId, descriptor.Id, proposal, now, cancellationToken)
+            : [];
+        var duplicate = agentProposal && duplicates is not null && policy is not null
+            ? await duplicates.CheckAsync(agentTurn!.Thread, descriptor.Id, argumentsHash, keys, policy, cancellationToken)
+            : NhAssistantDuplicateCheck.None;
+        if (duplicate is { Outcome: not NhAssistantProposeOutcome.Created, Existing: { } existing })
+        {
+            return await SkipDuplicateAsync(descriptor, row, duplicate.Outcome, existing, mode, cancellationToken);
+        }
+
         var presentations = await toolPresentation.ResolveApprovalInCulturesAsync(
             descriptor,
             call.CapturedArguments,
@@ -543,7 +655,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         }
         var approval = new AssistantApproval
         {
-            Id = Guid.NewGuid(),
+            Id = approvalId,
             ConversationId = state.Conversation.Id,
             TurnId = state.Scope.TurnId,
             ToolInvocationId = row.Id,
@@ -570,6 +682,8 @@ internal sealed class NhAssistantToolCallInterceptor(
             NextReminderAt = policy is not null && mode == NhAiApprovalMode.Deferred && !shadow
                 ? NhAssistantApprovalReminders.Next(policy, now, 0, expiresAt)
                 : null,
+            ArgumentsHash = argumentsHash,
+            RationalesJson = _rationale is null ? null : texts?.Render(_rationale),
             ConcurrencyStamp = Guid.NewGuid()
         };
         if (consultation is not null)
@@ -580,8 +694,25 @@ internal sealed class NhAssistantToolCallInterceptor(
 
         await store.AddApprovalAsync(
             approval,
-            await ProposalKeysAsync(approval, proposal, mode, shadow, cancellationToken),
+            keys.Select(key => new AssistantApprovalKey
+                {
+                    ApprovalId = approval.Id,
+                    ScopeKey = agentTurn!.Thread.ScopeKey,
+                    KeyType = key.Type,
+                    KeyId = key.Id
+                })
+                .ToArray(),
             cancellationToken);
+        var superseded = new List<Guid>();
+        foreach (var older in duplicate.Superseded)
+        {
+            // The newer proposal for the same objects replaces the pending one.
+            if (invalidation is not null
+                && await invalidation.SupersedeAsync(older, agentTurn!.Thread, approval.Id, state.Scope.Agent.ActorId, CancellationToken.None) is not null)
+            {
+                superseded.Add(older.Id);
+            }
+        }
 
         row.Status = NhAssistantToolCallStatuses.AwaitingApproval;
         row.ProposalId = proposal.ProposalId;
@@ -630,49 +761,111 @@ internal sealed class NhAssistantToolCallInterceptor(
                 StartedAt = row.StartedAt
             },
             cancellationToken);
-        return new NhAssistantRecordedProposal(approval.Id, proposal.ProposalId, mode, shadow);
+        return new NhAssistantRecordedProposal(approval.Id, proposal.ProposalId, mode, shadow)
+        {
+            Superseded = superseded
+        };
+    }
+
+    /// <summary>
+    /// Ends the tool call of a proposal that an open or recently rejected one made unnecessary:
+    /// nothing is recorded, the call reads <c>not-executed</c> and the audit names the existing
+    /// proposal.
+    /// </summary>
+    private async Task<NhAssistantRecordedProposal> SkipDuplicateAsync(
+        NhAiToolDescriptor descriptor,
+        AssistantToolInvocation row,
+        NhAssistantProposeOutcome outcome,
+        AssistantApproval existing,
+        NhAiApprovalMode mode,
+        CancellationToken cancellationToken)
+    {
+        var code = outcome == NhAssistantProposeOutcome.RecentlyRejected
+            ? NhAssistantErrorCodes.ProposalRecentlyRejected
+            : NhAssistantErrorCodes.ProposalAlreadyOpen;
+        row.Status = NhAssistantToolCallStatuses.NotExecuted;
+        row.ResultCode = code;
+        row.CompletedAt = DateTimeOffset.UtcNow;
+        if (state.Scope.Consultation is null)
+        {
+            await store.UpdateToolInvocationAsync(row, cancellationToken);
+            await state.EmitAsync(new NhAssistantToolCompletedEvent(row.Id, row.Status, row.ResultCode, null));
+        }
+
+        await RecordBusinessEventAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.AgentProposalDeduplicated,
+                state.Conversation.Id,
+                state.Scope.TurnId,
+                state.Scope.OwnerActorId,
+                state.Scope.Agent.Id,
+                state.Scope.Agent.Version,
+                DateTimeOffset.UtcNow)
+            {
+                ToolId = descriptor.Id,
+                ToolVersion = descriptor.Version,
+                InvocationId = row.Id,
+                ResultCode = code,
+                ApprovalId = existing.Id,
+                ProposalId = existing.ProposalId,
+                StartedAt = row.StartedAt
+            },
+            cancellationToken);
+        return new NhAssistantRecordedProposal(existing.Id, existing.ProposalId, mode, false)
+        {
+            Outcome = outcome,
+            Existing = existing
+        };
     }
 
     /// <summary>
     /// The application objects an agent proposal changes, as its guards name them, so the application
-    /// can revalidate it by object. Proposals of a person's own turn wait in the conversation and are
-    /// never revalidated, so they get no keys.
+    /// can revalidate it by object and recognize a newer proposal for the same objects.
     /// </summary>
-    private async Task<IReadOnlyCollection<AssistantApprovalKey>> ProposalKeysAsync(
-        AssistantApproval approval,
+    private async Task<IReadOnlyList<NhAiProposalKey>> GuardKeysAsync(
+        Guid approvalId,
+        string toolId,
         NhAiProposal proposal,
-        NhAiApprovalMode mode,
-        bool shadow,
+        DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        var agentTurn = state.AgentTurn;
-        if (proposalGuards is null
-            || agentTurn is null
-            || shadow
-            || (mode == NhAiApprovalMode.Inline && agentTurn.RunId is null))
+        if (proposalGuards is null || state.AgentTurn is not { } agentTurn)
         {
             return [];
         }
 
         var thread = agentTurn.Thread;
-        var keys = await proposalGuards.GetKeysAsync(
+        return await proposalGuards.GetKeysAsync(
             new NhAiProposalGuardContext(
-                approval.ProposalId,
-                approval.ToolId,
+                proposal.ProposalId,
+                toolId,
                 proposal.Arguments,
                 new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
                 thread.ScopeKey,
-                approval.CreatedAt),
+                now),
             cancellationToken);
-        return keys
-            .Select(key => new AssistantApprovalKey
+    }
+
+    /// <summary>
+    /// The result the model receives when its proposal was not recorded because the same one is open
+    /// or was rejected recently.
+    /// </summary>
+    private static JsonElement Duplicate(NhAssistantRecordedProposal skipped)
+    {
+        var rejected = skipped.Outcome == NhAssistantProposeOutcome.RecentlyRejected;
+        return JsonSerializer.SerializeToElement(
+            new Dictionary<string, object?>
             {
-                ApprovalId = approval.Id,
-                ScopeKey = thread.ScopeKey,
-                KeyType = key.Type,
-                KeyId = key.Id
-            })
-            .ToArray();
+                ["success"] = false,
+                ["code"] = rejected ? NhAssistantErrorCodes.ProposalRecentlyRejected : NhAssistantErrorCodes.ProposalAlreadyOpen,
+                ["proposalId"] = skipped.ProposalId,
+                ["status"] = skipped.Existing?.Status,
+                ["rejectedAt"] = rejected ? skipped.Existing?.DecidedAt : null,
+                ["message"] = rejected
+                    ? "People rejected the same proposal recently. Nothing was recorded. Do not propose it again now; mention it in your answer."
+                    : "The same proposal already waits for a decision or its execution. Nothing new was recorded. Do not propose it again; mention it in your answer."
+            },
+            NhAssistantContent.JsonOptions);
     }
 
     /// <summary>
@@ -774,4 +967,17 @@ internal sealed record NhAssistantRecordedProposal(
     Guid ApprovalId,
     Guid ProposalId,
     NhAiApprovalMode Mode,
-    bool Shadow);
+    bool Shadow)
+{
+    public NhAssistantProposeOutcome Outcome { get; init; } = NhAssistantProposeOutcome.Created;
+
+    /// <summary>
+    /// The open or rejected proposal that made a new one unnecessary.
+    /// </summary>
+    public AssistantApproval? Existing { get; init; }
+
+    /// <summary>
+    /// The pending proposals a newly recorded one replaced.
+    /// </summary>
+    public IReadOnlyList<Guid> Superseded { get; init; } = [];
+}

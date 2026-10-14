@@ -63,7 +63,8 @@ internal sealed class NhAssistantProposalInvalidation(
                 ExecutedAt = executing ? now : null,
                 ExecutionResultCode = reasonCode,
                 StaleKind = kind,
-                StaleExplanationsJson = explanations.Render(result.Explain)
+                StaleExplanationsJson = explanations.Render(result.Explain),
+                StaleByActorId = result.ByActorId is { Length: > 0 and <= 256 } byActorId ? byActorId : null
             },
             cancellationToken);
         if (!closed)
@@ -88,6 +89,50 @@ internal sealed class NhAssistantProposalInvalidation(
 
         await events.InvalidatedAsync(current, agentId, thread, actorId, kind, reasonCode, stage, CancellationToken.None);
         if (!executing && current.Mode == NhAssistantApprovalModes.Inline && current.RunId is not null)
+        {
+            await WakeAsync(current);
+        }
+
+        return current;
+    }
+
+    /// <summary>
+    /// Withdraws a pending proposal that the newer proposal <paramref name="supersededBy"/> for the
+    /// same objects replaced. Returns the withdrawn proposal, or <see langword="null"/> when someone
+    /// decided it first.
+    /// </summary>
+    public async Task<AssistantApproval?> SupersedeAsync(
+        AssistantApproval approval,
+        AssistantThread thread,
+        Guid supersededBy,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        var closed = await runs.TryTransitionApprovalAsync(
+            approval.Id,
+            [NhAssistantApprovalStatuses.Pending],
+            NhAssistantApprovalStatuses.Withdrawn,
+            new NhAssistantApprovalTransition
+            {
+                DecidedAt = DateTimeOffset.UtcNow,
+                ExecutionResultCode = NhAssistantErrorCodes.ProposalSuperseded,
+                SupersededByApprovalId = supersededBy
+            },
+            cancellationToken);
+        if (!closed)
+        {
+            return null;
+        }
+
+        var current = await store.FindApprovalAsync(approval.Id, CancellationToken.None) ?? approval;
+        await workUpdates.PublishAsync(
+            current.ConversationId,
+            NhAssistantAgentWorkReasons.Proposal,
+            current.Id,
+            current.RunId,
+            CancellationToken.None);
+        await events.SupersededAsync(current, thread, supersededBy, actorId, CancellationToken.None);
+        if (current.Mode == NhAssistantApprovalModes.Inline && current.RunId is not null)
         {
             await WakeAsync(current);
         }

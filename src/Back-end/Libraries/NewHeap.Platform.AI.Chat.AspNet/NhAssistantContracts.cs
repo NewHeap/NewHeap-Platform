@@ -135,7 +135,8 @@ public sealed record NhAssistantThreadDecisionDto(
 /// <param name="AuthorActorId">The writer of a user message; <see langword="null"/> for assistant messages.</param>
 /// <param name="AuthorKind">
 /// <c>person</c> for a user message a person wrote, <c>trigger</c> for one a trigger wrote into an agent
-/// thread (see <see cref="NhAssistantMessageAuthorKinds"/>); <see langword="null"/> for assistant messages.
+/// thread, <c>rule</c> for the agent's message about what its rules did without a model (see
+/// <see cref="NhAssistantMessageAuthorKinds"/>); <see langword="null"/> for the model's messages.
 /// </param>
 public sealed record NhAssistantMessageDto(
     Guid Id,
@@ -321,6 +322,19 @@ public sealed record NhAssistantApprovalPartDto(
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? StaleExplanation { get; init; }
+
+    /// <summary>
+    /// Why the agent's rules proposed it, in the caller's language. Only written for rule proposals.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Rationale { get; init; }
+
+    /// <summary>
+    /// The newer proposal for the same objects that replaced this withdrawn one. Only written for
+    /// superseded proposals.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? SupersededByApprovalId { get; init; }
 }
 
 public sealed record NhAssistantCreateConversationRequest(

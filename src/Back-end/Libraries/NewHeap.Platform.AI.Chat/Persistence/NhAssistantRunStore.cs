@@ -538,7 +538,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         long inputTokens,
         long outputTokens,
         int proposals,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? kind = null)
     {
         await using var context = contextFactory.CreateDbContext();
         await context.Runs
@@ -548,7 +549,8 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                     .SetProperty(run => run.ToolCalls, run => run.ToolCalls + toolCalls)
                     .SetProperty(run => run.InputTokens, run => run.InputTokens + inputTokens)
                     .SetProperty(run => run.OutputTokens, run => run.OutputTokens + outputTokens)
-                    .SetProperty(run => run.ProposalCount, run => run.ProposalCount + proposals),
+                    .SetProperty(run => run.ProposalCount, run => run.ProposalCount + proposals)
+                    .SetProperty(run => run.Kind, run => kind ?? run.Kind),
                 cancellationToken);
     }
 
@@ -839,6 +841,12 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                         approval => decision.ResetReminders ? 0 : approval.RemindersSent)
                     .SetProperty(approval => approval.StaleKind, approval => decision.StaleKind ?? approval.StaleKind)
                     .SetProperty(
+                        approval => approval.StaleByActorId,
+                        approval => decision.StaleByActorId ?? approval.StaleByActorId)
+                    .SetProperty(
+                        approval => approval.SupersededByApprovalId,
+                        approval => decision.SupersededByApprovalId ?? approval.SupersededByApprovalId)
+                    .SetProperty(
                         approval => approval.StaleExplanationsJson,
                         approval => decision.StaleExplanationsJson ?? approval.StaleExplanationsJson)
                     .SetProperty(approval => approval.ConcurrencyStamp, Guid.NewGuid()),
@@ -1069,6 +1077,138 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         return false;
     }
 
+    /// <summary>
+    /// The oldest pending, approved or executing proposal of the agent within the scope that has the
+    /// same identity, or <see langword="null"/>.
+    /// </summary>
+    public async Task<AssistantApproval?> FindOpenProposalAsync(
+        string scopeKey,
+        string agentId,
+        string toolId,
+        string argumentsHash,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await AgentProposals(context, scopeKey, agentId)
+            .Where(approval => approval.ToolId == toolId
+                && approval.ArgumentsHash == argumentsHash
+                && OpenProposalStatuses.Contains(approval.Status))
+            .OrderBy(approval => approval.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The latest proposal of the agent within the scope with the same identity that people rejected
+    /// since <paramref name="since"/>, or <see langword="null"/>.
+    /// </summary>
+    public async Task<AssistantApproval?> FindRecentRejectionAsync(
+        string scopeKey,
+        string agentId,
+        string toolId,
+        string argumentsHash,
+        DateTimeOffset since,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await AgentProposals(context, scopeKey, agentId)
+            .Where(approval => approval.ToolId == toolId
+                && approval.ArgumentsHash == argumentsHash
+                && approval.Status == NhAssistantApprovalStatuses.Rejected
+                && approval.DecidedAt >= since)
+            .OrderByDescending(approval => approval.DecidedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The proposals of the agent and tool within the scope that change exactly
+    /// <paramref name="keys"/>, in one of <paramref name="statuses"/>, newest first; rejections only
+    /// when decided since <paramref name="decidedSince"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantApproval>> FindProposalsForObjectsAsync(
+        string scopeKey,
+        string agentId,
+        string toolId,
+        IReadOnlyCollection<NhAiProposalKey> keys,
+        IReadOnlyCollection<string> statuses,
+        DateTimeOffset? decidedSince,
+        CancellationToken cancellationToken)
+    {
+        if (keys.Count == 0)
+        {
+            return [];
+        }
+
+        await using var context = contextFactory.CreateDbContext();
+        var first = keys.First();
+        var candidates = await AgentProposals(context, scopeKey, agentId)
+            .Where(approval => approval.ToolId == toolId
+                && statuses.Contains(approval.Status)
+                && (decidedSince == null || approval.DecidedAt >= decidedSince)
+                && context.ApprovalKeys.Any(key => key.ApprovalId == approval.Id
+                    && key.ScopeKey == scopeKey
+                    && key.KeyType == first.Type
+                    && key.KeyId == first.Id))
+            .OrderByDescending(approval => approval.CreatedAt)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+        if (candidates.Count == 0)
+        {
+            return [];
+        }
+
+        var candidateIds = candidates.Select(approval => approval.Id).ToArray();
+        var keysByApproval = (await context.ApprovalKeys
+                .AsNoTracking()
+                .Where(key => candidateIds.Contains(key.ApprovalId))
+                .Select(key => new { key.ApprovalId, key.KeyType, key.KeyId })
+                .ToListAsync(cancellationToken))
+            .ToLookup(key => key.ApprovalId);
+        var wanted = keys.Select(key => (key.Type, key.Id)).ToHashSet();
+        return candidates
+            .Where(approval => keysByApproval[approval.Id].Select(key => (key.KeyType, key.KeyId)).ToHashSet().SetEquals(wanted))
+            .ToArray();
+    }
+
+    /// <summary>
+    /// The objects each of <paramref name="approvalIds"/> changes, as their guards named them.
+    /// </summary>
+    public async Task<ILookup<Guid, NhAiProposalKey>> GetApprovalKeysAsync(
+        IReadOnlyCollection<Guid> approvalIds,
+        CancellationToken cancellationToken)
+    {
+        if (approvalIds.Count == 0)
+        {
+            return Array.Empty<NhAiProposalKey>().ToLookup(_ => Guid.Empty);
+        }
+
+        await using var context = contextFactory.CreateDbContext();
+        var ids = approvalIds.Distinct().ToArray();
+        var keys = await context.ApprovalKeys
+            .AsNoTracking()
+            .Where(key => ids.Contains(key.ApprovalId))
+            .OrderBy(key => key.KeyType)
+            .ThenBy(key => key.KeyId)
+            .Select(key => new { key.ApprovalId, key.KeyType, key.KeyId })
+            .ToListAsync(cancellationToken);
+        return keys.ToLookup(key => key.ApprovalId, key => new NhAiProposalKey(key.KeyType, key.KeyId));
+    }
+
+    private static readonly string[] OpenProposalStatuses =
+    [
+        NhAssistantApprovalStatuses.Pending,
+        NhAssistantApprovalStatuses.Approved,
+        NhAssistantApprovalStatuses.Executing
+    ];
+
+    private static IQueryable<AssistantApproval> AgentProposals(NhAssistantDbContext context, string scopeKey, string agentId)
+    {
+        return context.Approvals
+            .AsNoTracking()
+            .Where(approval => context.Threads.Any(thread => thread.ConversationId == approval.ConversationId
+                && thread.ScopeKey == scopeKey
+                && thread.AgentId == agentId));
+    }
+
     private static IQueryable<AssistantApproval> OpenAgentProposals(NhAssistantDbContext context)
     {
         return context.Approvals
@@ -1225,6 +1365,8 @@ internal sealed record NhAssistantApprovalTransition
     public bool ResetReminders { get; init; }
     public string? StaleKind { get; init; }
     public string? StaleExplanationsJson { get; init; }
+    public string? StaleByActorId { get; init; }
+    public Guid? SupersededByApprovalId { get; init; }
 }
 
 internal sealed record NhAssistantInboxFilter(

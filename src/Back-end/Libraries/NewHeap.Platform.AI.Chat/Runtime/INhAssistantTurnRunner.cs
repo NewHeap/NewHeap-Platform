@@ -142,7 +142,12 @@ internal sealed record NhAssistantAgentTurnInput(
     Guid Id,
     string? AuthorActorId,
     string? TriggerId,
-    string Text);
+    string Text)
+{
+    public string? PayloadJson { get; init; }
+
+    public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
+}
 
 internal sealed record NhAssistantAgentTurnRequest(
     NhAssistantAgentTurnContext AgentTurn,
@@ -165,6 +170,11 @@ internal sealed record NhAssistantAgentTurnResult(
     int OutputTokens,
     int ProposalCount)
 {
+    /// <summary>
+    /// How the turn worked: one of the values in <see cref="NhAssistantRunKinds"/>.
+    /// </summary>
+    public string Kind { get; init; } = NhAssistantRunKinds.Model;
+
     public const string Busy = "busy";
 
     public static NhAssistantAgentTurnResult BusyResult { get; } = new(Busy, NhAssistantErrorCodes.ConversationBusy, null, null, 0, 0, 0, 0);

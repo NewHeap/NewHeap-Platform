@@ -336,6 +336,80 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task The_project_closer_proposes_by_rule_once_stays_quiet_after_a_rejection_and_explains_why()
+    {
+        // SPM-283
+        var project = await host.CreateProjectAsync("CLOSER", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        var documentation = await host.CreateTaskAsync(project, "Hand over the documentation");
+        var budget = await host.CreateTaskAsync(project, "Close the budget");
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        colleague.DefaultRequestHeaders.AcceptLanguage.Clear();
+        colleague.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en");
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+
+        // A task is completed while another one is open: the rules look and propose nothing.
+        await host.DeliverAsync(await host.CompleteTaskByHandAsync(documentation, host.ParticipantId));
+        var conversationId = await WaitForThreadAsync(colleague, project, SampleProjectCloserComposition.AgentId);
+        var quiet = Assert.Single(await WaitForRunCountAsync(colleague, conversationId, 1));
+        Assert.Equal(NhAssistantRunKinds.Rule, quiet.Kind);
+        Assert.Equal(0, quiet.ProposalCount);
+
+        // The last task completes the work. The rules propose to complete the project without a
+        // model and without tokens; approvers read the rules' reason in their own language.
+        await host.DeliverAsync(await host.CompleteTaskByHandAsync(budget, host.ParticipantId));
+        var proposal = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Pending);
+        Assert.Equal(ProjectAiTools.ChangeStatusToolId, proposal.ToolId);
+        Assert.Equal(NhAssistantApprovalModes.Deferred, proposal.Mode);
+        Assert.Equal(SampleProjectCloserComposition.ApprovalPolicyId, proposal.PolicyId);
+        Assert.Equal("All 2 tasks of the project are completed.", proposal.Rationale);
+        var proposing = Assert.Single(await WaitForRunCountAsync(colleague, conversationId, 2), run => run.Id == proposal.RunId);
+        Assert.Equal(NhAssistantRunKinds.Rule, proposing.Kind);
+        Assert.Equal(0, proposing.InputTokens + proposing.OutputTokens);
+        Assert.Equal(1, proposing.ProposalCount);
+        var thread = await ReadConversationAsync(colleague, conversationId);
+        var ruleMessage = Assert.Single(
+            thread.Messages,
+            message => message.Parts.OfType<NhAssistantApprovalPartDto>().Any(part => part.ApprovalId == proposal.ApprovalId));
+        Assert.Equal(NhAssistantMessageAuthorKinds.Rule, ruleMessage.AuthorKind);
+        Assert.Null(ruleMessage.AuthorActorId);
+        Assert.Equal("All 2 tasks of the project are completed.", ruleMessage.Parts.OfType<NhAssistantApprovalPartDto>().Single().Rationale);
+
+        // The same task saved again does not add a second proposal.
+        await host.DeliverAsync(await host.CompleteTaskByHandAsync(budget, host.ParticipantId));
+        await WaitForRunCountAsync(colleague, conversationId, 3);
+        var proposals = await colleague.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{conversationId}/proposals", Json);
+        Assert.Equal(proposal.ApprovalId, Assert.Single(proposals!).ApprovalId);
+        Assert.Contains(host.Services.GetRequiredService<SampleAssistantAuditLog>().Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalDeduplicated
+            && evt.ApprovalId == proposal.ApprovalId);
+
+        // A participant asks the closer why. A person's question goes to the agent's model, which
+        // answers from the reason the rules wrote; headless runs write in the application's default
+        // language, Dutch.
+        var dutch = CultureInfo.GetCultureInfo("nl-NL");
+        var reason = string.Format(
+            dutch,
+            new ResourceManager(typeof(SampleAssistantToolPresenter)).GetString("CloserReason", dutch)!,
+            2);
+        Assert.Contains("- " + reason, TextOf(ruleMessage));
+        await host.SendAsync(participant, conversationId, "Why do you propose to complete this project?");
+        var answer = (await ReadConversationAsync(participant, conversationId)).Messages
+            .Last(message => message.Role == NhAssistantMessageRoles.Assistant);
+        Assert.NotEqual(NhAssistantMessageAuthorKinds.Rule, answer.AuthorKind);
+        Assert.Equal("My rules proposed it because: " + reason, TextOf(answer));
+
+        // The approver rejects it; however often tasks change, the rules stay quiet for the cooldown.
+        Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, proposal, "reject")).StatusCode);
+        await host.DeliverAsync(await host.CompleteTaskByHandAsync(documentation, host.ParticipantId));
+        var runs = await WaitForRunCountAsync(colleague, conversationId, 4);
+        Assert.All(runs, run => Assert.Equal(NhAssistantRunKinds.Rule, run.Kind));
+        proposals = await colleague.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{conversationId}/proposals", Json);
+        Assert.Equal(NhAssistantApprovalStatuses.Rejected, Assert.Single(proposals!).Status);
+        Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == project);
+    }
+
+    [Fact]
     public async Task A_participant_starts_the_status_advisor_which_uses_their_rights_and_waits_inline_for_their_approval()
     {
         // SPM-272 and SPM-273
@@ -866,13 +940,16 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         return client.SendAsync(request);
     }
 
-    private static async Task<Guid> WaitForThreadAsync(HttpClient client, Guid projectId)
+    private static async Task<Guid> WaitForThreadAsync(
+        HttpClient client,
+        Guid projectId,
+        string agentId = SampleIntakeReviewerComposition.AgentId)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
         while (DateTimeOffset.UtcNow < deadline)
         {
             var lookup = await client.GetFromJsonAsync<NhAssistantThreadLookupDto>(
-                $"/api/assistant/threads?agentId={SampleIntakeReviewerComposition.AgentId}&subjectType={ProjectSubjects.Type}&subjectId={projectId:D}",
+                $"/api/assistant/threads?agentId={agentId}&subjectType={ProjectSubjects.Type}&subjectId={projectId:D}",
                 Json);
             if (lookup?.Thread is { } thread)
             {
@@ -882,7 +959,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             await Task.Delay(TimeSpan.FromMilliseconds(250));
         }
 
-        throw new TimeoutException($"No intake thread was created for project {projectId}.");
+        throw new TimeoutException($"No thread of agent {agentId} was created for project {projectId}.");
     }
 
     private static async Task<NhAssistantRunDto> WaitForRunAsync(HttpClient client, Guid conversationId, string status)
@@ -913,6 +990,11 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         using var response = await client.GetAsync($"/api/assistant/conversations/{conversationId}");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync(NhAssistantJsonSerializerContext.Default.NhAssistantConversationDto))!;
+    }
+
+    private static string TextOf(NhAssistantMessageDto message)
+    {
+        return string.Concat(message.Parts.OfType<NhAssistantTextPartDto>().Select(part => part.Text));
     }
 
     private static Task<HttpResponseMessage> DecideAsync(HttpClient client, NhAssistantProposalDto proposal, string decision)
@@ -1086,6 +1168,7 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         services.AddSingleton<IProjectReviewRequestService>(Reviews);
         services.AddSampleIntakeReviewer();
         services.AddSampleStatusAdvisor();
+        services.AddSampleProjectCloser();
     }
 
     public async Task WaitForOperationAsync(Guid operationId, NhBackgroundOperationStatus status)

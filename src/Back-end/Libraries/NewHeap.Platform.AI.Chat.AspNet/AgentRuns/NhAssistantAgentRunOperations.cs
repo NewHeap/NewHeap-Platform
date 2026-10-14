@@ -549,12 +549,18 @@ internal sealed class NhAssistantAgentRunOperation(
             result.InputTokens,
             result.OutputTokens,
             result.ProposalCount,
-            cancellationToken);
+            cancellationToken,
+            // A resumed turn is the model's; it keeps the kind the run started with.
+            result.Kind == NhAssistantRunKinds.Model ? null : result.Kind);
     }
 
     private static NhAssistantAgentTurnInput ToInput(AssistantQueuedInput input)
     {
-        return new NhAssistantAgentTurnInput(input.Id, input.AuthorActorId, input.TriggerId, input.Text);
+        return new NhAssistantAgentTurnInput(input.Id, input.AuthorActorId, input.TriggerId, input.Text)
+        {
+            PayloadJson = input.PayloadJson,
+            CreatedAt = input.CreatedAt
+        };
     }
 
     private static string FirstCode(TaskResult result)

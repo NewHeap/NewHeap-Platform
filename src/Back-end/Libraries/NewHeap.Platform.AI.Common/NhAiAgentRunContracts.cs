@@ -331,6 +331,12 @@ public sealed record NhAiPreconditionResult(NhAiPreconditionOutcome Outcome, str
     /// </summary>
     public Func<CultureInfo, string?>? Explain { get; init; }
 
+    /// <summary>
+    /// The actor id of who made the proposal stale, such as the person who completed the task, when
+    /// the guard knows it.
+    /// </summary>
+    public string? ByActorId { get; init; }
+
     public static NhAiPreconditionResult Stale(string reasonCode)
     {
         return Stale(reasonCode, explain: null);
@@ -485,8 +491,29 @@ public static class NhAiApprovers
 /// on expiry. Policies are referenced from an agent, from a tool within an agent and from
 /// a trigger; the most specific reference wins.
 /// </summary>
+/// <summary>
+/// What a new proposal does when an open proposal of the same tool changes the same objects with
+/// other arguments. An identical open proposal is never recorded twice.
+/// </summary>
+public enum NhAiDuplicateProposals
+{
+    /// <summary>The new proposal replaces the pending one, which is withdrawn as superseded.</summary>
+    Supersede = 0,
+
+    /// <summary>The open proposal stays and the new one is not recorded.</summary>
+    Skip = 1,
+
+    /// <summary>Both proposals stay open.</summary>
+    Allow = 2
+}
+
 public sealed record NhAiApprovalPolicy
 {
+    /// <summary>
+    /// The longest <see cref="RejectionCooldown"/> a policy may set.
+    /// </summary>
+    public static readonly TimeSpan MaxRejectionCooldown = TimeSpan.FromDays(90);
+
     public NhAiApprovalPolicy(string id)
     {
         if (!NhAiSubjectRef.IsValidType(id))
@@ -527,6 +554,19 @@ public sealed record NhAiApprovalPolicy
     /// with the outcome.
     /// </summary>
     public bool StartFollowUpRun { get; init; }
+
+    /// <summary>
+    /// What a new proposal of an agent run or consultation does when an open proposal of the same
+    /// agent and tool changes the same objects with other arguments. The objects are the keys the
+    /// tool's proposal guards name; a tool without keys only knows identical proposals.
+    /// </summary>
+    public NhAiDuplicateProposals Duplicates { get; init; } = NhAiDuplicateProposals.Supersede;
+
+    /// <summary>
+    /// How long an agent does not propose again what people rejected: the same proposal, or one for
+    /// the same objects when the tool has keys. <see cref="TimeSpan.Zero"/> turns it off.
+    /// </summary>
+    public TimeSpan RejectionCooldown { get; init; } = TimeSpan.FromDays(7);
 
     /// <summary>
     /// The policy chat turns use when nothing more specific applies.
@@ -575,6 +615,11 @@ public sealed record NhAiApprovalPolicy
         if (Reminders.Any(reminder => reminder <= TimeSpan.Zero || reminder >= Lifetime))
         {
             return TaskResult.Failed(nameof(Reminders), "Reminders must fall within the approval lifetime.");
+        }
+
+        if (RejectionCooldown < TimeSpan.Zero || RejectionCooldown > MaxRejectionCooldown)
+        {
+            return TaskResult.Failed(nameof(RejectionCooldown), "The rejection cooldown must be between zero and 90 days.");
         }
 
         return TaskResult.Succeeded();
@@ -646,6 +691,26 @@ public sealed class NhAiApprovalPolicyBuilder
     public NhAiApprovalPolicyBuilder StartFollowUpRun(bool enabled = true)
     {
         _policy = _policy with { StartFollowUpRun = enabled };
+        return this;
+    }
+
+    /// <summary>
+    /// What a new proposal for the same objects as an open one does; see
+    /// <see cref="NhAiApprovalPolicy.Duplicates"/>.
+    /// </summary>
+    public NhAiApprovalPolicyBuilder Duplicates(NhAiDuplicateProposals duplicates)
+    {
+        _policy = _policy with { Duplicates = duplicates };
+        return this;
+    }
+
+    /// <summary>
+    /// How long a rejected proposal is not proposed again; see
+    /// <see cref="NhAiApprovalPolicy.RejectionCooldown"/>.
+    /// </summary>
+    public NhAiApprovalPolicyBuilder RejectionCooldown(TimeSpan cooldown)
+    {
+        _policy = _policy with { RejectionCooldown = cooldown };
         return this;
     }
 

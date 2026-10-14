@@ -147,6 +147,14 @@ internal interface INhAssistantStore
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Marks who wrote a message, such as the rules of an agent.
+    /// </summary>
+    Task SetMessageAuthorAsync(
+        Guid messageId,
+        string authorActorId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Adds a proposal together with the application objects it changes.
     /// </summary>
     Task AddApprovalAsync(

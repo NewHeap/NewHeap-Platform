@@ -98,6 +98,12 @@ public sealed class NhAssistantAgentRunOptions
     /// </summary>
     public Type? MemoryType { get; internal set; }
 
+    /// <summary>
+    /// The rule handler that runs the agent's headless runs without a model, or
+    /// <see langword="null"/> when the model runs them.
+    /// </summary>
+    public Type? RuleHandlerType { get; internal set; }
+
     public int MemorySchemaVersion { get; internal set; }
 
     /// <summary>
@@ -345,6 +351,20 @@ public sealed class NhAssistantAgentRunBuilder
     }
 
     /// <summary>
+    /// Runs the agent's headless runs (events, schedules, webhooks, manual starts, requests and
+    /// follow-ups) with application rules instead of a model: the handler proposes through the
+    /// governed flow and costs no model calls, or hands the run over to the model. A person's turn
+    /// in the thread and consultations always use the agent's model. A trigger opts out with
+    /// <c>UseModel()</c>.
+    /// </summary>
+    public NhAssistantAgentRunBuilder UseRuleHandler<THandler>()
+        where THandler : class, INhAssistantAgentRuleHandler
+    {
+        _options.RuleHandlerType = typeof(THandler);
+        return this;
+    }
+
+    /// <summary>
     /// Runs the agent in shadow mode: it reads and proposes, but nobody is notified and nothing
     /// executes, so a team can evaluate it on real events.
     /// </summary>
@@ -459,6 +479,16 @@ internal sealed class NhAssistantTriggerDefinition
     /// The subject of a webhook call, or <see langword="null"/> when the call names none.
     /// </summary>
     public Func<System.Text.Json.JsonElement, NhAiSubjectRef?>? WebhookSubject { get; init; }
+
+    /// <summary>
+    /// The trigger's runs use the agent's model even when the agent has a rule handler.
+    /// </summary>
+    public bool UseModel { get; init; }
+
+    /// <summary>
+    /// The small typed payload stored with each event for the agent's rule handler.
+    /// </summary>
+    public Func<object, object?>? Payload { get; init; }
 }
 
 /// <summary>
@@ -487,6 +517,7 @@ public sealed class NhAssistantScheduleBuilder
     private int _maxSubjectsPerTick = 100;
     private NhAssistantTriggerConflict _conflict = NhAssistantTriggerConflict.Ignore;
     private string? _approvalPolicyId;
+    private bool _useModel;
 
     internal NhAssistantScheduleBuilder()
     {
@@ -556,6 +587,15 @@ public sealed class NhAssistantScheduleBuilder
         return this;
     }
 
+    /// <summary>
+    /// Runs this trigger's runs with the agent's model even when the agent has a rule handler.
+    /// </summary>
+    public NhAssistantScheduleBuilder UseModel()
+    {
+        _useModel = true;
+        return this;
+    }
+
     public NhAssistantScheduleBuilder UseApprovalPolicy(string policyId)
     {
         if (!NhAiSubjectRef.IsValidType(policyId))
@@ -590,7 +630,8 @@ public sealed class NhAssistantScheduleBuilder
             Cron = _cron,
             TimeZone = _timeZone,
             ScheduledSubjects = _subjects,
-            MaxSubjectsPerTick = _maxSubjectsPerTick
+            MaxSubjectsPerTick = _maxSubjectsPerTick,
+            UseModel = _useModel
         };
     }
 }
@@ -612,6 +653,7 @@ public sealed class NhAssistantWebhookBuilder
     private NhAssistantTriggerConflict _conflict = NhAssistantTriggerConflict.Coalesce;
     private TimeSpan _debounce = TimeSpan.FromMinutes(2);
     private string? _approvalPolicyId;
+    private bool _useModel;
 
     internal NhAssistantWebhookBuilder()
     {
@@ -661,6 +703,15 @@ public sealed class NhAssistantWebhookBuilder
         return this;
     }
 
+    /// <summary>
+    /// Runs this trigger's runs with the agent's model even when the agent has a rule handler.
+    /// </summary>
+    public NhAssistantWebhookBuilder UseModel()
+    {
+        _useModel = true;
+        return this;
+    }
+
     public NhAssistantWebhookBuilder UseApprovalPolicy(string policyId)
     {
         if (!NhAiSubjectRef.IsValidType(policyId))
@@ -695,7 +746,8 @@ public sealed class NhAssistantWebhookBuilder
             Debounce = _debounce,
             ApprovalPolicyId = _approvalPolicyId,
             WebhookSecret = _secret,
-            WebhookSubject = evt => subject(evt)
+            WebhookSubject = evt => subject(evt),
+            UseModel = _useModel
         };
     }
 }
@@ -714,6 +766,8 @@ public sealed class NhAssistantTriggerBuilder<TEvent>
     private NhAssistantTriggerConflict _conflict = NhAssistantTriggerConflict.Coalesce;
     private TimeSpan _debounce = TimeSpan.FromMinutes(2);
     private string? _approvalPolicyId;
+    private bool _useModel;
+    private Func<TEvent, object?>? _payload;
 
     internal NhAssistantTriggerBuilder()
     {
@@ -772,6 +826,26 @@ public sealed class NhAssistantTriggerBuilder<TEvent>
         return this;
     }
 
+    /// <summary>
+    /// Runs this trigger's runs with the agent's model even when the agent has a rule handler.
+    /// </summary>
+    public NhAssistantTriggerBuilder<TEvent> UseModel()
+    {
+        _useModel = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Stores a small typed payload with each event, at most 4,000 characters of JSON, for the agent's
+    /// rule handler (<c>NhAssistantRuleInput.GetPayload</c>). Rules should still read the subject's
+    /// current state: events coalesce, and retries and schedules carry no event.
+    /// </summary>
+    public NhAssistantTriggerBuilder<TEvent> Payload(Func<TEvent, object?> payload)
+    {
+        _payload = payload ?? throw new ArgumentNullException(nameof(payload));
+        return this;
+    }
+
     public NhAssistantTriggerBuilder<TEvent> UseApprovalPolicy(string policyId)
     {
         if (!NhAiSubjectRef.IsValidType(policyId))
@@ -795,6 +869,7 @@ public sealed class NhAssistantTriggerBuilder<TEvent>
         var initiator = _initiator;
         var message = _message;
         var dedupe = _dedupe;
+        var payload = _payload;
         return new NhAssistantTriggerDefinition
         {
             Id = id,
@@ -806,7 +881,9 @@ public sealed class NhAssistantTriggerBuilder<TEvent>
             Dedupe = evt => dedupe((TEvent)evt),
             Conflict = _conflict,
             Debounce = _debounce,
-            ApprovalPolicyId = _approvalPolicyId
+            ApprovalPolicyId = _approvalPolicyId,
+            UseModel = _useModel,
+            Payload = payload is null ? null : evt => payload((TEvent)evt)
         };
     }
 }

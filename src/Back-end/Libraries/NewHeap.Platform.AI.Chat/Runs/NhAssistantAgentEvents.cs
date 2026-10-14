@@ -246,6 +246,63 @@ internal sealed class NhAssistantAgentEvents(
             cancellationToken);
     }
 
+    /// <summary>
+    /// Records that an agent did not record a proposal because <paramref name="existing"/> made it
+    /// unnecessary.
+    /// </summary>
+    public Task DeduplicatedAsync(
+        AssistantApproval existing,
+        AssistantThread thread,
+        string actorId,
+        string resultCode,
+        CancellationToken cancellationToken)
+    {
+        return ProposalAsync(
+            NhAssistantAuditEventKind.AgentProposalDeduplicated,
+            thread,
+            existing,
+            actorId,
+            resultCode,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Records that <paramref name="supersededBy"/> replaced the pending <paramref name="approval"/>.
+    /// </summary>
+    public Task SupersededAsync(
+        AssistantApproval approval,
+        AssistantThread thread,
+        Guid supersededBy,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.AgentProposalSuperseded,
+                approval.ConversationId,
+                approval.TurnId,
+                actorId,
+                thread.AgentId,
+                0,
+                DateTimeOffset.UtcNow)
+            {
+                ToolId = approval.ToolId,
+                InvocationId = approval.ToolInvocationId,
+                ResultCode = NhAssistantErrorCodes.ProposalSuperseded,
+                ObjectId = supersededBy.ToString("D"),
+                ApprovalId = approval.Id,
+                ProposalId = approval.ProposalId,
+                RunId = approval.RunId,
+                SubjectType = thread.SubjectType,
+                SubjectId = thread.SubjectId,
+                InitiatorActorId = approval.InitiatorActorId,
+                GrantSource = approval.GrantSource,
+                ApprovalPolicyId = approval.PolicyId,
+                ConsultationId = approval.ConsultationId
+            },
+            cancellationToken);
+    }
+
     public Task ConsultationAsync(NhAssistantConsultationEvent consultation, CancellationToken cancellationToken)
     {
         return RecordAsync(

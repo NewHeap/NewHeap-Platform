@@ -80,7 +80,14 @@ public sealed record NhAssistantRunDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset? StartedAt,
     DateTimeOffset? EndedAt,
-    Guid? BackgroundOperationId);
+    Guid? BackgroundOperationId)
+{
+    /// <summary>
+    /// How the run worked: <c>model</c>, <c>rule</c> without a model, or <c>rule-then-model</c> when
+    /// the agent's rules handed it over (see <see cref="NhAssistantRunKinds"/>).
+    /// </summary>
+    public string Kind { get; init; } = NhAssistantRunKinds.Model;
+}
 
 public sealed record NhAssistantRunListDto(
     IReadOnlyList<NhAssistantRunDto> Items,
@@ -135,6 +142,34 @@ public sealed record NhAssistantProposalDto(
     public string? StaleExplanation { get; init; }
 
     /// <summary>
+    /// Who made the proposal stale, when the application's guard named them.
+    /// </summary>
+    public string? StaleByActorId { get; init; }
+
+    /// <summary>
+    /// The name of <see cref="StaleByActorId"/> from the subject's member snapshot, or
+    /// <see langword="null"/> when the snapshot does not know the person.
+    /// </summary>
+    public string? StaleByDisplayName { get; init; }
+
+    /// <summary>
+    /// The application objects the proposal changes, as its guards named them, so clients can group
+    /// proposals by object. <c>Targets</c> holds the invocation's execution scopes instead.
+    /// </summary>
+    public IReadOnlyList<NhAssistantProposalObjectDto> Objects { get; init; } = [];
+
+    /// <summary>
+    /// The newer proposal for the same objects that replaced this withdrawn one.
+    /// </summary>
+    public Guid? SupersededByApprovalId { get; init; }
+
+    /// <summary>
+    /// Why the agent's rules proposed it, in the caller's language; <see langword="null"/> for model
+    /// proposals.
+    /// </summary>
+    public string? Rationale { get; init; }
+
+    /// <summary>
     /// The consultation that proposed it, when another assistant consulted the agent on behalf of
     /// <see cref="InitiatorActorId"/>. It executes with that person's rights only.
     /// </summary>
@@ -159,6 +194,11 @@ public sealed record NhAssistantProposalDto(
     /// </summary>
     public bool CanGiveFeedback { get; init; }
 }
+
+/// <summary>
+/// An application object a proposal changes, such as <c>("project-task", "4711")</c>.
+/// </summary>
+public sealed record NhAssistantProposalObjectDto(string Type, string Id);
 
 /// <param name="Category">One of <c>incorrect</c>, <c>wrong-value</c>, <c>not-needed</c>, <c>not-now</c>, <c>already-done</c>, <c>not-allowed</c> or <c>other</c>.</param>
 /// <param name="Text">Optional explanation of at most 1,000 characters.</param>
@@ -472,7 +512,10 @@ internal static class NhAssistantAgentRunDtoMapper
             run.CreatedAt,
             run.StartedAt,
             run.EndedAt,
-            run.BackgroundOperationId);
+            run.BackgroundOperationId)
+        {
+            Kind = run.Kind
+        };
     }
 
     public static NhAssistantProposalDto ToDto(AssistantApproval approval, AssistantThread thread)
@@ -512,8 +555,42 @@ internal static class NhAssistantAgentRunDtoMapper
             StaleKind = NhAssistantConversationReader.StaleKindOf(approval),
             StaleExplanation = NhAssistantStaleExplanations.Pick(
                 approval.StaleExplanationsJson,
+                System.Globalization.CultureInfo.CurrentUICulture),
+            StaleByActorId = approval.StaleByActorId,
+            SupersededByApprovalId = approval.SupersededByApprovalId,
+            Rationale = NhAssistantStaleExplanations.Pick(
+                approval.RationalesJson,
                 System.Globalization.CultureInfo.CurrentUICulture)
         };
+    }
+
+    /// <summary>
+    /// Adds what a proposal row does not carry: the objects each proposal changes and the names of
+    /// who decided it and who made it stale, from the member snapshot.
+    /// </summary>
+    public static async Task<IReadOnlyList<NhAssistantProposalDto>> CompleteAsync(
+        IReadOnlyList<NhAssistantProposalDto> proposals,
+        NhAssistantRunStore runs,
+        CancellationToken cancellationToken)
+    {
+        if (proposals.Count == 0)
+        {
+            return proposals;
+        }
+
+        var keys = await runs.GetApprovalKeysAsync(proposals.Select(proposal => proposal.ApprovalId).ToArray(), cancellationToken);
+        var names = await runs.GetDisplayNamesAsync(
+            proposals.SelectMany(proposal => new[] { proposal.DecidedByActorId, proposal.StaleByActorId }),
+            cancellationToken);
+        return proposals
+            .Select(proposal => proposal with
+            {
+                Objects = keys[proposal.ApprovalId].Select(key => new NhAssistantProposalObjectDto(key.Type, key.Id)).ToArray(),
+                DecidedByDisplayName = proposal.DecidedByDisplayName
+                    ?? (proposal.DecidedByActorId is { } decidedBy ? names.GetValueOrDefault(decidedBy) : null),
+                StaleByDisplayName = proposal.StaleByActorId is { } staleBy ? names.GetValueOrDefault(staleBy) : null
+            })
+            .ToArray();
     }
 
     public static NhAssistantProposalFeedbackDto ToDto(AssistantProposalFeedback feedback)

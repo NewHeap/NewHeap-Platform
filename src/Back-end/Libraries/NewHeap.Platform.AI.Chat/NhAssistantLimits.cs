@@ -53,6 +53,11 @@ public sealed class NhAssistantLimits
     public const int MaxRevalidationKeys = 256;
 
     /// <summary>
+    /// Maximum characters of the JSON payload a trigger stores with one event for rule handlers.
+    /// </summary>
+    public const int MaxInputPayloadCharacters = 4_000;
+
+    /// <summary>
     /// Maximum governed tool calls in one turn. Further calls end the turn gracefully.
     /// </summary>
     public int MaxToolCallsPerTurn { get; set; } = 8;

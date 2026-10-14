@@ -35,6 +35,44 @@ rejected, and the next run's continuity lists them in `<invalidated-proposals>`.
 | `NhAssistantFeedbackSummaryRowDto.Stale` and `Approved` count only proposals that closed after their approval; proposals closed before a decision are `Invalidated`. | None; reports that summed the statuses themselves add `Invalidated`. |
 | `NhAiProposalGuardContext.Subject` and `ScopeKey` are `null` for a proposal in a person's chat outside a subject thread. | Handle `null` in guards that apply to chat tools too. |
 
+## NewHeap.Platform.AI.Chat: agents that run by rules and never pile up the same proposal
+
+An agent whose decisions follow from data no longer needs a model for its runs. Implement
+`INhAssistantAgentRuleHandler` and register it with `UseRuleHandler<THandler>()` on
+`ConfigureAgent`; every headless run then calls the handler, spends no tokens and reads
+`Kind = "rule"` on `NhAssistantRunDto` (`NhAssistantRunKinds`). The handler reads the application's
+own data, proposes through `NhAssistantRuleContext.ProposeAsync(toolId, arguments, rationale)` along
+the same governed path as a model's tool call (grants, approval policy, presenters, guards, audit
+and live updates; always deferred, never executed), and ends with `NhAssistantRuleResult.Done` or
+hands an unclear case over to the model with `HandOver`, which continues the same run
+(`rule-then-model`). The rationale is rendered in every supported culture and reaches approvers as
+`Rationale` on the proposal and its approval part; the run's message in the thread carries
+`AuthorKind = "rule"`. Triggers can store a small `Payload(...)` with each input for the handler and
+send their runs to the model with `UseModel()`. A person's message in the thread and consultations
+always use the model.
+
+Agents no longer propose the same thing twice. Before a proposal of an agent run or a consultation
+is recorded, the platform compares it with the same agent's proposals under the thread's scope key:
+an identical open proposal is not recorded again (the model receives
+`assistant-proposal-already-open`), a proposal for the same objects with other arguments replaces
+the pending one, which closes as `withdrawn` with `assistant-proposal-superseded` and
+`SupersededByApprovalId`, and a proposal that people rejected within the approval policy's
+`RejectionCooldown` is refused with `assistant-proposal-recently-rejected`. `Duplicates(Skip)` keeps
+the older proposal and `Duplicates(Allow)` records both. Duplicates and replacements are audited as
+`AgentProposalDeduplicated` and `AgentProposalSuperseded` and never count, notify or show as new
+proposals. `NhAssistantProposalDto` also carries the `Objects` its guards named, and
+`StaleByActorId` with `StaleByDisplayName` when a guard names who overtook it with
+`NhAiPreconditionResult.ByActorId`.
+
+| Adoption note | Required action |
+|---|---|
+| New `nhai` migration `AgentRuleRuns` on SQL Server and PostgreSQL: `Kind` on `AssistantRun` (default `model`), `PayloadJson` on `AssistantQueuedInput`, and `ArgumentsHash`, `RationalesJson`, `StaleByActorId` and `SupersededByApprovalId` with an index on `ToolId` and `ArgumentsHash` on `AssistantApproval`. | Apply it, as the assistant does at startup unless `RunMigrations` is off. |
+| Changed default: agent-run and consultation proposals are deduplicated, and a newer proposal for the same objects replaces a pending one. | None; set `Duplicates(NhAiDuplicateProposals.Allow)` on a policy whose agents must record both. |
+| Changed default: a rejected proposal is refused for seven days (`RejectionCooldown`, at most 90 days). | Set `RejectionCooldown(TimeSpan.Zero)` on a policy that must accept it again at once. |
+| Proposals recorded before the upgrade have no arguments hash and are only compared by their objects. | None. |
+| Agent messages never carry `AuthorActorId`; the message of a rule run carries `AuthorKind = "rule"`. | Clients that branch on author kinds handle `rule`. |
+| New business audit kinds `AgentProposalDeduplicated` (42) and `AgentProposalSuperseded` (43). | Audit sinks that map every kind map them. |
+
 ## NewHeap.Platform.AspNet.Common: platform-internal signals for a module's own waits
 
 A platform module can now end a background-operation wait it started itself on behalf of the
@@ -60,3 +98,17 @@ shows the proposals that closed before a decision in the column "No longer neede
 |---|---|
 | `AgentProposal.staleKind` and `staleExplanation`, `ApprovalPart.staleKind` and `staleExplanation`, and `AgentFeedbackSummaryRow.invalidated` and `invalidations` are optional. | None. |
 | New translation keys `nh-assistant.approval.stale-kind.*`, `nh-assistant.agent-runs.proposal.closed`, `dismiss`, `dismiss-label`, `nh-assistant.admin.feedback.columns.invalidated`, `invalidated-hint` and `nh-assistant.errors.assistant-proposal-check-failed`. | Applications with their own translation files add them. |
+
+## @newheap/platform-ai-chat: rule runs, reasons and replaced proposals
+
+The thread view labels the message of a rule run as "Automatic rule" ("Automatische regel"), and the
+run timeline shows a rule run as "Automatic rule" and a handed-over run as "Rule, then the model".
+The approval card and the proposals list show why the rules proposed something ("Why: ...") and who
+overtook a stale proposal. A proposal that a newer one for the same objects replaced reads
+"Replaced by a newer proposal"; the inbox and the subject suggestions keep it as a closed card while
+it is shown, and "Show the newer proposal" moves focus to its successor in the list.
+
+| Adoption note | Required action |
+|---|---|
+| `MessageAuthorKind` gains `rule`; `AgentRun.kind`, `AgentProposal.objects`, `staleByActorId`, `staleByDisplayName`, `supersededByApprovalId` and `rationale`, and `ApprovalPart.rationale` and `supersededByApprovalId` are optional. | Exhaustive checks on `MessageAuthorKind` handle `rule`. |
+| New translation keys `nh-assistant.thread.rule`, `nh-assistant.approval.rationale`, `nh-assistant.approval.superseded`, `nh-assistant.agent-runs.run.kind.rule`, `rule-then-model`, `nh-assistant.agent-runs.proposal.show-successor`, `stale-by`, `nh-assistant.result-codes.assistant-proposal-already-open` and `assistant-proposal-recently-rejected`, and `nh-assistant.errors.assistant-proposal-already-open`, `assistant-proposal-recently-rejected`, `assistant-proposal-superseded` and `assistant-proposal-refused`. | Applications with their own translation files add them. |

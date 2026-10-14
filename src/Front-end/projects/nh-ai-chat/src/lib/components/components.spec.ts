@@ -289,6 +289,19 @@ describe('NhAssistantApprovalCardComponent', () => {
     expect(element.querySelector('.stale-explanation')).toBeNull();
   });
 
+  it('shows why the agent\'s rules proposed it and reads a superseded proposal as replaced', () => {
+    fixture.componentRef.setInput('approval', { ...approval, rationale: 'All 4 tasks of the project are completed.' });
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.rationale')!.textContent).toContain('Why: All 4 tasks of the project are completed.');
+
+    fixture.componentRef.setInput('approval', { ...approval, status: 'withdrawn', supersededByApprovalId: 'approval-2' });
+    fixture.detectChanges();
+    expect(element.querySelector('.rationale')).toBeNull();
+    expect(element.querySelector('.status')!.textContent).toContain('Replaced by a newer proposal');
+    expect(buttons().length).toBe(0);
+  });
+
   it('uses a localized safe fallback for old approvals without a presentation', () => {
     fixture.componentRef.setInput('approval', { ...approval, presentation: null, summary: 'Technical descriptor' });
     fixture.detectChanges();
@@ -700,6 +713,28 @@ describe('NhAssistantThreadComponent', () => {
     (cards[0].querySelector('.actions button.approve') as HTMLButtonElement).click();
 
     expect(choices).toEqual([{ approvalId: 'approval-1', decision: 'approve' }]);
+  });
+
+  it('labels a message the agent\'s rules wrote as an automatic rule, not as the model', () => {
+    const fixture = TestBed.createComponent(NhAssistantThreadComponent);
+    fixture.componentRef.setInput('currentActorId', 'lead');
+    fixture.componentRef.setInput('messages', [
+      {
+        id: 'a1',
+        role: 'assistant',
+        createdAt: '',
+        authorKind: 'rule',
+        parts: [{ type: 'text', text: 'Proposed to complete the project.' }]
+      },
+      { id: 'a2', role: 'assistant', createdAt: '', parts: [{ type: 'text', text: 'Because all tasks are done.' }] }
+    ] satisfies Message[]);
+    fixture.detectChanges();
+
+    const messages = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.message'));
+    expect(messages[0].getAttribute('data-author')).toBe('rule');
+    expect(messages[0].querySelector('.author')?.textContent?.trim()).toBe('Automatic rule');
+    expect(messages[1].getAttribute('data-author')).toBeNull();
+    expect(messages[1].querySelector('.author')?.textContent?.trim()).not.toBe('Automatic rule');
   });
 
   it('switches to CDK virtual scrolling above 200 messages', () => {

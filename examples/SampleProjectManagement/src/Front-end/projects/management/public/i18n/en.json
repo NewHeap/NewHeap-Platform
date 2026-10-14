@@ -547,6 +547,10 @@
       "sample-project-status-advisor": {
         "name": "Status advisor",
         "description": "Proposes a status change with your rights; you approve it before it runs."
+      },
+      "sample-project-closer": {
+        "name": "Project closer",
+        "description": "Proposes by fixed rules to complete an active project once all its tasks are completed."
       }
     }
   },

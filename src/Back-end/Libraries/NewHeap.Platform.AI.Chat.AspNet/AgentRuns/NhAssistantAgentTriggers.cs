@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Entities;
@@ -77,7 +78,13 @@ internal sealed record NhAssistantTriggerFire(
     string Message,
     string? EventKey,
     NhAssistantTriggerConflict Conflict,
-    TimeSpan Debounce);
+    TimeSpan Debounce)
+{
+    /// <summary>
+    /// The payload the trigger stores with the event for the agent's rule handler, as JSON.
+    /// </summary>
+    public string? PayloadJson { get; init; }
+}
 
 internal sealed class NhAssistantAgentTriggers(
     NhAssistantRegistrationState registration,
@@ -114,7 +121,10 @@ internal sealed class NhAssistantAgentTriggers(
                 trigger.Message(evt),
                 trigger.Dedupe(evt),
                 trigger.Conflict,
-                trigger.Debounce);
+                trigger.Debounce)
+            {
+                PayloadJson = PayloadOf(trigger, evt)
+            };
             receipts.Add(await FireAsync(fire, cancellationToken));
         }
 
@@ -493,8 +503,29 @@ internal sealed class NhAssistantAgentTriggers(
             AuthorActorId = personal ? fire.InitiatorActorId : null,
             TriggerId = fire.TriggerId,
             Text = text,
+            PayloadJson = fire.PayloadJson,
             CreatedAt = DateTimeOffset.UtcNow
         };
+    }
+
+    /// <summary>
+    /// The event's payload for rule handlers, as JSON within the stored limit.
+    /// </summary>
+    private static string? PayloadOf(NhAssistantTriggerDefinition trigger, object evt)
+    {
+        if (trigger.Payload?.Invoke(evt) is not { } payload)
+        {
+            return null;
+        }
+
+        var json = JsonSerializer.Serialize(payload, payload.GetType(), JsonSerializerOptions.Web);
+        if (json.Length > NhAssistantLimits.MaxInputPayloadCharacters)
+        {
+            throw new InvalidOperationException(
+                $"The payload of trigger '{trigger.Id}' exceeds {NhAssistantLimits.MaxInputPayloadCharacters} characters of JSON.");
+        }
+
+        return json;
     }
 
     private NhAssistantTriggerReceipt Rejected(NhAssistantTriggerFire fire, Guid? conversationId, string reason)

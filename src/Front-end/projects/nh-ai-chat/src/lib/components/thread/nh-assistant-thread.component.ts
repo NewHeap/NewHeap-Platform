@@ -159,6 +159,11 @@ export class NhAssistantThreadComponent {
     return message.role === 'user' && message.authorKind === 'trigger';
   }
 
+  /** True for an assistant message the agent's rules wrote without a model. */
+  isRule(message: Message): boolean {
+    return message.role === 'assistant' && message.authorKind === 'rule';
+  }
+
   /** True for a user message written by another person in a shared conversation. */
   isOthers(message: Message): boolean {
     return message.role === 'user'

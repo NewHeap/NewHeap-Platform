@@ -27,9 +27,11 @@
     class="message"
     [attr.data-role]="message.role"
     [attr.data-others]="isOthers(message) ? 'true' : null"
-    [attr.data-author]="isTrigger(message) ? 'trigger' : null">
+    [attr.data-author]="isTrigger(message) ? 'trigger' : isRule(message) ? 'rule' : null">
     @if (isTrigger(message)) {
       <p class="author">{{ 'nh-assistant.thread.trigger' | translate }}</p>
+    } @else if (isRule(message)) {
+      <p class="author">{{ 'nh-assistant.thread.rule' | translate }}</p>
     } @else if (isOthers(message)) {
       <p class="author">{{ authorName(message) ?? ('nh-assistant.thread.participant' | translate) }}</p>
     } @else {

@@ -99,6 +99,14 @@ h3 {
   overflow-wrap: anywhere;
 }
 
+// The rule's reason sits with the proposal it explains.
+.rationale {
+  margin: 8px 0 0;
+  color: var(--nha-text-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
 .technical-details {
   margin-top: 10px;
   color: var(--nha-text-muted);

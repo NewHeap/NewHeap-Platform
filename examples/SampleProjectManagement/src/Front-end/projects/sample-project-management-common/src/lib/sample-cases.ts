@@ -4194,5 +4194,34 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/approval-card/nh-assistant-approval-card.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts"
     ]
+  },
+  {
+    "id": "SPM-283",
+    "title": "An agent that proposes by fixed rules and never proposes the same thing twice",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAssistantAgentRuleHandler with NhAssistantRuleContext (ProposeAsync with a rationale per culture, Inputs with NhAssistantRuleInput.GetPayload), NhAssistantRuleResult (Done, HandOver), NhAssistantRuleProposal and NhAssistantProposeOutcome; NhAssistantAgentRunBuilder.UseRuleHandler, Payload and UseModel on triggers; NhAiApprovalPolicyBuilder.Duplicates with NhAiDuplicateProposals and RejectionCooldown; NhAssistantRunKinds and kind on NhAssistantRunDto; authorKind: \"rule\" on the rule's message (NhAssistantMessageAuthorKinds.Rule); rationale, objects (NhAssistantProposalObjectDto), staleByActorId, staleByDisplayName and supersededByApprovalId on NhAssistantProposalDto and the rationale and successor on the approval part; NhAiPreconditionResult.ByActorId; assistant-proposal-already-open, assistant-proposal-recently-rejected and assistant-proposal-superseded; NhAssistantAuditEventKind.AgentProposalDeduplicated and AgentProposalSuperseded; the AgentRuleRuns migrations for SQL Server and PostgreSQL; the rule author in NhAssistantThreadComponent, the run kind in NhAssistantRunTimelineComponent, and the rationale and replaced proposals in NhAssistantApprovalCardComponent and NhAssistantAgentProposalsComponent",
+    "outcome": "The project closer decides by rules, not by a model. Each completed task of an active project reaches the platform after its transaction committed and starts a run whose rules read the project as it is now: while a task is open they propose nothing; once the last task is completed they propose to complete the project, with the reason in each reader's language, and write a summary that reads as the agent's rule in the project's thread. No model is called and no tokens are spent. Saving a task again finds the same proposal waiting and records nothing new; a participant who asks the closer in the thread why it proposed this gets an answer from its model, which reads the rule's reason. After the project's approver rejects the proposal, the rules stay quiet for the policy's cooldown however often tasks change, and nothing ran. In the management portal a rule run and its message read as an automatic rule, the approval card shows why the rule proposed it, and a proposal that a newer one for the same objects replaced reads as replaced with a link to its successor.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiAgentRunContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantAgentRules.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalDuplicates.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRuleRunTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantProposalRevalidationTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-proposals.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-run-timeline.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/approval-card/nh-assistant-approval-card.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/thread/nh-assistant-thread.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/components.spec.ts"
+    ]
   }
 ] as const;

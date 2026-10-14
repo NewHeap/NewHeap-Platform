@@ -219,14 +219,19 @@ internal sealed class NhAssistantSubjectWork(
         CancellationToken cancellationToken)
     {
         var approvals = await runs.GetOpenThreadApprovalsAsync(thread.ConversationId, MaxProposalsPerThread, cancellationToken);
+        var proposals = await NhAssistantAgentRunDtoMapper.CompleteAsync(
+            approvals.Select(approval => NhAssistantAgentRunDtoMapper.ToDto(approval, thread)).ToArray(),
+            runs,
+            cancellationToken);
         var items = new List<NhAssistantSubjectProposalDto>(approvals.Count);
-        foreach (var approval in approvals)
+        for (var index = 0; index < approvals.Count; index++)
         {
+            var approval = approvals[index];
             var check = approval.Mode == NhAssistantApprovalModes.Inline && approval.RunId is null
                 ? TaskResult.Failed(NhAssistantErrorCodes.ApprovalDecisionInvalid, "A person's own turn decides this proposal.")
                 : await approvers.CheckAsync(approval, thread, actorId, user, cancellationToken);
             items.Add(new NhAssistantSubjectProposalDto(
-                NhAssistantAgentRunDtoMapper.ToDto(approval, thread),
+                proposals[index],
                 check.Success,
                 check.Success ? null : check.GetResultItems().Select(item => item.Name).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))));
         }

@@ -108,6 +108,11 @@ public sealed class AssistantRun
 
     public bool Shadow { get; set; }
 
+    /// <summary>
+    /// How the run worked: one of the values in <see cref="NhAssistantRunKinds"/>.
+    /// </summary>
+    public string Kind { get; set; } = NhAssistantRunKinds.Model;
+
     public string? CancelledByActorId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
@@ -198,6 +203,11 @@ public sealed class AssistantQueuedInput
     public string? TriggerId { get; set; }
 
     public string Text { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The small typed payload a trigger stored with the event for rule handlers, as JSON.
+    /// </summary>
+    public string? PayloadJson { get; set; }
 
     public string? ClientMessageId { get; set; }
 

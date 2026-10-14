@@ -116,7 +116,20 @@ public enum NhAssistantAuditEventKind
     /// <c>kind:reason</c>, and <c>ObjectId</c> the stage (revalidation, decision or execution); no
     /// content is recorded.
     /// </summary>
-    AgentProposalInvalidated = 41
+    AgentProposalInvalidated = 41,
+
+    /// <summary>
+    /// An agent did not record a proposal because the same one is open or was rejected recently.
+    /// <c>ApprovalId</c> is the existing proposal and <c>ResultCode</c> the outcome
+    /// (<c>assistant-proposal-already-open</c> or <c>assistant-proposal-recently-rejected</c>).
+    /// </summary>
+    AgentProposalDeduplicated = 42,
+
+    /// <summary>
+    /// A newer proposal for the same objects replaced a pending one, which is withdrawn.
+    /// <c>ApprovalId</c> is the replaced proposal and <c>ObjectId</c> the newer one.
+    /// </summary>
+    AgentProposalSuperseded = 43
 }
 
 /// <summary>

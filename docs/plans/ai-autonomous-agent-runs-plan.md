@@ -53,7 +53,9 @@ deferred proposal that closed without running reads `rejected` or `not-executed`
 Phase 5, [proposal feedback](#10-proposal-feedback), is implemented with sample case SPM-279; phase 6,
 [agent work on the subject itself](#11-agent-work-on-the-subject-itself), with SPM-280. Proposals
 that people overtake by hand close on their own since the
-[proposal revalidation plan](ai-proposal-revalidation-plan.md), with SPM-282.
+[proposal revalidation plan](ai-proposal-revalidation-plan.md), with SPM-282. Agents that run by
+fixed rules without a model, and proposals that are never recorded twice, came with the
+[rule runs plan](ai-agent-rule-runs-plan.md), with SPM-283.
 
 ## Goals
 
@@ -915,6 +917,7 @@ reads it, and `ProjectService` calls `RefreshAsync` when members change.
 | SPM-279 | Approvers explain rejected agent proposals and administrators review the feedback (number to be reserved) | 5 |
 | SPM-280 | Agent suggestions and the conversation on the project itself | 6 |
 | SPM-282 | Agent proposals that people overtake by hand close on their own | [Revalidation](ai-proposal-revalidation-plan.md) |
+| SPM-283 | An agent that proposes by fixed rules and never proposes the same thing twice | [Rule runs](ai-agent-rule-runs-plan.md) |
 
 ### Guidance and release notes
 

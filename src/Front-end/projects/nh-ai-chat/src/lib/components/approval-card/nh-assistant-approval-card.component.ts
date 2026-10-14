@@ -84,13 +84,22 @@ export class NhAssistantApprovalCardComponent {
   readonly expired = computed(() => this.approval().status === 'expired' ||
     (this.approval().status === 'pending' && this.remainingMs() <= 0));
   readonly effectiveStatus = computed(() => this.expired() ? 'expired' : this.approval().status);
-  /** Translation key of the status: the kind of a stale proposal, otherwise the status itself. */
+  /**
+   * Translation key of the status: the kind of a stale proposal, "replaced" for a superseded one,
+   * otherwise the status itself.
+   */
   readonly statusKey = computed(() => {
     const kind = this.approval().staleKind;
-    return this.effectiveStatus() === 'stale' && kind
-      ? `nh-assistant.approval.stale-kind.${kind}`
+    if (this.effectiveStatus() === 'stale' && kind) {
+      return `nh-assistant.approval.stale-kind.${kind}`;
+    }
+
+    return this.effectiveStatus() === 'withdrawn' && this.approval().supersededByApprovalId
+      ? 'nh-assistant.approval.superseded'
       : `nh-assistant.approval.status.${this.effectiveStatus()}`;
   });
+  /** Why the agent's rules proposed it; model proposals have none. */
+  readonly rationale = computed(() => this.approval().rationale ?? null);
   /** The application's explanation of a stale proposal, such as who already did the work. */
   readonly staleExplanation = computed(() =>
     this.effectiveStatus() === 'stale' ? this.approval().staleExplanation ?? null : null);

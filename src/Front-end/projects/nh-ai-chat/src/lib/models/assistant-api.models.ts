@@ -134,12 +134,18 @@ export interface Message {
   sequence?: number;
   /** The writer of a user message. */
   authorActorId?: string | null;
-  /** Who wrote a user message: a person or a trigger of an agent; missing on old servers. */
+  /**
+   * Who wrote the message: a person or a trigger of an agent for user messages, `rule` for the
+   * summary an agent's rules wrote instead of the model; missing on old servers.
+   */
   authorKind?: MessageAuthorKind | null;
 }
 
-/** `person` for a message a person wrote; `trigger` for one a trigger wrote into an agent thread. */
-export type MessageAuthorKind = 'person' | 'trigger';
+/**
+ * `person` for a message a person wrote; `trigger` for one a trigger wrote into an agent thread;
+ * `rule` for an assistant message the agent's rules wrote without a model.
+ */
+export type MessageAuthorKind = 'person' | 'trigger' | 'rule';
 
 export type MessagePart = TextPart | ToolCallPart | ApprovalPart;
 
@@ -226,6 +232,10 @@ export interface ApprovalPart {
   staleKind?: StaleKind;
   /** The application's explanation of a stale proposal in the reader's language, such as who did the work. */
   staleExplanation?: string;
+  /** Why the agent's rules proposed it, in the reader's language. Only sent for rule proposals. */
+  rationale?: string;
+  /** The newer proposal for the same objects that replaced this withdrawn one. Only sent then. */
+  supersededByApprovalId?: string;
 }
 
 /** Response of `GET conversations?page=&itemsPerPage=`. */

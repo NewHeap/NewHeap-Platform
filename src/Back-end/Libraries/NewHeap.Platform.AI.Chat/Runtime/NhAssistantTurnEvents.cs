@@ -120,8 +120,8 @@ internal sealed record NhAssistantMessageView(
     public string? AuthorActorId { get; init; }
 
     /// <summary>
-    /// One of the values in <see cref="NhAssistantMessageAuthorKinds"/> for a user message, or
-    /// <see langword="null"/> for the agent's messages.
+    /// One of the values in <see cref="NhAssistantMessageAuthorKinds"/> for a user message or an
+    /// agent message a rule run wrote, or <see langword="null"/> for the model's messages.
     /// </summary>
     public string? AuthorKind
     {
@@ -129,7 +129,9 @@ internal sealed record NhAssistantMessageView(
         {
             if (!string.Equals(Role, NhAssistantMessageRoles.User, StringComparison.Ordinal))
             {
-                return null;
+                return AuthorActorId?.StartsWith(NhAssistantSpeakers.RuleActorPrefix, StringComparison.Ordinal) == true
+                    ? NhAssistantMessageAuthorKinds.Rule
+                    : null;
             }
 
             return AuthorActorId?.StartsWith(NhAssistantSpeakers.TriggerActorPrefix, StringComparison.Ordinal) == true
@@ -185,4 +187,14 @@ internal sealed record NhAssistantApprovalView(
     /// The explanation of a stale proposal in the viewer's culture.
     /// </summary>
     public string? StaleExplanation { get; init; }
+
+    /// <summary>
+    /// Why the agent's rules proposed it, in the viewer's culture.
+    /// </summary>
+    public string? Rationale { get; init; }
+
+    /// <summary>
+    /// The newer proposal for the same objects that replaced this withdrawn one.
+    /// </summary>
+    public Guid? SupersededByApprovalId { get; init; }
 }

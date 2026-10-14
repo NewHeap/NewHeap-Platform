@@ -68,7 +68,8 @@
       "loading": "Gesprek laden",
       "elapsed": "{{seconds}} s",
       "participant": "Deelnemer",
-      "trigger": "Gebeurtenis"
+      "trigger": "Gebeurtenis",
+      "rule": "Automatische regel"
     },
     "composer": {
       "label": "Bericht",
@@ -174,7 +175,9 @@
         "already-done": "Al gedaan",
         "changed": "Gewijzigd",
         "not-applicable": "Niet meer nodig"
-      }
+      },
+      "rationale": "Waarom: {{rationale}}",
+      "superseded": "Vervangen door een nieuwer voorstel"
     },
     "proposal-feedback": {
       "legend": "Wat klopte er niet? (optioneel)",
@@ -226,7 +229,9 @@
       "assistant-proposal-expired": "Niet uitgevoerd: niemand besliste voordat het voorstel verliep.",
       "assistant-proposal-withdrawn": "Niet uitgevoerd: het voorstel is ingetrokken.",
       "assistant-proposal-stale": "Niet uitgevoerd: het voorstel was niet meer van toepassing.",
-      "assistant-proposal-execution-failed": "Het goedgekeurde voorstel kon niet worden uitgevoerd."
+      "assistant-proposal-execution-failed": "Het goedgekeurde voorstel kon niet worden uitgevoerd.",
+      "assistant-proposal-already-open": "Niet opnieuw voorgesteld: hetzelfde voorstel wacht al.",
+      "assistant-proposal-recently-rejected": "Niet opnieuw voorgesteld: het is kort geleden afgewezen."
     },
     "errors": {
       "generic": "Er ging iets mis. Probeer het opnieuw.",
@@ -299,6 +304,10 @@
       "assistant-execution-not-uncertain": "Deze uitvoering wacht niet op afhandeling.",
       "assistant-proposal-stale": "Dit voorstel is niet meer van toepassing, bijvoorbeeld omdat het werk al gedaan is. Er is niets gewijzigd.",
       "assistant-proposal-check-failed": "Kon niet controleren of dit voorstel nog van toepassing is, dus er is niets gewijzigd. Probeer het later opnieuw.",
+      "assistant-proposal-already-open": "Hetzelfde voorstel wacht al op een besluit.",
+      "assistant-proposal-recently-rejected": "Hetzelfde voorstel is kort geleden afgewezen.",
+      "assistant-proposal-superseded": "Een nieuwer voorstel heeft dit voorstel vervangen.",
+      "assistant-proposal-refused": "Deze actie kan niet door een automatische regel worden voorgesteld.",
       "assistant-trigger-not-found": "De trigger is niet gevonden.",
       "assistant-webhook-signature-invalid": "De webhook-aanroep heeft geen geldige handtekening.",
       "assistant-webhook-payload-invalid": "De webhook-aanroep kon niet worden gelezen.",
@@ -743,7 +752,9 @@
         "rejected-one": "Je hebt afgewezen: {{summary}}",
         "closed": "Intussen gesloten",
         "dismiss": "Wegklikken",
-        "dismiss-label": "Gesloten voorstel wegklikken: {{summary}}"
+        "dismiss-label": "Gesloten voorstel wegklikken: {{summary}}",
+        "show-successor": "Toon het nieuwere voorstel",
+        "stale-by": "Ingehaald door {{actor}}"
       },
       "run": {
         "empty": "Nog geen runs.",
@@ -756,6 +767,10 @@
           "cancelled": "Geannuleerd"
         },
         "shadow": "Schaduw",
+        "kind": {
+          "rule": "Automatische regel",
+          "rule-then-model": "Regel, daarna het model"
+        },
         "trigger": "Aanleiding: {{trigger}}",
         "tool-calls": "{{count}} tool-aanroepen",
         "tokens": "{{count}} tokens",

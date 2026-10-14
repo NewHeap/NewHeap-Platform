@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Threading.Channels;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -43,6 +44,8 @@ internal sealed class NhAssistantTurnRunner(
     NhAssistantApprovalPolicies approvalPolicies,
     NhAssistantProposalGuards proposalGuards,
     NhAssistantProposalInvalidation invalidation,
+    NhAssistantProposalDuplicates duplicates,
+    NhAssistantStaleExplanations texts,
     NhAssistantRunStore runs,
     ILogger<NhAssistantTurnRunner> logger) : INhAssistantTurnRunner
 {
@@ -333,6 +336,16 @@ internal sealed class NhAssistantTurnRunner(
                 return Result(state);
             }
 
+            string? handOver = null;
+            if (UsesRules(agentTurn))
+            {
+                handOver = await RunRulesAsync(state, callerContext, request.Inputs, cancellation.Token);
+                if (handOver is null)
+                {
+                    return Result(state);
+                }
+            }
+
             var messages = await BuildHistoryAsync(conversation.Id, history, effectiveAgent.Definition, null, null, speakers);
             // A run starts from its working memory and what earlier runs did, not from the full history.
             var continuity = await services.GetRequiredService<NhAssistantMemoryService>()
@@ -340,6 +353,15 @@ internal sealed class NhAssistantTurnRunner(
             if (continuity is not null)
             {
                 messages.Insert(0, new ChatMessage(ChatRole.System, continuity));
+            }
+            if (handOver is not null)
+            {
+                messages.Add(new ChatMessage(
+                    ChatRole.System,
+                    "The agent's application rules handed this run over to you. Their reason, as data: \""
+                    + NhAssistantContent.Bound(handOver.ReplaceLineEndings(" "), NhAssistantRuleResult.MaxSummaryLength)
+                    + "\". They already recorded " + state.ProposalCount.ToString(CultureInfo.InvariantCulture)
+                    + " proposal(s) in this run; do not propose those again."));
             }
             await RunModelAsync(state, callerContext, messages, cancellation.Token);
             return Result(state);
@@ -439,6 +461,17 @@ internal sealed class NhAssistantTurnRunner(
             {
                 state.ToolsDisabled = true;
                 functionResult = StaleResult(approval);
+            }
+            else if (approval.Status == NhAssistantApprovalStatuses.Withdrawn
+                && approval.ExecutionResultCode == NhAssistantErrorCodes.ProposalSuperseded)
+            {
+                state.ToolsDisabled = true;
+                functionResult = new Dictionary<string, object?>
+                {
+                    ["success"] = false,
+                    ["code"] = NhAssistantErrorCodes.ProposalSuperseded,
+                    ["message"] = "A newer proposal for the same objects replaced this one, so it was not executed. Do not retry it; explain the outcome briefly."
+                };
             }
             else if (approval.Status == NhAssistantApprovalStatuses.ExecutionFailed
                 && approval.ExecutionResultCode == NhAssistantErrorCodes.ProposalCheckFailed)
@@ -808,7 +841,8 @@ internal sealed class NhAssistantTurnRunner(
             IsRequestTurn = agentTurn.IsRequestTurn,
             Grants = delegatedOnly ? [] : agentTurn.Options.Grants,
             ElevatedReads = agentTurn.Options.ElevatedReads,
-            RequireApprovalForEffects = consultation is not null,
+            // A consultation and the agent's rules only propose: nothing changes without approval.
+            RequireApprovalForEffects = consultation is not null || state.RuleTurn,
             RunAttemptNumber = agentTurn.Attempt,
             CorrelationId = agentTurn.RunId?.ToString("N") ?? state.Scope.TurnId.ToString(),
             Deadline = state.Scope.Deadline,
@@ -840,7 +874,227 @@ internal sealed class NhAssistantTurnRunner(
             state.ToolCalls,
             state.InputTokens,
             state.OutputTokens,
-            state.ProposalCount);
+            state.ProposalCount)
+        {
+            Kind = state.Kind
+        };
+    }
+
+    /// <summary>
+    /// Whether the agent's rule handler runs this headless run. A person's turn and a trigger that
+    /// asks for the model use the model.
+    /// </summary>
+    private bool UsesRules(NhAssistantAgentTurnContext agentTurn)
+    {
+        return agentTurn.Options.RuleHandlerType is not null
+            && !agentTurn.IsRequestTurn
+            && !(registration.Triggers.TryGetValue(agentTurn.TriggerId, out var trigger) && trigger.UseModel);
+    }
+
+    /// <summary>
+    /// Runs the agent's rule handler instead of the model. The handler proposes through the same
+    /// interceptor as a model's tool call, with approval required for every effect. Returns the
+    /// hand-over reason when the model continues, or <see langword="null"/> when the turn ended.
+    /// </summary>
+    private async Task<string?> RunRulesAsync(
+        NhAssistantTurnState state,
+        NhAiInvocationContext callerContext,
+        IReadOnlyList<NhAssistantAgentTurnInput> inputs,
+        CancellationToken cancellationToken)
+    {
+        var agentTurn = state.AgentTurn!;
+        state.RuleTurn = true;
+        var interceptor = CreateInterceptor(state);
+        var outcomeStatus = NhAssistantTurnStatuses.Completed;
+        string? errorCode = null;
+        NhAssistantRuleResult? result = null;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(state.Scope.Limits.TurnTimeout);
+        try
+        {
+            using var turnScope = NhAssistantExecutionScope.EnterTurn(state.Scope);
+            using var agentScope = BeginAgentScope(state);
+            var tools = await RuleToolsAsync(state, callerContext, interceptor, timeout.Token);
+            var context = await CreateRuleContextAsync(state, inputs, interceptor, tools, timeout.Token);
+            var handler = (INhAssistantAgentRuleHandler)services.GetRequiredService(agentTurn.Options.RuleHandlerType!);
+            result = await handler.RunAsync(context, timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            if (cancellations.WasCancelled(state.Conversation.Id, state.Scope.TurnId)
+                || cancellationToken.IsCancellationRequested)
+            {
+                outcomeStatus = NhAssistantTurnStatuses.Cancelled;
+            }
+            else
+            {
+                outcomeStatus = NhAssistantTurnStatuses.Failed;
+                errorCode = NhAssistantErrorCodes.TurnTimeout;
+            }
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            // Application rules can carry content in exception messages; log the type only.
+            logger.LogWarning(
+                "Rule handler of agent {AgentId} failed in turn {TurnId} with {ExceptionType}.",
+                state.Scope.Agent.Id,
+                state.Scope.TurnId,
+                exception.GetType().Name);
+            outcomeStatus = NhAssistantTurnStatuses.Failed;
+            errorCode = NhAssistantErrorCodes.TurnFailed;
+        }
+
+        await interceptor.FlushAsync(CancellationToken.None);
+        if (outcomeStatus == NhAssistantTurnStatuses.Completed && result is { HandsOver: true })
+        {
+            state.RuleTurn = false;
+            state.HandedOver = true;
+            return result.HandOverReason;
+        }
+
+        if (outcomeStatus == NhAssistantTurnStatuses.Completed && result?.Summary is { } summary)
+        {
+            state.AppendText(state.RuleRationales.Count == 0
+                ? summary
+                : summary + "\n\n" + string.Join("\n", state.RuleRationales.Select(why => "- " + why)));
+            await interceptor.FlushAsync(CancellationToken.None);
+        }
+        await store.SetMessageAuthorAsync(
+            state.AssistantMessageId,
+            NhAssistantSpeakers.RuleActorPrefix + state.Scope.Agent.Id,
+            CancellationToken.None);
+
+        var conversationStatus = outcomeStatus == NhAssistantTurnStatuses.Failed
+            ? NhAssistantConversationStatuses.Failed
+            : NhAssistantConversationStatuses.Idle;
+        await store.TryEndTurnAsync(state.Conversation.Id, state.Scope.TurnId, conversationStatus, CancellationToken.None);
+        state.OutcomeStatus = outcomeStatus;
+        state.ErrorCode = errorCode;
+        logger.LogInformation(
+            "Rule turn {TurnId} of agent {AgentId} ended with {Status} after {ToolCalls} tool calls.",
+            state.Scope.TurnId,
+            state.Scope.Agent.Id,
+            outcomeStatus,
+            state.ToolCalls);
+        await state.EmitAsync(new NhAssistantTurnCompletedEvent(
+            state.Scope.TurnId,
+            outcomeStatus,
+            new NhAssistantTurnUsage(0, 0, state.ToolCalls),
+            errorCode));
+        await AfterTurnAsync(state, outcomeStatus);
+        return null;
+    }
+
+    /// <summary>
+    /// The governed functions the agent may use in this run, as for the model: its selectors, the
+    /// tools the caller may discover and its autonomy.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, AIFunction>> RuleToolsAsync(
+        NhAssistantTurnState state,
+        NhAiInvocationContext callerContext,
+        NhAssistantToolCallInterceptor interceptor,
+        CancellationToken cancellationToken)
+    {
+        var agent = state.Scope.Agent;
+        var context = CreateAgentInvocationContext(state, callerContext);
+        var selected = (await SelectToolsAsync(agent, context, null, cancellationToken)).ToHashSet(StringComparer.Ordinal);
+        var tools = new Dictionary<string, AIFunction>(StringComparer.Ordinal);
+        foreach (var catalog in _catalogs)
+        {
+            if (!catalog.Descriptors.Any(descriptor => selected.Contains(descriptor.Id)))
+            {
+                continue;
+            }
+            foreach (var function in catalog.CreateFunctions(services))
+            {
+                if (function is INhAiGovernedAIFunction governed && selected.Contains(governed.Descriptor.Id))
+                {
+                    tools.TryAdd(governed.Descriptor.Id, function);
+                }
+            }
+        }
+
+        interceptor.UseOfferedTools(tools.Values.OfType<INhAiGovernedAIFunction>().Select(function => function.Descriptor));
+        return tools;
+    }
+
+    private async Task<NhAssistantRuleContext> CreateRuleContextAsync(
+        NhAssistantTurnState state,
+        IReadOnlyList<NhAssistantAgentTurnInput> inputs,
+        NhAssistantToolCallInterceptor interceptor,
+        IReadOnlyDictionary<string, AIFunction> tools,
+        CancellationToken cancellationToken)
+    {
+        var agentTurn = state.AgentTurn!;
+        var conversationId = agentTurn.Thread.ConversationId;
+        var memory = services.GetRequiredService<NhAssistantMemoryService>();
+        var feedback = services.GetRequiredService<NhAssistantProposalFeedbackStore>();
+        var since = DateTimeOffset.UtcNow - registration.Limits.RejectionContextWindow;
+        var rejections = await feedback.GetRecentRejectionsAsync(conversationId, since, registration.Limits.MaxRejectionsInContext, cancellationToken);
+        var invalidations = await feedback.GetRecentInvalidationsAsync(conversationId, since, registration.Limits.MaxRejectionsInContext, cancellationToken);
+        var summaries = await runs.GetRecentSummariesAsync(
+            conversationId,
+            agentTurn.RunId ?? Guid.Empty,
+            registration.Limits.MaxRunSummaries,
+            cancellationToken);
+        var snapshot = await memory.GetAsync(conversationId, cancellationToken);
+        var rationales = state.RuleRationales;
+        return new NhAssistantRuleContext(
+            agentTurn.Thread.AgentId,
+            agentTurn.RunId ?? Guid.Empty,
+            agentTurn.TriggerId,
+            agentTurn.Subject,
+            agentTurn.InitiatorActorId,
+            agentTurn.AccountableOwnerId,
+            agentTurn.Options.Shadow,
+            inputs.Select(input => new NhAssistantRuleInput(input.TriggerId, input.Text, input.PayloadJson, input.CreatedAt)).ToArray(),
+            snapshot.Json,
+            summaries,
+            rejections.Select(item => new NhAssistantRuleDecision(item.ApprovalId, item.ToolId, item.DecidedAt, null)).ToArray(),
+            invalidations.Select(item => new NhAssistantRuleDecision(item.ApprovalId, item.ToolId, item.ClosedAt, item.Kind)).ToArray(),
+            async (toolId, arguments, rationale, token) =>
+            {
+                var proposed = await ProposeForRulesAsync(interceptor, tools, toolId, arguments, rationale, token);
+                if (proposed.Outcome == NhAssistantProposeOutcome.Created
+                    && rationale?.Invoke(CultureInfo.CurrentUICulture)?.Trim() is { Length: > 0 } why)
+                {
+                    // The thread keeps why, so the model can answer a person who asks about it.
+                    rationales.Add(NhAssistantContent.Bound(why.ReplaceLineEndings(" "), NhAssistantLimits.MaxStaleExplanationCharacters));
+                }
+
+                return proposed;
+            },
+            async (patch, token) => (await memory.UpdateAsync(
+                conversationId,
+                agentTurn.Options,
+                JsonSerializer.SerializeToElement(patch, patch.GetType(), JsonSerializerOptions.Web),
+                token)).Success);
+    }
+
+    private static async Task<NhAssistantRuleProposal> ProposeForRulesAsync(
+        NhAssistantToolCallInterceptor interceptor,
+        IReadOnlyDictionary<string, AIFunction> tools,
+        string toolId,
+        object arguments,
+        Func<CultureInfo, string?>? rationale,
+        CancellationToken cancellationToken)
+    {
+        if (!tools.TryGetValue(toolId, out var function)
+            || function is not INhAiGovernedAIFunction { Descriptor.Effect: not NhAiToolEffect.ReadOnly })
+        {
+            // Rules propose only changes, and only with the tools the agent may use.
+            return NhAssistantRuleProposal.Refused(NhAssistantErrorCodes.ProposalRefused);
+        }
+
+        var json = JsonSerializer.SerializeToElement(arguments, arguments.GetType(), JsonSerializerOptions.Web);
+        if (json.ValueKind != JsonValueKind.Object)
+        {
+            return NhAssistantRuleProposal.Refused(NhAssistantErrorCodes.ProposalRefused);
+        }
+
+        // The input's properties at the top level; a governed tool with an input envelope wraps them.
+        var values = json.EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value.Clone(), StringComparer.Ordinal);
+        return await interceptor.ProposeAsync(function, new AIFunctionArguments(values), rationale, cancellationToken);
     }
 
     private TaskResult<NhAssistantTurnHandle> Start(
@@ -1586,25 +1840,7 @@ internal sealed class NhAssistantTurnRunner(
             return null;
         }
 
-        var context = callerContext with
-        {
-            InvocationId = Guid.NewGuid(),
-            ActorId = agent.ActorId,
-            ActorKind = NhAiActorKind.Agent,
-            AccountableOwnerId = state.Scope.AccountableOwnerId,
-            Purpose = NhAssistantInvocationGate.Purpose,
-            RunId = state.Scope.TurnId.ToString(),
-            CorrelationId = callerContext.CorrelationId ?? state.Scope.TurnId.ToString(),
-            AgentVersion = agent.Version.ToString(CultureInfo.InvariantCulture),
-            ModelProfileName = agent.ProfileName,
-            PromptVersion = state.Scope.PromptVersion,
-            PromptHash = state.Scope.PromptHash,
-            Deadline = state.Scope.Deadline,
-            IdempotencyKey = null,
-            ProposalId = null,
-            ApprovalId = null,
-            RemainingBudget = null
-        };
+        var context = CreateAgentInvocationContext(state, callerContext);
         // Agent Framework and Microsoft.Extensions.AI trace function arguments and results at trace
         // level. The assistant pipeline gets no logger factory so conversation content never reaches logs.
         var agentServices = new NhAssistantContentSafeServiceProvider(services);
@@ -1645,6 +1881,30 @@ internal sealed class NhAssistantTurnRunner(
             .AsBuilder()
             .Use(interceptor.InvokeAsync)
             .Build(agentServices);
+    }
+
+    private static NhAiInvocationContext CreateAgentInvocationContext(NhAssistantTurnState state, NhAiInvocationContext callerContext)
+    {
+        var agent = state.Scope.Agent;
+        return callerContext with
+        {
+            InvocationId = Guid.NewGuid(),
+            ActorId = agent.ActorId,
+            ActorKind = NhAiActorKind.Agent,
+            AccountableOwnerId = state.Scope.AccountableOwnerId,
+            Purpose = NhAssistantInvocationGate.Purpose,
+            RunId = state.Scope.TurnId.ToString(),
+            CorrelationId = callerContext.CorrelationId ?? state.Scope.TurnId.ToString(),
+            AgentVersion = agent.Version.ToString(CultureInfo.InvariantCulture),
+            ModelProfileName = agent.ProfileName,
+            PromptVersion = state.Scope.PromptVersion,
+            PromptHash = state.Scope.PromptHash,
+            Deadline = state.Scope.Deadline,
+            IdempotencyKey = null,
+            ProposalId = null,
+            ApprovalId = null,
+            RemainingBudget = null
+        };
     }
 
     /// <summary>
@@ -1865,7 +2125,10 @@ internal sealed class NhAssistantTurnRunner(
             _businessSinks,
             logger,
             approvalPolicies,
-            proposalGuards);
+            proposalGuards,
+            duplicates,
+            invalidation,
+            texts);
     }
 
     private async Task FinishWithErrorAsync(

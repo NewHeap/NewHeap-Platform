@@ -86,6 +86,11 @@ internal sealed class NhAssistantSpeakers
     public const string TriggerActorPrefix = "trigger:";
 
     /// <summary>
+    /// The author of an agent message that a rule run wrote without a model.
+    /// </summary>
+    public const string RuleActorPrefix = "rule:";
+
+    /// <summary>
     /// The name of a person; people who left the conversation get a neutral label, and messages of a
     /// trigger are marked as events.
     /// </summary>

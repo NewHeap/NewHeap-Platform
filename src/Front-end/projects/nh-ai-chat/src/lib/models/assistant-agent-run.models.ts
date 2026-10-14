@@ -26,6 +26,12 @@ export type AgentProposalStatus =
 
 export type AgentGrantSource = 'none' | 'delegated' | 'agent';
 
+/**
+ * How a run worked: `model` through the language model, `rule` through the agent's rules without a
+ * model, `rule-then-model` when the rules handed the run over to the model.
+ */
+export type AgentRunKind = 'model' | 'rule' | 'rule-then-model';
+
 export interface AgentRun {
   id: string;
   conversationId: string;
@@ -47,6 +53,8 @@ export interface AgentRun {
   startedAt: string | null;
   endedAt: string | null;
   backgroundOperationId: string | null;
+  /** How the run worked. Missing on older servers, which only ran the model. */
+  kind?: AgentRunKind;
 }
 
 export interface AgentRunList {
@@ -202,6 +210,34 @@ export interface AgentProposal {
    * did the work; `null` when it gave none. Missing on older servers.
    */
   staleExplanation?: string | null;
+  /**
+   * Who made the proposal stale, when the application's guard named them; `null` otherwise.
+   * Missing on older servers.
+   */
+  staleByActorId?: string | null;
+  /** The name of `staleByActorId` from the subject's member snapshot; `null` when unknown. */
+  staleByDisplayName?: string | null;
+  /**
+   * The application objects the proposal changes, as its guards named them, so lists can group
+   * proposals by object. `targets` holds execution scopes instead. Missing on older servers.
+   */
+  objects?: AgentProposalObject[];
+  /**
+   * The newer proposal for the same objects that replaced this withdrawn one; `null` otherwise.
+   * Missing on older servers.
+   */
+  supersededByApprovalId?: string | null;
+  /**
+   * Why the agent's rules proposed it, in the caller's language; `null` for proposals of the model.
+   * Missing on older servers.
+   */
+  rationale?: string | null;
+}
+
+/** An application object a proposal changes, such as `{ type: 'project-task', id: '4711' }`. */
+export interface AgentProposalObject {
+  type: string;
+  id: string;
 }
 
 /**

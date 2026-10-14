@@ -295,6 +295,27 @@ public sealed class AssistantApproval
     /// </summary>
     public string? StaleExplanationsJson { get; set; }
 
+    /// <summary>
+    /// Who made the proposal stale, when its guard named them.
+    /// </summary>
+    public string? StaleByActorId { get; set; }
+
+    /// <summary>
+    /// The identity of the proposal: a hash of its tool id and canonical arguments, so the same
+    /// proposal is not recorded twice.
+    /// </summary>
+    public string? ArgumentsHash { get; set; }
+
+    /// <summary>
+    /// The newer proposal that replaced this withdrawn one.
+    /// </summary>
+    public Guid? SupersededByApprovalId { get; set; }
+
+    /// <summary>
+    /// Why a rule proposed it, per UI culture, as a JSON object from culture name to text.
+    /// </summary>
+    public string? RationalesJson { get; set; }
+
     public Guid ConcurrencyStamp { get; set; }
 }
 

@@ -7,6 +7,7 @@ import {
   NhAssistantAgentInboxComponent,
   NhAssistantAgentProposalsComponent,
   NhAssistantAgentThreadViewComponent,
+  NhAssistantRunTimelineComponent,
   NhAssistantSubjectSuggestionsComponent
 } from '@newheap/platform-ai-chat/agent-runs';
 import { NEVER, Subject, of, throwError } from 'rxjs';
@@ -15,6 +16,7 @@ import {
   AgentInbox,
   AgentProposal,
   AgentProposalFeedback,
+  AgentRun,
   AgentSubjectWork,
   AgentThread,
   AgentThreadLookup
@@ -202,6 +204,7 @@ describe('agent-run components', () => {
       'getInbox',
       'getProposals',
       'getConsultations',
+      'getRuns',
       'startAgent',
       'decide',
       'decideMany',
@@ -425,6 +428,55 @@ describe('agent-run components', () => {
       expect(meta[2]).toContain('Decided by user-9');
     });
 
+    it('shows why the agent\'s rules proposed it and who overtook a stale proposal', () => {
+      const translate = TestBed.inject(TranslateService);
+      translate.setTranslation('en', {
+        'nh-assistant': {
+          approval: { rationale: 'Why: {{rationale}}' },
+          'agent-runs': { proposal: { 'stale-by': 'Overtaken by {{actor}}' } }
+        }
+      });
+      translate.use('en');
+      fixture.componentInstance.proposals.set([
+        { ...proposal('pending'), rationale: 'All 4 tasks of the project are completed.' },
+        {
+          ...proposal('stale', 'approval-2'),
+          staleKind: 'already-done',
+          staleByActorId: 'member-1',
+          staleByDisplayName: 'Pat Planner'
+        },
+        { ...proposal('stale', 'approval-3'), staleKind: 'changed', staleByActorId: 'member-2', staleByDisplayName: null }
+      ]);
+      fixture.detectChanges();
+
+      const cards = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li.card'));
+      expect(cards[0].querySelector('.rationale')!.textContent).toContain('Why: All 4 tasks of the project are completed.');
+      expect(cards[1].querySelector('.rationale')).toBeNull();
+      expect(cards[1].querySelector('.meta')!.textContent).toContain('Overtaken by Pat Planner');
+      expect(cards[2].querySelector('.meta')!.textContent).toContain('Overtaken by member-2');
+    });
+
+    it('reads a superseded proposal as replaced and moves focus to the newer one', () => {
+      fixture.componentInstance.proposals.set([
+        { ...proposal('withdrawn', 'approval-1'), supersededByApprovalId: 'approval-2' },
+        proposal('pending', 'approval-2'),
+        { ...proposal('withdrawn', 'approval-3'), supersededByApprovalId: 'approval-elsewhere' },
+        proposal('withdrawn', 'approval-4')
+      ]);
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      const cards = Array.from(element.querySelectorAll<HTMLElement>('li.card'));
+      expect(cards[0].querySelector('.card-header')!.textContent).toContain('nh-assistant.approval.superseded');
+      expect(cards[2].querySelector('.card-header')!.textContent).toContain('nh-assistant.approval.superseded');
+      expect(cards[3].querySelector('.card-header')!.textContent).toContain('proposal.status.withdrawn');
+      // Only a successor in the list can be shown.
+      expect(cards[2].textContent).not.toContain('proposal.show-successor');
+
+      button(fixture, 'proposal.show-successor')!.click();
+      expect(document.activeElement).toBe(cards[1]);
+    });
+
     it('offers feedback on closed proposals only when the server allows it', () => {
       fixture.componentInstance.proposals.set([proposal('rejected'), { ...proposal('expired', 'approval-2'), canGiveFeedback: true }]);
       fixture.detectChanges();
@@ -514,6 +566,31 @@ describe('agent-run components', () => {
       expect(element.textContent).toContain('inbox.empty');
     }));
 
+    it('keeps a proposal that a newer one replaced as a closed card next to its successor', fakeAsync(() => {
+      const older = proposal('pending', 'approval-1');
+      const newer = proposal('pending', 'approval-2');
+      api.getInbox.and.returnValues(of({ items: [older], total: 1 }), of({ items: [newer], total: 1 }));
+      api.getProposals.and.returnValue(of([
+        { ...older, status: 'withdrawn', supersededByApprovalId: 'approval-2', executionResultCode: 'assistant-proposal-superseded' },
+        newer
+      ]));
+      const fixture = TestBed.createComponent(NhAssistantAgentInboxComponent);
+      fixture.detectChanges();
+
+      live.agentWork.next(work('conversation-1', 'proposal'));
+      tick(300);
+      fixture.detectChanges();
+
+      const cards = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('li.card'));
+      expect(cards.length).toBe(2);
+      expect(cards[0].classList).toContain('closed');
+      expect(cards[0].textContent).toContain('nh-assistant.approval.superseded');
+      expect(cards[1].classList).not.toContain('closed');
+
+      button(fixture, 'proposal.show-successor')!.click();
+      expect(document.activeElement).toBe(cards[1]);
+    }));
+
     it('shows why an approval was refused because the work was already done', () => {
       const pending = proposal('pending');
       api.getInbox.and.returnValues(of({ items: [pending], total: 1 }), of({ items: [], total: 0 }));
@@ -575,6 +652,52 @@ describe('agent-run components', () => {
       expect(api.getInbox).toHaveBeenCalledTimes(3);
       expect((fixture.nativeElement as HTMLElement).querySelector('.feedback-prompt nh-assistant-proposal-feedback')).not.toBeNull();
     }));
+  });
+
+  describe('nh-assistant-run-timeline', () => {
+    function run(id: string, kind?: AgentRun['kind']): AgentRun {
+      return {
+        id,
+        conversationId: 'conversation-1',
+        triggerId: 'project-tasks-completed',
+        status: 'completed',
+        failureClass: null,
+        failureCode: null,
+        initiatorActorId: null,
+        accountableOwnerId: 'agent:project-closer',
+        attempt: 1,
+        agentVersion: 1,
+        toolCalls: 1,
+        inputTokens: 0,
+        outputTokens: 0,
+        proposalCount: 1,
+        summary: 'Proposed to complete the project.',
+        shadow: false,
+        createdAt: '2026-10-14T10:00:00Z',
+        startedAt: '2026-10-14T10:00:01Z',
+        endedAt: '2026-10-14T10:00:02Z',
+        backgroundOperationId: null,
+        ...(kind ? { kind } : {})
+      };
+    }
+
+    it('tells runs of the agent\'s rules from runs of the model', () => {
+      api.getRuns.and.returnValue(of({
+        items: [run('run-1', 'rule'), run('run-2', 'rule-then-model'), run('run-3', 'model'), run('run-4')],
+        total: 4
+      }));
+      const fixture = TestBed.createComponent(NhAssistantRunTimelineComponent);
+      fixture.componentRef.setInput('conversationId', 'conversation-1');
+      fixture.detectChanges();
+
+      const headers = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li.card .card-header'))
+        .map(header => header.textContent ?? '');
+      expect(headers[0]).toContain('nh-assistant.agent-runs.run.kind.rule');
+      expect(headers[1]).toContain('nh-assistant.agent-runs.run.kind.rule-then-model');
+      // Model runs, also from servers without kinds, carry no extra badge.
+      expect(headers[2]).not.toContain('run.kind');
+      expect(headers[3]).not.toContain('run.kind');
+    });
   });
 
   describe('nh-assistant-agent-consultations', () => {

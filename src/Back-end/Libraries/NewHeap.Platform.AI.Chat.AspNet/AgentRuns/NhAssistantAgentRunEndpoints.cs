@@ -290,10 +290,7 @@ internal static class NhAssistantAgentRunEndpoints
             approvals.Select(approval => approval.Id).ToArray(),
             actorId,
             httpContext.RequestAborted);
-        var names = await runs.GetDisplayNamesAsync(
-            approvals.Select(approval => approval.DecidedByActorId),
-            httpContext.RequestAborted);
-        return TypedResults.Json(
+        var proposals = await NhAssistantAgentRunDtoMapper.CompleteAsync(
             approvals
                 .OrderByDescending(approval => approval.CreatedAt)
                 .Select(approval => NhAssistantAgentRunDtoMapper.ToDto(approval, thread) with
@@ -301,12 +298,13 @@ internal static class NhAssistantAgentRunEndpoints
                     Feedback = ownFeedback.TryGetValue(approval.Id, out var given)
                         ? NhAssistantAgentRunDtoMapper.ToDto(given)
                         : null,
-                    CanGiveFeedback = NhAssistantProposalFeedbackService.MayGiveFeedback(approval, role, actorId),
-                    DecidedByDisplayName = approval.DecidedByActorId is { } decidedBy
-                        ? names.GetValueOrDefault(decidedBy)
-                        : null
+                    CanGiveFeedback = NhAssistantProposalFeedbackService.MayGiveFeedback(approval, role, actorId)
                 })
                 .ToArray(),
+            runs,
+            httpContext.RequestAborted);
+        return TypedResults.Json(
+            proposals.ToArray(),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalDtoArray);
     }
 
@@ -542,8 +540,12 @@ internal static class NhAssistantAgentRunEndpoints
             pageNumber,
             size,
             httpContext.RequestAborted);
+        var proposals = await NhAssistantAgentRunDtoMapper.CompleteAsync(
+            items.Select(row => NhAssistantAgentRunDtoMapper.ToDto(row.Approval, row.Thread)).ToArray(),
+            runs,
+            httpContext.RequestAborted);
         return TypedResults.Json(
-            new NhAssistantInboxDto(items.Select(row => NhAssistantAgentRunDtoMapper.ToDto(row.Approval, row.Thread)).ToArray(), total),
+            new NhAssistantInboxDto(proposals, total),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantInboxDto);
     }
 
@@ -763,16 +765,18 @@ internal static class NhAssistantAgentRunEndpoints
 
         var approval = result.Data!;
         var thread = await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
-        var names = await runs.GetDisplayNamesAsync([approval.DecidedByActorId], cancellationToken);
+        var completed = await NhAssistantAgentRunDtoMapper.CompleteAsync(
+            [
+                NhAssistantAgentRunDtoMapper.ToDto(approval, thread!) with
+                {
+                    CanGiveFeedback = NhAssistantApprovalStatuses.AcceptsFeedback(approval.Status)
+                        && string.Equals(approval.DecidedByActorId, actorId, StringComparison.Ordinal)
+                }
+            ],
+            runs,
+            cancellationToken);
         return TypedResults.Json(
-            NhAssistantAgentRunDtoMapper.ToDto(approval, thread!) with
-            {
-                CanGiveFeedback = NhAssistantApprovalStatuses.AcceptsFeedback(approval.Status)
-                    && string.Equals(approval.DecidedByActorId, actorId, StringComparison.Ordinal),
-                DecidedByDisplayName = approval.DecidedByActorId is { } decidedBy
-                    ? names.GetValueOrDefault(decidedBy)
-                    : null
-            },
+            completed[0],
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalDto);
     }
 

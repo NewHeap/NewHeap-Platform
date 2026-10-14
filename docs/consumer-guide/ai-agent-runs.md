@@ -6,11 +6,11 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Contents
 
-- [Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback and revalidation](#run-assistant-agents-on-their-own-from-events-with-subject-threads-deferred-proposals-consultations-proposal-feedback-and-revalidation)
+- [Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs](#run-assistant-agents-on-their-own-from-events-with-subject-threads-deferred-proposals-consultations-proposal-feedback-revalidation-and-rule-runs)
 
-## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback and revalidation
+## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, and close proposals that people overtook by hand.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model and never pile up the same proposal.
 
 ## Preferred approach
 
@@ -47,7 +47,8 @@ decision. Decide a proposal with a run through `POST approvals/{id}/decisions` w
 proposal hash; a proposal of a person's own turn in the thread resumes that turn through
 the conversation's `decide` stream. Messages a trigger wrote into the thread carry
 `authorKind: "trigger"` (`NhAssistantMessageAuthorKinds`), so clients show them as events
-rather than as a person.
+rather than as a person, and the message of a rule run carries `authorKind: "rule"`; agent
+messages never carry an `authorActorId`.
 
 Register an `INhAssistantToolPresenter` (`AddToolPresenter`) for every tool an agent
 may propose. Approvers often decide days later and outside the conversation; the
@@ -215,6 +216,45 @@ that closed before a decision as `invalidated` per kind and reason, never as rej
 next run's continuity lists the already-done and no-longer-applicable ones in
 `<invalidated-proposals>`. The agent inbox and the subject suggestions keep a proposal that
 closes while it is shown as a closed card with its reason until it is dismissed.
+A guard may name who overtook a proposal with `NhAiPreconditionResult.ByActorId`; proposals then
+carry `staleByActorId` and `staleByDisplayName`, and every proposal carries the objects its
+guards named as `objects` (`NhAssistantProposalObjectDto`), so clients group proposals by object
+without parsing `targets`. A guard that only names keys and returns `Satisfied` is enough.
+
+Keep agents from repeating themselves. Before a proposal of an agent run or a consultation is
+recorded, the platform compares it with the same agent's proposals under the thread's scope key.
+An identical proposal (the same tool and canonical arguments) that still waits or executes is
+not recorded again; the model receives an "already proposed" result
+(`assistant-proposal-already-open`) instead. A proposal for the same objects, the keys its guards
+name, with other arguments replaces the pending one by default: the older one closes as
+`withdrawn` with `assistant-proposal-superseded` and `supersededByApprovalId`, a run that waits
+for it inline continues, and an approved or executing proposal is never replaced. Choose
+`Duplicates(NhAiDuplicateProposals.Skip)` on the approval policy to keep the older proposal or
+`Allow` to record both. People's rejections hold for the policy's `RejectionCooldown`, seven days
+by default and at most `MaxRejectionCooldown`: the same proposal, or one for the same objects, is
+refused as `assistant-proposal-recently-rejected` within it. Duplicates are audited as
+`AgentProposalDeduplicated` and replacements as `AgentProposalSuperseded`; neither counts,
+notifies or shows as a new proposal. A person's own proposals in a chat turn are never compared.
+
+Run an agent by fixed rules when its decisions follow from data. Implement
+`INhAssistantAgentRuleHandler` and register it with `UseRuleHandler<THandler>()` on
+`ConfigureAgent`: event, schedule, webhook, manual, request and follow-up runs then call the
+handler instead of the model, spend no tokens and read `kind: "rule"` (`NhAssistantRunKinds`).
+The handler reads the application's own data and evaluates the subject as it is now, because
+runs keep no typed event, a coalesced run receives several inputs and retries repeat them; a
+trigger may store a small `Payload(...)` per input (at most `MaxInputPayloadCharacters` of JSON)
+that the handler reads with `GetPayload<T>()`. It proposes with
+`NhAssistantRuleContext.ProposeAsync(toolId, arguments, rationale)` through the same governed flow
+as a model's tool call: the agent's selectors and grants, its approval policy (always deferred for
+rules), presenters, guards, deduplication, audit and live updates. Only tools that need approval
+can be proposed and nothing executes before people decide; a tool the agent may not use, or one
+whose arguments do not fit, is `Refused`. The rationale is rendered in every supported culture;
+approvers read it as `rationale` on the proposal and its approval part, and it ends the rule's
+message in the thread. Finish with `NhAssistantRuleResult.Done(summary)`, or hand an unclear case
+over with `HandOver(reason)`: the same run continues with the model, which reads the reason and the
+proposals already made, and reads `rule-then-model`. `UseModel()` on a trigger sends its runs to the
+model. A person's message in the thread and a consultation always reach the model, so keep a model
+profile and instructions that answer questions about the rules' proposals from the thread.
 
 ## Avoid
 
@@ -268,6 +308,12 @@ closes while it is shown as a closed card with its reason until it is dismissed.
   them as rejections.
 - Proposal keys without the scope key in an application whose ids repeat across tenants or
   divisions.
+- Driving deterministic decisions through a scripted chat client or a model prompt; register a
+  rule handler.
+- Changing data from a rule handler through the application's services instead of proposing it,
+  or deciding from the run's message text instead of the subject's current state or a payload.
+- Choosing `Allow` or a zero cooldown so that rules propose again; fix the rule or let people
+  decide the open proposal.
 
 ## Verification
 
@@ -308,8 +354,16 @@ subject and by key and assert that only the guarded proposal closes with its kin
 and an explanation in each supported culture, that a second revalidation changes nothing and
 another scope is left alone, that approving it is refused with `assistant-proposal-stale`, that
 a throwing guard keeps a proposal open, that a waiting inline run continues with not executed,
-and that the report counts the invalidation apart from rejections, on both providers. SPM-268 to
-SPM-280 and SPM-282 are the executable references.
+and that the report counts the invalidation apart from rejections, on both providers. Start a
+rule handler from an event and assert that no model was called, that the run reads `rule` with no
+tokens, that the proposal waits deferred with its rationale in each supported culture and that the
+thread's message reads `rule`; hand a run over and assert `rule-then-model`. Propose the same change
+twice from rules and from a model and assert one proposal and the deduplication audit; propose for
+the same objects with other arguments and assert the replacement, `Skip`, `Allow` and that an
+approved proposal stays; reject a proposal and assert that it is refused within the cooldown and
+accepted after it; assert that a tool without approval or outside the agent's selectors is refused
+and that the kill switch and shadow mode apply to rule runs, on both providers. SPM-268 to SPM-280,
+SPM-282 and SPM-283 are the executable references.
 
 ## Executable evidence
 
@@ -383,3 +437,8 @@ SPM-280 and SPM-282 are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectTaskAiTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectTaskAiTools.cs)
+- SPM-283 — An agent that proposes by fixed rules and never proposes the same thing twice
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)
