@@ -77,6 +77,7 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantProposalDecisions>();
             services.TryAddScoped<NhAssistantProposalFeedbackService>();
             services.TryAddScoped<INhAssistantSubjectWork, NhAssistantSubjectWork>();
+            services.TryAddScoped<NhAssistantProposalReads>();
             services.TryAddScoped<NhAssistantProposalExecutor>();
             services.TryAddScoped<INhAiProposalPrecondition, NhAssistantSubjectVersionPrecondition>();
             services.TryAddScoped<Runs.INhAssistantInlineRunWaker, NhAssistantInlineRunWaker>();

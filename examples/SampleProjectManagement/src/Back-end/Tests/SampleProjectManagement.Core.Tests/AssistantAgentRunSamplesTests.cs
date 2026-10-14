@@ -276,6 +276,39 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.StartsWith("Al afgevinkt door colleague@sample.localhost", dutch.StaleExplanation);
         }
 
+        // A client that hears about the change reads the proposal by its id, not through the
+        // thread, and a list refreshes several proposals with one lookup, each with the reader's
+        // own right to decide it. People outside the project learn nothing about them.
+        var single = await colleague.GetFromJsonAsync<NhAssistantSubjectProposalDto>($"/api/assistant/approvals/{taskProposal.ApprovalId}", Json);
+        Assert.Equal(NhAssistantApprovalStatuses.Stale, single!.Proposal.Status);
+        Assert.StartsWith("Already completed by colleague@sample.localhost", single.Proposal.StaleExplanation);
+        Assert.Equal(host.ColleagueId.ToString(), single.Proposal.StaleByActorId);
+        Assert.False(single.CanDecide);
+        var looked = await colleague.PostAsJsonAsync(
+            "/api/assistant/approvals/lookup",
+            new NhAssistantProposalLookupRequest([statusProposal.ApprovalId, taskProposal.ApprovalId]),
+            Json);
+        var lookup = (await looked.Content.ReadFromJsonAsync<NhAssistantProposalLookupDto>(Json))!;
+        Assert.Equal([statusProposal.ApprovalId, taskProposal.ApprovalId], lookup.Items.Select(item => item.Proposal.ApprovalId));
+        Assert.True(lookup.Items[0].CanDecide);
+        using (var owner = host.CreateClient(host.OwnerId.ToString()))
+        {
+            var ownRight = Assert.Single(
+                (await (await owner.PostAsJsonAsync("/api/assistant/approvals/lookup", new NhAssistantProposalLookupRequest([statusProposal.ApprovalId]), Json))
+                    .Content.ReadFromJsonAsync<NhAssistantProposalLookupDto>(Json))!.Items);
+            Assert.False(ownRight.CanDecide);
+            Assert.Equal(NhAssistantErrorCodes.FourEyesRequired, ownRight.ReasonCode);
+        }
+        using (var outsider = host.CreateClient(host.OutsiderId.ToString()))
+        {
+            Assert.Equal(HttpStatusCode.NotFound, (await outsider.GetAsync($"/api/assistant/approvals/{taskProposal.ApprovalId}")).StatusCode);
+            var nothing = await outsider.PostAsJsonAsync(
+                "/api/assistant/approvals/lookup",
+                new NhAssistantProposalLookupRequest([statusProposal.ApprovalId, taskProposal.ApprovalId]),
+                Json);
+            Assert.Empty((await nothing.Content.ReadFromJsonAsync<NhAssistantProposalLookupDto>(Json))!.Items);
+        }
+
         // Approving it afterwards is refused, and nothing ran.
         var refused = await DecideAsync(colleague, taskProposal, "approve");
         Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);

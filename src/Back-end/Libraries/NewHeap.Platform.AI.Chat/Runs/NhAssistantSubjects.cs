@@ -269,6 +269,46 @@ internal sealed class NhAssistantThreadService(
         return new NhAssistantThreadAccess(thread, subject, access, invited);
     }
 
+    /// <summary>
+    /// Returns the actor's live access to <paramref name="thread"/> as <see cref="ResolveAccessAsync"/>
+    /// does, without changing who takes part in the conversation: reading a proposal does not join
+    /// the thread. <see langword="null"/> when the actor has no role and no invitation.
+    /// </summary>
+    public async Task<NhAssistantThreadAccess?> ReadAccessAsync(
+        AssistantThread thread,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(thread);
+        var subject = new NhAiSubjectRef(thread.SubjectType, thread.SubjectId);
+        return await ReadAccessAsync(thread, actorId, await subjects.ResolveAsync(subject, actorId, cancellationToken), cancellationToken);
+    }
+
+    /// <summary>
+    /// The same check with the actor's role on the thread's subject already resolved, so a caller
+    /// that reads several threads of one subject asks the resolver once.
+    /// </summary>
+    public async Task<NhAssistantThreadAccess?> ReadAccessAsync(
+        AssistantThread thread,
+        string actorId,
+        NhAiSubjectAccess access,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(thread);
+        ArgumentNullException.ThrowIfNull(access);
+        var subject = new NhAiSubjectRef(thread.SubjectType, thread.SubjectId);
+        if (access.Role != NhAiSubjectRole.None)
+        {
+            return new NhAssistantThreadAccess(thread, subject, access, false);
+        }
+
+        // Without a role on the subject only an invitation to the thread's conversation gives access.
+        var participants = await store.GetParticipantsAsync(thread.ConversationId, cancellationToken);
+        var invited = participants.Any(item => string.Equals(item.ActorId, actorId, StringComparison.Ordinal)
+            && !string.Equals(item.JoinedVia, NhAssistantParticipantSources.Subject, StringComparison.Ordinal));
+        return invited ? new NhAssistantThreadAccess(thread, subject, access, true) : null;
+    }
+
     private static string Bound(string value, int maximum)
     {
         return value.Length <= maximum ? value : value[..maximum];

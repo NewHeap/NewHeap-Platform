@@ -1193,6 +1193,30 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         return keys.ToLookup(key => key.ApprovalId, key => new NhAiProposalKey(key.KeyType, key.KeyId));
     }
 
+    /// <summary>
+    /// The proposals of agent threads among <paramref name="approvalIds"/>, each with its thread.
+    /// Unknown ids and proposals outside agent threads are left out.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantInboxRow>> GetThreadApprovalsByIdAsync(
+        IReadOnlyCollection<Guid> approvalIds,
+        CancellationToken cancellationToken)
+    {
+        if (approvalIds.Count == 0)
+        {
+            return [];
+        }
+
+        await using var context = contextFactory.CreateDbContext();
+        var ids = approvalIds.Distinct().ToArray();
+        var rows = await (
+                from approval in context.Approvals.AsNoTracking()
+                join thread in context.Threads.AsNoTracking() on approval.ConversationId equals thread.ConversationId
+                where ids.Contains(approval.Id)
+                select new { approval, thread })
+            .ToListAsync(cancellationToken);
+        return rows.Select(row => new NhAssistantInboxRow(row.approval, row.thread)).ToList();
+    }
+
     private static readonly string[] OpenProposalStatuses =
     [
         NhAssistantApprovalStatuses.Pending,

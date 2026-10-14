@@ -12,10 +12,12 @@ import {
   AgentProposalDecision,
   AgentProposalFeedback,
   AgentProposalFeedbackCategory,
+  AgentProposalLookup,
   AgentRunList,
   AgentRunRetryMode,
   AgentSubjectSummaryList,
   AgentSubjectWork,
+  AgentSubjectWorkProposal,
   AgentThreadLookup,
   AgentThreadMemory,
   AgentTriggerReceipt,
@@ -89,6 +91,23 @@ export class NhAssistantAgentRunApiService {
 
   getProposals(conversationId: string): Observable<AgentProposal[]> {
     return this.transport.json<AgentProposal[]>('GET', `threads/${encodeURIComponent(conversationId)}/proposals`);
+  }
+
+  /**
+   * One proposal of an agent thread in any status, with the caller's live right to decide it, for
+   * example the one an `AgentWorkChanged` update names. Fails with `assistant-approval-not-found`
+   * for an unknown proposal and for one the caller may not see.
+   */
+  getProposal(approvalId: string): Observable<AgentSubjectWorkProposal> {
+    return this.transport.json<AgentSubjectWorkProposal>('GET', `approvals/${encodeURIComponent(approvalId)}`);
+  }
+
+  /**
+   * The proposals among at most `NH_ASSISTANT_MAX_PROPOSAL_LOOKUP` ids that the caller may see, in
+   * the order of the ids, each with the caller's live right to decide it. The others are left out.
+   */
+  lookupProposals(approvalIds: readonly string[]): Observable<AgentProposalLookup> {
+    return this.transport.json<AgentProposalLookup>('POST', 'approvals/lookup', { approvalIds });
   }
 
   getMemory(conversationId: string): Observable<AgentThreadMemory> {

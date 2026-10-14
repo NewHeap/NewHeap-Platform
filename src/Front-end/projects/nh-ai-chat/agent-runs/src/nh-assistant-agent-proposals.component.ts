@@ -20,6 +20,7 @@ import {
   AgentProposalDecision,
   AgentProposalDecisionRight,
   AgentProposalFeedback,
+  NH_ASSISTANT_MAX_PROPOSAL_LOOKUP,
   NhAssistantAgentRunApiService,
   NhAssistantError,
   NhAssistantProposalFeedbackComponent,
@@ -49,8 +50,10 @@ interface NhAssistantFeedbackRequest {
  * change that feedback later. With `decisionRights` each proposal has its own right, for example
  * from the agent work on a subject, and a pending proposal the viewer may not decide says who does.
  * A proposal that no longer fits, for example because a person already did the work, shows why.
- * With `holdClosedCards`, a list of open proposals keeps such a proposal as a closed card when it
- * closes while shown, or when an approval is refused because of it, until the person dismisses it.
+ * With `holdClosedCards`, a list of open proposals keeps such a proposal, or one a newer proposal
+ * replaced, as a closed card when it closes while shown, or when an approval is refused because of
+ * it, until the person dismisses it. It reads those proposals by id with one lookup, never through
+ * their threads.
  */
 @Component({
   selector: 'nh-assistant-agent-proposals',
@@ -76,8 +79,9 @@ export class NhAssistantAgentProposalsComponent {
   readonly decisionRights = input<ReadonlyMap<string, AgentProposalDecisionRight> | null>(null);
   readonly selectable = input(false);
   /**
-   * Keeps proposals that close as stale while shown as closed cards with their explanation until
-   * they are dismissed. For lists of open proposals, which drop a proposal once it closes.
+   * Keeps proposals that close as stale or are replaced while shown as closed cards with their
+   * explanation until they are dismissed. For lists of open proposals, which drop a proposal once
+   * it closes.
    */
   readonly holdClosedCards = input(false);
   /** Emits after a proposal or its feedback changed, so the host reloads its list. */
@@ -151,7 +155,7 @@ export class NhAssistantAgentProposalsComponent {
 
   /**
    * Called by a host of open proposals after a live update replaced `previous` with `next`: keeps
-   * the shown pending proposals that left the list because they closed as stale.
+   * the shown pending proposals that left the list because they closed as stale or were replaced.
    */
   holdClosed(previous: readonly AgentProposal[], next: readonly AgentProposal[]): void {
     const nextIds = new Set(next.map(proposal => proposal.approvalId));
@@ -287,21 +291,26 @@ export class NhAssistantAgentProposalsComponent {
   }
 
   /**
-   * Reloads the threads of `proposals` and keeps those that closed as stale as closed cards, with
-   * their kind and explanation.
+   * Reads `proposals` again by id and keeps those that closed as stale or were replaced as closed
+   * cards, with their kind and explanation or their successor.
    */
   private holdStale(proposals: readonly AgentProposal[]): void {
     if (!this.holdClosedCards() || proposals.length === 0) {
       return;
     }
 
-    const wanted = new Set(proposals.map(proposal => proposal.approvalId));
-    const conversations = [...new Set(proposals.map(proposal => proposal.conversationId))];
-    this.lookups.add(forkJoin(conversations.map(id => this.api.getProposals(id))).subscribe({
-      next: threads => {
-        const closed = threads
-          .flat()
-          .filter(proposal => wanted.has(proposal.approvalId) && (proposal.status === 'stale' || isSuperseded(proposal)));
+    // The proposals are read by id, never through their threads.
+    const ids = [...new Set(proposals.map(proposal => proposal.approvalId))];
+    const batches: string[][] = [];
+    for (let start = 0; start < ids.length; start += NH_ASSISTANT_MAX_PROPOSAL_LOOKUP) {
+      batches.push(ids.slice(start, start + NH_ASSISTANT_MAX_PROPOSAL_LOOKUP));
+    }
+    this.lookups.add(forkJoin(batches.map(batch => this.api.lookupProposals(batch))).subscribe({
+      next: lookups => {
+        const closed = lookups
+          .flatMap(lookup => lookup.items)
+          .map(item => item.proposal)
+          .filter(proposal => proposal.status === 'stale' || isSuperseded(proposal));
         if (closed.length === 0) {
           return;
         }
@@ -311,7 +320,7 @@ export class NhAssistantAgentProposalsComponent {
           ...held.filter(item => !closed.some(proposal => proposal.approvalId === item.approvalId))
         ]);
       },
-      // Without the thread the proposal just leaves the list, as it did before.
+      // Without the lookup the proposal just leaves the list, as it did before.
       error: () => undefined
     }));
   }

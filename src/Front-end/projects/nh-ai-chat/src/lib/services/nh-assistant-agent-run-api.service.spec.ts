@@ -74,6 +74,8 @@ describe('NhAssistantAgentRunApiService', () => {
       [() => firstValueFrom(api.summarizeSubjects('project', ['p-1', 'p-2'])), 'POST', 'subjects/project/summary'],
       [() => firstValueFrom(api.getRuns('thread-1')), 'GET', 'threads/thread-1/runs'],
       [() => firstValueFrom(api.getProposals('thread-1')), 'GET', 'threads/thread-1/proposals'],
+      [() => firstValueFrom(api.getProposal('approval 1')), 'GET', 'approvals/approval%201'],
+      [() => firstValueFrom(api.lookupProposals(['a', 'b'])), 'POST', 'approvals/lookup'],
       [() => firstValueFrom(api.getConsultations('thread-1')), 'GET', 'threads/thread-1/consultations?page=1&itemsPerPage=20'],
       [() => firstValueFrom(api.getMemory('thread-1')), 'GET', 'threads/thread-1/memory'],
       [() => firstValueFrom(api.getArtifacts('thread-1')), 'GET', 'threads/thread-1/artifacts'],
@@ -105,6 +107,9 @@ describe('NhAssistantAgentRunApiService', () => {
 
     await firstValueFrom(api.openThread('intake', 'project', 'p-1'));
     expect(lastCall().body).toEqual({ agentId: 'intake', subjectType: 'project', subjectId: 'p-1' });
+
+    await firstValueFrom(api.lookupProposals(['approval-1', 'approval-2']));
+    expect(lastCall().body).toEqual({ approvalIds: ['approval-1', 'approval-2'] });
   });
 
   it('reports a subject without a role for the caller with its stable code', async () => {

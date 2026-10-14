@@ -98,9 +98,23 @@ export interface AgentSubjectWorkAgent {
   canStart: boolean;
 }
 
-/** An open proposal on a subject with the caller's live decision right. */
+/**
+ * A proposal on a subject with the caller's live decision right. Only a pending proposal can be
+ * decided; for every other status `canDecide` is `false` and `reasonCode` is `null`.
+ */
 export interface AgentSubjectWorkProposal extends AgentProposalDecisionRight {
   proposal: AgentProposal;
+}
+
+/** The most proposals one `POST approvals/lookup` reads. */
+export const NH_ASSISTANT_MAX_PROPOSAL_LOOKUP = 100;
+
+/**
+ * Response of `POST approvals/lookup`: the requested proposals the caller may see, in the order of
+ * the request. Ids the caller may not see, or that do not exist, are left out.
+ */
+export interface AgentProposalLookup {
+  items: AgentSubjectWorkProposal[];
 }
 
 /**

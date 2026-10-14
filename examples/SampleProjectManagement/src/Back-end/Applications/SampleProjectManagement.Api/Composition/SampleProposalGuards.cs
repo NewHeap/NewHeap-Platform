@@ -68,9 +68,13 @@ public sealed class ProjectTaskProposalGuard(
             : null;
         var completedAt = task.CompletedAt ?? DateTimeOffset.UtcNow;
         // The platform calls the explanation once per supported culture, with that culture current.
+        // Naming who did the work lets clients show it without parsing the explanation.
         return NhAiPreconditionResult.AlreadyDone(CompletedCode, culture => completedBy is null
             ? localizer["StaleTaskCompleted", completedAt.ToString("d", culture)].Value
-            : localizer["StaleTaskCompletedBy", completedBy, completedAt.ToString("d", culture)].Value);
+            : localizer["StaleTaskCompletedBy", completedBy, completedAt.ToString("d", culture)].Value) with
+        {
+            ByActorId = task.CompletedByUserId?.ToString("D")
+        };
     }
 
     private static ProjectTaskCompleteInput? Read(NhAiProposalGuardContext context)

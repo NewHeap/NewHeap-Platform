@@ -23,11 +23,27 @@ internal sealed class NhAssistantApproverCheck(
 {
     private readonly IReadOnlyList<INhAiToolCatalog> _catalogs = catalogs.ToArray();
 
+    public Task<TaskResult> CheckAsync(
+        AssistantApproval approval,
+        AssistantThread thread,
+        string actorId,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken)
+    {
+        return CheckAsync(approval, thread, actorId, user, null, cancellationToken);
+    }
+
+    /// <summary>
+    /// The same check with the thread's subject already described and resolved for
+    /// <paramref name="actorId"/>, so a caller that checks several proposals of one subject asks the
+    /// resolver once; without it the check asks the resolver itself.
+    /// </summary>
     public async Task<TaskResult> CheckAsync(
         AssistantApproval approval,
         AssistantThread thread,
         string actorId,
         ClaimsPrincipal user,
+        NhAssistantResolvedSubject? resolved,
         CancellationToken cancellationToken)
     {
         var policy = approval.PolicyJson is null
@@ -43,9 +59,9 @@ internal sealed class NhAssistantApproverCheck(
             return TaskResult.Failed(NhAssistantErrorCodes.FourEyesRequired, "Another person must decide this proposal.");
         }
 
-        var info = await subjects.DescribeAsync(subject, cancellationToken);
+        var info = resolved is null ? await subjects.DescribeAsync(subject, cancellationToken) : resolved.Info;
         var resource = new NhAiSubjectAuthorizationResource(subject, thread.ScopeKey, info?.DivisionId ?? thread.DivisionId, "approval");
-        var access = await subjects.ResolveAsync(subject, actorId, cancellationToken);
+        var access = resolved is null ? await subjects.ResolveAsync(subject, actorId, cancellationToken) : resolved.Access;
         var qualifies = false;
         foreach (var rule in policy.Approvers)
         {
@@ -89,6 +105,11 @@ internal sealed class NhAssistantApproverCheck(
             .FirstOrDefault();
     }
 }
+
+/// <summary>
+/// A thread's subject as its resolver described it and as it resolved one caller's role.
+/// </summary>
+internal sealed record NhAssistantResolvedSubject(NhAiSubjectInfo? Info, NhAiSubjectAccess Access);
 
 /// <summary>
 /// Records decisions about proposals of agent threads and starts what follows: the execution of

@@ -67,6 +67,20 @@ its feedback changed, without content, so an approval inbox updates before its o
 opened the thread. `decidedByDisplayName` and the report's `authorDisplayName` come from
 the member snapshot; show the id when they are missing.
 
+Read the proposal an update names by its id, not through its thread. `GET approvals/{approvalId}`
+returns one proposal of an agent thread in any status as `NhAssistantSubjectProposalDto`: the
+proposal with its objects, stale explanation, successor, rationale and the caller's own feedback,
+plus `canDecide` and `reasonCode` from the same live check as a decision, for pending proposals
+only. `POST approvals/lookup` reads at most `NhAssistantProposalLookupRequest.MaxApprovalIds` (100)
+ids in one request and returns the visible ones in request order (`NhAssistantProposalLookupDto`).
+Both follow the thread's visibility: a live role on the subject or an invitation to the thread,
+shadow agents for administrators only and the caller's tenant; a proposal the caller may not see
+answers `404 assistant-approval-not-found` like an unknown one, and a lookup leaves it out. Reading
+never joins the thread, and a lookup resolves each subject once. A person's own chat proposals stay
+in their conversation. Reload a list for proposals it does not show yet; in the client,
+`NhAssistantAgentRunApiService.getProposal` and `lookupProposals` read by id, and the inbox and the
+subject suggestions keep closed cards through one lookup instead of reading threads.
+
 Show agent work on the application's own pages, not only in the inbox. A detail page reads
 everything on its subject with `GET subjects/{type}/{id}/work` (every agent's thread and the
 open proposals of all of them with the caller's live decision right); a list reads badges for
@@ -314,6 +328,8 @@ profile and instructions that answer questions about the rules' proposals from t
   or deciding from the run's message text instead of the subject's current state or a payload.
 - Choosing `Allow` or a zero cooldown so that rules propose again; fix the rule or let people
   decide the open proposal.
+- Reading a whole thread's proposals to refresh the one a live update names, or polling proposals
+  by id instead of reading them when `AgentWorkChanged` names them.
 
 ## Verification
 
@@ -362,8 +378,12 @@ twice from rules and from a model and assert one proposal and the deduplication 
 the same objects with other arguments and assert the replacement, `Skip`, `Allow` and that an
 approved proposal stays; reject a proposal and assert that it is refused within the cooldown and
 accepted after it; assert that a tool without approval or outside the agent's selectors is refused
-and that the kill switch and shadow mode apply to rule runs, on both providers. SPM-268 to SPM-280,
-SPM-282 and SPM-283 are the executable references.
+and that the kill switch and shadow mode apply to rule runs, on both providers. Read a proposal by
+id in every status and assert its fields and the live decision right of an approver, the initiator
+under four eyes and a reader; assert 404 without a role, for another tenant and for a hidden agent,
+that a lookup returns only visible proposals in request order and refuses more than 100 ids, and
+that reading does not join the thread, on both providers. SPM-268 to SPM-280, SPM-282 and SPM-283
+are the executable references.
 
 ## Executable evidence
 

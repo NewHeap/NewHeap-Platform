@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.63",
   "backEnd": {
-    "hash": "8a2a0766cbdc69c4ee40148a332928c1b9360f4a0da25ab11f285fa904addc65",
-    "declarationCount": 7270,
+    "hash": "0adece82be3f0b9b5bb575be6b5796f3d0b7e5facc59a4d7adde0995db42f8fc",
+    "declarationCount": 7278,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -1531,6 +1531,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public sealed record NhAssistantProposalLookupRequest(IReadOnlyList<Guid>? ApprovalIds) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public const int MaxApprovalIds = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public sealed record NhAssistantProposalLookupDto(IReadOnlyList<NhAssistantSubjectProposalDto> Items);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
         "declaration": "public sealed record NhAssistantSubjectWorkDto( string SubjectType, string SubjectId, string? SubjectDisplayName, string Role, IReadOnlyList<NhAssistantSubjectAgentDto> Agents, IReadOnlyList<NhAssistantSubjectProposalDto> OpenProposals);"
       },
       {
@@ -1591,7 +1603,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
-        "declaration": "[JsonSerializable(typeof(NhAssistantThreadLookupDto))] [JsonSerializable(typeof(NhAssistantKillSwitchRequest))] [JsonSerializable(typeof(NhAssistantThreadMemoryDto))] [JsonSerializable(typeof(NhAssistantArtifactDto[]))] [JsonSerializable(typeof(NhAssistantKillSwitchDto))] [JsonSerializable(typeof(NhAssistantStartAgentRequest))] [JsonSerializable(typeof(NhAssistantTriggerReceiptDto))] [JsonSerializable(typeof(NhAssistantRunDto))] [JsonSerializable(typeof(NhAssistantRunListDto))] [JsonSerializable(typeof(NhAssistantRetryRunRequest))] [JsonSerializable(typeof(NhAssistantProposalDto))] [JsonSerializable(typeof(NhAssistantProposalDto[]))] [JsonSerializable(typeof(NhAssistantInboxDto))] [JsonSerializable(typeof(NhAssistantProposalDecisionRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionDto))] [JsonSerializable(typeof(NhAssistantResolveExecutionRequest))] [JsonSerializable(typeof(NhAssistantConsultationListDto))] [JsonSerializable(typeof(NhAssistantProposalFeedbackRequest))] [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackRequest))] [JsonSerializable(typeof(NhAssistantProposalFeedbackDto))] [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackDto))] [JsonSerializable(typeof(NhAssistantFeedbackSummaryDto))] [JsonSerializable(typeof(NhAssistantFeedbackListDto))] [JsonSerializable(typeof(NhAssistantFeedbackExportRecord))] [JsonSerializable(typeof(NhAssistantSubjectWorkDto))] [JsonSerializable(typeof(NhAssistantSubjectSummaryRequest))] [JsonSerializable(typeof(NhAssistantSubjectSummaryListDto))] [JsonSerializable(typeof(NhAssistantOpenThreadRequest))] [JsonSerializable(typeof(string[]))] public sealed partial class NhAssistantAgentRunJsonSerializerContext : JsonSerializerContext;"
+        "declaration": "[JsonSerializable(typeof(NhAssistantThreadLookupDto))] [JsonSerializable(typeof(NhAssistantKillSwitchRequest))] [JsonSerializable(typeof(NhAssistantThreadMemoryDto))] [JsonSerializable(typeof(NhAssistantArtifactDto[]))] [JsonSerializable(typeof(NhAssistantKillSwitchDto))] [JsonSerializable(typeof(NhAssistantStartAgentRequest))] [JsonSerializable(typeof(NhAssistantTriggerReceiptDto))] [JsonSerializable(typeof(NhAssistantRunDto))] [JsonSerializable(typeof(NhAssistantRunListDto))] [JsonSerializable(typeof(NhAssistantRetryRunRequest))] [JsonSerializable(typeof(NhAssistantProposalDto))] [JsonSerializable(typeof(NhAssistantProposalDto[]))] [JsonSerializable(typeof(NhAssistantInboxDto))] [JsonSerializable(typeof(NhAssistantProposalDecisionRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionDto))] [JsonSerializable(typeof(NhAssistantResolveExecutionRequest))] [JsonSerializable(typeof(NhAssistantConsultationListDto))] [JsonSerializable(typeof(NhAssistantProposalFeedbackRequest))] [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackRequest))] [JsonSerializable(typeof(NhAssistantProposalFeedbackDto))] [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackDto))] [JsonSerializable(typeof(NhAssistantFeedbackSummaryDto))] [JsonSerializable(typeof(NhAssistantFeedbackListDto))] [JsonSerializable(typeof(NhAssistantFeedbackExportRecord))] [JsonSerializable(typeof(NhAssistantSubjectWorkDto))] [JsonSerializable(typeof(NhAssistantSubjectProposalDto))] [JsonSerializable(typeof(NhAssistantProposalLookupRequest))] [JsonSerializable(typeof(NhAssistantProposalLookupDto))] [JsonSerializable(typeof(NhAssistantSubjectSummaryRequest))] [JsonSerializable(typeof(NhAssistantSubjectSummaryListDto))] [JsonSerializable(typeof(NhAssistantOpenThreadRequest))] [JsonSerializable(typeof(string[]))] public sealed partial class NhAssistantAgentRunJsonSerializerContext : JsonSerializerContext;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
@@ -1879,7 +1891,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
-        "declaration": "public async Task<TaskResult> CheckAsync( AssistantApproval approval, AssistantThread thread, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+        "declaration": "public Task<TaskResult> CheckAsync( AssistantApproval approval, AssistantThread thread, string actorId, ClaimsPrincipal user, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public async Task<TaskResult> CheckAsync( AssistantApproval approval, AssistantThread thread, string actorId, ClaimsPrincipal user, NhAssistantResolvedSubject? resolved, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
@@ -1908,6 +1924,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalFeedbackService.cs",
         "declaration": "public async Task<TaskResult<AssistantProposalFeedback>> GiveAsync( Guid approvalId, string actorId, string? category, string? text, bool bulk, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalReads.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantSubjectProposalDto>> ReadAsync( IReadOnlyList<Guid> approvalIds, string actorId, string? tenantId, ClaimsPrincipal user, Func<string, Task<bool>> isHiddenAgent, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRestrictedResults.cs",
@@ -7659,6 +7679,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantInboxRow>> GetThreadApprovalsByIdAsync( IReadOnlyCollection<Guid> approvalIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<IReadOnlyList<NhAssistantSubjectSummaryRow>> SummarizeSubjectsAsync( string actorId, string subjectType, IReadOnlyCollection<string> subjectIds, IReadOnlyCollection<string> hiddenAgentIds, CancellationToken cancellationToken) {"
       },
       {
@@ -8364,6 +8388,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
         "declaration": "public async Task<NhAssistantThreadAccess?> ResolveAccessAsync( Guid conversationId, string actorId, string? displayName, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
+        "declaration": "public async Task<NhAssistantThreadAccess?> ReadAccessAsync( AssistantThread thread, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
+        "declaration": "public async Task<NhAssistantThreadAccess?> ReadAccessAsync( AssistantThread thread, string actorId, NhAiSubjectAccess access, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/INhAssistantMcpToolSource.cs",
@@ -32709,7 +32741,9 @@
       "RejectionCooldown",
       "MaxRejectionCooldown",
       "MaxInputPayloadCharacters",
-      "NhAssistantProposalObjectDto"
+      "NhAssistantProposalObjectDto",
+      "NhAssistantProposalLookupRequest",
+      "NhAssistantProposalLookupDto"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",

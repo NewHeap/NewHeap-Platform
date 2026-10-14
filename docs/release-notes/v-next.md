@@ -73,6 +73,23 @@ proposals. `NhAssistantProposalDto` also carries the `Objects` its guards named,
 | Agent messages never carry `AuthorActorId`; the message of a rule run carries `AuthorKind = "rule"`. | Clients that branch on author kinds handle `rule`. |
 | New business audit kinds `AgentProposalDeduplicated` (42) and `AgentProposalSuperseded` (43). | Audit sinks that map every kind map them. |
 
+## NewHeap.Platform.AI.Chat.AspNet: read agent proposals by id
+
+`AgentWorkChanged` names the proposal that changed; clients can now read that proposal without
+loading its thread. `GET approvals/{approvalId}` returns one proposal of an agent thread in any
+status as `NhAssistantSubjectProposalDto`, with its objects, stale explanation, successor,
+rationale and the caller's own feedback, and the caller's live `canDecide` and `reasonCode` for a
+pending proposal. `POST approvals/lookup` reads up to 100 ids at once
+(`NhAssistantProposalLookupRequest`) and returns the visible proposals in request order
+(`NhAssistantProposalLookupDto`). Both follow the thread's visibility; a proposal the caller may
+not see answers `404 assistant-approval-not-found` like an unknown one, and a lookup leaves it out.
+Reading never makes the caller a participant of the thread's conversation.
+
+| Adoption note | Required action |
+|---|---|
+| `NhAssistantSubjectProposalDto` is also the answer of both reads, for proposals in any status; `canDecide` is `false` and `reasonCode` `null` for proposals that are not pending. | None. |
+| A person's own chat proposals outside agent threads are not readable here. | Read them through their conversation, as before. |
+
 ## NewHeap.Platform.AspNet.Common: platform-internal signals for a module's own waits
 
 A platform module can now end a background-operation wait it started itself on behalf of the
@@ -112,3 +129,15 @@ it is shown, and "Show the newer proposal" moves focus to its successor in the l
 |---|---|
 | `MessageAuthorKind` gains `rule`; `AgentRun.kind`, `AgentProposal.objects`, `staleByActorId`, `staleByDisplayName`, `supersededByApprovalId` and `rationale`, and `ApprovalPart.rationale` and `supersededByApprovalId` are optional. | Exhaustive checks on `MessageAuthorKind` handle `rule`. |
 | New translation keys `nh-assistant.thread.rule`, `nh-assistant.approval.rationale`, `nh-assistant.approval.superseded`, `nh-assistant.agent-runs.run.kind.rule`, `rule-then-model`, `nh-assistant.agent-runs.proposal.show-successor`, `stale-by`, `nh-assistant.result-codes.assistant-proposal-already-open` and `assistant-proposal-recently-rejected`, and `nh-assistant.errors.assistant-proposal-already-open`, `assistant-proposal-recently-rejected`, `assistant-proposal-superseded` and `assistant-proposal-refused`. | Applications with their own translation files add them. |
+
+## @newheap/platform-ai-chat: proposals read by id
+
+`NhAssistantAgentRunApiService.getProposal(approvalId)` and `lookupProposals(approvalIds)` read
+proposals by id, up to `NH_ASSISTANT_MAX_PROPOSAL_LOOKUP` (100) per lookup. The agent inbox and the
+subject suggestions keep closed and replaced proposals as closed cards through one lookup instead
+of reading every thread they came from, so a live update never reads a thread there.
+
+| Adoption note | Required action |
+|---|---|
+| New `AgentProposalLookup` model and `NH_ASSISTANT_MAX_PROPOSAL_LOOKUP` constant; `AgentSubjectWorkProposal` describes proposals in any status. | None. |
+| Test doubles of `NhAssistantAgentRunApiService` that answer closed cards through `getProposals` now need `lookupProposals`. | Add `lookupProposals` to such doubles. |

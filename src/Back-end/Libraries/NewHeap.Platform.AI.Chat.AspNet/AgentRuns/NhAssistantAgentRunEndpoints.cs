@@ -94,6 +94,18 @@ internal static class NhAssistantAgentRunEndpoints
             .WithDescription("Returns pending agent proposals across threads that the caller may decide, sorted by expiry and paged. Each decision is checked live again.")
             .Produces<NhAssistantInboxDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
+        group.MapGet("approvals/{approvalId:guid}", GetProposalAsync)
+            .WithName("NhAssistantGetProposal")
+            .WithSummary("Read one agent proposal")
+            .WithDescription("Returns one proposal of an agent thread in any status, with the caller's live right to decide it. The caller needs a role on the subject; a proposal the caller may not see answers 404 like an unknown one. Reading does not join the thread.")
+            .Produces<NhAssistantSubjectProposalDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        group.MapPost("approvals/lookup", LookupProposalsAsync)
+            .WithName("NhAssistantLookupProposals")
+            .WithSummary("Read several agent proposals")
+            .WithDescription("Returns the proposals among at most 100 ids that the caller may see, in the order of the request, each with the caller's live right to decide it. Ids the caller may not see, or that do not exist, are left out.")
+            .Produces<NhAssistantProposalLookupDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
         group.MapPost("approvals/{approvalId:guid}/decisions", DecideAsync)
             .WithName("NhAssistantDecideProposal")
             .WithSummary("Decide an agent proposal")
@@ -547,6 +559,60 @@ internal static class NhAssistantAgentRunEndpoints
         return TypedResults.Json(
             new NhAssistantInboxDto(proposals, total),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantInboxDto);
+    }
+
+    private static async Task<IResult> GetProposalAsync(
+        Guid approvalId,
+        HttpContext httpContext,
+        NhAssistantProposalReads reads)
+    {
+        var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
+        }
+
+        var read = await reads.ReadAsync(
+            [approvalId],
+            caller.Data!.ActorId,
+            caller.Data.TenantId,
+            httpContext.User,
+            agentId => NhAssistantEndpointRouteBuilderExtensions.IsHiddenShadowThreadAsync(httpContext, agentId),
+            httpContext.RequestAborted);
+        // A proposal the caller may not see answers like one that does not exist.
+        return read.Count == 0
+            ? NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.ApprovalNotFound)
+            : TypedResults.Json(read[0], NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantSubjectProposalDto);
+    }
+
+    private static async Task<IResult> LookupProposalsAsync(
+        HttpContext httpContext,
+        NhAssistantProposalReads reads)
+    {
+        var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
+        }
+        var request = await NhAssistantEndpointRouteBuilderExtensions.ReadBodyAsync(
+            httpContext,
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalLookupRequest);
+        var ids = request?.ApprovalIds?.Distinct().ToArray();
+        if (ids is null || ids.Length is 0 or > NhAssistantProposalLookupRequest.MaxApprovalIds)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.MessageInvalid);
+        }
+
+        var read = await reads.ReadAsync(
+            ids,
+            caller.Data!.ActorId,
+            caller.Data.TenantId,
+            httpContext.User,
+            agentId => NhAssistantEndpointRouteBuilderExtensions.IsHiddenShadowThreadAsync(httpContext, agentId),
+            httpContext.RequestAborted);
+        return TypedResults.Json(
+            new NhAssistantProposalLookupDto(read),
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalLookupDto);
     }
 
     private static async Task<IResult> DecideAsync(

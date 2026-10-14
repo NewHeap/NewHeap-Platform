@@ -55,7 +55,8 @@ Phase 5, [proposal feedback](#10-proposal-feedback), is implemented with sample 
 that people overtake by hand close on their own since the
 [proposal revalidation plan](ai-proposal-revalidation-plan.md), with SPM-282. Agents that run by
 fixed rules without a model, and proposals that are never recorded twice, came with the
-[rule runs plan](ai-agent-rule-runs-plan.md), with SPM-283.
+[rule runs plan](ai-agent-rule-runs-plan.md), with SPM-283. Clients read single proposals by id
+since the [proposal reads plan](ai-proposal-reads-plan.md), with SPM-282 extended.
 
 ## Goals
 

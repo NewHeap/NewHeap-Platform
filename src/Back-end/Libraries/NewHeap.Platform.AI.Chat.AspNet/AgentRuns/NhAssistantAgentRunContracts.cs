@@ -336,13 +336,34 @@ public sealed record NhAssistantSubjectAgentDto(
     bool CanStart);
 
 /// <summary>
-/// An open proposal on the subject with the caller's live decision right.
+/// A proposal on a subject with the caller's live decision right. Only a pending proposal can be
+/// decided; for every other status <paramref name="CanDecide"/> is <see langword="false"/> and
+/// <paramref name="ReasonCode"/> is <see langword="null"/>.
 /// </summary>
 /// <param name="ReasonCode">Why the caller may not decide, such as <c>assistant-four-eyes-required</c>.</param>
 public sealed record NhAssistantSubjectProposalDto(
     NhAssistantProposalDto Proposal,
     bool CanDecide,
     string? ReasonCode);
+
+/// <summary>
+/// The proposals to read with <c>POST approvals/lookup</c>.
+/// </summary>
+/// <param name="ApprovalIds">Between 1 and <see cref="MaxApprovalIds"/> proposal ids; duplicates count once.</param>
+public sealed record NhAssistantProposalLookupRequest(IReadOnlyList<Guid>? ApprovalIds)
+{
+    /// <summary>
+    /// The most proposals one lookup reads. Every subject in a lookup costs a live call to its
+    /// access resolver.
+    /// </summary>
+    public const int MaxApprovalIds = 100;
+}
+
+/// <summary>
+/// The proposals of a lookup that the caller may see, in the order of the request. Ids the caller
+/// may not see, or that do not exist, are left out.
+/// </summary>
+public sealed record NhAssistantProposalLookupDto(IReadOnlyList<NhAssistantSubjectProposalDto> Items);
 
 /// <summary>
 /// All agent work on one subject as the caller may see it: the agents with a thread on it and
@@ -482,6 +503,9 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantFeedbackListDto))]
 [JsonSerializable(typeof(NhAssistantFeedbackExportRecord))]
 [JsonSerializable(typeof(NhAssistantSubjectWorkDto))]
+[JsonSerializable(typeof(NhAssistantSubjectProposalDto))]
+[JsonSerializable(typeof(NhAssistantProposalLookupRequest))]
+[JsonSerializable(typeof(NhAssistantProposalLookupDto))]
 [JsonSerializable(typeof(NhAssistantSubjectSummaryRequest))]
 [JsonSerializable(typeof(NhAssistantSubjectSummaryListDto))]
 [JsonSerializable(typeof(NhAssistantOpenThreadRequest))]

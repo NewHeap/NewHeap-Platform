@@ -16,6 +16,7 @@ import {
   AgentInbox,
   AgentProposal,
   AgentProposalFeedback,
+  AgentProposalLookup,
   AgentRun,
   AgentSubjectWork,
   AgentThread,
@@ -58,6 +59,11 @@ function proposal(status: AgentProposal['status'], id = 'approval-1'): AgentProp
     executionResultCode: null,
     executedAt: null
   };
+}
+
+/** The answer of a lookup that finds `proposals`, none of which the caller may decide. */
+function lookedUp(...proposals: AgentProposal[]): AgentProposalLookup {
+  return { items: proposals.map(item => ({ proposal: item, canDecide: false, reasonCode: null })) };
 }
 
 function thread(activeRun: AgentThread['activeRun']): AgentThread {
@@ -203,6 +209,7 @@ describe('agent-run components', () => {
       'getSubjectWork',
       'getInbox',
       'getProposals',
+      'lookupProposals',
       'getConsultations',
       'getRuns',
       'startAgent',
@@ -538,10 +545,10 @@ describe('agent-run components', () => {
       const done = proposal('pending', 'approval-1');
       const decided = proposal('pending', 'approval-2');
       api.getInbox.and.returnValues(of({ items: [done, decided], total: 2 }), of({ items: [], total: 0 }));
-      api.getProposals.and.returnValue(of([
+      api.lookupProposals.and.returnValue(of(lookedUp(
         { ...done, status: 'stale', staleKind: 'already-done', staleExplanation: 'Completed by Henk.' },
         { ...decided, status: 'approved', decidedByActorId: 'colleague' }
-      ]));
+      )));
       const fixture = TestBed.createComponent(NhAssistantAgentInboxComponent);
       fixture.detectChanges();
 
@@ -550,8 +557,10 @@ describe('agent-run components', () => {
       fixture.detectChanges();
 
       // The proposal a colleague decided leaves; the one that was already done stays with the reason.
+      // Both are read by id in one lookup, never through their thread.
       const element = fixture.nativeElement as HTMLElement;
-      expect(api.getProposals).toHaveBeenCalledOnceWith('conversation-1');
+      expect(api.lookupProposals).toHaveBeenCalledOnceWith(['approval-1', 'approval-2']);
+      expect(api.getProposals).not.toHaveBeenCalled();
       const closed = Array.from(element.querySelectorAll<HTMLElement>('li.card'));
       expect(closed.length).toBe(1);
       expect(closed[0].classList).toContain('closed');
@@ -570,10 +579,9 @@ describe('agent-run components', () => {
       const older = proposal('pending', 'approval-1');
       const newer = proposal('pending', 'approval-2');
       api.getInbox.and.returnValues(of({ items: [older], total: 1 }), of({ items: [newer], total: 1 }));
-      api.getProposals.and.returnValue(of([
-        { ...older, status: 'withdrawn', supersededByApprovalId: 'approval-2', executionResultCode: 'assistant-proposal-superseded' },
-        newer
-      ]));
+      api.lookupProposals.and.returnValue(of(lookedUp(
+        { ...older, status: 'withdrawn', supersededByApprovalId: 'approval-2', executionResultCode: 'assistant-proposal-superseded' }
+      )));
       const fixture = TestBed.createComponent(NhAssistantAgentInboxComponent);
       fixture.detectChanges();
 
@@ -582,6 +590,7 @@ describe('agent-run components', () => {
       fixture.detectChanges();
 
       const cards = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('li.card'));
+      expect(api.lookupProposals).toHaveBeenCalledOnceWith(['approval-1']);
       expect(cards.length).toBe(2);
       expect(cards[0].classList).toContain('closed');
       expect(cards[0].textContent).toContain('nh-assistant.approval.superseded');
@@ -596,9 +605,9 @@ describe('agent-run components', () => {
       api.getInbox.and.returnValues(of({ items: [pending], total: 1 }), of({ items: [], total: 0 }));
       api.decide.and.returnValue(throwError(() =>
         new NhAssistantApiError(409, 'assistant-proposal-stale', 'nh-assistant.errors.assistant-proposal-stale')));
-      api.getProposals.and.returnValue(of([
+      api.lookupProposals.and.returnValue(of(lookedUp(
         { ...pending, status: 'stale', staleKind: 'already-done', staleExplanation: 'Completed by Henk.' }
-      ]));
+      )));
       const fixture = TestBed.createComponent(NhAssistantAgentInboxComponent);
       fixture.detectChanges();
 
@@ -1044,9 +1053,9 @@ describe('agent-run components', () => {
       api.getSubjectWork.and.returnValues(
         of(subjectWork({ openProposals: [{ proposal: pending, canDecide: true, reasonCode: null }] })),
         of(subjectWork({ openProposals: [] })));
-      api.getProposals.and.returnValue(of([
+      api.lookupProposals.and.returnValue(of(lookedUp(
         { ...pending, status: 'stale', staleKind: 'not-applicable', staleExplanation: 'The project was archived.' }
-      ]));
+      )));
       const fixture = TestBed.createComponent(SuggestionsHostComponent);
       fixture.detectChanges();
 
@@ -1055,6 +1064,7 @@ describe('agent-run components', () => {
       fixture.detectChanges();
 
       const [card] = cards(fixture);
+      expect(api.getProposals).not.toHaveBeenCalled();
       expect(card.classList).toContain('closed');
       expect(card.textContent).toContain('nh-assistant.approval.stale-kind.not-applicable');
       expect(card.textContent).toContain('The project was archived.');
