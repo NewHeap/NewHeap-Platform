@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.63",
   "backEnd": {
-    "hash": "0047b3a93ba8514f2fe762b150e3187dee374ea7e19af244e35f4e8b1d4e3bec",
-    "declarationCount": 7162,
+    "hash": "a4a3ce8ac23f353c9d194eee1bd6ffb9dc95d394833752f8426e99166f7a12fc",
+    "declarationCount": 7164,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7340,6 +7340,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<IReadOnlyList<NhAssistantOpenProposalRow>> GetOpenProposalsByKeysAsync( string scopeKey, IReadOnlyCollection<NhAiProposalKey> keys, int maximum, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<bool> HasOpenProposalsForSubjectAsync(NhAiSubjectRef subject, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<bool> HasOpenProposalsByKeysAsync( string scopeKey, IReadOnlyCollection<NhAiProposalKey> keys, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",

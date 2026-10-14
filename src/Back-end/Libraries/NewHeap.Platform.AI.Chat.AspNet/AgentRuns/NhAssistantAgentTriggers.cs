@@ -17,9 +17,10 @@ public interface INhAssistantAgentTriggers
 {
     /// <summary>
     /// Fires every trigger registered for <typeparamref name="TEvent"/>, and queues the proposal
-    /// revalidations registered for it with <c>AddProposalRevalidation</c>. The revalidation is a
-    /// background operation, so published inside the application's transaction it runs only once
-    /// that transaction committed.
+    /// revalidations registered for it with <c>AddProposalRevalidation</c> when an agent has an open
+    /// proposal about the event's subject or objects. The revalidation is a background operation,
+    /// so published inside the application's transaction it runs only once that transaction
+    /// committed.
     /// </summary>
     Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishAsync<TEvent>(
         TEvent evt,
@@ -121,12 +122,20 @@ internal sealed class NhAssistantAgentTriggers(
     }
 
     /// <summary>
-    /// Queues one revalidation per registration for <typeparamref name="TEvent"/> that names a
-    /// subject or objects. The operation joins the application's transaction like a run does.
+    /// Queues one revalidation per registration for <typeparamref name="TEvent"/> whose subject or
+    /// objects have open agent proposals; most events find none and queue nothing. The operation
+    /// joins the application's transaction like a run does. A proposal made between this check and
+    /// the commit is not revalidated, but the decision and the execution still check it.
     /// </summary>
     private async Task QueueRevalidationsAsync<TEvent>(TEvent evt, CancellationToken cancellationToken)
         where TEvent : class
     {
+        if (!registration.ProposalGuards.Any(guard => guard.Stages.HasFlag(NhAiProposalGuardStages.Revalidation)))
+        {
+            // Without a guard that revalidates, nothing could close.
+            return;
+        }
+
         foreach (var revalidation in registration.Revalidations.Where(item => item.EventType == typeof(TEvent)))
         {
             var subject = revalidation.Subject?.Invoke(evt);
@@ -135,6 +144,19 @@ internal sealed class NhAssistantAgentTriggers(
                 .Distinct()
                 .Take(NhAssistantLimits.MaxRevalidationKeys)
                 .ToArray();
+            var scopeKey = keys.Length == 0 ? null : revalidation.ScopeKey(evt);
+            if (subject is not null && !await runs.HasOpenProposalsForSubjectAsync(subject, cancellationToken))
+            {
+                subject = null;
+            }
+            if (keys.Length > 0
+                && !await runs.HasOpenProposalsByKeysAsync(
+                    scopeKey ?? NhAiSubjectInfo.CreateScopeKey(null, null),
+                    keys,
+                    cancellationToken))
+            {
+                keys = [];
+            }
             if (subject is null && keys.Length == 0)
             {
                 continue;
@@ -150,7 +172,7 @@ internal sealed class NhAssistantAgentTriggers(
             }
 
             var enqueued = await operations.EnqueueAsync(
-                new NhAssistantRevalidateProposalsRequest(subject, keys, keys.Length == 0 ? null : revalidation.ScopeKey(evt)),
+                new NhAssistantRevalidateProposalsRequest(subject, keys, keys.Length == 0 ? null : scopeKey),
                 new NhBackgroundOperationEnqueueOptions
                 {
                     OwnerAgentKey = NhAssistantProposalInvalidation.SystemActorId,

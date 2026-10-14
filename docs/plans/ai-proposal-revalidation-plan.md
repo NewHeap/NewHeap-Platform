@@ -26,7 +26,10 @@ plan where [Implementation notes](#implementation-notes) says so.
   may run inside the application's transaction, where guards in their own scope would read
   uncommitted or locked rows. It therefore queues `nh-ai-revalidate-proposals`, which joins the
   transaction like a run does and starts once it committed. `INhAssistantProposalRevalidation`
-  itself runs at once and expects to be called after the commit.
+  itself runs at once and expects to be called after the commit. Before queuing, `PublishAsync`
+  checks with one indexed query whether an agent has an open proposal about the event's subject or
+  objects, so most events queue nothing. A proposal made between that check and the commit is not
+  revalidated; the decision and the execution still check it.
 - **A failing guard** refuses an approval with `503 assistant-proposal-check-failed` and keeps the
   proposal pending. Before a deferred execution it keeps the proposal approved and lets the
   maintenance job queue the execution again, counting an attempt. A waiting inline run cannot keep

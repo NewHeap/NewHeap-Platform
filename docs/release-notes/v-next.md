@@ -14,8 +14,10 @@ application revalidates, before every approval and right before execution; a reg
 The application revalidates after its change committed, explicitly with
 `INhAssistantProposalRevalidation.RevalidateSubjectAsync` or `RevalidateKeysAsync`, or
 declaratively with `AddProposalRevalidation<TEvent>` on the events it already publishes through
-`INhAssistantAgentTriggers.PublishAsync`, which queues the revalidation as a background operation
-that runs once the publisher's transaction committed. A proposal that no longer fits closes as
+`INhAssistantAgentTriggers.PublishAsync`. When an agent has an open proposal about the event's
+subject or objects, it queues the revalidation as a background operation that runs once the
+publisher's transaction committed; other events cost one indexed query. A proposal that no longer
+fits closes as
 `stale` with `StaleKind` and `StaleExplanation` on `NhAssistantProposalDto` and on the approval part
 of a conversation, its tool call reads `not-executed`, `AgentWorkChanged` reaches the subject's
 members, `AgentProposalInvalidated` is audited without content, and an agent run that waits for it

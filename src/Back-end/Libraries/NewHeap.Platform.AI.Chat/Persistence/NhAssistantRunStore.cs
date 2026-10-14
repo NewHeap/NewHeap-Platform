@@ -1022,6 +1022,53 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ToArray();
     }
 
+    /// <summary>
+    /// Whether an agent run or consultation has an open proposal about the subject, so a
+    /// revalidation for it is worth queuing.
+    /// </summary>
+    public async Task<bool> HasOpenProposalsForSubjectAsync(NhAiSubjectRef subject, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await OpenAgentProposals(context)
+            .Join(
+                context.Threads.Where(thread => thread.SubjectType == subject.Type && thread.SubjectId == subject.Id),
+                approval => approval.ConversationId,
+                thread => thread.ConversationId,
+                (approval, _) => approval.Id)
+            .AnyAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Whether an agent run or consultation has an open proposal that changes one of
+    /// <paramref name="keys"/> within <paramref name="scopeKey"/>.
+    /// </summary>
+    public async Task<bool> HasOpenProposalsByKeysAsync(
+        string scopeKey,
+        IReadOnlyCollection<NhAiProposalKey> keys,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        foreach (var group in keys.Distinct().GroupBy(key => key.Type, StringComparer.Ordinal))
+        {
+            var type = group.Key;
+            var ids = group.Select(key => key.Id).ToArray();
+            var open = await context.ApprovalKeys
+                .Where(key => key.ScopeKey == scopeKey && key.KeyType == type && ids.Contains(key.KeyId))
+                .Join(
+                    OpenAgentProposals(context),
+                    key => key.ApprovalId,
+                    approval => approval.Id,
+                    (key, _) => key.ApprovalId)
+                .AnyAsync(cancellationToken);
+            if (open)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static IQueryable<AssistantApproval> OpenAgentProposals(NhAssistantDbContext context)
     {
         return context.Approvals

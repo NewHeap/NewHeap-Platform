@@ -356,27 +356,28 @@ public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
-    public async Task A_published_event_queues_a_revalidation_that_closes_the_proposal(AssistantTestProvider provider)
+    public async Task A_published_event_queues_a_revalidation_only_while_an_agent_has_an_open_proposal_for_it(AssistantTestProvider provider)
     {
         var projectId = Guid.NewGuid();
         await using var host = await CreateHostAsync(provider, ProposeStatus(projectId, "Active"));
+        var operations = host.Services.GetRequiredService<RevalidationOperations>();
+
+        // Most events concern objects no agent proposed anything for; they queue nothing.
+        await PublishAsync(host, new ProjectStatusSet(Guid.NewGuid(), "Active"));
+        Assert.Empty(operations.Revalidations);
+
         var run = await StartRunAsync(host, projectId);
         await RunTurnAsync(host, run, "Project PRJ-1 was created.");
         var approval = Assert.Single(await RunStore(host).GetRunApprovalsAsync(run.Run.Id, CancellationToken.None));
         States(host).Statuses[projectId] = "Active";
 
-        await using (var scope = host.Services.CreateAsyncScope())
-        {
-            await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>()
-                .PublishAsync(new ProjectStatusSet(projectId, "Active"));
-        }
+        await PublishAsync(host, new ProjectStatusSet(projectId, "Active"));
 
         // The revalidation is a background operation, so it runs only once the publisher committed.
         Assert.Equal(NhAssistantApprovalStatuses.Pending, (await FindAsync(host, approval.Id)).Status);
-        var operations = host.Services.GetRequiredService<RevalidationOperations>();
         var (request, options) = Assert.Single(operations.Revalidations);
         Assert.Equal(NhAssistantProposalInvalidation.SystemActorId, options.OwnerAgentKey);
-        Assert.Null(request.Subject);
+        Assert.Equal(Subject(projectId), request.Subject);
         Assert.Equal(new NhAiProposalKey(ProjectStatusGuard.KeyType, projectId.ToString()), Assert.Single(request.Keys));
         Assert.Equal(run.Thread.ScopeKey, request.ScopeKey);
 
@@ -388,6 +389,10 @@ public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture 
         }
 
         Assert.Equal(NhAssistantApprovalStatuses.Stale, (await FindAsync(host, approval.Id)).Status);
+
+        // Once nothing is open any more, the same event queues nothing again.
+        await PublishAsync(host, new ProjectStatusSet(projectId, "Active"));
+        Assert.Single(operations.Revalidations);
     }
 
     [Theory]
@@ -517,6 +522,7 @@ public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture 
                 .AddProposalGuard<SecondProjectGuard>("projects.*")
                 .AddProposalGuard<OtherToolGuard>("billing.*")
                 .AddProposalRevalidation<ProjectStatusSet>(revalidation => revalidation
+                    .Subject(evt => Subject(evt.ProjectId))
                     .Keys(evt => [new NhAiProposalKey(ProjectStatusGuard.KeyType, evt.ProjectId.ToString())])
                     .ScopeKey(_ => NhAiSubjectInfo.CreateScopeKey(null, null)))
                 .AddApprovalPolicy("project-review", policy => policy
@@ -578,6 +584,12 @@ public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture 
         return await scope.ServiceProvider.GetRequiredService<INhAssistantTurnRunner>().RunAgentTurnAsync(
             new NhAssistantAgentTurnRequest(run.AgentTurn, [new NhAssistantAgentTurnInput(Guid.NewGuid(), null, run.Run.TriggerId, message)]),
             CancellationToken.None);
+    }
+
+    private static async Task PublishAsync(AssistantTestHost host, ProjectStatusSet evt)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>().PublishAsync(evt);
     }
 
     private static async Task<NhAssistantRevalidationResult> RevalidateSubjectAsync(AssistantTestHost host, Guid projectId)

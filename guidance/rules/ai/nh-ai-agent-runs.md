@@ -194,8 +194,11 @@ Revalidate after the change committed. Call `INhAssistantProposalRevalidation`
 `RevalidateSubjectAsync(subject)` or `RevalidateKeysAsync(keys, scopeKey)` from the outbox
 consumer or after the commit (without a scope key it uses `global`), or declare it with
 `AddProposalRevalidation<TEvent>` and its `Subject`, `Keys` and `ScopeKey`:
-`INhAssistantAgentTriggers.PublishAsync` then queues the revalidation as a background
-operation, which runs only once the publisher's transaction committed. Revalidation covers the
+`INhAssistantAgentTriggers.PublishAsync` then checks whether an agent has an open proposal about
+the event's subject or objects and only then queues the revalidation as a background operation,
+which runs once the publisher's transaction committed; an event without open proposals costs one
+indexed query. Call the explicit form from a consumer that runs after the commit anyway, to skip
+the background operation altogether. Revalidation covers the
 open proposals of agent runs and consultations; a person's own chat proposal is checked when
 they approve it, and repeating a revalidation changes nothing. A proposal that no longer fits
 closes as `stale` with `staleKind` (`NhAssistantStaleKinds`), its reason code in
