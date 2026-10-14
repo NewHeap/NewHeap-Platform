@@ -205,6 +205,45 @@ internal sealed class NhBackgroundOperationSignalService(
     }
 }
 
+/// <summary>
+/// Platform-internal signals on behalf of an operation's own owner. A platform module uses them to
+/// end a wait it started itself when no person is involved, such as an agent run whose proposal
+/// the platform closed. They are not part of the public API, so applications cannot bypass the
+/// signal access rules.
+/// </summary>
+internal sealed class NhBackgroundOperationOwnerSignals(NhBackgroundOperationPersistence persistence)
+{
+    public Task<TaskResult<NhBackgroundOperationSignalWriteResult>> SignalAsync<TSignal>(
+        Guid operationId,
+        string waitKey,
+        TSignal signal,
+        int signalSchemaVersion = 1,
+        CancellationToken cancellationToken = default)
+    {
+        if (operationId == Guid.Empty)
+        {
+            throw new ArgumentException("An operation ID is required.", nameof(operationId));
+        }
+        ArgumentNullException.ThrowIfNull(signal);
+        NhBackgroundOperationKeys.ValidateStepKey(waitKey);
+        if (signalSchemaVersion < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(signalSchemaVersion));
+        }
+
+        return persistence.SignalAsync(
+            operationId,
+            null,
+            false,
+            null,
+            NhBackgroundOperationSignalKeys.CheckpointKey(waitKey),
+            waitKey,
+            signal,
+            signalSchemaVersion,
+            cancellationToken);
+    }
+}
+
 internal static class NhBackgroundOperationSignalKeys
 {
     internal static string CheckpointKey(string waitKey)
@@ -328,12 +367,14 @@ internal sealed partial class NhBackgroundOperationPersistence
     /// <summary>
     /// Accepts a signal from <paramref name="actor"/>. The actor must own the operation; with
     /// <paramref name="consultAccessPolicies"/>, a registered access policy may also allow it.
+    /// Without an actor the platform signals on behalf of the operation's owner, which only
+    /// platform modules do for waits they started themselves.
     /// </summary>
     internal async Task<TaskResult<NhBackgroundOperationSignalWriteResult>> SignalAsync<TSignal>(
         Guid operationId,
-        NhBackgroundOperationActor actor,
+        NhBackgroundOperationActor? actor,
         bool consultAccessPolicies,
-        Guid signaledByUserId,
+        Guid? signaledByUserId,
         string checkpointKey,
         string waitKey,
         TSignal signal,
@@ -353,7 +394,7 @@ internal sealed partial class NhBackgroundOperationPersistence
         var operation = await repository.GetAll().SingleOrDefaultAsync(
             item => item.Id == operationId,
             cancellationToken);
-        if (operation is not null)
+        if (operation is not null && actor is not null)
         {
             var policies = consultAccessPolicies
                 ? scope.ServiceProvider.GetServices<INhBackgroundOperationAccess>().ToArray()
@@ -426,7 +467,7 @@ internal sealed partial class NhBackgroundOperationPersistence
             Status = NhBackgroundOperationSignalCheckpointStatus.Signaled,
             Signal = signal,
             SignalHash = signalHash,
-            SignaledByUserId = signaledByUserId,
+            SignaledByUserId = actor is null ? operation.OwnerUserId : signaledByUserId,
             SignaledAt = now
         };
         var acceptedJson = JsonSerializer.Serialize(accepted, NhBackgroundOperationJson.Options);

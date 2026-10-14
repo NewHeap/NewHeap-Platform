@@ -13,7 +13,7 @@ import {
   signal
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
-import { Observable, Subscription } from 'rxjs';
+import { Observable, Subscription, forkJoin } from 'rxjs';
 import {
   AgentExecutionResolution,
   AgentProposal,
@@ -48,6 +48,9 @@ interface NhAssistantFeedbackRequest {
  * optionally and above the list, what was wrong; closed proposals keep a low-key action to give or
  * change that feedback later. With `decisionRights` each proposal has its own right, for example
  * from the agent work on a subject, and a pending proposal the viewer may not decide says who does.
+ * A proposal that no longer fits, for example because a person already did the work, shows why.
+ * With `holdClosedCards`, a list of open proposals keeps such a proposal as a closed card when it
+ * closes while shown, or when an approval is refused because of it, until the person dismisses it.
  */
 @Component({
   selector: 'nh-assistant-agent-proposals',
@@ -72,6 +75,11 @@ export class NhAssistantAgentProposalsComponent {
    */
   readonly decisionRights = input<ReadonlyMap<string, AgentProposalDecisionRight> | null>(null);
   readonly selectable = input(false);
+  /**
+   * Keeps proposals that close as stale while shown as closed cards with their explanation until
+   * they are dismissed. For lists of open proposals, which drop a proposal once it closes.
+   */
+  readonly holdClosedCards = input(false);
   /** Emits after a proposal or its feedback changed, so the host reloads its list. */
   readonly changed = output<void>();
 
@@ -86,9 +94,47 @@ export class NhAssistantAgentProposalsComponent {
     this.pending().length > 0 && this.pending().every(proposal => this.selected().has(proposal.approvalId)));
   /** The feedback question. It does not depend on `proposals`, which drop rejected proposals in the inbox. */
   readonly feedback = signal<NhAssistantFeedbackRequest | null>(null);
+  /** Proposals that closed as stale while shown, kept until dismissed; newest first. */
+  readonly held = signal<AgentProposal[]>([]);
+  /** The held closed cards first, then the proposals the host gave. */
+  readonly shown = computed(() => {
+    const held = this.held();
+    const heldIds = new Set(held.map(proposal => proposal.approvalId));
+    return [...held, ...this.proposals().filter(proposal => !heldIds.has(proposal.approvalId))];
+  });
+  private readonly lookups = new Subscription();
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
+    inject(DestroyRef).onDestroy(() => {
+      this.subscription?.unsubscribe();
+      this.lookups.unsubscribe();
+    });
+  }
+
+  /** The translation key of a proposal's status: the kind of a stale proposal, otherwise its status. */
+  statusKey(proposal: AgentProposal): string {
+    return proposal.status === 'stale' && proposal.staleKind
+      ? `nh-assistant.approval.stale-kind.${proposal.staleKind}`
+      : `nh-assistant.agent-runs.proposal.status.${proposal.status}`;
+  }
+
+  /** True for a closed card the list keeps until it is dismissed. */
+  isHeld(proposal: AgentProposal): boolean {
+    return this.held().some(item => item.approvalId === proposal.approvalId);
+  }
+
+  /** Removes a closed card. */
+  dismiss(proposal: AgentProposal): void {
+    this.held.update(held => held.filter(item => item.approvalId !== proposal.approvalId));
+  }
+
+  /**
+   * Called by a host of open proposals after a live update replaced `previous` with `next`: keeps
+   * the shown pending proposals that left the list because they closed as stale.
+   */
+  holdClosed(previous: readonly AgentProposal[], next: readonly AgentProposal[]): void {
+    const nextIds = new Set(next.map(proposal => proposal.approvalId));
+    this.holdStale(previous.filter(proposal => proposal.status === 'pending' && !nextIds.has(proposal.approvalId)));
   }
 
   /** Whether the caller may decide this proposal: its own right when one was given, otherwise `canDecide`. */
@@ -131,6 +177,11 @@ export class NhAssistantAgentProposalsComponent {
       if (decision === 'reject' && result.status === 'rejected' && result.canGiveFeedback === true) {
         this.ask([proposal.approvalId], summaryOf(proposal));
       }
+    }, code => {
+      if (code === staleCode) {
+        // The approval was refused because the proposal no longer fits; show why.
+        this.holdStale([proposal]);
+      }
     });
   }
 
@@ -143,6 +194,10 @@ export class NhAssistantAgentProposalsComponent {
     const proposals = this.proposals();
     this.run(this.api.decideMany(ids, decision), response => {
       this.selected.set(new Set());
+      const stale = response.results
+        .filter(outcome => !outcome.succeeded && outcome.code === staleCode)
+        .map(outcome => outcome.approvalId);
+      this.holdStale(proposals.filter(proposal => stale.includes(proposal.approvalId)));
       if (decision !== 'reject') {
         return;
       }
@@ -210,7 +265,37 @@ export class NhAssistantAgentProposalsComponent {
     this.feedback.set({ approvalIds, initial: null, placement: 'prompt', summary, saved: false });
   }
 
-  private run<T>(request: Observable<T>, done?: (result: T) => void): void {
+  /**
+   * Reloads the threads of `proposals` and keeps those that closed as stale as closed cards, with
+   * their kind and explanation.
+   */
+  private holdStale(proposals: readonly AgentProposal[]): void {
+    if (!this.holdClosedCards() || proposals.length === 0) {
+      return;
+    }
+
+    const wanted = new Set(proposals.map(proposal => proposal.approvalId));
+    const conversations = [...new Set(proposals.map(proposal => proposal.conversationId))];
+    this.lookups.add(forkJoin(conversations.map(id => this.api.getProposals(id))).subscribe({
+      next: threads => {
+        const closed = threads
+          .flat()
+          .filter(proposal => wanted.has(proposal.approvalId) && proposal.status === 'stale');
+        if (closed.length === 0) {
+          return;
+        }
+
+        this.held.update(held => [
+          ...closed,
+          ...held.filter(item => !closed.some(proposal => proposal.approvalId === item.approvalId))
+        ]);
+      },
+      // Without the thread the proposal just leaves the list, as it did before.
+      error: () => undefined
+    }));
+  }
+
+  private run<T>(request: Observable<T>, done?: (result: T) => void, failed?: (code: string) => void): void {
     this.busy.set(true);
     this.error.set(null);
     if (this.feedback()?.saved) {
@@ -225,12 +310,17 @@ export class NhAssistantAgentProposalsComponent {
       },
       error: failure => {
         this.busy.set(false);
-        this.error.set(toNhAssistantError(failure));
+        const error = toNhAssistantError(failure);
+        this.error.set(error);
+        failed?.(error.code);
         this.changed.emit();
       }
     });
   }
 }
+
+/** The refusal of an approval because the proposal no longer fits. */
+const staleCode = 'assistant-proposal-stale';
 
 /** The application's words for a proposal, falling back to its subject and tool. */
 function summaryOf(proposal: AgentProposal): string {

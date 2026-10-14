@@ -203,6 +203,12 @@ export interface ApprovalPresentation {
   notice: string | null;
 }
 
+/**
+ * Why a stale proposal no longer fits: the work was already done another way, what it was based on
+ * changed, or it no longer applies.
+ */
+export type StaleKind = 'already-done' | 'changed' | 'not-applicable';
+
 export interface ApprovalPart {
   type: 'approval';
   approvalId: string;
@@ -216,6 +222,10 @@ export interface ApprovalPart {
   targets: string[];
   expiresAt: string;
   status: ApprovalStatus;
+  /** Why a stale proposal no longer fits. Only sent for stale proposals; missing on older servers. */
+  staleKind?: StaleKind;
+  /** The application's explanation of a stale proposal in the reader's language, such as who did the work. */
+  staleExplanation?: string;
 }
 
 /** Response of `GET conversations?page=&itemsPerPage=`. */

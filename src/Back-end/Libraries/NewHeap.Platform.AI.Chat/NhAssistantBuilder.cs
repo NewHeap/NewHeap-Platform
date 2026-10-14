@@ -305,6 +305,65 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Registers an application guard for the proposals of the tools that
+    /// <paramref name="toolSelectors"/> select (an exact tool id or a <c>prefix.*</c> selector). The
+    /// guard names the objects a proposal changes and checks whether it still fits when the
+    /// application revalidates open proposals, when a person approves and before execution. Several
+    /// guards may apply to one tool; they run in registration order and the first stale result wins.
+    /// </summary>
+    public NhAssistantBuilder AddProposalGuard<TGuard>(params string[] toolSelectors)
+        where TGuard : class, INhAiProposalGuard
+    {
+        return AddProposalGuard<TGuard>(toolSelectors, NhAiProposalGuardStages.All);
+    }
+
+    /// <summary>
+    /// Registers an application guard that runs only at <paramref name="stages"/>. A guard without
+    /// <see cref="NhAiProposalGuardStages.Revalidation"/> never closes open proposals by itself; the
+    /// decision or the execution does.
+    /// </summary>
+    public NhAssistantBuilder AddProposalGuard<TGuard>(
+        IReadOnlyCollection<string> toolSelectors,
+        NhAiProposalGuardStages stages)
+        where TGuard : class, INhAiProposalGuard
+    {
+        ArgumentNullException.ThrowIfNull(toolSelectors);
+        if (toolSelectors.Count == 0 || toolSelectors.Any(selector => !NhAssistantAgentDefinition.IsValidSelector(selector)))
+        {
+            throw new ArgumentException(
+                "A proposal guard needs one or more tool ids or prefix.* selectors.",
+                nameof(toolSelectors));
+        }
+        if (stages == NhAiProposalGuardStages.None || (stages & ~NhAiProposalGuardStages.All) != 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(stages));
+        }
+
+        Services.TryAddScoped<TGuard>();
+        _state.AddProposalGuard(new Runs.NhAssistantProposalGuardRegistration(
+            typeof(TGuard),
+            toolSelectors.Distinct(StringComparer.Ordinal).ToArray(),
+            stages));
+        return this;
+    }
+
+    /// <summary>
+    /// Revalidates open agent proposals whenever the application publishes
+    /// <typeparamref name="TEvent"/> through <c>INhAssistantAgentTriggers.PublishAsync</c>: the
+    /// proposals about the event's subject, those that change the event's objects, or both. Publish
+    /// after the change committed, as for triggers.
+    /// </summary>
+    public NhAssistantBuilder AddProposalRevalidation<TEvent>(Action<NhAssistantRevalidationBuilder<TEvent>> configure)
+        where TEvent : class
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var builder = new NhAssistantRevalidationBuilder<TEvent>();
+        configure(builder);
+        _state.AddRevalidation(builder.Build());
+        return this;
+    }
+
+    /// <summary>
     /// Replaces who is told about agent events. The default notifies the subject's approvers.
     /// </summary>
     public NhAssistantBuilder UseAgentNotificationPolicy<TPolicy>()
@@ -383,6 +442,8 @@ internal sealed class NhAssistantRegistrationState
     private readonly Dictionary<string, NhAssistantAgentRunOptions> _agentRuns = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAiApprovalPolicy> _approvalPolicies = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantTriggerDefinition> _triggers = new(StringComparer.Ordinal);
+    private readonly List<Runs.NhAssistantProposalGuardRegistration> _proposalGuards = [];
+    private readonly List<NhAssistantRevalidationDefinition> _revalidations = [];
 
     public string? AccessPolicy { get; set; }
 
@@ -407,6 +468,33 @@ internal sealed class NhAssistantRegistrationState
     public IReadOnlyDictionary<string, NhAiApprovalPolicy> ApprovalPolicies => _approvalPolicies;
 
     public IReadOnlyDictionary<string, NhAssistantTriggerDefinition> Triggers => _triggers;
+
+    /// <summary>
+    /// Proposal guards in registration order.
+    /// </summary>
+    public IReadOnlyList<Runs.NhAssistantProposalGuardRegistration> ProposalGuards => _proposalGuards;
+
+    public IReadOnlyList<NhAssistantRevalidationDefinition> Revalidations => _revalidations;
+
+    public void AddProposalGuard(Runs.NhAssistantProposalGuardRegistration guard)
+    {
+        ArgumentNullException.ThrowIfNull(guard);
+        if (_proposalGuards.Any(existing => existing.GuardType == guard.GuardType
+                && existing.Stages == guard.Stages
+                && existing.ToolSelectors.SequenceEqual(guard.ToolSelectors, StringComparer.Ordinal)))
+        {
+            // AddNewHeapAssistant may run more than once for the same service collection.
+            return;
+        }
+
+        _proposalGuards.Add(guard);
+    }
+
+    public void AddRevalidation(NhAssistantRevalidationDefinition revalidation)
+    {
+        ArgumentNullException.ThrowIfNull(revalidation);
+        _revalidations.Add(revalidation);
+    }
 
     public NhAssistantAgentRunOptions GetOrAddAgentRun(string agentId)
     {

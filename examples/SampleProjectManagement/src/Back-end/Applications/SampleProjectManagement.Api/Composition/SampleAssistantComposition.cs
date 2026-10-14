@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Localization;
@@ -13,6 +14,7 @@ using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.Common.Localization;
 using SampleProjectManagement.Core.Models.AI;
 using SampleProjectManagement.Core.Services;
+using SampleProjectManagement.DAL;
 
 namespace SampleProjectManagement.Api.Composition;
 
@@ -172,6 +174,7 @@ public static class SampleAssistantComposition
 /// </summary>
 public sealed class SampleAssistantToolPresenter(
     IProjectAiReadService projects,
+    SampleProjectManagementDbContext dbContext,
     IStringLocalizer<SampleAssistantToolPresenter> localizer) : INhAssistantToolPresenter
 {
     public ValueTask<string?> GetDisplayNameAsync(
@@ -183,6 +186,7 @@ public sealed class SampleAssistantToolPresenter(
         {
             "projects.search" => localizer["ToolProjectsSearch"].Value,
             "projects.change-status" => localizer["ToolProjectStatusChange"].Value,
+            ProjectTaskAiTools.CompleteToolId => localizer["ToolProjectTaskComplete"].Value,
             _ => null
         };
         return ValueTask.FromResult(name);
@@ -192,10 +196,18 @@ public sealed class SampleAssistantToolPresenter(
         NhAssistantApprovalPresentationContext context,
         CancellationToken cancellationToken)
     {
-        if (!string.Equals(context.Descriptor.Id, "projects.change-status", StringComparison.Ordinal)
-            || context.Arguments is not ProjectAiStatusChangeInput input
-            || !context.InvocationContext.TryGetScopeValue(ProjectAiTools.DivisionScopeKey, out var divisionValue)
+        if (!context.InvocationContext.TryGetScopeValue(ProjectAiTools.DivisionScopeKey, out var divisionValue)
             || !Guid.TryParse(divisionValue, out var divisionId))
+        {
+            return null;
+        }
+        if (context.Arguments is ProjectTaskCompleteInput taskInput
+            && string.Equals(context.Descriptor.Id, ProjectTaskAiTools.CompleteToolId, StringComparison.Ordinal))
+        {
+            return await PresentTaskCompletionAsync(divisionId, taskInput, cancellationToken);
+        }
+        if (!string.Equals(context.Descriptor.Id, "projects.change-status", StringComparison.Ordinal)
+            || context.Arguments is not ProjectAiStatusChangeInput input)
         {
             return null;
         }
@@ -224,6 +236,35 @@ public sealed class SampleAssistantToolPresenter(
                 new NhAssistantPresentationField(
                     localizer["ApprovalFieldNewStatus"].Value,
                     newStatus)
+            ]);
+    }
+
+    /// <summary>
+    /// SPM-282: names the task and its project, so approvers recognize a task they already ticked off.
+    /// </summary>
+    private async Task<NhAssistantApprovalPresentation?> PresentTaskCompletionAsync(
+        Guid divisionId,
+        ProjectTaskCompleteInput input,
+        CancellationToken cancellationToken)
+    {
+        var task = await dbContext.ProjectTasks
+            .AsNoTracking()
+            .Where(item => item.Id == input.TaskId && item.Project.DivisionId == divisionId)
+            .Select(item => new { item.Title, item.Project.Key, item.Project.Name })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (task is null)
+        {
+            return null;
+        }
+
+        return new NhAssistantApprovalPresentation(
+            localizer["ToolProjectTaskComplete"].Value,
+            localizer["ApprovalProjectTaskSummary", task.Title, task.Key].Value,
+            [
+                new NhAssistantPresentationField(
+                    localizer["ApprovalFieldProject"].Value,
+                    localizer["ApprovalProjectValue", task.Key, task.Name].Value),
+                new NhAssistantPresentationField(localizer["ApprovalFieldTask"].Value, task.Title)
             ]);
     }
 }
@@ -406,6 +447,16 @@ public sealed partial class SampleAssistantChatClient : IChatClient
                 : Call("consult_sample-project-intake-reviewer_project_v1", new { input = new { subjectId, question = text } });
         }
 
+        var task = TaskPattern().Match(text);
+        if (task.Success)
+        {
+            // SPM-282: the intake reviewer proposes to tick off a task of the project.
+            return Call("project_tasks_complete_v1", new
+            {
+                input = new { taskId = Guid.Parse(task.Groups["id"].Value) }
+            });
+        }
+
         var status = StatusPattern().Match(text);
         if (projectId is not null && status.Success)
         {
@@ -489,6 +540,9 @@ public sealed partial class SampleAssistantChatClient : IChatClient
 
     [GeneratedRegex(@"project\s+(?:[^\s(]+\s+\()?(?<id>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", RegexOptions.IgnoreCase)]
     private static partial Regex ProjectReferencePattern();
+
+    [GeneratedRegex(@"complete task (?<id>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", RegexOptions.IgnoreCase)]
+    private static partial Regex TaskPattern();
 
     [GeneratedRegex("\\b(draft|active|onhold|completed|archived)\\b", RegexOptions.IgnoreCase)]
     private static partial Regex StatusPattern();

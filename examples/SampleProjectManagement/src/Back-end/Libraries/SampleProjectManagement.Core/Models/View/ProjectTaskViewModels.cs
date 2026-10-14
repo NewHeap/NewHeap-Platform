@@ -23,6 +23,11 @@ public class ProjectTaskViewModel
     public bool IsCompleted { get; set; }
 
     [Orderable, Filterable]
+    public DateTimeOffset? CompletedAt { get; set; }
+
+    public Guid? CompletedByUserId { get; set; }
+
+    [Orderable, Filterable]
     public DateTimeOffset CreationDateTime { get; set; }
 
     [Orderable, Filterable]

@@ -169,7 +169,12 @@
       "waiting-for-participant": "Wacht op de beslissing van de deelnemer die deze taak startte.",
       "waiting-for-approver": "Wacht tot een beslisser hierover beslist.",
       "waiting-for-other-approver": "Jij startte dit werk, dus een andere beslisser beslist hierover.",
-      "give-feedback": "Wat klopte er niet?"
+      "give-feedback": "Wat klopte er niet?",
+      "stale-kind": {
+        "already-done": "Al gedaan",
+        "changed": "Gewijzigd",
+        "not-applicable": "Niet meer nodig"
+      }
     },
     "proposal-feedback": {
       "legend": "Wat klopte er niet? (optioneel)",
@@ -220,7 +225,7 @@
       "assistant-proposal-rejected": "Niet uitgevoerd: het voorstel is afgewezen.",
       "assistant-proposal-expired": "Niet uitgevoerd: niemand besliste voordat het voorstel verliep.",
       "assistant-proposal-withdrawn": "Niet uitgevoerd: het voorstel is ingetrokken.",
-      "assistant-proposal-stale": "Niet uitgevoerd: het onderwerp is sinds het voorstel gewijzigd.",
+      "assistant-proposal-stale": "Niet uitgevoerd: het voorstel was niet meer van toepassing.",
       "assistant-proposal-execution-failed": "Het goedgekeurde voorstel kon niet worden uitgevoerd."
     },
     "errors": {
@@ -292,7 +297,8 @@
       "assistant-approval-policy-denied": "Je mag over dit voorstel niet beslissen.",
       "assistant-four-eyes-required": "Iemand anders dan de starter moet hierover beslissen.",
       "assistant-execution-not-uncertain": "Deze uitvoering wacht niet op afhandeling.",
-      "assistant-proposal-stale": "Het onderwerp is sinds dit voorstel gewijzigd; het is niet uitgevoerd.",
+      "assistant-proposal-stale": "Dit voorstel is niet meer van toepassing, bijvoorbeeld omdat het werk al gedaan is. Er is niets gewijzigd.",
+      "assistant-proposal-check-failed": "Kon niet controleren of dit voorstel nog van toepassing is, dus er is niets gewijzigd. Probeer het later opnieuw.",
       "assistant-trigger-not-found": "De trigger is niet gevonden.",
       "assistant-webhook-signature-invalid": "De webhook-aanroep heeft geen geldige handtekening.",
       "assistant-webhook-payload-invalid": "De webhook-aanroep kon niet worden gelezen.",
@@ -571,6 +577,7 @@
           "expired": "Verlopen",
           "rejection-rate": "Afwijzingspercentage",
           "with-feedback": "Afgewezen met feedback",
+          "invalidated": "Niet meer nodig",
           "people": "Personen",
           "categories": "Meest gekozen"
         },
@@ -578,6 +585,7 @@
         "consultations": "Raadplegingen",
         "no-decisions": "Nog niet beslist",
         "no-categories": "Geen",
+        "invalidated-hint": "Open voorstellen die sloten voordat iemand besliste, omdat het werk al gedaan was of niet meer van toepassing was. Ze tellen niet als afgewezen.",
         "list-title": "Feedback",
         "list-count": "{{count}} in totaal",
         "list-empty": "Niemand gaf in deze periode feedback.",
@@ -732,7 +740,10 @@
         "give-feedback": "Feedback geven",
         "change-feedback": "Feedback wijzigen",
         "your-feedback": "Jouw feedback: {{category}}",
-        "rejected-one": "Je hebt afgewezen: {{summary}}"
+        "rejected-one": "Je hebt afgewezen: {{summary}}",
+        "closed": "Intussen gesloten",
+        "dismiss": "Wegklikken",
+        "dismiss-label": "Gesloten voorstel wegklikken: {{summary}}"
       },
       "run": {
         "empty": "Nog geen runs.",

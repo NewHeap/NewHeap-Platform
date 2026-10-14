@@ -84,6 +84,26 @@ h3 {
   border-color: var(--nha-accent, currentColor);
 }
 
+// A proposal that closed while shown stays until dismissed, visibly no longer actionable.
+.card.closed {
+  border-style: dashed;
+}
+
+.closed-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+// Why a proposal no longer fits, such as who already did the work.
+.message.stale-explanation {
+  overflow-wrap: anywhere;
+  color: var(--nha-text);
+  background: var(--nha-surface-strong);
+}
+
 .card-header {
   display: flex;
   flex-wrap: wrap;

@@ -113,6 +113,45 @@ internal sealed class NhAssistantProposalFeedbackStore(NhAssistantDbContextFacto
     }
 
     /// <summary>
+    /// The proposals of a thread that closed since <paramref name="since"/> because they were
+    /// already done or no longer applied, newest first. Proposals closed because the subject changed
+    /// are left out: the agent may propose them again for the changed subject.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantInvalidatedProposalNote>> GetRecentInvalidationsAsync(
+        Guid conversationId,
+        DateTimeOffset since,
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        if (maximum < 1)
+        {
+            return [];
+        }
+
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Approvals
+            .AsNoTracking()
+            .Where(approval => approval.ConversationId == conversationId
+                && approval.Status == NhAssistantApprovalStatuses.Stale
+                && (approval.StaleKind == NhAssistantStaleKinds.AlreadyDone
+                    || approval.StaleKind == NhAssistantStaleKinds.NotApplicable)
+                && (approval.DecidedAt ?? approval.ExecutedAt) >= since)
+            .OrderByDescending(approval => approval.DecidedAt ?? approval.ExecutedAt)
+            .ThenBy(approval => approval.Id)
+            .Take(maximum)
+            .Select(approval => new NhAssistantInvalidatedProposalNote(
+                approval.Id,
+                approval.ToolId,
+                approval.ArgumentsPreview,
+                approval.PresentationJson,
+                approval.PresentationsJson,
+                (approval.DecidedAt ?? approval.ExecutedAt)!.Value,
+                approval.StaleKind!,
+                approval.StaleExplanationsJson))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Counts the agent's proposals per tool, agent version and status, and the feedback on them,
     /// for proposals made within the filter's period.
     /// </summary>
@@ -136,7 +175,10 @@ internal sealed class NhAssistantProposalFeedbackStore(NhAssistantDbContextFacto
                 approval.ToolId,
                 AgentVersion = run == null ? (int?)null : run.AgentVersion,
                 approval.Status,
-                thread.ScopeKey
+                thread.ScopeKey,
+                approval.StaleKind,
+                approval.ExecutionResultCode,
+                AfterApproval = approval.ExecutedAt != null
             };
         if (filter.ScopeKey is { } scopeKey)
         {
@@ -157,6 +199,20 @@ internal sealed class NhAssistantProposalFeedbackStore(NhAssistantDbContextFacto
                 group.Key.ToolId,
                 group.Key.AgentVersion,
                 group.Key.Status,
+                group.Count()))
+            .ToListAsync(cancellationToken);
+
+        // A stale proposal closed at execution was approved first; one closed before a decision
+        // was neither approved nor rejected.
+        var invalidations = await proposals
+            .Where(row => row.Status == NhAssistantApprovalStatuses.Stale)
+            .GroupBy(row => new { row.ToolId, row.AgentVersion, row.StaleKind, row.ExecutionResultCode, row.AfterApproval })
+            .Select(group => new NhAssistantInvalidationCount(
+                group.Key.ToolId,
+                group.Key.AgentVersion,
+                group.Key.StaleKind ?? NhAssistantStaleKinds.Changed,
+                group.Key.ExecutionResultCode ?? NhAssistantErrorCodes.ProposalStale,
+                group.Key.AfterApproval,
                 group.Count()))
             .ToListAsync(cancellationToken);
 
@@ -214,7 +270,10 @@ internal sealed class NhAssistantProposalFeedbackStore(NhAssistantDbContextFacto
                 group.Select(row => row.ApprovalId).Distinct().Count()))
             .ToListAsync(cancellationToken);
 
-        return new NhAssistantFeedbackAggregates(statuses, categories, reach, rejectedWithFeedback);
+        return new NhAssistantFeedbackAggregates(statuses, categories, reach, rejectedWithFeedback)
+        {
+            Invalidations = invalidations
+        };
     }
 
     /// <summary>
@@ -395,11 +454,33 @@ internal sealed record NhAssistantFeedbackReach(string ToolId, int? AgentVersion
 
 internal sealed record NhAssistantFeedbackRejectionReach(string ToolId, int? AgentVersion, int Proposals);
 
+/// <param name="AfterApproval">True when the proposal closed right before execution, after its approval.</param>
+internal sealed record NhAssistantInvalidationCount(
+    string ToolId,
+    int? AgentVersion,
+    string Kind,
+    string ReasonCode,
+    bool AfterApproval,
+    int Count);
+
+internal sealed record NhAssistantInvalidatedProposalNote(
+    Guid ApprovalId,
+    string ToolId,
+    string ArgumentsPreview,
+    string? PresentationJson,
+    string? PresentationsJson,
+    DateTimeOffset ClosedAt,
+    string Kind,
+    string? ExplanationsJson);
+
 internal sealed record NhAssistantFeedbackAggregates(
     IReadOnlyList<NhAssistantProposalStatusCount> Statuses,
     IReadOnlyList<NhAssistantFeedbackCategoryCount> Categories,
     IReadOnlyList<NhAssistantFeedbackReach> Reach,
-    IReadOnlyList<NhAssistantFeedbackRejectionReach> RejectedWithFeedback);
+    IReadOnlyList<NhAssistantFeedbackRejectionReach> RejectedWithFeedback)
+{
+    public IReadOnlyList<NhAssistantInvalidationCount> Invalidations { get; init; } = [];
+}
 
 internal sealed record NhAssistantFeedbackRow(
     AssistantProposalFeedback Feedback,

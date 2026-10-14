@@ -348,7 +348,7 @@ namespace SampleProjectManagement.DAL.Migrations
 
                     b.HasIndex("ProcessorKey", "Status", "NextDispatchAt", "Priority", "CreationDateTime");
 
-                    b.ToTable("BackgroundOperations");
+                    b.ToTable("BackgroundOperations", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationAttempt", b =>
@@ -414,7 +414,7 @@ namespace SampleProjectManagement.DAL.Migrations
 
                     b.HasIndex("OperationId", "StartedAt");
 
-                    b.ToTable("BackgroundOperationAttempts");
+                    b.ToTable("BackgroundOperationAttempts", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationCheckpoint", b =>
@@ -448,7 +448,7 @@ namespace SampleProjectManagement.DAL.Migrations
 
                     b.HasKey("OperationId", "CheckpointKey");
 
-                    b.ToTable("BackgroundOperationCheckpoints");
+                    b.ToTable("BackgroundOperationCheckpoints", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationEvent", b =>
@@ -519,7 +519,7 @@ namespace SampleProjectManagement.DAL.Migrations
                     b.HasIndex("OperationId", "Sequence")
                         .IsUnique();
 
-                    b.ToTable("BackgroundOperationEvents");
+                    b.ToTable("BackgroundOperationEvents", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationIdempotencyRecord", b =>
@@ -547,7 +547,7 @@ namespace SampleProjectManagement.DAL.Migrations
 
                     b.HasIndex("OperationId");
 
-                    b.ToTable("BackgroundOperationIdempotencyRecords");
+                    b.ToTable("BackgroundOperationIdempotencyRecords", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationLease", b =>
@@ -587,7 +587,7 @@ namespace SampleProjectManagement.DAL.Migrations
 
                     b.HasIndex("OperationId");
 
-                    b.ToTable("BackgroundOperationLeases");
+                    b.ToTable("BackgroundOperationLeases", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhBackgroundOperationStep", b =>
@@ -706,7 +706,7 @@ namespace SampleProjectManagement.DAL.Migrations
                     b.HasIndex("OperationId", "ParentStepId", "StepKey")
                         .IsUnique();
 
-                    b.ToTable("BackgroundOperationSteps");
+                    b.ToTable("BackgroundOperationSteps", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhDivision", b =>
@@ -1018,7 +1018,7 @@ namespace SampleProjectManagement.DAL.Migrations
 
                     b.HasIndex("ProcessorKey", "Priority");
 
-                    b.ToTable("Notifications");
+                    b.ToTable("Notifications", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhNotificationDelivery", b =>
@@ -1072,7 +1072,7 @@ namespace SampleProjectManagement.DAL.Migrations
 
                     b.HasIndex("NotificationId");
 
-                    b.ToTable("NotificationDeliveries");
+                    b.ToTable("NotificationDeliveries", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUser", b =>
@@ -1232,7 +1232,7 @@ namespace SampleProjectManagement.DAL.Migrations
 
                     b.HasIndex("UserId", "GroupKey");
 
-                    b.ToTable("UserNotifications");
+                    b.ToTable("UserNotifications", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserNotificationMessage", b =>
@@ -1266,7 +1266,7 @@ namespace SampleProjectManagement.DAL.Migrations
 
                     b.HasIndex("UserNotificationId");
 
-                    b.ToTable("UserNotificationMessages");
+                    b.ToTable("UserNotificationMessages", (string)null);
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AspNet.Common.DAL.Entities.NhUserRole", b =>
@@ -1379,6 +1379,12 @@ namespace SampleProjectManagement.DAL.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CompletedByUserId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreationDateTime")

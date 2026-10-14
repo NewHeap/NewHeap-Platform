@@ -321,14 +321,18 @@ internal static class NhAssistantProposalFeedbackEndpoints
                 return names.Sum(name => statuses.GetValueOrDefault(name));
             }
 
+            var invalidations = aggregates.Invalidations
+                .Where(row => row.ToolId == toolId && row.AgentVersion == agentVersion)
+                .ToArray();
+            var invalidated = invalidations.Where(row => !row.AfterApproval).Sum(row => row.Count);
+            var staleAfterApproval = Count(NhAssistantApprovalStatuses.Stale) - invalidated;
             var approved = Count(
                 NhAssistantApprovalStatuses.Approved,
                 NhAssistantApprovalStatuses.Executing,
                 NhAssistantApprovalStatuses.Executed,
                 NhAssistantApprovalStatuses.ExecutionFailed,
                 NhAssistantApprovalStatuses.ExecutionUnknown,
-                NhAssistantApprovalStatuses.Resolved,
-                NhAssistantApprovalStatuses.Stale);
+                NhAssistantApprovalStatuses.Resolved) + staleAfterApproval;
             var rejected = Count(NhAssistantApprovalStatuses.Rejected);
             var reach = aggregates.Reach.FirstOrDefault(row => row.ToolId == toolId && row.AgentVersion == agentVersion);
             var rejectedWithFeedback = aggregates.RejectedWithFeedback
@@ -351,13 +355,22 @@ internal static class NhAssistantProposalFeedbackEndpoints
                 rejected,
                 Count(NhAssistantApprovalStatuses.Expired),
                 Count(NhAssistantApprovalStatuses.Withdrawn),
-                Count(NhAssistantApprovalStatuses.Stale),
+                staleAfterApproval,
                 Count(NhAssistantApprovalStatuses.ExecutionFailed),
                 approved + rejected == 0 ? null : (double)rejected / (approved + rejected),
                 rejectedWithFeedback?.Proposals ?? 0,
                 reach?.Proposals ?? 0,
                 reach?.Authors ?? 0,
-                categories));
+                categories)
+            {
+                Invalidated = invalidated,
+                Invalidations = invalidations
+                    .OrderByDescending(row => row.Count)
+                    .ThenBy(row => row.Kind, StringComparer.Ordinal)
+                    .ThenBy(row => row.ReasonCode, StringComparer.Ordinal)
+                    .Select(row => new NhAssistantInvalidationCountDto(row.Kind, row.ReasonCode, row.AfterApproval, row.Count))
+                    .ToArray()
+            });
         }
 
         return rows;

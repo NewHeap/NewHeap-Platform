@@ -47,8 +47,9 @@ interface NhAssistantStartedAgent {
  * decides when the viewer may not and the optional question after a rejection, and per agent the
  * conversation about the subject and, for participants, a start action. `agentId` names the agent
  * whose conversation the host offers also before it worked on the subject. With live updates the
- * view reloads by itself when agent work on its subject changes. Opening a conversation uses
- * `NhAssistantPanelService.openSubject` and emits `conversationOpened` afterwards.
+ * view reloads by itself when agent work on its subject changes; a proposal that closes because it
+ * no longer fits stays as a closed card with the reason until it is dismissed. Opening a
+ * conversation uses `NhAssistantPanelService.openSubject` and emits `conversationOpened` afterwards.
  */
 @Component({
   selector: 'nh-assistant-subject-suggestions',
@@ -208,7 +209,11 @@ export class NhAssistantSubjectSuggestionsComponent {
     this.subscription?.unsubscribe();
     this.subscription = this.api.getSubjectWork(this.subjectType(), this.subjectId(), this.agentId()).subscribe({
       next: work => {
+        const previous = this.proposals();
         this.work.set(work);
+        if (quiet) {
+          this.proposalList()?.holdClosed(previous, this.proposals());
+        }
         const started = this.started();
         const startedAgent = started ? work.agents.find(agent => agent.agentId === started.agentId) : undefined;
         if (started?.receipt.runId && !startedAgent?.thread?.activeRun) {

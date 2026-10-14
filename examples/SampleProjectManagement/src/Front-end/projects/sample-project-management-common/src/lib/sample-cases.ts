@@ -4167,5 +4167,32 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/NhActorTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPlatformActorTests.cs"
     ]
+  },
+  {
+    "id": "SPM-282",
+    "title": "Agent proposals that people overtake by hand close on their own",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAiProposalGuard with NhAiProposalGuardContext, NhAiProposalKey and NhAiProposalGuardStages; NhAiPreconditionResult.AlreadyDone, NotApplicable, Stale with an explanation and NhAiStaleKind; NhAssistantBuilder.AddProposalGuard and AddProposalRevalidation with NhAssistantRevalidationBuilder; INhAssistantProposalRevalidation (RevalidateSubjectAsync, RevalidateKeysAsync) with NhAssistantRevalidationResult; NhAssistantProposalDto.StaleKind and StaleExplanation, the same fields on the approval part of a conversation, and NhAssistantStaleKinds; the assistant-proposal-stale refusal of an approval and assistant-proposal-check-failed; NhAssistantAuditEventKind.AgentProposalInvalidated and NhAssistantInvalidationStages; the invalidation counts of the feedback report (Invalidated, Invalidations) and the <invalidated-proposals> part of the agent continuity block; the AgentProposalRevalidation migrations for SQL Server and PostgreSQL; the stale kind and explanation in NhAssistantApprovalCardComponent and NhAssistantAgentProposalsComponent, its holdClosedCards closed cards in the agent inbox and the subject suggestions, and the report column of NhAssistantAgentFeedbackReportComponent",
+    "outcome": "The intake reviewer proposes to activate a project and, asked by the project's owner, to tick off one of its tasks. While both proposals wait for the project's approver, the approver ticks the task off by hand. The task update reaches the platform after its transaction committed, and the proposal revalidation the reviewer registered for task updates finds the proposal by the task it changes and closes it as already done, with who completed the task and when, in each reader's language; approving it afterwards is refused. The approver then sets the project to active by hand, and the application revalidates the project's open proposals, which closes the status proposal as already done. When the status advisor's run waits for a participant's inline approval and the owner sets the status by hand, the platform closes the proposal and wakes the waiting run itself, which ends without changing anything. Nothing the agent proposed ran, every closing is audited without content, and the report and the next run count the closed proposals apart from rejections. In the management portal a proposal that closes while it is on screen in the inbox or the project's suggestions stays as a closed card with the reason until it is dismissed, and an approval refused because the work was already done shows why.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalGuards.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectTaskAiTools.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectTaskService.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20261014201547_AddProjectTaskCompletion.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalGuards.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInlineRunWaker.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSuspension.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantProposalRevalidationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationOwnershipProviderTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-proposals.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/approval-card/nh-assistant-approval-card.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts"
+    ]
   }
 ] as const;

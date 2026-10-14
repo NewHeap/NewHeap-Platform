@@ -55,7 +55,7 @@ public class ProjectTaskService : BaseDbEntityService<ProjectTask, ProjectTaskMu
         var result = await base.CreateAsync(
             mutateModel,
             committedByUserId,
-            beforeSave,
+            TrackCompletion(committedByUserId, beforeSave),
             cancellationToken,
             options);
         if (!result.Success)
@@ -86,7 +86,7 @@ public class ProjectTaskService : BaseDbEntityService<ProjectTask, ProjectTaskMu
             id,
             mutateModel,
             committedByUserId,
-            beforeSave,
+            TrackCompletion(committedByUserId, beforeSave),
             cancellationToken,
             options);
         if (!result.Success)
@@ -94,10 +94,17 @@ public class ProjectTaskService : BaseDbEntityService<ProjectTask, ProjectTaskMu
             return result;
         }
 
+        var divisionId = await _repository.GetDbSet<Project>()
+            .AsNoTracking()
+            .Where(project => project.Id == result.Data.ProjectId)
+            .Select(project => project.DivisionId)
+            .SingleAsync(cancellationToken);
         await _eventPublisher.PublishAsync(new ProjectTaskUpdatedEvent
         {
             ProjectTaskId = result.Data.Id,
-            ProjectId = result.Data.ProjectId
+            ProjectId = result.Data.ProjectId,
+            DivisionId = divisionId,
+            IsCompleted = result.Data.IsCompleted
         });
         await transaction.CommitAsync(cancellationToken);
         return result;
@@ -163,6 +170,29 @@ public class ProjectTaskService : BaseDbEntityService<ProjectTask, ProjectTaskMu
             x => x!.ProjectId,
             x => x!.Title,
             x => x!.IsCompleted);
+    }
+
+    /// <summary>
+    /// SPM-282: records who completed the task and when, so an agent proposal to complete it again
+    /// can say who already did. Reopening the task forgets both.
+    /// </summary>
+    private static Action<ProjectTask> TrackCompletion(Guid? committedByUserId, Action<ProjectTask>? beforeSave)
+    {
+        return task =>
+        {
+            if (task.IsCompleted && task.CompletedAt is null)
+            {
+                task.CompletedAt = DateTimeOffset.UtcNow;
+                task.CompletedByUserId = committedByUserId;
+            }
+            else if (!task.IsCompleted)
+            {
+                task.CompletedAt = null;
+                task.CompletedByUserId = null;
+            }
+
+            beforeSave?.Invoke(task);
+        };
     }
 
     private static void Normalize(ProjectTaskMutateModel mutateModel)

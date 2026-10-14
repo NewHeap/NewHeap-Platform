@@ -1,7 +1,9 @@
+using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.Common.Events;
 using NewHeap.Platform.Events.Cap;
 using SampleProjectManagement.Core.Events;
+using SampleProjectManagement.Core.Services;
 using System.Collections.Concurrent;
 using System.Text.Json;
 
@@ -32,6 +34,35 @@ public sealed class ProjectEventConsumer : INhEventConsumer<ProjectCreatedEvent>
     }
 }
 
+
+/// <summary>
+/// SPM-282: a task update reaches the platform's agent triggers after the task transaction
+/// committed. The intake reviewer registers a proposal revalidation for the event, so a task that
+/// someone ticked off by hand closes the agent's proposal to complete it, live and with the reason.
+/// </summary>
+[NhMessageProcessing(MessageProcessingType.PerApplication)]
+public sealed class ProjectTaskEventConsumer(INhAssistantAgentTriggers agentTriggers) : INhEventConsumer<ProjectTaskUpdatedEvent>
+{
+    public async Task HandleAsync(ProjectTaskUpdatedEvent @event, CancellationToken cancellationToken)
+    {
+        await agentTriggers.PublishAsync(@event, cancellationToken);
+    }
+}
+
+/// <summary>
+/// SPM-282: the explicit form. After a project's status changed, the application revalidates the
+/// open agent proposals about the project itself; a proposal to set the status it already has closes
+/// as already done.
+/// </summary>
+[NhMessageProcessing(MessageProcessingType.PerApplication)]
+public sealed class ProjectStatusEventConsumer(INhAssistantProposalRevalidation revalidation)
+    : INhEventConsumer<ProjectStatusChangedEvent>
+{
+    public async Task HandleAsync(ProjectStatusChangedEvent @event, CancellationToken cancellationToken)
+    {
+        await revalidation.RevalidateSubjectAsync(ProjectSubjects.For(@event.ProjectId), cancellationToken);
+    }
+}
 
 public sealed class ProjectPrioritySampleEvent : INhEvent
 {

@@ -28,6 +28,31 @@ public sealed class NhAssistantLimits
     public const int MaxFeedbackCharacters = 1_000;
 
     /// <summary>
+    /// Maximum characters of the explanation of a stale proposal in one culture.
+    /// </summary>
+    public const int MaxStaleExplanationCharacters = 500;
+
+    /// <summary>
+    /// Maximum characters of the stored explanations of a stale proposal in all its cultures.
+    /// </summary>
+    public const int MaxStaleExplanationsSerializedLength = 6_000;
+
+    /// <summary>
+    /// Maximum application objects one proposal is indexed by.
+    /// </summary>
+    public const int MaxProposalKeys = 32;
+
+    /// <summary>
+    /// Maximum open proposals one revalidation checks; it checks the oldest first.
+    /// </summary>
+    public const int MaxRevalidatedProposals = 200;
+
+    /// <summary>
+    /// Maximum application objects one revalidation by key names.
+    /// </summary>
+    public const int MaxRevalidationKeys = 256;
+
+    /// <summary>
     /// Maximum governed tool calls in one turn. Further calls end the turn gracefully.
     /// </summary>
     public int MaxToolCallsPerTurn { get; set; } = 8;

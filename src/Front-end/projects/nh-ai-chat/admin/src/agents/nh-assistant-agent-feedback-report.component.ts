@@ -9,6 +9,7 @@ import {
   AgentProposalFeedbackCategory,
   AgentProposalFeedbackGroup,
   NH_ASSISTANT_FEEDBACK_CATEGORIES,
+  StaleKind,
   NhAssistantAdminApiService,
   NhAssistantError,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
@@ -20,9 +21,11 @@ import {
 /** Periods the report offers, in days before now. */
 export type NhAssistantFeedbackPeriod = 7 | 30 | 90;
 
-/** A summary row with its most frequent feedback categories. */
+/** A summary row with its most frequent feedback categories and why open proposals closed. */
 interface NhAssistantFeedbackSummaryView extends AgentFeedbackSummaryRow {
   topCategories: AgentFeedbackCategoryCount[];
+  /** Open proposals closed before a decision, per kind, most frequent first. */
+  invalidatedKinds: { kind: StaleKind; count: number; reasons: string }[];
 }
 
 const dayMs = 24 * 60 * 60 * 1000;
@@ -93,7 +96,8 @@ export class NhAssistantAgentFeedbackReportComponent {
     .filter(row => !this.toolId() || row.toolId === this.toolId())
     .map(row => ({
       ...row,
-      topCategories: [...row.categories].sort((left, right) => right.count - left.count).slice(0, topCategoryCount)
+      topCategories: [...row.categories].sort((left, right) => right.count - left.count).slice(0, topCategoryCount),
+      invalidatedKinds: invalidatedKinds(row)
     })));
   readonly filtered = computed(() => this.toolId() !== '' || this.category() !== '');
 
@@ -234,4 +238,26 @@ export class NhAssistantAgentFeedbackReportComponent {
 function periodRange(days: number): { from: string; to: string } {
   const to = Date.now();
   return { from: new Date(to - days * dayMs).toISOString(), to: new Date(to).toISOString() };
+}
+
+/**
+ * The open proposals of a row that closed before a decision, per kind, with their reason codes for
+ * the tooltip. Proposals that closed after their approval are part of the approved count.
+ */
+function invalidatedKinds(row: AgentFeedbackSummaryRow): { kind: StaleKind; count: number; reasons: string }[] {
+  const kinds = new Map<StaleKind, { count: number; reasons: string[] }>();
+  for (const item of row.invalidations ?? []) {
+    if (item.afterApproval) {
+      continue;
+    }
+
+    const entry = kinds.get(item.kind) ?? { count: 0, reasons: [] };
+    entry.count += item.count;
+    entry.reasons.push(`${item.reasonCode} (${item.count})`);
+    kinds.set(item.kind, entry);
+  }
+
+  return [...kinds.entries()]
+    .map(([kind, entry]) => ({ kind, count: entry.count, reasons: entry.reasons.join(', ') }))
+    .sort((left, right) => right.count - left.count);
 }

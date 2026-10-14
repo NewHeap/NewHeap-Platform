@@ -169,6 +169,40 @@ public static class NhAssistantToolCallStatuses
 }
 
 /// <summary>
+/// Why a stale proposal no longer fits, as exposed by the assistant HTTP contract.
+/// </summary>
+public static class NhAssistantStaleKinds
+{
+    public const string Changed = "changed";
+
+    public const string AlreadyDone = "already-done";
+
+    public const string NotApplicable = "not-applicable";
+
+    public static string From(NhAiStaleKind kind)
+    {
+        return kind switch
+        {
+            NhAiStaleKind.AlreadyDone => AlreadyDone,
+            NhAiStaleKind.NotApplicable => NotApplicable,
+            _ => Changed
+        };
+    }
+}
+
+/// <summary>
+/// The moments at which a proposal guard closed a proposal, as recorded in audit events.
+/// </summary>
+public static class NhAssistantInvalidationStages
+{
+    public const string Revalidation = "revalidation";
+
+    public const string Decision = "decision";
+
+    public const string Execution = "execution";
+}
+
+/// <summary>
 /// Approval status values exposed by the assistant HTTP contract.
 /// </summary>
 public static class NhAssistantApprovalStatuses
@@ -421,6 +455,12 @@ public static class NhAssistantErrorCodes
     public const string FourEyesRequired = "assistant-four-eyes-required";
     public const string ExecutionNotUncertain = "assistant-execution-not-uncertain";
     public const string ProposalStale = "assistant-proposal-stale";
+
+    /// <summary>
+    /// A proposal guard failed, so whether the proposal still fits is unknown. The proposal stays
+    /// open; deciding it again later runs the check again.
+    /// </summary>
+    public const string ProposalCheckFailed = "assistant-proposal-check-failed";
     public const string WebhookSignatureInvalid = "assistant-webhook-signature-invalid";
     public const string MemoryNotConfigured = "assistant-memory-not-configured";
     public const string MemoryInvalid = "assistant-memory-invalid";

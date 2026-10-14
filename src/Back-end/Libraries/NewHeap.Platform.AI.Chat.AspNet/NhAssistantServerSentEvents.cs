@@ -226,7 +226,11 @@ internal static class NhAssistantDtoMapper
                 approval.ArgumentsPreview,
                 approval.Targets,
                 approval.ExpiresAt,
-                approval.Status),
+                approval.Status)
+            {
+                StaleKind = approval.StaleKind,
+                StaleExplanation = approval.StaleExplanation
+            },
             _ => throw new InvalidOperationException($"Unknown assistant message part '{part.GetType().Name}'.")
         };
     }

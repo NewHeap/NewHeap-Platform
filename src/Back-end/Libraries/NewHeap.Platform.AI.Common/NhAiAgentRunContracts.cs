@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using NewHeap.Platform.Common.Models;
@@ -303,14 +304,64 @@ public enum NhAiPreconditionOutcome
     Stale = 1
 }
 
+/// <summary>Why a proposal no longer fits. People see a label per kind next to the explanation.</summary>
+public enum NhAiStaleKind
+{
+    /// <summary>What the proposal was based on changed, such as the subject.</summary>
+    Changed = 0,
+
+    /// <summary>The proposed work was already done another way, typically by a person.</summary>
+    AlreadyDone = 1,
+
+    /// <summary>The proposal no longer applies for another reason.</summary>
+    NotApplicable = 2
+}
+
 public sealed record NhAiPreconditionResult(NhAiPreconditionOutcome Outcome, string? ReasonCode = null)
 {
     public static NhAiPreconditionResult Satisfied { get; } = new(NhAiPreconditionOutcome.Satisfied);
 
+    /// <summary>Why a stale proposal no longer fits.</summary>
+    public NhAiStaleKind Kind { get; init; } = NhAiStaleKind.Changed;
+
+    /// <summary>
+    /// Explains a stale result to people in a culture, for example "Office task completed by Henk on
+    /// 14 Oct". The platform calls it once per supported UI culture, with that culture also set as
+    /// the current UI culture, and stores the texts. It must not read or change data.
+    /// </summary>
+    public Func<CultureInfo, string?>? Explain { get; init; }
+
     public static NhAiPreconditionResult Stale(string reasonCode)
     {
+        return Stale(reasonCode, explain: null);
+    }
+
+    /// <summary>What the proposal was based on changed.</summary>
+    public static NhAiPreconditionResult Stale(string reasonCode, Func<CultureInfo, string?>? explain)
+    {
+        return Create(NhAiStaleKind.Changed, reasonCode, explain);
+    }
+
+    /// <summary>The proposed work was already done another way.</summary>
+    public static NhAiPreconditionResult AlreadyDone(string reasonCode, Func<CultureInfo, string?>? explain = null)
+    {
+        return Create(NhAiStaleKind.AlreadyDone, reasonCode, explain);
+    }
+
+    /// <summary>The proposal no longer applies.</summary>
+    public static NhAiPreconditionResult NotApplicable(string reasonCode, Func<CultureInfo, string?>? explain = null)
+    {
+        return Create(NhAiStaleKind.NotApplicable, reasonCode, explain);
+    }
+
+    private static NhAiPreconditionResult Create(NhAiStaleKind kind, string reasonCode, Func<CultureInfo, string?>? explain)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(reasonCode);
-        return new NhAiPreconditionResult(NhAiPreconditionOutcome.Stale, reasonCode);
+        return new NhAiPreconditionResult(NhAiPreconditionOutcome.Stale, reasonCode)
+        {
+            Kind = kind,
+            Explain = explain
+        };
     }
 }
 

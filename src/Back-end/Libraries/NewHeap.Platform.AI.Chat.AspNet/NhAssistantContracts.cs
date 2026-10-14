@@ -307,7 +307,21 @@ public sealed record NhAssistantApprovalPartDto(
     string ArgumentsPreview,
     IReadOnlyList<string> Targets,
     DateTimeOffset ExpiresAt,
-    string Status) : NhAssistantMessagePartDto;
+    string Status) : NhAssistantMessagePartDto
+{
+    /// <summary>
+    /// Why a stale proposal no longer fits: <c>already-done</c>, <c>changed</c> or
+    /// <c>not-applicable</c>. Only written for stale proposals.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StaleKind { get; init; }
+
+    /// <summary>
+    /// The explanation of a stale proposal in the caller's language, when the application gave one.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StaleExplanation { get; init; }
+}
 
 public sealed record NhAssistantCreateConversationRequest(
     string? AgentId,

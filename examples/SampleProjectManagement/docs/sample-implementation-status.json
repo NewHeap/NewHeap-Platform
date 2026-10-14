@@ -277,7 +277,8 @@
     "SPM-278",
     "SPM-279",
     "SPM-280",
-    "SPM-281"
+    "SPM-281",
+    "SPM-282"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2184,6 +2185,25 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserManagerRetentionTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/NhActorTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPlatformActorTests.cs"
+    ],
+    "SPM-282": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalGuards.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectTaskAiTools.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectTaskService.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20261014201547_AddProjectTaskCompletion.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiProposalGuards.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalGuards.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantInlineRunWaker.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSuspension.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantProposalRevalidationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationOwnershipProviderTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-proposals.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/approval-card/nh-assistant-approval-card.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts"
     ]
   }
 }

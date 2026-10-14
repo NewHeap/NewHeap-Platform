@@ -5,7 +5,7 @@
  * field names identical to the JSON the server returns.
  */
 import { AgentProposalFeedbackCategory, AgentProposalFeedbackGroup, AgentProposalStatus } from './assistant-agent-run.models';
-import { ApprovalPresentation } from './assistant-api.models';
+import { ApprovalPresentation, StaleKind } from './assistant-api.models';
 
 export type AssistantStyle = 'default' | 'direct' | 'personal' | 'detailed';
 
@@ -181,7 +181,7 @@ export interface AgentFeedbackSummaryRow {
   rejected: number;
   expired: number;
   withdrawn: number;
-  /** Approved proposals closed because the subject changed; part of `approved`. */
+  /** Approved proposals closed right before execution because they no longer fit; part of `approved`. */
   stale: number;
   /** Approved proposals whose execution failed; part of `approved`. */
   executionFailed: number;
@@ -194,6 +194,23 @@ export interface AgentFeedbackSummaryRow {
   /** Different people who gave feedback, so one critical approver counts as one. */
   feedbackAuthors: number;
   categories: AgentFeedbackCategoryCount[];
+  /**
+   * Open proposals closed before anyone decided because they no longer fit, such as work a person
+   * already did. Neither approved nor rejected, and not part of `rejectionRate`. Missing on older servers.
+   */
+  invalidated?: number;
+  /** Why proposals closed as stale, per kind and reason code. Missing on older servers. */
+  invalidations?: AgentInvalidationCount[];
+}
+
+/** Proposals of one tool and agent version that closed as stale for one kind and reason. */
+export interface AgentInvalidationCount {
+  kind: StaleKind;
+  /** The application guard's reason code. */
+  reasonCode: string;
+  /** True when the proposal closed right before execution, after its approval. */
+  afterApproval: boolean;
+  count: number;
 }
 
 /** Response of `GET admin/agents/{id}/feedback/summary`. */

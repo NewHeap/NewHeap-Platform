@@ -16,7 +16,10 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 public interface INhAssistantAgentTriggers
 {
     /// <summary>
-    /// Fires every trigger registered for <typeparamref name="TEvent"/>.
+    /// Fires every trigger registered for <typeparamref name="TEvent"/>, and queues the proposal
+    /// revalidations registered for it with <c>AddProposalRevalidation</c>. The revalidation is a
+    /// background operation, so published inside the application's transaction it runs only once
+    /// that transaction committed.
     /// </summary>
     Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishAsync<TEvent>(
         TEvent evt,
@@ -97,6 +100,7 @@ internal sealed class NhAssistantAgentTriggers(
         where TEvent : class
     {
         ArgumentNullException.ThrowIfNull(evt);
+        await QueueRevalidationsAsync(evt, cancellationToken);
         var receipts = new List<NhAssistantTriggerReceipt>();
         foreach (var trigger in registration.Triggers.Values.Where(trigger =>
                      trigger.Source == NhAssistantTriggerSource.Event && trigger.EventType == typeof(TEvent)))
@@ -114,6 +118,54 @@ internal sealed class NhAssistantAgentTriggers(
         }
 
         return receipts;
+    }
+
+    /// <summary>
+    /// Queues one revalidation per registration for <typeparamref name="TEvent"/> that names a
+    /// subject or objects. The operation joins the application's transaction like a run does.
+    /// </summary>
+    private async Task QueueRevalidationsAsync<TEvent>(TEvent evt, CancellationToken cancellationToken)
+        where TEvent : class
+    {
+        foreach (var revalidation in registration.Revalidations.Where(item => item.EventType == typeof(TEvent)))
+        {
+            var subject = revalidation.Subject?.Invoke(evt);
+            var keys = (revalidation.Keys?.Invoke(evt) ?? [])
+                .Where(key => key is not null)
+                .Distinct()
+                .Take(NhAssistantLimits.MaxRevalidationKeys)
+                .ToArray();
+            if (subject is null && keys.Length == 0)
+            {
+                continue;
+            }
+
+            var operations = services.GetService<INhBackgroundOperationService>();
+            if (operations is null)
+            {
+                logger.LogWarning(
+                    "Proposal revalidation for {EventType} needs background operations with AddAssistantAgentRuns.",
+                    typeof(TEvent).Name);
+                return;
+            }
+
+            var enqueued = await operations.EnqueueAsync(
+                new NhAssistantRevalidateProposalsRequest(subject, keys, keys.Length == 0 ? null : revalidation.ScopeKey(evt)),
+                new NhBackgroundOperationEnqueueOptions
+                {
+                    OwnerAgentKey = NhAssistantProposalInvalidation.SystemActorId,
+                    IdempotencyKey = Guid.NewGuid().ToString("N"),
+                    DomainObjectType = subject?.Type,
+                    DomainObjectId = subject?.Id
+                },
+                cancellationToken);
+            if (!enqueued.Success)
+            {
+                logger.LogWarning(
+                    "Proposal revalidation for {EventType} could not be queued.",
+                    typeof(TEvent).Name);
+            }
+        }
     }
 
     public Task<NhAssistantTriggerReceipt> StartAsync(

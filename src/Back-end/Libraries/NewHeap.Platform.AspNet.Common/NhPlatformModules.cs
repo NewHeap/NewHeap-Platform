@@ -324,6 +324,7 @@ internal static class NhBackgroundOperationRegistration
         services.TryAddScoped<INhBackgroundOperationService, NhBackgroundOperationService>();
         services.TryAddScoped<INhBackgroundOperationAdministrationService, NhBackgroundOperationService>();
         services.TryAddScoped<INhBackgroundOperationSignalService, NhBackgroundOperationSignalService>();
+        services.TryAddScoped<NhBackgroundOperationOwnerSignals>();
         services.AddScoped(serviceProvider => new NhBackgroundOperationRunner(
             serviceProvider,
             serviceProvider.GetRequiredService<IServiceScopeFactory>(),

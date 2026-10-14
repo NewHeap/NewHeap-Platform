@@ -70,6 +70,14 @@ public sealed class ProjectTaskUpdatedEvent : INhEvent
     public Guid EventId { get; init; } = Guid.NewGuid();
     public Guid ProjectTaskId { get; init; }
     public Guid ProjectId { get; init; }
+
+    /// <summary>
+    /// The division of the task's project, so consumers can scope what they do, such as revalidating
+    /// agent proposals for the task (SPM-282).
+    /// </summary>
+    public Guid DivisionId { get; init; }
+
+    public bool IsCompleted { get; init; }
     public DateTimeOffset OccurredAt { get; init; } = DateTimeOffset.UtcNow;
     public static string Topic => "sample-project-management.project-task-updated";
 }

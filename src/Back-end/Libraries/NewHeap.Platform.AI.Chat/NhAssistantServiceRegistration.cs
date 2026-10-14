@@ -94,6 +94,11 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<Live.NhAssistantAgentWorkUpdates>();
         services.TryAddScoped<INhAiArtifacts, NhAssistantArtifacts>();
         services.TryAddScoped<NhAssistantConsultationService>();
+        // Proposal guards and revalidation.
+        services.TryAddScoped<NhAssistantProposalGuards>();
+        services.TryAddScoped<NhAssistantStaleExplanations>();
+        services.TryAddScoped<NhAssistantProposalInvalidation>();
+        services.TryAddScoped<INhAssistantProposalRevalidation, NhAssistantProposalRevalidation>();
         return state;
     }
 

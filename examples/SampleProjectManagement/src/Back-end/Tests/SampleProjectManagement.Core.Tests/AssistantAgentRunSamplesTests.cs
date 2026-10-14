@@ -229,6 +229,113 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task Proposals_that_people_overtake_by_hand_close_on_their_own_with_the_reason()
+    {
+        // SPM-282
+        var project = await host.CreateProjectAsync("OVERTAKEN", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        var taskId = await host.CreateTaskAsync(project, "Collect the signed charter");
+        var receipt = Assert.Single(await host.PublishProjectCreatedAsync(project, createdBy: host.OwnerId));
+        var conversationId = receipt.ConversationId!.Value;
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        colleague.DefaultRequestHeaders.AcceptLanguage.Clear();
+        colleague.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en");
+        var statusProposal = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Pending, ProjectAiTools.ChangeStatusToolId);
+
+        // The owner asks the reviewer to tick off the task; the proposal waits for the colleague.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var started = await scope.ServiceProvider.GetRequiredService<INhAssistantAgentTriggers>().StartAsync(
+                SampleIntakeReviewerComposition.AgentId,
+                ProjectSubjects.For(project),
+                host.OwnerId.ToString("D"),
+                $"Complete task {taskId:D} of project {project:D}.");
+            Assert.NotEqual(NhAssistantTriggerOutcomes.Rejected, started.Outcome);
+        }
+        var taskProposal = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Pending, ProjectTaskAiTools.CompleteToolId);
+        Assert.Contains("Collect the signed charter", taskProposal.Presentation!.Summary);
+
+        // The colleague ticks the task off by hand. CAP delivers the update once the task's
+        // transaction committed; the declared revalidation finds the proposal by its task and
+        // closes it, with who did the work, in each reader's language.
+        var completed = await host.CompleteTaskByHandAsync(taskId, host.ColleagueId);
+        Assert.Equal(host.DivisionId, completed.DivisionId);
+        await host.DeliverAsync(completed);
+        var closed = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Stale, ProjectTaskAiTools.CompleteToolId);
+        Assert.Equal(taskProposal.ApprovalId, closed.ApprovalId);
+        Assert.Equal(NhAssistantStaleKinds.AlreadyDone, closed.StaleKind);
+        Assert.Equal(ProjectTaskProposalGuard.CompletedCode, closed.ExecutionResultCode);
+        Assert.StartsWith("Already completed by colleague@sample.localhost", closed.StaleExplanation);
+        using (var dutchColleague = host.CreateClient(host.ColleagueId.ToString()))
+        {
+            dutchColleague.DefaultRequestHeaders.AcceptLanguage.Clear();
+            dutchColleague.DefaultRequestHeaders.AcceptLanguage.ParseAdd("nl-NL");
+            var dutch = Assert.Single(
+                (await dutchColleague.GetFromJsonAsync<NhAssistantProposalDto[]>($"/api/assistant/threads/{conversationId}/proposals", Json))!,
+                item => item.ApprovalId == taskProposal.ApprovalId);
+            Assert.StartsWith("Al afgevinkt door colleague@sample.localhost", dutch.StaleExplanation);
+        }
+
+        // Approving it afterwards is refused, and nothing ran.
+        var refused = await DecideAsync(colleague, taskProposal, "approve");
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var task = await scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>().ProjectTasks
+                .AsNoTracking()
+                .SingleAsync(item => item.Id == taskId);
+            Assert.Equal(host.ColleagueId, task.CompletedByUserId);
+        }
+
+        // Setting the status by hand closes the status proposal through subject revalidation.
+        var statusChanged = await host.SetStatusByHandAsync(project, ProjectStatus.Active, host.ColleagueId);
+        await host.DeliverAsync(statusChanged);
+        var statusClosed = await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.Stale, ProjectAiTools.ChangeStatusToolId);
+        Assert.Equal(statusProposal.ApprovalId, statusClosed.ApprovalId);
+        Assert.Equal(ProjectStatusProposalGuard.StatusSetCode, statusClosed.ExecutionResultCode);
+        Assert.Equal("The project is already Active.", statusClosed.StaleExplanation);
+        Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == project);
+        Assert.Contains(host.Services.GetRequiredService<SampleAssistantAuditLog>().Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalInvalidated
+            && evt.ApprovalId == taskProposal.ApprovalId
+            && evt.ObjectId == NhAssistantInvalidationStages.Revalidation);
+    }
+
+    [Fact]
+    public async Task A_run_waiting_for_a_proposal_that_a_person_overtook_continues_without_it()
+    {
+        // SPM-282: the status advisor's run waits for the participant's inline approval. Nobody
+        // decides; the owner sets the status by hand, and the platform closes the proposal and
+        // wakes the waiting run itself.
+        var project = await host.CreateProjectAsync("WAITING", ownerId: host.OwnerId);
+        await host.AddMemberAsync(project, host.ParticipantId, ProjectMemberRole.Participant);
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        var started = await participant.PostAsJsonAsync(
+            "/api/assistant/threads/start",
+            new NhAssistantStartAgentRequest(
+                SampleStatusAdvisorComposition.AgentId,
+                ProjectSubjects.Type,
+                project.ToString("D"),
+                $"Set project {project:D} to onhold."),
+            Json);
+        Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
+        var conversationId = (await started.Content.ReadFromJsonAsync<NhAssistantTriggerReceiptDto>(Json))!.ConversationId!.Value;
+        var proposal = await WaitForProposalAsync(participant, conversationId, NhAssistantApprovalStatuses.Pending);
+        Assert.Equal(NhAssistantApprovalModes.Inline, proposal.Mode);
+        var waiting = await WaitForRunAsync(participant, conversationId, NhAssistantRunStatuses.WaitingForApproval);
+        await host.WaitForOperationAsync(waiting.BackgroundOperationId!.Value, NhBackgroundOperationStatus.WaitingForSignal);
+
+        var changed = await host.SetStatusByHandAsync(project, ProjectStatus.OnHold, host.OwnerId);
+        await host.DeliverAsync(changed);
+
+        var closed = await WaitForProposalAsync(participant, conversationId, NhAssistantApprovalStatuses.Stale);
+        Assert.Equal(proposal.ApprovalId, closed.ApprovalId);
+        Assert.Equal(NhAssistantStaleKinds.AlreadyDone, closed.StaleKind);
+        var completed = await WaitForRunAsync(participant, conversationId, NhAssistantRunStatuses.Completed);
+        Assert.Equal(waiting.Id, completed.Id);
+        Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == project);
+    }
+
+    [Fact]
     public async Task A_participant_starts_the_status_advisor_which_uses_their_rights_and_waits_inline_for_their_approval()
     {
         // SPM-272 and SPM-273
@@ -819,7 +926,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     private static async Task<NhAssistantProposalDto> WaitForProposalAsync(
         HttpClient client,
         Guid conversationId,
-        string status)
+        string status,
+        string? toolId = null)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
         NhAssistantProposalDto[] proposals = [];
@@ -829,7 +937,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             if (response.IsSuccessStatusCode)
             {
                 proposals = await response.Content.ReadFromJsonAsync<NhAssistantProposalDto[]>(Json) ?? [];
-                if (proposals.FirstOrDefault(item => item.Status == status) is { } match)
+                if (proposals.FirstOrDefault(item => item.Status == status && (toolId is null || item.ToolId == toolId)) is { } match)
                 {
                     return match;
                 }
@@ -966,6 +1074,9 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         // ProjectService deletes projects for SPM-276; its events go nowhere in this host.
         services.AddScopedNhDbRepository<Project>();
         services.AddScoped<ProjectService>();
+        // SPM-282: people tick tasks off by hand through the task service.
+        services.AddScopedNhDbRepository<ProjectTask>();
+        services.AddScoped<ProjectTaskService>();
         services.AddSingleton(Substitute.For<INhEventPublisher>());
         services.AddSingleton<SampleEventLog>();
     }
@@ -1061,6 +1172,77 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         project.Description = "Edited after the intake review.";
         project.LastModifiedDateTime = DateTimeOffset.UtcNow.AddSeconds(1);
         await dbContext.SaveChangesAsync();
+    }
+
+    public async Task<Guid> CreateTaskAsync(Guid projectId, string title)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
+        var task = new ProjectTask { Id = Guid.NewGuid(), ProjectId = projectId, Title = title };
+        dbContext.ProjectTasks.Add(task);
+        await dbContext.SaveChangesAsync();
+        return task.Id;
+    }
+
+    /// <summary>
+    /// Completes a task the way the task page does, and returns the event the task service handed to
+    /// the outbox for CAP to deliver after the commit.
+    /// </summary>
+    public async Task<ProjectTaskUpdatedEvent> CompleteTaskByHandAsync(Guid taskId, Guid userId)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
+        var task = await dbContext.ProjectTasks.AsNoTracking().SingleAsync(item => item.Id == taskId);
+        var updated = await scope.ServiceProvider.GetRequiredService<ProjectTaskService>().UpdateAsync(
+            taskId,
+            new ProjectTaskMutateModel { ProjectId = task.ProjectId, Title = task.Title, IsCompleted = true },
+            committedByUserId: userId);
+        Assert.True(updated.Success);
+        return Published<ProjectTaskUpdatedEvent>(evt => evt.ProjectTaskId == taskId);
+    }
+
+    /// <summary>
+    /// Sets a project's status the way the project page does, and returns the event for CAP.
+    /// </summary>
+    public async Task<ProjectStatusChangedEvent> SetStatusByHandAsync(Guid projectId, ProjectStatus status, Guid userId)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var updated = await scope.ServiceProvider.GetRequiredService<ProjectService>().UpdateStatusAsync(
+            projectId,
+            new ProjectStatusMutateModel { Status = status },
+            committedByUserId: userId);
+        Assert.True(updated.Success);
+        return Published<ProjectStatusChangedEvent>(evt => evt.ProjectId == projectId && evt.Status == status);
+    }
+
+    /// <summary>
+    /// Delivers a task update through the sample's consumer, as CAP does after the commit.
+    /// </summary>
+    public async Task DeliverAsync(ProjectTaskUpdatedEvent evt)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var consumer = ActivatorUtilities.CreateInstance<ProjectTaskEventConsumer>(scope.ServiceProvider);
+        await consumer.HandleAsync(evt, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Delivers a status change through the sample's consumer, as CAP does after the commit.
+    /// </summary>
+    public async Task DeliverAsync(ProjectStatusChangedEvent evt)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var consumer = ActivatorUtilities.CreateInstance<ProjectStatusEventConsumer>(scope.ServiceProvider);
+        await consumer.HandleAsync(evt, CancellationToken.None);
+    }
+
+    private TEvent Published<TEvent>(Func<TEvent, bool> matches)
+        where TEvent : class, INhEvent
+    {
+        return Services.GetRequiredService<INhEventPublisher>()
+            .ReceivedCalls()
+            .SelectMany(call => call.GetArguments())
+            .OfType<TEvent>()
+            .Last(matches);
     }
 
     public Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishProjectCreatedAsync(Guid projectId, Guid? createdBy)

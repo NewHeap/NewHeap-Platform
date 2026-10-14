@@ -285,7 +285,33 @@ public sealed class AssistantApproval
 
     public DateTimeOffset? EscalatedAt { get; set; }
 
+    /// <summary>
+    /// Why a stale proposal no longer fits: one of the values in <see cref="NhAssistantStaleKinds"/>.
+    /// </summary>
+    public string? StaleKind { get; set; }
+
+    /// <summary>
+    /// The explanation of a stale proposal per UI culture, as a JSON object from culture name to text.
+    /// </summary>
+    public string? StaleExplanationsJson { get; set; }
+
     public Guid ConcurrencyStamp { get; set; }
+}
+
+/// <summary>
+/// An application object an agent proposal changes, indexed so the application can revalidate open
+/// proposals when that object changes.
+/// </summary>
+public sealed class AssistantApprovalKey
+{
+    public Guid ApprovalId { get; set; }
+
+    /// <summary>The isolation key of the thread, so equal ids of different tenants never meet.</summary>
+    public string ScopeKey { get; set; } = string.Empty;
+
+    public string KeyType { get; set; } = string.Empty;
+
+    public string KeyId { get; set; } = string.Empty;
 }
 
 /// <summary>

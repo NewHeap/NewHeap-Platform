@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
@@ -121,6 +122,19 @@ public sealed record NhAssistantProposalDto(
     DateTimeOffset? ExecutedAt)
 {
     /// <summary>
+    /// Why a stale proposal no longer fits: <c>already-done</c>, <c>changed</c> or
+    /// <c>not-applicable</c>; <see langword="null"/> for other statuses. The reason code is
+    /// <see cref="ExecutionResultCode"/>.
+    /// </summary>
+    public string? StaleKind { get; init; }
+
+    /// <summary>
+    /// The explanation of a stale proposal in the caller's language, when the application gave one,
+    /// such as who already did the work.
+    /// </summary>
+    public string? StaleExplanation { get; init; }
+
+    /// <summary>
     /// The consultation that proposed it, when another assistant consulted the agent on behalf of
     /// <see cref="InitiatorActorId"/>. It executes with that person's rights only.
     /// </summary>
@@ -188,7 +202,7 @@ public sealed record NhAssistantFeedbackCategoryCountDto(
 /// <param name="AgentVersion">The agent row version of the runs that proposed them; <see langword="null"/> for proposals of consultations.</param>
 /// <param name="Approved">Approved proposals, including those that executed, failed, closed as stale or were resolved.</param>
 /// <param name="ExecutionFailed">Approved proposals whose execution failed; part of <paramref name="Approved"/>.</param>
-/// <param name="Stale">Approved proposals closed because the subject changed; part of <paramref name="Approved"/>.</param>
+/// <param name="Stale">Approved proposals closed right before execution because they no longer fit; part of <paramref name="Approved"/>.</param>
 /// <param name="RejectionRate">Rejected divided by approved plus rejected, or <see langword="null"/> before anyone decided.</param>
 /// <param name="RejectedWithFeedback">Rejected proposals with at least one feedback.</param>
 /// <param name="FeedbackProposals">Proposals of any status with at least one feedback.</param>
@@ -207,7 +221,28 @@ public sealed record NhAssistantFeedbackSummaryRowDto(
     int RejectedWithFeedback,
     int FeedbackProposals,
     int FeedbackAuthors,
-    IReadOnlyList<NhAssistantFeedbackCategoryCountDto> Categories);
+    IReadOnlyList<NhAssistantFeedbackCategoryCountDto> Categories)
+{
+    /// <summary>
+    /// Open proposals closed before anyone decided because they no longer fit, such as work a person
+    /// already did. They are neither approved nor rejected and do not count in the rejection rate.
+    /// </summary>
+    public int Invalidated { get; init; }
+
+    /// <summary>
+    /// Why proposals closed as stale, per kind and reason code, before and after approval.
+    /// </summary>
+    public IReadOnlyList<NhAssistantInvalidationCountDto> Invalidations { get; init; } = [];
+}
+
+/// <param name="Kind"><c>already-done</c>, <c>changed</c> or <c>not-applicable</c>.</param>
+/// <param name="ReasonCode">The application guard's reason code.</param>
+/// <param name="AfterApproval">True when the proposal closed right before execution, after its approval.</param>
+public sealed record NhAssistantInvalidationCountDto(
+    string Kind,
+    string ReasonCode,
+    bool AfterApproval,
+    int Count);
 
 /// <param name="From">Start of the period; proposals are selected by when they were made.</param>
 /// <param name="To">End of the period, exclusive.</param>
@@ -473,7 +508,11 @@ internal static class NhAssistantAgentRunDtoMapper
             approval.ExecutionResultCode,
             approval.ExecutedAt)
         {
-            ConsultationId = approval.ConsultationId
+            ConsultationId = approval.ConsultationId,
+            StaleKind = NhAssistantConversationReader.StaleKindOf(approval),
+            StaleExplanation = NhAssistantStaleExplanations.Pick(
+                approval.StaleExplanationsJson,
+                System.Globalization.CultureInfo.CurrentUICulture)
         };
     }
 

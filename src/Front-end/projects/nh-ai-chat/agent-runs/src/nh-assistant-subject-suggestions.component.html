@@ -74,7 +74,11 @@
     }
 
     <!-- Stays rendered when the list empties, so the optional feedback after a rejection remains. -->
-    <nh-assistant-agent-proposals [proposals]="proposals()" [decisionRights]="decisionRights()" (changed)="load()" />
+    <nh-assistant-agent-proposals
+      [proposals]="proposals()"
+      [decisionRights]="decisionRights()"
+      [holdClosedCards]="true"
+      (changed)="load()" />
     @if (proposals().length === 0) {
       <p class="state">{{ 'nh-assistant.agent-runs.subject.empty' | translate }}</p>
     }

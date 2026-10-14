@@ -127,6 +127,37 @@ describe('NhAssistantAgentFeedbackReportComponent', () => {
     expect(badges[2].classList).not.toContain('warning');
   });
 
+  it('counts proposals that closed before a decision apart from approvals and rejections', async () => {
+    admin.getAgentFeedbackSummary.and.returnValue(of({
+      agentId: 'intake',
+      from: '2026-09-13T00:00:00Z',
+      to: '2026-10-13T00:00:00Z',
+      rows: [{
+        ...row('projects.complete-task', 3, 0),
+        categories: [],
+        invalidated: 2,
+        invalidations: [
+          { kind: 'already-done', reasonCode: 'task-completed', afterApproval: false, count: 2 },
+          { kind: 'changed', reasonCode: 'subject-changed', afterApproval: true, count: 1 }
+        ]
+      }]
+    }));
+    fixture = TestBed.createComponent(NhAssistantAgentFeedbackReportComponent);
+    fixture.componentRef.setInput('agentId', 'intake');
+    fixture.detectChanges();
+    await flush();
+    fixture.detectChanges();
+
+    const header = Array.from(element().querySelectorAll('.summary-table th')).map(cell => cell.textContent?.trim());
+    expect(header).toContain('No longer needed');
+    const cell = element().querySelector('.summary-table tbody td[data-label="No longer needed"]')!;
+    expect(cell.textContent).toContain('2');
+    // Only proposals that closed before a decision count here; the one closed after approval is approved.
+    const badges = Array.from(cell.querySelectorAll('.badge'));
+    expect(badges.map(badge => badge.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Already done 2']);
+    expect(badges[0].getAttribute('title')).toBe('task-completed (2)');
+  });
+
   it('lists the feedback with the proposal as approvers read it', () => {
     const card = element().querySelector('.cards .card') as HTMLElement;
 

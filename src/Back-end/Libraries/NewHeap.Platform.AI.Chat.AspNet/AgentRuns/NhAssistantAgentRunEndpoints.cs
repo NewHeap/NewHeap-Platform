@@ -751,7 +751,9 @@ internal static class NhAssistantAgentRunEndpoints
                 NhAssistantErrorCodes.ApprovalNotFound => StatusCodes.Status404NotFound,
                 NhAssistantErrorCodes.ApprovalNotPending
                     or NhAssistantErrorCodes.ProposalHashMismatch
+                    or NhAssistantErrorCodes.ProposalStale
                     or NhAssistantErrorCodes.ExecutionNotUncertain => StatusCodes.Status409Conflict,
+                NhAssistantErrorCodes.ProposalCheckFailed => StatusCodes.Status503ServiceUnavailable,
                 NhAssistantErrorCodes.ApprovalPolicyDenied
                     or NhAssistantErrorCodes.FourEyesRequired => StatusCodes.Status403Forbidden,
                 _ => StatusCodes.Status400BadRequest

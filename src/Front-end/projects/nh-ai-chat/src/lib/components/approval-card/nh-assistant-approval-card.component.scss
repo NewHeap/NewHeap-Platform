@@ -10,7 +10,8 @@
 
 :host([data-status='approved']) { --nha-status-color: var(--nha-success); --nha-status-background: var(--nha-success-soft); }
 :host([data-status='rejected']),
-:host([data-status='expired']) { --nha-status-color: var(--nha-text-muted); --nha-status-background: var(--nha-surface-strong); }
+:host([data-status='expired']),
+:host([data-status='stale']) { --nha-status-color: var(--nha-text-muted); --nha-status-background: var(--nha-surface-strong); }
 
 .card {
   border: 1px solid var(--nha-status-color);
@@ -85,6 +86,17 @@ h3 {
   margin: 10px 0 0;
   color: var(--nha-text-muted);
   font-size: 12px;
+}
+
+// Why the proposal closed comes first: it answers the question the card raises.
+.stale-explanation {
+  margin: 8px 0 0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--nha-text);
+  background: var(--nha-surface-strong);
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 .technical-details {

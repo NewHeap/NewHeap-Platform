@@ -41,6 +41,9 @@ internal sealed class NhAssistantTurnRunner(
     NhAssistantLivePublisher live,
     INhAssistantNotifier notifier,
     NhAssistantApprovalPolicies approvalPolicies,
+    NhAssistantProposalGuards proposalGuards,
+    NhAssistantProposalInvalidation invalidation,
+    NhAssistantRunStore runs,
     ILogger<NhAssistantTurnRunner> logger) : INhAssistantTurnRunner
 {
     private static readonly string[] MessageStartStatuses =
@@ -185,6 +188,11 @@ internal sealed class NhAssistantTurnRunner(
         {
             // An agent identity can never decide about its own proposal.
             return Failed(NhAssistantErrorCodes.ApprovalDecisionInvalid, "The approval decision is invalid.");
+        }
+        if (request.Approve
+            && await RefuseStaleDecisionAsync(conversation, approval, request.AgentTurn?.Thread, actorId, cancellationToken) is { } refusal)
+        {
+            return refusal;
         }
 
         var claimed = await store.TryBeginTurnAsync(
@@ -414,12 +422,34 @@ internal sealed class NhAssistantTurnRunner(
             object? functionResult;
             if (approval.Status == NhAssistantApprovalStatuses.Approved)
             {
+                // The decision checked the guards; the execution checks them again for changes since.
+                approval = await CheckBeforeInlineExecutionAsync(approval, agentTurn.Thread, effectiveAgent.Definition, cancellation.Token);
+            }
+
+            if (approval.Status == NhAssistantApprovalStatuses.Approved)
+            {
                 var execution = await ExecuteApprovedAsync(state, interceptor, approval, invocation, cancellation.Token);
                 if (execution is null)
                 {
                     return Result(state);
                 }
                 functionResult = execution.Result;
+            }
+            else if (approval.Status == NhAssistantApprovalStatuses.Stale)
+            {
+                state.ToolsDisabled = true;
+                functionResult = StaleResult(approval);
+            }
+            else if (approval.Status == NhAssistantApprovalStatuses.ExecutionFailed
+                && approval.ExecutionResultCode == NhAssistantErrorCodes.ProposalCheckFailed)
+            {
+                state.ToolsDisabled = true;
+                functionResult = new Dictionary<string, object?>
+                {
+                    ["success"] = false,
+                    ["code"] = NhAssistantErrorCodes.ProposalCheckFailed,
+                    ["message"] = "This action was not executed because the application could not confirm that it still applies. Do not retry it; explain the outcome briefly."
+                };
             }
             else if (approval.Status == NhAssistantApprovalStatuses.Rejected)
             {
@@ -1005,6 +1035,119 @@ internal sealed class NhAssistantTurnRunner(
             ChatRole.Tool,
             [new FunctionResultContent(invocation.CallId, functionResult)]));
         await RunModelAsync(state, request.CallerContext, messages, cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs the proposal guards before a person's approval in the conversation. A stale proposal
+    /// closes, the waiting turn is released and the decision is refused; a guard that fails keeps the
+    /// proposal open and refuses the decision for now. Returns <see langword="null"/> when the
+    /// proposal still fits.
+    /// </summary>
+    private async Task<TaskResult<NhAssistantTurnHandle>?> RefuseStaleDecisionAsync(
+        AssistantConversation conversation,
+        AssistantApproval approval,
+        AssistantThread? thread,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        // The decision executes the proposal right away, so the execution guards run now too.
+        const NhAiProposalGuardStages stages = NhAiProposalGuardStages.Decision | NhAiProposalGuardStages.Execution;
+        if (!proposalGuards.HasGuards(approval.ToolId, stages))
+        {
+            return null;
+        }
+
+        var check = await proposalGuards.CheckAsync(NhAssistantProposalGuards.ContextOf(approval, thread), stages, cancellationToken);
+        if (check.Stale is { } stale)
+        {
+            await invalidation.CloseAsync(
+                approval,
+                thread,
+                conversation.AgentId,
+                stale,
+                NhAssistantInvalidationStages.Decision,
+                [NhAssistantApprovalStatuses.Pending],
+                actorId,
+                CancellationToken.None);
+            if (await store.TryReleaseWaitingConversationAsync(conversation.Id, CancellationToken.None))
+            {
+                await live.PublishChangedAsync(conversation.Id, CancellationToken.None);
+            }
+
+            return Failed(NhAssistantErrorCodes.ProposalStale, "The proposal no longer applies.");
+        }
+
+        return check.Failed
+            ? Failed(NhAssistantErrorCodes.ProposalCheckFailed, "Whether the proposal still applies could not be checked.")
+            : null;
+    }
+
+    /// <summary>
+    /// Runs the execution guards of an approved inline proposal before its waiting run executes it.
+    /// Returns the proposal as it is now: still approved, stale, or failed when a guard could not
+    /// check it, because a waiting run cannot keep the proposal open.
+    /// </summary>
+    private async Task<AssistantApproval> CheckBeforeInlineExecutionAsync(
+        AssistantApproval approval,
+        AssistantThread thread,
+        NhAssistantAgentDefinition agent,
+        CancellationToken cancellationToken)
+    {
+        if (!proposalGuards.HasGuards(approval.ToolId, NhAiProposalGuardStages.Execution))
+        {
+            return approval;
+        }
+
+        var check = await proposalGuards.CheckAsync(
+            NhAssistantProposalGuards.ContextOf(approval, thread),
+            NhAiProposalGuardStages.Execution,
+            cancellationToken);
+        if (check.Stale is { } stale)
+        {
+            return await invalidation.CloseAsync(
+                    approval,
+                    thread,
+                    thread.AgentId,
+                    stale,
+                    NhAssistantInvalidationStages.Execution,
+                    [NhAssistantApprovalStatuses.Approved],
+                    agent.ActorId,
+                    CancellationToken.None)
+                ?? await store.FindApprovalAsync(approval.Id, CancellationToken.None)
+                ?? approval;
+        }
+        if (check.Failed)
+        {
+            await runs.TryTransitionApprovalAsync(
+                approval.Id,
+                [NhAssistantApprovalStatuses.Approved],
+                NhAssistantApprovalStatuses.ExecutionFailed,
+                new NhAssistantApprovalTransition
+                {
+                    ExecutedAt = DateTimeOffset.UtcNow,
+                    ExecutionResultCode = NhAssistantErrorCodes.ProposalCheckFailed
+                },
+                CancellationToken.None);
+            return await store.FindApprovalAsync(approval.Id, CancellationToken.None) ?? approval;
+        }
+
+        return approval;
+    }
+
+    /// <summary>
+    /// The result the model receives for a proposal that closed because it no longer applies.
+    /// </summary>
+    private static Dictionary<string, object?> StaleResult(AssistantApproval approval)
+    {
+        return new Dictionary<string, object?>
+        {
+            ["success"] = false,
+            ["code"] = NhAssistantErrorCodes.ProposalStale,
+            ["kind"] = approval.StaleKind ?? NhAssistantStaleKinds.Changed,
+            ["reason"] = approval.ExecutionResultCode,
+            ["explanation"] = NhAssistantStaleExplanations.Pick(approval.StaleExplanationsJson, CultureInfo.CurrentUICulture),
+            ["message"] = "This action was not executed because it no longer applies, for example because it was already done another way. Do not retry it; explain the outcome briefly."
+        };
     }
 
     private async Task<NhAssistantToolExecution?> ExecuteApprovedAsync(
@@ -1721,7 +1864,8 @@ internal sealed class NhAssistantTurnRunner(
             toolPresentation,
             _businessSinks,
             logger,
-            approvalPolicies);
+            approvalPolicies,
+            proposalGuards);
     }
 
     private async Task FinishWithErrorAsync(

@@ -174,4 +174,15 @@ internal sealed record NhAssistantApprovalView(
     string ArgumentsPreview,
     IReadOnlyList<string> Targets,
     DateTimeOffset ExpiresAt,
-    string Status) : NhAssistantPartView;
+    string Status) : NhAssistantPartView
+{
+    /// <summary>
+    /// Why a stale proposal no longer fits, one of <see cref="NhAssistantStaleKinds"/>.
+    /// </summary>
+    public string? StaleKind { get; init; }
+
+    /// <summary>
+    /// The explanation of a stale proposal in the viewer's culture.
+    /// </summary>
+    public string? StaleExplanation { get; init; }
+}

@@ -30,11 +30,21 @@ public sealed record NhAssistantExecuteProposalRequest(Guid ApprovalId);
 /// </summary>
 public sealed record NhAssistantExecuteProposalOnceRequest(Guid ApprovalId);
 
+/// <summary>
+/// Revalidates open proposals after an event registered with <c>AddProposalRevalidation</c>
+/// committed: those about <see cref="Subject"/> and those that change one of <see cref="Keys"/>.
+/// </summary>
+public sealed record NhAssistantRevalidateProposalsRequest(
+    NhAiSubjectRef? Subject,
+    IReadOnlyList<NhAiProposalKey> Keys,
+    string? ScopeKey);
+
 public static class NhAssistantAgentRunOperationTypes
 {
     public const string Run = "nh-ai-agent-run";
     public const string ExecuteProposal = "nh-ai-execute-proposal";
     public const string ExecuteProposalOnce = "nh-ai-execute-proposal-once";
+    public const string RevalidateProposals = "nh-ai-revalidate-proposals";
 
     public static bool IsAgentOperation(string operationType)
     {
@@ -70,6 +80,12 @@ public static class NhAssistantBackgroundOperationBuilderExtensions
                 .WithRetry(0)
                 .WithSoftTimeout(TimeSpan.FromMinutes(5))
                 .RequireIdempotency(NhBackgroundOperationIdempotency.NonIdempotent));
+        operations.Add<NhAssistantRevalidateProposalsRequest, NhAssistantRevalidateProposalsOperation>(
+            NhAssistantAgentRunOperationTypes.RevalidateProposals,
+            operation => operation
+                .WithRetry(2)
+                .WithSoftTimeout(TimeSpan.FromMinutes(2))
+                .RequireIdempotency(NhBackgroundOperationIdempotency.IdempotentWithKey));
         return operations;
     }
 }
@@ -566,6 +582,8 @@ internal sealed class NhAssistantProposalExecutor(
     NhAssistantAgentNotifier notifier,
     NhAssistantAgentTriggers triggers,
     NhAssistantAgentWorkUpdates workUpdates,
+    NhAssistantProposalGuards guards,
+    NhAssistantProposalInvalidation invalidation,
     IOptions<RequestLocalizationOptions> localization)
 {
     private static readonly string[] ExecutableStatuses =
@@ -631,24 +649,23 @@ internal sealed class NhAssistantProposalExecutor(
             DelegatedOnly = approval.ConsultationId is not null
         };
 
-        var policy = approval.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(approval.PolicyJson);
-        if (policy?.RequireUnchangedSubject == true)
+        var check = await CheckBeforeExecutionAsync(approval, proposal, agentTurn, cancellationToken);
+        if (check.Stale is { } stale)
         {
-            var current = await subjects.DescribeAsync(agentTurn.Subject.Subject, cancellationToken);
-            var check = await precondition.CheckAsync(
-                new NhAiProposalPreconditionContext(
-                    proposal.ProposalId,
-                    proposal.ToolId,
-                    proposal.Arguments,
-                    agentTurn.Subject.Subject,
-                    approval.SubjectVersion,
-                    current?.Version),
+            await CloseStaleAsync(approval, agentTurn.Thread, stale);
+            return TaskResult.Succeeded();
+        }
+        if (check.Failed)
+        {
+            // Whether the proposal still fits is unknown: it stays approved, and the maintenance job
+            // queues its execution again, which checks again.
+            await runs.TryTransitionApprovalAsync(
+                approval.Id,
+                ExecutableStatuses,
+                NhAssistantApprovalStatuses.Approved,
+                new NhAssistantApprovalTransition { ClearExecutionOperation = true, CountExecutionAttempt = true },
                 cancellationToken);
-            if (check.Outcome == NhAiPreconditionOutcome.Stale)
-            {
-                await CloseAsync(approval, thread, NhAssistantApprovalStatuses.Stale, check.ReasonCode ?? NhAssistantErrorCodes.ProposalStale);
-                return TaskResult.Succeeded();
-            }
+            return TaskResult.Succeeded();
         }
 
         await runs.TryTransitionApprovalAsync(
@@ -674,6 +691,59 @@ internal sealed class NhAssistantProposalExecutor(
                 : NhAssistantApprovalStatuses.ExecutionFailed;
         await CloseAsync(approval, thread, status, execution.ResultCode);
         return TaskResult.Succeeded();
+    }
+
+    /// <summary>
+    /// The checks right before execution: the subject-version precondition when the policy requires
+    /// an unchanged subject, then the application's guards for the execution stage.
+    /// </summary>
+    private async Task<NhAssistantGuardCheck> CheckBeforeExecutionAsync(
+        AssistantApproval approval,
+        NhAiProposal proposal,
+        NhAssistantAgentTurnContext agentTurn,
+        CancellationToken cancellationToken)
+    {
+        var policy = approval.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(approval.PolicyJson);
+        if (policy?.RequireUnchangedSubject == true)
+        {
+            var current = await subjects.DescribeAsync(agentTurn.Subject.Subject, cancellationToken);
+            var check = await precondition.CheckAsync(
+                new NhAiProposalPreconditionContext(
+                    proposal.ProposalId,
+                    proposal.ToolId,
+                    proposal.Arguments,
+                    agentTurn.Subject.Subject,
+                    approval.SubjectVersion,
+                    current?.Version),
+                cancellationToken);
+            if (check.Outcome == NhAiPreconditionOutcome.Stale)
+            {
+                return new NhAssistantGuardCheck(check, false);
+            }
+        }
+
+        return await guards.CheckAsync(
+            NhAssistantProposalGuards.ContextOf(approval, agentTurn.Thread),
+            NhAiProposalGuardStages.Execution,
+            cancellationToken);
+    }
+
+    private async Task CloseStaleAsync(AssistantApproval approval, AssistantThread thread, NhAiPreconditionResult stale)
+    {
+        var closed = await invalidation.CloseAsync(
+            approval,
+            thread,
+            thread.AgentId,
+            stale,
+            NhAssistantInvalidationStages.Execution,
+            ExecutableStatuses,
+            NhAssistantAgentEvents.AgentActorPrefix + thread.AgentId,
+            CancellationToken.None);
+        var policy = closed?.PolicyJson is null ? null : NhAssistantApprovalPolicySnapshot.Deserialize(closed.PolicyJson);
+        if (policy?.StartFollowUpRun == true)
+        {
+            await triggers.StartFollowUpAsync(thread, closed!, closed!.DecidedByActorId, CancellationToken.None);
+        }
     }
 
     private async Task CloseAsync(AssistantApproval approval, AssistantThread? thread, string status, string? code)
@@ -737,6 +807,31 @@ internal sealed class NhAssistantExecuteProposalOperation(NhAssistantProposalExe
     {
         // Read and idempotent tools replay safely, so a retry must not conflict on the fence.
         return executor.ExecuteAsync(request.ApprovalId, context, fenced: false, cancellationToken);
+    }
+}
+
+/// <summary>
+/// Runs a declarative revalidation once the application's change committed. Revalidation is
+/// idempotent, so a retry closes nothing twice.
+/// </summary>
+internal sealed class NhAssistantRevalidateProposalsOperation(INhAssistantProposalRevalidation revalidation)
+    : INhBackgroundOperationHandler<NhAssistantRevalidateProposalsRequest>
+{
+    public async Task<TaskResult> ExecuteAsync(
+        NhAssistantRevalidateProposalsRequest request,
+        INhBackgroundOperationContext context,
+        CancellationToken cancellationToken)
+    {
+        if (request.Subject is { } subject)
+        {
+            await revalidation.RevalidateSubjectAsync(subject, cancellationToken);
+        }
+        if (request.Keys is { Count: > 0 } keys)
+        {
+            await revalidation.RevalidateKeysAsync(keys, request.ScopeKey, cancellationToken);
+        }
+
+        return TaskResult.Succeeded();
     }
 }
 

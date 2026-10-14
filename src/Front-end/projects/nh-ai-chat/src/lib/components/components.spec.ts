@@ -268,6 +268,27 @@ describe('NhAssistantApprovalCardComponent', () => {
     ]);
   });
 
+  it('says why a stale proposal no longer fits, with the application\'s explanation', () => {
+    fixture.componentRef.setInput('approval', {
+      ...approval,
+      status: 'stale',
+      staleKind: 'already-done',
+      staleExplanation: 'Completed by Henk on 14 October.'
+    });
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.status')!.textContent).toContain('Already done');
+    expect(element.querySelector('.stale-explanation')!.textContent).toContain('Completed by Henk on 14 October.');
+    expect(buttons().length).toBe(0);
+
+    // Proposals closed before kinds existed read as outdated, without an explanation.
+    fixture.componentRef.setInput('approval', { ...approval, status: 'stale' });
+    fixture.detectChanges();
+    expect(element.querySelector('.status')!.textContent).toContain('Outdated');
+    expect(element.querySelector('.stale-explanation')).toBeNull();
+  });
+
   it('uses a localized safe fallback for old approvals without a presentation', () => {
     fixture.componentRef.setInput('approval', { ...approval, presentation: null, summary: 'Technical descriptor' });
     fixture.detectChanges();

@@ -194,6 +194,20 @@ internal sealed class NhAssistantConversationReader(INhAssistantStore store)
             approval.ArgumentsPreview,
             targets,
             approval.ExpiresAt,
-            status);
+            status)
+        {
+            StaleKind = StaleKindOf(approval),
+            StaleExplanation = Runs.NhAssistantStaleExplanations.Pick(approval.StaleExplanationsJson, CultureInfo.CurrentUICulture)
+        };
+    }
+
+    /// <summary>
+    /// The kind of a stale proposal; proposals closed as stale before kinds existed changed.
+    /// </summary>
+    public static string? StaleKindOf(AssistantApproval approval)
+    {
+        return approval.Status == NhAssistantApprovalStatuses.Stale
+            ? approval.StaleKind ?? NhAssistantStaleKinds.Changed
+            : null;
     }
 }

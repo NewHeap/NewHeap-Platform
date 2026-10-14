@@ -206,6 +206,8 @@ builder.Services
                 })
                 .WithPublishing()
                 .AddSubscriber<ProjectEventConsumer, ProjectCreatedEvent>()
+                .AddSubscriber<ProjectTaskEventConsumer, ProjectTaskUpdatedEvent>()
+                .AddSubscriber<ProjectStatusEventConsumer, ProjectStatusChangedEvent>()
                 .AddCustomTopicSubscriber<PriorityProjectEventConsumer>();
         });
     })

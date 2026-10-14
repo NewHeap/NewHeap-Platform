@@ -161,7 +161,8 @@ internal sealed class NhAssistantToolCallInterceptor(
     NhAssistantToolPresentationResolver toolPresentation,
     IReadOnlyList<INhAssistantBusinessAuditSink> businessSinks,
     ILogger? logger = null,
-    NhAssistantApprovalPolicies? approvalPolicies = null)
+    NhAssistantApprovalPolicies? approvalPolicies = null,
+    NhAssistantProposalGuards? proposalGuards = null)
 {
     public const string ToolsDisabledCode = "assistant-tools-disabled";
     public const string ProposalRecordedCode = "assistant-proposal-recorded";
@@ -577,7 +578,10 @@ internal sealed class NhAssistantToolCallInterceptor(
             await store.AddToolInvocationAsync(row, cancellationToken);
         }
 
-        await store.AddApprovalAsync(approval, cancellationToken);
+        await store.AddApprovalAsync(
+            approval,
+            await ProposalKeysAsync(approval, proposal, mode, shadow, cancellationToken),
+            cancellationToken);
 
         row.Status = NhAssistantToolCallStatuses.AwaitingApproval;
         row.ProposalId = proposal.ProposalId;
@@ -627,6 +631,48 @@ internal sealed class NhAssistantToolCallInterceptor(
             },
             cancellationToken);
         return new NhAssistantRecordedProposal(approval.Id, proposal.ProposalId, mode, shadow);
+    }
+
+    /// <summary>
+    /// The application objects an agent proposal changes, as its guards name them, so the application
+    /// can revalidate it by object. Proposals of a person's own turn wait in the conversation and are
+    /// never revalidated, so they get no keys.
+    /// </summary>
+    private async Task<IReadOnlyCollection<AssistantApprovalKey>> ProposalKeysAsync(
+        AssistantApproval approval,
+        NhAiProposal proposal,
+        NhAiApprovalMode mode,
+        bool shadow,
+        CancellationToken cancellationToken)
+    {
+        var agentTurn = state.AgentTurn;
+        if (proposalGuards is null
+            || agentTurn is null
+            || shadow
+            || (mode == NhAiApprovalMode.Inline && agentTurn.RunId is null))
+        {
+            return [];
+        }
+
+        var thread = agentTurn.Thread;
+        var keys = await proposalGuards.GetKeysAsync(
+            new NhAiProposalGuardContext(
+                approval.ProposalId,
+                approval.ToolId,
+                proposal.Arguments,
+                new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
+                thread.ScopeKey,
+                approval.CreatedAt),
+            cancellationToken);
+        return keys
+            .Select(key => new AssistantApprovalKey
+            {
+                ApprovalId = approval.Id,
+                ScopeKey = thread.ScopeKey,
+                KeyType = key.Type,
+                KeyId = key.Id
+            })
+            .ToArray();
     }
 
     /// <summary>

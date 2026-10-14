@@ -146,6 +146,14 @@ internal interface INhAssistantStore
         AssistantApproval approval,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Adds a proposal together with the application objects it changes.
+    /// </summary>
+    Task AddApprovalAsync(
+        AssistantApproval approval,
+        IReadOnlyCollection<AssistantApprovalKey> keys,
+        CancellationToken cancellationToken);
+
     Task<AssistantApproval?> FindApprovalAsync(
         Guid approvalId,
         CancellationToken cancellationToken);

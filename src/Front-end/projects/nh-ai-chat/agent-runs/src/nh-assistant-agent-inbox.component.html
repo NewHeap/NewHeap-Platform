@@ -18,7 +18,12 @@
     </div>
   } @else {
     <!-- Stays rendered when the list empties, so the optional feedback after a rejection remains. -->
-    <nh-assistant-agent-proposals [proposals]="items()" [canDecide]="true" [selectable]="true" (changed)="load()" />
+    <nh-assistant-agent-proposals
+      [proposals]="items()"
+      [canDecide]="true"
+      [selectable]="true"
+      [holdClosedCards]="true"
+      (changed)="load()" />
     @if (items().length === 0) {
       <p class="state">{{ 'nh-assistant.agent-runs.inbox.empty' | translate }}</p>
     }

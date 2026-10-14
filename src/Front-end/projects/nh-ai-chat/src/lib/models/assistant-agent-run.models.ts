@@ -1,4 +1,4 @@
-import { ApprovalPresentation } from './assistant-api.models';
+import { ApprovalPresentation, StaleKind } from './assistant-api.models';
 
 /**
  * Contracts of the agent-run endpoints of `NewHeap.Platform.AI.Chat.AspNet`: threads about a
@@ -192,6 +192,16 @@ export interface AgentProposal {
    * closed as stale, and the caller decided it or is an approver of the subject. Missing on older servers.
    */
   canGiveFeedback?: boolean;
+  /**
+   * Why a stale proposal no longer fits; `null` for other statuses. Its reason code is
+   * `executionResultCode`. Missing on older servers.
+   */
+  staleKind?: StaleKind | null;
+  /**
+   * The application's explanation of a stale proposal in the caller's language, such as who already
+   * did the work; `null` when it gave none. Missing on older servers.
+   */
+  staleExplanation?: string | null;
 }
 
 /**

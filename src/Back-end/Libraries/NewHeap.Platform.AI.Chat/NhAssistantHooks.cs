@@ -108,7 +108,15 @@ public enum NhAssistantAuditEventKind
     /// <summary>
     /// An administrator exported the proposal feedback of an agent. <c>ObjectId</c> is the agent.
     /// </summary>
-    AdminAgentFeedbackExported = 40
+    AdminAgentFeedbackExported = 40,
+
+    /// <summary>
+    /// An open or approved proposal closed as stale because an application guard reported that it
+    /// no longer fits. <c>ResultCode</c> is the kind and the guard's reason code as
+    /// <c>kind:reason</c>, and <c>ObjectId</c> the stage (revalidation, decision or execution); no
+    /// content is recorded.
+    /// </summary>
+    AgentProposalInvalidated = 41
 }
 
 /// <summary>

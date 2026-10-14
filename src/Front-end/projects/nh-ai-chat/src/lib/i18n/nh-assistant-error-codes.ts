@@ -55,6 +55,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-four-eyes-required',
   'assistant-execution-not-uncertain',
   'assistant-proposal-stale',
+  'assistant-proposal-check-failed',
   'assistant-trigger-not-found',
   'assistant-webhook-signature-invalid',
   'assistant-webhook-payload-invalid',

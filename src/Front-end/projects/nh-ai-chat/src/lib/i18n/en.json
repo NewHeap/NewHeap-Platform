@@ -169,7 +169,12 @@
       "waiting-for-participant": "Waiting for the participant who started this task to decide.",
       "waiting-for-approver": "Waiting for an approver to decide.",
       "waiting-for-other-approver": "You started this work, so another approver decides.",
-      "give-feedback": "What was wrong?"
+      "give-feedback": "What was wrong?",
+      "stale-kind": {
+        "already-done": "Already done",
+        "changed": "Changed",
+        "not-applicable": "No longer needed"
+      }
     },
     "proposal-feedback": {
       "legend": "What was wrong? (optional)",
@@ -220,7 +225,7 @@
       "assistant-proposal-rejected": "Not run: the proposal was rejected.",
       "assistant-proposal-expired": "Not run: nobody decided before the proposal expired.",
       "assistant-proposal-withdrawn": "Not run: the proposal was withdrawn.",
-      "assistant-proposal-stale": "Not run: the subject changed since the proposal.",
+      "assistant-proposal-stale": "Not run: the proposal no longer applied.",
       "assistant-proposal-execution-failed": "The approved proposal could not be run."
     },
     "errors": {
@@ -292,7 +297,8 @@
       "assistant-approval-policy-denied": "You may not decide this proposal.",
       "assistant-four-eyes-required": "Someone other than the person who started this must decide it.",
       "assistant-execution-not-uncertain": "This execution is not waiting to be resolved.",
-      "assistant-proposal-stale": "The subject changed since this proposal; it was not executed.",
+      "assistant-proposal-stale": "This proposal no longer applies, for example because the work was already done. Nothing was changed.",
+      "assistant-proposal-check-failed": "Whether this proposal still applies could not be checked, so nothing was changed. Try again later.",
       "assistant-trigger-not-found": "The trigger was not found.",
       "assistant-webhook-signature-invalid": "The webhook call has no valid signature.",
       "assistant-webhook-payload-invalid": "The webhook call could not be read.",
@@ -571,6 +577,7 @@
           "expired": "Expired",
           "rejection-rate": "Rejection rate",
           "with-feedback": "Rejected with feedback",
+          "invalidated": "No longer needed",
           "people": "People",
           "categories": "Top categories"
         },
@@ -578,6 +585,7 @@
         "consultations": "Consultations",
         "no-decisions": "Not decided yet",
         "no-categories": "None",
+        "invalidated-hint": "Open proposals that closed before anyone decided, because the work was already done or no longer applied. They do not count as rejected.",
         "list-title": "Feedback",
         "list-count": "{{count}} in total",
         "list-empty": "Nobody gave feedback in this period.",
@@ -732,7 +740,10 @@
         "give-feedback": "Give feedback",
         "change-feedback": "Change feedback",
         "your-feedback": "Your feedback: {{category}}",
-        "rejected-one": "You rejected: {{summary}}"
+        "rejected-one": "You rejected: {{summary}}",
+        "closed": "Closed in the meantime",
+        "dismiss": "Dismiss",
+        "dismiss-label": "Dismiss the closed proposal: {{summary}}"
       },
       "run": {
         "empty": "No runs yet.",

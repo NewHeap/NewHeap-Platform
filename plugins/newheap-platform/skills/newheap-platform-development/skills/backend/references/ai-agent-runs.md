@@ -6,11 +6,11 @@ Use only the rules that apply to the current consumer task.
 
 ## Contents
 
-- [Run assistant agents on their own from events, with subject threads, deferred proposals, consultations and proposal feedback](#run-assistant-agents-on-their-own-from-events-with-subject-threads-deferred-proposals-consultations-and-proposal-feedback)
+- [Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback and revalidation](#run-assistant-agents-on-their-own-from-events-with-subject-threads-deferred-proposals-consultations-proposal-feedback-and-revalidation)
 
-## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations and proposal feedback
+## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback and revalidation
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, and learn from why people reject its proposals.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, and close proposals that people overtook by hand.
 
 ## Preferred approach
 
@@ -176,6 +176,43 @@ Forward feedback to the application's analytics with `AddProposalFeedbackSink`; 
 receives the text, the business audit sink only the category
 (`AgentProposalFeedbackGiven`). Feedback is deleted with the subject's threads.
 
+Close proposals that people overtook. A proposal can wait for days while a person does the
+work by hand. Register an `INhAiProposalGuard` for the tools it knows with
+`AddProposalGuard<TGuard>(toolSelectors)`; several guards may apply to one tool and the first
+stale result wins. `GetKeysAsync` names the application objects a proposal changes
+(`NhAiProposalKey`, such as `("project-task", id)`), which the platform indexes with the
+thread's scope key when the proposal is made. `CheckAsync` returns
+`NhAiPreconditionResult.Satisfied` or, when the proposal no longer fits, `AlreadyDone`,
+`NotApplicable` or `Stale` (changed) with a reason code and an explanation callback, which the
+platform renders in every supported UI culture with that culture current, for example "Already
+completed by Henk on 14 October". Guards run without a person in their own service scope; keep
+them read-only and fast. A guard that throws never closes a proposal. Guards run at every stage
+by default (`NhAiProposalGuardStages`): when the application revalidates, before an approval in
+either decision endpoint, also for a person's own chat proposal, and right before execution next
+to `RequireUnchangedSubject`. Limit an expensive guard to `Decision | Execution`, knowing it then
+never closes an open proposal by itself.
+
+Revalidate after the change committed. Call `INhAssistantProposalRevalidation`
+`RevalidateSubjectAsync(subject)` or `RevalidateKeysAsync(keys, scopeKey)` from the outbox
+consumer or after the commit (without a scope key it uses `global`), or declare it with
+`AddProposalRevalidation<TEvent>` and its `Subject`, `Keys` and `ScopeKey`:
+`INhAssistantAgentTriggers.PublishAsync` then queues the revalidation as a background
+operation, which runs only once the publisher's transaction committed. Revalidation covers the
+open proposals of agent runs and consultations; a person's own chat proposal is checked when
+they approve it, and repeating a revalidation changes nothing. A proposal that no longer fits
+closes as `stale` with `staleKind` (`NhAssistantStaleKinds`), its reason code in
+`executionResultCode` and `staleExplanation` in the reader's language; its tool call reads
+`not-executed`, `AgentWorkChanged` reaches the subject's members, the business audit sink
+receives `AgentProposalInvalidated` with the kind, reason code and stage
+(`NhAssistantInvalidationStages`) but no explanation, and a run that waits for the inline
+proposal continues with "not executed". Approving such a proposal is refused with
+`409 assistant-proposal-stale`; a failing guard refuses it with
+`503 assistant-proposal-check-failed` and keeps it open. The feedback report counts proposals
+that closed before a decision as `invalidated` per kind and reason, never as rejected, and the
+next run's continuity lists the already-done and no-longer-applicable ones in
+`<invalidated-proposals>`. The agent inbox and the subject suggestions keep a proposal that
+closes while it is shown as a closed card with its reason until it is dismissed.
+
 ## Avoid
 
 - Granting a tool to an agent without `AllowAgentGrant` on the tool, or adding
@@ -219,6 +256,15 @@ receives the text, the business audit sink only the category
 - Calling the thread lookup once per agent or the subject work once per list row; use the
   subject work for one subject and the summary for lists.
 - Starting a run just to open the conversation about a subject; use `threads/open`.
+- Revalidating inside the domain transaction with `INhAssistantProposalRevalidation`, where
+  guards in their own scope read uncommitted or locked rows, or revalidating on reads instead of
+  after changes.
+- Guards that change data, call slow external systems on every revalidation, or report stale
+  when their own check failed.
+- Writing feedback in the name of the system for proposals that closed as stale, or counting
+  them as rejections.
+- Proposal keys without the scope key in an application whose ids repeat across tenants or
+  divisions.
 
 ## Verification
 
@@ -254,7 +300,13 @@ that its tool call reads `rejected` and `not-executed`; decide a proposal and as
 `AgentWorkChanged` reaches the subject's members. Read a subject's work as an approver, the
 initiator, a participant and an outsider and assert the decision rights and the refusal;
 summarize several subjects in one request and assert the counts per role; open a thread for a
-subject without work and assert that no run started. SPM-268 to SPM-280 are the executable references.
+subject without work and assert that no run started. Change an object by hand, revalidate by
+subject and by key and assert that only the guarded proposal closes with its kind, reason code
+and an explanation in each supported culture, that a second revalidation changes nothing and
+another scope is left alone, that approving it is refused with `assistant-proposal-stale`, that
+a throwing guard keeps a proposal open, that a waiting inline run continues with not executed,
+and that the report counts the invalidation apart from rejections, on both providers. SPM-268 to
+SPM-280 and SPM-282 are the executable references.
 
 ## Optional source evidence
 

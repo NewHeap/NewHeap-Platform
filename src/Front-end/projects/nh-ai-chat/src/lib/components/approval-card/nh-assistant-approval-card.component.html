@@ -2,8 +2,12 @@
   <header class="header">
     <nh-assistant-icon [name]="actionable() ? 'warning' : succeeded() ? 'check' : 'x'" />
     <h3>{{ 'nh-assistant.approval.title' | translate }}</h3>
-    <span class="status">{{ 'nh-assistant.approval.status.' + effectiveStatus() | translate }}</span>
+    <span class="status">{{ statusKey() | translate }}</span>
   </header>
+
+  @if (staleExplanation(); as explanation) {
+    <p class="stale-explanation">{{ explanation }}</p>
+  }
 
   @if (approval().presentation; as presentation) {
     <p class="tool-name">{{ presentation.toolDisplayName }}</p>

@@ -677,7 +677,9 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 or NhAssistantErrorCodes.MessageDuplicate
                 or NhAssistantErrorCodes.ApprovalNotPending
                 or NhAssistantErrorCodes.ProposalHashMismatch
+                or NhAssistantErrorCodes.ProposalStale
                 or NhAssistantErrorCodes.ParticipantLimitReached => StatusCodes.Status409Conflict,
+            NhAssistantErrorCodes.ProposalCheckFailed => StatusCodes.Status503ServiceUnavailable,
             NhAssistantErrorCodes.ApprovalForbidden
                 or NhAssistantErrorCodes.SubjectAccessDenied
                 or NhAssistantErrorCodes.ApprovalPolicyDenied

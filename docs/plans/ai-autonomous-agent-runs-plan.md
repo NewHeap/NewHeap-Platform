@@ -51,7 +51,9 @@ viewer reads their own language. Agent-run clients refresh through the hub's
 deferred proposal that closed without running reads `rejected` or `not-executed`.
 
 Phase 5, [proposal feedback](#10-proposal-feedback), is implemented with sample case SPM-279; phase 6,
-[agent work on the subject itself](#11-agent-work-on-the-subject-itself), with SPM-280.
+[agent work on the subject itself](#11-agent-work-on-the-subject-itself), with SPM-280. Proposals
+that people overtake by hand close on their own since the
+[proposal revalidation plan](ai-proposal-revalidation-plan.md), with SPM-282.
 
 ## Goals
 
@@ -366,6 +368,8 @@ Chat approvals keep today's `pending`, `approved`, `rejected` and `expired`.
 - Before execution, `INhAiProposalPrecondition.CheckAsync(proposal, subject)` may return
   `Stale`. The proposal becomes `stale` and is not executed. The policy can start a follow-up
   run to re-plan.
+- Application guards close open proposals earlier, refuse approvals of proposals that no longer
+  fit and explain why; see the [proposal revalidation plan](ai-proposal-revalidation-plan.md).
 
 ### Decisions, inbox and maintenance
 
@@ -910,6 +914,7 @@ reads it, and `ProjectService` calls `RefreshAsync` when members change.
 | SPM-277 | Agent inbox, thread view and run timeline in the management portal | 3 |
 | SPM-279 | Approvers explain rejected agent proposals and administrators review the feedback (number to be reserved) | 5 |
 | SPM-280 | Agent suggestions and the conversation on the project itself | 6 |
+| SPM-282 | Agent proposals that people overtake by hand close on their own | [Revalidation](ai-proposal-revalidation-plan.md) |
 
 ### Guidance and release notes
 

@@ -259,6 +259,24 @@ describe('agent-run components', () => {
       expect(details.querySelector('pre')!.textContent).toContain('"projectId":"project-1"');
     });
 
+    it('shows why a stale proposal no longer fits and offers no decision', () => {
+      fixture.componentInstance.proposals.set([{
+        ...proposal('stale'),
+        staleKind: 'already-done',
+        staleExplanation: 'Completed by Henk on 14 October.',
+        executionResultCode: 'task-completed'
+      }]);
+      fixture.componentInstance.canDecide.set(true);
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.querySelector('.card-header')!.textContent).toContain('nh-assistant.approval.stale-kind.already-done');
+      expect(element.querySelector('.stale-explanation')!.textContent).toContain('Completed by Henk on 14 October.');
+      expect(button(fixture, 'proposal.approve')).toBeUndefined();
+      // The list shows everything it is given; only lists of open proposals keep closed cards.
+      expect(element.querySelector('li.card.closed')).toBeNull();
+    });
+
     it('falls back to a neutral explanation when no presenter handled the tool', () => {
       fixture.componentInstance.proposals.set([proposal('pending')]);
       fixture.detectChanges();
@@ -463,6 +481,59 @@ describe('agent-run components', () => {
       tick(300);
       expect(api.getInbox).toHaveBeenCalledTimes(3);
     }));
+
+    it('keeps a proposal that closed as stale while shown as a closed card until it is dismissed', fakeAsync(() => {
+      const done = proposal('pending', 'approval-1');
+      const decided = proposal('pending', 'approval-2');
+      api.getInbox.and.returnValues(of({ items: [done, decided], total: 2 }), of({ items: [], total: 0 }));
+      api.getProposals.and.returnValue(of([
+        { ...done, status: 'stale', staleKind: 'already-done', staleExplanation: 'Completed by Henk.' },
+        { ...decided, status: 'approved', decidedByActorId: 'colleague' }
+      ]));
+      const fixture = TestBed.createComponent(NhAssistantAgentInboxComponent);
+      fixture.detectChanges();
+
+      live.agentWork.next(work('conversation-1', 'proposal'));
+      tick(300);
+      fixture.detectChanges();
+
+      // The proposal a colleague decided leaves; the one that was already done stays with the reason.
+      const element = fixture.nativeElement as HTMLElement;
+      expect(api.getProposals).toHaveBeenCalledOnceWith('conversation-1');
+      const closed = Array.from(element.querySelectorAll<HTMLElement>('li.card'));
+      expect(closed.length).toBe(1);
+      expect(closed[0].classList).toContain('closed');
+      expect(closed[0].textContent).toContain('nh-assistant.approval.stale-kind.already-done');
+      expect(closed[0].textContent).toContain('Completed by Henk.');
+      expect(closed[0].querySelector('[role="status"]')!.textContent).toContain('proposal.closed');
+      expect(button(fixture, 'proposal.approve')).toBeUndefined();
+
+      button(fixture, 'proposal.dismiss')!.click();
+      fixture.detectChanges();
+      expect(element.querySelector('li.card')).toBeNull();
+      expect(element.textContent).toContain('inbox.empty');
+    }));
+
+    it('shows why an approval was refused because the work was already done', () => {
+      const pending = proposal('pending');
+      api.getInbox.and.returnValues(of({ items: [pending], total: 1 }), of({ items: [], total: 0 }));
+      api.decide.and.returnValue(throwError(() =>
+        new NhAssistantApiError(409, 'assistant-proposal-stale', 'nh-assistant.errors.assistant-proposal-stale')));
+      api.getProposals.and.returnValue(of([
+        { ...pending, status: 'stale', staleKind: 'already-done', staleExplanation: 'Completed by Henk.' }
+      ]));
+      const fixture = TestBed.createComponent(NhAssistantAgentInboxComponent);
+      fixture.detectChanges();
+
+      button(fixture, 'proposal.approve')!.click();
+      fixture.detectChanges();
+
+      const element = fixture.nativeElement as HTMLElement;
+      expect(element.querySelector('[role="alert"]')!.textContent).toContain('assistant-proposal-stale');
+      const card = element.querySelector<HTMLElement>('li.card.closed')!;
+      expect(card.textContent).toContain('Completed by Henk.');
+      expect(button(fixture, 'proposal.approve')).toBeUndefined();
+    });
 
     it('keeps the list in place, without an error, when a live reload fails', fakeAsync(() => {
       api.getInbox.and.returnValues(of({ items: [proposal('pending')], total: 1 }), throwError(() => new Error('offline')));
@@ -844,6 +915,27 @@ describe('agent-run components', () => {
       expect(element.textContent).toContain('subject.empty');
       expect(element.querySelector('.feedback-prompt nh-assistant-proposal-feedback')).not.toBeNull();
     });
+
+    it('keeps an open proposal that closed as stale as a closed card with the reason', fakeAsync(() => {
+      const pending = proposal('pending', 'approval-1');
+      api.getSubjectWork.and.returnValues(
+        of(subjectWork({ openProposals: [{ proposal: pending, canDecide: true, reasonCode: null }] })),
+        of(subjectWork({ openProposals: [] })));
+      api.getProposals.and.returnValue(of([
+        { ...pending, status: 'stale', staleKind: 'not-applicable', staleExplanation: 'The project was archived.' }
+      ]));
+      const fixture = TestBed.createComponent(SuggestionsHostComponent);
+      fixture.detectChanges();
+
+      live.agentWork.next(work('conversation-1', 'proposal'));
+      tick(300);
+      fixture.detectChanges();
+
+      const [card] = cards(fixture);
+      expect(card.classList).toContain('closed');
+      expect(card.textContent).toContain('nh-assistant.approval.stale-kind.not-applicable');
+      expect(card.textContent).toContain('The project was archived.');
+    }));
 
     it('reloads after live agent work on its own subject only', fakeAsync(() => {
       api.getSubjectWork.and.returnValue(of(subjectWork()));

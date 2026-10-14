@@ -33,10 +33,10 @@
     </div>
   }
 
-  @if (proposals().length > 0) {
+  @if (shown().length > 0) {
     <ul class="cards" [attr.aria-busy]="busy()">
-      @for (proposal of proposals(); track proposal.approvalId) {
-        <li class="card" [class.selected]="selected().has(proposal.approvalId)">
+      @for (proposal of shown(); track proposal.approvalId) {
+        <li class="card" [class.selected]="selected().has(proposal.approvalId)" [class.closed]="isHeld(proposal)">
           <div class="card-header">
             @if (selectable() && proposal.status === 'pending' && mayDecide(proposal)) {
               <input
@@ -53,7 +53,7 @@
               [class.success]="proposal.status === 'executed' || proposal.status === 'resolved'"
               [class.warning]="proposal.status === 'pending' || proposal.status === 'execution-unknown' || proposal.status === 'stale'"
               [class.danger]="proposal.status === 'execution-failed' || proposal.status === 'rejected'">
-              {{ 'nh-assistant.agent-runs.proposal.status.' + proposal.status | translate }}
+              {{ statusKey(proposal) | translate }}
             </span>
             <span class="badge">{{ 'nh-assistant.agent-runs.proposal.mode.' + proposal.mode | translate }}</span>
             @if (proposal.grantSource !== 'none') {
@@ -84,6 +84,21 @@
             }
           } @else {
             <p class="summary">{{ 'nh-assistant.approval.fallback-summary' | translate }}</p>
+          }
+          @if (proposal.status === 'stale' && proposal.staleExplanation) {
+            <p class="message stale-explanation">{{ proposal.staleExplanation }}</p>
+          }
+          @if (isHeld(proposal)) {
+            <div class="closed-card">
+              <p class="muted" role="status">{{ 'nh-assistant.agent-runs.proposal.closed' | translate }}</p>
+              <button
+                class="text-button"
+                type="button"
+                [attr.aria-label]="'nh-assistant.agent-runs.proposal.dismiss-label' | translate: { summary: proposal.presentation?.summary ?? proposal.toolId }"
+                (click)="dismiss(proposal)">
+                {{ 'nh-assistant.agent-runs.proposal.dismiss' | translate }}
+              </button>
+            </div>
           }
           <details class="technical-details">
             <summary>{{ 'nh-assistant.approval.technical-details' | translate }}</summary>

@@ -837,6 +837,10 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                     .SetProperty(
                         approval => approval.RemindersSent,
                         approval => decision.ResetReminders ? 0 : approval.RemindersSent)
+                    .SetProperty(approval => approval.StaleKind, approval => decision.StaleKind ?? approval.StaleKind)
+                    .SetProperty(
+                        approval => approval.StaleExplanationsJson,
+                        approval => decision.StaleExplanationsJson ?? approval.StaleExplanationsJson)
                     .SetProperty(approval => approval.ConcurrencyStamp, Guid.NewGuid()),
                 cancellationToken);
         if (updated != 1)
@@ -953,6 +957,77 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .OrderBy(approval => approval.ExpiresAt)
             .Take(maximum)
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The pending proposals of agent runs and consultations about a subject, in every scope, with
+    /// their thread. Proposals of a person's own turn wait in the conversation and are left out.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantOpenProposalRow>> GetOpenProposalsForSubjectAsync(
+        NhAiSubjectRef subject,
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var rows = await OpenAgentProposals(context)
+            .Join(
+                context.Threads.Where(thread => thread.SubjectType == subject.Type && thread.SubjectId == subject.Id),
+                approval => approval.ConversationId,
+                thread => thread.ConversationId,
+                (approval, thread) => new { Approval = approval, Thread = thread })
+            .OrderBy(row => row.Approval.CreatedAt)
+            .Take(maximum)
+            .ToListAsync(cancellationToken);
+        return rows.Select(row => new NhAssistantOpenProposalRow(row.Approval, row.Thread)).ToArray();
+    }
+
+    /// <summary>
+    /// The pending proposals of agent runs and consultations that change one of
+    /// <paramref name="keys"/> within <paramref name="scopeKey"/>, with their thread.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantOpenProposalRow>> GetOpenProposalsByKeysAsync(
+        string scopeKey,
+        IReadOnlyCollection<NhAiProposalKey> keys,
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var rows = new Dictionary<Guid, NhAssistantOpenProposalRow>();
+        foreach (var group in keys.Distinct().GroupBy(key => key.Type, StringComparer.Ordinal))
+        {
+            var type = group.Key;
+            var ids = group.Select(key => key.Id).ToArray();
+            var approvalIds = context.ApprovalKeys
+                .Where(key => key.ScopeKey == scopeKey && key.KeyType == type && ids.Contains(key.KeyId))
+                .Select(key => key.ApprovalId);
+            var found = await OpenAgentProposals(context)
+                .Where(approval => approvalIds.Contains(approval.Id))
+                .Join(
+                    context.Threads,
+                    approval => approval.ConversationId,
+                    thread => thread.ConversationId,
+                    (approval, thread) => new { Approval = approval, Thread = thread })
+                .OrderBy(row => row.Approval.CreatedAt)
+                .Take(maximum)
+                .ToListAsync(cancellationToken);
+            foreach (var row in found)
+            {
+                rows.TryAdd(row.Approval.Id, new NhAssistantOpenProposalRow(row.Approval, row.Thread));
+            }
+        }
+
+        return rows.Values
+            .OrderBy(row => row.Approval.CreatedAt)
+            .Take(maximum)
+            .ToArray();
+    }
+
+    private static IQueryable<AssistantApproval> OpenAgentProposals(NhAssistantDbContext context)
+    {
+        return context.Approvals
+            .AsNoTracking()
+            .Where(approval => approval.Status == NhAssistantApprovalStatuses.Pending
+                && (approval.Mode != NhAssistantApprovalModes.Inline || approval.RunId != null));
     }
 
     /// <summary>
@@ -1101,6 +1176,8 @@ internal sealed record NhAssistantApprovalTransition
     public DateTimeOffset? NextReminderAt { get; init; }
 
     public bool ResetReminders { get; init; }
+    public string? StaleKind { get; init; }
+    public string? StaleExplanationsJson { get; init; }
 }
 
 internal sealed record NhAssistantInboxFilter(
@@ -1110,5 +1187,7 @@ internal sealed record NhAssistantInboxFilter(
     Guid? RunId);
 
 internal sealed record NhAssistantInboxRow(AssistantApproval Approval, AssistantThread Thread);
+
+internal sealed record NhAssistantOpenProposalRow(AssistantApproval Approval, AssistantThread Thread);
 
 internal sealed record NhAssistantSubjectSummaryRow(string SubjectId, int OpenProposals, int ProposalsToDecide, bool RunActive);

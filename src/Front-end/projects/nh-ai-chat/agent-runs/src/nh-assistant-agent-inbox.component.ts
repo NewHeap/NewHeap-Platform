@@ -26,7 +26,9 @@ import { NhAssistantAgentProposalsComponent } from './nh-assistant-agent-proposa
  * server checks each decision against the proposal's approval policy again. After a rejection the
  * inbox asks, optionally, what was wrong, also when the rejected proposals have left the list.
  * With live updates the inbox reloads by itself when agent work changes, for example when a
- * colleague decided a proposal or a run proposed a new one.
+ * colleague decided a proposal or a run proposed a new one. A proposal that closes because it no
+ * longer fits, for example because someone did the work by hand, stays as a closed card with the
+ * reason until it is dismissed.
  */
 @Component({
   selector: 'nh-assistant-agent-inbox',
@@ -116,7 +118,11 @@ export class NhAssistantAgentInboxComponent {
             return;
           }
 
+          const previous = this.items();
           this.items.set(inbox.items);
+          if (quiet) {
+            this.proposalList()?.holdClosed(previous, inbox.items);
+          }
           this.total.set(inbox.total);
           this.loading.set(false);
           this.loadFailed.set(false);

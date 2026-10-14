@@ -373,13 +373,23 @@ internal sealed class NhAssistantStore(NhAssistantDbContextFactory contextFactor
             .ToListAsync(cancellationToken);
     }
 
-    public async Task AddApprovalAsync(
+    public Task AddApprovalAsync(
         AssistantApproval approval,
         CancellationToken cancellationToken)
     {
+        return AddApprovalAsync(approval, [], cancellationToken);
+    }
+
+    public async Task AddApprovalAsync(
+        AssistantApproval approval,
+        IReadOnlyCollection<AssistantApprovalKey> keys,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(approval);
+        ArgumentNullException.ThrowIfNull(keys);
         await using var context = contextFactory.CreateDbContext();
         context.Approvals.Add(approval);
+        context.ApprovalKeys.AddRange(keys);
         await context.SaveChangesAsync(cancellationToken);
     }
 

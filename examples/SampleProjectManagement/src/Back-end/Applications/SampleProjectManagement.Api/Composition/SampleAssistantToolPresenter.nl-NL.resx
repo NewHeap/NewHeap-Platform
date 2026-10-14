@@ -16,4 +16,11 @@
   <data name="ProjectStatusOnHold" xml:space="preserve"><value>Gepauzeerd</value></data>
   <data name="ProjectStatusCompleted" xml:space="preserve"><value>Voltooid</value></data>
   <data name="ProjectStatusArchived" xml:space="preserve"><value>Gearchiveerd</value></data>
+  <data name="ToolProjectTaskComplete" xml:space="preserve"><value>Projecttaak afvinken</value></data>
+  <data name="ApprovalProjectTaskSummary" xml:space="preserve"><value>Taak &quot;{0}&quot; van project {1} als voltooid markeren.</value></data>
+  <data name="ApprovalFieldTask" xml:space="preserve"><value>Taak</value></data>
+  <data name="StaleTaskCompletedBy" xml:space="preserve"><value>Al afgevinkt door {0} op {1}.</value></data>
+  <data name="StaleTaskCompleted" xml:space="preserve"><value>Al afgevinkt op {0}.</value></data>
+  <data name="StaleTaskDeleted" xml:space="preserve"><value>De taak is verwijderd.</value></data>
+  <data name="StaleProjectStatusSet" xml:space="preserve"><value>Het project staat al op {0}.</value></data>
 </root>

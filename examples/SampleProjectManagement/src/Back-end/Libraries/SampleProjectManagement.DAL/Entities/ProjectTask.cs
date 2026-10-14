@@ -28,4 +28,15 @@ public class ProjectTask : IdDbEntity
     public string Title { get; set; } = "";
 
     public bool IsCompleted { get; set; }
+
+    /// <summary>
+    /// When the task was completed; <see langword="null"/> while it is open.
+    /// </summary>
+    public DateTimeOffset? CompletedAt { get; set; }
+
+    /// <summary>
+    /// The person who completed the task; <see langword="null"/> while it is open and when an agent
+    /// completed it through an approved proposal.
+    /// </summary>
+    public Guid? CompletedByUserId { get; set; }
 }

@@ -265,6 +265,14 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.Property<Guid?>("RunId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("StaleExplanationsJson")
+                        .HasMaxLength(6000)
+                        .HasColumnType("character varying(6000)");
+
+                    b.Property<string>("StaleKind")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -310,6 +318,31 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.HasIndex("Status", "NextReminderAt");
 
                     b.ToTable("AssistantApproval", "nhai");
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantApprovalKey", b =>
+                {
+                    b.Property<Guid>("ApprovalId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("KeyType")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("KeyId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ScopeKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.HasKey("ApprovalId", "KeyType", "KeyId");
+
+                    b.HasIndex("ScopeKey", "KeyType", "KeyId");
+
+                    b.ToTable("AssistantApprovalKey", "nhai");
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantArtifact", b =>
@@ -1393,6 +1426,15 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                     b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantConversation", null)
                         .WithMany()
                         .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantApprovalKey", b =>
+                {
+                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantApproval", null)
+                        .WithMany()
+                        .HasForeignKey("ApprovalId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

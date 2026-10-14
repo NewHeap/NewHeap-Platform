@@ -19,7 +19,10 @@ namespace SampleProjectManagement.Api.Composition;
 /// proposal waits in the project's thread until a project approver other than the project's
 /// creator decides it. Approved proposals execute as background operations. A participant can
 /// also start it on a project with <c>POST threads/start</c>, for example to request a review
-/// (<c>projects.request-review</c>), a call that may run only once.
+/// (<c>projects.request-review</c>), a call that may run only once, or to tick off a task
+/// (<c>project-tasks.complete</c>). Proposals that people overtake by hand close on their own
+/// (SPM-282): a task completed by hand closes the proposal to complete it, and a status set by hand
+/// closes the proposal to set it.
 /// Call it after <c>AddSampleAssistant</c>; the host must call <c>AddAssistantAgentRuns</c> inside
 /// <c>WithBackgroundOperations</c>.
 /// </summary>
@@ -40,7 +43,10 @@ public static class SampleIntakeReviewerComposition
     {
         // The review request runs only for agents and approved proposals of this composition.
         services.TryAddScoped<ProjectAiReviewTools>();
-        services.AddNewHeapPlatformAI(ai => ai.AddGeneratedToolCatalog<ProjectAiReviewToolsNhAiCatalog>());
+        services.TryAddScoped<ProjectTaskAiTools>();
+        services.AddNewHeapPlatformAI(ai => ai
+            .AddGeneratedToolCatalog<ProjectAiReviewToolsNhAiCatalog>()
+            .AddGeneratedToolCatalog<ProjectTaskAiToolsNhAiCatalog>());
 
         // A second AddNewHeapAssistant call extends the assistant registered by AddSampleAssistant.
         services.AddNewHeapAssistant(assistant => assistant
@@ -51,7 +57,13 @@ public static class SampleIntakeReviewerComposition
                 DescriptionKey: "nh-assistant.agents.sample-project-intake-reviewer.description",
                 ProfileName: SampleAssistantComposition.ProfileName,
                 Instructions: ProjectAiAssets.ProjectIntakeReviewerInstructions,
-                ToolSelectors: [ProjectAiTools.ChangeStatusToolId, ProjectAiReviewTools.RequestReviewToolId, ProjectAiReviewTools.DraftIntakeNoteToolId],
+                ToolSelectors:
+                [
+                    ProjectAiTools.ChangeStatusToolId,
+                    ProjectAiReviewTools.RequestReviewToolId,
+                    ProjectAiReviewTools.DraftIntakeNoteToolId,
+                    ProjectTaskAiTools.CompleteToolId
+                ],
                 Autonomy: NhAiAutonomyLevel.Execute,
                 RequiredPolicy: SampleAssistantComposition.AccessPolicy))
             // Project members see the project's agent threads; their project role decides whether
@@ -72,8 +84,21 @@ public static class SampleIntakeReviewerComposition
             // starts from those rejections, administrators read the report, and this sink forwards
             // each feedback to the application's own analytics.
             .AddProposalFeedbackSink<SampleProposalFeedbackLog>()
+            // SPM-282: proposals that people overtake by hand close on their own. The guards say
+            // when a proposal no longer fits and why; they run when the application revalidates,
+            // when an approver decides and right before execution. The task guard names the task a
+            // proposal changes, so an update of that task finds the proposal by key.
+            .AddProposalGuard<ProjectTaskProposalGuard>(ProjectTaskAiTools.CompleteToolId)
+            .AddProposalGuard<ProjectStatusProposalGuard>(ProjectAiTools.ChangeStatusToolId)
+            .AddProposalRevalidation<ProjectTaskUpdatedEvent>(revalidation => revalidation
+                .Keys(evt => [ProjectTaskProposalGuard.Key(evt.ProjectTaskId)])
+                .ScopeKey(evt => NhAiSubjectInfo.CreateScopeKey(null, evt.DivisionId)))
             .ConfigureAgent(AgentId, agent => agent
-                .Grant(ProjectAiTools.ChangeStatusToolId, ProjectAiReviewTools.RequestReviewToolId, ProjectAiReviewTools.DraftIntakeNoteToolId)
+                .Grant(
+                    ProjectAiTools.ChangeStatusToolId,
+                    ProjectAiReviewTools.RequestReviewToolId,
+                    ProjectAiReviewTools.DraftIntakeNoteToolId,
+                    ProjectTaskAiTools.CompleteToolId)
                 .TriggerOnly()
                 // SPM-276: what the reviewer checked survives between runs as structured memory.
                 .Memory<ProjectIntakeMemory>(schemaVersion: 1)

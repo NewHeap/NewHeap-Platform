@@ -67,6 +67,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantProposalFeedback> ProposalFeedback => Set<AssistantProposalFeedback>();
 
+    public DbSet<AssistantApprovalKey> ApprovalKeys => Set<AssistantApprovalKey>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(_storageOptions.Schema);
@@ -203,6 +205,8 @@ public sealed class NhAssistantDbContext : DbContext
                 .HasMaxLength(16)
                 .HasDefaultValue(NhAiGrantSource.None);
             approval.Property(item => item.ExecutionResultCode).HasMaxLength(128);
+            approval.Property(item => item.StaleKind).HasMaxLength(32);
+            approval.Property(item => item.StaleExplanationsJson).HasMaxLength(NhAssistantLimits.MaxStaleExplanationsSerializedLength);
             approval.HasIndex(item => item.ConsultationId);
             approval.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
             approval.HasIndex(item => item.ProposalHash);
@@ -214,6 +218,21 @@ public sealed class NhAssistantDbContext : DbContext
             approval.HasOne<AssistantConversation>()
                 .WithMany()
                 .HasForeignKey(item => item.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantApprovalKey>(key =>
+        {
+            key.ToTable("AssistantApprovalKey");
+            key.HasKey(item => new { item.ApprovalId, item.KeyType, item.KeyId });
+            key.Property(item => item.ScopeKey).HasMaxLength(128).IsRequired();
+            key.Property(item => item.KeyType).HasMaxLength(NhAiProposalKey.MaxTypeLength).IsRequired();
+            key.Property(item => item.KeyId).HasMaxLength(NhAiProposalKey.MaxIdLength).IsRequired();
+            // Revalidation by object finds the proposals that change it within one scope.
+            key.HasIndex(item => new { item.ScopeKey, item.KeyType, item.KeyId });
+            key.HasOne<AssistantApproval>()
+                .WithMany()
+                .HasForeignKey(item => item.ApprovalId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

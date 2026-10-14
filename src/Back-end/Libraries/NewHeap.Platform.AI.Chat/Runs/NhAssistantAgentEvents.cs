@@ -205,6 +205,47 @@ internal sealed class NhAssistantAgentEvents(
             cancellationToken);
     }
 
+    /// <summary>
+    /// Records that a guard closed a proposal as stale: the kind and reason code, and the stage in
+    /// <c>ObjectId</c>. A proposal of a person's chat outside a subject thread has no thread.
+    /// </summary>
+    public Task InvalidatedAsync(
+        AssistantApproval approval,
+        string agentId,
+        AssistantThread? thread,
+        string actorId,
+        string kind,
+        string reasonCode,
+        string stage,
+        CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.AgentProposalInvalidated,
+                approval.ConversationId,
+                approval.TurnId,
+                actorId,
+                agentId,
+                0,
+                DateTimeOffset.UtcNow)
+            {
+                ToolId = approval.ToolId,
+                InvocationId = approval.ToolInvocationId,
+                ResultCode = kind + ":" + reasonCode,
+                ObjectId = stage,
+                ApprovalId = approval.Id,
+                ProposalId = approval.ProposalId,
+                RunId = approval.RunId,
+                SubjectType = thread?.SubjectType,
+                SubjectId = thread?.SubjectId,
+                InitiatorActorId = approval.InitiatorActorId,
+                GrantSource = approval.GrantSource,
+                ApprovalPolicyId = approval.PolicyId,
+                ConsultationId = approval.ConsultationId
+            },
+            cancellationToken);
+    }
+
     public Task ConsultationAsync(NhAssistantConsultationEvent consultation, CancellationToken cancellationToken)
     {
         return RecordAsync(

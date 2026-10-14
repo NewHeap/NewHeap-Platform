@@ -75,6 +75,9 @@
               <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.approved' | translate }}</th>
               <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.rejected' | translate }}</th>
               <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.expired' | translate }}</th>
+              <th scope="col" class="number" [attr.title]="'nh-assistant.admin.feedback.invalidated-hint' | translate">
+                {{ 'nh-assistant.admin.feedback.columns.invalidated' | translate }}
+              </th>
               <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.rejection-rate' | translate }}</th>
               <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.with-feedback' | translate }}</th>
               <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.people' | translate }}</th>
@@ -97,6 +100,21 @@
                 <td class="number" [attr.data-label]="'nh-assistant.admin.feedback.columns.approved' | translate">{{ row.approved }}</td>
                 <td class="number" [attr.data-label]="'nh-assistant.admin.feedback.columns.rejected' | translate">{{ row.rejected }}</td>
                 <td class="number" [attr.data-label]="'nh-assistant.admin.feedback.columns.expired' | translate">{{ row.expired }}</td>
+                <td class="number" [attr.data-label]="'nh-assistant.admin.feedback.columns.invalidated' | translate">
+                  {{ row.invalidated ?? 0 }}
+                  @if (row.invalidatedKinds.length > 0) {
+                    <ul class="badges">
+                      @for (item of row.invalidatedKinds; track item.kind) {
+                        <li>
+                          <span class="badge" [attr.title]="item.reasons">
+                            {{ 'nh-assistant.approval.stale-kind.' + item.kind | translate }}
+                            <span class="count">{{ item.count }}</span>
+                          </span>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </td>
                 <td class="number" [attr.data-label]="'nh-assistant.admin.feedback.columns.rejection-rate' | translate">
                   @if (row.rejectionRate === null) {
                     <span class="muted">{{ 'nh-assistant.admin.feedback.no-decisions' | translate }}</span>

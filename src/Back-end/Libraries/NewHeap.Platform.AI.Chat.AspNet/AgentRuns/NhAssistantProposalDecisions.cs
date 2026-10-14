@@ -104,6 +104,8 @@ internal sealed class NhAssistantProposalDecisions(
     NhAssistantAgentCatalog agents,
     NhAssistantAgentEvents events,
     NhAssistantAgentWorkUpdates workUpdates,
+    NhAssistantProposalGuards guards,
+    NhAssistantProposalInvalidation invalidation,
     IServiceProvider services,
     IEnumerable<INhAssistantBusinessAuditSink> businessSinks,
     ILogger<NhAssistantProposalDecisions> logger)
@@ -167,6 +169,10 @@ internal sealed class NhAssistantProposalDecisions(
         {
             return TaskResult<AssistantApproval>.Failed(check);
         }
+        if (approve && await RefuseStaleAsync(approval, thread, actorId, cancellationToken) is { } refusal)
+        {
+            return refusal;
+        }
 
         var status = approve ? NhAssistantApprovalStatuses.Approved : NhAssistantApprovalStatuses.Rejected;
         var decided = await runs.TryTransitionApprovalAsync(
@@ -214,6 +220,47 @@ internal sealed class NhAssistantProposalDecisions(
             approval.RunId,
             cancellationToken);
         return TaskResult<AssistantApproval>.Succeeded(approval);
+    }
+
+    /// <summary>
+    /// Runs the proposal guards before an approval. A stale proposal closes and the approval is
+    /// refused; a guard that fails keeps the proposal open and refuses the approval for now. A
+    /// rejection needs no check.
+    /// </summary>
+    private async Task<TaskResult<AssistantApproval>?> RefuseStaleAsync(
+        AssistantApproval approval,
+        AssistantThread thread,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        if (!guards.HasGuards(approval.ToolId, NhAiProposalGuardStages.Decision))
+        {
+            return null;
+        }
+
+        var check = await guards.CheckAsync(
+            NhAssistantProposalGuards.ContextOf(approval, thread),
+            NhAiProposalGuardStages.Decision,
+            cancellationToken);
+        if (check.Stale is { } stale)
+        {
+            await invalidation.CloseAsync(
+                approval,
+                thread,
+                thread.AgentId,
+                stale,
+                NhAssistantInvalidationStages.Decision,
+                [NhAssistantApprovalStatuses.Pending],
+                actorId,
+                CancellationToken.None);
+            return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ProposalStale, "The proposal no longer applies.");
+        }
+
+        return check.Failed
+            ? TaskResult<AssistantApproval>.Failed(
+                NhAssistantErrorCodes.ProposalCheckFailed,
+                "Whether the proposal still applies could not be checked.")
+            : null;
     }
 
     /// <summary>

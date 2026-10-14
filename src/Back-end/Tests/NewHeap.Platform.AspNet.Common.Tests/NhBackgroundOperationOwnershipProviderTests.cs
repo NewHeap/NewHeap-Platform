@@ -101,6 +101,7 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
         await VerifyDelayedDispatchAsync(serviceProvider, registry, options, accessPolicy);
         await VerifyCallerTransactionAsync(serviceProvider, registry, options, accessPolicy, memberId);
         await VerifyAccessCheckedSignalAsync(serviceProvider, registry, options, memberId, outsiderId);
+        await VerifyOwnerSignalAsync(serviceProvider, registry, options, memberId);
     }
 
     private static async Task VerifyOwnerValidationAsync(
@@ -278,6 +279,64 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
         Guid memberId,
         Guid outsiderId)
     {
+        var (operationId, persistence) = await SuspendAgentOperationAsync(serviceProvider, registry, options, memberId);
+        var signalService = new NhBackgroundOperationSignalService(persistence);
+        var signal = new OwnershipApprovalSignal(true);
+        var asOwnerUser = await signalService.SignalForOwnerAsync(
+            operationId,
+            memberId,
+            memberId,
+            "ownership-approval",
+            signal);
+        asOwnerUser.Success.Should().BeFalse("the member does not own the agent operation");
+        var asOutsider = await signalService.SignalAsync(operationId, outsiderId, "ownership-approval", signal);
+        asOutsider.Success.Should().BeFalse();
+        var asMember = await signalService.SignalAsync(operationId, memberId, "ownership-approval", signal);
+        asMember.Success.Should().BeTrue(string.Join("; ", asMember.AllErrorMessages));
+        asMember.Data!.Status.Should().Be(NhBackgroundOperationSignalWriteStatus.Accepted);
+
+        await using var verificationScope = serviceProvider.CreateAsyncScope();
+        var context = verificationScope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
+        var operation = await context.BackgroundOperations.AsNoTracking().SingleAsync(x => x.Id == operationId);
+        operation.Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
+    }
+
+    /// <summary>
+    /// A platform module ends a wait it started itself on behalf of the agent that owns the
+    /// operation, without a person and without access policies.
+    /// </summary>
+    private static async Task VerifyOwnerSignalAsync(
+        ServiceProvider serviceProvider,
+        NhBackgroundOperationRegistry registry,
+        NhBackgroundOperationsOptions options,
+        Guid memberId)
+    {
+        var (operationId, persistence) = await SuspendAgentOperationAsync(serviceProvider, registry, options, memberId);
+        var ownerSignals = new NhBackgroundOperationOwnerSignals(persistence);
+
+        var wrongWait = await ownerSignals.SignalAsync(operationId, "another-wait", new OwnershipApprovalSignal(false));
+        wrongWait.Success.Should().BeFalse();
+        var signaled = await ownerSignals.SignalAsync(operationId, "ownership-approval", new OwnershipApprovalSignal(false));
+        signaled.Success.Should().BeTrue(string.Join("; ", signaled.AllErrorMessages));
+        signaled.Data!.Status.Should().Be(NhBackgroundOperationSignalWriteStatus.Accepted);
+        var repeated = await ownerSignals.SignalAsync(operationId, "ownership-approval", new OwnershipApprovalSignal(false));
+        repeated.Data!.Status.Should().Be(NhBackgroundOperationSignalWriteStatus.Duplicate);
+
+        await using var verificationScope = serviceProvider.CreateAsyncScope();
+        var context = verificationScope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
+        var operation = await context.BackgroundOperations.AsNoTracking().SingleAsync(x => x.Id == operationId);
+        operation.Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
+    }
+
+    /// <summary>
+    /// Enqueues an agent-owned operation and runs it until it waits for its signal.
+    /// </summary>
+    private static async Task<(Guid OperationId, NhBackgroundOperationPersistence Persistence)> SuspendAgentOperationAsync(
+        ServiceProvider serviceProvider,
+        NhBackgroundOperationRegistry registry,
+        NhBackgroundOperationsOptions options,
+        Guid memberId)
+    {
         Guid operationId;
         await using (var scope = serviceProvider.CreateAsyncScope())
         {
@@ -327,25 +386,7 @@ public sealed class NhBackgroundOperationOwnershipProviderTests
             suspended.Status.Should().Be(NhBackgroundOperationStatus.WaitingForSignal);
         }
 
-        var signalService = new NhBackgroundOperationSignalService(persistence);
-        var signal = new OwnershipApprovalSignal(true);
-        var asOwnerUser = await signalService.SignalForOwnerAsync(
-            operationId,
-            memberId,
-            memberId,
-            "ownership-approval",
-            signal);
-        asOwnerUser.Success.Should().BeFalse("the member does not own the agent operation");
-        var asOutsider = await signalService.SignalAsync(operationId, outsiderId, "ownership-approval", signal);
-        asOutsider.Success.Should().BeFalse();
-        var asMember = await signalService.SignalAsync(operationId, memberId, "ownership-approval", signal);
-        asMember.Success.Should().BeTrue(string.Join("; ", asMember.AllErrorMessages));
-        asMember.Data!.Status.Should().Be(NhBackgroundOperationSignalWriteStatus.Accepted);
-
-        await using var verificationScope = serviceProvider.CreateAsyncScope();
-        var context = verificationScope.ServiceProvider.GetRequiredService<OwnershipDbContext>();
-        var operation = await context.BackgroundOperations.AsNoTracking().SingleAsync(x => x.Id == operationId);
-        operation.Status.Should().Be(NhBackgroundOperationStatus.PendingDispatch);
+        return (operationId, persistence);
     }
 
     private static async Task<int> DispatchUntilQueuedAsync(
