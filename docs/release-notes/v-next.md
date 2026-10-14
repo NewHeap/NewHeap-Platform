@@ -1,6 +1,6 @@
 # v-next
 
-## NewHeap.Platform.AspNet.Common.SqlServer, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.DatabaseRead.Tool: patched SQL Client cryptography dependency
+## NewHeap.Platform.AspNet.Common.SqlServer, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.Events.Cap and NewHeap.Platform.DatabaseRead.Tool: patched SQL Client cryptography dependency
 
 SQL Server packages and the database read tool now require
 `System.Security.Cryptography.Pkcs` 9.0.21 or later to address CVE-2026-84008

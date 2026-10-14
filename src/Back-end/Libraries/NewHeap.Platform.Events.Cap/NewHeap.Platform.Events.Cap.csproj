@@ -16,6 +16,7 @@
     <ItemGroup>
       <PackageReference Include="DotNetCore.CAP" />
       <PackageReference Include="DotNetCore.CAP.SqlServer" Aliases="CapSqlServer" />
+      <PackageReference Include="System.Security.Cryptography.Pkcs" />
       <PackageReference Include="DotNetCore.CAP.PostgreSql" Aliases="CapPostgreSql" />
     </ItemGroup>
 
