@@ -276,7 +276,8 @@
     "SPM-277",
     "SPM-278",
     "SPM-279",
-    "SPM-280"
+    "SPM-280",
+    "SPM-281"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -822,7 +823,8 @@
       "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260925094056_AddBackgroundOperationAdministrationIndex.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationServedQueues.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationDispatchService.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhHangfireBackgroundOperationScheduler.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhHangfireBackgroundOperationScheduler.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs"
     ],
     "SPM-084": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
@@ -841,7 +843,9 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhUserNotificationService.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEfWarningCompatibilityProviderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserNotificationGroupingProviderTests.cs",
-      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260921201514_AddUserNotificationGrouping.cs"
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260921201514_AddUserNotificationGrouping.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhUserNotificationServiceSink.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhModuleRetentionParticipants.cs"
     ],
     "SPM-087": [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhNotificationProcessingService.cs",
@@ -2164,6 +2168,22 @@
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-subject-suggestions.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts"
+    ],
+    "SPM-281": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PartnerPortalSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhRetention.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhPlatformModuleModelBuilderExtensions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhPlatformModules.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhUserManager.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantInAppAgentNotificationChannel.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhPlatformModuleProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhPlatformModuleRegistrationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserManagerRetentionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/NhActorTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPlatformActorTests.cs"
     ]
   }
 }

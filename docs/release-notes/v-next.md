@@ -1,1 +1,58 @@
 # v-next
+
+## NewHeap.Platform.Common: actors for every platform module
+
+Platform modules ask the application about people through one set of interfaces in
+`NewHeap.Platform.Common.Actors`. `NhActorRef` names a user, agent or system;
+`INhActorContextAccessor` returns the current actor and active division; `INhDivisionAccess`
+decides whether an actor may work in a division; `INhActorDirectory` returns names, e-mail
+addresses and cultures; `INhUserNotificationSink` delivers a message to a user's in-app inbox;
+and `INhRetention` fans `ForgetUserAsync` and `ForgetDivisionAsync` out to every module's
+`INhRetentionParticipant`. Register an application's own implementation with
+`AddNewHeapActorContext`, `AddNewHeapDivisionAccess`, `AddNewHeapActorDirectory`,
+`AddNewHeapUserNotificationSink` or `AddNewHeapRetentionParticipant`; it replaces the defaults
+of NewHeap Identity and of the modules whatever the registration order.
+
+| Adoption note | Required action |
+|---|---|
+| New interfaces; nothing changes for existing applications. | None. Implement them only in an application without NewHeap Identity, or to change NewHeap Identity's answers. |
+
+## NewHeap.Platform.AspNet.Common: background operations and notifications without NewHeap Identity
+
+Background operations and notifications no longer require `NhIdentityDbContext`. An application
+maps them into its own EF context with `ModelBuilder.AddNewHeapBackgroundOperations()` and
+`AddNewHeapNotifications()`, by default in the schemas `nhops` and `nhnotify`, and registers them
+with `AddNewHeapBackgroundOperations<TContext>`, `AddNewHeapNotifications<TContext>` and
+`AddNewHeapHangfireProcessing`. An enqueue joins the application's transaction because the tables
+live in its context. `AddNewHeapAuthenticationForwarding` lets the platform's controllers and hub
+use the application's authentication scheme, and `MapNewHeapBackgroundOperations` maps the hub.
+`NhIdentityDbContext` calls the same extensions with `Schema = null` and its foreign keys, so its
+model is unchanged.
+
+The background-operation controllers and hub now ask `INhActorContextAccessor` and
+`INhDivisionAccess` who the user is and which division they may use, the default owner directory
+reads `INhActorDirectory`, and notification milestones go through `INhUserNotificationSink`.
+NewHeap Identity implements these from the request, its division claims and its user table, so
+the behavior of existing applications stays the same. `NhUserManager.DeleteAsync` now lets every
+module forget the user through `INhRetention` in the same transaction as the delete; when a module
+cannot, the user is kept and the identity result names the module's error.
+
+| Adoption note | Required action |
+|---|---|
+| The model of `NhIdentityDbContext` is unchanged. | None; a new migration of the application is empty. |
+| `NhBackgroundOperationController`, `NhBackgroundOperationAdministrationController` and `NhBackgroundOperationHub` take `INhActorContextAccessor` and `INhDivisionAccess` in their constructors. | None for applications; tests that construct these types pass the identity implementations or their own. |
+| `NhUserManager.DeleteAsync` runs `INhRetention` first and deletes the user's background operations and user notifications explicitly; the cascades remain. | None. A derived user manager that overrides `DeleteAsync` calls the base implementation to keep this. |
+| An application without NewHeap Identity serializes MVC JSON with its own settings. | Add `JsonStringEnumConverter`, because the NewHeap Angular clients read enum names. |
+| E-mail notifications in an application without the platform builder need mail settings. | Configure `MailServiceSettings`, for example through `AddNewHeapPlatformCommon(...).WithMail(...)`. |
+
+## NewHeap.Platform.AI.Chat: in-app agent notifications and display names from the platform
+
+`NhAssistantBuilder.UseInAppAgentNotifications()` also delivers agent notifications through the
+platform's `INhUserNotificationSink`, such as the NewHeap notifications module, in each
+recipient's culture from `INhActorDirectory`. The default `INhAssistantDisplayNameResolver` asks
+`INhActorDirectory` when the user's claims carry no name.
+
+| Adoption note | Required action |
+|---|---|
+| In-app agent notifications are off by default. | Call `UseInAppAgentNotifications()` to turn them on. |
+| Display names from claims are unchanged; only users without a name claim get the directory's name. | None. |

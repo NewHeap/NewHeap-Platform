@@ -20,6 +20,7 @@ using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Mapping;
 using NSubstitute;
 using Xunit;
+using NewHeap.Platform.AspNet.Common.Services.Actors;
 
 namespace NewHeap.Platform.AspNet.Common.Tests;
 
@@ -196,6 +197,7 @@ public sealed class NhBackgroundOperationAdministrationControllerTests
             httpContext.Request.Headers[Constants.HttpHeaderKeys.ActiveDivisionId] = activeDivisionId.Value.ToString();
         }
 
+        var httpContextAccessor = new HttpContextAccessor { HttpContext = httpContext };
         return new NhBackgroundOperationAdministrationController(
             new ConfigurationBuilder().Build(),
             new Mapper(new MapperConfiguration(configuration =>
@@ -208,7 +210,9 @@ public sealed class NhBackgroundOperationAdministrationControllerTests
             new NhBackgroundOperationsOptions
             {
                 AdministrationPolicy = administrationPolicy
-            })
+            },
+            new NhIdentityActorContextAccessor(httpContextAccessor),
+            new NhIdentityDivisionAccess(httpContextAccessor, services))
         {
             ControllerContext = new ControllerContext
             {

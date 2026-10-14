@@ -43,6 +43,7 @@
 - frontend-toast-notifications: ./frontend-toast-notifications.md
 - media: ./media.md
 - observability-logging: ./observability-logging.md
+- platform-modules-without-identity: ./platform-modules-without-identity.md
 - runtime-configuration: ./runtime-configuration.md
 - testing: ./testing.md
 - consumer router skill: ../../skills/newheap-platform-development/SKILL.md

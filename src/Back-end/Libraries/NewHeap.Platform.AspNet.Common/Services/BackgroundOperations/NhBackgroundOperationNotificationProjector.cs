@@ -2,8 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
-using NewHeap.Platform.AspNet.Common.Models.Mutate;
-using NewHeap.Platform.AspNet.Common.Services.Notification;
+using NewHeap.Platform.AspNet.Common.Services.Actors;
+using NewHeap.Platform.Common.Actors;
 using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
@@ -27,7 +27,9 @@ internal sealed class NhBackgroundOperationNotificationProjector : INhBackground
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IRepository<NhBackgroundOperation>>();
-        var notificationService = scope.ServiceProvider.GetRequiredService<INhUserNotificationService>();
+        // A host that registered no sink still projects into NewHeap user notifications.
+        var notificationSink = scope.ServiceProvider.GetService<INhUserNotificationSink>()
+            ?? new NhUserNotificationServiceSink(scope.ServiceProvider);
         var notificationPolicy = scope.ServiceProvider.GetRequiredService<INhBackgroundOperationNotificationPolicy>();
         await using var transaction = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
         if (!await repository.TryAcquireTransactionLockAsync(
@@ -77,7 +79,7 @@ internal sealed class NhBackgroundOperationNotificationProjector : INhBackground
             if (decision.ShouldNotify)
             {
                 var projectionResult = await ProjectMilestoneAsync(
-                    notificationService,
+                    notificationSink,
                     operation,
                     milestone,
                     decision,
@@ -97,7 +99,7 @@ internal sealed class NhBackgroundOperationNotificationProjector : INhBackground
     }
 
     private async Task<TaskResult> ProjectMilestoneAsync(
-        INhUserNotificationService notificationService,
+        INhUserNotificationSink notificationSink,
         NhBackgroundOperation operation,
         NhBackgroundOperationEvent milestone,
         NhBackgroundOperationNotificationDecision decision,
@@ -109,52 +111,29 @@ internal sealed class NhBackgroundOperationNotificationProjector : INhBackground
             ? $"{_options.OperationUrlPrefix.TrimEnd('/')}/{operation.Id}"
             : decision.Url;
 
-        if (operation.UserNotificationId.HasValue)
-        {
-            var current = await notificationService.GetAsync(operation.UserNotificationId.Value, cancellationToken);
-            if (current is { IsArchived: false })
+        // The thread of an earlier milestone continues while it is active; a new or archived
+        // thread starts again, and a group key joins an active thread of a related operation.
+        var sendResult = await notificationSink.SendAsync(
+            new NhUserNotificationRequest(operation.OwnerUserId!.Value, content.Title, content.Message)
             {
-                return await notificationService.AddMessageAsync(
-                    current.Id,
-                    new NhAddMessageUserNotificationMutateModel
-                    {
-                        Title = content.Title,
-                        Message = content.Message,
-                        Severity = severity,
-                        Url = url
-                    },
-                    cancellationToken);
-            }
-        }
-
-        // A new or archived thread starts again; a group key joins an active thread
-        // of a related operation instead.
-        var createResult = await notificationService.CreateOrAddMessageAsync(
-            new NhUserNotificationMutateModel
-            {
-                UserId = operation.OwnerUserId!.Value,
-                Title = content.Title,
-                Message = content.Message,
                 Url = url,
                 UrlInNewTab = false,
                 Category = decision.Category ?? NhBackgroundOperationNotificationCategories.BackgroundOperation,
-                Severity = severity,
-                GroupKey = decision.GroupKey
+                Level = (NhUserNotificationLevel)(int)severity,
+                GroupKey = decision.GroupKey,
+                ThreadId = operation.UserNotificationId
             },
             cancellationToken);
-        if (!createResult.Success)
+        if (!sendResult.Success)
         {
-            return TaskResult.Failed(createResult);
+            return TaskResult.Failed(sendResult);
         }
 
-        if (createResult.Data is null)
+        if (sendResult.Data is not null)
         {
-            return TaskResult.Failed(
-                "notification-create-failed",
-                "background-operation.notification-create-failed");
+            operation.UserNotificationId = sendResult.Data.ThreadId;
         }
 
-        operation.UserNotificationId = createResult.Data.Id;
         return TaskResult.Succeeded();
     }
 

@@ -84,6 +84,15 @@ badge per project from one summary request, the project dialog shows the open pr
 every agent on the project with the viewer's decision rights, and opening the conversation with
 the reviewer about a project creates its thread without starting a run.
 
+None of this requires NewHeap Identity (SPM-281). The sample's tests host a partner portal with
+its own EF context and its own users: it maps background operations into schema `nhops` and
+notifications into `nhnotify` next to its tables, registers both without the NewHeap platform
+builder, and tells the platform who its users are through `INhActorDirectory`. A submission
+event starts an agent whose run joins the portal's transaction; the project's approver hears
+about the proposal in the portal's own inbox in their language and approves it, after which the
+change executes. Applications on NewHeap Identity keep their model unchanged, and deleting a
+user through `NhUserManager` lets every module forget the user in the same transaction.
+
 Collection cases SPM-028 and SPM-031 also demonstrate opt-in table field selection
 through `ProjectController`, `ProjectTableViewModel` and
 `ProjectFieldSelectionSamplesTests`. The protected discovery endpoint reports

@@ -493,6 +493,9 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
 
         #endregion
 
+        // NewHeap Identity answers the platform's actor questions for every module.
+        NhPlatformModuleRegistration.AddIdentityActorDefaults<TUser>(serviceCollection);
+
         serviceCollection.AddScoped<TUserManager, TUserManager>();
 
         // Important, override the default UserManager with our custom one.
@@ -781,80 +784,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         >
         WithBackgroundOperations(Action<NhBackgroundOperationBuilder> configure)
     {
-        ArgumentNullException.ThrowIfNull(configure);
-        if (_serviceCollection.Any(x => x.ServiceType == typeof(NhBackgroundOperationRegistry)))
-        {
-            throw new InvalidOperationException("Background operations have already been configured.");
-        }
-
-        var options = new NhBackgroundOperationsOptions();
-        var builder = new NhBackgroundOperationBuilder(_serviceCollection, options);
-        configure(builder);
-        var registry = builder.Build();
-
-        _serviceCollection.AddSingleton(options);
-        _serviceCollection.AddSingleton(registry);
-        _serviceCollection.AddControllers().AddApplicationPart(typeof(Controllers.NhBackgroundOperationController).Assembly);
-        _serviceCollection.TryAddSingleton<INhHangfireQueueNameResolver, NhHangfireQueueNameResolver>();
-        _serviceCollection.TryAddSingleton<NhBackgroundOperationServedQueues>();
-        if (options.LiveUpdatesEnabled)
-        {
-            _serviceCollection.AddSignalR();
-            _serviceCollection.TryAddSingleton<NhBackgroundOperationSignalRMarker>();
-            _serviceCollection.TryAddSingleton<INhBackgroundOperationLiveUpdatePublisher, NhSignalRBackgroundOperationLiveUpdatePublisher>();
-        }
-        else
-        {
-            _serviceCollection.TryAddSingleton<INhBackgroundOperationLiveUpdatePublisher, NhNoOpBackgroundOperationLiveUpdatePublisher>();
-        }
-        if (options.UserNotificationProjectionEnabled)
-        {
-            _serviceCollection.TryAddScoped<INhBackgroundOperationNotificationFormatter,
-                NhDefaultBackgroundOperationNotificationFormatter>();
-            _serviceCollection.TryAddScoped<NhDefaultBackgroundOperationNotificationPolicy>();
-            _serviceCollection.TryAddScoped<INhBackgroundOperationNotificationPolicy>(
-                serviceProvider => serviceProvider.GetRequiredService<NhDefaultBackgroundOperationNotificationPolicy>());
-            _serviceCollection.TryAddSingleton<INhBackgroundOperationNotificationProjector, NhBackgroundOperationNotificationProjector>();
-        }
-        else
-        {
-            _serviceCollection.TryAddSingleton<INhBackgroundOperationNotificationProjector, NhNoOpBackgroundOperationNotificationProjector>();
-        }
-
-        _serviceCollection.TryAddSingleton<NhBackgroundOperationFanOutCoordinator>();
-        _serviceCollection.TryAddSingleton<NhBackgroundOperationPersistence>();
-        _serviceCollection.AddHealthChecks()
-            .AddCheck<NhBackgroundOperationHealthCheck>("nh-background-operations", tags: ["ready"]);
-        _serviceCollection.TryAddScoped<INhBackgroundOperationScheduler, NhHangfireBackgroundOperationScheduler>();
-        _serviceCollection.TryAddScoped<INhBackgroundOperationOwnerDirectory,
-            NhIdentityBackgroundOperationOwnerDirectory<TUser>>();
-        _serviceCollection.TryAddScoped<INhBackgroundOperationService, NhBackgroundOperationService>();
-        _serviceCollection.TryAddScoped<INhBackgroundOperationAdministrationService, NhBackgroundOperationService>();
-        _serviceCollection.TryAddScoped<INhBackgroundOperationSignalService, NhBackgroundOperationSignalService>();
-        _serviceCollection.AddScoped(serviceProvider => new NhBackgroundOperationRunner(
-            serviceProvider,
-            serviceProvider.GetRequiredService<IServiceScopeFactory>(),
-            serviceProvider.GetRequiredService<NhBackgroundOperationPersistence>(),
-            serviceProvider.GetRequiredService<NhBackgroundOperationRegistry>(),
-            serviceProvider.GetRequiredService<NhBackgroundOperationFanOutCoordinator>(),
-            serviceProvider.GetRequiredService<NhBackgroundOperationsOptions>(),
-            serviceProvider.GetRequiredService<ILogger<NhBackgroundOperationRunner>>()));
-        _serviceCollection.AddHostedService<NhBackgroundOperationStartupValidator>();
-        if (options.DispatchWorkersEnabled)
-        {
-            _serviceCollection.AddHostedService<NhBackgroundOperationDispatchService>();
-        }
-
-        if (options.ReconciliationEnabled)
-        {
-            _serviceCollection.AddHostedService<NhBackgroundOperationReconciliationService>();
-        }
-
-        if (options.CleanupEnabled)
-        {
-            _serviceCollection.AddHostedService<NhBackgroundOperationCleanupService>();
-        }
-
+        NhBackgroundOperationRegistration.Add(_serviceCollection, configure);
         return this;
     }
 
@@ -884,29 +814,10 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
             Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null
         )
     {
-        ArgumentNullException.ThrowIfNull(hangfireOptionsAction);
-        _serviceCollection.TryAddSingleton<INhHangfireQueueNameResolver, NhHangfireQueueNameResolver>();
-
-        // Hangfire configuration is process-wide. This registration supports several hosts per
-        // process, registers Hangfire.Console once, and keeps storage and activation per host.
-        _serviceCollection.AddNewHeapHangfire(hangfireOptionsAction, consoleOptionsAction);
-
-        _serviceCollection.AddHangfireServer((serviceProvider, options) =>
-        {
-            backgroundJobServerOptions?.Invoke(options);
-
-            var queueResolver = serviceProvider.GetRequiredService<INhHangfireQueueNameResolver>();
-            // The dispatcher claims operations on exactly these queues, so the server and the
-            // dispatcher of one process always agree on the work this process serves.
-            var backgroundOperationQueues = serviceProvider.GetService<NhBackgroundOperationServedQueues>()?.Queues
-                ?? [];
-            options.Queues = options.Queues
-                .Append(queueResolver.GetQueueName())
-                .Concat(backgroundOperationQueues)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-        });
-
+        _serviceCollection.AddNewHeapHangfireProcessing(
+            hangfireOptionsAction,
+            consoleOptionsAction,
+            backgroundJobServerOptions);
         return this;
     }
 
@@ -931,18 +842,7 @@ public partial class NewHeapPlatformAspNetCommonConfigurator<
         TDivisionUserMutateModel
     > WithNotifications(Action<NhNotificationSettings> settingsAction)
     {
-        _serviceCollection.Configure(settingsAction);
-        _serviceCollection.AddScoped<INhNotificationService, NhNotificationService>();
-        _serviceCollection.AddHostedService<NhNotificationProcessingService>();
-
-        //Default dispatchers
-        _serviceCollection.AddScoped<INhNotificationDispatcher, NhEmailNotificationDispatcher>();
-        _serviceCollection.AddScoped<INhNotificationDispatcher, NhUserNotificaitonNotificationDispatcher>();
-        _serviceCollection.Configure<NhEmailNotificationSettings>(x => { });
-
-        // User notifications
-        _serviceCollection.AddScoped<INhUserNotificationService, NhUserNotificationService>();
-
+        NhNotificationRegistration.Add(_serviceCollection, settingsAction);
         return this;
     }
 

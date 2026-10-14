@@ -1168,7 +1168,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Durable background operation with fan-out and nested progress",
     "category": "Events, jobs, email, and notifications",
     "surface": "WithBackgroundOperations, INhBackgroundOperationHandler<T>, TaskResult, INhBackgroundOperationNotificationPolicy, NhBackgroundOperationRetryResult, fan-out/fan-in, durable leases, scoped polling, scoped SignalR, and cross-owner administration through UseAdministrationPolicy, INhBackgroundOperationAdministrationService, INhBackgroundOperationOwnerDirectory, and NhBackgroundOperationAdministrationService",
-    "outcome": "A division-exclusive parent durably fans out project work, releases its worker while children execute concurrently, propagates expected batch, checkpoint, step, and fan-in outcomes through TaskResult, reschedules internal lock contention without consuming handler retries, advances a contended final-child wake-up to the next dispatcher interval, serializes reconciliation, dispatch claims and cancelled completions with operation writers so event sequences remain unique, aggregates nested progress, notifies the owner only about outcomes and requests for attention while threading repeated portfolio work per division through a notification policy, protects unprojected notification milestones during event retention, starts under strict EF Core warning policies, and remains isolated to the authenticated user and accessible active division through notifications, SignalR, and polling. An opt-in administration policy lets administrators list every owner's root operations in the accessible active division plus global operations with the owner's display name, inspect operator-only events and scheduling diagnostics, and cancel or retry on the owner's behalf; the administrator is recorded as the cancellation requester so the owner is notified, the endpoints return 404 until a policy is configured, host start fails when the configured policy is not registered,, the owner-facing API never exposes operator-only events, and the list stays usable for very large tables through status filters, capped pages, summary projections without payloads, polling that pauses while hidden, and an index that skips fan-out children. Dispatchers only claim operations on the Hangfire queues their own process serves, and an operation that no worker starts fails with dispatch-stalled after MaxDispatchRecoveries reconciliation rounds instead of cycling forever, with an operator-only diagnosis of the queue, the Hangfire job state and whether a worker serves the queue.",
+    "outcome": "A division-exclusive parent durably fans out project work, releases its worker while children execute concurrently, propagates expected batch, checkpoint, step, and fan-in outcomes through TaskResult, reschedules internal lock contention without consuming handler retries, advances a contended final-child wake-up to the next dispatcher interval, serializes reconciliation, dispatch claims and cancelled completions with operation writers so event sequences remain unique, aggregates nested progress, notifies the owner only about outcomes and requests for attention while threading repeated portfolio work per division through a notification policy, protects unprojected notification milestones during event retention, starts under strict EF Core warning policies, and remains isolated to the authenticated user and accessible active division through notifications, SignalR, and polling. An opt-in administration policy lets administrators list every owner's root operations in the accessible active division plus global operations with the owner's display name, inspect operator-only events and scheduling diagnostics, and cancel or retry on the owner's behalf; the administrator is recorded as the cancellation requester so the owner is notified, the endpoints return 404 until a policy is configured, host start fails when the configured policy is not registered,, the owner-facing API never exposes operator-only events, and the list stays usable for very large tables through status filters, capped pages, summary projections without payloads, polling that pauses while hidden, and an index that skips fan-out children. Dispatchers only claim operations on the Hangfire queues their own process serves, and an operation that no worker starts fails with dispatch-stalled after MaxDispatchRecoveries reconciliation rounds instead of cycling forever, with an operator-only diagnosis of the queue, the Hangfire job state and whether a worker serves the queue. Controllers and the hub ask the platform's `INhActorContextAccessor` and `INhDivisionAccess` who the user is and which division they may use, which NewHeap Identity answers from the request and its division claims.",
     "implementation": "implemented",
     "evidence": [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Entities/NhBackgroundOperation.cs",
@@ -1215,7 +1215,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260925094056_AddBackgroundOperationAdministrationIndex.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationServedQueues.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationDispatchService.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhHangfireBackgroundOperationScheduler.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhHangfireBackgroundOperationScheduler.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs"
     ]
   },
   {
@@ -1249,7 +1250,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Create and summarize user notifications",
     "category": "Events, jobs, email, and notifications",
     "surface": "INhUserNotificationService, NhUserNotificationService and CreateOrAddMessageAsync",
-    "outcome": "Assignment creates the correct message, repeated updates for one project join a single thread through `GroupKey` with category and severity, and the overview excludes archived notifications and remains query-safe under strict EF Core warning policies on SQL Server and PostgreSQL.",
+    "outcome": "Assignment creates the correct message, repeated updates for one project join a single thread through `GroupKey` with category and severity, and the overview excludes archived notifications and remains query-safe under strict EF Core warning policies on SQL Server and PostgreSQL. The notifications module is the platform's `INhUserNotificationSink`, so background operations and agents reach the same inbox, and `INhRetention` removes a deleted user's notifications.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
@@ -1258,7 +1259,9 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Notification/NhUserNotificationService.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhEfWarningCompatibilityProviderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserNotificationGroupingProviderTests.cs",
-      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260921201514_AddUserNotificationGrouping.cs"
+      "src/Back-end/Libraries/SampleProjectManagement.DAL/Migrations/20260921201514_AddUserNotificationGrouping.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhUserNotificationServiceSink.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhModuleRetentionParticipants.cs"
     ]
   },
   {
@@ -4139,6 +4142,30 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-subject-suggestions.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts"
+    ]
+  },
+  {
+    "id": "SPM-281",
+    "title": "Background operations, notifications and agents without NewHeap Identity",
+    "category": "Events, jobs, email, and notifications",
+    "surface": "ModelBuilder.AddNewHeapBackgroundOperations and AddNewHeapNotifications with NhPlatformModuleModelOptions; AddNewHeapBackgroundOperations<TContext>, AddNewHeapNotifications<TContext>, AddNewHeapHangfireProcessing, AddNewHeapAuthenticationForwarding and MapNewHeapBackgroundOperations; the platform's NhActorRef, NhActorContext, INhActorContextAccessor, INhDivisionAccess, INhActorDirectory, INhUserNotificationSink, INhRetention and INhRetentionParticipant with AddNewHeapActorContext, AddNewHeapDivisionAccess, AddNewHeapActorDirectory, AddNewHeapUserNotificationSink and AddNewHeapRetentionParticipant; NhUserManager.DeleteAsync; NhAssistantBuilder.UseInAppAgentNotifications and the directory fallback of the assistant's display names",
+    "outcome": "A partner portal with its own EF context and its own users hosts background operations in schema `nhops` and notifications in `nhnotify` next to its tables, registers both without the NewHeap platform builder and tells the platform who its users are. A submission event starts the platform's agent: the run's background operation joins the portal's transaction, so a rolled-back submission leaves no operation; the run's proposal waits for the project's approver, who hears about it in the portal's own inbox in their language and approves it, after which the change executes. In a plain context the controllers ask the application's actor and tenant implementations, an enqueue rolls back with the application's transaction, milestones reach the owner through the notifications module in one thread, and `INhRetention` removes a user's or division's operations leaf first and the user's notifications, without foreign keys. Applications on NewHeap Identity keep their model unchanged, and deleting a user through `NhUserManager` lets every module forget the user in the same transaction.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PartnerPortalSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TwoFactorSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhRetention.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhPlatformModuleModelBuilderExtensions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhPlatformModules.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhUserManager.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantInAppAgentNotificationChannel.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhPlatformModuleProviderTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhPlatformModuleRegistrationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhUserManagerRetentionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.Common.Tests/NhActorTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPlatformActorTests.cs"
     ]
   }
 ] as const;

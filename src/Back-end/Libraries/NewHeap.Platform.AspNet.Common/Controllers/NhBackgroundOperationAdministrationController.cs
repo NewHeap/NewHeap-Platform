@@ -12,6 +12,7 @@ using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Mapping;
 using System.ComponentModel;
+using NewHeap.Platform.Common.Actors;
 
 namespace NewHeap.Platform.AspNet.Common.Controllers;
 
@@ -34,6 +35,8 @@ public sealed class NhBackgroundOperationAdministrationController : ProtectedNhB
     private readonly INhBackgroundOperationAdministrationService _operations;
     private readonly IAuthorizationService _authorizationService;
     private readonly NhBackgroundOperationsOptions _options;
+    private readonly INhActorContextAccessor _actors;
+    private readonly INhDivisionAccess _divisions;
 
     public NhBackgroundOperationAdministrationController(
         IConfiguration configuration,
@@ -43,9 +46,13 @@ public sealed class NhBackgroundOperationAdministrationController : ProtectedNhB
         IHttpCollectionProcessingService collectionProcessing,
         INhBackgroundOperationAdministrationService operations,
         IAuthorizationService authorizationService,
-        NhBackgroundOperationsOptions options)
+        NhBackgroundOperationsOptions options,
+        INhActorContextAccessor actors,
+        INhDivisionAccess divisions)
         : base(mapper, logger, configuration, localizer, collectionProcessing)
     {
+        _actors = actors;
+        _divisions = divisions;
         _operations = operations;
         _authorizationService = authorizationService;
         _options = options;
@@ -175,7 +182,8 @@ public sealed class NhBackgroundOperationAdministrationController : ProtectedNhB
             return Deny(NotFound());
         }
 
-        var userId = HttpContext.GetUserId();
+        var actor = await _actors.GetCurrentAsync(cancellationToken);
+        var userId = actor.UserId;
         if (!userId.HasValue)
         {
             return Deny(Unauthorized());
@@ -187,11 +195,9 @@ public sealed class NhBackgroundOperationAdministrationController : ProtectedNhB
             return Deny(Forbid());
         }
 
-        var activeDivisionId = HttpContext.GetActiveDivisionId();
+        var activeDivisionId = actor.ActiveDivisionId;
         if (activeDivisionId.HasValue
-            && !await HttpContext.HasDivisionAccessAsync(
-                activeDivisionId,
-                cancellationToken: cancellationToken))
+            && !await _divisions.HasAccessAsync(actor.Actor!, activeDivisionId.Value, cancellationToken))
         {
             return Deny(Forbid());
         }

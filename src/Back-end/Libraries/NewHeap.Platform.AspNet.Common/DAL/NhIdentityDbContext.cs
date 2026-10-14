@@ -294,10 +294,12 @@ public abstract partial class NhIdentityDbContext<
 
         #region Notification
 
+        // The module mapping is shared with applications that host notifications in their own
+        // context; identity hosting keeps the context's schema and adds its foreign keys.
+        builder.AddNewHeapNotifications(notifications => notifications.Schema = null);
+
         builder.Entity<NhNotification>(entity =>
         {
-            entity.HasIndex(x => new { x.ProcessorKey, x.Priority });
-
             entity
                 .HasOne(typeof(TUser))
                 .WithMany()
@@ -308,30 +310,8 @@ public abstract partial class NhIdentityDbContext<
             ;
         });
 
-        builder.Entity<NhNotificationDelivery>(entity =>
-        {
-            entity
-                .HasOne(x => x.Notification)
-                .WithMany(x => x.Deliveries)
-                .HasForeignKey(x => x.NotificationId)
-                .IsRequired(true)
-                .OnDelete(DeleteBehavior.Cascade)
-            ;
-
-            entity
-                .Property(e => e.Data)
-                .HasConversion(
-                    v => v == null ? null : JsonConvert.SerializeObject(v, ConvertJsonSerializerSettings),
-                    v => string.IsNullOrWhiteSpace(v) ? null : JsonConvert.DeserializeObject(v, ConvertJsonSerializerSettings));
-        });
-
-        #endregion
-
-        #region User Notification
-
         builder.Entity<NhUserNotification>(entity =>
         {
-            entity.Property(nameof(NhUserNotification.UserId)).IsRequired();
             entity
                 .HasOne<TUser>()
                 .WithMany(x => x.Notifications)
@@ -340,58 +320,16 @@ public abstract partial class NhIdentityDbContext<
                 .OnDelete(DeleteBehavior.Cascade)
                 .IsRequired(true)
             ;
-
-            entity.HasIndex(x => new { x.UserId, x.GroupKey });
-
-            entity
-            .Property(e => e.Data)
-            .HasConversion(
-                v => v == null ? "{}" : JsonConvert.SerializeObject(v, ConvertJsonSerializerSettings),
-                v => string.IsNullOrWhiteSpace(v) ? new NhUserNotficationData() : JsonConvert.DeserializeObject<NhUserNotficationData>(v, ConvertJsonSerializerSettings)!);
-
-        });
-
-        builder.Entity<NhUserNotificationMessage>(entity =>
-        {
-            entity
-                .HasOne(x => x.UserNotification)
-                .WithMany(x => x.Messages)
-                .HasForeignKey(x => x.UserNotificationId)
-                .IsRequired(true)
-                .OnDelete(DeleteBehavior.Cascade)
-            ;
         });
 
         #endregion
 
         #region Background Operations
 
+        builder.AddNewHeapBackgroundOperations(operations => operations.Schema = null);
+
         builder.Entity<NhBackgroundOperation>(entity =>
         {
-            entity.Property(x => x.Id).ValueGeneratedNever();
-            entity.Property(x => x.Version).IsConcurrencyToken();
-            entity.Property(x => x.ProgressCurrent).HasPrecision(18, 4);
-            entity.Property(x => x.ProgressTotal).HasPrecision(18, 4);
-            entity.Property(x => x.ProgressPercentage).HasPrecision(18, 4);
-            entity.HasIndex(x => new { x.ProcessorKey, x.Status, x.NextDispatchAt, x.Priority, x.CreationDateTime });
-            entity.HasIndex(x => new { x.OwnerUserId, x.Status, x.LastModifiedDateTime });
-            entity.HasIndex(x => new { x.DivisionId, x.Status, x.LastModifiedDateTime });
-            // Serves the administration list: root operations of every owner per division
-            // scope, filtered by status and ordered by recency, without visiting the
-            // far more numerous fan-out children.
-            entity.HasIndex(x => new { x.DivisionId, x.ParentOperationId, x.Status, x.LastModifiedDateTime });
-            entity.HasIndex(x => new { x.Status, x.HeartbeatAt });
-            entity.HasIndex(x => new { x.Status, x.CompletedAt });
-            entity.HasIndex(x => x.SchedulerJobId);
-            entity.HasIndex(x => x.ParentOperationId);
-            entity.HasIndex(x => x.RootOperationId);
-            entity.HasIndex(x => new { x.ParentOperationId, x.FanOutKey, x.FanOutItemKey }).IsUnique();
-            // Agent-owned operations are listed and coalesced by owner key and domain object.
-            entity.HasIndex(x => new { x.OwnerKind, x.OwnerKey, x.Status, x.LastModifiedDateTime });
-            entity.HasIndex(x => new { x.DomainObjectType, x.DomainObjectId, x.Status });
-            // Admission looks up active operations per concurrency key.
-            entity.HasIndex(x => new { x.ConcurrencyKey, x.Status });
-
             // A user-owned operation is removed with its owner. Operations of other owner
             // kinds have no user and follow their own retention.
             entity.HasOne<TUser>()
@@ -410,94 +348,6 @@ public abstract partial class NhIdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.UserNotificationId)
                 .OnDelete(DeleteBehavior.Restrict)
-                .IsRequired(false);
-
-            entity.HasOne(x => x.ParentOperation)
-                .WithMany(x => x.ChildOperations)
-                .HasForeignKey(x => x.ParentOperationId)
-                .OnDelete(DeleteBehavior.Restrict)
-                .IsRequired(false);
-
-        });
-
-        builder.Entity<NhBackgroundOperationAttempt>(entity =>
-        {
-            entity.Property(x => x.Id).ValueGeneratedNever();
-            entity.Property(x => x.Version).IsConcurrencyToken();
-            entity.HasIndex(x => new { x.OperationId, x.AttemptNumber }).IsUnique();
-            entity.HasIndex(x => new { x.OperationId, x.StartedAt });
-            entity.HasOne(x => x.Operation)
-                .WithMany(x => x.Attempts)
-                .HasForeignKey(x => x.OperationId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .IsRequired();
-        });
-
-        builder.Entity<NhBackgroundOperationStep>(entity =>
-        {
-            entity.Property(x => x.Id).ValueGeneratedNever();
-            entity.Property(x => x.Version).IsConcurrencyToken();
-            entity.Property(x => x.Weight).HasPrecision(18, 4);
-            entity.Property(x => x.Current).HasPrecision(18, 4);
-            entity.Property(x => x.Total).HasPrecision(18, 4);
-            entity.Property(x => x.Percentage).HasPrecision(18, 4);
-            entity.HasIndex(x => new { x.OperationId, x.ParentStepId, x.StepKey }).IsUnique();
-            entity.HasIndex(x => new { x.OperationId, x.DisplayOrder, x.Status });
-            entity.HasOne(x => x.Operation)
-                .WithMany(x => x.Steps)
-                .HasForeignKey(x => x.OperationId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .IsRequired();
-            entity.HasOne(x => x.ParentStep)
-                .WithMany(x => x.Children)
-                .HasForeignKey(x => x.ParentStepId)
-                .OnDelete(DeleteBehavior.Restrict)
-                .IsRequired(false);
-        });
-
-        builder.Entity<NhBackgroundOperationEvent>(entity =>
-        {
-            entity.Property(x => x.Id).ValueGeneratedNever();
-            entity.HasIndex(x => new { x.OperationId, x.Sequence }).IsUnique();
-            entity.HasIndex(x => new { x.OperationId, x.CreationDateTime });
-            entity.HasOne(x => x.Operation)
-                .WithMany(x => x.Events)
-                .HasForeignKey(x => x.OperationId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .IsRequired();
-        });
-
-        builder.Entity<NhBackgroundOperationCheckpoint>(entity =>
-        {
-            entity.HasKey(x => new { x.OperationId, x.CheckpointKey });
-            entity.Property(x => x.Version).IsConcurrencyToken();
-            entity.HasOne(x => x.Operation)
-                .WithMany(x => x.Checkpoints)
-                .HasForeignKey(x => x.OperationId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .IsRequired();
-        });
-
-        builder.Entity<NhBackgroundOperationIdempotencyRecord>(entity =>
-        {
-            entity.HasKey(x => new { x.Scope, x.KeyHash });
-            entity.HasIndex(x => x.ExpiresAt);
-            entity.HasOne(x => x.Operation)
-                .WithMany()
-                .HasForeignKey(x => x.OperationId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .IsRequired();
-        });
-
-        builder.Entity<NhBackgroundOperationLease>(entity =>
-        {
-            entity.HasKey(x => new { x.ResourceKey, x.Slot });
-            entity.Property(x => x.Version).IsConcurrencyToken();
-            entity.HasIndex(x => x.ExpiresAt);
-            entity.HasOne(x => x.Operation)
-                .WithMany()
-                .HasForeignKey(x => x.OperationId)
-                .OnDelete(DeleteBehavior.SetNull)
                 .IsRequired(false);
         });
 

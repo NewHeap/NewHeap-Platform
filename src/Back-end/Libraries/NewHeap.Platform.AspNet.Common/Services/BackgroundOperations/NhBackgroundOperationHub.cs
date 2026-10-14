@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using NewHeap.Platform.AspNet.Common;
+using NewHeap.Platform.Common.Actors;
 
 namespace NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 
@@ -14,6 +15,13 @@ public interface INhBackgroundOperationHubClient
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme + ",Identity.Application")]
 public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClient>
 {
+    private readonly INhDivisionAccess _divisions;
+
+    public NhBackgroundOperationHub(INhDivisionAccess divisions)
+    {
+        _divisions = divisions;
+    }
+
     public override async Task OnConnectedAsync()
     {
         var userIdValue = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -27,9 +35,10 @@ public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClie
         var activeDivisionId = httpContext?.GetActiveDivisionId();
         if (activeDivisionId.HasValue
             && (httpContext is null
-                || !await httpContext.HasDivisionAccessAsync(
-                    activeDivisionId,
-                    cancellationToken: Context.ConnectionAborted)))
+                || !await _divisions.HasAccessAsync(
+                    NhActorRef.ForUser(userId),
+                    activeDivisionId.Value,
+                    Context.ConnectionAborted)))
         {
             Context.Abort();
             throw new HubException("The active division is not accessible to the authenticated user.");

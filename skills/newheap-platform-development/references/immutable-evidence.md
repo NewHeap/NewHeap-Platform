@@ -178,6 +178,10 @@ Source release: `newheap-platform-plugin-v1.13.62`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.62/docs/consumer-guide/observability-logging.md)
 
+## Platform Modules Without Identity
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.62/docs/consumer-guide/platform-modules-without-identity.md)
+
 ## Runtime Configuration
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.62/docs/consumer-guide/runtime-configuration.md)

@@ -1,22 +1,19 @@
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using NewHeap.Platform.AspNet.Common.DAL;
-using NewHeap.Platform.AspNet.Common.DAL.Entities;
+using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.Common.Actors;
 
 namespace NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 
 /// <summary>
-/// Default owner directory. Shows the identity user name, falling back to the email
-/// address, of the application's user type.
+/// Default owner directory. Shows the names that the platform's <see cref="INhActorDirectory"/>
+/// knows; with NewHeap Identity that is the user name, falling back to the e-mail address.
 /// </summary>
-internal sealed class NhIdentityBackgroundOperationOwnerDirectory<TUser> : INhBackgroundOperationOwnerDirectory
-    where TUser : IdentityUser<Guid>
+internal sealed class NhActorBackgroundOperationOwnerDirectory : INhBackgroundOperationOwnerDirectory
 {
-    private readonly IRepository<NhBackgroundOperation> _repository;
+    private readonly IServiceProvider _services;
 
-    public NhIdentityBackgroundOperationOwnerDirectory(IRepository<NhBackgroundOperation> repository)
+    public NhActorBackgroundOperationOwnerDirectory(IServiceProvider services)
     {
-        _repository = repository;
+        _services = services;
     }
 
     public async Task<IReadOnlyDictionary<Guid, NhBackgroundOperationOwner>> GetOwnersAsync(
@@ -24,35 +21,25 @@ internal sealed class NhIdentityBackgroundOperationOwnerDirectory<TUser> : INhBa
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(userIds);
-        if (userIds.Count == 0)
-        {
-            return new Dictionary<Guid, NhBackgroundOperationOwner>();
-        }
-
-        var ids = userIds.Distinct().ToList();
-        var users = await _repository.GetDbSet<TUser>()
-            .AsNoTracking()
-            .Where(x => ids.Contains(x.Id))
-            .Select(x => new
-            {
-                x.Id,
-                x.UserName,
-                x.Email
-            })
-            .ToListAsync(cancellationToken);
 
         var owners = new Dictionary<Guid, NhBackgroundOperationOwner>();
-        foreach (var user in users)
+        var directory = _services.GetService<INhActorDirectory>();
+        if (userIds.Count == 0 || directory is null)
         {
-            var displayName = !string.IsNullOrWhiteSpace(user.UserName)
-                ? user.UserName
-                : user.Email;
-            if (string.IsNullOrWhiteSpace(displayName))
-            {
-                continue;
-            }
+            return owners;
+        }
 
-            owners[user.Id] = new NhBackgroundOperationOwner(user.Id, displayName);
+        var actors = userIds
+            .Distinct()
+            .Select(NhActorRef.ForUser)
+            .ToArray();
+        var known = await directory.GetAsync(actors, cancellationToken);
+        foreach (var (actor, info) in known)
+        {
+            if (actor.TryGetUserId(out var userId) && !string.IsNullOrWhiteSpace(info.DisplayName))
+            {
+                owners[userId] = new NhBackgroundOperationOwner(userId, info.DisplayName);
+            }
         }
 
         return owners;

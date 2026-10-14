@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.Common.Actors;
 
 namespace NewHeap.Platform.AI.Chat;
 
@@ -52,7 +54,8 @@ public sealed record NhAssistantDirectoryEntry(
 /// <summary>
 /// Optional application hook for the name other people see in a shared conversation. The default
 /// reads the <c>name</c>, <c>given_name</c> and <c>family_name</c>, <see cref="ClaimTypes.Name"/>,
-/// <c>preferred_username</c> and e-mail claims in that order.
+/// <c>preferred_username</c> and e-mail claims in that order, and asks the platform's
+/// <see cref="INhActorDirectory"/> when the claims carry no name.
 /// </summary>
 public interface INhAssistantDisplayNameResolver
 {
@@ -68,7 +71,14 @@ public interface INhAssistantDisplayNameResolver
 
 internal sealed class NhAssistantClaimsDisplayNameResolver : INhAssistantDisplayNameResolver
 {
-    public ValueTask<string?> GetDisplayNameAsync(
+    private readonly IServiceProvider _services;
+
+    public NhAssistantClaimsDisplayNameResolver(IServiceProvider services)
+    {
+        _services = services;
+    }
+
+    public async ValueTask<string?> GetDisplayNameAsync(
         ClaimsPrincipal user,
         NhAiInvocationContext caller,
         CancellationToken cancellationToken)
@@ -90,7 +100,27 @@ internal sealed class NhAssistantClaimsDisplayNameResolver : INhAssistantDisplay
             ?? Claim(user, "email")
             ?? Claim(user, ClaimTypes.Email)
             ?? user.Identity?.Name;
-        return ValueTask.FromResult(name);
+        if (name is not null)
+        {
+            return name;
+        }
+
+        return await FromDirectoryAsync(caller, cancellationToken);
+    }
+
+    private async Task<string?> FromDirectoryAsync(NhAiInvocationContext caller, CancellationToken cancellationToken)
+    {
+        var directory = _services.GetService<INhActorDirectory>();
+        if (directory is null || caller is null || !Guid.TryParse(caller.ActorId, out var userId))
+        {
+            return null;
+        }
+
+        var actor = NhActorRef.ForUser(userId);
+        var known = await directory.GetAsync([actor], cancellationToken);
+        return known.TryGetValue(actor, out var info) && !string.IsNullOrWhiteSpace(info.DisplayName)
+            ? info.DisplayName
+            : null;
     }
 
     private static string? Claim(ClaimsPrincipal user, string type)

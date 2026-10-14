@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.62",
   "backEnd": {
-    "hash": "ca77009e5be7bed47a1bd34477cb36dc15e9af0b655798ddfc3ca2b25726aecf",
-    "declarationCount": 6976,
+    "hash": "4419ac5fd281e00c8caab12fa86c84037c00007d2b848e3702d5043040e30326",
+    "declarationCount": 7063,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3599,7 +3599,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantCollaborationHooks.cs",
-        "declaration": "public ValueTask<string?> GetDisplayNameAsync( ClaimsPrincipal user, NhAiInvocationContext caller, CancellationToken cancellationToken) {"
+        "declaration": "public NhAssistantClaimsDisplayNameResolver(IServiceProvider services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantCollaborationHooks.cs",
+        "declaration": "public async ValueTask<string?> GetDisplayNameAsync( ClaimsPrincipal user, NhAiInvocationContext caller, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantCollaborationHooks.cs",
@@ -5127,6 +5131,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseInAppAgentNotifications() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder AddProposalFeedbackSink<TSink>() where TSink : class, INhAssistantProposalFeedbackSink {"
       },
       {
@@ -6484,6 +6492,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
         "declaration": "public interface INhAssistantToolPresenter {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantAgentNotificationTexts.cs",
+        "declaration": "public static (string Title, string Body) ForAgent( NhAssistantAgentNotificationKind kind, string language, string? subjectDisplayName, int proposalCount) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantInAppAgentNotificationChannel.cs",
+        "declaration": "public NhAssistantInAppAgentNotificationChannel( IServiceProvider services, ILogger<NhAssistantInAppAgentNotificationChannel> logger) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantInAppAgentNotificationChannel.cs",
+        "declaration": "public async Task DeliverAsync( NhAssistantAgentNotificationContext context, IReadOnlyList<string> recipientActorIds, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Notifications/NhAssistantNotifier.cs",
@@ -14547,7 +14567,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationAdministrationController.cs",
-        "declaration": "public NhBackgroundOperationAdministrationController( IConfiguration configuration, IMapper mapper, ILogger<NhBackgroundOperationAdministrationController> logger, IStringLocalizer<NhBackgroundOperationAdministrationController> localizer, IHttpCollectionProcessingService collectionProcessing, INhBackgroundOperationAdministrationService operations, IAuthorizationService authorizationService, NhBackgroundOperationsOptions options) : base(mapper, logger, configuration, localizer, collectionProcessing) {"
+        "declaration": "public NhBackgroundOperationAdministrationController( IConfiguration configuration, IMapper mapper, ILogger<NhBackgroundOperationAdministrationController> logger, IStringLocalizer<NhBackgroundOperationAdministrationController> localizer, IHttpCollectionProcessingService collectionProcessing, INhBackgroundOperationAdministrationService operations, IAuthorizationService authorizationService, NhBackgroundOperationsOptions options, INhActorContextAccessor actors, INhDivisionAccess divisions) : base(mapper, logger, configuration, localizer, collectionProcessing) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationAdministrationController.cs",
@@ -14571,7 +14591,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationController.cs",
-        "declaration": "public NhBackgroundOperationController( IConfiguration configuration, IMapper mapper, ILogger<NhBackgroundOperationController> logger, IStringLocalizer<NhBackgroundOperationController> localizer, IHttpCollectionProcessingService collectionProcessing, INhBackgroundOperationService operations) : base(mapper, logger, configuration, localizer, collectionProcessing) {"
+        "declaration": "public NhBackgroundOperationController( IConfiguration configuration, IMapper mapper, ILogger<NhBackgroundOperationController> logger, IStringLocalizer<NhBackgroundOperationController> localizer, IHttpCollectionProcessingService collectionProcessing, INhBackgroundOperationService operations, INhActorContextAccessor actors, INhDivisionAccess divisions) : base(mapper, logger, configuration, localizer, collectionProcessing) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBackgroundOperationController.cs",
@@ -14791,7 +14811,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBaseUserNotificationController.cs",
-        "declaration": "protected override Task<IQueryable<NhUserNotification>> GetQueryableAsync(CancellationToken cancellationToken = default)"
+        "declaration": "protected override async Task<IQueryable<NhUserNotification>> GetQueryableAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBaseUserNotificationController.cs",
+        "declaration": "[NonAction] protected async Task<Guid?> GetCurrentUserIdAsync(CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Controllers/NhBaseUserNotificationController.cs",
@@ -16728,6 +16752,34 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhIdentityDbContext.cs",
         "declaration": "protected override void OnModelCreating(ModelBuilder builder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhPlatformModuleModelBuilderExtensions.cs",
+        "declaration": "public sealed class NhPlatformModuleModelOptions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhPlatformModuleModelBuilderExtensions.cs",
+        "declaration": "public string? Schema { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhPlatformModuleModelBuilderExtensions.cs",
+        "declaration": "public static class NhPlatformModuleModelBuilderExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhPlatformModuleModelBuilderExtensions.cs",
+        "declaration": "public const string BackgroundOperationsDefaultSchema = \"nhops\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhPlatformModuleModelBuilderExtensions.cs",
+        "declaration": "public const string NotificationsDefaultSchema = \"nhnotify\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhPlatformModuleModelBuilderExtensions.cs",
+        "declaration": "public static ModelBuilder AddNewHeapBackgroundOperations( this ModelBuilder builder, Action<NhPlatformModuleModelOptions>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhPlatformModuleModelBuilderExtensions.cs",
+        "declaration": "public static ModelBuilder AddNewHeapNotifications( this ModelBuilder builder, Action<NhPlatformModuleModelOptions>? configure = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/NhRepositoryProvider.cs",
@@ -18898,6 +18950,34 @@
         "declaration": "public static IGlobalConfiguration Configure( IServiceProvider serviceProvider, Action<IGlobalConfiguration> hangfireOptionsAction, Action<ConsoleOptions>? consoleOptionsAction) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhPlatformModules.cs",
+        "declaration": "public static class NhPlatformModuleServiceCollectionExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhPlatformModules.cs",
+        "declaration": "public static IServiceCollection AddNewHeapBackgroundOperations<TContext>( this IServiceCollection services, Action<NhBackgroundOperationBuilder> configure) where TContext : DbContext {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhPlatformModules.cs",
+        "declaration": "public static IServiceCollection AddNewHeapNotifications<TContext>( this IServiceCollection services, Action<NhNotificationSettings>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhPlatformModules.cs",
+        "declaration": "public static IServiceCollection AddNewHeapHangfireProcessing( this IServiceCollection services, Action<IGlobalConfiguration> hangfireOptionsAction, Action<ConsoleOptions>? consoleOptionsAction = null, Action<BackgroundJobServerOptions>? backgroundJobServerOptions = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhPlatformModules.cs",
+        "declaration": "public static IServiceCollection AddNewHeapAuthenticationForwarding( this IServiceCollection services, string scheme) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhPlatformModules.cs",
+        "declaration": "public static class NhPlatformModuleEndpointRouteBuilderExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/NhPlatformModules.cs",
+        "declaration": "public static IEndpointRouteBuilder MapNewHeapBackgroundOperations(this IEndpointRouteBuilder endpoints) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/OpenApiSchemaTransformers/OneOfSchemaTransformer.cs",
         "declaration": "public class OneOfSchemaTransformer : IOpenApiSchemaTransformer {"
       },
@@ -19076,6 +19156,94 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/AbstractBaseDbEntityService.cs",
         "declaration": "protected static TaskResult<string> GetPropertyNameFromExpression<T>(Expression<Func<T, object>> expression) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "public NhClaimsActorContextAccessor(IHttpContextAccessor httpContextAccessor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "public ValueTask<NhActorContext> GetCurrentAsync(CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "protected virtual Guid? ReadActiveDivisionId(HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "public NhIdentityActorContextAccessor(IHttpContextAccessor httpContextAccessor) : base(httpContextAccessor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "protected override Guid? ReadActiveDivisionId(HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "public ValueTask<bool> HasAccessAsync( NhActorRef actor, Guid divisionId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "public NhIdentityDivisionAccess(IHttpContextAccessor httpContextAccessor, IServiceProvider services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "public async ValueTask<bool> HasAccessAsync( NhActorRef actor, Guid divisionId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "public Task<IReadOnlyDictionary<NhActorRef, NhActorInfo>> GetAsync( IReadOnlyCollection<NhActorRef> actors, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "public NhIdentityActorDirectory(IRepository<TUser> users) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhActorDefaults.cs",
+        "declaration": "public async Task<IReadOnlyDictionary<NhActorRef, NhActorInfo>> GetAsync( IReadOnlyCollection<NhActorRef> actors, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhModuleRetentionParticipants.cs",
+        "declaration": "public NhBackgroundOperationRetentionParticipant(IRepository<NhBackgroundOperation> operations) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhModuleRetentionParticipants.cs",
+        "declaration": "public int Order => RetentionOrder;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhModuleRetentionParticipants.cs",
+        "declaration": "public Task<TaskResult> ForgetUserAsync(Guid userId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhModuleRetentionParticipants.cs",
+        "declaration": "public Task<TaskResult> ForgetDivisionAsync(Guid divisionId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhModuleRetentionParticipants.cs",
+        "declaration": "public NhNotificationRetentionParticipant(IRepository<NhUserNotification> userNotifications) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhModuleRetentionParticipants.cs",
+        "declaration": "public int Order => 0;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhModuleRetentionParticipants.cs",
+        "declaration": "public async Task<TaskResult> ForgetUserAsync(Guid userId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhModuleRetentionParticipants.cs",
+        "declaration": "public Task<TaskResult> ForgetDivisionAsync(Guid divisionId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhUserNotificationServiceSink.cs",
+        "declaration": "public NhUserNotificationServiceSink(IServiceProvider services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhUserNotificationServiceSink.cs",
+        "declaration": "public bool CanDeliver => _services.GetService<INhUserNotificationService>() is not null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/Actors/NhUserNotificationServiceSink.cs",
+        "declaration": "public async Task<TaskResult<NhUserNotificationReceipt>> SendAsync( NhUserNotificationRequest request, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAbstractions.cs",
@@ -19963,6 +20131,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHub.cs",
+        "declaration": "public NhBackgroundOperationHub(INhDivisionAccess divisions) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHub.cs",
         "declaration": "public override async Task OnConnectedAsync() {"
       },
       {
@@ -20075,7 +20247,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationOwnerDirectory.cs",
-        "declaration": "public NhIdentityBackgroundOperationOwnerDirectory(IRepository<NhBackgroundOperation> repository) {"
+        "declaration": "public NhActorBackgroundOperationOwnerDirectory(IServiceProvider services) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationOwnerDirectory.cs",
@@ -21022,6 +21194,10 @@
         "declaration": "public bool Has<TAttribute>() where TAttribute : Attribute {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhNoOpDbLogService.cs",
+        "declaration": "public Task LogAsync( string message, LogType type = LogType.Unknown, string? tag = null, string?[]? messageArguments = null, LogAction action = LogAction.Unknown, LogSource source = LogSource.Unknown, string? objectType = null, string? objectTypeFull = null, string? objectId = null, Guid? userId = null, (string name, Stream contentStream)[]? files = null, DateTimeOffset? overrideCreationDateTime = null, bool doSaveChanges = true, DbContext? dbContext = null, CancellationToken cancellationToken = default)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhSelectedCollectionMessagePack.cs",
         "declaration": "public static class NhSelectedCollectionMessagePack {"
       },
@@ -21072,6 +21248,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhUserManager.cs",
         "declaration": "public NhUserManager( IWebHostEnvironment environment, IUserStore<TUser> store, IOptions<IdentityOptions> optionsAccessor, IPasswordHasher<TUser> passwordHasher, IEnumerable<IUserValidator<TUser>> userValidators, IEnumerable<IPasswordValidator<TUser>> passwordValidators, ILookupNormalizer keyNormalizer, IdentityErrorDescriber errors, IServiceProvider services, ILogger<UserManager<TUser>> logger, IOptions<MicrosoftAuthSettings> microsoftAuthSettings, IRepository<TUser> userRepository, RoleManager<TUserRole> roleManager, ValidationService validationService, INhDbLogService nhDbLogService ) : base(store, optionsAccessor, passwordHasher, userValidators, passwordValidators, keyNormalizer, errors, services, logger) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhUserManager.cs",
+        "declaration": "public override async Task<IdentityResult> DeleteAsync(TUser user) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/NhUserManager.cs",
@@ -23120,6 +23300,174 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common.Test/NhTestingContext.cs",
         "declaration": "public static TDbContext Create<TDbContext>() where TDbContext : DbContext {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActorServiceCollectionExtensions.cs",
+        "declaration": "public static class NhActorServiceCollectionExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActorServiceCollectionExtensions.cs",
+        "declaration": "public static IServiceCollection AddNewHeapActorContext<TAccessor>(this IServiceCollection services) where TAccessor : class, INhActorContextAccessor {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActorServiceCollectionExtensions.cs",
+        "declaration": "public static IServiceCollection AddNewHeapDivisionAccess<TAccess>(this IServiceCollection services) where TAccess : class, INhDivisionAccess {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActorServiceCollectionExtensions.cs",
+        "declaration": "public static IServiceCollection AddNewHeapActorDirectory<TDirectory>(this IServiceCollection services) where TDirectory : class, INhActorDirectory {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActorServiceCollectionExtensions.cs",
+        "declaration": "public static IServiceCollection AddNewHeapUserNotificationSink<TSink>(this IServiceCollection services) where TSink : class, INhUserNotificationSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActorServiceCollectionExtensions.cs",
+        "declaration": "public static IServiceCollection AddNewHeapRetentionParticipant<TParticipant>(this IServiceCollection services) where TParticipant : class, INhRetentionParticipant {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public static class NhActorKinds {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public const string User = \"user\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public const string Agent = \"agent\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public const string System = \"system\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public sealed record NhActorRef {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public NhActorRef(string kind, string id) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public string Kind { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public string Id { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public static NhActorRef ForUser(Guid userId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public bool TryGetUserId(out Guid userId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public override string ToString() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public sealed record NhActorContext(NhActorRef? Actor, Guid? ActiveDivisionId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public static NhActorContext Anonymous { get; } = new(null, null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public Guid? UserId => Actor is not null && Actor.TryGetUserId(out var userId) ? userId : null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public interface INhActorContextAccessor {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public interface INhDivisionAccess {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public sealed record NhActorInfo(NhActorRef Actor, string DisplayName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public string? Email { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public string? Culture { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhActors.cs",
+        "declaration": "public interface INhActorDirectory {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhRetention.cs",
+        "declaration": "public interface INhRetention {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhRetention.cs",
+        "declaration": "public interface INhRetentionParticipant {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhRetention.cs",
+        "declaration": "public sealed class NhRetention : INhRetention {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhRetention.cs",
+        "declaration": "public NhRetention(IEnumerable<INhRetentionParticipant> participants) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhRetention.cs",
+        "declaration": "public Task<TaskResult> ForgetUserAsync(Guid userId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhRetention.cs",
+        "declaration": "public Task<TaskResult> ForgetDivisionAsync(Guid divisionId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
+        "declaration": "public enum NhUserNotificationLevel {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
+        "declaration": "public sealed record NhUserNotificationRequest(Guid UserId, string Title, string Message) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
+        "declaration": "public string? Url { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
+        "declaration": "public bool UrlInNewTab { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
+        "declaration": "public string? Category { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
+        "declaration": "public NhUserNotificationLevel Level { get; init; } = NhUserNotificationLevel.Information;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
+        "declaration": "public string? GroupKey { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
+        "declaration": "public Guid? ThreadId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
+        "declaration": "public sealed record NhUserNotificationReceipt(Guid ThreadId);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Actors/NhUserNotificationSink.cs",
+        "declaration": "public interface INhUserNotificationSink {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Attributes/AuthorizeAttribute.cs",
@@ -32075,6 +32423,27 @@
       "NhUserNotificationSeverity",
       "TaskResult",
       "TryAcquireTransactionLockAsync"
+    ],
+    "nh-platform-modules-without-identity": [
+      "NhPlatformModuleModelBuilderExtensions",
+      "NhPlatformModuleModelOptions",
+      "NhPlatformModuleServiceCollectionExtensions",
+      "NhPlatformModuleEndpointRouteBuilderExtensions",
+      "NhActorRef",
+      "NhActorKinds",
+      "NhActorContext",
+      "INhActorContextAccessor",
+      "INhDivisionAccess",
+      "INhActorDirectory",
+      "NhActorInfo",
+      "INhUserNotificationSink",
+      "NhUserNotificationRequest",
+      "NhUserNotificationReceipt",
+      "NhUserNotificationLevel",
+      "INhRetention",
+      "INhRetentionParticipant",
+      "NhRetention",
+      "NhActorServiceCollectionExtensions"
     ],
     "nh-proxy-contract-boundary": [
       "NhProxyRewriteRule",

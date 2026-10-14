@@ -315,6 +315,13 @@
       "prompt": "Show how many agent suggestions wait for me on every row of our project list, list a project's suggestions on its own page, and let people open the agent conversation about that project from there.",
       "expectedRules": ["nh-ai-agent-runs"],
       "expectedOutcome": "The list asks POST subjects/{type}/summary once for all visible projects instead of once per row, the project page reads GET subjects/{type}/{id}/work for every agent's open proposals with live decision rights, the back-end can include the same data through INhAssistantSubjectWork, the conversation opens through threads/open without starting a run, and the pages refresh on AgentWorkChanged by subject."
+    },
+    {
+      "id": "consumer-platform-modules-without-identity",
+      "skill": "newheap-background-processing",
+      "prompt": "Our application has its own EF context and its own user table and does not use NewHeap Identity. Add NewHeap background operations, in-app notifications and an agent that runs on our projects.",
+      "expectedRules": ["nh-platform-modules-without-identity", "nh-operations-events-jobs-notifications", "nh-ai-agent-runs"],
+      "expectedOutcome": "The modules are mapped into the application's context with AddNewHeapBackgroundOperations and AddNewHeapNotifications in their own schemas, registered with the standalone AddNewHeap registrations and AddNewHeapHangfireProcessing; the application implements the actor directory and tenant access, forwards the platform's authentication schemes, calls INhRetention from its deletion flow and enqueues inside its own transaction."
     }
   ]
 }

@@ -7,6 +7,8 @@ using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
+using NewHeap.Platform.AspNet.Common.Services.Actors;
+using NewHeap.Platform.Common.Actors;
 
 namespace NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
 
@@ -96,13 +98,12 @@ internal sealed class NhBackgroundOperationStartupValidator : IHostedService
         if (_options.DispatchWorkersEnabled
             && scope.ServiceProvider.GetService<IBackgroundJobClient>() is null)
         {
-            throw new InvalidOperationException("Background-operation dispatch is enabled, but Hangfire is not configured. Call WithHangfire or disable DispatchWorkersEnabled.");
+            throw new InvalidOperationException("Background-operation dispatch is enabled, but Hangfire is not configured. Call WithHangfire or AddNewHeapHangfireProcessing, or disable DispatchWorkersEnabled.");
         }
 
-        if (_options.UserNotificationProjectionEnabled
-            && scope.ServiceProvider.GetService<INhUserNotificationService>() is null)
+        if (_options.UserNotificationProjectionEnabled && !CanDeliverNotifications(scope.ServiceProvider))
         {
-            throw new InvalidOperationException("Background-operation notification projection is enabled, but user notifications are not configured. Call WithNotifications or disable UserNotificationProjectionEnabled.");
+            throw new InvalidOperationException("Background-operation notification projection is enabled, but user notifications are not configured. Call WithNotifications or AddNewHeapNotifications, register an INhUserNotificationSink, or disable UserNotificationProjectionEnabled.");
         }
 
         _logger.LogInformation(
@@ -111,6 +112,18 @@ internal sealed class NhBackgroundOperationStartupValidator : IHostedService
             _options.DispatchWorkersEnabled,
             _options.LiveUpdatesEnabled,
             _options.UserNotificationProjectionEnabled);
+    }
+
+    private static bool CanDeliverNotifications(IServiceProvider services)
+    {
+        // The default sink stores NewHeap user notifications and needs that module; an
+        // application's own sink delivers by itself.
+        return services.GetService<INhUserNotificationSink>() switch
+        {
+            null => services.GetService<INhUserNotificationService>() is not null,
+            NhUserNotificationServiceSink defaultSink => defaultSink.CanDeliver,
+            _ => true
+        };
     }
 
     private async Task ValidateAdministrationPolicyAsync(IServiceProvider serviceProvider)

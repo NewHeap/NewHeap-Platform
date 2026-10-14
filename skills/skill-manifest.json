@@ -226,7 +226,8 @@
         "references/ai-ingestion.md",
         "references/backend-unit-of-work.md",
         "references/background-operation-suspension.md",
-        "references/background-processing.md"
+        "references/background-processing.md",
+        "references/platform-modules-without-identity.md"
       ]
     },
     {

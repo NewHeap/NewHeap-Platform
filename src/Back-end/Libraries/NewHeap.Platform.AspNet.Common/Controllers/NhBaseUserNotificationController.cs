@@ -2,6 +2,7 @@ using NewHeap.Platform.Mapping;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
@@ -9,6 +10,7 @@ using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.Notification;
+using NewHeap.Platform.Common.Actors;
 using System.ComponentModel;
 using System.Linq.Expressions;
 
@@ -28,19 +30,37 @@ public abstract class NhBaseUserNotificationController : DbEntityProtectedNhBase
     {
     }
 
-    protected override Task<IQueryable<NhUserNotification>> GetQueryableAsync(CancellationToken cancellationToken = default)
+    protected override async Task<IQueryable<NhUserNotification>> GetQueryableAsync(CancellationToken cancellationToken = default)
     {
+        var userId = await GetCurrentUserIdAsync(cancellationToken);
         var query = _dbEntityService
                 .GetRepository()
                 .GetAll()
             ;
 
         query = query
-            .Where(x => x.UserId == UserId!.Value)
+            .Where(x => x.UserId == userId!.Value)
             .Where(x => !x.IsArchived)
         ;
 
-        return Task.FromResult(query);
+        return query;
+    }
+
+    /// <summary>
+    /// The signed-in user according to the platform's <see cref="INhActorContextAccessor"/>, so an
+    /// application with its own identity model decides who the user is.
+    /// </summary>
+    [NonAction]
+    protected async Task<Guid?> GetCurrentUserIdAsync(CancellationToken cancellationToken = default)
+    {
+        var actors = HttpContext.RequestServices.GetService<INhActorContextAccessor>();
+        if (actors is null)
+        {
+            return UserId;
+        }
+
+        var actor = await actors.GetCurrentAsync(cancellationToken);
+        return actor.UserId;
     }
 
     protected override IQueryable<NhUserNotification> AddBaseQueryableIncludesAsync(IQueryable<NhUserNotification> query, CancellationToken cancellationToken = default)
@@ -62,7 +82,8 @@ public abstract class NhBaseUserNotificationController : DbEntityProtectedNhBase
     [HttpGet("overview")]
     public virtual async Task<IActionResult> GetOverview(CancellationToken cancellationToken = default)
     {
-        var overviewModel = await _dbEntityService.GetOverviewByUserIdAsync(UserId!.Value, cancellationToken: cancellationToken);
+        var userId = await GetCurrentUserIdAsync(cancellationToken);
+        var overviewModel = await _dbEntityService.GetOverviewByUserIdAsync(userId!.Value, cancellationToken: cancellationToken);
 
         return Ok(overviewModel);
     }
@@ -113,7 +134,8 @@ public abstract class NhBaseUserNotificationController : DbEntityProtectedNhBase
             return BadRequest(ModelState);
         }
 
-        var taskResult = await _dbEntityService.MarkAllIsLastReadByUserIdAsync(UserId!.Value, true, cancellationToken: cancellationToken);
+        var userId = await GetCurrentUserIdAsync(cancellationToken);
+        var taskResult = await _dbEntityService.MarkAllIsLastReadByUserIdAsync(userId!.Value, true, cancellationToken: cancellationToken);
         if (!taskResult.Success)
         {
             taskResult.ApplyToModelState(ModelState);
@@ -157,7 +179,8 @@ public abstract class NhBaseUserNotificationController : DbEntityProtectedNhBase
             return BadRequest(ModelState);
         }
 
-        var taskResult = await _dbEntityService.ArchiveAllByUserIdAsync(UserId!.Value, true, cancellationToken: cancellationToken);
+        var userId = await GetCurrentUserIdAsync(cancellationToken);
+        var taskResult = await _dbEntityService.ArchiveAllByUserIdAsync(userId!.Value, true, cancellationToken: cancellationToken);
         if (!taskResult.Success)
         {
             taskResult.ApplyToModelState(ModelState);

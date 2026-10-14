@@ -326,6 +326,16 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Also delivers agent notifications as in-app messages through the platform's
+    /// <see cref="NewHeap.Platform.Common.Actors.INhUserNotificationSink"/>, such as NewHeap user
+    /// notifications. Off by default, so existing hosts get no new messages.
+    /// </summary>
+    public NhAssistantBuilder UseInAppAgentNotifications()
+    {
+        return AddAgentNotificationChannel<Notifications.NhAssistantInAppAgentNotificationChannel>();
+    }
+
+    /// <summary>
     /// Adds a sink that receives every feedback people give on closed agent proposals, for example
     /// to forward it to the application's analytics. Several sinks may be added.
     /// </summary>

@@ -9,6 +9,7 @@ using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models.View;
 using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
+using NewHeap.Platform.Common.Actors;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Mapping;
 using System.ComponentModel;
@@ -21,6 +22,8 @@ namespace NewHeap.Platform.AspNet.Common.Controllers;
 public sealed class NhBackgroundOperationController : ProtectedNhBaseController
 {
     private readonly INhBackgroundOperationService _operations;
+    private readonly INhActorContextAccessor _actors;
+    private readonly INhDivisionAccess _divisions;
 
     public NhBackgroundOperationController(
         IConfiguration configuration,
@@ -28,10 +31,14 @@ public sealed class NhBackgroundOperationController : ProtectedNhBaseController
         ILogger<NhBackgroundOperationController> logger,
         IStringLocalizer<NhBackgroundOperationController> localizer,
         IHttpCollectionProcessingService collectionProcessing,
-        INhBackgroundOperationService operations)
+        INhBackgroundOperationService operations,
+        INhActorContextAccessor actors,
+        INhDivisionAccess divisions)
         : base(mapper, logger, configuration, localizer, collectionProcessing)
     {
         _operations = operations;
+        _actors = actors;
+        _divisions = divisions;
     }
 
     [HttpGet]
@@ -44,17 +51,16 @@ public sealed class NhBackgroundOperationController : ProtectedNhBaseController
         [FromQuery] NhBackgroundOperationCollectionRequestModel request,
         CancellationToken cancellationToken = default)
     {
-        var userId = HttpContext.GetUserId();
+        var actor = await _actors.GetCurrentAsync(cancellationToken);
+        var userId = actor.UserId;
         if (!userId.HasValue)
         {
             return Unauthorized();
         }
 
-        var activeDivisionId = HttpContext.GetActiveDivisionId();
+        var activeDivisionId = actor.ActiveDivisionId;
         if (activeDivisionId.HasValue
-            && !await HttpContext.HasDivisionAccessAsync(
-                activeDivisionId,
-                cancellationToken: cancellationToken))
+            && !await _divisions.HasAccessAsync(actor.Actor!, activeDivisionId.Value, cancellationToken))
         {
             return Forbid();
         }
@@ -101,7 +107,8 @@ public sealed class NhBackgroundOperationController : ProtectedNhBaseController
             return NotFound();
         }
 
-        var result = await _operations.RequestCancellationForUserAsync(id, HttpContext.GetUserId()!.Value, cancellationToken);
+        var actor = await _actors.GetCurrentAsync(cancellationToken);
+        var result = await _operations.RequestCancellationForUserAsync(id, actor.UserId!.Value, cancellationToken);
         return result.Success ? Accepted(result.Data) : BadRequest(result);
     }
 
@@ -120,7 +127,8 @@ public sealed class NhBackgroundOperationController : ProtectedNhBaseController
             return NotFound();
         }
 
-        var result = await _operations.RetryForUserAsync(id, HttpContext.GetUserId()!.Value, cancellationToken);
+        var actor = await _actors.GetCurrentAsync(cancellationToken);
+        var result = await _operations.RetryForUserAsync(id, actor.UserId!.Value, cancellationToken);
         return result.Success ? Accepted(result.Data) : BadRequest(result);
     }
 
@@ -129,17 +137,16 @@ public sealed class NhBackgroundOperationController : ProtectedNhBaseController
         long? eventsAfterSequence,
         CancellationToken cancellationToken)
     {
-        var userId = HttpContext.GetUserId();
+        var actor = await _actors.GetCurrentAsync(cancellationToken);
+        var userId = actor.UserId;
         if (!userId.HasValue)
         {
             return null;
         }
 
-        var activeDivisionId = HttpContext.GetActiveDivisionId();
+        var activeDivisionId = actor.ActiveDivisionId;
         if (activeDivisionId.HasValue
-            && !await HttpContext.HasDivisionAccessAsync(
-                activeDivisionId,
-                cancellationToken: cancellationToken))
+            && !await _divisions.HasAccessAsync(actor.Actor!, activeDivisionId.Value, cancellationToken))
         {
             return null;
         }

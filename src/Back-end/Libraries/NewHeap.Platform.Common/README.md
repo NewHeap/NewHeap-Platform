@@ -118,3 +118,21 @@ Do not store passwords in a committed `appsettings.json`; use user secrets,
 environment variables, or a secret store. For other authentication methods, a
 custom `INhApiAccessTokenProvider<TApi>` can be registered through
 `AddNhApiClient<TApi, TAccessTokenProvider>()`.
+
+## Actors
+
+Platform modules ask the application about people through the interfaces in
+`NewHeap.Platform.Common.Actors`, so they work with NewHeap Identity and with an application's
+own identity model:
+
+- `INhActorContextAccessor`: the current actor (`NhActorRef`) and active division.
+- `INhDivisionAccess`: whether an actor may work in a division.
+- `INhActorDirectory`: names, e-mail addresses and cultures of actors, in one call.
+- `INhUserNotificationSink`: a message for a user's in-app inbox.
+- `INhRetention`: forget a user or division in every module that registered an
+  `INhRetentionParticipant`.
+
+NewHeap Identity implements them. An application without it registers its own with
+`AddNewHeapActorContext`, `AddNewHeapDivisionAccess`, `AddNewHeapActorDirectory` and
+`AddNewHeapUserNotificationSink`; see the consumer guide
+[platform modules without identity](../../../../docs/consumer-guide/platform-modules-without-identity.md).

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.Authentication;
@@ -11,6 +12,7 @@ using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Models;
 using NewHeap.Platform.AspNet.Common.Models.Mutate;
 using NewHeap.Platform.AspNet.Common.Utilities;
+using NewHeap.Platform.Common.Actors;
 using NewHeap.Platform.Common.Identity.Claims;
 using NewHeap.Platform.Common.Models;
 using NewHeap.Platform.Common.Models.Options;
@@ -178,6 +180,7 @@ public abstract partial class NhUserManager<
     protected readonly IRepository<TUser> _userRepository;
     protected readonly ValidationService _validationService;
     protected readonly INhDbLogService _dbLogService;
+    private readonly IServiceProvider _services;
 
     public IdentityDbContext<TUser, TUserRole, Guid> IdentityDbContext
     {
@@ -212,6 +215,48 @@ public abstract partial class NhUserManager<
         _roleManager = roleManager;
         _validationService = validationService;
         _dbLogService = nhDbLogService;
+        _services = services;
+    }
+
+    /// <summary>
+    /// Deletes the user after the platform modules removed what they keep about the user through
+    /// <see cref="INhRetention"/>, in one transaction. When a module cannot remove its data,
+    /// nothing is deleted.
+    /// </summary>
+    public override async Task<IdentityResult> DeleteAsync(TUser user)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        var retention = _services.GetService<INhRetention>();
+        if (retention is null)
+        {
+            return await base.DeleteAsync(user);
+        }
+
+        await using var transaction = await _userRepository.StartOrGetTransactionScopeAsync(CancellationToken);
+        var forgotten = await retention.ForgetUserAsync(user.Id, CancellationToken);
+        if (!forgotten.Success)
+        {
+            await transaction.RollbackAsync(CancellationToken);
+            return IdentityResult.Failed(forgotten.GetResultItems()
+                .SelectMany(item => item.ErrorMessages.Select(message => new IdentityError
+                {
+                    Code = string.IsNullOrWhiteSpace(item.Name) ? "retention-failed" : item.Name,
+                    Description = message.ToString()
+                }))
+                .DefaultIfEmpty(new IdentityError { Code = "retention-failed", Description = "retention-failed" })
+                .ToArray());
+        }
+
+        var result = await base.DeleteAsync(user);
+        if (!result.Succeeded)
+        {
+            await transaction.RollbackAsync(CancellationToken);
+            return result;
+        }
+
+        await transaction.CommitAsync(CancellationToken);
+        return result;
     }
 
     protected virtual T IdentityErrorToTaskResult<T>(IdentityResult identityResult, T result)

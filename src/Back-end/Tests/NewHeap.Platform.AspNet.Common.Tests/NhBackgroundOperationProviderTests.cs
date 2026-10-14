@@ -23,6 +23,8 @@ using NSubstitute;
 using Testcontainers.MsSql;
 using Testcontainers.PostgreSql;
 using Xunit;
+using NewHeap.Platform.AspNet.Common.Services.Actors;
+using NewHeap.Platform.Common.Actors;
 
 namespace NewHeap.Platform.AspNet.Common.Tests;
 
@@ -970,7 +972,10 @@ public sealed class NhBackgroundOperationProviderTests
                 new Mapper(new MapperConfiguration(configuration =>
                     configuration.AddProfile<AutomapperProfileConfiguration>())),
                 NullLogger<NhBackgroundOperationService>.Instance,
-                new NhIdentityBackgroundOperationOwnerDirectory<NhUser>(repository));
+                new NhActorBackgroundOperationOwnerDirectory(new ServiceCollection()
+                    .AddSingleton<INhActorDirectory>(new NhIdentityActorDirectory<NhUser>(
+                        new Repository<NhUser>(repository.Context, scope.ServiceProvider)))
+                    .BuildServiceProvider()));
             INhBackgroundOperationAdministrationService administration = service;
 
             // Administrators see the root operations of every owner, but only within the
