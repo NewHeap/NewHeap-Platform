@@ -287,12 +287,21 @@ public sealed class NhProxyLiteralRedirectTests
     }
 
     [Theory]
-    [InlineData("/old", 1, 60)]
-    [InlineData("/missing", 1, 60)]
-    [InlineData("/missing", 10, 20)]
-    public async Task Whole_resolver_deadline_covers_exact_hits_misses_and_accumulated_rule_work(string path, int ruleCount, int delayMilliseconds)
+    // A single 60 ms read exceeds the 50 ms default budget before any rule is evaluated.
+    [InlineData("/old", 1, 60, 0)]
+    [InlineData("/missing", 1, 60, 0)]
+    // Rules are read at 0, 20 and 40 ms of the shared budget; the deadline skips the remaining seven rules.
+    [InlineData("/missing", 10, 20, 3)]
+    public async Task Whole_resolver_deadline_covers_exact_hits_misses_and_accumulated_rule_work(string path, int ruleCount, int delayMilliseconds,
+        int expectedRuleReads)
     {
-        var runtime = Runtime();
+        // The chain preflight copies the request method once before rules are evaluated.
+        const int preflightReads = 1;
+
+        // Each method read advances the resolver clock by exactly its cost, so timer resolution cannot move the deadline.
+        var clock = new ManualTimeProvider();
+        var options = Options.Create(new NhProxyOptions());
+        var runtime = new NhProxyRuntime(new NhProxyConfigurationValidator(options), options, null, clock);
         Assert.True((await runtime.PublishRedirectsAsync(new NhProxyRedirectConfiguration
         {
             Rules = Enumerable.Range(0, ruleCount).Select(_ => Rule() with
@@ -301,7 +310,7 @@ public sealed class NhProxyLiteralRedirectTests
             }).ToImmutableArray()
         })).Success);
 
-        var feature = new SlowMethodRequestFeature(delayMilliseconds) { Path = path };
+        var feature = new SlowMethodRequestFeature(delayMilliseconds, clock) { Path = path };
         var context = new DefaultHttpContext();
         context.Features.Set<IHttpRequestFeature>(feature);
         var middleware = new NhProxyRedirectMiddleware(_ => throw new InvalidOperationException("Timed-out resolution must not reach the backend."), runtime);
@@ -311,7 +320,7 @@ public sealed class NhProxyLiteralRedirectTests
         Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
         Assert.Equal("no-store", context.Response.Headers.CacheControl.ToString());
         Assert.False(context.Response.Headers.ContainsKey("Location"));
-        Assert.InRange(feature.MethodReads, 1, Math.Min(ruleCount, 3));
+        Assert.Equal(preflightReads + expectedRuleReads, feature.MethodReads);
     }
 
     [Theory]
@@ -413,7 +422,7 @@ public sealed class NhProxyLiteralRedirectTests
         Assert.Equal(50, variants.Count);
     }
 
-    private sealed class SlowMethodRequestFeature(int delayMilliseconds) : HttpRequestFeature, IHttpRequestFeature
+    private sealed class SlowMethodRequestFeature(int delayMilliseconds, ManualTimeProvider? clock = null) : HttpRequestFeature, IHttpRequestFeature
     {
         public int MethodReads { get; private set; }
 
@@ -422,10 +431,35 @@ public sealed class NhProxyLiteralRedirectTests
             get
             {
                 MethodReads++;
-                Thread.Sleep(delayMilliseconds);
+                if (clock is null)
+                {
+                    Thread.Sleep(delayMilliseconds);
+                }
+                else
+                {
+                    clock.Advance(TimeSpan.FromMilliseconds(delayMilliseconds));
+                }
+
                 return "GET";
             }
             set => base.Method = value;
+        }
+    }
+
+    private sealed class ManualTimeProvider : TimeProvider
+    {
+        private long _timestamp;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp()
+        {
+            return _timestamp;
+        }
+
+        public void Advance(TimeSpan duration)
+        {
+            _timestamp += duration.Ticks;
         }
     }
 }

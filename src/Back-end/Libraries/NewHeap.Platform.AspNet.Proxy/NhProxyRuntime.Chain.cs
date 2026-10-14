@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -28,7 +27,7 @@ public sealed partial class NhProxyRuntime
 
     internal async Task<string?> CheckChainAsync(HttpContext input)
     {
-        var preparationStarted = Stopwatch.GetTimestamp();
+        var preparationStarted = _timeProvider.GetTimestamp();
         var snapshot = Volatile.Read(ref _redirects)
             ?? throw new InvalidOperationException("Initialize redirects before checking rule chains.");
         // Keep redirect execution on the same immutable snapshot as its preflight check.
@@ -51,7 +50,7 @@ public sealed partial class NhProxyRuntime
         while (!request.Request.Path.StartsWithSegments(NhProxyOptions.AdministrationPath, StringComparison.OrdinalIgnoreCase))
         {
             input.RequestAborted.ThrowIfCancellationRequested();
-            var started = Stopwatch.GetTimestamp();
+            var started = _timeProvider.GetTimestamp();
             var redirect = ResolveRedirect(snapshot, request, started, out var location, out var failure, allowSelfRedirect: true);
             if (failure is not null || HasResolutionTimedOut(started))
             {

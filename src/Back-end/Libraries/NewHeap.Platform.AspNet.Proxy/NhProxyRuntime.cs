@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
@@ -15,6 +14,7 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
 {
     internal const string ResolutionTimeoutFailure = "Redirect resolution exceeded its configured time limit.";
     private readonly TimeSpan _resolutionTimeout = TimeSpan.FromMilliseconds(options.Value.Limits.RedirectResolutionTimeoutMilliseconds);
+    private readonly TimeProvider _timeProvider = TimeProvider.System;
     private sealed record Snapshot(long Revision, ImmutableArray<(NhProxyRedirectRule Rule, ConcurrentDictionary<int, Regex>? Patterns)> Rules);
     private Snapshot? _redirects;
 
@@ -24,6 +24,15 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
 
     public NhProxyRuntime(INhProxyConfigurationValidator validator) : this(validator, Options.Create(new NhProxyOptions()))
     {
+    }
+
+    /// <summary>Measures the redirect resolution budget with <paramref name="timeProvider"/> instead of the system clock.</summary>
+    internal NhProxyRuntime(INhProxyConfigurationValidator validator, IOptions<NhProxyOptions> options, IServiceProvider? services,
+        TimeProvider timeProvider) : this(validator, options, services)
+    {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
+        _timeProvider = timeProvider;
     }
 
     public NhProxyStatus GetStatus()
@@ -96,7 +105,7 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
             return false;
         }
 
-        var started = Stopwatch.GetTimestamp();
+        var started = _timeProvider.GetTimestamp();
         var rule = ResolveRedirect(context, started, out var location, out failure, diagnostics);
         if (HasResolutionTimedOut(started))
         {
@@ -183,7 +192,7 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
                 Regex? pattern;
                 do
                 {
-                    pattern = GetRegexForBudget(patterns, rule.Match.Path, _resolutionTimeout - Stopwatch.GetElapsedTime(started));
+                    pattern = GetRegexForBudget(patterns, rule.Match.Path, _resolutionTimeout - _timeProvider.GetElapsedTime(started));
                     if (pattern is null)
                     {
                         failure = ResolutionTimeoutFailure;
@@ -191,7 +200,7 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
                     }
                 }
                 // Preparing an uncached timeout variant also consumes the request budget.
-                while (pattern.MatchTimeout > _resolutionTimeout - Stopwatch.GetElapsedTime(started));
+                while (pattern.MatchTimeout > _resolutionTimeout - _timeProvider.GetElapsedTime(started));
 
                 try
                 {
@@ -244,7 +253,7 @@ public sealed partial class NhProxyRuntime(INhProxyConfigurationValidator valida
 
     private bool HasResolutionTimedOut(long started)
     {
-        return Stopwatch.GetElapsedTime(started) >= _resolutionTimeout;
+        return _timeProvider.GetElapsedTime(started) >= _resolutionTimeout;
     }
 
     private static NhProxyRuleMatchDiagnostic RedirectMismatch(NhProxyRedirectRule rule, string reason)
