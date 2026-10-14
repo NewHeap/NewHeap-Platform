@@ -27912,8 +27912,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "bff04083cf2ba0b9fe2db95b2e7bbef13128eb28c9ddda454cd57500002b6efc",
-    "declarationCount": 857,
+    "hash": "a3a9bc1f74406033a007c037a420490ae1d843b2e9ce5be027466f69c77d6590",
+    "declarationCount": 864,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
@@ -28706,6 +28706,14 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/interceptors/nh-server-http.interceptor.ts",
         "declaration": "export class NhServerHttpInterceptor implements HttpInterceptor {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/interceptors/nh-session-rejection.interceptor.ts",
+        "declaration": "@Injectable()"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/interceptors/nh-session-rejection.interceptor.ts",
+        "declaration": "export class NhSessionRejectionInterceptor implements HttpInterceptor {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/miscellaneous/translate-loaders/translate-browser.loader.ts",
@@ -29733,6 +29741,10 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "export const NH_SKIP_SERVER_SESSION_CHECK = new HttpContextToken<boolean>(() => false);"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
         "declaration": "@Injectable()"
       },
       {
@@ -29750,6 +29762,10 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
         "declaration": "protected static readonly rememberDeviceStorageKey = 'nh-two-factor-device';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected static readonly serverSessionConfirmationMilliseconds = 30_000;"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
@@ -29974,6 +29990,14 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
         "declaration": "public async reloadAuthorizationProfile(): Promise<TaskResult<TAuthorization>> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "public verifyServerSession(): Promise<boolean> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected async checkServerSession(): Promise<boolean> {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
@@ -31005,6 +31029,10 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export * from './lib/interceptors/nh-session-rejection.interceptor';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
         "declaration": "export * from './lib/accessors/abstract-value.accessor';"
       },
       {
@@ -31740,7 +31768,9 @@
       "INhAuthenticationSessionValidator",
       "NhAuthenticationService",
       "NhUserManager",
-      "BaseNhAuthService"
+      "BaseNhAuthService",
+      "NhSessionRejectionInterceptor",
+      "AuthSessionExpirationInformation"
     ],
     "nh-auth-two-factor": [
       "NhTwoFactorBuilder",

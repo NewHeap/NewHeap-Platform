@@ -442,6 +442,15 @@ redirect. In the authentication workbench, the Start 10-second session button
 starts a reproducible end-to-end check while the NewHeap expiration stream shows
 the remaining time live.
 
+A session can also end on the server before it expires, for example after a
+password change on another device. `NhCommonModule` then answers the first 401
+with one check against the account endpoint; when that endpoint rejects the
+session too, `BaseNhAuthService` clears it and reports `rejectedByServer`. The
+coordinator treats that as an expired session, so the user lands on the same
+login message instead of a page whose requests and notification polls keep
+answering 401. To reproduce it, restart the sample's AppHost while you are
+signed in: the recreated database no longer knows the session.
+
 Project mutations also use explicit connection state. Only a browser network
 failure with HTTP status `0` enables local demo mode. A server response with 400,
 401, 403, or 500 proves that the API is reachable and must never cause a local

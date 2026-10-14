@@ -310,6 +310,28 @@ accident.
 | Code that reads `OwnerUserId` from operations, summaries or views. | Handle `null` for agent-owned operations, or read `OwnerKind`. |
 | Code that evaluated an active-division policy outside a request, for example in a job. | Pass an `INhDivisionScopedResource` with the division to `IAuthorizationService.AuthorizeAsync`, or authorize in the request that starts the job. |
 
+## @newheap/platform-common: sessions the server rejects
+
+A browser session now ends when the API no longer accepts it, for example after
+the password was changed on another device or the token was revoked. Until now
+the browser kept a session that looked valid, so every request and every
+notification poll answered 401 until the user logged out by hand.
+
+`NhSessionRejectionInterceptor`, registered by `NhCommonModule`, reacts to a 401
+from `apiBaseUrl` or `authApiBaseUrl` while a session exists. It calls the new
+`BaseNhAuthService.verifyServerSession()`, which asks the account information
+endpoint once for all concurrent failures. Only a 401 from that endpoint ends
+the session; an endpoint that answers 401 for another reason never signs the
+user out. The session then ends through `clearAuthorization()`, and
+`AuthSessionExpirationInformation.rejectedByServer` tells the application why.
+`NhUserNotificationService` no longer polls without a session and no longer logs
+a 401 as a notification failure.
+
+| Behavior change | Required action |
+|---|---|
+| A 401 that the account endpoint confirms clears the stored authorization and emits `authSubject` and `sessionExpirationInformationChanged`. | Nothing when the application already routes to login after the session ends; otherwise do that on `sessionExpirationInformationChanged`, and use `rejectedByServer` to explain it. To keep the old behavior, set `authentication.endSessionRejectedByServer` to `false`. |
+| A request that may answer 401 without meaning the session ended can skip the check. | Set `NH_SKIP_SERVER_SESSION_CHECK` in the request's `HttpContext`. |
+
 ## NewHeap.Platform.AI.Common: tool results the model can act on
 
 Every governed tool now gives the model or protocol caller one result shape,

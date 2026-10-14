@@ -1,4 +1,5 @@
 ﻿import {inject, Injectable, OnDestroy} from '@angular/core';
+import {HttpErrorResponse} from '@angular/common/http';
 
 import {BehaviorSubject, EMPTY, exhaustMap, from, Observable, Subscription, switchMap, timer} from "rxjs";
 import { NhAuthService } from './nh-auth.service';
@@ -95,7 +96,8 @@ export class NhUserNotificationService implements OnDestroy {
   }
 
   protected async doWork() {
-    if (!this.isRunning()) {
+    // Notifications belong to a user; without a session every poll would only answer 401.
+    if (!this.isRunning() || !this.authService.isAuthenticated()) {
       return;
     }
 
@@ -110,7 +112,10 @@ export class NhUserNotificationService implements OnDestroy {
     try {
       this.userNotificationState.overview = await this.getOverview().lastValueFrom();
     }catch (error) {
-      console.error('Error fetching user notification overview:', error);
+      // The session rejection interceptor handles a 401; it is not a notification failure.
+      if (!(error instanceof HttpErrorResponse && error.status === 401)) {
+        console.error('Error fetching user notification overview:', error);
+      }
     }
   }
 

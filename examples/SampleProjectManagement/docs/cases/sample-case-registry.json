@@ -973,8 +973,8 @@
       "id": "SPM-065",
       "categoryId": "5",
       "title": "Session expiration",
-      "surface": "expiration information",
-      "outcome": "The live countdown expires, token state is cleared, and both apps open login with a reason and return URL.",
+      "surface": "expiration information, `BaseNhAuthService.verifyServerSession`, `NhSessionRejectionInterceptor` and `AuthSessionExpirationInformation.rejectedByServer`",
+      "outcome": "The live countdown expires, token state is cleared, and both apps open login with a reason and return URL. A session the server rejects, for example after a password change on another device, ends after one account check, opens login with the same reason and stops notification polling; a 401 that the account endpoint does not confirm keeps the session.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -983,7 +983,10 @@
         "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
         "src/Front-end/projects/sample-project-management-common/src/lib/sample-login.component.ts",
         "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
-        "src/Front-end/scripts/verify-frontend-integrity.mjs"
+        "src/Front-end/scripts/verify-frontend-integrity.mjs",
+        "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts",
+        "../../src/Front-end/projects/nh-common/src/lib/interceptors/nh-http-interceptors.spec.ts",
+        "../../src/Front-end/projects/nh-common/src/lib/services/nh-user-notification.service.spec.ts"
       ]
     },
     {

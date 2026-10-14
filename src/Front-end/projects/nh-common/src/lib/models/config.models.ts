@@ -46,6 +46,11 @@ export class AuthenticationNhCommonModuleConfig {
   additionalDivisionClaimPermissionTypes: string[] = [];
   endpoints: EndpointsAuthenticationNhCommonModuleConfig = new EndpointsAuthenticationNhCommonModuleConfig();
   loginPath: string = '/';
+  /**
+   * Ends the local session when the API answers 401 and the account endpoint confirms that the
+   * server no longer accepts the session, for example after a password change on another device.
+   */
+  endSessionRejectedByServer: boolean = true;
 
   public constructor(init?: Partial<AuthenticationNhCommonModuleConfig>) {
     Object.assign(this, init);

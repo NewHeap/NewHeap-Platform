@@ -22,7 +22,7 @@ import {
   EndpointsAuthenticationNhCommonModuleConfig,
   NhCommonModuleConfig
 } from '../models/config.models';
-import {BaseNhAuthService} from './nh-auth.service';
+import {BaseNhAuthService, NH_SKIP_SERVER_SESSION_CHECK} from './nh-auth.service';
 import {NhPasskeyClient} from './nh-passkey-client.service';
 
 describe('BaseNhAuthService logout', () => {
@@ -500,6 +500,106 @@ describe('BaseNhAuthService two-factor authentication', () => {
 
     const result = await resultPromise;
     expect(result.data?.enabled).toBeTrue();
+  });
+});
+
+describe('BaseNhAuthService server session check', () => {
+  let authService: TestAuthService;
+  let httpTesting: HttpTestingController;
+  const accountUrl = '/auth-api/account?language=en';
+
+  beforeEach(() => {
+    localStorage.clear();
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        TestAuthService,
+        {provide: PLATFORM_ID, useValue: 'server'},
+        {
+          provide: NhCommonModuleConfig,
+          useValue: new NhCommonModuleConfig({
+            authApiBaseUrl: '/auth-api',
+            language: 'en'
+          })
+        }
+      ]
+    });
+
+    authService = TestBed.inject(TestAuthService);
+    httpTesting = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpTesting.verify();
+    localStorage.clear();
+  });
+
+  function signIn(token: string): void {
+    authService.setAuthorization(new NhAuthorization({
+      token,
+      validTo: '2099-01-01T00:00:00Z',
+      claims: [new Claim({type: 'test', value: 'authenticated'})]
+    }));
+  }
+
+  it('ends a session the server rejected and reports why', async () => {
+    signIn('rejected-token');
+
+    const check = authService.verifyServerSession();
+    const request = httpTesting.expectOne(accountUrl);
+    expect(request.request.headers.get('Authorization')).toBe('Bearer rejected-token');
+    expect(request.request.context.get(NH_SKIP_SERVER_SESSION_CHECK)).toBeTrue();
+    request.flush(null, {status: 401, statusText: 'Unauthorized'});
+
+    expect(await check).toBeFalse();
+    expect(authService.isAuthenticated()).toBeFalse();
+    expect(authService.getSessionExpirationInformation().rejectedByServer).toBeTrue();
+
+    signIn('next-token');
+    expect(authService.getSessionExpirationInformation().rejectedByServer).toBeFalse();
+  });
+
+  it('shares one request and keeps a confirmed session without asking again', async () => {
+    signIn('valid-token');
+
+    const first = authService.verifyServerSession();
+    const second = authService.verifyServerSession();
+    httpTesting.expectOne(accountUrl).flush({});
+
+    expect(await first).toBeTrue();
+    expect(await second).toBeTrue();
+    expect(await authService.verifyServerSession()).toBeTrue();
+    httpTesting.expectNone(accountUrl);
+    expect(authService.isAuthenticated()).toBeTrue();
+  });
+
+  it('keeps the session when the check fails for another reason', async () => {
+    signIn('valid-token');
+
+    const check = authService.verifyServerSession();
+    httpTesting.expectOne(accountUrl).flush(null, {status: 503, statusText: 'Service Unavailable'});
+
+    expect(await check).toBeTrue();
+    expect(authService.isAuthenticated()).toBeTrue();
+  });
+
+  it('keeps a session that replaced the checked one during the check', async () => {
+    signIn('old-token');
+
+    const check = authService.verifyServerSession();
+    signIn('new-token');
+    httpTesting.expectOne(accountUrl).flush(null, {status: 401, statusText: 'Unauthorized'});
+
+    expect(await check).toBeTrue();
+    expect(authService.getAuthorization()?.token).toBe('new-token');
+    expect(authService.getSessionExpirationInformation().rejectedByServer).toBeFalse();
+  });
+
+  it('does not ask the server without a session', async () => {
+    expect(await authService.verifyServerSession()).toBeFalse();
+    httpTesting.expectNone(accountUrl);
   });
 });
 

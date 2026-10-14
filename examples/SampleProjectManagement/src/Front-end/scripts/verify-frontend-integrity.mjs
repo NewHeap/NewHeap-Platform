@@ -62,6 +62,8 @@ assert.match(authSession, /sessionExpirationInformationChanged/,
   'The session coordinator must observe the NewHeap expiration stream.');
 assert.match(authSession, /reason:\s*'session-expired'/,
   'Expired sessions must navigate to login with an explicit reason.');
+assert.match(authSession, /information\.rejectedByServer/,
+  'A session the server rejected must open login with the same reason as an expired one.');
 assert.match(authService, /override clearAuthorization/,
   'The sample auth service must also clear authorization that has just expired.');
 assert.match(authService, /localStorage\.removeItem\('at'\)/,

@@ -34,7 +34,10 @@ export class SampleAuthSessionService implements OnDestroy {
         const currentUrl = this.router.url;
         const loginPath = this.moduleConfig.authentication.loginPath || '/auth/login';
         const validTo = this.authService.getAuthorization()?.validTo;
-        const sessionExpired = !!validTo && Date.parse(validTo) <= Date.now();
+        // NewHeap ends a session the server rejected, for example after a password change on
+        // another device; for the user it ended just like an expired one.
+        const sessionExpired = information.rejectedByServer
+          || (!!validTo && Date.parse(validTo) <= Date.now());
 
         // BaseNhAuthService only clears a currently valid authorization. The
         // sample override also removes an authorization that just expired.

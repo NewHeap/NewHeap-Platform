@@ -673,7 +673,10 @@
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-login.component.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
-      "src/Front-end/scripts/verify-frontend-integrity.mjs"
+      "src/Front-end/scripts/verify-frontend-integrity.mjs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/interceptors/nh-http-interceptors.spec.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-user-notification.service.spec.ts"
     ],
     "SPM-066": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",

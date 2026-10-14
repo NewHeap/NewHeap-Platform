@@ -53,6 +53,7 @@ import {FormsModule} from "@angular/forms";
 import {NhServerSideFormValidationService} from "./services/nh-server-side-form-validator.service";
 import {NhFormErrorMessageComponent} from "./components/nh-form-error-message/form-error-message.component";
 import {NhApiAuthInterceptor} from "./interceptors/nh-api.auth.interceptor";
+import {NhSessionRejectionInterceptor} from "./interceptors/nh-session-rejection.interceptor";
 import {NhErrorComponent} from "./components/nh-error/component";
 import {BaseNhAuthService, NhAuthService} from "./services/nh-auth.service";
 import {INhAuthorization} from "./models/auth.models";
@@ -171,6 +172,11 @@ import {NhSearchInputComponent} from "./components/nh-search-input/search-input.
     {
       provide: HTTP_INTERCEPTORS,
       useClass: NhApiAuthInterceptor,
+      multi: true
+    },
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: NhSessionRejectionInterceptor,
       multi: true
     },
     {

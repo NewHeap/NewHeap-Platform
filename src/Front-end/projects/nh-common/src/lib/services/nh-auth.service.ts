@@ -30,13 +30,16 @@ import {
 } from "../models/auth.models";
 import {DateTime} from "luxon";
 import {TaskResult} from "../models/misc.models";
-import {HttpClient, HttpErrorResponse, HttpHeaders, HttpParams} from '@angular/common/http';
+import {HttpClient, HttpContext, HttpContextToken, HttpErrorResponse, HttpHeaders, HttpParams} from '@angular/common/http';
 import {EndpointsAuthenticationNhCommonModuleConfig, NhCommonModuleConfig} from "../models/config.models";
 import {NhApiUtil} from "../util/nh-api-util";
 import {isPlatformServer} from "@angular/common";
 import {Base64} from "js-base64";
 import {NhPasskeyClient} from "./nh-passkey-client.service";
 import {NhBackgroundOperation} from "../models/background-operation.models";
+
+/** Marks a request whose 401 must not start a server session check, such as the check itself. */
+export const NH_SKIP_SERVER_SESSION_CHECK = new HttpContextToken<boolean>(() => false);
 
 interface NhTwoFactorChangeResponse {
   recoveryCodes?: string[] | null;
@@ -48,6 +51,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
   protected static readonly pendingTwoFactorChallengeStorageKey = 'nh-two-factor-challenge';
   protected static readonly externalTwoFactorChallengePrefix = 'nh-two-factor=';
   protected static readonly rememberDeviceStorageKey = 'nh-two-factor-device';
+  protected static readonly serverSessionConfirmationMilliseconds = 30_000;
 
   protected authorization: TAuthorization | undefined = undefined;
   protected pendingTwoFactorChallenge: NhTwoFactorChallenge | undefined = undefined;
@@ -59,6 +63,9 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
   protected _sessionExpirationInformation = new BehaviorSubject<AuthSessionExpirationInformation>(this.getSessionExpirationInformation());
   public sessionExpirationInformationChanged = this._sessionExpirationInformation.asObservable();
   protected intervalHandle: any;
+  private serverSessionCheck: Promise<boolean> | undefined;
+  private serverSessionConfirmedAt = 0;
+  private sessionRejectedByServer = false;
 
   protected zone: NgZone = inject(NgZone);
   protected moduleConfig: NhCommonModuleConfig = inject(NhCommonModuleConfig);
@@ -134,6 +141,7 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     } else {
       result.expiresWithin15MinutesOrExpired = true;
       result.displayMinutesSecondsUntilExpiration = `00:00`;
+      result.rejectedByServer = this.sessionRejectedByServer;
     }
 
     return result;
@@ -157,6 +165,8 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
   public setAuthorization(auth: TAuthorization, noEvent = false): void {
     localStorage.setItem('at', Base64.encode(JSON.stringify(auth)));
     this.authorization = auth;
+    this.sessionRejectedByServer = false;
+    this.serverSessionConfirmedAt = 0;
     if (!noEvent) {
       this.authSubject.next(this.authorization);
     }
@@ -1175,6 +1185,64 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     }
 
     return result;
+  }
+
+  /**
+   * Asks the account information endpoint whether the server still accepts the current session.
+   * When the server answers 401, for example after a password change on another device, the local
+   * session ends and the session expiration information reports `rejectedByServer`. Concurrent
+   * checks share one request, and a confirmed session is not checked again for 30 seconds.
+   * @returns `false` only when there is no session or the server rejected it.
+   */
+  public verifyServerSession(): Promise<boolean> {
+    if (!this.isAuthenticated()) {
+      return Promise.resolve(false);
+    }
+
+    if (Date.now() - this.serverSessionConfirmedAt < BaseNhAuthService.serverSessionConfirmationMilliseconds) {
+      return Promise.resolve(true);
+    }
+
+    this.serverSessionCheck ??= this.checkServerSession().finally(() => {
+      this.serverSessionCheck = undefined;
+    });
+
+    return this.serverSessionCheck;
+  }
+
+  protected async checkServerSession(): Promise<boolean> {
+    const checkedAuthorization = this.getAuthorization();
+
+    let httpHeaders = new HttpHeaders();
+    if (this.moduleConfig.authType === 'header' && (checkedAuthorization?.token?.length ?? 0) > 0) {
+      httpHeaders = httpHeaders.set('Authorization', `Bearer ${checkedAuthorization!.token}`);
+    }
+
+    const request$ = this.httpClient.get<unknown>(this.moduleConfig.authApiBaseUrl + this.moduleConfig.authentication.endpoints.accountInformation, {
+      params: new HttpParams().set('language', this.moduleConfig.language),
+      headers: httpHeaders,
+      withCredentials: true,
+      context: new HttpContext().set(NH_SKIP_SERVER_SESSION_CHECK, true)
+    });
+
+    try {
+      await lastValueFrom(request$);
+      this.serverSessionConfirmedAt = Date.now();
+
+      return true;
+    } catch (ex) {
+      const rejected = ex instanceof HttpErrorResponse && ex.status === 401;
+
+      // Other failures say nothing about the session, and a sign-in during the check replaced it.
+      if (!rejected || this.getAuthorization() !== checkedAuthorization) {
+        return true;
+      }
+
+      this.sessionRejectedByServer = true;
+      this.clearAuthorization();
+
+      return false;
+    }
   }
 
   async logout(): Promise<TaskResult<void>> {

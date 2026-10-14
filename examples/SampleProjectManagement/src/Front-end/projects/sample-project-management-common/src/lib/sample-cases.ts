@@ -912,8 +912,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-065",
     "title": "Session expiration",
     "category": "Authentication, identity, and authorization",
-    "surface": "expiration information",
-    "outcome": "The live countdown expires, token state is cleared, and both apps open login with a reason and return URL.",
+    "surface": "expiration information, BaseNhAuthService.verifyServerSession, NhSessionRejectionInterceptor and AuthSessionExpirationInformation.rejectedByServer",
+    "outcome": "The live countdown expires, token state is cleared, and both apps open login with a reason and return URL. A session the server rejects, for example after a password change on another device, ends after one account check, opens login with the same reason and stops notification polling; a 401 that the account endpoint does not confirm keeps the session.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -922,7 +922,10 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-login.component.ts",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
-      "src/Front-end/scripts/verify-frontend-integrity.mjs"
+      "src/Front-end/scripts/verify-frontend-integrity.mjs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/interceptors/nh-http-interceptors.spec.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-user-notification.service.spec.ts"
     ]
   },
   {
@@ -4118,15 +4121,24 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-280",
     "title": "Agent suggestions and the conversation on the project itself",
     "category": "AI tools and generated catalogs",
-    "surface": "GET subjects/{type}/{id}/work with NhAssistantSubjectWorkDto, NhAssistantSubjectAgentDto and NhAssistantSubjectProposalDto; POST subjects/{type}/summary with NhAssistantSubjectSummaryRequest and NhAssistantSubjectSummaryListDto; POST threads/open with NhAssistantOpenThreadRequest; INhAssistantSubjectWork and NhAssistantSubjectWorkExtensions.GetForRequestAsync and SummarizeForRequestAsync; the subject of NhAssistantLiveAgentWorkDto",
-    "outcome": "A project shows its agent work in one request: the intake reviewer's thread and its open proposals with each viewer's live decision right, so the project's approver may decide while the manager who created the project reads that four eyes keep them out, and people outside the project get 404. A project list asks for the counts of many projects at once: open proposals, the ones the viewer may decide and whether the reviewer works on the project now. Opening the conversation with the reviewer about a project it never worked on creates the thread without a run; a reader may open it once it exists but may not create it.",
+    "surface": "GET subjects/{type}/{id}/work with NhAssistantSubjectWorkDto, NhAssistantSubjectAgentDto and NhAssistantSubjectProposalDto; POST subjects/{type}/summary with NhAssistantSubjectSummaryRequest and NhAssistantSubjectSummaryListDto; POST threads/open with NhAssistantOpenThreadRequest; INhAssistantSubjectWork and NhAssistantSubjectWorkExtensions.GetForRequestAsync and SummarizeForRequestAsync; the subject of NhAssistantLiveAgentWorkDto; NhAssistantSubjectBadgeComponent (nh-assistant-subject-badge) with NhAssistantSubjectSummaryService, NhAssistantSubjectSuggestionsComponent (nh-assistant-subject-suggestions) of @newheap/platform-ai-chat/agent-runs, NhAssistantPanelService.openSubject, NhAssistantAgentRunApiService.getSubjectWork, summarizeSubjects and openThread, and the decisionRights input of NhAssistantAgentProposalsComponent",
+    "outcome": "A project shows its agent work in one request: the intake reviewer's thread and its open proposals with each viewer's live decision right, so the project's approver may decide while the manager who created the project reads that four eyes keep them out, and people outside the project get 404. A project list asks for the counts of many projects at once: open proposals, the ones the viewer may decide and whether the reviewer works on the project now. Opening the conversation with the reviewer about a project it never worked on creates the thread without a run; a reader may open it once it exists but may not create it. In the management portal the project directory shows a badge beside each project from one summary request, and the project dialog loads the project's suggestions lazily: people decide or reject them there, answer the feedback question and open the conversation with the reviewer about the project in the assistant panel.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectWork.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectEndpoints.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSubjectWorkTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSubjectWorkTests.cs",
+      "src/Front-end/projects/management/src/app/app.component.html",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.html",
+      "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-subject-summary.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-subject-summary.service.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/subject-badge/nh-assistant-subject-badge.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-subject-suggestions.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-panel.service.ts"
     ]
   }
 ] as const;

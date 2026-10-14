@@ -145,6 +145,8 @@ export class AuthSessionExpirationInformation {
   isAuthenticated: boolean = false;
   expiresWithin15MinutesOrExpired: boolean = false;
   displayMinutesSecondsUntilExpiration: string = '00:00';
+  /** The server rejected the session before it expired; it stays set until the next sign-in. */
+  rejectedByServer: boolean = false;
 
   public constructor(init?: Partial<AuthSessionExpirationInformation>) {
     Object.assign(this, init);
