@@ -399,6 +399,65 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
             .ToListAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Approved deferred proposals without an execution operation that were decided before
+    /// <paramref name="decidedBefore"/>, of run threads and consultations alike, oldest decision
+    /// first. Proposals of stopped agents and of <paramref name="heldAgentIds"/> stay out of the
+    /// query, so the proposals they hold never hide the ones behind them.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantApproval>> GetHeldExecutionsAsync(
+        DateTimeOffset decidedBefore,
+        IReadOnlyCollection<string> heldAgentIds,
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var held = heldAgentIds.ToArray();
+        return await context.Approvals
+            .AsNoTracking()
+            .Where(approval => approval.Status == NhAssistantApprovalStatuses.Approved
+                && approval.Mode == NhAssistantApprovalModes.Deferred
+                && approval.ExecutionOperationId == null
+                && approval.DecidedAt != null
+                && approval.DecidedAt < decidedBefore)
+            .Where(approval => context.Threads.Any(thread => thread.ConversationId == approval.ConversationId
+                && !held.Contains(thread.AgentId)
+                && context.Agents.Any(agent => agent.Id == thread.AgentId
+                    && agent.IsEnabled
+                    && agent.RunState != NhAssistantAgentRunStates.Stopped)))
+            .OrderBy(approval => approval.DecidedAt)
+            .ThenBy(approval => approval.Id)
+            .Take(maximum)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The approved deferred proposals without an execution operation in the threads of one agent,
+    /// oldest decision first: the executions a stopped agent held.
+    /// </summary>
+    public async Task<IReadOnlyList<(AssistantApproval Approval, AssistantThread Thread)>> GetAgentHeldExecutionsAsync(
+        string agentId,
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var held = await context.Approvals
+            .AsNoTracking()
+            .Where(approval => approval.Status == NhAssistantApprovalStatuses.Approved
+                && approval.Mode == NhAssistantApprovalModes.Deferred
+                && approval.ExecutionOperationId == null)
+            .Join(
+                context.Threads.AsNoTracking().Where(thread => thread.AgentId == agentId),
+                approval => approval.ConversationId,
+                thread => thread.ConversationId,
+                (approval, thread) => new { Approval = approval, Thread = thread })
+            .OrderBy(item => item.Approval.DecidedAt)
+            .ThenBy(item => item.Approval.Id)
+            .Take(maximum)
+            .ToListAsync(cancellationToken);
+        return held.Select(item => (item.Approval, item.Thread)).ToArray();
+    }
+
     public async Task<IReadOnlyList<AssistantApproval>> GetApprovalsInStatusAsync(
         string status,
         int maximum,
@@ -732,6 +791,111 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     {
         await using var context = contextFactory.CreateDbContext();
         return await context.QueuedInputs.AnyAsync(input => input.Id == inputId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Whether an input of <paramref name="triggerId"/> with <paramref name="eventKey"/> still waits
+    /// in the thread, so a redelivered event waits once.
+    /// </summary>
+    public async Task<bool> HasWaitingInputAsync(
+        Guid conversationId,
+        string triggerId,
+        string eventKey,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.QueuedInputs.AnyAsync(
+            input => input.ConversationId == conversationId
+                && input.ConsumedAt == null
+                && input.TriggerId == triggerId
+                && input.EventKey == eventKey,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The inputs that wait in the threads of an agent.
+    /// </summary>
+    public async Task<int> CountAgentWaitingInputsAsync(string agentId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.QueuedInputs
+            .Where(input => input.ConsumedAt == null)
+            .Join(
+                context.Threads.Where(thread => thread.AgentId == agentId),
+                input => input.ConversationId,
+                thread => thread.ConversationId,
+                (input, _) => input.Id)
+            .CountAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The oldest waiting input of every thread of an agent that has no queued run to claim it,
+    /// oldest first: the inputs a resumed agent starts one run for per thread.
+    /// </summary>
+    public async Task<IReadOnlyList<(AssistantThread Thread, AssistantQueuedInput Input)>> GetUnclaimedWaitingInputsAsync(
+        string agentId,
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var threads = await context.QueuedInputs
+            .Where(input => input.ConsumedAt == null
+                && !context.Runs.Any(run => run.ConversationId == input.ConversationId
+                    && run.Status == NhAssistantRunStatuses.Queued))
+            .Join(
+                context.Threads.Where(thread => thread.AgentId == agentId),
+                input => input.ConversationId,
+                thread => thread.ConversationId,
+                (input, _) => input)
+            .GroupBy(input => input.ConversationId)
+            .Select(group => new { ConversationId = group.Key, Oldest = group.Min(input => input.CreatedAt) })
+            .OrderBy(item => item.Oldest)
+            .Take(maximum)
+            .Select(item => item.ConversationId)
+            .ToListAsync(cancellationToken);
+        var result = new List<(AssistantThread Thread, AssistantQueuedInput Input)>(threads.Count);
+        foreach (var conversationId in threads)
+        {
+            var thread = await context.Threads.AsNoTracking()
+                .SingleOrDefaultAsync(item => item.ConversationId == conversationId, cancellationToken);
+            var input = await context.QueuedInputs.AsNoTracking()
+                .Where(item => item.ConversationId == conversationId && item.ConsumedAt == null)
+                .OrderBy(item => item.CreatedAt)
+                .ThenBy(item => item.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (thread is not null && input is not null)
+            {
+                result.Add((thread, input));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Ends the waiting inputs of every thread of an agent without a run, for a stop: the events
+    /// that waited are dropped like the ones a stopped agent refuses. Returns how many ended.
+    /// </summary>
+    public async Task<int> DiscardAgentWaitingInputsAsync(string agentId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        return await context.QueuedInputs
+            .Where(input => input.ConsumedAt == null
+                && context.Threads.Any(thread => thread.ConversationId == input.ConversationId && thread.AgentId == agentId))
+            .ExecuteUpdateAsync(setters => setters.SetProperty(input => input.ConsumedAt, now), cancellationToken);
+    }
+
+    /// <summary>
+    /// Ends the waiting inputs of one thread without a run, when its subject is gone.
+    /// </summary>
+    public async Task DiscardWaitingInputsAsync(Guid conversationId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        await context.QueuedInputs
+            .Where(input => input.ConversationId == conversationId && input.ConsumedAt == null)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(input => input.ConsumedAt, now), cancellationToken);
     }
 
     public async Task<int> CountWaitingInputsAsync(Guid conversationId, CancellationToken cancellationToken)

@@ -168,7 +168,9 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
 
         var code = list.EnumerateArray().Single(agent => agent.GetProperty("id").GetString() == "project-assistant");
         AssertNames(code, "id", "displayName", "description", "instructions", "toolSelectors", "mcpServerIds", "requiredPolicy",
-            "autonomy", "isEnabled", "version", "source", "isOverridden", "instructionsHash", "updatedAt");
+            "autonomy", "isEnabled", "version", "source", "isOverridden", "instructionsHash", "updatedAt",
+            "runState", "stateChangedAt", "stateChangedBy", "stateReason", "waitingInputs");
+        Assert.Equal("active", code.GetProperty("runState").GetString());
         Assert.Equal("code", code.GetProperty("source").GetString());
         Assert.Equal("execute", code.GetProperty("autonomy").GetString());
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
@@ -195,6 +197,69 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         Assert.EndsWith("-not-found", unknownBody.GetProperty("code").GetString());
         Assert.Contains(visible.EnumerateArray(), agent => agent.GetProperty("displayNameKey").GetString() == "Budget helper");
         Assert.Equal(HttpStatusCode.NoContent, deleteAdmin.StatusCode);
+    }
+
+    [Fact]
+    public async Task The_state_endpoints_pause_stop_and_resume_an_agent_without_touching_its_definition()
+    {
+        await using var app = await StartAsync();
+        using var admin = app.CreateClient(admin: true);
+        using var user = app.CreateClient();
+        const string path = "/api/assistant/admin/agents/project-assistant";
+
+        var initial = await ReadJsonAsync(await admin.GetAsync(path + "/state"));
+        using var paused = await admin.PostAsync(path + "/state", Json(new { state = "paused", reason = "Nightly import" }));
+        using var missing = await admin.PostAsync(path + "/state", Json(new { reason = "No state" }));
+        using var invalid = await admin.PostAsync(path + "/state", Json(new { state = "sleeping" }));
+        using var tooLong = await admin.PostAsync(path + "/state", Json(new { state = "paused", reason = new string('r', 501) }));
+        using var forbidden = await user.PostAsync(path + "/state", Json(new { state = "stopped" }));
+        using var unknown = await admin.GetAsync("/api/assistant/admin/agents/no-such-agent/state");
+        var listed = (await ReadJsonAsync(await admin.GetAsync("/api/assistant/admin/agents"))).EnumerateArray()
+            .Single(agent => agent.GetProperty("id").GetString() == "project-assistant");
+        using var edited = await admin.PutAsync(path, Json(new
+        {
+            id = "project-assistant",
+            displayName = listed.GetProperty("displayName").GetString(),
+            description = listed.GetProperty("description").GetString(),
+            instructions = "Help with projects briefly.",
+            toolSelectors = listed.GetProperty("toolSelectors").EnumerateArray().Select(item => item.GetString()).ToArray(),
+            mcpServerIds = Array.Empty<string>(),
+            requiredPolicy = (string?)null,
+            autonomy = listed.GetProperty("autonomy").GetString(),
+            expectedVersion = listed.GetProperty("version").GetInt32()
+        }));
+        using var engaged = await admin.PostAsync(path + "/kill-switch", Json(new { engaged = true }));
+        var stopped = await ReadJsonAsync(await admin.GetAsync(path + "/state"));
+        using var released = await admin.PostAsync(path + "/kill-switch", Json(new { engaged = false }));
+        var active = await ReadJsonAsync(await admin.GetAsync(path + "/state"));
+
+        AssertNames(initial, "agentId", "runState", "active", "changedAt", "changedBy", "reason", "waitingInputs", "cancelledRuns", "startedRuns");
+        Assert.Equal("active", initial.GetProperty("runState").GetString());
+        Assert.True(initial.GetProperty("active").GetBoolean());
+        Assert.Equal(HttpStatusCode.OK, paused.StatusCode);
+        var pausedBody = await ReadJsonAsync(paused);
+        Assert.Equal("paused", pausedBody.GetProperty("runState").GetString());
+        Assert.Equal("Nightly import", pausedBody.GetProperty("reason").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+        AssertNames((await ReadJsonAsync(missing)).GetProperty("errors"), "state");
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Equal("invalid", (await ReadJsonAsync(invalid)).GetProperty("errors").GetProperty("state")[0].GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, tooLong.StatusCode);
+        Assert.Equal("too-long", (await ReadJsonAsync(tooLong)).GetProperty("errors").GetProperty("reason")[0].GetString());
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+        Assert.Equal("paused", listed.GetProperty("runState").GetString());
+        Assert.Equal("Nightly import", listed.GetProperty("stateReason").GetString());
+        Assert.True(listed.GetProperty("isEnabled").GetBoolean());
+        // An editor that read the agent before the pause saves without a conflict, and without
+        // isEnabled; the state stays as it was.
+        Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
+        Assert.Equal("paused", (await ReadJsonAsync(edited)).GetProperty("runState").GetString());
+        Assert.Equal(HttpStatusCode.OK, engaged.StatusCode);
+        Assert.False((await ReadJsonAsync(engaged)).GetProperty("enabled").GetBoolean());
+        Assert.Equal("stopped", stopped.GetProperty("runState").GetString());
+        Assert.True((await ReadJsonAsync(released)).GetProperty("enabled").GetBoolean());
+        Assert.Equal("active", active.GetProperty("runState").GetString());
     }
 
     [Fact]

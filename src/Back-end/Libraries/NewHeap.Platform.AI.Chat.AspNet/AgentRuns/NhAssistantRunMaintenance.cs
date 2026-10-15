@@ -104,8 +104,12 @@ internal sealed class NhAssistantRunMaintenance(
         var events = services.GetRequiredService<NhAssistantAgentEvents>();
         var workUpdates = services.GetRequiredService<NhAssistantAgentWorkUpdates>();
         await ExpireAsync(runs, policies, notifier, workUpdates, cancellationToken);
-        await RemindAsync(runs, notifier, cancellationToken);
-        await QueueMissingExecutionsAsync(runs, decisions, cancellationToken);
+        if (services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<NhAssistantOptions>>().CurrentValue.Enabled)
+        {
+            // With the assistant disabled nobody is reminded and nothing is queued for execution.
+            await RemindAsync(runs, notifier, cancellationToken);
+            await QueueMissingExecutionsAsync(runs, decisions, cancellationToken);
+        }
         if (operations is not null)
         {
             await DetectInterruptedExecutionsAsync(runs, operations, notifier, events, workUpdates, cancellationToken);
@@ -227,22 +231,23 @@ internal sealed class NhAssistantRunMaintenance(
         }
     }
 
-    private static async Task QueueMissingExecutionsAsync(
+    /// <summary>
+    /// Queues approved deferred proposals that have no execution, of runs and consultations alike,
+    /// for example after their agent was stopped. The query leaves out the proposals that stopped
+    /// and code-disabled agents hold, so they never hide the ones behind them.
+    /// </summary>
+    private async Task QueueMissingExecutionsAsync(
         NhAssistantRunStore runs,
         NhAssistantProposalDecisions decisions,
         CancellationToken cancellationToken)
     {
         var settled = DateTimeOffset.UtcNow.AddMinutes(-1);
-        foreach (var approval in await runs.GetApprovalsInStatusAsync(NhAssistantApprovalStatuses.Approved, BatchSize, cancellationToken))
+        var configuredOff = registration.AgentRuns
+            .Where(item => !item.Value.Enabled)
+            .Select(item => item.Key)
+            .ToArray();
+        foreach (var approval in await runs.GetHeldExecutionsAsync(settled, configuredOff, BatchSize, cancellationToken))
         {
-            if (approval.Mode != NhAssistantApprovalModes.Deferred
-                || approval.ExecutionOperationId is not null
-                || approval.DecidedAt is not { } decidedAt
-                || decidedAt > settled)
-            {
-                continue;
-            }
-
             var thread = await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
             if (thread is not null)
             {

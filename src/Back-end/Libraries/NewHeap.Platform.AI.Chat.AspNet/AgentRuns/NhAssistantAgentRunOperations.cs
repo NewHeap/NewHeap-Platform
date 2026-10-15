@@ -214,6 +214,7 @@ internal sealed class NhAssistantAgentRunOperation(
     NhAssistantRunSummaries summaries,
     NhAssistantAgentWorkUpdates workUpdates,
     IOptions<RequestLocalizationOptions> localization,
+    IOptionsMonitor<NhAssistantOptions> assistantOptions,
     ILogger<NhAssistantAgentRunOperation> logger) : INhBackgroundOperationHandler<NhAssistantAgentRunRequest>
 {
     internal const string WaitCheckpointKey = "agent-run-wait";
@@ -266,11 +267,12 @@ internal sealed class NhAssistantAgentRunOperation(
             FencingToken = context.FencingToken.ToString(System.Globalization.CultureInfo.InvariantCulture)
         };
         var thread = agentTurn.Thread;
-        if (!agentTurn.Options.Enabled
-            || await agents.FindAsync(thread.AgentId, includeDisabled: false, cancellationToken) is null)
+        if (await RefusalAsync(run, agentTurn, cancellationToken) is { } refusal)
         {
-            // The kill switch: a disabled agent starts no run and leaves the thread as it was.
-            await EndAsync(run, thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Policy, NhAssistantErrorCodes.AgentDisabled);
+            // A stopped agent starts no run and leaves the thread as it was. A run that had not
+            // started when its agent was paused ends without claiming its inputs, which wait for
+            // the resume.
+            await EndAsync(run, thread, NhAssistantRunStatuses.Cancelled, NhAssistantRunFailureClasses.Policy, refusal);
             return TaskResult.Succeeded();
         }
         if (context.AttemptNumber > agentTurn.Options.RetryCount + 1)
@@ -307,11 +309,13 @@ internal sealed class NhAssistantAgentRunOperation(
         var result = await ContinueWaitingTurnAsync(agentTurn, context, cancellationToken)
             ?? await RunTurnAsync(run, agentTurn, cancellationToken);
 
-        // Messages that arrived while the run worked get further turns, a bounded number of times.
+        // Messages that arrived while the run worked get further turns, a bounded number of times;
+        // after a pause they wait for the resume instead.
         var turnCount = 1;
         while (result.Outcome == NhAssistantTurnStatuses.Completed
                && turnCount < MaxTurnsPerRun
-               && await runs.CountWaitingInputsAsync(run.ConversationId, cancellationToken) > 0)
+               && await runs.CountWaitingInputsAsync(run.ConversationId, cancellationToken) > 0
+               && await agents.FindRunStateAsync(agentId, cancellationToken) == NhAssistantAgentRunStates.Active)
         {
             result = await RunTurnAsync(run, agentTurn, cancellationToken);
             turnCount++;
@@ -339,6 +343,33 @@ internal sealed class NhAssistantAgentRunOperation(
     /// Re-entry after a suspension: continues the turn that waited for an inline approval, or
     /// returns <see langword="null"/> when the run has no waiting turn.
     /// </summary>
+    /// <summary>
+    /// Why the run may not work now: the assistant is disabled, the agent is disabled in code or
+    /// stopped, or the agent is paused and the run has not started yet. A run that started before a
+    /// pause finishes.
+    /// </summary>
+    private async Task<string?> RefusalAsync(
+        AssistantRun run,
+        NhAssistantAgentTurnContext agentTurn,
+        CancellationToken cancellationToken)
+    {
+        if (!assistantOptions.CurrentValue.Enabled)
+        {
+            return NhAssistantErrorCodes.Disabled;
+        }
+        if (!agentTurn.Options.Enabled)
+        {
+            return NhAssistantErrorCodes.AgentConfiguredOff;
+        }
+
+        return await agents.FindRunStateAsync(agentTurn.Thread.AgentId, cancellationToken) switch
+        {
+            null or NhAssistantAgentRunStates.Stopped => NhAssistantErrorCodes.AgentStopped,
+            NhAssistantAgentRunStates.Paused when run.Status == NhAssistantRunStatuses.Queued => NhAssistantErrorCodes.AgentPaused,
+            _ => null
+        };
+    }
+
     private async Task<NhAssistantAgentTurnResult?> ContinueWaitingTurnAsync(
         NhAssistantAgentTurnContext agentTurn,
         INhBackgroundOperationContext context,
@@ -473,7 +504,12 @@ internal sealed class NhAssistantAgentRunOperation(
         {
             NhAssistantErrorCodes.ModelUnavailable or NhAssistantErrorCodes.TurnTimeout => NhAssistantRunFailureClasses.Transient,
             NhAssistantErrorCodes.BudgetExhausted => NhAssistantRunFailureClasses.Budget,
-            NhAssistantErrorCodes.AgentDisabled or NhAssistantErrorCodes.AgentForbidden => NhAssistantRunFailureClasses.Policy,
+            NhAssistantErrorCodes.AgentDisabled
+                or NhAssistantErrorCodes.AgentForbidden
+                or NhAssistantErrorCodes.AgentStopped
+                or NhAssistantErrorCodes.AgentPaused
+                or NhAssistantErrorCodes.AgentConfiguredOff
+                or NhAssistantErrorCodes.Disabled => NhAssistantRunFailureClasses.Policy,
             NhAssistantErrorCodes.SubjectNotFound or NhAssistantErrorCodes.AgentNotConfigured => NhAssistantRunFailureClasses.Validation,
             NhAssistantErrorCodes.ProposalStale => NhAssistantRunFailureClasses.Stale,
             _ => NhAssistantRunFailureClasses.Internal
@@ -614,6 +650,8 @@ internal sealed class NhAssistantProposalExecutor(
     NhAssistantAgentWorkUpdates workUpdates,
     NhAssistantProposalGuards guards,
     NhAssistantProposalInvalidation invalidation,
+    NhAssistantRegistrationState registration,
+    IOptionsMonitor<NhAssistantOptions> assistantOptions,
     IOptions<RequestLocalizationOptions> localization)
 {
     private static readonly string[] ExecutableStatuses =
@@ -642,10 +680,13 @@ internal sealed class NhAssistantProposalExecutor(
 
         var thread = await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
         if (thread is not null
-            && await agents.FindAsync(thread.AgentId, includeDisabled: false, cancellationToken) is null)
+            && (!assistantOptions.CurrentValue.Enabled
+                || (registration.AgentRuns.TryGetValue(thread.AgentId, out var runOptions) && !runOptions.Enabled)
+                || await agents.FindAsync(thread.AgentId, includeDisabled: false, cancellationToken) is null))
         {
-            // The kill switch keeps approved proposals waiting; the maintenance job queues their
-            // execution again once the agent is enabled.
+            // A stopped or code-disabled agent, or a disabled assistant, keeps approved proposals
+            // waiting; the maintenance job queues their execution again once the agent works. A
+            // paused agent's proposals execute.
             await runs.TryTransitionApprovalAsync(
                 approval.Id,
                 ExecutableStatuses,

@@ -442,6 +442,12 @@ internal sealed class NhAssistantTriggerDefinition
 
     public required string AgentId { get; init; }
 
+    /// <summary>
+    /// Whether the event concerns the agent at all, evaluated before every other lambda;
+    /// <see langword="null"/> accepts every event.
+    /// </summary>
+    public Func<object, bool>? When { get; init; }
+
     public required Func<object, NhAiSubjectRef> Subject { get; init; }
 
     public Func<object, string?> Initiator { get; init; } = _ => null;
@@ -650,6 +656,7 @@ public sealed class NhAssistantWebhookBuilder
     private Func<IServiceProvider, string?>? _secret;
     private Func<System.Text.Json.JsonElement, NhAiSubjectRef?>? _subject;
     private Func<System.Text.Json.JsonElement, string>? _message;
+    private Func<System.Text.Json.JsonElement, bool>? _when;
     private NhAssistantTriggerConflict _conflict = NhAssistantTriggerConflict.Coalesce;
     private TimeSpan _debounce = TimeSpan.FromMinutes(2);
     private string? _approvalPolicyId;
@@ -657,6 +664,17 @@ public sealed class NhAssistantWebhookBuilder
 
     internal NhAssistantWebhookBuilder()
     {
+    }
+
+    /// <summary>
+    /// Whether a verified call concerns the agent. It is evaluated before <see cref="Subject"/> and
+    /// <see cref="Message"/>; a call it refuses is answered with outcome <c>ignored</c> and reason
+    /// <c>filtered</c>, starts nothing and is not audited. Treat the body as untrusted.
+    /// </summary>
+    public NhAssistantWebhookBuilder When(Func<System.Text.Json.JsonElement, bool> filter)
+    {
+        _when = filter ?? throw new ArgumentNullException(nameof(filter));
+        return this;
     }
 
     public NhAssistantWebhookBuilder StartAgent(string agentId)
@@ -733,11 +751,13 @@ public sealed class NhAssistantWebhookBuilder
 
         var subject = _subject;
         var message = _message;
+        var when = _when;
         return new NhAssistantTriggerDefinition
         {
             Id = id,
             Source = NhAssistantTriggerSource.Webhook,
             AgentId = _agentId,
+            When = when is null ? null : evt => when(((NhAssistantWebhookDelivery)evt).Body),
             Subject = evt => subject(((NhAssistantWebhookDelivery)evt).Body)
                 ?? throw new InvalidOperationException("The webhook call names no subject."),
             Message = evt => message(((NhAssistantWebhookDelivery)evt).Body),
@@ -763,6 +783,7 @@ public sealed class NhAssistantTriggerBuilder<TEvent>
     private Func<TEvent, string?> _initiator = _ => null;
     private Func<TEvent, string>? _message;
     private Func<TEvent, string?> _dedupe = _ => null;
+    private Func<TEvent, bool>? _when;
     private NhAssistantTriggerConflict _conflict = NhAssistantTriggerConflict.Coalesce;
     private TimeSpan _debounce = TimeSpan.FromMinutes(2);
     private string? _approvalPolicyId;
@@ -771,6 +792,18 @@ public sealed class NhAssistantTriggerBuilder<TEvent>
 
     internal NhAssistantTriggerBuilder()
     {
+    }
+
+    /// <summary>
+    /// Whether the event concerns the agent at all. It is evaluated before every other lambda of
+    /// the trigger, and only while the agent is active or paused; an event it refuses starts
+    /// nothing, is not audited and gets a receipt with outcome <c>ignored</c> and reason
+    /// <c>filtered</c>. Keep it cheap and free of I/O: it runs for every published event.
+    /// </summary>
+    public NhAssistantTriggerBuilder<TEvent> When(Func<TEvent, bool> filter)
+    {
+        _when = filter ?? throw new ArgumentNullException(nameof(filter));
+        return this;
     }
 
     public NhAssistantTriggerBuilder<TEvent> StartAgent(string agentId)
@@ -870,11 +903,13 @@ public sealed class NhAssistantTriggerBuilder<TEvent>
         var message = _message;
         var dedupe = _dedupe;
         var payload = _payload;
+        var when = _when;
         return new NhAssistantTriggerDefinition
         {
             Id = id,
             EventType = typeof(TEvent),
             AgentId = _agentId,
+            When = when is null ? null : evt => when((TEvent)evt),
             Subject = evt => subject((TEvent)evt),
             Initiator = evt => initiator((TEvent)evt),
             Message = evt => message((TEvent)evt),

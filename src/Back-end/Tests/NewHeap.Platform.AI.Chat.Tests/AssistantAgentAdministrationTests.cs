@@ -97,15 +97,21 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
             ["projects.search"],
             [],
             null,
-            NhAiAutonomyLevel.Observe,
-            true);
+            NhAiAutonomyLevel.Observe);
 
         var created = await administration.CreateAsync(input, "admin-1", CancellationToken.None);
         var duplicate = await administration.CreateAsync(input, "admin-1", CancellationToken.None);
         var invalid = await administration.CreateAsync(input with { Id = "other", ToolSelectors = ["*"] }, "admin-1", CancellationToken.None);
         var unknownServer = await administration.CreateAsync(input with { Id = "other", McpServerIds = ["missing"] }, "admin-1", CancellationToken.None);
-        var disabled = await administration.UpdateAsync(input with { IsEnabled = false }, 1, "admin-1", CancellationToken.None);
+        var edited = await administration.UpdateAsync(
+            input with { Instructions = "Explain budgets in one sentence." },
+            1,
+            "admin-1",
+            CancellationToken.None);
+        var store = scope.ServiceProvider.GetRequiredService<NhAssistantAdminStore>();
+        await store.SetAgentStateAsync("budget-helper", NhAssistantAgentRunStates.Stopped, "admin-1", "Wrong answers", CancellationToken.None);
         var visible = await catalog.ListAsync(includeDisabled: false, CancellationToken.None);
+        var stopped = await catalog.FindAsync("budget-helper", includeDisabled: true, CancellationToken.None);
         var deleted = await administration.DeleteAsync("budget-helper", "admin-1", CancellationToken.None);
 
         Assert.True(created.Success);
@@ -115,9 +121,14 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
         Assert.Equal(NhAssistantAdminErrorCodes.AgentExists, Code(duplicate));
         Assert.Equal(NhAssistantAdminErrorCodes.ValidationFailed, Code(invalid));
         Assert.Equal(NhAssistantAdminErrorCodes.McpServerNotFound, Code(unknownServer));
-        Assert.True(disabled.Success);
-        Assert.Equal(2, disabled.Data!.Definition.Version);
+        Assert.True(edited.Success);
+        Assert.Equal(2, edited.Data!.Definition.Version);
+        Assert.Equal(NhAssistantAgentRunStates.Active, edited.Data.RunState);
+        // A state change hides a stopped agent without a new version of its definition.
         Assert.DoesNotContain(visible, agent => agent.Id == "budget-helper");
+        Assert.Equal(NhAssistantAgentRunStates.Stopped, stopped!.RunState);
+        Assert.Equal("Wrong answers", stopped.StateReason);
+        Assert.Equal(2, stopped.Definition.Version);
         Assert.True(deleted.Success);
         Assert.Null(await catalog.FindAsync("budget-helper", includeDisabled: true, CancellationToken.None));
         var events = services.GetRequiredService<CapturedBusinessAuditSink>().Events;
@@ -146,8 +157,7 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
             selectors,
             [],
             null,
-            NhAiAutonomyLevel.Observe,
-            true);
+            NhAiAutonomyLevel.Observe);
 
         var created = await administration.CreateAsync(input, "admin-1", CancellationToken.None);
         var aboveLimit = await administration.CreateAsync(
@@ -176,8 +186,7 @@ public sealed class AssistantAgentAdministrationTests(AssistantDatabaseFixture d
             agent.Definition.ToolSelectors,
             [],
             agent.Definition.RequiredPolicy,
-            agent.Definition.Autonomy,
-            true);
+            agent.Definition.Autonomy);
     }
 
     private static string? Code(NewHeap.Platform.Common.Models.TaskResult result)

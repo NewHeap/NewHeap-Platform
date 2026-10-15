@@ -360,8 +360,8 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         // The kill switch stops rule runs as it stops model runs.
         await using (var scope = host.Services.CreateAsyncScope())
         {
-            Assert.True((await scope.ServiceProvider.GetRequiredService<NhAssistantKillSwitch>()
-                .SetAsync(AgentId, true, "admin-1", CancellationToken.None)).Success);
+            Assert.True((await scope.ServiceProvider.GetRequiredService<INhAssistantAgentControl>()
+                .StopAsync(AgentId, "admin-1")).Success);
         }
         script.Contexts.Clear();
         var stopped = await RunTurnAsync(host, await StartRunAsync(host, projectId, agentEnabled: false), "Round 2.");

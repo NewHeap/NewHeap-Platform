@@ -118,12 +118,14 @@ internal sealed class NhAssistantAgentEvents(
 
     private readonly IReadOnlyList<INhAssistantBusinessAuditSink> _businessSinks = businessSinks.ToArray();
 
+    /// <param name="subject">The trigger's subject; <see langword="null"/> when the trigger was
+    /// refused before its subject was read.</param>
     public Task TriggerAsync(
         string agentId,
         Guid? conversationId,
         string triggerId,
         Guid? runId,
-        NhAiSubjectRef subject,
+        NhAiSubjectRef? subject,
         string? initiatorActorId,
         string outcome,
         bool accepted,
@@ -142,8 +144,8 @@ internal sealed class NhAssistantAgentEvents(
                 ResultCode = outcome,
                 RunId = runId,
                 TriggerId = triggerId,
-                SubjectType = subject.Type,
-                SubjectId = subject.Id,
+                SubjectType = subject?.Type,
+                SubjectId = subject?.Id,
                 InitiatorActorId = initiatorActorId
             },
             cancellationToken);
@@ -363,19 +365,31 @@ internal sealed class NhAssistantAgentEvents(
             cancellationToken);
     }
 
-    public Task KillSwitchAsync(string agentId, string actorId, bool engaged, int cancelledRuns, CancellationToken cancellationToken)
+    /// <summary>
+    /// Records a pause, stop or resume of an agent. The reason stays out of the business audit
+    /// sinks, like other free text; the agent's state keeps it.
+    /// </summary>
+    /// <param name="runState">The new state: active, paused or stopped.</param>
+    /// <param name="count">The runs a stop cancelled or a resume started.</param>
+    public Task AgentStateChangedAsync(
+        string agentId,
+        string actorId,
+        string runState,
+        int count,
+        CancellationToken cancellationToken)
     {
+        var number = count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var (kind, resultCode) = runState switch
+        {
+            NhAssistantAgentRunStates.Stopped => (NhAssistantAuditEventKind.AdminAgentRunsStopped, "cancelled-" + number),
+            NhAssistantAgentRunStates.Paused => (NhAssistantAuditEventKind.AdminAgentPaused, "paused"),
+            _ => (NhAssistantAuditEventKind.AdminAgentRunsResumed, "resumed-" + number)
+        };
         return RecordAsync(
-            new NhAssistantAuditEvent(
-                engaged ? NhAssistantAuditEventKind.AdminAgentRunsStopped : NhAssistantAuditEventKind.AdminAgentRunsResumed,
-                Guid.Empty,
-                Guid.Empty,
-                actorId,
-                agentId,
-                0,
-                DateTimeOffset.UtcNow)
+            new NhAssistantAuditEvent(kind, Guid.Empty, Guid.Empty, actorId, agentId, 0, DateTimeOffset.UtcNow)
             {
-                ResultCode = engaged ? "cancelled-" + cancelledRuns.ToString(System.Globalization.CultureInfo.InvariantCulture) : "enabled"
+                ObjectId = agentId,
+                ResultCode = resultCode
             },
             cancellationToken);
     }

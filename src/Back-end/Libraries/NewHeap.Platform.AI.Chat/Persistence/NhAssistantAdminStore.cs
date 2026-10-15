@@ -169,6 +169,55 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
         return NhAssistantStoreResult<AssistantAgent>.Ok(agent);
     }
 
+    /// <summary>
+    /// The stored run state of an agent, or <see langword="null"/> when it does not exist.
+    /// </summary>
+    public async Task<string?> FindAgentRunStateAsync(string id, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.Agents
+            .AsNoTracking()
+            .Where(agent => agent.Id == id)
+            .Select(agent => agent.IsEnabled ? agent.RunState : NhAssistantAgentRunStates.Stopped)
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Sets the run state of an agent without changing its definition or version. Returns the state
+    /// it had before, or <see langword="null"/> when the agent does not exist.
+    /// </summary>
+    public async Task<string?> SetAgentStateAsync(
+        string id,
+        string runState,
+        string actorId,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var previous = await context.Agents
+            .AsNoTracking()
+            .Where(agent => agent.Id == id)
+            .Select(agent => agent.IsEnabled ? agent.RunState : NhAssistantAgentRunStates.Stopped)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (previous is null)
+        {
+            return null;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        await context.Agents
+            .Where(agent => agent.Id == id)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(agent => agent.RunState, runState)
+                    .SetProperty(agent => agent.IsEnabled, runState != NhAssistantAgentRunStates.Stopped)
+                    .SetProperty(agent => agent.StateChangedAt, now)
+                    .SetProperty(agent => agent.StateChangedBy, actorId)
+                    .SetProperty(agent => agent.StateReason, reason),
+                cancellationToken);
+        return previous;
+    }
+
     public async Task<NhAssistantStoreOutcome> DeleteAdminAgentAsync(string id, CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();

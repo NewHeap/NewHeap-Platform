@@ -79,3 +79,12 @@ public sealed class ProjectAiPortfolioReportApprovalMutateModel
     [Required, StringLength(100), RegularExpression("^[a-z0-9]+(?:-[a-z0-9]+)*$")]
     public string DecisionCode { get; set; } = "";
 }
+
+/// <summary>
+/// SPM-284: why an operator pauses, stops or resumes an agent.
+/// </summary>
+public sealed class AgentStateChangeMutateModel
+{
+    [MaxLength(500)]
+    public string? Reason { get; set; }
+}

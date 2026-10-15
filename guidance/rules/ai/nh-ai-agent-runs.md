@@ -3,9 +3,9 @@ id: nh-ai-agent-runs
 title: "Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs"
 area: backend
 reference: ai-agent-runs
-summary: "Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model and never pile up the same proposal."
-sample-cases: ["SPM-268", "SPM-269", "SPM-270", "SPM-271", "SPM-272", "SPM-273", "SPM-274", "SPM-275", "SPM-276", "SPM-277", "SPM-278", "SPM-279", "SPM-280", "SPM-282", "SPM-283"]
-public-symbols: ["ConfigureAgent", "NhAssistantAgentRunBuilder", "NhAssistantAgentRunOptions", "NhAssistantAgentBudget", "AddApprovalPolicy", "NhAiApprovalPolicyBuilder", "NhAiApprovalPolicy", "NhAiApprovalMode", "NhAiApprovalExpiryAction", "NhAiApprovalBinding", "NhAiApprovers", "NhAiApproverRule", "AddSubjectType", "INhAiSubjectAccessResolver", "INhAiSubjectAccess", "NhAiSubjectRef", "NhAiSubjectInfo", "NhAiSubjectAccess", "NhAiSubjectMember", "NhAiSubjectRole", "AddTrigger", "NhAssistantTriggerBuilder", "NhAssistantTriggerConflict", "NhAssistantTriggerIds", "INhAssistantAgentTriggers", "NhAssistantTriggerReceipt", "NhAssistantTriggerOutcomes", "NhAssistantTriggerReasons", "AddAssistantAgentRuns", "NhAiAgentAccountability", "NhAiGrantSource", "NhAiAgentGrant", "NhAiElevatedReads", "NhAiAgentInvocationScope", "NhAiAgentInvocationScopes", "NhAiAgentFailureCodes", "INhAiAgentToolAuthorizer", "INhAiProposalPrecondition", "NhAiProposalPreconditionContext", "NhAiPreconditionResult", "INhAiPrincipalFactory", "NhAiSubjectAuthorizationResource", "NhAssistantRunStatuses", "NhAssistantApprovalModes", "AddScheduledTrigger", "NhAssistantScheduleBuilder", "NhAssistantScheduledTick", "AddWebhookTrigger", "NhAssistantWebhookBuilder", "NhAssistantWebhookDelivery", "NhAssistantKillSwitchDto", "NhAssistantKillSwitchRequest", "INhAssistantAgentNotificationPolicy", "INhAssistantAgentNotificationChannel", "NhAssistantAgentNotificationContext", "NhAssistantAgentNotificationKind", "NhAssistantDefaultAgentNotificationPolicy", "UseAgentNotificationPolicy", "AddAgentNotificationChannel", "INhAssistantAgentMemoryMigrator", "UseAgentMemoryMigrator", "MaxRunSummaries", "MaxArtifactBytes", "INhAiArtifacts", "NhAiArtifact", "NhAiArtifactInfo", "INhAiSubjectRetention", "ForgetSubjectAsync", "NhAssistantThreadMemoryDto", "NhAssistantArtifactDto", "NhAssistantProposalDto", "INhAssistantToolPresenter", "NhAssistantConversationThreadDto", "NhAssistantThreadDecisionDto", "NhAssistantConversationKinds", "NhAssistantMessageAuthorKinds", "AllowConsultation", "NhAssistantConsultationBuilder", "NhAssistantConsultationOptions", "NhAssistantConsultationTools", "NhAssistantConsultationAnswer", "NhAssistantAgentRequestReceipt", "NhAssistantConsultationStatuses", "NhAssistantConsultationDto", "NhAssistantConsultationListDto", "MaxConsultationDepth", "MaxConsultationsPerActorPerDay", "RequireApprovalForEffects", "NhAssistantProposalFeedbackCategories", "NhAssistantProposalFeedbackGroups", "NhAssistantFeedbackTargetKinds", "INhAssistantProposalFeedbackSink", "NhAssistantProposalFeedback", "AddProposalFeedbackSink", "MaxRejectionsInContext", "RejectionContextWindow", "MaxFeedbackCharacters", "NhAssistantProposalFeedbackRequest", "NhAssistantBulkProposalFeedbackRequest", "NhAssistantProposalFeedbackDto", "NhAssistantBulkProposalFeedbackDto", "NhAssistantFeedbackOutcomeDto", "NhAssistantFeedbackSummaryDto", "NhAssistantFeedbackSummaryRowDto", "NhAssistantFeedbackCategoryCountDto", "NhAssistantFeedbackListDto", "NhAssistantFeedbackItemDto", "NhAssistantFeedbackExportRecord", "NhAssistantLiveAgentWorkDto", "NhAssistantToolCallStatuses", "INhAssistantSubjectWork", "NhAssistantSubjectWorkExtensions", "NhAssistantSubjectWorkDto", "NhAssistantSubjectAgentDto", "NhAssistantSubjectProposalDto", "NhAssistantSubjectSummaryRequest", "NhAssistantSubjectSummaryDto", "NhAssistantSubjectSummaryListDto", "NhAssistantOpenThreadRequest", "INhAiProposalGuard", "NhAiProposalGuardContext", "NhAiProposalKey", "NhAiProposalGuardStages", "NhAiStaleKind", "AddProposalGuard", "AddProposalRevalidation", "NhAssistantRevalidationBuilder", "INhAssistantProposalRevalidation", "NhAssistantRevalidationResult", "NhAssistantInvalidatedProposal", "NhAssistantStaleKinds", "NhAssistantInvalidationStages", "NhAssistantRevalidateProposalsRequest", "NhAssistantInvalidationCountDto", "INhAssistantAgentRuleHandler", "NhAssistantRuleContext", "NhAssistantRuleResult", "NhAssistantRuleInput", "NhAssistantRuleProposal", "NhAssistantRuleDecision", "NhAssistantProposeOutcome", "UseRuleHandler", "UseModel", "NhAssistantRunKinds", "NhAssistantRunDto", "NhAiDuplicateProposals", "RejectionCooldown", "MaxRejectionCooldown", "MaxInputPayloadCharacters", "NhAssistantProposalObjectDto", "NhAssistantProposalLookupRequest", "NhAssistantProposalLookupDto"]
+summary: "Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, and pause, stop and resume agents from code and the administration."
+sample-cases: ["SPM-268", "SPM-269", "SPM-270", "SPM-271", "SPM-272", "SPM-273", "SPM-274", "SPM-275", "SPM-276", "SPM-277", "SPM-278", "SPM-279", "SPM-280", "SPM-282", "SPM-283", "SPM-284"]
+public-symbols: ["ConfigureAgent", "NhAssistantAgentRunBuilder", "NhAssistantAgentRunOptions", "NhAssistantAgentBudget", "AddApprovalPolicy", "NhAiApprovalPolicyBuilder", "NhAiApprovalPolicy", "NhAiApprovalMode", "NhAiApprovalExpiryAction", "NhAiApprovalBinding", "NhAiApprovers", "NhAiApproverRule", "AddSubjectType", "INhAiSubjectAccessResolver", "INhAiSubjectAccess", "NhAiSubjectRef", "NhAiSubjectInfo", "NhAiSubjectAccess", "NhAiSubjectMember", "NhAiSubjectRole", "AddTrigger", "NhAssistantTriggerBuilder", "NhAssistantTriggerConflict", "NhAssistantTriggerIds", "INhAssistantAgentTriggers", "NhAssistantTriggerReceipt", "NhAssistantTriggerOutcomes", "NhAssistantTriggerReasons", "AddAssistantAgentRuns", "NhAiAgentAccountability", "NhAiGrantSource", "NhAiAgentGrant", "NhAiElevatedReads", "NhAiAgentInvocationScope", "NhAiAgentInvocationScopes", "NhAiAgentFailureCodes", "INhAiAgentToolAuthorizer", "INhAiProposalPrecondition", "NhAiProposalPreconditionContext", "NhAiPreconditionResult", "INhAiPrincipalFactory", "NhAiSubjectAuthorizationResource", "NhAssistantRunStatuses", "NhAssistantApprovalModes", "AddScheduledTrigger", "NhAssistantScheduleBuilder", "NhAssistantScheduledTick", "AddWebhookTrigger", "NhAssistantWebhookBuilder", "NhAssistantWebhookDelivery", "NhAssistantKillSwitchDto", "NhAssistantKillSwitchRequest", "INhAssistantAgentNotificationPolicy", "INhAssistantAgentNotificationChannel", "NhAssistantAgentNotificationContext", "NhAssistantAgentNotificationKind", "NhAssistantDefaultAgentNotificationPolicy", "UseAgentNotificationPolicy", "AddAgentNotificationChannel", "INhAssistantAgentMemoryMigrator", "UseAgentMemoryMigrator", "MaxRunSummaries", "MaxArtifactBytes", "INhAiArtifacts", "NhAiArtifact", "NhAiArtifactInfo", "INhAiSubjectRetention", "ForgetSubjectAsync", "NhAssistantThreadMemoryDto", "NhAssistantArtifactDto", "NhAssistantProposalDto", "INhAssistantToolPresenter", "NhAssistantConversationThreadDto", "NhAssistantThreadDecisionDto", "NhAssistantConversationKinds", "NhAssistantMessageAuthorKinds", "AllowConsultation", "NhAssistantConsultationBuilder", "NhAssistantConsultationOptions", "NhAssistantConsultationTools", "NhAssistantConsultationAnswer", "NhAssistantAgentRequestReceipt", "NhAssistantConsultationStatuses", "NhAssistantConsultationDto", "NhAssistantConsultationListDto", "MaxConsultationDepth", "MaxConsultationsPerActorPerDay", "RequireApprovalForEffects", "NhAssistantProposalFeedbackCategories", "NhAssistantProposalFeedbackGroups", "NhAssistantFeedbackTargetKinds", "INhAssistantProposalFeedbackSink", "NhAssistantProposalFeedback", "AddProposalFeedbackSink", "MaxRejectionsInContext", "RejectionContextWindow", "MaxFeedbackCharacters", "NhAssistantProposalFeedbackRequest", "NhAssistantBulkProposalFeedbackRequest", "NhAssistantProposalFeedbackDto", "NhAssistantBulkProposalFeedbackDto", "NhAssistantFeedbackOutcomeDto", "NhAssistantFeedbackSummaryDto", "NhAssistantFeedbackSummaryRowDto", "NhAssistantFeedbackCategoryCountDto", "NhAssistantFeedbackListDto", "NhAssistantFeedbackItemDto", "NhAssistantFeedbackExportRecord", "NhAssistantLiveAgentWorkDto", "NhAssistantToolCallStatuses", "INhAssistantSubjectWork", "NhAssistantSubjectWorkExtensions", "NhAssistantSubjectWorkDto", "NhAssistantSubjectAgentDto", "NhAssistantSubjectProposalDto", "NhAssistantSubjectSummaryRequest", "NhAssistantSubjectSummaryDto", "NhAssistantSubjectSummaryListDto", "NhAssistantOpenThreadRequest", "INhAiProposalGuard", "NhAiProposalGuardContext", "NhAiProposalKey", "NhAiProposalGuardStages", "NhAiStaleKind", "AddProposalGuard", "AddProposalRevalidation", "NhAssistantRevalidationBuilder", "INhAssistantProposalRevalidation", "NhAssistantRevalidationResult", "NhAssistantInvalidatedProposal", "NhAssistantStaleKinds", "NhAssistantInvalidationStages", "NhAssistantRevalidateProposalsRequest", "NhAssistantInvalidationCountDto", "INhAssistantAgentRuleHandler", "NhAssistantRuleContext", "NhAssistantRuleResult", "NhAssistantRuleInput", "NhAssistantRuleProposal", "NhAssistantRuleDecision", "NhAssistantProposeOutcome", "UseRuleHandler", "UseModel", "NhAssistantRunKinds", "NhAssistantRunDto", "NhAiDuplicateProposals", "RejectionCooldown", "MaxRejectionCooldown", "MaxInputPayloadCharacters", "NhAssistantProposalObjectDto", "NhAssistantProposalLookupRequest", "NhAssistantProposalLookupDto", "INhAssistantAgentControl", "NhAssistantAgentState", "NhAssistantAgentStateRequest", "NhAssistantAgentRunStates", "MaxStateReasonCharacters"]
 skills: ["newheap-backend-development", "newheap-background-processing"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -127,14 +127,33 @@ are refused, and a delivery id starts at most one run. Treat the body as untrust
 take only identifiers and known values from it. A follow-up run after a decided or
 executed proposal is opt-in per approval policy (`StartFollowUpRun`).
 
-Stop an agent with the kill switch, `POST admin/agents/{id}/kill-switch`: it disables
-the agent, cancels its active runs and holds its approved proposals until it is
-released. People outside the thread hear about waiting proposals, due reminders,
+Filter events that do not concern the agent with `When` on `AddTrigger` and
+`AddWebhookTrigger`: it runs before every other lambda of the trigger, and a refused event
+starts nothing, is not audited and reads `ignored` with reason `filtered`. Keep it cheap and
+free of I/O.
+
+Control an agent with `INhAssistantAgentControl` from the application's own code, with
+`POST admin/agents/{id}/state` or from the administration, each with an optional reason of
+at most 500 characters. **Pause** an agent around an import or a migration: no new runs
+start, events, webhooks, manual starts and requests wait per thread (outcome `waiting`,
+deduplicated by their dedupe key), schedules skip their ticks, running runs finish, approved
+proposals execute and people keep chatting. **Resume** starts one run per thread with
+waiting events, which sees them all. **Stop** an agent that works wrongly: its active runs
+are cancelled and their pending proposals withdrawn, waiting events end, triggers and chat
+are refused with `assistant-agent-stopped`, and approved proposals wait until it leaves the
+stopped state. The kill switch, `POST admin/agents/{id}/kill-switch`, is stop and resume
+without a reason. A state change never changes the agent's definition or version; editing
+and resetting never change the state, and `isEnabled` in the definition is ignored. An
+agent disabled in code with `Enabled(false)` reads `configured-off` and cannot be resumed;
+with `NewHeap:AI:Assistant:Enabled` off, triggers, schedules, runs and execution queuing
+stop as well. A stopped or code-disabled agent's triggers evaluate no lambda.
+
+People outside the thread hear about waiting proposals, due reminders,
 escalations, unknown outcomes and failed runs through Web Push and every
 `INhAssistantAgentNotificationChannel`; `INhAssistantAgentNotificationPolicy` picks the
 recipients from the subject's member snapshot, by default its approvers. Triggers,
-ended runs, executions, resolutions and kill-switch use are content-free business audit
-events.
+ended runs, executions, resolutions, pauses, stops and resumes are content-free business
+audit events; the reason of a state change stays with the state.
 
 Give an agent continuity with `Memory<TMemory>(schemaVersion)`: the model reads and
 changes a working memory per thread through the internal `memory_get` and
@@ -281,6 +300,10 @@ profile and instructions that answer questions about the rules' proposals from t
 
 ## Avoid
 
+- Stopping an agent by editing its definition or sending `isEnabled`; pause or stop it with
+  `INhAssistantAgentControl` or `POST admin/agents/{id}/state`.
+- Stopping an agent for an import or a migration that should lose no events; pause it.
+
 - Granting a tool to an agent without `AllowAgentGrant` on the tool, or adding
   `AllowAgentGrant` to tools that do not need it.
 - Running an agent under a person's identity so that its actions look like that
@@ -400,5 +423,13 @@ providers. Read a proposal by
 id in every status and assert its fields and the live decision right of an approver, the initiator
 under four eyes and a reader; assert 404 without a role, for another tenant and for a hidden agent,
 that a lookup returns only visible proposals in request order and refuses more than 100 ids, and
-that reading does not join the thread, on both providers. SPM-268 to SPM-280, SPM-282 and SPM-283
-are the executable references.
+that reading does not join the thread, on both providers. Pause an agent and assert that
+events wait once per dedupe key, start no run and skip schedule ticks, that a run queued before
+the pause ends without claiming its inputs, and that resuming starts one run per thread; stop it
+and assert cancelled runs, withdrawn proposals, dropped waiting events, refused triggers and held
+executions that the resume queues, consultations included, behind more than a batch of queued
+executions; assert that the version is unchanged, that editing and reset keep the state, that a
+code-disabled agent reads `configured-off` and refuses to resume, that a stopped agent and a `When`
+filter evaluate no further lambda and that the global switch stops triggers, schedules, runs and
+execution queuing, on both providers. SPM-268 to SPM-280 and SPM-282 to SPM-284 are the executable
+references.

@@ -8,12 +8,14 @@ import {
   AgentFeedbackList,
   AgentFeedbackListFilter,
   AgentFeedbackSummary,
+  AgentState,
   ApplicationContext,
   ApplicationContextVersion,
   McpServer,
   McpServerInput,
   McpServerTestResult,
   McpTool,
+  SetAgentStateRequest,
   ToolCatalogEntry,
   UpdateAdminAgentRequest,
   UpdateApplicationContextRequest,
@@ -73,12 +75,24 @@ export class NhAssistantAdminApiService {
     return this.request<AdminAgent>('PUT', `admin/agents/${encodeURIComponent(agentId)}`, request);
   }
 
-  /** Restores a code agent to its definition in code. */
+  /** Restores a code agent to its definition in code. The run state stays as it is. */
   resetAgent(agentId: string): Observable<AdminAgent> {
     return this.request<AdminAgent>('POST', `admin/agents/${encodeURIComponent(agentId)}/reset`);
   }
 
-  /** Deletes an admin agent. Code agents cannot be deleted; disable them instead. */
+  getAgentState(agentId: string): Observable<AgentState> {
+    return this.request<AgentState>('GET', `admin/agents/${encodeURIComponent(agentId)}/state`);
+  }
+
+  /**
+   * Pauses, stops or resumes an agent without changing its definition. A code-disabled agent
+   * cannot be resumed (`assistant-agent-configured-off`).
+   */
+  setAgentState(agentId: string, request: SetAgentStateRequest): Observable<AgentState> {
+    return this.request<AgentState>('POST', `admin/agents/${encodeURIComponent(agentId)}/state`, request);
+  }
+
+  /** Deletes an admin agent. Code agents cannot be deleted; stop them instead. */
   deleteAgent(agentId: string): Observable<void> {
     return this.request<void>('DELETE', `admin/agents/${encodeURIComponent(agentId)}`);
   }

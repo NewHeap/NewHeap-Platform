@@ -279,7 +279,8 @@
     "SPM-280",
     "SPM-281",
     "SPM-282",
-    "SPM-283"
+    "SPM-283",
+    "SPM-284"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2051,7 +2052,7 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantWebhookEndpoints.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSchedules.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantKillSwitch.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunCancellation.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentTriggerTests.cs"
@@ -2232,6 +2233,24 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/thread/nh-assistant-thread.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/components.spec.ts"
+    ],
+    "SPM-284": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/OperationsSampleModels.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentControlTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts"
     ]
   }
 }

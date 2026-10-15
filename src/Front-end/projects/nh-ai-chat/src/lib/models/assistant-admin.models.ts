@@ -63,18 +63,60 @@ export interface AdminAgentInput {
   mcpServerIds: string[];
   requiredPolicy: string | null;
   autonomy: AssistantAutonomy;
-  isEnabled: boolean;
+  /**
+   * @deprecated Accepted and ignored by the server until the next major version: pause, stop and
+   * resume an agent with `setAgentState`. A new agent starts active.
+   */
+  isEnabled?: boolean;
 }
 
 /** Body of `PUT admin/agents/{id}`. */
 export type UpdateAdminAgentRequest = AdminAgentInput & { expectedVersion: number };
 
+/**
+ * The run state of an agent. `paused`: no new runs; events wait and run after the resume.
+ * `stopped`: active runs were cancelled and events are refused. `configured-off`: disabled in the
+ * application's code until the next deployment; it cannot be resumed here.
+ */
+export type AgentRunState = 'active' | 'paused' | 'stopped' | 'configured-off';
+
 export interface AdminAgent extends AdminAgentInput {
+  /** `false` while the agent is stopped; read `runState` for the full state. */
+  isEnabled: boolean;
   version: number;
   source: 'code' | 'admin';
   isOverridden: boolean;
   instructionsHash: string;
   updatedAt: string;
+  runState: AgentRunState;
+  stateChangedAt: string | null;
+  stateChangedBy: string | null;
+  stateReason: string | null;
+  /** Events that wait while the agent is paused. */
+  waitingInputs: number;
+}
+
+/** Response of `GET` and `POST admin/agents/{id}/state`. */
+export interface AgentState {
+  agentId: string;
+  runState: AgentRunState;
+  /** Whether the agent works now: active, enabled in code and the assistant enabled. */
+  active: boolean;
+  changedAt: string | null;
+  changedBy: string | null;
+  reason: string | null;
+  waitingInputs: number;
+  /** The runs this change cancelled by stopping the agent. */
+  cancelledRuns: number;
+  /** The runs this change started for waiting events by resuming the agent. */
+  startedRuns: number;
+}
+
+/** Body of `POST admin/agents/{id}/state`. `active` resumes the agent. */
+export interface SetAgentStateRequest {
+  state: 'active' | 'paused' | 'stopped';
+  /** Optional, at most 500 characters. */
+  reason?: string | null;
 }
 
 export type McpAuthMode = 'none' | 'bearer' | 'api-key' | 'forward-user-token';

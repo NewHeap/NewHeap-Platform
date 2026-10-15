@@ -495,6 +495,8 @@ public sealed record NhAssistantToolCatalogEntryDto(
 
 /// <summary>
 /// Agent input. <see cref="ExpectedVersion"/> is required on update and ignored on create.
+/// <see cref="IsEnabled"/> is accepted and ignored until the next major version: the run state
+/// changes with <c>POST admin/agents/{id}/state</c>, and a new agent starts active.
 /// </summary>
 public sealed record NhAssistantAdminAgentInputDto(
     string? Id,
@@ -508,6 +510,9 @@ public sealed record NhAssistantAdminAgentInputDto(
     bool? IsEnabled,
     int? ExpectedVersion = null);
 
+/// <param name="IsEnabled"><see langword="false"/> while the agent is stopped; see <paramref name="RunState"/>.</param>
+/// <param name="RunState"><c>active</c>, <c>paused</c>, <c>stopped</c> or <c>configured-off</c>.</param>
+/// <param name="WaitingInputs">The inputs that wait while the agent is paused.</param>
 public sealed record NhAssistantAdminAgentDto(
     string Id,
     string DisplayName,
@@ -522,7 +527,12 @@ public sealed record NhAssistantAdminAgentDto(
     string Source,
     bool IsOverridden,
     string InstructionsHash,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string RunState = NhAssistantAgentRunStates.Active,
+    DateTimeOffset? StateChangedAt = null,
+    string? StateChangedBy = null,
+    string? StateReason = null,
+    int WaitingInputs = 0);
 
 /// <summary>
 /// MCP server input. <see cref="Secret"/>: omitted or null keeps the stored secret, an empty

@@ -71,7 +71,6 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly instructions = signal('');
   readonly autonomy = signal<AssistantAutonomy>('explain');
   readonly requiredPolicy = signal('');
-  readonly isEnabled = signal(true);
   readonly toolSelectors = signal<string[]>([]);
   readonly mcpServerIds = signal<string[]>([]);
   readonly newSelector = signal('');
@@ -166,8 +165,7 @@ export class NhAssistantAdminAgentEditorComponent {
       toolSelectors: this.toolSelectors(),
       mcpServerIds: this.mcpServerIds(),
       requiredPolicy: policy.length > 0 ? policy : null,
-      autonomy: this.autonomy(),
-      isEnabled: this.isEnabled()
+      autonomy: this.autonomy()
     };
 
     const existing = this.agent();
@@ -197,7 +195,6 @@ export class NhAssistantAdminAgentEditorComponent {
     this.instructions.set(agent?.instructions ?? '');
     this.autonomy.set(agent?.autonomy ?? 'explain');
     this.requiredPolicy.set(agent?.requiredPolicy ?? '');
-    this.isEnabled.set(agent?.isEnabled ?? true);
     this.toolSelectors.set([...(agent?.toolSelectors ?? [])]);
     this.mcpServerIds.set([...(agent?.mcpServerIds ?? [])]);
     this.submitted.set(false);

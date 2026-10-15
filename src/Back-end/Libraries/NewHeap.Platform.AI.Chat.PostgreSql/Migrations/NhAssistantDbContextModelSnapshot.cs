@@ -80,10 +80,28 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("RunState")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("active");
+
                     b.Property<string>("Source")
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset?>("StateChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("StateChangedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("StateReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("ToolSelectorsJson")
                         .IsRequired()
@@ -1054,6 +1072,14 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EventKey")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("InitiatorActorId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("Kind")
                         .IsRequired()

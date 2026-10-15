@@ -135,8 +135,7 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         toolSelectors: ['sample-api.project.*', 'projects.*'],
         mcpServerIds: [],
         requiredPolicy: 'app.project.view',
-        autonomy: 'execute',
-        isEnabled: true
+        autonomy: 'execute'
       },
       {
         source: 'code',
@@ -147,8 +146,7 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         toolSelectors: [],
         mcpServerIds: [],
         requiredPolicy: null,
-        autonomy: 'explain',
-        isEnabled: true
+        autonomy: 'explain'
       }
     ],
     mcpServers: [

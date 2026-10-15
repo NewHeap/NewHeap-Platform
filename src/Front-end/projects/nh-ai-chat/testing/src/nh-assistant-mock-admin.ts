@@ -1,6 +1,7 @@
 import {
   AdminAgent,
   AdminAgentInput,
+  AgentState,
   AgentSummary,
   ApplicationContext,
   ApplicationContextVersion,
@@ -42,6 +43,7 @@ const autonomyLevels: AssistantAutonomy[] = ['observe', 'explain', 'propose', 's
 const authModes = ['none', 'bearer', 'api-key', 'forward-user-token'];
 
 const maxInstructions = 20_000;
+const maxStateReason = 500;
 const maxCustomInstructions = 1_000;
 
 const defaultPreferences: AssistantPreferences = {
@@ -104,11 +106,11 @@ export class NhAssistantMockAdmin {
     }
   }
 
-  /** Chat agents: enabled code agents keep their keys, admin agents carry literal text. */
+  /** Chat agents: code agents keep their keys, admin agents carry literal text; stopped agents are left out. */
   chatAgents(): AgentSummary[] {
     const result: AgentSummary[] = [];
     for (const { agent } of this.agents.values()) {
-      if (!agent.isEnabled) {
+      if (agent.runState === 'stopped' || agent.runState === 'configured-off') {
         continue;
       }
 
@@ -249,8 +251,21 @@ export class NhAssistantMockAdmin {
       if (!stored.codeDefinition) {
         return failure(409, 'assistant-agent-not-code');
       }
-      stored.agent = this.toAgent(stored.codeDefinition, 'code', stored.agent.version + 1, false);
+      stored.agent = this.toAgent(stored.codeDefinition, 'code', stored.agent.version + 1, false, stored.agent);
       return { status: 200, body: stored.agent };
+    }
+    if (length === 4 && action === 'state') {
+      return this.agentStateEndpoint(stored, method, body);
+    }
+    if (length === 4 && action === 'kill-switch' && method === 'POST') {
+      const engaged = (body as { engaged?: unknown } | undefined)?.engaged;
+      if (typeof engaged !== 'boolean') {
+        return validationFailure();
+      }
+      const changed = this.agentStateEndpoint(stored, 'POST', { state: engaged ? 'stopped' : 'active' });
+      return changed.status === 200
+        ? { status: 200, body: { agentId: id, enabled: stored.agent.runState !== 'stopped', cancelledRuns: 0 } }
+        : changed;
     }
     if (length !== 3) {
       return failure(404, 'assistant-not-found');
@@ -267,7 +282,7 @@ export class NhAssistantMockAdmin {
       }
 
       const { expectedVersion, ...definition } = input;
-      stored.agent = this.toAgent(definition, stored.agent.source, stored.agent.version + 1, stored.agent.source === 'code');
+      stored.agent = this.toAgent(definition, stored.agent.source, stored.agent.version + 1, stored.agent.source === 'code', stored.agent);
       return { status: 200, body: stored.agent };
     }
     if (method === 'DELETE') {
@@ -279,6 +294,47 @@ export class NhAssistantMockAdmin {
     }
 
     return { status: 405 };
+  }
+
+  /**
+   * `GET` and `POST admin/agents/{id}/state`. The mock runs no agents on their own, so a pause
+   * collects no waiting events and a stop cancels no runs; the version never changes.
+   */
+  private agentStateEndpoint(stored: StoredAgent, method: string, body: unknown): NhAssistantMockResult {
+    if (method === 'GET') {
+      return { status: 200, body: toAgentState(stored.agent) };
+    }
+    if (method !== 'POST') {
+      return { status: 405 };
+    }
+
+    const request = body as { state?: unknown; reason?: unknown } | undefined;
+    if (request?.state === undefined || request.state === null) {
+      return validationFailure();
+    }
+    if (request.state !== 'active' && request.state !== 'paused' && request.state !== 'stopped') {
+      return validationFailure();
+    }
+    const reason = typeof request.reason === 'string' && request.reason.trim().length > 0 ? request.reason.trim() : null;
+    if (reason !== null && reason.length > maxStateReason) {
+      return validationFailure();
+    }
+    if (stored.agent.runState === 'configured-off') {
+      return request.state === 'active'
+        ? failure(409, 'assistant-agent-configured-off')
+        : { status: 200, body: toAgentState(stored.agent) };
+    }
+    if (stored.agent.runState !== request.state) {
+      stored.agent = {
+        ...stored.agent,
+        isEnabled: request.state !== 'stopped',
+        runState: request.state,
+        stateChangedAt: this.now(),
+        stateChangedBy: 'current-user',
+        stateReason: reason
+      };
+    }
+    return { status: 200, body: toAgentState(stored.agent) };
   }
 
   /**
@@ -503,17 +559,34 @@ export class NhAssistantMockAdmin {
       Array.isArray(input.mcpServerIds) && input.mcpServerIds.every(serverId => this.servers.has(serverId)) &&
       (input.requiredPolicy === null || (typeof input.requiredPolicy === 'string' && (!policies || policies.includes(input.requiredPolicy)))) &&
       autonomyLevels.includes(input.autonomy) &&
-      typeof input.isEnabled === 'boolean';
+      (input.isEnabled === undefined || typeof input.isEnabled === 'boolean');
   }
 
-  private toAgent(input: AdminAgentInput, source: 'code' | 'admin', version: number, isOverridden: boolean): AdminAgent {
+  /**
+   * The stored agent. `isEnabled` in the input is ignored, as by the server: the state comes from
+   * `previous`, and a new agent starts active.
+   */
+  private toAgent(
+    input: AdminAgentInput,
+    source: 'code' | 'admin',
+    version: number,
+    isOverridden: boolean,
+    previous?: AdminAgent
+  ): AdminAgent {
+    const { isEnabled, ...definition } = structuredClone(input);
     return {
-      ...structuredClone(input),
+      ...definition,
+      isEnabled: previous?.isEnabled ?? true,
       version,
       source,
       isOverridden,
       instructionsHash: hashText(input.instructions),
-      updatedAt: this.now()
+      updatedAt: this.now(),
+      runState: previous?.runState ?? 'active',
+      stateChangedAt: previous?.stateChangedAt ?? null,
+      stateChangedBy: previous?.stateChangedBy ?? null,
+      stateReason: previous?.stateReason ?? null,
+      waitingInputs: previous?.waitingInputs ?? 0
     };
   }
 
@@ -537,8 +610,21 @@ function codeAgentFromSummary(agent: AgentSummary): AdminAgentInput {
     toolSelectors: [],
     mcpServerIds: [],
     requiredPolicy: null,
-    autonomy: agent.canMutate ? 'execute' : 'explain',
-    isEnabled: true
+    autonomy: agent.canMutate ? 'execute' : 'explain'
+  };
+}
+
+function toAgentState(agent: AdminAgent): AgentState {
+  return {
+    agentId: agent.id,
+    runState: agent.runState,
+    active: agent.runState === 'active',
+    changedAt: agent.stateChangedAt,
+    changedBy: agent.stateChangedBy,
+    reason: agent.stateReason,
+    waitingInputs: agent.waitingInputs,
+    cancelledRuns: 0,
+    startedRuns: 0
   };
 }
 

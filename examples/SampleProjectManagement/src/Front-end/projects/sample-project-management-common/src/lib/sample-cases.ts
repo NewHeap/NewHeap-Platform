@@ -3983,7 +3983,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantWebhookEndpoints.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSchedules.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantKillSwitch.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunCancellation.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentNotifications.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentTriggerTests.cs"
@@ -4228,6 +4228,32 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/thread/nh-assistant-thread.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/components.spec.ts"
+    ]
+  },
+  {
+    "id": "SPM-284",
+    "title": "An operator pauses an agent around an import and stops it without losing approved work",
+    "category": "AI tools and generated catalogs",
+    "surface": "INhAssistantAgentControl (GetAsync, PauseAsync, StopAsync, ResumeAsync) with NhAssistantAgentState, NhAssistantAgentRunStates and NhAssistantLimits.MaxStateReasonCharacters; GET and POST admin/agents/{id}/state with NhAssistantAgentStateRequest, and POST admin/agents/{id}/kill-switch as stop and resume; runState, stateChangedAt, stateChangedBy, stateReason and waitingInputs on NhAssistantAdminAgentDto, and isEnabled accepted and ignored on the agent input; NhAssistantTriggerOutcomes.Waiting and NhAssistantTriggerReasons.Filtered; When on NhAssistantTriggerBuilder and NhAssistantWebhookBuilder; assistant-agent-stopped, assistant-agent-paused and assistant-agent-configured-off; NhAssistantAuditEventKind.AdminAgentPaused and the result codes of AdminAgentRunsStopped and AdminAgentRunsResumed; the AgentState migrations for SQL Server and PostgreSQL; NhAssistantAdminApiService.getAgentState and setAgentState with AgentState, AgentRunState and SetAgentStateRequest, and the state, reason and pause, stop and resume actions of NhAssistantAdminAgentsComponent",
+    "outcome": "Before a task import an operator pauses the project closer on the application's own maintenance page, with the reason. The import completes three tasks of two active projects; their events reach the platform after the commit and wait in the projects' threads, deduplicated, without starting a run. Resumed, the closer gets one run per project that sees all completed tasks of the import and proposes to complete each project. The operator then stops the closer: the project's approver still approves the first proposal, but nothing executes while the closer is stopped. Resumed again, the held execution runs and completes the project, while the other proposal still waits for its approver. Every state change keeps who made it, when and why, never changes the closer's definition or version, and is audited without the reason. In the administration the agents list the same state with its reason and the events that wait, and offer pause, stop and resume with an optional reason; the editor no longer has an enabled checkbox, and a reset keeps the state.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentMaintenanceService.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/AgentMaintenanceController.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Models/OperationsSampleModels.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentTriggers.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentControlTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-admin.ts"
     ]
   }
 ] as const;

@@ -9,7 +9,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// <summary>
 /// The Hangfire job of a scheduled trigger: it reads the subjects of the tick and fires the
 /// trigger for each of them, at most <c>MaxSubjectsPerTick</c>. A tick fires every subject once:
-/// a repeated job in the same minute finds the runs it already started.
+/// a repeated job in the same minute finds the runs it already started. While the assistant is
+/// disabled or the agent is paused, stopped or disabled in code, the tick is skipped before the
+/// subjects are read.
 /// </summary>
 internal sealed class NhAssistantScheduledTriggerJob(
     IServiceProvider services,
@@ -33,6 +35,16 @@ internal sealed class NhAssistantScheduledTriggerJob(
             || trigger.ScheduledSubjects is null)
         {
             logger.LogWarning("Scheduled trigger {TriggerId} is not registered; the recurring job does nothing.", triggerId);
+            return [];
+        }
+
+        // Read before the subjects query: a tick of an agent that is not active comes back by itself.
+        if (await triggers.RefusalOfAsync(trigger.AgentId, refusePaused: true, cancellationToken) is { } refusal)
+        {
+            logger.LogInformation(
+                "Scheduled trigger {TriggerId} skipped its tick ({Reason}).",
+                triggerId,
+                refusal);
             return [];
         }
 

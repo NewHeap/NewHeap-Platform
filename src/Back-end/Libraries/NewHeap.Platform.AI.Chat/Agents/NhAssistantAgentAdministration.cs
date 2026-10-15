@@ -6,7 +6,8 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AI.Chat;
 
 /// <summary>
-/// Administrator input for an agent.
+/// Administrator input for an agent. It carries no state: pause, stop and resume change that
+/// through the agent control, never the definition.
 /// </summary>
 internal sealed record NhAssistantAgentInput(
     string Id,
@@ -16,8 +17,7 @@ internal sealed record NhAssistantAgentInput(
     IReadOnlyList<string> ToolSelectors,
     IReadOnlyList<string> McpServerIds,
     string? RequiredPolicy,
-    NhAiAutonomyLevel Autonomy,
-    bool IsEnabled);
+    NhAiAutonomyLevel Autonomy);
 
 /// <summary>
 /// Creates, overrides, resets and deletes agents. Every change is versioned and reported to the
@@ -54,12 +54,15 @@ internal sealed class NhAssistantAgentAdministration(
         }
 
         var now = DateTimeOffset.UtcNow;
+        // A new agent starts active; its state changes through the agent control only.
         var row = new AssistantAgent
         {
             Id = input.Id,
             Version = 1,
             Source = NhAssistantAgentSources.Admin,
             ProfileName = profileName,
+            IsEnabled = true,
+            RunState = NhAssistantAgentRunStates.Active,
             UpdatedAt = now,
             UpdatedBy = actorId
         };
@@ -135,7 +138,7 @@ internal sealed class NhAssistantAgentAdministration(
                 row.UpdatedBy = actorId;
                 NhAssistantAdminStore.ApplyCodeDefinition(row, NhAssistantAgentCatalog.ToCodeRow(code, row.UpdatedAt));
                 row.IsOverridden = false;
-                row.IsEnabled = true;
+                // The run state stays as it is: a reset never resumes a paused or stopped agent.
             },
             [],
             cancellationToken);
@@ -219,7 +222,6 @@ internal sealed class NhAssistantAgentAdministration(
         row.ToolSelectorsJson = JsonSerializer.Serialize(input.ToolSelectors.Distinct(StringComparer.Ordinal).ToArray());
         row.RequiredPolicy = string.IsNullOrWhiteSpace(input.RequiredPolicy) ? null : input.RequiredPolicy;
         row.Autonomy = input.Autonomy;
-        row.IsEnabled = input.IsEnabled;
         var hash = NhAssistantAgentCatalog.ComputeHash(instructions);
         if (!string.Equals(hash, row.InstructionsHash, StringComparison.Ordinal))
         {

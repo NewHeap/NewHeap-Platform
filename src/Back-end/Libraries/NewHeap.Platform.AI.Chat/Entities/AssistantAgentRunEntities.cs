@@ -209,6 +209,17 @@ public sealed class AssistantQueuedInput
     /// </summary>
     public string? PayloadJson { get; set; }
 
+    /// <summary>
+    /// The trigger's dedupe key, so an event that waits while its agent is paused waits once.
+    /// </summary>
+    public string? EventKey { get; set; }
+
+    /// <summary>
+    /// The person who caused the event, kept so that the run that starts for a waiting input when
+    /// its agent resumes has the same initiator as a run started at once.
+    /// </summary>
+    public string? InitiatorActorId { get; set; }
+
     public string? ClientMessageId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }

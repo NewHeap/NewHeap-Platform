@@ -296,6 +296,9 @@
       "assistant-subject-access-denied": "Je rol op dit onderwerp staat dit niet toe.",
       "assistant-no-accountable-owner": "Niemand staat voor deze agent op dit onderwerp in.",
       "assistant-agent-disabled": "Deze agent is stopgezet.",
+      "assistant-agent-configured-off": "Deze agent is uitgeschakeld in de configuratie van de applicatie.",
+      "assistant-agent-paused": "Deze agent is gepauzeerd; het verzoek wacht tot hij hervat wordt.",
+      "assistant-agent-stopped": "Deze agent is gestopt.",
       "assistant-agent-not-configured": "Deze agent kan niet zelfstandig werken.",
       "assistant-run-not-found": "De run is niet gevonden.",
       "assistant-run-not-retryable": "Deze run kan niet opnieuw worden gestart.",
@@ -423,7 +426,7 @@
       },
       "agents": {
         "title": "Agents",
-        "description": "Code-agents komen uit de applicatie; je kunt ze overschrijven, uitzetten of terugzetten. Agents die je hier aanmaakt, kun je verwijderen.",
+        "description": "Code-agents komen uit de applicatie; je kunt ze overschrijven of terugzetten. Agents die je hier aanmaakt, kun je verwijderen. Elke agent kun je pauzeren, stoppen en hervatten; de definitie blijft dan zoals hij is.",
         "new": "Nieuwe agent",
         "empty": "Nog geen agents.",
         "source-code": "Code",
@@ -431,6 +434,7 @@
         "overridden": "Overschreven",
         "reset": "Terugzetten naar code",
         "confirm-reset": "Terugzetten bevestigen",
+        "reset-keeps-state": "Terugzetten herstelt de definitie uit de code; de agent blijft actief, gepauzeerd of gestopt zoals hij is.",
         "version": "Versie {{version}}",
         "tool-count": "{{count}} toolselectors",
         "server-count": "{{count}} MCP-servers",
@@ -441,7 +445,33 @@
           "simulate": "Simuleren",
           "execute": "Uitvoeren"
         },
-        "feedback": "Feedback"
+        "feedback": "Feedback",
+        "state": {
+          "active": "Actief",
+          "paused": "Gepauzeerd",
+          "stopped": "Gestopt",
+          "configured-off": "Uit in configuratie",
+          "configured-off-hint": "Uitgeschakeld in de code van de applicatie tot de volgende deployment; hier kun je de agent niet hervatten.",
+          "changed": "Gewijzigd door {{user}} op {{date}}.",
+          "reason": "Reden: {{reason}}",
+          "waiting": "{{count}} gebeurtenissen wachten op het hervatten.",
+          "reason-label": "Reden (optioneel)",
+          "action": {
+            "active": "Hervatten",
+            "paused": "Pauzeren",
+            "stopped": "Stoppen"
+          },
+          "explain": {
+            "active": "De agent werkt weer. Elk onderwerp met wachtende gebeurtenissen krijgt één run.",
+            "paused": "Er starten geen nieuwe runs. Gebeurtenissen wachten en lopen na het hervatten; lopend werk wordt afgemaakt en goedgekeurde voorstellen worden uitgevoerd.",
+            "stopped": "Actieve runs worden geannuleerd, hun open voorstellen ingetrokken en wachtende gebeurtenissen vervallen. Goedgekeurde voorstellen wachten tot de agent weer werkt."
+          },
+          "confirm": {
+            "active": "Hervatten bevestigen",
+            "paused": "Pauze bevestigen",
+            "stopped": "Stop bevestigen"
+          }
+        }
       },
       "agent-editor": {
         "new-title": "Nieuwe agent",
@@ -456,7 +486,7 @@
         "autonomy-hint": "Alleen Uitvoeren staat wijzigingen toe, en elke wijziging vraagt nog steeds om goedkeuring.",
         "required-policy": "Vereiste policy",
         "required-policy-hint": "Optioneel. Alleen gebruikers die aan deze policy voldoen zien de agent.",
-        "enabled": "Agent staat aan",
+        "state-hint": "Pauzeer, stop en hervat de agent vanuit de lijst met agents. Opslaan verandert de stand nooit.",
         "tool-selectors": "Toolselectors",
         "tool-selectors-hint": "Kies tools uit de catalogus of voeg een patroon toe, zoals sample-api.project.*. MCP-tools komen van de toegewezen servers.",
         "add-selector": "Patroon toevoegen",

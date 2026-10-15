@@ -302,6 +302,8 @@ public sealed class NhAssistantDbContext : DbContext
             input.Property(item => item.TriggerId).HasMaxLength(128);
             input.Property(item => item.Text).HasMaxLength(8_000).IsRequired();
             input.Property(item => item.PayloadJson).HasMaxLength(NhAssistantLimits.MaxInputPayloadCharacters);
+            input.Property(item => item.EventKey).HasMaxLength(256);
+            input.Property(item => item.InitiatorActorId).HasMaxLength(256);
             input.Property(item => item.ClientMessageId).HasMaxLength(128);
             input.HasIndex(item => new { item.ConversationId, item.ConsumedAt, item.CreatedAt });
             input.HasOne<AssistantConversation>()
@@ -433,6 +435,9 @@ public sealed class NhAssistantDbContext : DbContext
             agent.Property(item => item.Autonomy).HasConversion<string>().HasMaxLength(16);
             agent.Property(item => item.CodeHash).HasMaxLength(64);
             agent.Property(item => item.UpdatedBy).HasMaxLength(256);
+            agent.Property(item => item.RunState).HasMaxLength(16).IsRequired().HasDefaultValue(NhAssistantAgentRunStates.Active);
+            agent.Property(item => item.StateChangedBy).HasMaxLength(256);
+            agent.Property(item => item.StateReason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);
             agent.Property(item => item.Version).IsConcurrencyToken();
             agent.HasMany(item => item.McpServers)
                 .WithOne()

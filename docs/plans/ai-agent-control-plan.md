@@ -8,8 +8,41 @@ at `9ab24f20` on 2026-10-15.
 
 ## Status
 
-Decided and ready for implementation; nothing is implemented yet. The choices are part of the
-[decision record](#decision-record) and the [answered questions](#answered-questions).
+Implemented on 2026-10-15, with sample case SPM-284. The choices are part of the
+[decision record](#decision-record) and the [answered questions](#answered-questions). The consumer
+guide `ai-agent-runs` and the sample are authoritative from now on; the implementation deviates from
+the plan where [Implementation notes](#implementation-notes) says so.
+
+## Implementation notes
+
+- **No data migration.** The checked-in migrations are routed to a configured schema, which raw SQL
+  is not. An agent whose `IsEnabled` is `false` reads as stopped wherever the state is read, so a
+  kill switch engaged before the upgrade stays engaged without rewriting rows.
+- **Waiting inputs keep their initiator.** `AssistantQueuedInput` gains `InitiatorActorId` next to
+  `EventKey`, so the run that a resume starts has the initiator a run started at once would have
+  had. Every input stores both, which also deduplicates a redelivered event that joins a queued run.
+- **Resuming** starts runs in batches of 100 threads until none is left. Threads that already have a
+  queued run are left to that run; threads whose subject is gone or has nobody accountable drop
+  their waiting inputs. The resumed run is not counted against `MaxRunsPerSubjectPerDay`, because
+  it is one run per thread for events that were already accepted.
+- **Runs while paused.** A run that had not started when its agent was paused ends `cancelled` with
+  `assistant-agent-paused` without claiming its inputs; a run that started finishes, but takes no
+  further turns for inputs that arrive during the pause.
+- **Stopping drops waiting inputs** of the agent's threads: stop means that the events of the period
+  are not handled, as they would have been refused.
+- **Held executions are released at once.** Leaving the stopped state, by a resume or a pause, queues
+  the agent's held executions directly (at most 500 per change); the maintenance job queues the
+  rest. The plan let only the maintenance job release them, a minute after the decision.
+- **Pause and stop of a code-disabled agent** are stored for the next deployment that enables the
+  agent in code; the state reads `configured-off` meanwhile. Only resume is refused.
+- **`CancelledRuns` and `StartedRuns`** describe the call that changed the state; reading the state
+  returns zero for both, so no counts are stored.
+- **Live updates.** The administration has no live channel for agents; the list updates from the
+  response of each action.
+- **The sample** pauses the project closer from the application's own maintenance endpoint
+  (`agent-maintenance`) instead of the project planner, which phase B introduces. Stopping a run
+  that is running is shown by the library tests; the sample shows the held approval instead, because
+  the closer's rule runs end within a dispatch interval.
 
 ## Problem
 

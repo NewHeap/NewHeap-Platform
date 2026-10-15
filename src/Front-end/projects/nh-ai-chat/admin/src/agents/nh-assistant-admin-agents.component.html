@@ -43,7 +43,7 @@
     } @else {
       <ul class="cards">
         @for (agent of agents(); track agent.id) {
-          <li class="card" [class.inactive]="!agent.isEnabled" [attr.aria-busy]="busyAgentId() === agent.id">
+          <li class="card" [class.inactive]="agent.runState !== 'active'" [attr.aria-busy]="busyAgentId() === agent.id">
             <div class="card-header">
               <strong>{{ agent.displayName }}</strong>
               <span class="mono muted">{{ agent.id }}</span>
@@ -51,10 +51,29 @@
               @if (agent.isOverridden) {
                 <span class="badge warning">{{ 'nh-assistant.admin.agents.overridden' | translate }}</span>
               }
-              <span class="badge" [class.success]="agent.isEnabled">{{ (agent.isEnabled ? 'nh-assistant.admin.enabled' : 'nh-assistant.admin.disabled') | translate }}</span>
+              <span
+                class="badge"
+                [class.success]="agent.runState === 'active'"
+                [class.warning]="agent.runState === 'paused'"
+                [class.danger]="agent.runState === 'stopped'">{{ 'nh-assistant.admin.agents.state.' + agent.runState | translate }}</span>
             </div>
             @if (agent.description) {
               <p class="muted">{{ agent.description }}</p>
+            }
+            @if (agent.runState === 'configured-off') {
+              <p class="muted">{{ 'nh-assistant.admin.agents.state.configured-off-hint' | translate }}</p>
+            } @else if (agent.runState !== 'active') {
+              <p class="muted">
+                @if (agent.stateChangedAt) {
+                  {{ 'nh-assistant.admin.agents.state.changed' | translate: { user: agent.stateChangedBy, date: (agent.stateChangedAt | date: 'medium') } }}
+                }
+                @if (agent.stateReason) {
+                  {{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: agent.stateReason } }}
+                }
+              </p>
+              @if (agent.runState === 'paused') {
+                <p class="muted">{{ 'nh-assistant.admin.agents.state.waiting' | translate: { count: agent.waitingInputs } }}</p>
+              }
             }
             <div class="meta">
               <span>{{ 'nh-assistant.admin.agents.autonomy.' + agent.autonomy | translate }}</span>
@@ -69,14 +88,23 @@
               <button class="secondary" type="button" [disabled]="busyAgentId() !== null" (click)="edit(agent)">
                 <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.edit' | translate }}
               </button>
-              <button class="secondary" type="button" [disabled]="busyAgentId() !== null" (click)="setEnabled(agent, !agent.isEnabled)">
-                {{ (agent.isEnabled ? 'nh-assistant.admin.disable' : 'nh-assistant.admin.enable') | translate }}
-              </button>
+              @for (action of stateActions(agent); track action) {
+                <button
+                  type="button"
+                  [class.secondary]="action !== 'stopped'"
+                  [class.danger]="action === 'stopped'"
+                  [attr.aria-expanded]="isChangingState(agent.id, action)"
+                  [disabled]="busyAgentId() !== null"
+                  (click)="askState(agent, action)">
+                  {{ 'nh-assistant.admin.agents.state.action.' + action | translate }}
+                </button>
+              }
               <button class="secondary" type="button" [attr.data-feedback-agent]="agent.id" (click)="openReport(agent)">
                 <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.agents.feedback' | translate }}
               </button>
               @if (agent.source === 'code' && agent.isOverridden) {
                 @if (isConfirming(agent.id, 'reset')) {
+                  <span class="muted">{{ 'nh-assistant.admin.agents.reset-keeps-state' | translate }}</span>
                   <button class="danger" type="button" (click)="reset(agent)">{{ 'nh-assistant.admin.agents.confirm-reset' | translate }}</button>
                   <button class="secondary" type="button" (click)="confirming.set(null)">{{ 'nh-assistant.admin.keep' | translate }}</button>
                 } @else {
@@ -96,6 +124,30 @@
                 }
               }
             </div>
+            @if (changingState(); as change) {
+              @if (change.agentId === agent.id) {
+                <form class="stack" (submit)="$event.preventDefault(); applyState(agent)">
+                  <p class="muted">{{ 'nh-assistant.admin.agents.state.explain.' + change.state | translate }}</p>
+                  <div class="field">
+                    <label [for]="id + '-' + agent.id + '-reason'">{{ 'nh-assistant.admin.agents.state.reason-label' | translate }}</label>
+                    <input
+                      #reasonInput
+                      type="text"
+                      autocomplete="off"
+                      [id]="id + '-' + agent.id + '-reason'"
+                      [maxLength]="maxReason"
+                      [value]="stateReason()"
+                      (input)="stateReason.set(value($event))" />
+                  </div>
+                  <div class="card-actions">
+                    <button type="submit" [class.primary]="change.state !== 'stopped'" [class.danger]="change.state === 'stopped'" [disabled]="busyAgentId() !== null">
+                      {{ 'nh-assistant.admin.agents.state.confirm.' + change.state | translate }}
+                    </button>
+                    <button class="secondary" type="button" (click)="changingState.set(null)">{{ 'nh-assistant.admin.keep' | translate }}</button>
+                  </div>
+                </form>
+              }
+            }
           </li>
         }
       </ul>

@@ -390,8 +390,7 @@ public sealed class AssistantMcpContextTests(AssistantDatabaseFixture database)
                 agent.Definition.ToolSelectors,
                 ["research"],
                 agent.Definition.RequiredPolicy,
-                agent.Definition.Autonomy,
-                true),
+                agent.Definition.Autonomy),
             agent.Definition.Version,
             "admin-1",
             CancellationToken.None)).Success);

@@ -122,15 +122,34 @@ describe('provideNhAssistantMockApi administration', () => {
     expect((await firstValueFrom(admin.getAgents())).map(agent => agent.id)).toEqual(['projects']);
   });
 
-  it('lists admin agents in the chat with their literal names and hides disabled agents', async () => {
+  it('lists admin agents in the chat with their literal names and hides stopped agents', async () => {
     await firstValueFrom(admin.createAgent(newAgent));
-    const code = (await firstValueFrom(admin.getAgents())).find(agent => agent.id === 'projects')!;
-    await firstValueFrom(admin.updateAgent('projects', { ...code, isEnabled: false, expectedVersion: code.version }));
+    await firstValueFrom(admin.setAgentState('projects', { state: 'stopped', reason: 'Wrong answers' }));
 
     const agents = (await firstValueFrom(api.status())).agents;
 
     expect(agents.map(agent => agent.id)).toEqual(['support-agent']);
     expect(agents[0].displayNameKey).toBe('Support agent');
+  });
+
+  it('pauses, stops and resumes an agent without changing its definition, and ignores isEnabled', async () => {
+    const before = (await firstValueFrom(admin.getAgents())).find(agent => agent.id === 'projects')!;
+    const paused = await firstValueFrom(admin.setAgentState('projects', { state: 'paused', reason: ' Import ' }));
+    const edited = await firstValueFrom(admin.updateAgent('projects', {
+      ...before, instructions: 'Edited.', isEnabled: false, expectedVersion: before.version
+    }));
+    const stopped = await firstValueFrom(admin.setAgentState('projects', { state: 'stopped' }));
+    const reset = await firstValueFrom(admin.resetAgent('projects'));
+    const resumed = await firstValueFrom(admin.setAgentState('projects', { state: 'active' }));
+    const invalid = await failure(firstValueFrom(admin.setAgentState('projects', { state: 'sleeping' as 'active' })));
+
+    expect(paused).toEqual(jasmine.objectContaining({ runState: 'paused', active: false, reason: 'Import' }));
+    expect(edited).toEqual(jasmine.objectContaining({ runState: 'paused', isEnabled: true, stateReason: 'Import' }));
+    expect(stopped.runState).toBe('stopped');
+    expect(reset).toEqual(jasmine.objectContaining({ runState: 'stopped', isEnabled: false }));
+    expect(resumed).toEqual(jasmine.objectContaining({ runState: 'active', active: true }));
+    expect(invalid.code).toBe('assistant-validation');
+    expect((await firstValueFrom(admin.getAgentState('projects'))).runState).toBe('active');
   });
 
   it('rejects invalid agents', async () => {

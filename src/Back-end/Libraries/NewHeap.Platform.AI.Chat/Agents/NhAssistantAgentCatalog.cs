@@ -19,17 +19,30 @@ internal sealed record NhAssistantAgent(
     DateTimeOffset UpdatedAt)
 {
     public string Id => Definition.Id;
+
+    /// <summary>
+    /// The stored run state: active, paused or stopped.
+    /// </summary>
+    public string RunState { get; init; } = NhAssistantAgentRunStates.Active;
+
+    public DateTimeOffset? StateChangedAt { get; init; }
+
+    public string? StateChangedBy { get; init; }
+
+    public string? StateReason { get; init; }
 }
 
 /// <summary>
 /// Reads the persisted agents. Code agents registered with <c>AddAgent</c> are upserted once
 /// per process before the first read (and at host start), together with the application
-/// context seed.
+/// context seed. Without <c>includeDisabled</c>, stopped agents and agents disabled in code with
+/// <c>Enabled(false)</c> are left out.
 /// </summary>
 internal sealed class NhAssistantAgentCatalog(
     NhAssistantAdminStore store,
     NhAssistantAgentRegistry registry,
-    NhAssistantSeeder seeder)
+    NhAssistantSeeder seeder,
+    NhAssistantRegistrationState registration)
 {
     public async Task<IReadOnlyList<NhAssistantAgent>> ListAsync(
         bool includeDisabled,
@@ -39,7 +52,7 @@ internal sealed class NhAssistantAgentCatalog(
         var rows = await store.ListAgentsAsync(cancellationToken);
         return rows
             .Select(ToAgent)
-            .Where(agent => includeDisabled || agent.IsEnabled)
+            .Where(agent => includeDisabled || IsWorking(agent))
             .ToArray();
     }
 
@@ -55,7 +68,27 @@ internal sealed class NhAssistantAgentCatalog(
             return null;
         }
         var agent = ToAgent(row);
-        return includeDisabled || agent.IsEnabled ? agent : null;
+        return includeDisabled || IsWorking(agent) ? agent : null;
+    }
+
+    /// <summary>
+    /// Whether the agent is neither stopped nor disabled in code; a paused agent works for people.
+    /// </summary>
+    private bool IsWorking(NhAssistantAgent agent)
+    {
+        return agent.IsEnabled
+            && !(registration.AgentRuns.TryGetValue(agent.Id, out var runOptions) && !runOptions.Enabled);
+    }
+
+    /// <summary>
+    /// The stored run state of an agent without reading its definition, or <see langword="null"/>
+    /// when the agent does not exist.
+    /// </summary>
+    public async Task<string?> FindRunStateAsync(string agentId, CancellationToken cancellationToken)
+    {
+        await seeder.EnsureSeededAsync(cancellationToken);
+        var state = await store.FindAgentRunStateAsync(agentId, cancellationToken);
+        return state is null || NhAssistantAgentRunStates.IsStored(state) ? state : NhAssistantAgentRunStates.Active;
     }
 
     public NhAssistantAgent ToAgent(AssistantAgent row)
@@ -91,7 +124,15 @@ internal sealed class NhAssistantAgentCatalog(
             row.IsEnabled,
             row.Source,
             row.IsOverridden,
-            row.UpdatedAt);
+            row.UpdatedAt)
+        {
+            RunState = !row.IsEnabled
+                ? NhAssistantAgentRunStates.Stopped
+                : NhAssistantAgentRunStates.IsStored(row.RunState) ? row.RunState : NhAssistantAgentRunStates.Active,
+            StateChangedAt = row.StateChangedAt,
+            StateChangedBy = row.StateChangedBy,
+            StateReason = row.StateReason
+        };
     }
 
     /// <summary>

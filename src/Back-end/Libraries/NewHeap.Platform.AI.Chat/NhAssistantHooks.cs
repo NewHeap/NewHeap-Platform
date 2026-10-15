@@ -77,12 +77,14 @@ public enum NhAssistantAuditEventKind
     AgentProposalResolved = 34,
 
     /// <summary>
-    /// An administrator engaged the kill switch of an agent.
+    /// An administrator or the application stopped an agent (the kill switch): its active runs
+    /// were cancelled. <c>ResultCode</c> is <c>cancelled-{count}</c>.
     /// </summary>
     AdminAgentRunsStopped = 35,
 
     /// <summary>
-    /// An administrator released the kill switch of an agent.
+    /// An administrator or the application resumed a paused or stopped agent.
+    /// <c>ResultCode</c> is <c>resumed-{count}</c>, the runs it started for waiting inputs.
     /// </summary>
     AdminAgentRunsResumed = 36,
 
@@ -129,7 +131,13 @@ public enum NhAssistantAuditEventKind
     /// A newer proposal for the same objects replaced a pending one, which is withdrawn.
     /// <c>ApprovalId</c> is the replaced proposal and <c>ObjectId</c> the newer one.
     /// </summary>
-    AgentProposalSuperseded = 43
+    AgentProposalSuperseded = 43,
+
+    /// <summary>
+    /// An administrator or the application paused an agent: it starts no runs and its events wait.
+    /// <c>ResultCode</c> is <c>paused</c>.
+    /// </summary>
+    AdminAgentPaused = 44
 }
 
 /// <summary>

@@ -28,6 +28,7 @@ using NewHeap.Platform.Common.Events;
 using NewHeap.Platform.Common.Models;
 using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Api.Events;
+using SampleProjectManagement.Api.Services;
 using SampleProjectManagement.Core;
 using SampleProjectManagement.Core.Events;
 using SampleProjectManagement.Core.Models.Mutate;
@@ -443,6 +444,75 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task An_operator_pauses_the_project_closer_for_an_import_and_stops_it_without_losing_approved_work()
+    {
+        // SPM-284
+        const string closer = SampleProjectCloserComposition.AgentId;
+        var first = await host.CreateProjectAsync("IMPORT", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        var second = await host.CreateProjectAsync("IMPORT", ownerId: host.OwnerId, status: ProjectStatus.Active);
+        await host.AddMemberAsync(first, host.ColleagueId, ProjectMemberRole.Approver);
+        await host.AddMemberAsync(second, host.ColleagueId, ProjectMemberRole.Approver);
+        Guid[] imported =
+        [
+            await host.CreateTaskAsync(first, "Import the planning"),
+            await host.CreateTaskAsync(first, "Import the budget"),
+            await host.CreateTaskAsync(second, "Import the contacts")
+        ];
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        colleague.DefaultRequestHeaders.AcceptLanguage.Clear();
+        colleague.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en");
+        try
+        {
+            // Before the import the operator pauses the closer. The import completes three tasks of
+            // two projects; their events wait in the projects' threads instead of starting runs.
+            var paused = await ChangeAgentAsync(closer, SampleAgentStateChange.Pause, "Task import");
+            Assert.Equal(NhAssistantAgentRunStates.Paused, paused.RunState);
+            Assert.Equal("Task import", paused.Reason);
+            foreach (var task in imported)
+            {
+                await host.DeliverAsync(await host.CompleteTaskByHandAsync(task, host.ParticipantId));
+            }
+
+            var firstThread = await WaitForThreadAsync(colleague, first, closer);
+            var secondThread = await WaitForThreadAsync(colleague, second, closer);
+            Assert.True((await AgentStateAsync(closer)).WaitingInputs >= 3);
+            Assert.Empty(await RunsAsync(colleague, firstThread));
+            Assert.Empty(await RunsAsync(colleague, secondThread));
+
+            // Resumed, each project gets one run that sees all its completed tasks.
+            var resumed = await ChangeAgentAsync(closer, SampleAgentStateChange.Resume, "Import finished");
+            Assert.True(resumed.StartedRuns >= 2);
+            var firstProposal = await WaitForProposalAsync(colleague, firstThread, NhAssistantApprovalStatuses.Pending);
+            var secondProposal = await WaitForProposalAsync(colleague, secondThread, NhAssistantApprovalStatuses.Pending);
+            Assert.Single(await WaitForRunCountAsync(colleague, firstThread, 1));
+            Assert.Single(await WaitForRunCountAsync(colleague, secondThread, 1));
+            Assert.Equal("All 2 tasks of the project are completed.", firstProposal.Rationale);
+            Assert.Equal("All 1 tasks of the project are completed.", secondProposal.Rationale);
+
+            // The operator stops the closer. The approver still approves the first proposal, but
+            // its execution waits: nothing is queued while the closer is stopped.
+            var stopped = await ChangeAgentAsync(closer, SampleAgentStateChange.Stop, "Check the closer's proposals");
+            Assert.Equal(NhAssistantAgentRunStates.Stopped, stopped.RunState);
+            Assert.Equal(HttpStatusCode.OK, (await DecideAsync(colleague, firstProposal, "approve")).StatusCode);
+            var held = await colleague.GetFromJsonAsync<NhAssistantSubjectProposalDto>($"/api/assistant/approvals/{firstProposal.ApprovalId}", Json);
+            Assert.Equal(NhAssistantApprovalStatuses.Approved, held!.Proposal.Status);
+            Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == first);
+
+            // Resumed, the held execution runs and completes the project.
+            await ChangeAgentAsync(closer, SampleAgentStateChange.Resume, null);
+            await WaitForProposalAsync(colleague, firstThread, NhAssistantApprovalStatuses.Executed);
+            Assert.Contains(host.Projects.StatusChanges, change => change.ProjectId == first && change.Status == ProjectStatus.Completed);
+            Assert.Equal(NhAssistantApprovalStatuses.Pending, (await WaitForProposalAsync(colleague, secondThread, NhAssistantApprovalStatuses.Pending)).Status);
+            Assert.Equal(NhAssistantAgentRunStates.Active, (await AgentStateAsync(closer)).RunState);
+        }
+        finally
+        {
+            // Other samples share the host and its closer.
+            await ChangeAgentAsync(closer, SampleAgentStateChange.Resume, null);
+        }
+    }
+
+    [Fact]
     public async Task A_participant_starts_the_status_advisor_which_uses_their_rights_and_waits_inline_for_their_approval()
     {
         // SPM-272 and SPM-273
@@ -572,7 +642,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var stopped = await host.CreateProjectAsync("STOPPED", ownerId: host.OwnerId);
             var rejected = Assert.Single(await host.PublishProjectCreatedAsync(stopped, createdBy: host.OwnerId));
             Assert.Equal(NhAssistantTriggerOutcomes.Rejected, rejected.Outcome);
-            Assert.Equal(NhAssistantErrorCodes.AgentDisabled, rejected.ReasonCode);
+            Assert.Equal(NhAssistantErrorCodes.AgentStopped, rejected.ReasonCode);
             using var participant = host.CreateClient(host.ParticipantId.ToString());
             var notAdmin = await participant.PostAsJsonAsync(killSwitch, new NhAssistantKillSwitchRequest(false), Json);
             Assert.Equal(HttpStatusCode.Forbidden, notAdmin.StatusCode);
@@ -1030,6 +1100,28 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         return string.Concat(message.Parts.OfType<NhAssistantTextPartDto>().Select(part => part.Text));
     }
 
+    private async Task<NhAssistantAgentState> ChangeAgentAsync(string agentId, SampleAgentStateChange change, string? reason)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var changed = await scope.ServiceProvider.GetRequiredService<SampleAgentMaintenanceService>()
+            .ChangeAsync(agentId, change, host.OwnerId, reason, CancellationToken.None);
+        Assert.NotNull(changed);
+        Assert.True(changed.Success);
+        return changed.Data!;
+    }
+
+    private async Task<NhAssistantAgentState> AgentStateAsync(string agentId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var states = await scope.ServiceProvider.GetRequiredService<SampleAgentMaintenanceService>().ListAsync(CancellationToken.None);
+        return states.Single(state => state.AgentId == agentId);
+    }
+
+    private static async Task<NhAssistantRunDto[]> RunsAsync(HttpClient client, Guid conversationId)
+    {
+        return (await client.GetFromJsonAsync<NhAssistantRunListDto>($"/api/assistant/threads/{conversationId}/runs", Json))?.Items.ToArray() ?? [];
+    }
+
     private static Task<HttpResponseMessage> DecideAsync(HttpClient client, NhAssistantProposalDto proposal, string decision)
     {
         return client.PostAsJsonAsync(
@@ -1192,6 +1284,8 @@ public sealed class AssistantAgentRunSampleHost : AssistantCollaborationSampleHo
         // SPM-282: people tick tasks off by hand through the task service.
         services.AddScopedNhDbRepository<ProjectTask>();
         services.AddScoped<ProjectTaskService>();
+        // SPM-284: the operator pauses, stops and resumes the closer through the maintenance page.
+        services.AddScoped<SampleAgentMaintenanceService>();
         services.AddSingleton(Substitute.For<INhEventPublisher>());
         services.AddSingleton<SampleEventLog>();
     }

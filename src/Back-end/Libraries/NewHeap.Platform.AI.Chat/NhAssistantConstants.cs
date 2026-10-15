@@ -38,6 +38,24 @@ public static class NhAssistantMessageAuthorKinds
 /// <summary>
 /// How an agent run worked.
 /// </summary>
+/// <summary>
+/// The run states of an agent. Active agents work; paused agents start no runs and let their
+/// events wait; stopped agents end their work and refuse events. An agent disabled in code with
+/// <c>Enabled(false)</c> reports <see cref="ConfiguredOff"/>.
+/// </summary>
+public static class NhAssistantAgentRunStates
+{
+    public const string Active = "active";
+    public const string Paused = "paused";
+    public const string Stopped = "stopped";
+    public const string ConfiguredOff = "configured-off";
+
+    public static bool IsStored(string? state)
+    {
+        return state is Active or Paused or Stopped;
+    }
+}
+
 public static class NhAssistantRunKinds
 {
     /// <summary>The agent's model ran the turn.</summary>
@@ -468,6 +486,21 @@ public static class NhAssistantErrorCodes
     public const string SubjectAccessDenied = "assistant-subject-access-denied";
     public const string NoAccountableOwner = "assistant-no-accountable-owner";
     public const string AgentDisabled = "assistant-agent-disabled";
+
+    /// <summary>
+    /// The agent is stopped: it refuses events, starts and requests until it is resumed.
+    /// </summary>
+    public const string AgentStopped = "assistant-agent-stopped";
+
+    /// <summary>
+    /// The agent is disabled in the application's code; it cannot be resumed at runtime.
+    /// </summary>
+    public const string AgentConfiguredOff = "assistant-agent-configured-off";
+
+    /// <summary>
+    /// A queued run did not start because its agent is paused; its events wait for the resume.
+    /// </summary>
+    public const string AgentPaused = "assistant-agent-paused";
     public const string AgentNotConfigured = "assistant-agent-not-configured";
     public const string RunNotFound = "assistant-run-not-found";
     public const string RunNotRetryable = "assistant-run-not-retryable";

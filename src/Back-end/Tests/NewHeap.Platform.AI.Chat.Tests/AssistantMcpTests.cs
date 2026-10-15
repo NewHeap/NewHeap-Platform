@@ -280,8 +280,7 @@ public sealed class AssistantMcpTests(AssistantDatabaseFixture database)
                 agent.Definition.ToolSelectors,
                 ["planning"],
                 agent.Definition.RequiredPolicy,
-                agent.Definition.Autonomy,
-                true),
+                agent.Definition.Autonomy),
             agent.Definition.Version,
             "admin-1",
             CancellationToken.None);

@@ -38,7 +38,28 @@ public sealed class AssistantAgent
 
     public NhAiAutonomyLevel Autonomy { get; set; } = NhAiAutonomyLevel.Observe;
 
+    /// <summary>
+    /// <see langword="false"/> only while the agent is stopped (see <see cref="RunState"/>); kept for
+    /// the reads that list and find enabled agents.
+    /// </summary>
     public bool IsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// One of <see cref="NhAssistantAgentRunStates.Active"/>, <see cref="NhAssistantAgentRunStates.Paused"/>
+    /// or <see cref="NhAssistantAgentRunStates.Stopped"/>. Changing it never changes <see cref="Version"/>.
+    /// An agent with <see cref="IsEnabled"/> <see langword="false"/> reads as stopped, which keeps the
+    /// kill switches engaged before this column existed.
+    /// </summary>
+    public string RunState { get; set; } = NhAssistantAgentRunStates.Active;
+
+    public DateTimeOffset? StateChangedAt { get; set; }
+
+    public string? StateChangedBy { get; set; }
+
+    /// <summary>
+    /// Why the agent was paused, stopped or resumed, as the person who did it wrote it.
+    /// </summary>
+    public string? StateReason { get; set; }
 
     /// <summary>
     /// Hash of the code definition last applied, so unchanged code does not bump the version.

@@ -71,19 +71,19 @@ internal static class NhAssistantAdminEndpoints
         admin.MapGet("agents", GetAgentsAsync)
             .WithName("NhAssistantAdminGetAgents")
             .WithSummary("List agents")
-            .WithDescription("Returns code and administrator agents, including disabled agents.")
+            .WithDescription("Returns code and administrator agents with their run state, including paused, stopped and code-disabled agents.")
             .Produces<NhAssistantAdminAgentDto[]>();
         admin.MapPost("agents", CreateAgentAsync)
             .WithName("NhAssistantAdminCreateAgent")
             .WithSummary("Create an agent")
-            .WithDescription("Creates an administrator agent.")
+            .WithDescription("Creates an administrator agent, which starts active. isEnabled is accepted and ignored.")
             .Produces<NhAssistantAdminAgentDto>(StatusCodes.Status201Created)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPut("agents/{id}", UpdateAgentAsync)
             .WithName("NhAssistantAdminUpdateAgent")
             .WithSummary("Update an agent")
-            .WithDescription("Updates or overrides an agent when expectedVersion is current; otherwise 409.")
+            .WithDescription("Updates or overrides an agent when expectedVersion is current; otherwise 409. isEnabled is accepted and ignored: the run state changes with POST agents/{id}/state.")
             .Produces<NhAssistantAdminAgentDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
@@ -91,17 +91,32 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("agents/{id}/reset", ResetAgentAsync)
             .WithName("NhAssistantAdminResetAgent")
             .WithSummary("Reset a code agent")
-            .WithDescription("Restores a code agent to its code definition and removes its MCP assignments.")
+            .WithDescription("Restores a code agent to its code definition and removes its MCP assignments. The run state stays as it is.")
             .Produces<NhAssistantAdminAgentDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPost("agents/{id}/kill-switch", SetKillSwitchAsync)
             .WithName("NhAssistantAdminSetAgentKillSwitch")
             .WithSummary("Stop or resume the runs of an agent")
-            .WithDescription("Engaging the kill switch disables the agent, rejects its triggers, cancels its active runs and keeps its approved proposals from executing. Releasing it enables the agent again; proposals that waited are executed then.")
+            .WithDescription("engaged: true stops the agent: its triggers are rejected, its active runs cancelled and its approved proposals held. engaged: false resumes it; held proposals are executed then. The same as POST agents/{id}/state without a reason.")
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantKillSwitchDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        admin.MapGet("agents/{id}/state", GetAgentStateAsync)
+            .WithName("NhAssistantAdminGetAgentState")
+            .WithSummary("Get the run state of an agent")
+            .WithDescription("Returns active, paused, stopped or configured-off, who changed it when and why, and the inputs that wait while the agent is paused.")
+            .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        admin.MapPost("agents/{id}/state", SetAgentStateAsync)
+            .WithName("NhAssistantAdminSetAgentState")
+            .WithSummary("Pause, stop or resume an agent")
+            .WithDescription("paused: no new runs start and events wait; running runs finish and approved proposals execute. stopped: active runs are cancelled, waiting inputs end, approved proposals are held and events are refused. active: resumes, with one run per thread that has waiting inputs. A code-disabled agent cannot be resumed (409). The reason has at most 500 characters.")
+            .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         AgentRuns.NhAssistantProposalFeedbackEndpoints.MapAdmin(admin);
         admin.MapDelete("agents/{id}", DeleteAgentAsync)
             .WithName("NhAssistantAdminDeleteAgent")
@@ -271,7 +286,12 @@ internal static class NhAssistantAdminEndpoints
     private static async Task<IResult> GetAgentsAsync(HttpContext httpContext, NhAssistantAgentCatalog catalog)
     {
         var agents = await catalog.ListAsync(includeDisabled: true, httpContext.RequestAborted);
-        return Json(agents.Select(ToDto).ToArray(), Context.NhAssistantAdminAgentDtoArray);
+        var dtos = new List<NhAssistantAdminAgentDto>(agents.Count);
+        foreach (var agent in agents)
+        {
+            dtos.Add(await ToDtoAsync(agent, httpContext));
+        }
+        return Json(dtos.ToArray(), Context.NhAssistantAdminAgentDtoArray);
     }
 
     private static async Task<IResult> CreateAgentAsync(
@@ -301,7 +321,7 @@ internal static class NhAssistantAdminEndpoints
         }
         return new CreatedJson<NhAssistantAdminAgentDto>(
             $"{httpContext.Request.PathBase}{httpContext.Request.Path.Value?.TrimEnd('/')}/{created.Data!.Id}",
-            ToDto(created.Data),
+            await ToDtoAsync(created.Data, httpContext),
             Context.NhAssistantAdminAgentDto);
     }
 
@@ -331,7 +351,7 @@ internal static class NhAssistantAdminEndpoints
             return Failure(errors.ToResult());
         }
         var updated = await administration.UpdateAsync(input, expectedVersion, actor, httpContext.RequestAborted);
-        return updated.Success ? Json(ToDto(updated.Data!), Context.NhAssistantAdminAgentDto) : Failure(updated);
+        return updated.Success ? Json(await ToDtoAsync(updated.Data!, httpContext), Context.NhAssistantAdminAgentDto) : Failure(updated);
     }
 
     private static async Task<IResult> ResetAgentAsync(string id, HttpContext httpContext, NhAssistantAgentAdministration administration)
@@ -342,7 +362,7 @@ internal static class NhAssistantAdminEndpoints
             return ContextUnavailable();
         }
         var reset = await administration.ResetAsync(id, actor, httpContext.RequestAborted);
-        return reset.Success ? Json(ToDto(reset.Data!), Context.NhAssistantAdminAgentDto) : Failure(reset);
+        return reset.Success ? Json(await ToDtoAsync(reset.Data!, httpContext), Context.NhAssistantAdminAgentDto) : Failure(reset);
     }
 
     private static async Task<IResult> SetKillSwitchAsync(string id, HttpContext httpContext)
@@ -360,11 +380,61 @@ internal static class NhAssistantAdminEndpoints
             return Validation();
         }
 
-        // Resolved here: hosts without agent runs have no background operations to cancel.
-        var killSwitch = httpContext.RequestServices.GetRequiredService<AgentRuns.NhAssistantKillSwitch>();
-        var result = await killSwitch.SetAsync(id, engaged, actor, httpContext.RequestAborted);
+        var control = httpContext.RequestServices.GetRequiredService<AgentRuns.INhAssistantAgentControl>();
+        var result = engaged
+            ? await control.StopAsync(id, actor, null, httpContext.RequestAborted)
+            : await control.ResumeAsync(id, actor, null, httpContext.RequestAborted);
         return result.Success
-            ? Json(result.Data!, AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantKillSwitchDto)
+            ? Json(
+                new AgentRuns.NhAssistantKillSwitchDto(
+                    id,
+                    result.Data!.RunState != NhAssistantAgentRunStates.Stopped,
+                    result.Data.CancelledRuns),
+                AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantKillSwitchDto)
+            : Failure(result);
+    }
+
+    private static async Task<IResult> GetAgentStateAsync(string id, HttpContext httpContext)
+    {
+        var control = httpContext.RequestServices.GetRequiredService<AgentRuns.INhAssistantAgentControl>();
+        var state = await control.GetAsync(id, httpContext.RequestAborted);
+        return state is null
+            ? Error(StatusCodes.Status404NotFound, NhAssistantErrorCodes.AgentNotFound)
+            : Json(state, AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentState);
+    }
+
+    private static async Task<IResult> SetAgentStateAsync(string id, HttpContext httpContext)
+    {
+        var actor = await ActorAsync(httpContext);
+        if (actor is null)
+        {
+            return ContextUnavailable();
+        }
+        var body = await ReadAsync(
+            httpContext,
+            AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentStateRequest);
+        if (body is null)
+        {
+            return Validation();
+        }
+        if (body.State is null)
+        {
+            return MissingField("state");
+        }
+        if (!NhAssistantAgentRunStates.IsStored(body.State))
+        {
+            return Failure(NhAssistantValidationErrors.Failed("state", NhAssistantFieldErrors.Invalid));
+        }
+
+        var control = httpContext.RequestServices.GetRequiredService<AgentRuns.INhAssistantAgentControl>();
+        var result = body.State switch
+        {
+            NhAssistantAgentRunStates.Paused => await control.PauseAsync(id, actor, body.Reason, httpContext.RequestAborted),
+            NhAssistantAgentRunStates.Stopped => await control.StopAsync(id, actor, body.Reason, httpContext.RequestAborted),
+            _ => await control.ResumeAsync(id, actor, body.Reason, httpContext.RequestAborted)
+        };
+        return result.Success
+            ? Json(result.Data!, AgentRuns.NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantAgentState)
             : Failure(result);
     }
 
@@ -527,7 +597,6 @@ internal static class NhAssistantAdminEndpoints
             .Require(body.Description is not null, "description", NhAssistantFieldErrors.Required)
             .Require(body.Instructions is not null, "instructions", NhAssistantFieldErrors.Required)
             .Require(body.ToolSelectors is not null, "toolSelectors", NhAssistantFieldErrors.Required)
-            .Require(body.IsEnabled is not null, "isEnabled", NhAssistantFieldErrors.Required)
             .Require(body.Autonomy is not null, "autonomy", NhAssistantFieldErrors.Required)
             .Require(body.Autonomy is null || autonomyValid, "autonomy", NhAssistantFieldErrors.Invalid);
         if (requiredPolicy is not null && await policies.GetPolicyAsync(requiredPolicy) is null)
@@ -546,8 +615,7 @@ internal static class NhAssistantAdminEndpoints
             body.ToolSelectors!,
             body.McpServerIds ?? [],
             requiredPolicy,
-            autonomy,
-            body.IsEnabled!.Value), errors);
+            autonomy), errors);
     }
 
     private static (NhAssistantMcpServerInput? Input, NhAssistantValidationErrors Errors) ToInput(
@@ -585,7 +653,13 @@ internal static class NhAssistantAdminEndpoints
         return new NhAssistantApplicationContextDto(context.Text, context.Version, context.Hash, context.UpdatedAt, context.UpdatedBy);
     }
 
-    private static NhAssistantAdminAgentDto ToDto(NhAssistantAgent agent)
+    private static async Task<NhAssistantAdminAgentDto> ToDtoAsync(NhAssistantAgent agent, HttpContext httpContext)
+    {
+        var control = httpContext.RequestServices.GetRequiredService<AgentRuns.NhAssistantAgentControl>();
+        return ToDto(agent, await control.StateOfAsync(agent, httpContext.RequestAborted));
+    }
+
+    private static NhAssistantAdminAgentDto ToDto(NhAssistantAgent agent, AgentRuns.NhAssistantAgentState state)
     {
         var definition = agent.Definition;
         return new NhAssistantAdminAgentDto(
@@ -602,7 +676,12 @@ internal static class NhAssistantAdminEndpoints
             agent.Source,
             agent.IsOverridden,
             definition.Instructions.Manifest.ContentHash,
-            agent.UpdatedAt);
+            agent.UpdatedAt,
+            state.RunState,
+            state.ChangedAt,
+            state.ChangedBy,
+            state.Reason,
+            state.WaitingInputs);
     }
 
     private static NhAssistantMcpServerDto ToDto(AssistantMcpServer server, IReadOnlyList<string> agentIds)

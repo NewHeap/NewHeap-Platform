@@ -58,6 +58,11 @@ public sealed class NhAssistantLimits
     public const int MaxInputPayloadCharacters = 4_000;
 
     /// <summary>
+    /// The longest reason stored with a pause, stop or resume of an agent.
+    /// </summary>
+    public const int MaxStateReasonCharacters = 500;
+
+    /// <summary>
     /// Maximum governed tool calls in one turn. Further calls end the turn gracefully.
     /// </summary>
     public int MaxToolCallsPerTurn { get; set; } = 8;

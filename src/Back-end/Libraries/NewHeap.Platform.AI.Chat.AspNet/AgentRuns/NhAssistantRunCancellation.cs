@@ -62,69 +62,12 @@ internal sealed class NhAssistantRunCancellation(
     }
 }
 
-/// <param name="Enabled">Whether the agent accepts triggers and runs.</param>
+/// <param name="Enabled">Whether the agent accepts triggers and runs: <see langword="false"/> while it
+/// is stopped.</param>
 /// <param name="CancelledRuns">The runs the kill switch cancelled.</param>
 public sealed record NhAssistantKillSwitchDto(string AgentId, bool Enabled, int CancelledRuns);
 
-/// <param name="Engaged"><see langword="true"/> stops the agent; <see langword="false"/> enables it again.</param>
+/// <param name="Engaged"><see langword="true"/> stops the agent; <see langword="false"/> resumes it.
+/// The kill switch is <see cref="INhAssistantAgentControl.StopAsync"/> and
+/// <see cref="INhAssistantAgentControl.ResumeAsync"/> without a reason.</param>
 public sealed record NhAssistantKillSwitchRequest(bool? Engaged);
-
-/// <summary>
-/// The kill switch of an agent. Engaging it disables the agent, so triggers are rejected with
-/// <c>assistant-agent-disabled</c>, cancels every active run and keeps approved proposals from
-/// executing; releasing it enables the agent again, after which the maintenance job queues the
-/// executions that waited.
-/// </summary>
-internal sealed class NhAssistantKillSwitch(
-    NhAssistantAdminStore agentsStore,
-    NhAssistantAgentCatalog agents,
-    NhAssistantRunStore runs,
-    NhAssistantRunCancellation cancellation,
-    NhAssistantAgentEvents events)
-{
-    public async Task<TaskResult<NhAssistantKillSwitchDto>> SetAsync(
-        string agentId,
-        bool engaged,
-        string actorId,
-        CancellationToken cancellationToken)
-    {
-        var agent = await agents.FindAsync(agentId, includeDisabled: true, cancellationToken);
-        if (agent is null)
-        {
-            return TaskResult<NhAssistantKillSwitchDto>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.");
-        }
-
-        var updated = await agentsStore.UpdateAgentAsync(
-            agentId,
-            expectedVersion: null,
-            row =>
-            {
-                row.IsEnabled = !engaged;
-                row.UpdatedAt = DateTimeOffset.UtcNow;
-                row.UpdatedBy = actorId;
-            },
-            mcpServerIds: null,
-            cancellationToken);
-        if (!updated.Succeeded)
-        {
-            return TaskResult<NhAssistantKillSwitchDto>.Failed(NhAssistantErrorCodes.AgentNotFound, "The agent could not be updated.");
-        }
-
-        var cancelled = 0;
-        if (engaged)
-        {
-            foreach (var run in await runs.GetActiveRunsAsync(agentId, cancellationToken))
-            {
-                var thread = await runs.FindThreadByConversationAsync(run.ConversationId, cancellationToken);
-                var owner = thread is null
-                    ? NhBackgroundOperationActor.ForAgent(agent.Definition.ActorId)
-                    : NhAssistantAgentTriggers.OwnerActor(thread, run.AccountableOwnerId, agent.Definition);
-                await cancellation.CancelAsync(run, actorId, owner, cancellationToken);
-                cancelled++;
-            }
-        }
-
-        await events.KillSwitchAsync(agentId, actorId, engaged, cancelled, cancellationToken);
-        return TaskResult<NhAssistantKillSwitchDto>.Succeeded(new NhAssistantKillSwitchDto(agentId, !engaged, cancelled));
-    }
-}

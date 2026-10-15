@@ -244,9 +244,9 @@ describe('NhAssistantAdminAgentsComponent', () => {
       instructions: 'Help with support questions.',
       toolSelectors: ['sample-api.project.list'],
       mcpServerIds: ['files'],
-      autonomy: 'explain',
-      isEnabled: true
+      autonomy: 'explain'
     })]);
+    expect(Object.keys(requestBodies('POST', 'admin/agents')[0] as object)).not.toContain('isEnabled');
     expect(element.textContent).toContain('Support agent');
     expect(element.textContent).toContain('Created here');
   });
@@ -266,7 +266,7 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(requestBodies('POST', 'admin/agents')).toEqual([]);
   });
 
-  it('overrides, disables and resets a code agent after confirmation', async () => {
+  it('overrides and resets a code agent after confirmation, keeping its state', async () => {
     await configure();
     const admin = TestBed.inject(NhAssistantAdminApiService);
     const [agent] = await firstValueFrom(admin.getAgents());
@@ -274,12 +274,9 @@ describe('NhAssistantAdminAgentsComponent', () => {
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 
     expect(element.textContent).toContain('Overridden');
-    button(element, 'Disable').click();
-    await settle(fixture);
-    expect(element.querySelector('.card')?.textContent).toContain('Disabled');
-
     button(element, 'Reset to code').click();
     fixture.detectChanges();
+    expect(element.textContent).toContain('the agent stays active, paused or stopped as it is');
     button(element, 'Confirm reset').click();
     await settle(fixture);
 
@@ -287,11 +284,52 @@ describe('NhAssistantAdminAgentsComponent', () => {
     expect(requestBodies('POST', 'admin/agents/projects/reset').length).toBe(1);
   });
 
+  it('pauses with a reason, stops and resumes an agent from the list', async () => {
+    await configure();
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const card = () => element.querySelector('.card')!;
+
+    expect(card().textContent).toContain('Active');
+    button(element, 'Pause').click();
+    await settle(fixture);
+    expect(card().textContent).toContain('Events wait and run after the resume');
+    expect(document.activeElement).toBe(element.querySelector('input[id$="-reason"]'));
+    type(element, 'input[id$="-reason"]', 'Nightly import');
+    button(element, 'Confirm pause').click();
+    await settle(fixture);
+
+    expect(requestBodies('POST', 'admin/agents/projects/state')).toEqual([{ state: 'paused', reason: 'Nightly import' }]);
+    expect(card().textContent).toContain('Paused');
+    expect(card().textContent).toContain('Reason: Nightly import');
+    expect(card().textContent).toContain('0 events wait for the resume.');
+
+    button(element, 'Stop').click();
+    await settle(fixture);
+    button(element, 'Keep').click();
+    await settle(fixture);
+    expect(requestBodies('POST', 'admin/agents/projects/state').length).toBe(1);
+
+    button(element, 'Stop').click();
+    await settle(fixture);
+    button(element, 'Confirm stop').click();
+    await settle(fixture);
+    expect(card().textContent).toContain('Stopped');
+    expect(buttons(element, 'Stop').length).toBe(0);
+
+    button(element, 'Resume').click();
+    await settle(fixture);
+    button(element, 'Confirm resume').click();
+    await settle(fixture);
+
+    expect(requestBodies('POST', 'admin/agents/projects/state').at(-1)).toEqual({ state: 'active', reason: null });
+    expect(card().textContent).toContain('Active');
+  });
+
   it('deletes an admin agent only after confirmation', async () => {
     await configure();
     await firstValueFrom(TestBed.inject(NhAssistantAdminApiService).createAgent({
       id: 'temporary', displayName: 'Temporary', description: '', instructions: '', toolSelectors: [], mcpServerIds: [],
-      requiredPolicy: null, autonomy: 'observe', isEnabled: true
+      requiredPolicy: null, autonomy: 'observe'
     }));
     const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
 

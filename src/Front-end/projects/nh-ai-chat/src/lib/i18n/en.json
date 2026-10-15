@@ -296,6 +296,9 @@
       "assistant-subject-access-denied": "Your role on this subject does not allow this.",
       "assistant-no-accountable-owner": "Nobody answers for this agent on this subject.",
       "assistant-agent-disabled": "This agent has been stopped.",
+      "assistant-agent-configured-off": "This agent is disabled in the application's configuration.",
+      "assistant-agent-paused": "This agent is paused; the request waits until it resumes.",
+      "assistant-agent-stopped": "This agent has been stopped.",
       "assistant-agent-not-configured": "This agent cannot run on its own.",
       "assistant-run-not-found": "The run was not found.",
       "assistant-run-not-retryable": "This run cannot be retried.",
@@ -423,7 +426,7 @@
       },
       "agents": {
         "title": "Agents",
-        "description": "Code agents come from the application; you can override, disable or reset them. Agents you create here can be deleted.",
+        "description": "Code agents come from the application; you can override or reset them. Agents you create here can be deleted. Pause, stop and resume any agent; its definition stays as it is.",
         "new": "New agent",
         "empty": "No agents yet.",
         "source-code": "Code",
@@ -431,6 +434,7 @@
         "overridden": "Overridden",
         "reset": "Reset to code",
         "confirm-reset": "Confirm reset",
+        "reset-keeps-state": "Resetting restores the code definition; the agent stays active, paused or stopped as it is.",
         "version": "Version {{version}}",
         "tool-count": "{{count}} tool selectors",
         "server-count": "{{count}} MCP servers",
@@ -441,7 +445,33 @@
           "simulate": "Simulate",
           "execute": "Execute"
         },
-        "feedback": "Feedback"
+        "feedback": "Feedback",
+        "state": {
+          "active": "Active",
+          "paused": "Paused",
+          "stopped": "Stopped",
+          "configured-off": "Off in configuration",
+          "configured-off-hint": "Disabled in the application's code until the next deployment; it cannot be resumed here.",
+          "changed": "Changed by {{user}} on {{date}}.",
+          "reason": "Reason: {{reason}}",
+          "waiting": "{{count}} events wait for the resume.",
+          "reason-label": "Reason (optional)",
+          "action": {
+            "active": "Resume",
+            "paused": "Pause",
+            "stopped": "Stop"
+          },
+          "explain": {
+            "active": "The agent works again. Every subject with waiting events gets one run.",
+            "paused": "No new runs start. Events wait and run after the resume; running work finishes and approved proposals execute.",
+            "stopped": "Active runs are cancelled, their open proposals withdrawn and waiting events dropped. Approved proposals wait until the agent works again."
+          },
+          "confirm": {
+            "active": "Confirm resume",
+            "paused": "Confirm pause",
+            "stopped": "Confirm stop"
+          }
+        }
       },
       "agent-editor": {
         "new-title": "New agent",
@@ -456,7 +486,7 @@
         "autonomy-hint": "Only Execute allows changes, and every change still needs approval.",
         "required-policy": "Required policy",
         "required-policy-hint": "Optional. Only users who pass this policy see the agent.",
-        "enabled": "Agent is enabled",
+        "state-hint": "Pause, stop and resume the agent from the agent list. Saving never changes its state.",
         "tool-selectors": "Tool selectors",
         "tool-selectors-hint": "Choose tools from the catalog or add a pattern such as sample-api.project.*. MCP tools come from the assigned servers.",
         "add-selector": "Add pattern",

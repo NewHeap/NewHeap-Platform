@@ -365,10 +365,11 @@ internal sealed class NhAssistantProposalDecisions(
         AssistantThread thread,
         CancellationToken cancellationToken)
     {
-        if (await agents.FindAsync(thread.AgentId, includeDisabled: false, cancellationToken) is null)
+        if (await agents.FindAsync(thread.AgentId, includeDisabled: false, cancellationToken) is null
+            || (registration.AgentRuns.TryGetValue(thread.AgentId, out var runOptions) && !runOptions.Enabled))
         {
-            // The kill switch holds approved proposals; the maintenance job queues them once the
-            // agent is enabled again.
+            // A stopped or code-disabled agent holds approved proposals; the maintenance job
+            // queues them once the agent works again. A paused agent's proposals execute.
             return;
         }
 

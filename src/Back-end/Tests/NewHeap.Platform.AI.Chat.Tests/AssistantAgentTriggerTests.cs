@@ -98,33 +98,36 @@ public sealed class AssistantAgentTriggerTests(AssistantDatabaseFixture database
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
-    public async Task The_kill_switch_stops_active_runs_and_rejects_triggers_until_it_is_released(AssistantTestProvider provider)
+    public async Task Stopping_an_agent_cancels_active_runs_and_rejects_triggers_until_it_resumes(AssistantTestProvider provider)
     {
         await using var host = await CreateHostAsync(provider);
         var started = Assert.Single(await PublishAsync(host, new ProjectChanged(Guid.NewGuid(), Guid.NewGuid(), "created")));
 
-        NhAssistantKillSwitchDto engaged;
+        NhAssistantAgentState engaged;
         await using (var scope = host.Services.CreateAsyncScope())
         {
-            var killSwitch = scope.ServiceProvider.GetRequiredService<NhAssistantKillSwitch>();
-            engaged = (await killSwitch.SetAsync(AgentId, true, "admin-1", CancellationToken.None)).Data!;
+            var control = scope.ServiceProvider.GetRequiredService<INhAssistantAgentControl>();
+            engaged = (await control.StopAsync(AgentId, "admin-1", "Data migration")).Data!;
         }
 
-        Assert.False(engaged.Enabled);
+        Assert.Equal(NhAssistantAgentRunStates.Stopped, engaged.RunState);
+        Assert.False(engaged.Active);
+        Assert.Equal("Data migration", engaged.Reason);
         Assert.Equal(1, engaged.CancelledRuns);
         var run = await host.Services.GetRequiredService<NhAssistantRunStore>().FindRunAsync(started.RunId!.Value, CancellationToken.None);
         Assert.Equal(NhAssistantRunStatuses.Cancelled, run!.Status);
         Assert.Single(host.Services.GetRequiredService<RecordingOperations>().Cancelled);
         var rejected = Assert.Single(await PublishAsync(host, new ProjectChanged(Guid.NewGuid(), Guid.NewGuid(), "created")));
         Assert.Equal(NhAssistantTriggerOutcomes.Rejected, rejected.Outcome);
-        Assert.Equal(NhAssistantErrorCodes.AgentDisabled, rejected.ReasonCode);
+        Assert.Equal(NhAssistantErrorCodes.AgentStopped, rejected.ReasonCode);
         Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AdminAgentRunsStopped);
 
         await using (var scope = host.Services.CreateAsyncScope())
         {
-            var released = await scope.ServiceProvider.GetRequiredService<NhAssistantKillSwitch>()
-                .SetAsync(AgentId, false, "admin-1", CancellationToken.None);
-            Assert.True(released.Data!.Enabled);
+            var released = await scope.ServiceProvider.GetRequiredService<INhAssistantAgentControl>()
+                .ResumeAsync(AgentId, "admin-1");
+            Assert.Equal(NhAssistantAgentRunStates.Active, released.Data!.RunState);
+            Assert.True(released.Data.Active);
         }
 
         var restarted = Assert.Single(await PublishAsync(host, new ProjectChanged(Guid.NewGuid(), Guid.NewGuid(), "created")));
@@ -314,6 +317,18 @@ public sealed class RecordingOperations
                 Enqueued.Enqueue((call.ArgAt<NhAssistantAgentRunRequest>(0).RunId, call.ArgAt<NhBackgroundOperationEnqueueOptions>(1)));
                 return Task.FromResult(TaskResult<NhBackgroundOperationViewModel>.Succeeded(new NhBackgroundOperationViewModel { Id = Guid.NewGuid() }));
             });
+        Service.EnqueueAsync(Arg.Any<NhAssistantExecuteProposalRequest>(), Arg.Any<NhBackgroundOperationEnqueueOptions>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                Executions.Enqueue(call.ArgAt<NhAssistantExecuteProposalRequest>(0).ApprovalId);
+                return Task.FromResult(TaskResult<NhBackgroundOperationViewModel>.Succeeded(new NhBackgroundOperationViewModel { Id = Guid.NewGuid() }));
+            });
+        Service.EnqueueAsync(Arg.Any<NhAssistantExecuteProposalOnceRequest>(), Arg.Any<NhBackgroundOperationEnqueueOptions>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                Executions.Enqueue(call.ArgAt<NhAssistantExecuteProposalOnceRequest>(0).ApprovalId);
+                return Task.FromResult(TaskResult<NhBackgroundOperationViewModel>.Succeeded(new NhBackgroundOperationViewModel { Id = Guid.NewGuid() }));
+            });
         Service.RequestCancellationForActorAsync(Arg.Any<Guid>(), Arg.Any<NhBackgroundOperationActor>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
@@ -327,6 +342,11 @@ public sealed class RecordingOperations
     public ConcurrentQueue<(Guid RunId, NhBackgroundOperationEnqueueOptions Options)> Enqueued { get; } = new();
 
     public ConcurrentQueue<Guid> Cancelled { get; } = new();
+
+    /// <summary>
+    /// The approvals whose execution was queued.
+    /// </summary>
+    public ConcurrentQueue<Guid> Executions { get; } = new();
 }
 
 public sealed class RecordingChannel

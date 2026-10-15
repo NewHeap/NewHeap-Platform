@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
@@ -27,6 +28,13 @@ public interface INhAssistantAgentTriggers
     /// proposal about the event's subject or objects. Inside the application's transaction each
     /// trigger and revalidation is a background operation that runs only once that transaction
     /// committed, and the receipts read <see cref="NhAssistantTriggerOutcomes.Deferred"/>.
+    /// <para>
+    /// Each agent's state is read once per call before any of its trigger's lambdas run: with the
+    /// assistant disabled every receipt is rejected with <c>assistant-disabled</c> and nothing is
+    /// queued; a stopped or code-disabled agent's triggers are rejected, audited once per call and
+    /// agent; a trigger's <c>When</c> filter decides next. A paused agent's events wait in their
+    /// thread (<see cref="NhAssistantTriggerOutcomes.Waiting"/>) until it resumes.
+    /// </para>
     /// </summary>
     Task<IReadOnlyList<NhAssistantTriggerReceipt>> PublishAsync<TEvent>(
         TEvent evt,
@@ -69,6 +77,12 @@ public static class NhAssistantTriggerOutcomes
     public const string Rejected = "rejected";
 
     /// <summary>
+    /// The agent is paused: the event waits in its thread, deduplicated by its dedupe key, and
+    /// one run per thread claims the waiting events when the agent resumes.
+    /// </summary>
+    public const string Waiting = "waiting";
+
+    /// <summary>
     /// Published inside the application's transaction: the trigger fires once the transaction
     /// committed, and not at all after a rollback. The receipt names no run or thread yet.
     /// </summary>
@@ -80,6 +94,12 @@ public static class NhAssistantTriggerReasons
     public const string RateLimited = "rate-limited";
     public const string Busy = "busy";
     public const string Deduplicated = "deduplicated";
+
+    /// <summary>
+    /// The trigger's <c>When</c> filter refused the event; the outcome is
+    /// <see cref="NhAssistantTriggerOutcomes.Ignored"/> and nothing is audited.
+    /// </summary>
+    public const string Filtered = "filtered";
 }
 
 internal sealed record NhAssistantTriggerFire(
@@ -102,6 +122,12 @@ internal sealed record NhAssistantTriggerFire(
     /// finds the input it wrote and fires only once.
     /// </summary>
     public Guid? InputId { get; init; }
+
+    /// <summary>
+    /// A run for inputs that waited while the agent was paused: the fire writes no input of its
+    /// own, and its run claims the waiting ones.
+    /// </summary>
+    public bool Resume { get; init; }
 }
 
 internal sealed class NhAssistantAgentTriggers(
@@ -111,9 +137,15 @@ internal sealed class NhAssistantAgentTriggers(
     NhAssistantThreadService threads,
     NhAssistantRunStore runs,
     NhAssistantAgentEvents events,
+    IOptionsMonitor<NhAssistantOptions> assistantOptions,
     IServiceProvider services,
     ILogger<NhAssistantAgentTriggers> logger) : INhAssistantAgentTriggers
 {
+    /// <summary>
+    /// The threads one resume starts runs for per batch; a resume continues with further batches.
+    /// </summary>
+    private const int ResumeBatchSize = 100;
+
     /// <summary>
     /// Background operations are needed only once an agent runs; hosts without agents do not
     /// register them.
@@ -126,11 +158,33 @@ internal sealed class NhAssistantAgentTriggers(
         where TEvent : class
     {
         ArgumentNullException.ThrowIfNull(evt);
+        var matching = registration.Triggers.Values
+            .Where(trigger => trigger.Source == NhAssistantTriggerSource.Event && trigger.EventType == typeof(TEvent))
+            .ToArray();
+        if (!assistantOptions.CurrentValue.Enabled)
+        {
+            // Off means off: no lambda runs and nothing is queued or audited.
+            return matching
+                .Select(trigger => new NhAssistantTriggerReceipt(
+                    trigger.Id,
+                    NhAssistantTriggerOutcomes.Rejected,
+                    null,
+                    null,
+                    NhAssistantErrorCodes.Disabled))
+                .ToArray();
+        }
+
         await QueueRevalidationsAsync(evt, cancellationToken);
         var receipts = new List<NhAssistantTriggerReceipt>();
-        foreach (var trigger in registration.Triggers.Values.Where(trigger =>
-                     trigger.Source == NhAssistantTriggerSource.Event && trigger.EventType == typeof(TEvent)))
+        var refusals = new Dictionary<string, string?>(StringComparer.Ordinal);
+        foreach (var trigger in matching)
         {
+            if (await RefuseEarlyAsync(trigger, evt, refusals, cancellationToken) is { } early)
+            {
+                receipts.Add(early);
+                continue;
+            }
+
             var fire = new NhAssistantTriggerFire(
                 trigger.Id,
                 trigger.AgentId,
@@ -218,14 +272,152 @@ internal sealed class NhAssistantAgentTriggers(
         }
     }
 
-    public Task<NhAssistantTriggerReceipt> StartAsync(
+    public async Task<NhAssistantTriggerReceipt> StartAsync(
         string agentId,
         NhAiSubjectRef subject,
         string initiatorActorId,
         string? message,
         CancellationToken cancellationToken = default)
     {
-        return FireOrDeferAsync(Manual(agentId, subject, initiatorActorId, message), cancellationToken);
+        var fire = Manual(agentId, subject, initiatorActorId, message);
+        if (await RefusalOfAsync(agentId, refusePaused: false, cancellationToken) is { } refusal)
+        {
+            if (refusal != NhAssistantErrorCodes.Disabled)
+            {
+                await events.TriggerAsync(agentId, null, fire.TriggerId, null, subject, initiatorActorId, refusal, accepted: false, cancellationToken);
+            }
+
+            return Rejected(fire, null, refusal);
+        }
+
+        return await FireOrDeferAsync(fire, cancellationToken);
+    }
+
+    /// <summary>
+    /// Why the agent takes no triggers now, before any of a trigger's lambdas runs: the assistant
+    /// is disabled, the agent is not configured, disabled in code or stopped, or, with
+    /// <paramref name="refusePaused"/>, paused. <see langword="null"/> when it takes them.
+    /// </summary>
+    internal async Task<string?> RefusalOfAsync(string agentId, bool refusePaused, CancellationToken cancellationToken)
+    {
+        if (!assistantOptions.CurrentValue.Enabled)
+        {
+            return NhAssistantErrorCodes.Disabled;
+        }
+        if (!registration.AgentRuns.TryGetValue(agentId, out var runOptions))
+        {
+            return NhAssistantErrorCodes.AgentNotConfigured;
+        }
+        if (!runOptions.Enabled)
+        {
+            return NhAssistantErrorCodes.AgentConfiguredOff;
+        }
+
+        return await agents.FindRunStateAsync(agentId, cancellationToken) switch
+        {
+            null => NhAssistantErrorCodes.AgentNotFound,
+            NhAssistantAgentRunStates.Stopped => NhAssistantErrorCodes.AgentStopped,
+            NhAssistantAgentRunStates.Paused when refusePaused => NhAssistantErrorCodes.AgentPaused,
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// The receipt of a trigger that ends before its subject, message or payload lambdas run: its
+    /// agent takes no triggers, audited once per agent in <paramref name="refusals"/>, or its
+    /// <c>When</c> filter refuses the event, which is not audited. <see langword="null"/> when the
+    /// trigger fires.
+    /// </summary>
+    internal async Task<NhAssistantTriggerReceipt?> RefuseEarlyAsync(
+        NhAssistantTriggerDefinition trigger,
+        object evt,
+        Dictionary<string, string?>? refusals,
+        CancellationToken cancellationToken)
+    {
+        string? refusal;
+        if (refusals is null || !refusals.TryGetValue(trigger.AgentId, out refusal))
+        {
+            refusal = await RefusalOfAsync(trigger.AgentId, refusePaused: false, cancellationToken);
+            if (refusals is not null)
+            {
+                refusals[trigger.AgentId] = refusal;
+            }
+            if (refusal is not null && refusal != NhAssistantErrorCodes.Disabled)
+            {
+                await events.TriggerAsync(trigger.AgentId, null, trigger.Id, null, null, null, refusal, accepted: false, cancellationToken);
+            }
+        }
+
+        if (refusal is not null)
+        {
+            logger.LogInformation(
+                "Trigger {TriggerId} for agent {AgentId} was rejected ({Reason}).",
+                trigger.Id,
+                trigger.AgentId,
+                refusal);
+            return new NhAssistantTriggerReceipt(trigger.Id, NhAssistantTriggerOutcomes.Rejected, null, null, refusal);
+        }
+
+        return trigger.When is { } when && !when(evt)
+            ? new NhAssistantTriggerReceipt(
+                trigger.Id,
+                NhAssistantTriggerOutcomes.Ignored,
+                null,
+                null,
+                NhAssistantTriggerReasons.Filtered)
+            : null;
+    }
+
+    /// <summary>
+    /// Starts one run for every thread of the agent with inputs that waited while it was paused,
+    /// with the trigger and initiator of the thread's oldest waiting input; the run claims them all.
+    /// Threads whose subject is gone drop their inputs. Returns the runs it started.
+    /// </summary>
+    internal async Task<int> ResumeWaitingAsync(string agentId, CancellationToken cancellationToken)
+    {
+        var started = 0;
+        while (true)
+        {
+            var waiting = await runs.GetUnclaimedWaitingInputsAsync(agentId, ResumeBatchSize, cancellationToken);
+            var progress = 0;
+            foreach (var (thread, input) in waiting)
+            {
+                var receipt = await FireAsync(
+                    new NhAssistantTriggerFire(
+                        input.TriggerId ?? NhAssistantTriggerIds.Manual,
+                        agentId,
+                        new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
+                        input.InitiatorActorId ?? input.AuthorActorId,
+                        input.Text,
+                        input.EventKey,
+                        NhAssistantTriggerConflict.Queue,
+                        TimeSpan.Zero)
+                    {
+                        Resume = true
+                    },
+                    cancellationToken);
+                if (receipt.Outcome is NhAssistantTriggerOutcomes.Started or NhAssistantTriggerOutcomes.Queued)
+                {
+                    started++;
+                    progress++;
+                }
+                else if (receipt.ReasonCode is NhAssistantErrorCodes.SubjectNotFound or NhAssistantErrorCodes.NoAccountableOwner)
+                {
+                    logger.LogWarning(
+                        "The inputs that waited in thread {ConversationId} of agent {AgentId} were dropped ({Reason}).",
+                        thread.ConversationId,
+                        agentId,
+                        receipt.ReasonCode);
+                    await runs.DiscardWaitingInputsAsync(thread.ConversationId, cancellationToken);
+                    progress++;
+                }
+            }
+
+            if (waiting.Count < ResumeBatchSize || progress == 0)
+            {
+                return started;
+            }
+        }
     }
 
     /// <summary>
@@ -352,7 +544,8 @@ internal sealed class NhAssistantAgentTriggers(
         var accepted = receipt.Outcome is NhAssistantTriggerOutcomes.Started
             or NhAssistantTriggerOutcomes.Queued
             or NhAssistantTriggerOutcomes.Coalesced
-            or NhAssistantTriggerOutcomes.Superseded;
+            or NhAssistantTriggerOutcomes.Superseded
+            or NhAssistantTriggerOutcomes.Waiting;
         await events.TriggerAsync(
             fire.AgentId,
             receipt.ConversationId,
@@ -501,20 +694,30 @@ internal sealed class NhAssistantAgentTriggers(
         NhAssistantTriggerFire fire,
         CancellationToken cancellationToken)
     {
+        if (!assistantOptions.CurrentValue.Enabled)
+        {
+            return Rejected(fire, null, NhAssistantErrorCodes.Disabled);
+        }
         if (!registration.AgentRuns.TryGetValue(fire.AgentId, out var options))
         {
             return Rejected(fire, null, NhAssistantErrorCodes.AgentNotConfigured);
         }
         if (!options.Enabled)
         {
-            return Rejected(fire, null, NhAssistantErrorCodes.AgentDisabled);
+            return Rejected(fire, null, NhAssistantErrorCodes.AgentConfiguredOff);
         }
 
-        var agent = await agents.FindAsync(fire.AgentId, includeDisabled: false, cancellationToken);
+        var agent = await agents.FindAsync(fire.AgentId, includeDisabled: true, cancellationToken);
         if (agent is null)
         {
-            return Rejected(fire, null, NhAssistantErrorCodes.AgentDisabled);
+            return Rejected(fire, null, NhAssistantErrorCodes.AgentNotFound);
         }
+        if (agent.RunState == NhAssistantAgentRunStates.Stopped)
+        {
+            return Rejected(fire, null, NhAssistantErrorCodes.AgentStopped);
+        }
+
+        var paused = agent.RunState == NhAssistantAgentRunStates.Paused && !fire.Resume;
 
         var subject = await subjects.DescribeAsync(fire.Subject, cancellationToken);
         if (subject is null)
@@ -536,25 +739,64 @@ internal sealed class NhAssistantAgentTriggers(
 
         var thread = created.Data!;
         var conversationId = thread.ConversationId;
-        if (fire.EventKey is { } eventKey
-            && await runs.FindRunByEventKeyAsync(conversationId, fire.TriggerId, eventKey, cancellationToken) is { } duplicate)
+        if (!fire.Resume && fire.EventKey is { } eventKey)
         {
-            return new NhAssistantTriggerReceipt(
-                fire.TriggerId,
-                NhAssistantTriggerOutcomes.Deduplicated,
-                duplicate.Id,
-                conversationId,
-                NhAssistantTriggerReasons.Deduplicated);
-        }
-
-        var since = DateTimeOffset.UtcNow.AddDays(-1);
-        if (await runs.CountRunsSinceAsync(conversationId, since, cancellationToken) >= options.MaxRunsPerSubjectPerDay)
-        {
-            return Rejected(fire, conversationId, NhAssistantTriggerReasons.RateLimited);
+            if (await runs.FindRunByEventKeyAsync(conversationId, fire.TriggerId, eventKey, cancellationToken) is { } duplicate)
+            {
+                return new NhAssistantTriggerReceipt(
+                    fire.TriggerId,
+                    NhAssistantTriggerOutcomes.Deduplicated,
+                    duplicate.Id,
+                    conversationId,
+                    NhAssistantTriggerReasons.Deduplicated);
+            }
+            if (await runs.HasWaitingInputAsync(conversationId, fire.TriggerId, eventKey, cancellationToken))
+            {
+                return new NhAssistantTriggerReceipt(
+                    fire.TriggerId,
+                    NhAssistantTriggerOutcomes.Deduplicated,
+                    null,
+                    conversationId,
+                    NhAssistantTriggerReasons.Deduplicated);
+            }
         }
 
         var queued = await runs.FindQueuedRunAsync(conversationId, cancellationToken);
         var active = await runs.FindActiveRunAsync(conversationId, cancellationToken);
+        if (paused)
+        {
+            if (fire.Conflict == NhAssistantTriggerConflict.Ignore && active is not null)
+            {
+                return new NhAssistantTriggerReceipt(
+                    fire.TriggerId,
+                    NhAssistantTriggerOutcomes.Ignored,
+                    active.Id,
+                    conversationId,
+                    NhAssistantTriggerReasons.Busy);
+            }
+
+            // Rate limits count runs; the input waits for the resume, which starts one run per thread.
+            await runs.AddQueuedInputAsync(CreateInput(fire, conversationId), cancellationToken);
+            return new NhAssistantTriggerReceipt(
+                fire.TriggerId,
+                NhAssistantTriggerOutcomes.Waiting,
+                null,
+                conversationId,
+                NhAssistantErrorCodes.AgentPaused);
+        }
+        if (fire.Resume && queued is not null)
+        {
+            // A queued run claims the waiting inputs when it starts.
+            return new NhAssistantTriggerReceipt(fire.TriggerId, NhAssistantTriggerOutcomes.Coalesced, queued.Id, conversationId, null);
+        }
+
+        var since = DateTimeOffset.UtcNow.AddDays(-1);
+        if (!fire.Resume
+            && await runs.CountRunsSinceAsync(conversationId, since, cancellationToken) >= options.MaxRunsPerSubjectPerDay)
+        {
+            return Rejected(fire, conversationId, NhAssistantTriggerReasons.RateLimited);
+        }
+
         if (fire.Conflict == NhAssistantTriggerConflict.Ignore && active is not null)
         {
             logger.LogInformation(
@@ -607,7 +849,10 @@ internal sealed class NhAssistantAgentTriggers(
             ConcurrencyStamp = Guid.NewGuid()
         };
         await runs.AddRunAsync(run, cancellationToken);
-        await runs.AddQueuedInputAsync(input, cancellationToken);
+        if (!fire.Resume)
+        {
+            await runs.AddQueuedInputAsync(input, cancellationToken);
+        }
 
         var notBefore = fire.Conflict == NhAssistantTriggerConflict.Coalesce && fire.Debounce > TimeSpan.Zero
             ? DateTimeOffset.UtcNow.Add(fire.Debounce)
@@ -704,6 +949,8 @@ internal sealed class NhAssistantAgentTriggers(
             TriggerId = fire.TriggerId,
             Text = text,
             PayloadJson = fire.PayloadJson,
+            EventKey = fire.EventKey,
+            InitiatorActorId = fire.InitiatorActorId,
             CreatedAt = DateTimeOffset.UtcNow
         };
     }

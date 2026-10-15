@@ -97,13 +97,20 @@ internal static class NhAssistantWebhookEndpoints
             return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.WebhookPayloadInvalid);
         }
 
-        if (trigger.WebhookSubject(root) is null)
+        // The agent's state and the trigger's When filter decide before the subject is read.
+        var triggers = services.GetRequiredService<NhAssistantAgentTriggers>();
+        var delivery = new NhAssistantWebhookDelivery(deliveryId, root);
+        var receipt = await triggers.RefuseEarlyAsync(trigger, delivery, null, httpContext.RequestAborted);
+        if (receipt is null)
         {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.SubjectNotFound);
+            if (trigger.WebhookSubject(root) is null)
+            {
+                return NhAssistantEndpointRouteBuilderExtensions.Error(StatusCodes.Status400BadRequest, NhAssistantErrorCodes.SubjectNotFound);
+            }
+
+            receipt = await triggers.FireWebhookAsync(trigger, delivery, httpContext.RequestAborted);
         }
 
-        var triggers = services.GetRequiredService<NhAssistantAgentTriggers>();
-        var receipt = await triggers.FireWebhookAsync(trigger, new NhAssistantWebhookDelivery(deliveryId, root), httpContext.RequestAborted);
         return TypedResults.Json(
             new NhAssistantTriggerReceiptDto(receipt.TriggerId, receipt.Outcome, receipt.RunId, receipt.ConversationId, receipt.ReasonCode),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantTriggerReceiptDto,

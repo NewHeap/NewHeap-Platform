@@ -91,10 +91,7 @@
     </div>
   </div>
 
-  <label class="check">
-    <input type="checkbox" [checked]="isEnabled()" (change)="isEnabled.set(checked($event))" />
-    <span>{{ 'nh-assistant.admin.agent-editor.enabled' | translate }}</span>
-  </label>
+  <p class="hint">{{ 'nh-assistant.admin.agent-editor.state-hint' | translate }}</p>
 
   <fieldset class="subsection">
     <legend>{{ 'nh-assistant.admin.agent-editor.tool-selectors' | translate }}</legend>
